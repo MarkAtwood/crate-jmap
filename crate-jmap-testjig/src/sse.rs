@@ -523,7 +523,7 @@ async fn emit_pending(
 }
 
 /// Snapshot every well-known JMAP type's state token for the given
-/// account across all 8 reference backends.
+/// account across all 7 reference backends.
 ///
 /// Returns a `(type_name, state)` map keyed by the JmapObject
 /// `TYPE_NAME` constant so the result is stable across compiler
@@ -588,8 +588,9 @@ pub(crate) async fn snapshot_all_states(
     // Sharing (RFC 9670).
     poll_type!(state.sharing, jmap_sharing_types::Principal);
 
-    // Metadata (draft-ietf-jmap-metadata).
-    poll_type!(state.metadata, jmap_metadata_types::Metadata);
+    // Metadata (draft-ietf-jmap-metadata-02): no standalone object type.
+    // Per-type metadata properties are tracked through each extension's
+    // own state tokens.
 
     out
 }

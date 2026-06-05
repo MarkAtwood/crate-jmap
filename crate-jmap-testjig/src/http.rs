@@ -15,7 +15,7 @@
 //! built-in `Core/echo` handler (RFC 8620 §4) so the dispatcher can
 //! demonstrate end-to-end request/response flow without any backend.
 //!
-//! The 8 extension MemoryBackends, SSE / WebSocket endpoints, and the
+//! The 7 extension MemoryBackends, SSE / WebSocket endpoints, and the
 //! bearer-auth middleware land in subsequent slices
 //! (bd:JMAP-cf7p.3 / .4 / .5 / .6). Until then, any method other than
 //! `Core/echo` returns `unknownMethod` per RFC 8620 §3.6.2.
@@ -67,7 +67,7 @@ pub struct AppState {
     auth: AuthState,
 }
 
-/// The 8 reference MemoryBackends, kept alive alongside the dispatcher
+/// The 7 reference MemoryBackends, kept alive alongside the dispatcher
 /// they registered handlers on.
 ///
 /// `register_*_handlers` clones an `Arc<MemoryBackend>` into every
@@ -98,7 +98,6 @@ pub(crate) struct AppStateInner {
     pub(crate) contacts: Arc<jmap_contacts_server::memory::MemoryBackend>,
     pub(crate) filenode: Arc<jmap_filenode_server::memory::MemoryBackend>,
     pub(crate) sharing: Arc<jmap_sharing_server::memory::MemoryBackend>,
-    pub(crate) metadata: Arc<jmap_metadata_server::memory::MemoryBackend>,
     /// Testjig-internal state-change signal for signal-driven SSE / WS
     /// push (bd:JMAP-cf7p.9).
     ///
@@ -152,7 +151,7 @@ impl AppStateInner {
     /// WebSocket `Request`-frame handler.
     ///
     /// Two-step protocol:
-    /// 1. Snapshot per-type state-tokens across all 8 reference
+    /// 1. Snapshot per-type state-tokens across all 7 reference
     ///    backends.
     /// 2. Hand the snapshot to [`crate::replay::StateChangeLog::record_from_snapshot`]
     ///    which diffs against the canonical state, assigns event ids
@@ -193,13 +192,13 @@ impl AppState {
     /// Build the testjig's application state with a custom bearer
     /// token (rather than the [`crate::auth::DEFAULT_BEARER_TOKEN`]).
     ///
-    /// Constructs all 8 reference MemoryBackends from the workspace's
+    /// Constructs all 7 reference MemoryBackends from the workspace's
     /// extension-server crates, registers the testjig's single
     /// account ([`session::ACCOUNT_ID`]) on each, and mounts every
     /// crate's `register_*_handlers` function on a single dispatcher
     /// alongside the built-in `Core/echo` handler.
     ///
-    /// All 8 reference backends use `type CallerCtx = ();`, which
+    /// All 7 reference backends use `type CallerCtx = ();`, which
     /// lines up with the testjig's single-hardcoded-principal posture.
     pub fn with_token(token: impl Into<String>) -> Self {
         let mut dispatcher: Dispatcher<()> = Dispatcher::new();
@@ -217,7 +216,6 @@ impl AppState {
                 contacts: backends.contacts,
                 filenode: backends.filenode,
                 sharing: backends.sharing,
-                metadata: backends.metadata,
                 state_change_tx,
                 state_log,
             }),
@@ -401,7 +399,6 @@ struct ExtensionBackends {
     contacts: Arc<jmap_contacts_server::memory::MemoryBackend>,
     filenode: Arc<jmap_filenode_server::memory::MemoryBackend>,
     sharing: Arc<jmap_sharing_server::memory::MemoryBackend>,
-    metadata: Arc<jmap_metadata_server::memory::MemoryBackend>,
 }
 
 /// Construct one reference [`MemoryBackend`] from each extension-server
@@ -414,11 +411,11 @@ struct ExtensionBackends {
 /// adds a second owner so the caller can poll state directly without
 /// reaching through the dispatcher.
 ///
-/// Account registration: five of the eight reference backends
+/// Account registration: five of the seven reference backends
 /// (`mail`, `chat`, `calendars`, `tasks`, `contacts`) expose
 /// `register_account(&Id)` for explicit per-account initialisation;
 /// `filenode` uses a builder-style `with_account(&str)`; `sharing`
-/// and `metadata` accept a slice of account ids at construction via
+/// accepts a slice of account ids at construction via
 /// `new_with_accounts`. The three different shapes pre-date this
 /// slice — a follow-up sweep could normalise them, but `.3` does not
 /// in-scope that.
@@ -468,11 +465,10 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
     );
     jmap_sharing_server::register_sharing_handlers(dispatcher, Arc::clone(&sharing));
 
-    // Metadata (draft-ietf-jmap-metadata): Metadata, Annotation.
-    let metadata = Arc::new(
-        jmap_metadata_server::memory::MemoryBackend::new_with_accounts(&[session::ACCOUNT_ID]),
-    );
-    jmap_metadata_server::register_metadata_handlers(dispatcher, Arc::clone(&metadata));
+    // Metadata (draft-ietf-jmap-metadata-02): metadata is now per-type
+    // properties on opted-in data types, not a standalone object.
+    // Extension backends handle metadata through their own handlers
+    // using helpers from jmap-metadata-server.
 
     ExtensionBackends {
         mail,
@@ -482,7 +478,6 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
         contacts,
         filenode,
         sharing,
-        metadata,
     }
 }
 
@@ -905,9 +900,9 @@ mod tests {
         assert_eq!(calls[2][1], json!({"trailing": true}));
     }
 
-    /// Oracle: bd:JMAP-cf7p.3 — every one of the 8 extension-server
-    /// crates has at least one `/get` method registered on the
-    /// dispatcher. Probe one representative method per extension to
+    /// Oracle: bd:JMAP-cf7p.3 — every extension-server crate that
+    /// registers standalone methods has at least one `/get` method on
+    /// the dispatcher. Probe one representative method per extension to
     /// confirm the dispatcher routes it (rather than returning
     /// `unknownMethod`). We don't assert success — we only assert
     /// the response method-name is NOT `error` with type
@@ -915,8 +910,11 @@ mod tests {
     /// registered. Some extensions may return method-level errors
     /// for /get with null ids on an empty store; that's still a
     /// successful dispatch.
+    ///
+    /// Note: metadata (draft-02) has no standalone methods — metadata
+    /// is now per-type properties on opted-in data types.
     #[tokio::test]
-    async fn post_jmap_all_eight_extension_get_methods_dispatch() {
+    async fn post_jmap_all_extension_get_methods_dispatch() {
         // (method name, capability URI) per extension.
         let probes = [
             ("Mailbox/get", "urn:ietf:params:jmap:mail"),
@@ -926,7 +924,6 @@ mod tests {
             ("ContactCard/get", "urn:ietf:params:jmap:contacts"),
             ("FileNode/get", "urn:ietf:params:jmap:filenode"),
             ("Principal/get", "urn:ietf:params:jmap:sharing"),
-            ("Metadata/get", "urn:ietf:params:jmap:metadata"),
         ];
         for (method, capability) in probes {
             let state = AppState::new();

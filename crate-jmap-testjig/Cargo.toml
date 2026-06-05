@@ -35,7 +35,6 @@ jmap-tasks-server = { workspace = true, features = ["memory"] }
 jmap-contacts-server = { workspace = true, features = ["memory"] }
 jmap-filenode-server = { workspace = true, features = ["memory"] }
 jmap-sharing-server = { workspace = true, features = ["memory"] }
-jmap-metadata-server = { workspace = true }
 jmap-types = { workspace = true }
 
 # Each *-types crate is pulled in alongside its *-server pair so the
@@ -50,7 +49,6 @@ jmap-tasks-types = { workspace = true }
 jmap-contacts-types = { workspace = true }
 jmap-filenode-types = { workspace = true }
 jmap-sharing-types = { workspace = true }
-jmap-metadata-types = { workspace = true }
 
 # Serde for request/response JSON shapes plumbed through the dispatcher
 # (the dispatcher itself uses serde_json::Value internally).

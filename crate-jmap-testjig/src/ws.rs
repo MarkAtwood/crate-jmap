@@ -35,7 +35,7 @@
 //! Same signal-driven mechanism as [`crate::sse`] (bd:JMAP-cf7p.9):
 //! the push task `select!`s between a state-change watch wake and a
 //! safety-net poll tick. Each wake re-snapshots per-type state across
-//! the 8 reference MemoryBackends, diffs against the previous
+//! the 7 reference MemoryBackends, diffs against the previous
 //! snapshot, and emits a `StateChange` frame when any tracked type's
 //! token advanced.
 //!
