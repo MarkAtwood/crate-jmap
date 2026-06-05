@@ -1,6 +1,6 @@
 # jmap-filenode-types
 
-Serde-annotated Rust types for the JMAP FileNode extension ([draft-ietf-jmap-filenode-13]).
+Serde-annotated Rust types for the JMAP FileNode extension ([draft-ietf-jmap-filenode-14]).
 Types only — no method handlers, no async, no network I/O.
 
 ## What it is
@@ -60,7 +60,7 @@ decision is bd JMAP-lbdy.
 
 ## Spec coverage
 
-**draft-ietf-jmap-filenode-13 sections implemented:**
+**draft-ietf-jmap-filenode-14 sections implemented:**
 
 - §3.1 — `FileNode` object: `id`, `parentId`, `blobId`, `target`, `size`, `name`,
   `type` (serialized as `"type"`), `mediaType`, `created`, `modified`, `shareWith`,
@@ -130,8 +130,8 @@ round-trip without data loss.
 
 ## References
 
-- **[draft-ietf-jmap-filenode-13]** — JMAP FileNode (normative for all type definitions)
+- **[draft-ietf-jmap-filenode-14]** — JMAP FileNode (normative for all type definitions)
 - **[RFC 8620]** — JMAP Core (Id, State, SetError, request/response shape)
 
-[draft-ietf-jmap-filenode-13]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
+[draft-ietf-jmap-filenode-14]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

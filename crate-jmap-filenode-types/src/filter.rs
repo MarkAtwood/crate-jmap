@@ -1,11 +1,11 @@
-//! draft-ietf-jmap-filenode-13 §3.2.5 — FileNode/query filter condition.
+//! draft-ietf-jmap-filenode-14 §3.2.5 — FileNode/query filter condition.
 //!
 //! Provides [`FileNodeFilterCondition`].
 
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
-/// Filter condition for `FileNode/query` (draft-ietf-jmap-filenode-13 §3.2.5).
+/// Filter condition for `FileNode/query` (draft-ietf-jmap-filenode-14 §3.2.5).
 ///
 /// All fields are optional; a condition with no fields set matches every FileNode.
 /// A node matches only when every provided field matches.
@@ -140,7 +140,7 @@ pub struct FileNodeFilterCondition {
     pub text: Option<String>,
 }
 
-/// Concrete filter type for FileNode/query (draft-ietf-jmap-filenode-13 §3.2.5).
+/// Concrete filter type for FileNode/query (draft-ietf-jmap-filenode-14 §3.2.5).
 ///
 /// Alias for `jmap_types::query::Filter<FileNodeFilterCondition>` provided
 /// so callers do not have to reach into `jmap-types` directly. Mirrors the

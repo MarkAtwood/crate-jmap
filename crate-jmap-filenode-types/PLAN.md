@@ -1,6 +1,6 @@
 # jmap-filenode-types — Implementation Plan
 
-JMAP FileNode extension (draft-ietf-jmap-filenode-13) data types. Types only — no
+JMAP FileNode extension (draft-ietf-jmap-filenode-14) data types. Types only — no
 method handlers, no async, no network I/O. This crate sits between `jmap-types`
 (shared JMAP base primitives) and `jmap-filenode-server` / `jmap-filenode-client`.
 
@@ -16,7 +16,7 @@ jmap-types (RFC 8620 wire primitives)
 ## What This Crate Covers
 
 Each object type maps to one source module. The normative reference for every
-field name, type, and serialization rule is draft-ietf-jmap-filenode-13 §3.
+field name, type, and serialization rule is draft-ietf-jmap-filenode-14 §3.
 
 | Module | Type(s) | Draft section |
 |---|---|---|
@@ -36,7 +36,7 @@ Generic query types (`Filter<T>`, `FilterOperator<T>`, `Operator`) live in
   extension with `nodeId`/`recurse`, `ExtractRecipe` with `parentNodeId`) — those belong in
   a future `jmap-blobext-types` crate that depends on this one
 
-## Full Type Reference (draft-ietf-jmap-filenode-13 §3.1)
+## Full Type Reference (draft-ietf-jmap-filenode-14 §3.1)
 
 ### FileNode
 
@@ -238,7 +238,7 @@ src/
 Tests must use independent oracles — never derive expected values from the code
 under test. Acceptable sources:
 
-1. Hand-written JSON fixtures constructed directly from draft-ietf-jmap-filenode-13
+1. Hand-written JSON fixtures constructed directly from draft-ietf-jmap-filenode-14
    field descriptions (committed in `tests/fixtures/`).
 2. Literal JSON from the capability example in §2.1.1 (copy-pasted from the draft).
 3. Known wire values verified against the draft text.
@@ -259,7 +259,7 @@ Key cases to cover:
 
 ## Spec References
 
-- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-filenode-13.txt` — normative
+- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-filenode-14.txt` — normative
 - `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base protocol (Id, UTCDate,
   Filter, Comparator, State)
 
