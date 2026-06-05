@@ -87,7 +87,7 @@ jmap-contacts-client   = { path = "crate-jmap-contacts-client",  version = "0.1"
 jmap-calendars-client  = { path = "crate-jmap-calendars-client", version = "0.1" }
 jmap-tasks-client      = { path = "crate-jmap-tasks-client",     version = "0.1" }
 jmap-filenode-client   = { path = "crate-jmap-filenode-client",  version = "0.1" }
-jmap-metadata-client   = { path = "crate-jmap-metadata-client",  version = "0.1" }
+jmap-metadata-client   = { path = "crate-jmap-metadata-client",  version = "0.2" }
 jmap-sharing-client    = { path = "crate-jmap-sharing-client",   version = "0.1" }
 mime-tree              = "0.4"
 futures                = "0.3"
