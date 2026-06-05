@@ -89,7 +89,7 @@ jmap-tasks-client      = { path = "crate-jmap-tasks-client",     version = "0.1"
 jmap-filenode-client   = { path = "crate-jmap-filenode-client",  version = "0.1" }
 jmap-metadata-client   = { path = "crate-jmap-metadata-client",  version = "0.1" }
 jmap-sharing-client    = { path = "crate-jmap-sharing-client",   version = "0.1" }
-mime-tree              = "0.3"
+mime-tree              = "0.4"
 futures                = "0.3"
 serde                  = { version = "1", features = ["derive"] }
 serde_json             = "1"

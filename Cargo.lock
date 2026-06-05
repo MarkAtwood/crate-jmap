@@ -1402,15 +1402,16 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "mime-tree"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27e31db3f8793a0c268a1d5d9d06d5ca9abc10839e378b81baef8bb16cf08f9f"
+checksum = "c96c07a038121b108ce492dcc87dec4450639f2b3b921a66d2bd25d692558f3b"
 dependencies = [
  "base64",
  "encoding_rs",
  "mail-parser",
  "quoted_printable",
  "serde",
+ "unicode-normalization",
  "uuencoding",
  "yencoding",
 ]
@@ -2232,6 +2233,15 @@ name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+
+[[package]]
+name = "unicode-normalization"
+version = "0.1.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5fd4f6878c9cb28d874b009da9e8d183b5abc80117c40bbd187a1fde336be6e8"
+dependencies = [
+ "tinyvec",
+]
 
 [[package]]
 name = "unicode-xid"
