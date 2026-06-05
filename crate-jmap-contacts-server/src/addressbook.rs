@@ -160,10 +160,10 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
     let on_success_set_is_default: Option<String> = match args.remove("onSuccessSetIsDefault") {
         None | Some(Value::Null) => None,
         Some(Value::String(s)) => Some(s),
-        Some(v) => {
-            return Err(JmapError::invalid_arguments(format!(
-                "onSuccessSetIsDefault: expected a string id or null, got {v}"
-            )));
+        Some(_) => {
+            return Err(JmapError::invalid_arguments(
+                "onSuccessSetIsDefault: expected a string id or null",
+            ));
         }
     };
 
