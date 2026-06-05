@@ -1827,8 +1827,10 @@ fn merge_filenode_overrides(source: FileNode, override_val: &Value) -> Result<Fi
 
     if let Some(over_obj) = override_val.as_object() {
         // Fields the server owns; never overridable from the client.
+        // Note: "id" is handled by the explicit check above (different
+        // semantic — source reference, not a server-owned property).
         const SERVER_OWNED: &[&str] = &[
-            "id", "created", "modified", "accessed", "changed", "size", "myRights",
+            "created", "modified", "accessed", "changed", "size", "myRights",
         ];
         for (k, v) in over_obj {
             if k == "id" {
