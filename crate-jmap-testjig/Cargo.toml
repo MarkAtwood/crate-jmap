@@ -35,7 +35,7 @@ jmap-tasks-server = { workspace = true, features = ["memory"] }
 jmap-contacts-server = { workspace = true, features = ["memory"] }
 jmap-filenode-server = { workspace = true, features = ["memory"] }
 jmap-sharing-server = { workspace = true, features = ["memory"] }
-jmap-metadata-server = { workspace = true, features = ["memory"] }
+jmap-metadata-server = { workspace = true }
 jmap-types = { workspace = true }
 
 # Each *-types crate is pulled in alongside its *-server pair so the
