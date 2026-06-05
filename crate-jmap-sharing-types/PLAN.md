@@ -259,7 +259,7 @@ Specific test cases:
 ## Spec References
 
 - `~/PROJECT/jmap-chat-spec/references/rfc9670.txt` — JMAP Sharing (normative)
-- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-mail-sharing-00.txt` —
+- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-mail-sharing-01.txt` —
   extends RFC 8621 Mailbox with `shareWith`/`mayShare` (context only; the
   Mailbox extension types live in `jmap-mail-types`, not here)
 - `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base protocol (for

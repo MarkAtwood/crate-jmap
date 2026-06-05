@@ -37,7 +37,7 @@ go through `jmap-base-client`.
 ## What This Crate Explicitly Excludes
 
 The `shareWith` property appears on `Mailbox` (via
-`draft-ietf-jmap-mail-sharing-00`), and on future Calendar, AddressBook,
+`draft-ietf-jmap-mail-sharing-01`), and on future Calendar, AddressBook,
 and FileNode types. This crate does NOT provide methods to set or modify
 `shareWith` on those types. Each domain client crate handles its own
 `shareWith` operations via its own extension trait, because:
