@@ -1,68 +1,52 @@
 //! JMAP Object Metadata extension data types.
 //!
 //! Implements the data types defined in
-//! [draft-ietf-jmap-metadata-01](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/).
+//! [draft-ietf-jmap-metadata-02](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/).
 //! Types only — no method handlers, no async, no network I/O.
 //!
-//! ## Module layout
+//! ## Architecture change from -01 to -02
 //!
-//! - [`metadata`] — [`Metadata`], [`Annotation`], [`ImapMetadata`],
-//!   [`WebDavMetadata`] (§2)
-//! - [`capability`] — [`MetadataCapability`], [`JMAP_METADATA_URI`] (§1.2.1)
-//! - [`filter`] — [`MetadataFilterCondition`] (§3.4.1)
-//! - [`backend`] — [`MetadataProperty`] and `JmapObject` trait impls
+//! draft-ietf-jmap-metadata-02 eliminates the standalone `Metadata` object
+//! type entirely. Instead, each opted-in data type gains `metadata` (shared)
+//! and `privateMetadata` (per-user) properties — plain `String[Object]` maps
+//! keyed by namespace identifier.
 //!
-//! All public types are re-exported at the crate root.
+//! This crate provides the helper types that consumers need:
+//!
+//! - [`capability`] — [`DataTypeMetadataInfo`], [`JMAP_METADATA_URI`] (§1.2.1)
+//! - [`filter`] — [`MetadataTextMatch`] (§3.5)
+//! - [`namespace`] — namespace identifier validation (§2.1)
+//!
+//! All public types and functions are re-exported at the crate root.
 //!
 //! # Example
 //!
 //! ```rust
-//! use jmap_metadata_types::{Annotation, Metadata};
+//! use jmap_metadata_types::{DataTypeMetadataInfo, is_valid_namespace};
 //!
+//! // Server advertises per-type metadata capability
 //! let json = r#"{
-//!     "@type": "Annotation",
-//!     "id": "MD789",
-//!     "relatedType": "Email",
-//!     "relatedId": "EM456",
-//!     "isPrivate": true,
-//!     "acme.example.com:workflowState": "pending-review"
+//!     "namespaces": ["photography"],
+//!     "supportsVendorNamespaces": false,
+//!     "supportsPrivate": false,
+//!     "maxDepth": 3
 //! }"#;
+//! let info: DataTypeMetadataInfo = serde_json::from_str(json).unwrap();
+//! assert_eq!(info.namespaces, vec!["photography"]);
+//! assert_eq!(info.max_depth, Some(3));
 //!
-//! let meta: Metadata = serde_json::from_str(json).unwrap();
-//! match meta {
-//!     Metadata::Annotation(Annotation { ref related_type, ref extra, .. }) => {
-//!         // `related_type` is `Option<String>` so the §4.1 extended-`/get`
-//!         // partial-response shape (which can omit it, per the §7.2
-//!         // example) round-trips losslessly. Full `Metadata/get` and
-//!         // `Metadata/set` responses always populate it.
-//!         assert_eq!(related_type.as_deref(), Some("Email"));
-//!         assert_eq!(
-//!             extra.get("acme.example.com:workflowState"),
-//!             Some(&serde_json::Value::String("pending-review".into())),
-//!         );
-//!     }
-//!     _ => panic!("expected Annotation variant"),
-//! }
+//! // Validate namespace identifiers
+//! assert!(is_valid_namespace("photography"));       // registered
+//! assert!(is_valid_namespace("acme.example.com"));  // vendor domain
+//! assert!(!is_valid_namespace(""));                 // empty
 //! ```
 
 #![forbid(unsafe_code)]
 
-pub mod backend;
 pub mod capability;
 pub mod filter;
-pub mod metadata;
+pub mod namespace;
 
-pub use backend::MetadataProperty;
-pub use capability::{MetadataCapability, JMAP_METADATA_URI};
-pub use filter::{MetadataFilter, MetadataFilterCondition};
-pub use metadata::{Annotation, ImapMetadata, Metadata, WebDavMetadata};
-
-/// Generic filter algebra from `jmap-types::query` (RFC 8620 §5.5).
-///
-/// Re-exported here so callers of `jmap-metadata-types` do not need a
-/// direct dependency on `jmap-types`. Mirrors the canonical
-/// [`jmap_mail_types::query`] re-exports from the workspace canonical
-/// extension-types template.
-///
-/// [`jmap_mail_types::query`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/index.html
-pub use jmap_types::query::{Filter, FilterOperator, Operator};
+pub use capability::{DataTypeMetadataInfo, JMAP_METADATA_URI};
+pub use filter::MetadataTextMatch;
+pub use namespace::{is_registered_namespace, is_valid_namespace, is_vendor_namespace};

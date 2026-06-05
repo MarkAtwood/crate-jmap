@@ -1,71 +1,73 @@
-//! draft-ietf-jmap-metadata-01 §1.2.1 — capability registration and
-//! account-level capability object.
+//! draft-ietf-jmap-metadata-02 §1.2.1 — capability registration and
+//! per-data-type metadata info.
 //!
-//! Provides [`MetadataCapability`] and the capability URI constant
+//! Provides [`DataTypeMetadataInfo`] and the capability URI constant
 //! [`JMAP_METADATA_URI`].
 
 use serde::{Deserialize, Serialize};
 
 /// The JMAP capability URI for the Metadata extension
-/// (draft-ietf-jmap-metadata-01 §1.2.1).
+/// (draft-ietf-jmap-metadata-02 §1.2.1).
 ///
 /// Present as a key in both the session-level `capabilities` object (value:
-/// empty object) and in each account's `accountCapabilities` object (value:
-/// a [`MetadataCapability`]).
+/// empty object `{}`) and in each account's `accountCapabilities` object
+/// (value: an object with a `dataTypes` field mapping type names to
+/// [`DataTypeMetadataInfo`]).
+///
+/// The URI is unchanged between -01 and -02.
 pub const JMAP_METADATA_URI: &str = "urn:ietf:params:jmap:metadata";
 
-/// Account-level capability for the JMAP Metadata extension
-/// (draft-ietf-jmap-metadata-01 §1.2.1).
+/// Per-data-type metadata capability advertisement
+/// (draft-ietf-jmap-metadata-02 §1.2.1).
 ///
-/// The value of the `urn:ietf:params:jmap:metadata` key in
-/// `accountCapabilities`.
+/// Appears as the value in the `dataTypes` map within the account-level
+/// `urn:ietf:params:jmap:metadata` capability object. A type that does not
+/// appear in `dataTypes` does not gain the `metadata` or `privateMetadata`
+/// properties in that account.
 ///
-/// ## Nullable fields
+/// # Wire example (from §6.1)
 ///
-/// Fields typed `Option<T>` with no `skip_serializing_if` are
-/// **required-and-nullable**: they MUST appear in the wire JSON even when
-/// the value is `null`. For [`data_types`](Self::data_types) and
-/// [`max_depth`](Self::max_depth) a `null` wire value carries spec-defined
-/// semantics ("all data types" / "no nesting limit"), so the `null` cannot
-/// be elided.
-///
-/// ## `maySetPrivate` default
-///
-/// Per §1.2.1 the default is `true`. This crate represents the field as
-/// `Option<bool>` so callers can distinguish an explicit `false` from
-/// "absent" if needed; deserialising a JSON document without the key
-/// leaves the field as `None`. A `None` value is wire-equivalent to the
-/// spec default of `true`.
+/// ```json
+/// {
+///   "namespaces": ["photography"],
+///   "supportsVendorNamespaces": false,
+///   "supportsPrivate": false,
+///   "maxDepth": 3
+/// }
+/// ```
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct MetadataCapability {
-    /// List of JMAP data types for which the server supports metadata
-    /// operations. A `null` wire value means all data types are
-    /// supported (§1.2.1).
-    ///
-    /// Always serialised (as `null` when `None`).
-    pub data_types: Option<Vec<String>>,
+pub struct DataTypeMetadataInfo {
+    /// IANA-registered metadata namespace names supported on this data type
+    /// (§1.2.1). Each value is a registered name (US-ASCII letters, digits,
+    /// hyphens, underscores — no dot). Vendor domain-name namespaces MUST
+    /// NOT appear in this list; their support is signalled by
+    /// [`supports_vendor_namespaces`](Self::supports_vendor_namespaces).
+    #[serde(default)]
+    pub namespaces: Vec<String>,
 
-    /// List of metadata type identifiers (`@type` values) for which the
-    /// server supports metadata operations (§1.2.1). Only listed
-    /// metadata types can be created or retrieved.
-    pub metadata_types: Vec<String>,
+    /// Whether the server accepts vendor (domain-name) namespaces on this
+    /// data type (§1.2.1). Default `false`.
+    #[serde(default)]
+    pub supports_vendor_namespaces: bool,
 
-    /// Maximum depth of nested vendor-specific metadata properties that
-    /// can be set or retrieved (§1.2.1). A depth of `1` indicates only
-    /// flat properties; `2` allows one level of nesting, and so forth.
-    /// A `null` wire value means no server-enforced limit.
+    /// Whether this account supports per-user `privateMetadata` on this
+    /// data type (§1.2.1). Default `false`.
     ///
-    /// Always serialised (as `null` when `None`).
+    /// When `false`, the `privateMetadata` property MUST be absent from
+    /// response objects of this type, all `privateMetadata*` filter
+    /// conditions MUST be rejected with `unsupportedFilter`, and any `/set`
+    /// targeting `privateMetadata` MUST be rejected with
+    /// `invalidProperties`.
+    #[serde(default)]
+    pub supports_private: bool,
+
+    /// Maximum depth of nested objects within a namespace value (§1.2.1,
+    /// §2.1). `null` means no server-enforced limit.
+    ///
+    /// Depth 1 = flat properties only; depth 2 = one level of nesting.
+    /// Arrays do not contribute to depth themselves, but objects inside
+    /// arrays do (§2.1).
     pub max_depth: Option<u64>,
-
-    /// Whether the authenticated user has permission to create private
-    /// Metadata objects (`isPrivate: true`) in this account (§1.2.1).
-    /// Default `true` when absent on the wire.
-    ///
-    /// If `false`, the server MUST reject creation of private metadata
-    /// with a `forbidden` SetError.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub may_set_private: Option<bool>,
 }
