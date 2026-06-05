@@ -32,7 +32,7 @@
 //! as `Err`.
 
 use jmap_filenode_types::{FileNode, NodeType};
-use jmap_types::{Id, Invocation, JmapError, PatchObject};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, FileNodeBackend};
@@ -506,10 +506,17 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                 // modified timestamps. If the incoming item has
                                 // a strictly later modified value, proceed as
                                 // with "replace". Otherwise reject as with null.
+                                //
+                                // Validate the incoming modified through
+                                // UTCDate::new_validated to prevent malformed
+                                // strings (e.g. "9999") from lexicographically
+                                // beating any real timestamp.
                                 let incoming_modified = obj_with_id
                                     .get("modified")
                                     .and_then(|v| v.as_str())
-                                    .unwrap_or("");
+                                    .and_then(|s| UTCDate::new_validated(s).ok())
+                                    .map(|d| d.as_ref().to_owned())
+                                    .unwrap_or_default();
                                 let (existing_nodes, _): (Vec<FileNode>, _) = backend
                                     .get_objects::<FileNode>(
                                         caller,
@@ -524,7 +531,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                     .and_then(|n| n.modified.as_ref())
                                     .map(|d| d.as_ref())
                                     .unwrap_or("");
-                                if incoming_modified > existing_modified {
+                                if incoming_modified.as_str() > existing_modified {
                                     // Incoming is strictly later — fall through
                                     // to the Replace logic below.
                                 } else {
