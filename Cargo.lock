@@ -915,7 +915,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jmap-base-client"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "base64",
  "bytes",
@@ -941,7 +941,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-calendars-client"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-base-client",
  "jmap-calendars-types",
@@ -954,7 +954,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-calendars-server"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-calendars-server",
  "jmap-calendars-types",
@@ -967,7 +967,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-calendars-types"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-jscalendar-types",
  "jmap-types",
@@ -977,7 +977,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-client"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "futures",
@@ -994,7 +994,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-server"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "getrandom 0.3.4",
  "jmap-chat-server",
@@ -1009,7 +1009,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-types"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-types",
  "serde",
@@ -1018,7 +1018,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-cid-types"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -1026,7 +1026,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-contacts-client"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-base-client",
  "jmap-contacts-types",
@@ -1039,7 +1039,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-contacts-server"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-contacts-server",
  "jmap-contacts-types",
@@ -1051,7 +1051,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-contacts-types"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-jscontact-types",
  "jmap-types",
@@ -1061,7 +1061,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode-client"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-base-client",
  "jmap-filenode-types",
@@ -1074,7 +1074,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode-server"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-filenode-server",
  "jmap-filenode-types",
@@ -1086,7 +1086,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode-types"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-types",
  "serde",
@@ -1095,7 +1095,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-jscalendar-types"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-types",
  "serde",
@@ -1104,7 +1104,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-jscontact-types"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -1112,7 +1112,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mail-client"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-base-client",
  "jmap-mail-types",
@@ -1125,7 +1125,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mail-server"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "jmap-mail-server",
  "jmap-mail-types",
@@ -1141,7 +1141,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mail-types"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-types",
  "serde",
@@ -1150,7 +1150,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-metadata-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-base-client",
  "jmap-metadata-types",
@@ -1163,7 +1163,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-metadata-server"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-metadata-server",
  "jmap-metadata-types",
@@ -1178,7 +1178,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-metadata-types"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-types",
  "serde",
@@ -1187,7 +1187,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mime"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "criterion",
  "jmap-mail-types",
@@ -1198,7 +1198,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-server"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "criterion",
  "http",
@@ -1210,7 +1210,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-sharing-client"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-base-client",
  "jmap-sharing-types",
@@ -1222,7 +1222,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-sharing-server"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-server",
  "jmap-sharing-server",
@@ -1234,7 +1234,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-sharing-types"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-types",
  "serde",
@@ -1243,7 +1243,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-tasks-client"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-base-client",
  "jmap-tasks-types",
@@ -1256,7 +1256,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-tasks-server"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-server",
  "jmap-tasks-server",
@@ -1269,7 +1269,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-tasks-types"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-jscalendar-types",
  "jmap-types",
@@ -1316,7 +1316,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-types"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde",
  "serde_json",
