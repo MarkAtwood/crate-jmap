@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-filenode-13 §2.1 — account-level capability object.
+//! draft-ietf-jmap-filenode-14 §2.1 — account-level capability object.
 //!
 //! Provides [`FileNodeCapability`] and the capability URI constant
 //! [`JMAP_FILENODE_URI`].
@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 pub const JMAP_FILENODE_URI: &str = "urn:ietf:params:jmap:filenode";
 
 /// Account-level capability for the JMAP FileNode extension
-/// (draft-ietf-jmap-filenode-13 §2.1).
+/// (draft-ietf-jmap-filenode-14 §2.1).
 ///
 /// The value of the `urn:ietf:params:jmap:filenode` key in `accountCapabilities`.
 ///

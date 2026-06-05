@@ -1,6 +1,6 @@
 //! JMAP FileNode extension data types.
 //!
-//! Implements the data types defined in draft-ietf-jmap-filenode-13.
+//! Implements the data types defined in draft-ietf-jmap-filenode-14.
 //! Types only — no method handlers, no async, no network I/O.
 //!
 //! ## Module layout

@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-filenode-13 §3.1 — FileNode object and component types.
+//! draft-ietf-jmap-filenode-14 §3.1 — FileNode object and component types.
 //!
 //! Provides [`FileNode`], [`NodeType`], [`NodeRole`], and [`FilesRights`].
 
@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
-/// The type of a FileNode (draft-ietf-jmap-filenode-13 §3.1, IANA "JMAP FileNode Types"
+/// The type of a FileNode (draft-ietf-jmap-filenode-14 §3.1, IANA "JMAP FileNode Types"
 /// registry §10.4).
 ///
 /// Values are registered strings.  Any unrecognised value is preserved as
@@ -46,7 +46,7 @@ impl NodeType {
 }
 
 /// Special role identifying a directory's common purpose
-/// (draft-ietf-jmap-filenode-13 §3.1, IANA "JMAP FileNode Roles" registry §10.5).
+/// (draft-ietf-jmap-filenode-14 §3.1, IANA "JMAP FileNode Roles" registry §10.5).
 ///
 /// Clients MUST ignore unrecognised role values (§3.1).  Unknown values are preserved
 /// as [`NodeRole::Other`] so they round-trip correctly.
@@ -106,7 +106,7 @@ impl NodeRole {
 }
 
 /// ACL rights the authenticated user (or a shared user) holds for a FileNode
-/// (draft-ietf-jmap-filenode-13 §3.1, `myRights` description).
+/// (draft-ietf-jmap-filenode-14 §3.1, `myRights` description).
 ///
 /// `Default` produces all-false (no access), which is the most restrictive valid
 /// value and a safe starting point when constructing rights in tests or server code.
@@ -136,7 +136,7 @@ pub struct FilesRights {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// A JMAP FileNode object (draft-ietf-jmap-filenode-13 §3.1).
+/// A JMAP FileNode object (draft-ietf-jmap-filenode-14 §3.1).
 ///
 /// ## Nullable vs optional fields
 ///

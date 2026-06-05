@@ -2,7 +2,7 @@
 
 ## What it is
 
-JMAP FileNode ([draft-ietf-jmap-filenode-13]) method handlers and the
+JMAP FileNode ([draft-ietf-jmap-filenode-14]) method handlers and the
 `FileNodeBackend` trait. Plugs into [`jmap-server`]'s `Dispatcher`. Implements
 all 6 FileNode method names. Storage-agnostic — consumers implement the
 `FileNodeBackend` trait for their own data layer.
@@ -44,7 +44,7 @@ be shared with other parts of your application.
 
 ## Registered methods
 
-All 6 method names from draft-ietf-jmap-filenode-13 §3.2 are registered:
+All 6 method names from draft-ietf-jmap-filenode-14 §3.2 are registered:
 
 | Object | Methods |
 |---|---|
@@ -161,6 +161,9 @@ When a new node's name collides with an existing sibling (detected via `find_sib
   the new node is created.
 - `onExists: "rename"` — the handler iterates through suffixed names (`name-1`, `name-2`, …)
   up to 100 attempts until a unique name is found. Beyond 100 attempts, `serverFail` is returned.
+- `onExists: "newest"` — the handler compares the `modified` timestamp of the incoming node
+  with the existing node. If the incoming timestamp is strictly later, proceeds as with
+  `"replace"`. Otherwise, rejects with `alreadyExists`.
 
 ### FileNode/set destroy — nodeHasChildren guard and cascade
 
@@ -247,9 +250,9 @@ until the family is published to crates.io.
 
 ## References
 
-- **[draft-ietf-jmap-filenode-13]** — JMAP FileNode (normative for all method semantics)
+- **[draft-ietf-jmap-filenode-14]** — JMAP FileNode (normative for all method semantics)
 - **[RFC 8620]** — JMAP Core (request format, SetError, ResultReference, `/set` response shape)
 
-[draft-ietf-jmap-filenode-13]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
+[draft-ietf-jmap-filenode-14]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-server`]: ../crate-jmap-server

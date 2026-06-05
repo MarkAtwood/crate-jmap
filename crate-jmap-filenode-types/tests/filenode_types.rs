@@ -1,6 +1,6 @@
 //! Integration tests for jmap-filenode-types.
 //!
-//! All JSON fixtures are hand-written from draft-ietf-jmap-filenode-13 or
+//! All JSON fixtures are hand-written from draft-ietf-jmap-filenode-14 or
 //! constructed directly from the spec field descriptions.  No expected value is
 //! derived from the code under test.
 //!
@@ -545,7 +545,7 @@ fn capability_uri_constant() {
 
 #[test]
 fn capability_deserialize_from_spec_example() {
-    // Taken verbatim from draft-ietf-jmap-filenode-13 §2.1.1 capability example.
+    // Taken verbatim from draft-ietf-jmap-filenode-14 §2.1.1 capability example.
     let json = r#"{
         "maxFileNodeDepth": 50,
         "maxSizeFileNodeName": 255,

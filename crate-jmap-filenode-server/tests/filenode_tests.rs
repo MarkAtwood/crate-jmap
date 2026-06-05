@@ -1,6 +1,6 @@
 //! Integration tests for `jmap-filenode-server` using MemoryBackend.
 //!
-//! All expected values are derived from the spec (draft-ietf-jmap-filenode-13),
+//! All expected values are derived from the spec (draft-ietf-jmap-filenode-14),
 //! not from the code under test.
 
 mod common;
@@ -36,7 +36,7 @@ fn make_dir(id: &str, name: &str, parent_id: Option<&str>) -> FileNode {
 
 // ---------------------------------------------------------------------------
 // Test 1: create without nodeType → inferred as directory
-// Oracle: draft-ietf-jmap-filenode-13 §3.1 (nodeType inference).
+// Oracle: draft-ietf-jmap-filenode-14 §3.1 (nodeType inference).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -79,7 +79,7 @@ async fn filenode_set_create_directory_nodetype_inferred() {
 
 // ---------------------------------------------------------------------------
 // Test 2: create with nodeType=file but no blobId → invalidProperties
-// Oracle: draft-ietf-jmap-filenode-13 §3.1 (file node requires blobId).
+// Oracle: draft-ietf-jmap-filenode-14 §3.1 (file node requires blobId).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -126,7 +126,7 @@ async fn filenode_set_create_file_requires_blobid() {
 
 // ---------------------------------------------------------------------------
 // Test 3: destroy a leaf node succeeds
-// Oracle: draft-ietf-jmap-filenode-13 §3.2.3 (basic destroy).
+// Oracle: draft-ietf-jmap-filenode-14 §3.2.3 (basic destroy).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -163,7 +163,7 @@ async fn filenode_set_destroy_leaf_node_succeeds() {
 
 // ---------------------------------------------------------------------------
 // Test 4: destroy parent with onDestroyRemoveChildren=false (default) → nodeHasChildren
-// Oracle: draft-ietf-jmap-filenode-13 §3.2.3.
+// Oracle: draft-ietf-jmap-filenode-14 §3.2.3.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -202,7 +202,7 @@ async fn filenode_set_destroy_parent_node_has_children() {
 
 // ---------------------------------------------------------------------------
 // Test 5: destroy with onDestroyRemoveChildren=true cascades to children
-// Oracle: draft-ietf-jmap-filenode-13 §3.2.3.
+// Oracle: draft-ietf-jmap-filenode-14 §3.2.3.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -250,7 +250,7 @@ async fn filenode_set_destroy_with_remove_children_cascades() {
 // Regression for bd:JMAP-510h.12 — documents the current partial-tree
 // behaviour so a future refactor that reorders destroys cannot silently
 // regress it.
-// Oracle: draft-ietf-jmap-filenode-13 §3.2.3 nodeHasChildren — MUST when
+// Oracle: draft-ietf-jmap-filenode-14 §3.2.3 nodeHasChildren — MUST when
 // any descendant is not in the destroy set.
 // ---------------------------------------------------------------------------
 
@@ -360,7 +360,7 @@ async fn filenode_set_destroy_full_coverage_multilevel_succeeds() {
 
 // ---------------------------------------------------------------------------
 // Test 6: FileNode/get returns a created node by id
-// Oracle: draft-ietf-jmap-filenode-13 §3.2.1.
+// Oracle: draft-ietf-jmap-filenode-14 §3.2.1.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -414,7 +414,7 @@ async fn filenode_get_returns_created_node() {
 
 // ---------------------------------------------------------------------------
 // Test 7: fetchParents=true returns parent in the list
-// Oracle: draft-ietf-jmap-filenode-13 §3.2.1 fetchParents.
+// Oracle: draft-ietf-jmap-filenode-14 §3.2.1 fetchParents.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -570,7 +570,7 @@ async fn filenode_get_fetch_parents_dedup_shared_ancestor() {
 
 // ---------------------------------------------------------------------------
 // Test 8: query with depth=1 returns directory and its direct children
-// Oracle: draft-ietf-jmap-filenode-13 §3.2.5 (depth parameter).
+// Oracle: draft-ietf-jmap-filenode-14 §3.2.5 (depth parameter).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -642,7 +642,7 @@ async fn filenode_query_depth_one_returns_children() {
 
 // ---------------------------------------------------------------------------
 // Test 9: FileNode/changes after create shows the new id in the created list
-// Oracle: draft-ietf-jmap-filenode-13 §3.2.2 (changes after mutation).
+// Oracle: draft-ietf-jmap-filenode-14 §3.2.2 (changes after mutation).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -738,7 +738,7 @@ async fn filenode_changes_unparseable_since_state_cannot_calculate() {
 
 // ---------------------------------------------------------------------------
 // FileNode/set create — onExists='replace' + onDestroyRemoveChildren cascade
-// Oracle: draft-ietf-jmap-filenode-13 §3.2.3 lines 565-570 — "if the
+// Oracle: draft-ietf-jmap-filenode-14 §3.2.3 lines 565-570 — "if the
 // replaced item is a directory which has children, then the server MUST
 // respond with a nodeHasChildren error to this action UNLESS
 // onDestroyRemoveChildren is true". Regression for bd JMAP-510h.2.
@@ -896,7 +896,7 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
 
 // ---------------------------------------------------------------------------
 // FileNode/copy — onExists / compareCaseInsensitively / onDestroyRemoveChildren
-// Oracle: draft-ietf-jmap-filenode-13 §3.2.4 — "This is a standard
+// Oracle: draft-ietf-jmap-filenode-14 §3.2.4 — "This is a standard
 // Foo/copy function with the same additional top-level arguments as
 // FileNode/set, onDestroyRemoveChildren and onExists, with the same
 // behaviour." Regression for bd JMAP-510h.1.
@@ -1145,7 +1145,7 @@ async fn filenode_copy_non_string_parent_id_returns_invalid_properties() {
 // to the copied node (not just parentId and name).
 // Oracle: RFC 8620 §5.4 — "A map of creation id to a Foo object. [...]
 // a copy of the source object with the given properties overridden."
-// draft-ietf-jmap-filenode-13 §3.2.4 incorporates by reference. Regression
+// draft-ietf-jmap-filenode-14 §3.2.4 incorporates by reference. Regression
 // for bd JMAP-510h.11.
 // ---------------------------------------------------------------------------
 
@@ -1437,7 +1437,7 @@ async fn filenode_copy_on_success_destroy_original_destroys_source() {
 // FileNode/copy — onSuccessDestroyOriginal without onDestroyRemoveChildren
 // MUST report `nodeHasChildren` for a source directory that has children,
 // honoring the FileNode-specific top-level flag on the implicit destroy.
-// Oracle: draft-ietf-jmap-filenode-13 §3.2.4 ("with the same behaviour" as
+// Oracle: draft-ietf-jmap-filenode-14 §3.2.4 ("with the same behaviour" as
 // FileNode/set) + §3.2.3 nodeHasChildren semantics. Regression for bd
 // JMAP-510h.56.
 // ---------------------------------------------------------------------------
@@ -1879,5 +1879,213 @@ async fn filenode_set_state_advances_exactly_once_on_mixed_success() {
     assert!(
         created_arr.is_empty() && updated_arr.is_empty() && destroyed_arr.is_empty(),
         "changes since the just-emitted newState must have empty deltas: {ch_resp}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// FileNode/set — onExists="newest"
+// Oracle: draft-ietf-jmap-filenode-14 §3.2.3 — "If 'newest', the server
+// compares the 'modified' timestamp of the incoming item and the existing
+// item. If the incoming item has a strictly later 'modified' value,
+// proceed as if 'replace'. Otherwise, reject as if null (alreadyExists)."
+// ---------------------------------------------------------------------------
+
+/// Helper: build a directory node with a specific `modified` timestamp.
+fn make_dir_with_modified(id: &str, name: &str, parent_id: Option<&str>, modified: &str) -> FileNode {
+    let v = json!({
+        "id": id,
+        "parentId": parent_id,
+        "nodeType": "directory",
+        "blobId": null,
+        "target": null,
+        "size": null,
+        "name": name,
+        "type": null,
+        "shareWith": null,
+        "role": null,
+        "modified": modified
+    });
+    serde_json::from_value(v).expect("make_dir_with_modified: deserialization must succeed")
+}
+
+/// Oracle: incoming modified is strictly later → behaves like "replace".
+#[tokio::test]
+async fn filenode_set_on_exists_newest_incoming_wins() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    // Seed an existing directory with an older modified timestamp.
+    backend.seed_node("acc1", make_dir_with_modified("existing-1", "shared", None, "2020-01-01T00:00:00Z"));
+
+    // Create a new node with the same name and a LATER modified timestamp.
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "onExists": "newest",
+            "create": {
+                "n": {
+                    "name": "shared",
+                    "parentId": null,
+                    "role": null,
+                    "modified": "2025-06-01T00:00:00Z"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    // Incoming is newer → must replace: new node in `created`.
+    assert!(
+        resp["created"].is_object() && resp["created"]["n"].is_object(),
+        "incoming-newer must be created: {resp}"
+    );
+    // The old node must have been destroyed.
+    let destroyed = resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be array");
+    let destroyed_strs: Vec<&str> = destroyed.iter().filter_map(|v| v.as_str()).collect();
+    assert!(
+        destroyed_strs.contains(&"existing-1"),
+        "the existing node must be in the destroyed list: {resp}"
+    );
+}
+
+/// Oracle: existing modified is later or equal → reject with alreadyExists.
+#[tokio::test]
+async fn filenode_set_on_exists_newest_existing_wins() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    // Seed an existing directory with a LATER modified timestamp.
+    backend.seed_node("acc1", make_dir_with_modified("existing-2", "shared", None, "2025-06-01T00:00:00Z"));
+
+    // Attempt to create a node with the same name but an OLDER modified timestamp.
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "onExists": "newest",
+            "create": {
+                "n": {
+                    "name": "shared",
+                    "parentId": null,
+                    "role": null,
+                    "modified": "2020-01-01T00:00:00Z"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    // Existing is newer → must reject with alreadyExists.
+    let not_created = &resp["notCreated"]["n"];
+    assert!(
+        not_created.is_object(),
+        "existing-newer must produce notCreated: {resp}"
+    );
+    assert_eq!(
+        not_created["type"], "alreadyExists",
+        "must be alreadyExists when existing is newer: {resp}"
+    );
+    assert_eq!(
+        not_created["existingId"], "existing-2",
+        "alreadyExists must include existingId: {resp}"
+    );
+}
+
+/// Oracle: when both nodes lack a modified timestamp, the incoming node
+/// is NOT strictly later (empty == empty), so reject with alreadyExists.
+#[tokio::test]
+async fn filenode_set_on_exists_newest_both_missing_modified() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    // Seed a directory with no modified timestamp.
+    backend.seed_node("acc1", make_dir("existing-3", "shared", None));
+
+    // Create a new node with the same name — also no modified timestamp.
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "onExists": "newest",
+            "create": {
+                "n": {
+                    "name": "shared",
+                    "parentId": null,
+                    "role": null
+                }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    // Neither has modified → "" > "" is false → alreadyExists.
+    let not_created = &resp["notCreated"]["n"];
+    assert!(
+        not_created.is_object(),
+        "both-missing-modified must produce notCreated: {resp}"
+    );
+    assert_eq!(
+        not_created["type"], "alreadyExists",
+        "must be alreadyExists when both lack modified: {resp}"
+    );
+}
+
+/// Oracle: FileNode/copy with onExists="newest" — incoming source node
+/// is strictly later → replace in destination account.
+#[tokio::test]
+async fn filenode_copy_on_exists_newest_incoming_wins() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+
+    // Source node with a LATER modified timestamp.
+    backend.seed_node("src", make_dir_with_modified("src-1", "doc", None, "2025-06-01T00:00:00Z"));
+    // Destination node with an OLDER modified timestamp.
+    backend.seed_node("dst", make_dir_with_modified("dst-1", "doc", None, "2020-01-01T00:00:00Z"));
+
+    let (resp, _) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "onExists": "newest",
+            "create": {
+                "c": { "id": "src-1", "role": null }
+            }
+        }),
+        "c0",
+    )
+    .await
+    .expect("must not return top-level error");
+
+    // Source is newer → must replace: new copy in `created`.
+    assert!(
+        resp["created"].is_object() && resp["created"]["c"].is_object(),
+        "copy newest incoming-wins must produce created entry: {resp}"
+    );
+
+    // Verify the old destination node is actually gone.
+    let (get_resp, _) = handle_filenode_get(
+        &backend,
+        &(),
+        json!({
+            "accountId": "dst",
+            "ids": ["dst-1"]
+        }),
+    )
+    .await
+    .expect("get must succeed");
+    let not_found = get_resp["notFound"]
+        .as_array()
+        .expect("notFound must be array");
+    let not_found_strs: Vec<&str> = not_found.iter().filter_map(|v| v.as_str()).collect();
+    assert!(
+        not_found_strs.contains(&"dst-1"),
+        "the existing destination node must have been destroyed: {get_resp}"
     );
 }
