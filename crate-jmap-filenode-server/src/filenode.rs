@@ -1705,6 +1705,11 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                 .await
                 .map_err(|e| server_fail_from_backend(&e))?;
 
+            // Unlike FileNode/set destroy which allows children to pass when
+            // all children are also in the same destroy batch, this implicit
+            // destroy has no client-controlled batch — onSuccessDestroyOriginal
+            // destroys only the copied source nodes, so the all-covered check
+            // is inapplicable.
             if !desc_ids.is_empty() && !on_destroy_remove_children {
                 not_destroyed.insert(
                     source_id.as_ref().to_owned(),
