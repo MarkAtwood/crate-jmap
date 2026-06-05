@@ -186,6 +186,7 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
             })?;
         for id_str_ref in ids {
             let id_str = id_str_ref.to_owned();
+            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
             let id = Id::from(id_str.as_str());
 
             match backend

@@ -414,6 +414,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 Some(s) => s,
                 None => continue, // unreachable: validated above
             };
+            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
             let id = Id::from(id_str);
 
             // Check existence and isActive before destroying.

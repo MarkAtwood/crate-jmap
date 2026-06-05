@@ -65,6 +65,7 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
         .get("id")
         .and_then(|v| v.as_str())
         .ok_or_else(|| JmapError::invalid_arguments("id is required"))?;
+    // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
     let principal_id = Id::from(principal_id_str);
 
     // utcStart / utcEnd are UTCDate values per the calendars draft §X.

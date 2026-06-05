@@ -179,6 +179,7 @@ pub async fn handle_task_notification_set<B: TasksBackend>(
                 Some(s) => s.to_owned(),
                 None => continue, // unreachable: validated above
             };
+            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
             let id = Id::from(id_str.as_str());
 
             match backend

@@ -180,6 +180,7 @@ pub async fn handle_ban_set<B: ChatBackend>(
                 );
                 continue;
             };
+            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
             let space_id = Id::from(space_id_str);
 
             let Some(user_id_str) = obj_val.get("userId").and_then(|v| v.as_str()) else {

@@ -241,6 +241,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             // Build identity using the constructor (supplies all defaults), then
             // overlay optional client-supplied fields.
             let mut identity = jmap_mail_types::Identity::new(
+                // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
                 Id::from(crate::helpers::PLACEHOLDER_ID),
                 email,
                 true, // server-set: may_delete defaults to true on create

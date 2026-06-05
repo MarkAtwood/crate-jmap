@@ -234,6 +234,7 @@ pub async fn handle_position_set<B: ChatBackend>(
                 );
                 continue;
             };
+            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
             let chat_id = Id::from(chat_id_str);
 
             // Reject if a ReadPosition already exists for this chatId

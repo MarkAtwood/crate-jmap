@@ -206,6 +206,7 @@ pub async fn handle_invite_set<B: ChatBackend>(
         for (create_id, obj_val) in create_map {
             // spaceId is required on create.
             let space_id = match obj_val.get("spaceId").and_then(|v| v.as_str()) {
+                // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
                 Some(s) if !s.is_empty() => Id::from(s),
                 _ => {
                     not_created.insert(

@@ -274,6 +274,7 @@ pub async fn handle_task_set<B: TasksBackend>(
             if patch_val.get("isDraft").and_then(|v| v.as_bool()) == Some(true)
                 && !backend.enforce_is_draft_atomically()
             {
+                // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
                 let task_id = Id::from(id_str.as_str());
                 match backend
                     .get_objects::<Task>(caller, &account_id, Some(&[task_id]), None)

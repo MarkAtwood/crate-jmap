@@ -209,6 +209,7 @@ pub async fn handle_principal_set<B: SharingBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
+            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
             let id = Id::from(id_str.as_str());
 
             // Convert wire-format Value into a typed PatchObject. RFC 8620
