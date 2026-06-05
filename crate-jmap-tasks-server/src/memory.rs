@@ -942,11 +942,16 @@ impl TasksBackend for MemoryBackend {
         matches!(O::TYPE_NAME, "TaskList" | "Task" | "TaskNotification")
     }
 
-    async fn task_list_has_tasks(&self, _caller: &(), account_id: &Id, task_list_id: &Id) -> bool {
+    async fn task_list_has_tasks(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        task_list_id: &Id,
+    ) -> Result<bool, MemoryError> {
         let inner = self.inner.lock().unwrap();
-        inner
+        Ok(inner
             .aux_ref(account_id.as_ref())
-            .is_some_and(|a| a.task_list_refcount.contains_key(task_list_id))
+            .is_some_and(|a| a.task_list_refcount.contains_key(task_list_id)))
     }
 
     /// MemoryBackend self-enforces the isDraft invariant atomically in

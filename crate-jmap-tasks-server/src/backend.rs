@@ -180,8 +180,26 @@ pub trait TasksBackend: JmapBackend {
     /// Returns true if the given task list contains at least one task.
     ///
     /// Called by `TaskList/set` destroy handler when `onDestroyRemoveTasks`
-    /// is false: if this returns true, the destroy is rejected with
+    /// is false: if this returns `Ok(true)`, the destroy is rejected with
     /// `taskListHasTask` (draft-ietf-jmap-tasks-06 §3.4).
+    ///
+    /// # Three-way result
+    ///
+    /// The return type is `Result<bool, Self::Error>` to distinguish
+    /// three states that callers actually need to tell apart
+    /// (mirrors [`CalendarsBackend::calendar_has_events`]):
+    ///
+    /// - `Ok(true)` — the task list is definitely non-empty. The
+    ///   handler rejects the destroy with `taskListHasTask`.
+    /// - `Ok(false)` — the task list is definitely empty. The handler
+    ///   forwards to `destroy_object`.
+    /// - `Err(_)` — connectivity/transient failure. The handler maps
+    ///   this to `serverFail` so the client knows to retry. Returning
+    ///   `Ok(false)` for a transient backend failure is a bug: the
+    ///   destroy proceeds and any tasks that DID exist become silently
+    ///   orphaned.
+    ///
+    /// [`CalendarsBackend::calendar_has_events`]: https://docs.rs/jmap-calendars-server/latest/jmap_calendars_server/trait.CalendarsBackend.html#tymethod.calendar_has_events
     ///
     /// # Authorisation contract
     ///
@@ -197,7 +215,7 @@ pub trait TasksBackend: JmapBackend {
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         task_list_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = bool> + Send;
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
 
     /// Returns true if `prop` is a per-user Task property (draft-tasks-06 §4.5.1).
     ///

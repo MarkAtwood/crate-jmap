@@ -277,11 +277,23 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             let id = Id::from(id_str.as_str());
 
             // Check for tasks in the list if onDestroyRemoveTasks is false.
-            if !on_destroy_remove_tasks
-                && backend.task_list_has_tasks(caller, &account_id, &id).await
-            {
-                not_destroyed.insert(id_str, json!({ "type": "taskListHasTask" }));
-                continue;
+            // The three-way result distinguishes 'definitely empty',
+            // 'definitely has tasks', and 'transient backend failure'
+            // (analogous to bd:JMAP-ic0j.4 for calendars).
+            if !on_destroy_remove_tasks {
+                match backend.task_list_has_tasks(caller, &account_id, &id).await {
+                    Ok(true) => {
+                        not_destroyed.insert(id_str, json!({ "type": "taskListHasTask" }));
+                        continue;
+                    }
+                    Ok(false) => {
+                        // proceed to destroy below
+                    }
+                    Err(e) => {
+                        not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                }
             }
 
             match backend
