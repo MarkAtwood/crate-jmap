@@ -23,7 +23,7 @@
 //! `invalidPatch` paths) surface in the `notCreated` / `notUpdated` /
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
-use jmap_chat_types::{DeliveryState, Message, SenderId};
+use jmap_chat_types::{Chat, DeliveryState, Message, SenderId, BROADCAST_MENTION_SCOPES};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 
@@ -341,6 +341,60 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
 }
 
 // ---------------------------------------------------------------------------
+// BroadcastMention validation
+// ---------------------------------------------------------------------------
+
+/// Validate broadcast mentions against spec §4.4.1 / §4.16 constraints.
+///
+/// Returns an error description string on failure, None on success.
+fn validate_broadcast_mentions(
+    broadcast_mentions: &[serde_json::Value],
+    body: &str,
+    body_type: &str,
+) -> Option<String> {
+    // Rich body: broadcastMentions MUST be empty
+    if body_type == "application/jmap-chat-rich" && !broadcast_mentions.is_empty() {
+        return Some(
+            "broadcastMentions must be empty when bodyType is application/jmap-chat-rich".into(),
+        );
+    }
+    for (i, bm) in broadcast_mentions.iter().enumerate() {
+        // scope validation
+        let scope = match bm.get("scope").and_then(|v| v.as_str()) {
+            Some(s) => s,
+            None => {
+                return Some(format!(
+                    "broadcastMentions[{i}]: missing or non-string scope"
+                ));
+            }
+        };
+        if !BROADCAST_MENTION_SCOPES.contains(&scope) {
+            return Some(format!(
+                "broadcastMentions[{i}]: unrecognized scope \"{scope}\""
+            ));
+        }
+        // offset + length bounds check with overflow protection
+        let offset = bm.get("offset").and_then(|v| v.as_u64()).unwrap_or(0);
+        let length = bm.get("length").and_then(|v| v.as_u64()).unwrap_or(0);
+        let end = match offset.checked_add(length) {
+            Some(e) => e,
+            None => {
+                return Some(format!(
+                    "broadcastMentions[{i}]: offset + length overflows u64"
+                ));
+            }
+        };
+        let body_len = body.len() as u64;
+        if end > body_len {
+            return Some(format!(
+                "broadcastMentions[{i}]: offset({offset}) + length({length}) = {end} exceeds body byte length {body_len}"
+            ));
+        }
+    }
+    None
+}
+
+// ---------------------------------------------------------------------------
 // Message/set
 // ---------------------------------------------------------------------------
 
@@ -449,6 +503,73 @@ pub async fn handle_message_set<B: ChatBackend>(
                 .and_then(|v| v.as_str())
                 .unwrap_or("text/plain")
                 .to_owned();
+
+            // BroadcastMention structural validation (§4.4.1 / §4.16).
+            let broadcast_mentions_val: Vec<Value> = obj_val
+                .get("broadcastMentions")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
+            if let Some(desc) = validate_broadcast_mentions(&broadcast_mentions_val, &body, &body_type) {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidArguments", "description": desc }),
+                );
+                continue;
+            }
+
+            // BroadcastMention permission check (§4.4.1).
+            // Non-empty broadcastMentions in a Space-backed channel
+            // requires mention_broadcast permission. Group/direct chats
+            // (no spaceId) are unrestricted per spec.
+            if !broadcast_mentions_val.is_empty() {
+                let chat_lookup = backend
+                    .get_objects::<Chat>(
+                        caller,
+                        &account_id,
+                        Some(std::slice::from_ref(&chat_id)),
+                        None,
+                    )
+                    .await;
+                match chat_lookup {
+                    Ok((found, _)) => {
+                        if let Some(chat) = found.first() {
+                            if let Some(ref sid) = chat.space_id {
+                                match backend
+                                    .may_broadcast_mention(caller, &account_id, sid)
+                                    .await
+                                {
+                                    Ok(Ok(())) => {}
+                                    Ok(Err(set_err)) => {
+                                        not_created.insert(
+                                            create_id.clone(),
+                                            set_error_value(&set_err),
+                                        );
+                                        continue;
+                                    }
+                                    Err(e) => {
+                                        not_created.insert(
+                                            create_id.clone(),
+                                            server_fail_value_from_backend(&e),
+                                        );
+                                        continue;
+                                    }
+                                }
+                            }
+                            // else: no spaceId — unrestricted per spec
+                        }
+                        // else: Chat not found — let create_object surface
+                        // the normal error downstream
+                    }
+                    Err(e) => {
+                        not_created.insert(
+                            create_id.clone(),
+                            server_fail_value_from_backend(&e),
+                        );
+                        continue;
+                    }
+                }
+            }
 
             let reply_to: Option<Id> = obj_val
                 .get("replyTo")
@@ -845,6 +966,118 @@ pub async fn handle_message_set<B: ChatBackend>(
                 false
             };
 
+            // BroadcastMention structural validation on update (§4.4.1 / §4.16).
+            // Only triggered when broadcastMentions is part of the patch.
+            let patch_has_bm = augmented
+                .as_object()
+                .is_some_and(|obj| obj.contains_key("broadcastMentions"));
+            if patch_has_bm {
+                // Pre-fetch the current message to obtain the post-patch
+                // body/bodyType and chatId for the permission check. If the
+                // patch also updates body or bodyType, use the patch value;
+                // otherwise fall back to the stored value.
+                let (current_body, current_body_type, msg_chat_id) = match backend
+                    .get_objects::<Message>(
+                        caller,
+                        &account_id,
+                        Some(std::slice::from_ref(&id)),
+                        None,
+                    )
+                    .await
+                {
+                    Ok((found, _)) => {
+                        if let Some(msg) = found.first() {
+                            (msg.body.clone(), msg.body_type.clone(), Some(msg.chat_id.clone()))
+                        } else {
+                            // Message not found — let update_object surface
+                            // the normal notFound error downstream.
+                            (String::new(), String::from("text/plain"), None)
+                        }
+                    }
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                };
+                let post_patch_body = augmented
+                    .get("body")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(&current_body);
+                let post_patch_body_type = augmented
+                    .get("bodyType")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(&current_body_type);
+                let bm_arr: Vec<Value> = augmented
+                    .get("broadcastMentions")
+                    .and_then(|v| v.as_array())
+                    .cloned()
+                    .unwrap_or_default();
+                if let Some(desc) = validate_broadcast_mentions(&bm_arr, post_patch_body, post_patch_body_type) {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidArguments", "description": desc }),
+                    );
+                    continue;
+                }
+
+                // BroadcastMention permission check on update (§4.4.1).
+                // Non-empty post-patch broadcastMentions in a Space-backed
+                // channel requires mention_broadcast permission. Group/direct
+                // chats (no spaceId) are unrestricted per spec.
+                if !bm_arr.is_empty() {
+                    if let Some(ref cid) = msg_chat_id {
+                        let chat_lookup = backend
+                            .get_objects::<Chat>(
+                                caller,
+                                &account_id,
+                                Some(std::slice::from_ref(cid)),
+                                None,
+                            )
+                            .await;
+                        match chat_lookup {
+                            Ok((found, _)) => {
+                                if let Some(chat) = found.first() {
+                                    if let Some(ref sid) = chat.space_id {
+                                        match backend
+                                            .may_broadcast_mention(caller, &account_id, sid)
+                                            .await
+                                        {
+                                            Ok(Ok(())) => {}
+                                            Ok(Err(set_err)) => {
+                                                not_updated.insert(
+                                                    id_str,
+                                                    set_error_value(&set_err),
+                                                );
+                                                continue;
+                                            }
+                                            Err(e) => {
+                                                not_updated.insert(
+                                                    id_str,
+                                                    server_fail_value_from_backend(&e),
+                                                );
+                                                continue;
+                                            }
+                                        }
+                                    }
+                                    // else: no spaceId — unrestricted per spec
+                                }
+                                // else: Chat not found — let update_object
+                                // surface the normal error downstream
+                            }
+                            Err(e) => {
+                                not_updated.insert(
+                                    id_str,
+                                    server_fail_value_from_backend(&e),
+                                );
+                                continue;
+                            }
+                        }
+                    }
+                    // else: msg_chat_id is None — message not found,
+                    // let update_object surface notFound downstream
+                }
+            }
+
             // Convert the augmented wire-format Value into a typed
             // PatchObject (RFC 8620 §5.3). Non-object values yield
             // invalidPatch.
@@ -1003,4 +1236,462 @@ pub async fn handle_message_set<B: ChatBackend>(
         },
     )
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::memory::MemoryBackend;
+    use serde_json::json;
+
+    const ACCOUNT_ID: &str = "a1";
+
+    // Oracles in this module are hand-built per workspace test-integrity
+    // policy. Each test asserts the wire shape of a known-invalid or
+    // known-valid broadcastMentions payload against the validation rules
+    // from spec §4.4.1 / §4.16. The independent oracle is the spec text
+    // itself; no assertion uses the code under test as its own reference.
+
+    /// An unrecognized scope like "channel" must be rejected with
+    /// invalidArguments.
+    #[tokio::test]
+    async fn broadcast_mention_validation_rejects_unknown_scope() {
+        let backend = MemoryBackend::new();
+        let (resp, _) = handle_message_set(
+            &backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "create": {
+                    "m0": {
+                        "chatId": "c1",
+                        "body": "Hello @channel",
+                        "sentAt": "2024-01-01T00:00:00Z",
+                        "broadcastMentions": [
+                            { "scope": "channel", "offset": 6, "length": 8 }
+                        ]
+                    }
+                }
+            }),
+        )
+        .await
+        .expect("handle_message_set");
+
+        assert!(resp["notCreated"]["m0"].is_object());
+        assert_eq!(resp["notCreated"]["m0"]["type"], "invalidArguments");
+        let desc = resp["notCreated"]["m0"]["description"]
+            .as_str()
+            .expect("description");
+        assert!(
+            desc.contains("unrecognized scope"),
+            "expected 'unrecognized scope' in description, got: {desc}"
+        );
+    }
+
+    /// offset=u64::MAX + length=1 overflows u64; must be rejected.
+    #[tokio::test]
+    async fn broadcast_mention_validation_rejects_overflow() {
+        let backend = MemoryBackend::new();
+        let (resp, _) = handle_message_set(
+            &backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "create": {
+                    "m0": {
+                        "chatId": "c1",
+                        "body": "Hello @everyone",
+                        "sentAt": "2024-01-01T00:00:00Z",
+                        "broadcastMentions": [
+                            { "scope": "everyone", "offset": u64::MAX, "length": 1 }
+                        ]
+                    }
+                }
+            }),
+        )
+        .await
+        .expect("handle_message_set");
+
+        assert!(resp["notCreated"]["m0"].is_object());
+        assert_eq!(resp["notCreated"]["m0"]["type"], "invalidArguments");
+        let desc = resp["notCreated"]["m0"]["description"]
+            .as_str()
+            .expect("description");
+        assert!(
+            desc.contains("overflows u64"),
+            "expected 'overflows u64' in description, got: {desc}"
+        );
+    }
+
+    /// offset + length exceeding body byte length must be rejected.
+    #[tokio::test]
+    async fn broadcast_mention_validation_rejects_exceeds_body() {
+        let backend = MemoryBackend::new();
+        let (resp, _) = handle_message_set(
+            &backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "create": {
+                    "m0": {
+                        "chatId": "c1",
+                        "body": "short",
+                        "sentAt": "2024-01-01T00:00:00Z",
+                        "broadcastMentions": [
+                            { "scope": "everyone", "offset": 0, "length": 999 }
+                        ]
+                    }
+                }
+            }),
+        )
+        .await
+        .expect("handle_message_set");
+
+        assert!(resp["notCreated"]["m0"].is_object());
+        assert_eq!(resp["notCreated"]["m0"]["type"], "invalidArguments");
+        let desc = resp["notCreated"]["m0"]["description"]
+            .as_str()
+            .expect("description");
+        assert!(
+            desc.contains("exceeds body byte length"),
+            "expected 'exceeds body byte length' in description, got: {desc}"
+        );
+    }
+
+    /// broadcastMentions must be empty when bodyType is
+    /// "application/jmap-chat-rich".
+    #[tokio::test]
+    async fn broadcast_mention_validation_rejects_rich_body_nonempty() {
+        let backend = MemoryBackend::new();
+        let (resp, _) = handle_message_set(
+            &backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "create": {
+                    "m0": {
+                        "chatId": "c1",
+                        "body": "Hello @everyone in rich",
+                        "bodyType": "application/jmap-chat-rich",
+                        "sentAt": "2024-01-01T00:00:00Z",
+                        "broadcastMentions": [
+                            { "scope": "everyone", "offset": 6, "length": 9 }
+                        ]
+                    }
+                }
+            }),
+        )
+        .await
+        .expect("handle_message_set");
+
+        assert!(resp["notCreated"]["m0"].is_object());
+        assert_eq!(resp["notCreated"]["m0"]["type"], "invalidArguments");
+        let desc = resp["notCreated"]["m0"]["description"]
+            .as_str()
+            .expect("description");
+        assert!(
+            desc.contains("application/jmap-chat-rich"),
+            "expected 'application/jmap-chat-rich' in description, got: {desc}"
+        );
+    }
+
+    /// A valid @everyone mention at the correct body offset succeeds.
+    #[tokio::test]
+    async fn broadcast_mention_validation_accepts_valid() {
+        let backend = MemoryBackend::new();
+        let body = "Hello @everyone!";
+        let (resp, _) = handle_message_set(
+            &backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "create": {
+                    "m0": {
+                        "chatId": "c1",
+                        "body": body,
+                        "sentAt": "2024-01-01T00:00:00Z",
+                        "broadcastMentions": [
+                            { "scope": "everyone", "offset": 6, "length": 9 }
+                        ]
+                    }
+                }
+            }),
+        )
+        .await
+        .expect("handle_message_set");
+
+        assert!(
+            resp["created"]["m0"].is_object(),
+            "expected created, got notCreated: {}",
+            resp["notCreated"]["m0"]
+        );
+    }
+
+    /// An empty broadcastMentions array is always valid.
+    #[tokio::test]
+    async fn broadcast_mention_validation_accepts_empty() {
+        let backend = MemoryBackend::new();
+        let (resp, _) = handle_message_set(
+            &backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "create": {
+                    "m0": {
+                        "chatId": "c1",
+                        "body": "Hello, world!",
+                        "sentAt": "2024-01-01T00:00:00Z",
+                        "broadcastMentions": []
+                    }
+                }
+            }),
+        )
+        .await
+        .expect("handle_message_set");
+
+        assert!(
+            resp["created"]["m0"].is_object(),
+            "expected created, got notCreated: {}",
+            resp["notCreated"]["m0"]
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // BroadcastMention permission-check tests (§4.4.1 mention_broadcast)
+    //
+    // Oracle: the spec text itself. Group/direct chats without a spaceId
+    // are unrestricted; channel chats with a spaceId must pass the
+    // mention_broadcast gate. The MemoryBackend's default
+    // may_broadcast_mention returns Ok(Ok(())) (always permits), so
+    // these tests verify the handler CODE PATH is wired correctly and
+    // that the gate is skipped or invoked in the right circumstances.
+    // -----------------------------------------------------------------------
+
+    /// Helper: create a group Chat (no spaceId) via handle_chat_set and
+    /// return its server-assigned id.
+    async fn make_group_chat(backend: &MemoryBackend) -> String {
+        let (resp, _) = crate::chat::handle_chat_set(
+            backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "create": { "c0": { "kind": "group", "name": "test-group" } }
+            }),
+        )
+        .await
+        .expect("make_group_chat");
+        resp["created"]["c0"]["id"]
+            .as_str()
+            .expect("group chat id")
+            .to_owned()
+    }
+
+    /// Helper: create a Space, then a channel Chat inside it, and return
+    /// the channel's server-assigned id.
+    async fn make_channel_chat(backend: &MemoryBackend) -> String {
+        // Create a Space first.
+        let (space_resp, _) = crate::space::handle_space_set(
+            backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "create": { "s0": { "name": "test-space" } }
+            }),
+        )
+        .await
+        .expect("make_channel_chat: space");
+        let space_id = space_resp["created"]["s0"]["id"]
+            .as_str()
+            .expect("space id");
+
+        // Create a channel Chat in that Space.
+        let (chat_resp, _) = crate::chat::handle_chat_set(
+            backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "create": { "c0": {
+                    "kind": "channel",
+                    "name": "general",
+                    "spaceId": space_id
+                } }
+            }),
+        )
+        .await
+        .expect("make_channel_chat: chat");
+        chat_resp["created"]["c0"]["id"]
+            .as_str()
+            .expect("channel chat id")
+            .to_owned()
+    }
+
+    /// Create a Message with broadcastMentions in a group chat (no spaceId).
+    /// The permission check must be SKIPPED (unrestricted per spec),
+    /// and the message must succeed.
+    #[tokio::test]
+    async fn broadcast_mention_create_without_space_unrestricted() {
+        let backend = MemoryBackend::new();
+        let chat_id = make_group_chat(&backend).await;
+
+        let body = "Hello @everyone!";
+        let (resp, _) = handle_message_set(
+            &backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "create": {
+                    "m0": {
+                        "chatId": chat_id,
+                        "body": body,
+                        "sentAt": "2024-01-01T00:00:00Z",
+                        "broadcastMentions": [
+                            { "scope": "everyone", "offset": 6, "length": 9 }
+                        ]
+                    }
+                }
+            }),
+        )
+        .await
+        .expect("handle_message_set");
+
+        assert!(
+            resp["created"]["m0"].is_object(),
+            "expected created in group chat (no spaceId), got notCreated: {}",
+            resp["notCreated"]["m0"]
+        );
+    }
+
+    /// Create a Message with broadcastMentions in a channel chat (has spaceId).
+    /// The MemoryBackend's default may_broadcast_mention permits all,
+    /// so the message must succeed.
+    #[tokio::test]
+    async fn broadcast_mention_create_in_channel_succeeds() {
+        let backend = MemoryBackend::new();
+        let chat_id = make_channel_chat(&backend).await;
+
+        let body = "Hello @everyone!";
+        let (resp, _) = handle_message_set(
+            &backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "create": {
+                    "m0": {
+                        "chatId": chat_id,
+                        "body": body,
+                        "sentAt": "2024-01-01T00:00:00Z",
+                        "broadcastMentions": [
+                            { "scope": "everyone", "offset": 6, "length": 9 }
+                        ]
+                    }
+                }
+            }),
+        )
+        .await
+        .expect("handle_message_set");
+
+        assert!(
+            resp["created"]["m0"].is_object(),
+            "expected created in channel chat, got notCreated: {}",
+            resp["notCreated"]["m0"]
+        );
+    }
+
+    /// Create a Message with empty broadcastMentions in a channel chat.
+    /// The permission check must NOT fire (empty array skips the gate).
+    #[tokio::test]
+    async fn broadcast_mention_create_empty_skips_permission_check() {
+        let backend = MemoryBackend::new();
+        let chat_id = make_channel_chat(&backend).await;
+
+        let (resp, _) = handle_message_set(
+            &backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "create": {
+                    "m0": {
+                        "chatId": chat_id,
+                        "body": "Hello, world!",
+                        "sentAt": "2024-01-01T00:00:00Z",
+                        "broadcastMentions": []
+                    }
+                }
+            }),
+        )
+        .await
+        .expect("handle_message_set");
+
+        assert!(
+            resp["created"]["m0"].is_object(),
+            "expected created with empty broadcastMentions, got notCreated: {}",
+            resp["notCreated"]["m0"]
+        );
+    }
+
+    /// Update a Message to retain non-empty broadcastMentions in a channel chat.
+    /// The MemoryBackend's default may_broadcast_mention permits all,
+    /// so the update must succeed.
+    #[tokio::test]
+    async fn broadcast_mention_update_retaining_broadcast_succeeds() {
+        let backend = MemoryBackend::new();
+        let chat_id = make_channel_chat(&backend).await;
+
+        // Create a message with broadcastMentions first.
+        let body = "Hello @everyone!";
+        let (create_resp, _) = handle_message_set(
+            &backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "create": {
+                    "m0": {
+                        "chatId": chat_id,
+                        "body": body,
+                        "sentAt": "2024-01-01T00:00:00Z",
+                        "broadcastMentions": [
+                            { "scope": "everyone", "offset": 6, "length": 9 }
+                        ]
+                    }
+                }
+            }),
+        )
+        .await
+        .expect("create message");
+        let msg_id = create_resp["created"]["m0"]["id"]
+            .as_str()
+            .expect("message id");
+
+        // Update the message, retaining a non-empty broadcastMentions.
+        let new_body = "Hey @here now!";
+        let (update_resp, _) = handle_message_set(
+            &backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "update": {
+                    (msg_id): {
+                        "body": new_body,
+                        "broadcastMentions": [
+                            { "scope": "here", "offset": 4, "length": 5 }
+                        ]
+                    }
+                }
+            }),
+        )
+        .await
+        .expect("update message");
+
+        assert!(
+            update_resp["updated"][msg_id].is_null()
+                || update_resp["updated"][msg_id].is_object(),
+            "expected updated, got notUpdated: {}",
+            update_resp["notUpdated"][msg_id]
+        );
+        assert!(
+            update_resp["notUpdated"].is_null()
+                || !update_resp["notUpdated"].as_object().is_some_and(|m| m.contains_key(msg_id)),
+            "message should not be in notUpdated"
+        );
+    }
 }

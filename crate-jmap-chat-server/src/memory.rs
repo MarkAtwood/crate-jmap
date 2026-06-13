@@ -662,17 +662,39 @@ impl JmapBackend for MemoryBackend {
         &self,
         _caller: &(),
         account_id: &Id,
-        _filter: Option<&O::Filter>,
+        filter: Option<&O::Filter>,
         _sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
     ) -> Result<QueryResult, Self::Error> {
         let inner = self.inner.lock().unwrap();
 
+        // Serialize the generic filter to a serde_json::Value so we can
+        // inspect it for type-specific filter keys. O::Filter implements
+        // Serialize for all JMAP Chat types (all are serde_json::Value).
+        let filter_val: Option<serde_json::Value> = filter
+            .and_then(|f| serde_json::to_value(f).ok());
+
         let mut ids: Vec<Id> = inner
             .objects_ref(O::TYPE_NAME, account_id.as_ref())
             .map(|m| {
                 let mut keys: Vec<Id> = m.keys().cloned().collect();
+
+                // Message-specific filtering (draft-atwood-jmap-chat-00
+                // §4.13 hasMention + chatId). The MemoryBackend applies
+                // these filters in-process; production backends would
+                // push them into a database query.
+                if O::TYPE_NAME == "Message" {
+                    if let Some(ref fv) = filter_val {
+                        keys.retain(|id| {
+                            let Some(obj) = m.get(id) else {
+                                return false;
+                            };
+                            message_matches_filter(obj, fv)
+                        });
+                    }
+                }
+
                 keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
                 keys
             })
@@ -3222,6 +3244,68 @@ fn role_position(space_val: &serde_json::Value, role_id: &str) -> Option<u64> {
         .iter()
         .find(|r| r.get("id").and_then(|v| v.as_str()) == Some(role_id))
         .and_then(|r| r.get("position").and_then(|v| v.as_u64()))
+}
+
+// ---------------------------------------------------------------------------
+// Message filter helpers (draft-atwood-jmap-chat-00 §4.13)
+// ---------------------------------------------------------------------------
+
+/// A broadcast mention whose scope resolves to include the owner
+/// satisfies hasMention. The MemoryBackend reference impl resolves:
+///   "everyone" -> true (owner is always a member)
+///   "here"     -> true (reference impl: all accounts active)
+///   "admins"   -> true (reference impl: single-user = always admin)
+/// Unknown scopes -> false (defensive: do not match on unrecognized scope)
+fn broadcast_mention_matches_owner(bm: &serde_json::Value) -> bool {
+    match bm.get("scope").and_then(|v| v.as_str()) {
+        Some("everyone") => true,
+        Some("here") => true,
+        Some("admins") => true,
+        _ => false, // unknown scope: conservative no-match
+    }
+}
+
+/// Check whether a stored Message JSON value passes the given filter.
+///
+/// Supported filter keys:
+/// - `chatId`: exact match against the message's `chatId` field
+/// - `hasMention`: when `true`, the message must contain a mention of
+///   the owner — either in `mentions` (non-empty array) or in
+///   `broadcastMentions` (at least one entry whose scope resolves to
+///   include the owner via [`broadcast_mention_matches_owner`])
+///
+/// All supplied filter keys must match (AND semantics).
+fn message_matches_filter(obj: &serde_json::Value, filter: &serde_json::Value) -> bool {
+    // chatId filter: exact match
+    if let Some(expected_chat) = filter.get("chatId").and_then(|v| v.as_str()) {
+        let actual_chat = obj.get("chatId").and_then(|v| v.as_str()).unwrap_or("");
+        if actual_chat != expected_chat {
+            return false;
+        }
+    }
+
+    // hasMention filter (§4.13): true means "owner is mentioned"
+    if let Some(true) = filter.get("hasMention").and_then(|v| v.as_bool()) {
+        // Check direct mentions first (short-circuit)
+        let has_direct = obj
+            .get("mentions")
+            .and_then(|v| v.as_array())
+            .is_some_and(|arr| !arr.is_empty());
+
+        if !has_direct {
+            // Fallback: check broadcastMentions
+            let has_broadcast = obj
+                .get("broadcastMentions")
+                .and_then(|v| v.as_array())
+                .is_some_and(|arr| arr.iter().any(broadcast_mention_matches_owner));
+
+            if !has_broadcast {
+                return false;
+            }
+        }
+    }
+
+    true
 }
 
 /// Return every Message id whose `chatId` field equals `chat_id`.

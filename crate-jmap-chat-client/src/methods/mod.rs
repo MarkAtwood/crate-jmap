@@ -754,6 +754,10 @@ pub struct MessagePatch<'a> {
     /// When `Some(true)` and `deleted_at` is also set, deletes for all
     /// participants (server sends `Peer/retract`).
     pub deleted_for_all: Option<bool>,
+    /// Replace the broadcast-mentions array on an author-only edit
+    /// (draft-atwood-jmap-chat-00 §4.4.1). `Some(vec![])` clears all
+    /// broadcast mentions; `None` leaves the server value unchanged.
+    pub broadcast_mentions: Option<Vec<jmap_chat_types::BroadcastMention>>,
 }
 
 /// Patch parameters for `PresenceStatus/set` update.

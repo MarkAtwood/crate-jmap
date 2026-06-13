@@ -368,6 +368,13 @@ impl super::SessionClient {
         if let Some(dfa) = patch.deleted_for_all {
             patch_map.insert("deletedForAll".into(), dfa.into());
         }
+        if let Some(broadcast_mentions) = &patch.broadcast_mentions {
+            patch_map.insert(
+                "broadcastMentions".into(),
+                serde_json::to_value(broadcast_mentions)
+                    .expect("BroadcastMention serializes infallibly"),
+            );
+        }
         for change in patch.reaction_changes.unwrap_or(&[]) {
             match change {
                 ReactionChange::Add {

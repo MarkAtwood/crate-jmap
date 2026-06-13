@@ -64,8 +64,9 @@ pub use ephemeral::{
     ChatPresenceEvent, ChatStreamDisable, ChatStreamEnable, ChatTypingEvent, EphemeralMessage,
 };
 pub use message::{
-    Attachment, BodyType, DeliveryReceipt, DeliveryState, Mention, Message, MessageAction,
-    MessageRevision, Reaction, ReadDisposition, SenderId,
+    Attachment, BodyType, BroadcastMention, DeliveryReceipt, DeliveryState, Mention, Message,
+    MessageAction, MessageRevision, Reaction, ReadDisposition, SenderId,
+    BROADCAST_MENTION_SCOPES,
 };
 pub use position::ReadPosition;
 pub use presence::{Presence, PresenceStatus};

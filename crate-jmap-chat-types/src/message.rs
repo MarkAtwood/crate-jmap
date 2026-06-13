@@ -305,6 +305,77 @@ pub struct Mention {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+/// A broadcast-scope `@mention` within a [`Message`] body
+/// (draft-atwood-jmap-chat-00 §4.4.1).
+///
+/// Unlike [`Mention`], a `BroadcastMention` does not name a specific
+/// participant; it names a member set whose composition is resolved at
+/// delivery time by each receiving server.
+///
+/// # Scope values
+///
+/// The spec defines exactly three scope values:
+/// - `"everyone"` — all current members of the Space or Chat
+/// - `"here"` — currently-active members (deployment-defined predicate)
+/// - `"admins"` — members holding administrative authority (deployment-defined)
+///
+/// Servers MUST reject a `BroadcastMention` with an unrecognized `scope`
+/// value with `invalidArguments`. The [`BROADCAST_MENTION_SCOPES`] constant
+/// enumerates the accepted values for validation.
+///
+/// # Body-type constraint
+///
+/// When `Message.bodyType` is `"application/jmap-chat-rich"`, the
+/// `broadcastMentions` array on `Message` MUST be empty; broadcast-scope
+/// mentions are carried inline as `"broadcast"` spans in the rich body.
+///
+/// # Permission
+///
+/// Sending a `Message` with a non-empty `broadcastMentions` array requires
+/// the `"mention_broadcast"` Space permission. The server MUST reject
+/// `Message/set` create or update requests lacking this permission with
+/// `forbidden`.
+///
+/// # Offset/length validation
+///
+/// Servers MUST reject a `BroadcastMention` where `offset + length` exceeds
+/// the byte length of `Message.body`.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BroadcastMention {
+    /// The broadcast scope: one of `"everyone"`, `"here"`, or `"admins"`.
+    ///
+    /// Servers MUST reject unrecognized values with `invalidArguments`.
+    /// Clients SHOULD treat unrecognized values as opaque pass-through
+    /// for forward-compatibility (a future spec revision might add scopes).
+    pub scope: String,
+    /// Byte offset into `Message.body` where the broadcast-mention text
+    /// begins (draft-atwood-jmap-chat-00 §4.4.1).
+    pub offset: u64,
+    /// Byte length of the broadcast-mention text
+    /// (draft-atwood-jmap-chat-00 §4.4.1).
+    ///
+    /// Servers MUST reject a `BroadcastMention` where
+    /// `offset + length` exceeds the byte length of `Message.body`.
+    pub length: u64,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// The set of spec-defined broadcast-mention scope values
+/// (draft-atwood-jmap-chat-00 §4.4.1).
+///
+/// Servers use this for validation: any `BroadcastMention.scope` not in
+/// this list MUST be rejected with `invalidArguments`.
+///
+/// Values: `"everyone"`, `"here"`, `"admins"`.
+pub const BROADCAST_MENTION_SCOPES: &[&str] = &["everyone", "here", "admins"];
+
 /// An interactive action button attached to a [`Message`].
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -438,6 +509,18 @@ pub struct Message {
     pub attachments: Vec<Attachment>,
     /// The `mentions` property (draft-atwood-jmap-chat-00 §4.11).
     pub mentions: Vec<Mention>,
+    /// The `broadcastMentions` property (draft-atwood-jmap-chat-00 §4.11).
+    ///
+    /// Structured broadcast-scope mention annotations (`@everyone`,
+    /// `@here`, `@admins`). Empty by default.
+    ///
+    /// When `bodyType` is `"application/jmap-chat-rich"`, this array
+    /// MUST be empty; broadcast-scope mentions are carried inline as
+    /// `"broadcast"` spans in the rich body.
+    ///
+    /// Sending a message with a non-empty array requires the
+    /// `"mention_broadcast"` Space permission.
+    pub broadcast_mentions: Vec<BroadcastMention>,
     /// The `actions` property (draft-atwood-jmap-chat-00 §4.11).
     pub actions: Vec<MessageAction>,
     /// The `reactions` property (draft-atwood-jmap-chat-00 §4.11).
@@ -546,7 +629,8 @@ impl Message {
     /// Construct a [`Message`] from its required wire fields.
     ///
     /// Empty-by-default collection fields (`attachments`, `mentions`,
-    /// `actions`, `reactions`) and all optional metadata fields default
+    /// `broadcast_mentions`, `actions`, `reactions`) and all optional
+    /// metadata fields default
     /// to their zero values. Callers assign them via struct-update after
     /// construction.
     ///
@@ -581,6 +665,7 @@ impl Message {
             body_type: body_type.into(),
             attachments: Vec::new(),
             mentions: Vec::new(),
+            broadcast_mentions: Vec::new(),
             actions: Vec::new(),
             reactions: HashMap::new(),
             sent_at,
@@ -623,6 +708,7 @@ mod tests {
             "bodyType": "text/plain",
             "attachments": [],
             "mentions": [],
+            "broadcastMentions": [],
             "actions": [],
             "reactions": {},
             "sentAt": "2026-01-01T00:00:00Z",
@@ -634,6 +720,7 @@ mod tests {
         assert_eq!(msg.sender_id, SenderId::Owner);
         assert!(msg.attachments.is_empty());
         assert!(msg.mentions.is_empty());
+        assert!(msg.broadcast_mentions.is_empty());
         assert!(msg.actions.is_empty());
         assert!(msg.reactions.is_empty());
         assert!(msg.reply_to.is_none());
@@ -653,6 +740,7 @@ mod tests {
             "bodyType": "text/plain",
             "attachments": [],
             "mentions": [],
+            "broadcastMentions": [],
             "actions": [],
             "reactions": {
                 "r1": {
@@ -748,6 +836,7 @@ mod tests {
             "bodyType": "text/plain",
             "attachments": [],
             "mentions": [],
+            "broadcastMentions": [],
             "actions": [],
             "reactions": {},
             "sentAt": "2026-01-03T00:00:00Z",
@@ -980,6 +1069,7 @@ mod tests {
             "bodyType": "text/plain",
             "attachments": [],
             "mentions": [],
+            "broadcastMentions": [],
             "actions": [],
             "reactions": {},
             "sentAt": "2026-01-01T00:00:00Z",
@@ -1013,5 +1103,164 @@ mod tests {
         let rev2: MessageRevision =
             serde_json::from_str(&roundtrip).expect("re-deserialize MessageRevision");
         assert_eq!(rev, rev2);
+    }
+
+    // ── BroadcastMention tests ────────────────────────────────────────────
+
+    /// Oracle: hand-crafted JSON matching spec §4.4.1 BroadcastMention shape.
+    /// All three spec-defined scope values must round-trip.
+    #[test]
+    fn broadcast_mention_roundtrip_all_scopes() {
+        for scope in BROADCAST_MENTION_SCOPES {
+            let raw = serde_json::json!({
+                "scope": scope,
+                "offset": 0,
+                "length": 9
+            });
+            let bm: BroadcastMention =
+                serde_json::from_value(raw.clone()).expect("deserialize BroadcastMention");
+            assert_eq!(bm.scope, *scope, "scope must match for {scope}");
+            assert_eq!(bm.offset, 0);
+            assert_eq!(bm.length, 9);
+            assert!(bm.extra.is_empty(), "no extras expected");
+
+            let back = serde_json::to_value(&bm).expect("serialize");
+            assert_eq!(back, raw, "round-trip must be lossless for scope={scope}");
+        }
+    }
+
+    /// Oracle: spec §4.4.1 — wire key names must be camelCase.
+    #[test]
+    fn broadcast_mention_wire_key_names() {
+        let bm = BroadcastMention {
+            scope: "everyone".to_string(),
+            offset: 5,
+            length: 9,
+            extra: serde_json::Map::new(),
+        };
+        let json = serde_json::to_string(&bm).expect("serialize");
+        assert!(json.contains(r#""scope""#), "must have scope key: {json}");
+        assert!(json.contains(r#""offset""#), "must have offset key: {json}");
+        assert!(json.contains(r#""length""#), "must have length key: {json}");
+        // Negative: no snake_case keys leaked.
+        assert!(
+            !json.contains("broadcast_mention"),
+            "snake_case must not appear: {json}"
+        );
+    }
+
+    /// `BroadcastMention.extra` captures vendor fields and preserves them.
+    #[test]
+    fn broadcast_mention_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "scope": "here",
+            "offset": 10,
+            "length": 5,
+            "acmeCorpResolvedCount": 42
+        });
+        let bm: BroadcastMention = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            bm.extra
+                .get("acmeCorpResolvedCount")
+                .and_then(|v| v.as_u64()),
+            Some(42)
+        );
+        let back = serde_json::to_value(&bm).unwrap();
+        assert_eq!(back["acmeCorpResolvedCount"], 42);
+    }
+
+    /// Verify `BROADCAST_MENTION_SCOPES` matches the spec enumeration exactly.
+    /// Oracle: draft-atwood-jmap-chat-00 §4.4.1 scope list.
+    #[test]
+    fn broadcast_mention_scopes_matches_spec() {
+        assert_eq!(
+            BROADCAST_MENTION_SCOPES,
+            &["everyone", "here", "admins"],
+            "scope list must match spec §4.4.1 exactly"
+        );
+    }
+
+    /// Verify a Message with broadcastMentions deserializes and round-trips.
+    /// Oracle: hand-crafted JSON with one @everyone broadcast mention.
+    #[test]
+    fn message_with_broadcast_mentions_roundtrip() {
+        let json = r#"{
+            "id": "m10",
+            "senderMsgId": "smid10",
+            "senderId": "self",
+            "chatId": "c1",
+            "body": "@everyone hello",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "mentions": [],
+            "broadcastMentions": [
+                {"scope": "everyone", "offset": 0, "length": 9}
+            ],
+            "actions": [],
+            "reactions": {},
+            "sentAt": "2026-06-01T00:00:00Z",
+            "receivedAt": "2026-06-01T00:00:01Z",
+            "deliveryState": "delivered"
+        }"#;
+        let msg: Message = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(msg.broadcast_mentions.len(), 1);
+        assert_eq!(msg.broadcast_mentions[0].scope, "everyone");
+        assert_eq!(msg.broadcast_mentions[0].offset, 0);
+        assert_eq!(msg.broadcast_mentions[0].length, 9);
+
+        let back = serde_json::to_string(&msg).expect("serialize");
+        let msg2: Message = serde_json::from_str(&back).expect("re-deserialize");
+        assert_eq!(
+            msg.broadcast_mentions, msg2.broadcast_mentions,
+            "broadcast_mentions must round-trip"
+        );
+    }
+
+    /// Constructor sets broadcast_mentions to empty vec (workspace convention:
+    /// empty-by-default collections in constructor body, not signature).
+    #[test]
+    fn message_new_has_empty_broadcast_mentions() {
+        let msg = Message::new(
+            Id::from("m1"),
+            Id::from("smid1"),
+            SenderId::Owner,
+            Id::from("c1"),
+            "hi",
+            "text/plain",
+            UTCDate::from("2026-01-01T00:00:00Z"),
+            UTCDate::from("2026-01-01T00:00:01Z"),
+            DeliveryState::Delivered,
+        );
+        assert!(
+            msg.broadcast_mentions.is_empty(),
+            "constructor must default broadcast_mentions to empty"
+        );
+    }
+
+    /// Defensive: a Message JSON missing broadcastMentions must fail to
+    /// deserialize (the field is required, matching the sibling Vec fields
+    /// mentions/attachments/actions which are also required).
+    #[test]
+    fn message_missing_broadcast_mentions_fails_deser() {
+        let json = r#"{
+            "id": "m1",
+            "senderMsgId": "smid1",
+            "senderId": "self",
+            "chatId": "c1",
+            "body": "hi",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "mentions": [],
+            "actions": [],
+            "reactions": {},
+            "sentAt": "2026-01-01T00:00:00Z",
+            "receivedAt": "2026-01-01T00:00:01Z",
+            "deliveryState": "delivered"
+        }"#;
+        let result = serde_json::from_str::<Message>(json);
+        assert!(
+            result.is_err(),
+            "Message without broadcastMentions must fail to deserialize"
+        );
     }
 }
