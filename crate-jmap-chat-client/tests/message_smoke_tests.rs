@@ -146,6 +146,7 @@ async fn message_get_decodes_populated_message() {
                             "length": 5
                         }
                     ],
+                    "broadcastMentions": [],
                     "actions": [],
                     "reactions": {
                         "self-r1": {
@@ -1064,6 +1065,102 @@ async fn message_query_changes_with_filter_sort_upto_calculatetotal() {
         args["calculateTotal"],
         json!(true),
         "calculateTotal must be on the wire (RFC 8620 §5.6)"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// broadcastMentions plumbing — draft-atwood-jmap-chat-00 §4.4.1
+//
+// Three tests confirm the wire behavior of `MessagePatch.broadcast_mentions`:
+//   1. `Some(vec![…])` → key present with the serialized array
+//   2. `None` → key absent
+//   3. `Some(vec![])` → key present as `[]` (clears broadcast mentions)
+// ---------------------------------------------------------------------------
+
+/// `MessagePatch.broadcast_mentions = Some(vec![…])` must emit the
+/// `broadcastMentions` key inside the per-id patch object with the
+/// serialized array (draft-atwood-jmap-chat-00 §4.4.1).
+#[tokio::test]
+async fn message_update_broadcast_mentions_emits_wire_key() {
+    let server = MockServer::start().await;
+    let resp_body =
+        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let msg_id = Id::from("msg-1");
+    let mut patch = jmap_chat_client::methods::MessagePatch::default();
+    patch.broadcast_mentions = Some(vec![serde_json::from_value(
+        json!({"scope": "everyone", "offset": 0, "length": 9}),
+    )
+    .expect("BroadcastMention must deserialize")]);
+    let _ = sc
+        .message_update(&msg_id, &patch)
+        .await
+        .expect("message_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    let patch_obj = &args["update"]["msg-1"];
+    assert_eq!(
+        patch_obj["broadcastMentions"],
+        json!([{"scope": "everyone", "offset": 0, "length": 9}]),
+        "broadcastMentions must appear on the wire with the serialized array"
+    );
+}
+
+/// `MessagePatch.broadcast_mentions = None` must NOT emit a
+/// `broadcastMentions` key in the per-id patch object — the server
+/// leaves the existing value unchanged.
+#[tokio::test]
+async fn message_update_broadcast_mentions_none_omits_wire_key() {
+    let server = MockServer::start().await;
+    let resp_body =
+        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let msg_id = Id::from("msg-1");
+    let patch = jmap_chat_client::methods::MessagePatch::default();
+    // broadcast_mentions is None by default.
+    let _ = sc
+        .message_update(&msg_id, &patch)
+        .await
+        .expect("message_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    let patch_obj = &args["update"]["msg-1"];
+    assert!(
+        patch_obj.get("broadcastMentions").is_none(),
+        "broadcastMentions key must be absent when broadcast_mentions is None; got {:?}",
+        patch_obj.get("broadcastMentions")
+    );
+}
+
+/// `MessagePatch.broadcast_mentions = Some(vec![])` must emit
+/// `"broadcastMentions": []` on the wire — this is how a client clears
+/// broadcast mentions on an author-only edit.
+#[tokio::test]
+async fn message_update_broadcast_mentions_empty_vec_emits_empty_array() {
+    let server = MockServer::start().await;
+    let resp_body =
+        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let msg_id = Id::from("msg-1");
+    let mut patch = jmap_chat_client::methods::MessagePatch::default();
+    patch.broadcast_mentions = Some(vec![]);
+    let _ = sc
+        .message_update(&msg_id, &patch)
+        .await
+        .expect("message_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    let patch_obj = &args["update"]["msg-1"];
+    assert_eq!(
+        patch_obj["broadcastMentions"],
+        json!([]),
+        "broadcastMentions must be present as an empty array when Some(vec![])"
     );
 }
 

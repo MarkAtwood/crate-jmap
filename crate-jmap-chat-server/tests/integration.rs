@@ -1880,6 +1880,7 @@ async fn message_get_default_omits_edit_history() {
             "bodyType": "text/plain",
             "attachments": [],
             "mentions": [],
+            "broadcastMentions": [],
             "actions": [],
             "reactions": {},
             "sentAt": "2024-01-01T00:00:00Z",
@@ -1932,6 +1933,7 @@ async fn message_get_with_retention_returns_edit_history() {
             "bodyType": "text/plain",
             "attachments": [],
             "mentions": [],
+            "broadcastMentions": [],
             "actions": [],
             "reactions": {},
             "sentAt": "2024-01-01T00:00:00Z",
@@ -1984,6 +1986,7 @@ async fn message_get_properties_does_not_force_edit_history_when_retention_off()
             "bodyType": "text/plain",
             "attachments": [],
             "mentions": [],
+            "broadcastMentions": [],
             "actions": [],
             "reactions": {},
             "sentAt": "2024-01-01T00:00:00Z",
@@ -2529,6 +2532,7 @@ async fn message_set_update_reaction_remove_others_rejected_forbidden() {
             "bodyType": "text/plain",
             "attachments": [],
             "mentions": [],
+            "broadcastMentions": [],
             "actions": [],
             "reactions": {
                 "foo": {
@@ -2601,6 +2605,7 @@ async fn message_set_update_reaction_modify_others_rejected_forbidden() {
             "bodyType": "text/plain",
             "attachments": [],
             "mentions": [],
+            "broadcastMentions": [],
             "actions": [],
             "reactions": {
                 "foo": {
@@ -7291,4 +7296,201 @@ async fn apply_space_patch_direct_call_overquota_description_does_not_leak_count
         }
         other => panic!("expected overQuota SetError, got {other:?}"),
     }
+}
+
+// ---------------------------------------------------------------------------
+// hasMention filter — broadcast mention resolution (bd:JMAP-6kxh.4)
+// ---------------------------------------------------------------------------
+
+/// Helper: seed a Chat and a Message for hasMention filter tests.
+/// Returns the message id.
+fn seed_message_for_mention_test(
+    backend: &MemoryBackend,
+    msg_id: &str,
+    mentions: serde_json::Value,
+    broadcast_mentions: serde_json::Value,
+) {
+    // Seed a Chat so Message/query's chatId cross-reference is satisfiable.
+    backend.insert_object_for_test(
+        "Chat",
+        ACCOUNT_ID,
+        "c-mention",
+        json!({
+            "id": "c-mention",
+            "kind": "dm",
+            "name": "mention-test",
+            "receivedAt": "2024-01-01T00:00:00Z"
+        }),
+    );
+    backend.insert_object_for_test(
+        "Message",
+        ACCOUNT_ID,
+        msg_id,
+        json!({
+            "id": msg_id,
+            "senderMsgId": format!("s-{msg_id}"),
+            "senderId": "other-user",
+            "chatId": "c-mention",
+            "body": "hello",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "mentions": mentions,
+            "broadcastMentions": broadcast_mentions,
+            "actions": [],
+            "reactions": {},
+            "sentAt": "2024-01-01T00:00:00Z",
+            "receivedAt": "2024-01-01T00:00:01Z",
+            "deliveryState": "delivered"
+        }),
+    );
+}
+
+/// Oracle: hasMention matches a message with
+/// broadcastMentions=[{scope:"everyone"}] and empty direct mentions.
+#[tokio::test]
+async fn query_has_mention_matches_broadcast_everyone() {
+    let backend = MemoryBackend::new();
+    seed_message_for_mention_test(
+        &backend,
+        "m-everyone",
+        json!([]),
+        json!([{"scope": "everyone"}]),
+    );
+
+    let (resp, _) = handle_message_query(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "filter": { "hasMention": true },
+            "calculateTotal": true
+        }),
+    )
+    .await
+    .expect("query");
+
+    let ids = resp["ids"].as_array().expect("ids");
+    assert_eq!(ids.len(), 1, "broadcast everyone must match hasMention");
+    assert_eq!(ids[0], "m-everyone");
+    assert_eq!(resp["total"], json!(1u64));
+}
+
+/// Oracle: hasMention matches a message with
+/// broadcastMentions=[{scope:"here"}] and empty direct mentions.
+#[tokio::test]
+async fn query_has_mention_matches_broadcast_here() {
+    let backend = MemoryBackend::new();
+    seed_message_for_mention_test(
+        &backend,
+        "m-here",
+        json!([]),
+        json!([{"scope": "here"}]),
+    );
+
+    let (resp, _) = handle_message_query(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "filter": { "hasMention": true },
+            "calculateTotal": true
+        }),
+    )
+    .await
+    .expect("query");
+
+    let ids = resp["ids"].as_array().expect("ids");
+    assert_eq!(ids.len(), 1, "broadcast here must match hasMention");
+    assert_eq!(ids[0], "m-here");
+}
+
+/// Oracle: hasMention matches a message with
+/// broadcastMentions=[{scope:"admins"}] and empty direct mentions.
+#[tokio::test]
+async fn query_has_mention_matches_broadcast_admins() {
+    let backend = MemoryBackend::new();
+    seed_message_for_mention_test(
+        &backend,
+        "m-admins",
+        json!([]),
+        json!([{"scope": "admins"}]),
+    );
+
+    let (resp, _) = handle_message_query(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "filter": { "hasMention": true },
+            "calculateTotal": true
+        }),
+    )
+    .await
+    .expect("query");
+
+    let ids = resp["ids"].as_array().expect("ids");
+    assert_eq!(ids.len(), 1, "broadcast admins must match hasMention");
+    assert_eq!(ids[0], "m-admins");
+}
+
+/// Oracle: hasMention does NOT match a message with empty mentions AND
+/// empty broadcastMentions.
+#[tokio::test]
+async fn query_has_mention_no_broadcast_no_mention() {
+    let backend = MemoryBackend::new();
+    seed_message_for_mention_test(
+        &backend,
+        "m-none",
+        json!([]),
+        json!([]),
+    );
+
+    let (resp, _) = handle_message_query(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "filter": { "hasMention": true },
+            "calculateTotal": true
+        }),
+    )
+    .await
+    .expect("query");
+
+    let ids = resp["ids"].as_array().expect("ids");
+    assert_eq!(ids.len(), 0, "no mentions at all must not match hasMention");
+    assert_eq!(resp["total"], json!(0u64));
+}
+
+/// Oracle: hasMention does NOT match a message with an unknown broadcast
+/// scope (defensive: unrecognized scope is conservative no-match).
+#[tokio::test]
+async fn query_has_mention_unknown_scope_no_match() {
+    let backend = MemoryBackend::new();
+    seed_message_for_mention_test(
+        &backend,
+        "m-unknown",
+        json!([]),
+        json!([{"scope": "channel"}]),
+    );
+
+    let (resp, _) = handle_message_query(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "filter": { "hasMention": true },
+            "calculateTotal": true
+        }),
+    )
+    .await
+    .expect("query");
+
+    let ids = resp["ids"].as_array().expect("ids");
+    assert_eq!(
+        ids.len(),
+        0,
+        "unknown scope 'channel' must not match hasMention"
+    );
+    assert_eq!(resp["total"], json!(0u64));
 }

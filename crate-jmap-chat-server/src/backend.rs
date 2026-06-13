@@ -1224,6 +1224,60 @@ pub trait ChatBackend: JmapBackend {
         async { Ok(Ok(())) }
     }
 
+    /// Authorization gate consulted by `handle_message_set` before a
+    /// create or update with a non-empty `broadcastMentions` array is
+    /// applied.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §4.4.1: sending a `Message` with
+    /// a non-empty `broadcastMentions` array requires the
+    /// `"mention_broadcast"` Space permission. The server MUST reject
+    /// with `forbidden` when the caller lacks the permission.
+    ///
+    /// For group/direct chats NOT part of any Space (`spaceId` is
+    /// `None`), broadcast mentions are unrestricted per spec; the
+    /// handler skips calling this method entirely in that case.
+    ///
+    /// # `space_id` semantics
+    ///
+    /// `space_id` is the Space that contains the target Chat (channel).
+    /// The handler resolves it by pre-fetching the Chat and reading
+    /// its `space_id` field. This method is only called when
+    /// `space_id` is `Some` — the handler skips the call for
+    /// group/direct chats with no Space.
+    ///
+    /// # When the handler calls this
+    ///
+    /// `handle_message_set` invokes `may_broadcast_mention` once per
+    /// create/update entry whose post-validation `broadcastMentions`
+    /// is non-empty AND whose target Chat has a `spaceId`. The call
+    /// fires AFTER structural validation (`validate_broadcast_mentions`)
+    /// has succeeded and BEFORE `create_object` / `update_object`, so
+    /// malformed payloads do not consume an authorization decision and
+    /// an unauthorized message never touches storage.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(()))` — every op is permitted. This matches the
+    /// workspace's "kit defines the hook; consumer enforces the policy"
+    /// posture (see the parallel design of [`Self::may_set_custom_emoji`]).
+    /// Production backends SHOULD override this method to check the
+    /// caller's `mention_broadcast` permission in the target Space's
+    /// role hierarchy.
+    ///
+    /// # SetError shape recommendation
+    ///
+    /// Production backends SHOULD return
+    /// `Ok(Err(SetError::new(SetErrorType::Forbidden)
+    ///     .with_description("sender lacks mention_broadcast permission in this Space")))`.
+    fn may_broadcast_mention(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _space_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async { Ok(Ok(())) }
+    }
+
     /// Throttle gate consulted before a `Message/set` create lands on
     /// the rate-limited path.
     ///
