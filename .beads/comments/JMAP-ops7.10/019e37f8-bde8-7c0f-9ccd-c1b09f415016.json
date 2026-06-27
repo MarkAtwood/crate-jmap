@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T22:05:09Z",
+  "id": "019e37f8-bde8-7c0f-9ccd-c1b09f415016",
+  "issue_id": "JMAP-ops7.10",
+  "text": "Related per-crate finding: JMAP-3t94.5 (MemoryBackend::demo_next_id divergence) \u2014 same realistic-demo-ids policy area."
+}

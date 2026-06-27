@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decomposed into 9 children (.41.1 foundation + .41.2-.41.9 per-extension wire-ups). The cookie-cut workspace sweep is sequenced behind .41.1 (jmap-server foundation: helper + JmapBackend trait method). Decomposition is the completion contract for this analysis bead per the JMAP-x2gd.84 precedent.",
+  "closed_at": "2026-05-16T19:15:40Z",
+  "compaction_level": 0,
+  "content_hash": "8d5474e54c14fc563f58285bfcb116d86858a11fd34c6ef9fcc937fc2b119989",
+  "created_at": "2026-05-14T15:15:40Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding (Section C \u2014 Untrusted Input at Protocol Boundaries)\n\n`handle_metadata_set` (`crate-jmap-metadata-server/src/metadata.rs:300-530`) iterates the wire `create`, `update`, and `destroy` arguments without enforcing a cap on the number of entries.\n\n```rust\n// metadata.rs:336 \u2014 create\nif let Some(Value::Object(create_map)) = args.remove(\"create\") {\n    for (create_id, obj_val) in create_map { /* unbounded */\n\n// metadata.rs:401 \u2014 update\nif let Some(Value::Object(update_map)) = args.remove(\"update\") {\n    for (id_str, patch_val) in update_map { /* unbounded */\n\n// metadata.rs:465-470 \u2014 destroy\nif let Some(Value::Array(destroy_arr)) = args.remove(\"destroy\") {\n    let mut id_strs: Vec<String> = Vec::with_capacity(destroy_arr.len()); /* attacker-sized */\n    for id_val in &destroy_arr { /* unbounded */\n```\n\nRFC 8620 \u00a75.3 defines `maxObjectsInSet` as an account capability the server MUST enforce. draft-ietf-jmap-metadata-01 inherits this. Neither the metadata-server handler, nor `jmap-server` (verified by `rg \"maxObjectsInSet|max_objects_in_set\" crate-jmap-server/src/`), nor the canonical `jmap-mail-server` (verified by the same rg in mail-server/src/), enforces it.\n\nOnly the higher-level `maxCallsInRequest` is enforced \u2014 at `crate-jmap-server/src/parse.rs:67` via `parse_request`. That cap limits the number of method invocations per request, not the number of objects per /set.\n\n## What goes wrong if this stays as-is?\n\n1. **CPU amplification via uniqueness scan.** `MemoryBackend::find_uniqueness_conflict` (memory.rs:369-385) is O(N) linear scan over the account's Metadata store \u2014 already tracked as a performance gap at bd:JMAP-ayoz.10. Every `create_object` call runs this scan. A `/set` carrying M creates against an account holding N existing Metadata records is O(M\u00b7N) CPU. With M = 10,000 (well within a few-MB body cap) and N = 10,000, that is 10^8 hash comparisons per request. Real-database backends will have similar per-mutation costs (B-tree lookup, secondary-index scan).\n\n2. **Memory pre-allocation from wire-supplied length.** `Vec::with_capacity(destroy_arr.len())` at metadata.rs:470 sizes the temporary to the attacker-supplied destroy array length. Bounded by body cap but commits the allocation upfront.\n\n3. **Quadratic change-log growth.** Each successful create/update/destroy pushes a `ChangeEntry` onto the account's change log (memory.rs:756, 850, 893). A single /set with M operations grows the log by M entries. Subsequent `get_changes` walks are linear in log length; large /set ops permanently raise the cost of every subsequent /changes call until the consumer GCs the log.\n\nThe RFC explicitly anticipates this: `maxObjectsInSet` exists in the protocol precisely because unbounded /set is a DoS surface. The server is supposed to reject the request with a `requestTooLarge` (RFC 8620 \u00a73.6.1) before doing any work.\n\nThis is P2 defense-in-depth: HTTP-body-size limits at the transport layer (caller responsibility per `parse.rs:28-53`) are the structural backstop, but the spec mandates a per-account `maxObjectsInSet` cap and the workspace does not implement it.\n\n## Workspace cookie-cut scope (canonical-first)\n\nVerified absent from the canonical `jmap-mail-server`, from `jmap-chat-server`, and from `jmap-server` foundation. Every extension-server sibling has the same gap. Canonical-first propagation rule applies: the cap belongs in `jmap-server` (foundation helper called by each extension's `/set` handler) OR replicated identically in each extension-server `handle_*_set`.\n\nIdeal fix shape (foundation helper):\n\n```rust\n// in jmap-server\npub fn enforce_max_objects_in_set(\n    create: Option<&Value>,\n    update: Option<&Value>,\n    destroy: Option<&Value>,\n    max: u32,\n) -> Result<(), JmapError> {\n    let count = create.and_then(|v| v.as_object()).map_or(0, |m| m.len())\n              + update.and_then(|v| v.as_object()).map_or(0, |m| m.len())\n              + destroy.and_then(|v| v.as_array()).map_or(0, |a| a.len());\n    if count as u32 > max {\n        return Err(JmapError::limit(\"maxObjectsInSet\"));\n    }\n    Ok(())\n}\n```\n\nCalled at the top of each extension's `/set` handler with the account's `maxObjectsInSet` capability value (typically read from a backend-supplied per-account caps struct per the workspace AGENTS.md \"Backend caps and limits\" section). The metadata draft defines its own `urn:ietf:params:jmap:metadata` capability \u2014 wiring is per-extension, helper is foundation.\n\n## Related\n\n- bd:JMAP-ayoz.10 (P3) tracks the underlying O(N) uniqueness scan. The maxObjectsInSet cap mitigates the worst-case multiplier but does not fix the scan; both should land.\n- The workspace `Backend caps and limits` convention in AGENTS.md describes the `limits(caller, account_id) -> XxxLimits` pattern. The metadata-server's `MetadataLimits` does not yet exist; this finding would prompt its introduction.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.41",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Section C: handle_metadata_set does not enforce maxObjectsInSet cap (workspace cookie-cut) \u2014 CPU+memory amplification",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:15:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "90a7baf3-dd23-5cad-a853-1e3e5dae958c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

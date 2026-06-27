@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-isx.11",
+  "title": "Email/query collapseThreads=true does two full backend scans per request",
+  "description": "email.rs:182-199: when collapseThreads=true, the handler first calls query_objects with limit=None (fetches all matching IDs), then collapse_by_thread (line 185) calls get_objects::<Email>(account_id, None, None) to read all emails for their thread_ids. Two full scans per request. The second scan at line 723-729 gets ALL emails in the account (not just matching ones from the query). Fix: query_objects should return thread_ids alongside ids (backend API change), or collapse_by_thread should only fetch the specific IDs from the query result rather than all emails.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:20:50Z",
+  "updated_at": "2026-04-30T23:39:29Z",
+  "closed_at": "2026-04-30T23:39:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-isx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:20:50"
+    }
+  ]
+}

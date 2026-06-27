@@ -1,0 +1,33 @@
+{
+  "close_reason": "P3 / clippy::too_many_lines (pedantic, 118/100). Extracting the SSE state-machine closure into a free function would make it unit-testable separately from the live mock HTTP stream, which is a real benefit. But the closure has substantial async capture state (raw_buf, decode_buf, scan_from, the reqwest stream itself), and refactoring it without changing behaviour requires either a state-machine struct or a Pin<Box<dyn Stream>> adapter \u2014 non-trivial, with regression risk. Existing integration tests on the unfold loop are comprehensive. Deferring; revisit when the SSE state machine needs another change anyway, or when adopting clippy::pedantic in CI surfaces this lint as a real blocker.",
+  "closed_at": "2026-05-09T07:36:58Z",
+  "compaction_level": 0,
+  "content_hash": "182e0aec20bed1f561e28e01b2652f03a9f2b80af9a6d5c0bc0cd55e92b5b712",
+  "created_at": "2026-05-08T03:06:02Z",
+  "created_by": "Mark Atwood",
+  "description": "src/client.rs:374-531 \u2014 clippy::too_many_lines (pedantic, 118/100). The fn body contains: URL validation, header injection, content-type check, then a multi-arm `unfold` closure containing the entire SSE state machine (delimiter scan, chunk fetch, raw_buf accumulation, UTF-8 decode, scan_from update, frame emit). The state machine is the largest single piece. Idiomatic Rust split: extract the closure body into a free function `fn next_sse_frame(state: SseStreamState) -> Future<Output=...>` so the public method is a thin orchestrator. This makes the state machine independently unit-testable (currently exercised only via integration tests on a live mock HTTP stream). Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "subscribe_events fn body is 118 lines including a multi-arm closure",
+  "updated_at": "2026-05-09T07:36:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:06:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "b31b50b6-5600-5aa8-b591-e924ac2baa8e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:00:32Z",
+  "compaction_level": 0,
+  "content_hash": "b251af29a6e471d31e79b7101147e2d5889eac1f107998b60478c0e6c50f3844",
+  "created_at": "2026-05-15T16:59:41Z",
+  "created_by": "Mark Atwood",
+  "description": "calendar.rs:234-242, event.rs:432-440, event_notification.rs:112-120 \u2014 each /set destroy path validates that every element of the destroy array is a JSON String before processing:\n\n  if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {\n      return Err(JmapError::invalid_arguments(format!(\n          'destroy: every element must be a string Id; got {bad}'\n      )));\n  }\n\nRFC 8620 \u00a75.3 says destroy is an Id[]; non-string entries are out of contract. A naive implementation would either skip non-strings silently (misleading 'no errors' response) or process them as 'unknown id' (misleading notDestroyed entry with the JSON-formatted value as a fake id).\n\nThe choice here:\n- Reject the whole call with method-level invalidArguments.\n- Include the offending value in the error string so the client can debug.\n\nThis matches RFC 8620 \u00a73.6.1 invalidArguments semantics and is the right call. A future contributor reading 'why don't we just skip non-strings' should see this preserved.\n\nCross-reference bd:JMAP-r3pg.18 \u2014 this was specifically reviewed and tested (calendar.rs:700-715).\n\nDEFEND when reviewers suggest 'silently filter to strings'.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extras-class destroy non-string validation is RFC 8620 \u00a75.3 correct",
+  "updated_at": "2026-05-17T17:00:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T09:59:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "a29baa8c-268f-579e-992c-0464a1745952",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T22:58:03Z",
+  "id": "019e3829-2cd2-74fd-b8dc-3c59a7376b89",
+  "issue_id": "JMAP-ops7.17",
+  "text": "Sibling to closed bead JMAP-ops7.2 (filenode_get wrapped fetch_parents in FileNodeGetParams). The JMAP-ops7.2 refactor completed get/set/changes/query but stopped short of copy. This finding completes that arc."
+}

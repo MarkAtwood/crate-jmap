@@ -1,0 +1,62 @@
+{
+  "id": "JMAP-wn3",
+  "title": "integration: wire all handlers, cargo test --workspace, lock crate",
+  "description": "Final integration pass: wire all handler modules into lib.rs, run full test suite, lock crate in AGENTS.md.\n\n## Steps\n\n1. Fill in all 26 method registrations in register_mail_handlers with real handler functions (replacing stubs)\n2. Run cargo test --workspace \u2014 all tests must pass\n3. Run cargo clippy --workspace -- -D warnings \u2014 zero warnings\n4. Run RUSTDOCFLAGS='-D warnings' cargo doc --no-deps \u2014 zero warnings\n5. Run cargo fmt --all \u2014 no changes needed\n6. Add jmap-mail-server to locked crates table in ~/PROJECT/JMAP/AGENTS.md\n7. Add lock section to ~/PROJECT/JMAP/crate-jmap-mail-server/CLAUDE.md (same format as jmap-server AGENTS.md lock section)\n\n## Acceptance criteria\n- cargo test --workspace passes (all crates, all tests)\n- All 26 methods registered and functional (no serverFail stubs remaining)\n- Integration tests cover all object types with at least the non-trivial cases listed in PLAN.md \u00a7Test Strategy\n- Crate locked in both workspace AGENTS.md and crate-level CLAUDE.md\n- git status shows no untracked files (PLAN.md is the only new file; it should already be committed)\n\n## Non-trivial integration test cases (from PLAN.md)\n- Mailbox/set destroy with onDestroyRemoveEmails propagation\n- Email/set thread assignment via In-Reply-To header\n- Email/changes updatedProperties when only keywords changed\n- ResultReference from Email/query into Email/get ($list pattern)\n- EmailSubmission/set onSuccessUpdateEmail removes \\Draft\n- VacationResponse singleton enforcement\n- SearchSnippet capability gating\n- Email/import thread assignment from References header\n- Mailbox role uniqueness (two Inboxes rejected)\n- Email/copy cross-account with onSuccessDestroyOriginal\n- Identity/set destroy default identity forbidden\n- Email/set immutable field update rejected\n\nDepends on: JMAP-4q6, JMAP-8xw, JMAP-0u6, JMAP-bpu, JMAP-kit, JMAP-rhk, JMAP-t93, JMAP-b0e\nParent: JMAP-445",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:03:47Z",
+  "updated_at": "2026-04-30T21:21:12Z",
+  "closed_at": "2026-04-30T21:21:12Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-0u6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:15"
+    },
+    {
+      "depends_on_id": "JMAP-4q6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:14"
+    },
+    {
+      "depends_on_id": "JMAP-8xw",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:14"
+    },
+    {
+      "depends_on_id": "JMAP-b0e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:18"
+    },
+    {
+      "depends_on_id": "JMAP-bpu",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:16"
+    },
+    {
+      "depends_on_id": "JMAP-kit",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:16"
+    },
+    {
+      "depends_on_id": "JMAP-rhk",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:17"
+    },
+    {
+      "depends_on_id": "JMAP-t93",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:17"
+    }
+  ]
+}

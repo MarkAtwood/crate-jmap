@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "095cffe3b9fae0f6a8491820ee18ad9e18b1549e77089873a1d11b62dc7fa476",
+  "created_at": "2026-05-17T19:59:56Z",
+  "created_by": "Mark Atwood",
+  "description": "Follow-up to bd:JMAP-x2gd.83 which fixed the 13 sites in two chat-server test files. A workspace-wide audit (post-x2gd.83 close) finds 106 additional sites of the same pattern across:\n\n- crate-jmap-chat-server/tests/space_metadata_apply.rs (5 sites)\n- crate-jmap-chat-server/tests/space_set_kitchen_sink.rs (4 sites)\n- crate-jmap-contacts-server/tests/contacts_tests.rs (1+ sites)\n- crate-jmap-mail-server/tests/seed_fixture_tests.rs (2+ sites)\n- crate-jmap-mail-server/tests/integration.rs (multiple)\n- Other crate-jmap-*-server/tests/ files\n\nEngineering basis is the same as JMAP-x2gd.83: .unwrap_or(\"\") + .contains(X) silently asserts false on schema absence rather than failing loudly with 'expected field, got null'. .unwrap_or(usize::MAX) is worse \u2014 actively chooses a sentinel that defeats lower-bound assertions, the opposite of what a regression test wants.\n\nMechanical sweep, same pattern as x2gd.83:\n- .as_str().unwrap_or(\"\") \u2192 .as_str().expect(\"<field> must be a string\")\n- .map(Vec::len).unwrap_or(usize::MAX) \u2192 .expect(\"<field> must be an array\").len()\n- .and_then(|v| v.as_str()).unwrap_or(\"\") \u2192 .and_then(|v| v.as_str()).expect(\"<field> must be a string\")\n\nPriority P3 \u2014 diagnostics quality, not correctness. Held separate from x2gd.83 because the bead was explicitly scoped to two test files; expanding scope would have violated workspace AGENTS.md 'only touch files within the task's stated scope'.",
+  "ephemeral": 0,
+  "id": "JMAP-oehi",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace propagation: .unwrap_or(\"\")/.unwrap_or(usize::MAX) in test files (106 sites across siblings)",
+  "updated_at": "2026-05-17T19:59:56Z"
+}

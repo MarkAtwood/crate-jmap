@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:15:24Z",
+  "compaction_level": 0,
+  "content_hash": "9744087a437e8372a0af52100cd5f207ff96e3a2c2427c7743a5aae66bd426f5",
+  "created_at": "2026-05-02T03:57:05Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/src/message.rs line 371, 381; ban.rs line 165-166; space.rs (multiple); crate-jmap-mail-server/src/submission.rs line 804: pattern 'UTCDate::from(now_utc_string().as_str())' and 'expires_str.as_str() <= now.as_str()'. The now_utc_string() returns a String; calling .as_str() on it borrows the temporary. This works but is unnecessarily verbose. UTCDate::from should accept impl AsRef<str> or &str directly; if it does, 'UTCDate::from(now_utc_string())' would suffice. If it currently only accepts &str, 'let now = now_utc_string(); UTCDate::from(&now)' is idiomatic. Similarly, 'expires_str.as_str() <= now.as_str()' should be 'expires_str.as_ref() <= now.as_str()' or just compare the String directly.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "now_utc_string().as_str() pattern: needless borrow of temporary String",
+  "updated_at": "2026-05-02T04:15:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:57:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "5a07949a-145c-5a0c-8273-f0e7b40c037e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

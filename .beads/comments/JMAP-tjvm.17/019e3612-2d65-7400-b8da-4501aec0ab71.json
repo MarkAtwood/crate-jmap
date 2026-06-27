@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T13:13:41Z",
+  "id": "019e3612-2d65-7400-b8da-4501aec0ab71",
+  "issue_id": "JMAP-tjvm.17",
+  "text": "Recommendation parts (a) doc-comment on crate-root and (b) Cargo.toml description note are mechanical and could land autonomously. Part (c) \u2014 whether to newtype GetResponse/SetResponse/ChangesResponse/QueryResponse or keep them as re-exports of jmap-types \u2014 is a 1.0 stability decision that affects workspace SemVer policy. The bead body explicitly says 'Not high priority but important enough to capture' and 'File a follow-up bead for the 1.0 stability cut deciding this.' Labeling human because the meaningful question (part c) is the 1.0 cut design decision, not the doc additions. If you want just (a)+(b) done as a documentation-only commit, remove the human label and the next agent will do it."
+}

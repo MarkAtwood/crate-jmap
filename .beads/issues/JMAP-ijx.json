@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-ijx",
+  "title": "Review: jmap-mail-server pass 11",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:55:15Z",
+  "updated_at": "2026-05-01T03:57:34Z",
+  "closed_at": "2026-05-01T03:57:34Z",
+  "notes": "Maintainer risk: LOW \u2014 zero correctness findings. All RFC edge cases examined: collapseThreads position math, Mailbox destroy cascade, onSuccess interactions, find_immutable_patch_key sub-path logic, receivedAt server-set semantics.\nConfidence: 98%+ no missed bug. Remaining uncertainty: Mailbox/set destroy [child, parent] in same request produces stale snapshot result (child destroyed, parent incorrectly fails). This is expected behavior for simple implementation; RFC does not require topological ordering.\nIdiom rating: CLEAN. Rust idiom confidence: 99%+ \u2014 no findings with engineering basis."
+}

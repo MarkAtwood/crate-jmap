@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added #[non_exhaustive] to ClosureHandler<B, C> and a ClosureHandler::new(backend, call_fn) constructor. Updated the doc example and both intra-crate tests to use new(). Swept all 8 extension *-server crates (mail x3 macro arms, chat/calendars/tasks/contacts/sharing/metadata/filenode x1 each) to use the new constructor. cargo build/test/clippy/fmt/doc --all-features all clean. The struct now follows the same forward-compat pattern as BackendSetError \u2014 fields can be added without major-bump.",
+  "closed_at": "2026-05-14T13:47:08Z",
+  "compaction_level": 0,
+  "content_hash": "ed3dc9ee4bcfaac5bbba1161b66451dda86b2f7f7435ad4c84674a386a5aa004",
+  "created_at": "2026-05-14T13:02:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Path: crate-jmap-server/src/lib.rs:296-303. ClosureHandler is a pub struct with two pub fields (backend, call_fn) and no #[non_exhaustive] attribute. Once shipped on crates.io, any addition to this struct \u2014 a tracing context, a metrics handle, a clock source, a cancellation token, anything \u2014 requires a major-version bump because callers can construct the type with struct-literal syntax and pattern-match its fields:\n\n  let h = ClosureHandler { backend, call_fn };\n  let ClosureHandler { backend, call_fn } = h;\n\nCompare BackendSetError<E> (backend.rs:325), which IS #[non_exhaustive] precisely so its variant set can grow without breaking consumers. Same standard should apply here.\n\nFix shape:\n  #[non_exhaustive]\n  pub struct ClosureHandler<B, C> {\n      pub backend: Arc<B>,\n      pub call_fn: Box<BackendCallFn<B, C>>,\n  }\n  impl<B, C> ClosureHandler<B, C> { pub fn new(backend: Arc<B>, call_fn: Box<BackendCallFn<B, C>>) -> Self {...} }\n\nNow: callers using struct-literal syntax get a compile error today; the new() constructor is the supported path. Adding a future field updates the constructor signature only \u2014 that IS a breaking change but ONLY for the new() callers, and #[non_exhaustive] forbids the struct-literal path so the breakage is localized and obvious. Without #[non_exhaustive] the new field can be added as a builder method on ClosureHandler if the constructor stays Option<Field>-typed, or as a separate ClosureHandlerV2 type if not.\n\nThe current shape locks the type's surface to \"backend + closure\" for the entire 1.x lifetime. Reasonable extension targets that this prevents: per-handler tracing/metrics, per-handler timeouts, per-handler permissions cache.\n\nPer workspace AGENTS.md \"Canonical Templates\" rule: jmap-server is the canonical foundation; every extension *-server crate re-exports ClosureHandler (verified at crate-jmap-mail-server/src/lib.rs:`pub use jmap_server::ClosureHandler;` and crate-jmap-chat-server/src/lib.rs same). Locking the shape locks all five extensions' shapes too.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClosureHandler<B, C> has pub fields with no #[non_exhaustive] \u2014 every field addition is a breaking change",
+  "updated_at": "2026-05-14T13:47:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:02:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "9faa4f45-5a5b-5932-a02a-d97144a4523a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

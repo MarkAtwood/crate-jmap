@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T17:28:48Z",
+  "id": "019e2788-a8c6-73a1-adbf-9f5f64d5aeca",
+  "issue_id": "JMAP-jfia.7",
+  "text": "Filing as human alongside JMAP-jfia.19 \u2014 the Arc<str> optimization for method / call_id would require changing JmapHandler::call(method: String, call_id: String, ...) signature, which propagates through every extension *-server. The savings are small per call (two String allocs) on a hot path that already has task::spawn overhead as the dominant cost. Decision belongs with .19: either both land at the next major bump, or both wait for a concrete benchmark-driven need.\n\nRecommendation: defer to the major-bump decision on .19. If the workspace bumps a major for .19's HandlerOutput refactor, sweep Arc<str> at the same time. If .19 defers, .7 defers."
+}

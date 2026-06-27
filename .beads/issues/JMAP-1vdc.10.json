@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: build_email_from_create has comment block listing unimplemented fields, citing JMAP-wgbh",
+  "closed_at": "2026-05-02T19:41:54Z",
+  "compaction_level": 0,
+  "content_hash": "ae307810e7d97f202b210726ed5ea119965546e92cb3724b318ba23a0579a351",
+  "created_at": "2026-05-02T19:34:20Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs build_email_from_create extracts mailboxIds, keywords, subject, inReplyTo, references, receivedAt from the create payload but silently drops from, to, cc, bcc, sender, replyTo, messageId, and bodyStructure/textBody/htmlBody/attachments after validation. The body structure is validated (partId/blobId checks) but never attached to the stored Email object. Clients submitting a full Email create payload get a stored object missing all envelope and body fields. Maintenance consequence: spec compliance gap that is invisible from the API (no error returned); future implementors assume 'if validation passes, fields are stored'.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/set create silently drops from/to/cc/bcc/sender/replyTo",
+  "updated_at": "2026-05-02T19:41:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "c2a0cc39-56ad-5d4a-bba2-8feac8625c80",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

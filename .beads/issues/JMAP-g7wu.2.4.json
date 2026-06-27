@@ -1,0 +1,43 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T041030Z-2473287",
+  "close_reason": "All 15 child beads complete. Space/set role/member/channel/category mutations are fully implemented in jmap-chat-server, with permission gating on all four families (manage_space, manage_roles, manage_members, manage_channels) enforced backend-canonical, role-position hierarchy enforced for role/member ops, last-admin protection opt-in, count limits enforced, and the kitchen-sink test verifying all 12 semantic-mutation keys dispatch correctly in one call. Final closure trio: .14 (Channel/Category manage_channels gate), .13 (Space metadata manage_space gate), .6 (kitchen-sink test).",
+  "closed_at": "2026-05-13T16:38:10Z",
+  "compaction_level": 0,
+  "content_hash": "3ee99ec17ebaefb34a33ed35f8dfea461db6c92ee45012b767ffafeca100424d",
+  "created_at": "2026-05-11T00:06:47Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/space.rs:416\n\nCurrently returns SetError::Forbidden with message 'Role, member, and channel mutations are not yet implemented' for structural patches on Space objects.\n\nPairs with JMAP-g7wu.2's chat-client task for Space/set sub-ops \u2014 the client-side wrapper expects this server-side handler to land.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.2.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "[2026-05-10 do-beads triage \u2014 sizing assessment]\n\nAfter reading draft-atwood-jmap-chat-00 \\xc2\\xa7Space/set (lines 1072-1129), this bead's scope is far too large for a single do-beads claim. Implementation requires:\n\n  1. Backend trait extension \u2014 either 12+ new ChatBackend methods (add_space_role, remove_space_role, update_space_role, add_space_member, remove_space_member, update_space_member, add_space_channel, remove_space_channel, update_space_channel, add_space_category, remove_space_category, update_space_category) OR one generic apply_space_patch method with a discriminator enum. Design decision; not yet locked.\n  2. Permission-check enforcement (manage_space, manage_roles, manage_members, manage_channels \u2014 see spec lines 1093, 1096, 1102, 1105, 1108, 1111, 1114, 1117, 1120, 1123, 1126, 1129).\n  3. Role-hierarchy enforcement: members may only add/modify roles whose 'position' is strictly less than their own highest-position role (lines 1096, 1102).\n  4. Cascading semantics:\n     - removeRoles: members holding only removed roles demoted to @everyone (line 1099).\n     - removeChannels: cascades to all Messages in those channels (line 1117).\n     - removeCategories: channels move to uncategorizedChannelIds (line 1126).\n  5. Count limits: maxRolesPerSpace, maxSpaceMembers, maxChannelsPerSpace, maxCategoriesPerSpace.\n  6. ULID assignment for new roles/categories/channels.\n  7. Atomicity: spec implies single-transaction semantics for each patch.\n  8. Tests for all 12 mutation keys plus permission/error/edge cases.\n\nRealistic estimate: 800-1500 LOC across chat-server + chat-types backend.rs + tests + (probably) a feature on the MemoryBackend reference impl in tests/common. Multiple focused sessions.\n\n[Sequencing question for human, filed per workspace AGENTS.md 'Turn questions into beads' rule]\n\nRecommended decomposition before any claim:\n\n  Option A: convert this bead to an epic with one child per mutation family:\n    .a addRoles/removeRoles/updateRoles\n    .b addMembers/removeMembers/updateMembers\n    .c addChannels/removeChannels/updateChannels\n    .d addCategories/removeCategories/updateCategories\n    .e Backend trait shape decision (associated-type vs generic; one big method vs 12 small ones)\n    .e MUST land first because .a-.d depend on the trait shape.\n\n  Option B: keep this bead atomic, scope to 'land all 12 mutations in a single PR'.\n\n  Option C: pre-decision land the backend trait shape (.e) as its own bead, then file four follow-up sibling beads.\n\nRecommendation: option C \u2014 single design-decision bead for backend trait shape, then four per-family beads.\n\nThis bead is now labeled 'human' to keep the do-beads loop from spinning on it.\nDe-labeling human (2026-05-11, Mark): umbrella epic for chat Space/set work. The decomposition decision and the architectural identity-seam decision are both complete. All actionable children (.3, .6, .8, .10, .11) carry their own labels/state. Removing human; epic remains open until all children close.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement Space/set role, member, and channel mutations in jmap-chat-server",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T06:58:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.1",
+      "id": "2f3b4a0e-9ae4-57d5-93db-30ca9701b96b",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-10T17:06:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2",
+      "id": "bacd1acd-f861-54c9-9a4b-ba6bc13bc85b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ef98cd4ff98a6aa3e217f211b3ae8ba6bb7fb41ba41d2b99eae41bcda1ce2b0f",
+  "created_at": "2026-05-14T03:12:19Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/space.rs:1335-1515 (handle_space_join invite path).\n\nTwo distinct race issues:\n\n(1) Lost increment / partial commit:\n- Line 1336: new_uses = invite.uses.saturating_add(1) \u2014 computed BEFORE membership write.\n- Line 1426-1434: membership write via update_object<Space>.\n- Line 1503-1515: invite uses update_object<SpaceInvite> with new_uses \u2014 runs AFTER membership write.\nIf step 2 succeeds and step 3 fails (backend transient, restart, etc.), the member is added but uses never increments. An attacker can:\n - share an invite,\n - force step-3 failures by triggering backend errors,\n - and have unlimited members join via what was meant to be a single-use invite.\n\nThe two writes are not in a single transaction; the kit's design assumes the backend can recover, but the reference MemoryBackend has no rollback path and the trait does not require atomicity.\n\n(2) Stale new_uses overwrites concurrent increments:\n- Caller A reads uses=5, plans to write 6.\n- Caller B reads uses=5, plans to write 6.\n- Both write 6. The maxUses=10 invite has effectively been used twice but the counter only reflects one use. With high concurrency, a maxUses=N invite can admit far more than N members.\n\nFix sketch:\n- Make invite-uses increment server-atomic. Either:\n  (a) wrap both writes in a single backend.apply_join_invite call (new trait method), or\n  (b) use a compare-and-swap primitive: update SpaceInvite with 'expected uses=5, new uses=6', backend rejects if uses no longer 5. Caller retries.\n- Re-order so the invite uses increment happens FIRST (atomic CAS); only proceed to membership add if increment succeeded. That way over-counting is impossible and under-counting only occurs on cleanup failures (where the invite is consumed but membership fails \u2014 still bounded by maxUses).\n\nTrigger: any production deployment with >1 user attempting to join via the same invite code concurrently, OR any deployment where the second update_object call can fail.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Space/join invite-uses increment is non-atomic with member-add: lost increments + uses-exhaustion failures",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:12:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "072b9578-dbd5-5dbb-82e4-ff95c8663a50",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

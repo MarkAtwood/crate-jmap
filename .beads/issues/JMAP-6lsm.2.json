@@ -1,0 +1,33 @@
+{
+  "close_reason": "SSE Content-Type prefix check now compares the media-type essence exactly per RFC 7231 \u00a73.1.1.1 / RFC 9110 \u00a78.3 (split on ';' or whitespace, then compare). Two regression tests added: streamish-suffix rejected, charset=utf-8 parameter accepted. Workspace tests green.",
+  "closed_at": "2026-05-09T07:11:29Z",
+  "compaction_level": 0,
+  "content_hash": "c5ba7b15f5eb6b260d8cece61c86c529d0487c7467d35de3daf79b62f31cde2d",
+  "created_at": "2026-05-08T03:04:27Z",
+  "created_by": "Mark Atwood",
+  "description": "src/client.rs:404 \u2014 `if !ct.starts_with(\"text/event-stream\")` accepts any media type whose lowercased value begins with that string, e.g. \"text/event-streamish\" or \"text/event-stream2\". Per RFC 7231 \u00a73.1.1.1 and RFC 9110 \u00a78.3 the media-type subtype is bounded by ';', SP, HTAB, or end-of-string. Trigger: a misconfigured server returning Content-Type: text/event-streamish \u2014 the prefix check passes, the parser silently produces no events, and the caller sees an apparently-quiet stream. Fix: split on first ';' or whitespace and compare the trimmed essence to \"text/event-stream\" exactly. Low-likelihood trigger, but the cost of the fix is small.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SSE Content-Type prefix check matches text/event-streamfoo",
+  "updated_at": "2026-05-09T07:11:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:04:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "0eabce59-b6d5-54be-bf74-ca0ee1ec8688",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

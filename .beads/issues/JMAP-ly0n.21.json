@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in bcf854a: kinds is now Vec<ChatKind>, wire-byte-equivalent via Other(_). The properties field stays Vec<String> with documented rationale (mixed Chat/Message property names, no Other(_) arm on Property enums, projection-hint not auth-grade). Tested via push_config_kinds_typed_round_trip including the Other(_) unknown-vendor case.",
+  "closed_at": "2026-05-16T03:13:32Z",
+  "compaction_level": 0,
+  "content_hash": "8a54ee077a298c562e765512666a9a85bb5a7f55a7df763aa50d0924409da9c8",
+  "created_at": "2026-05-16T02:54:04Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-types/src/push.rs declares two fields stringly-typed against vocabularies the crate itself defines as enums in the same namespace:\n\n  pub kinds: Option<Vec<String>>,        // \u2190 could be Option<Vec<ChatKind>>\n  pub properties: Option<Vec<String>>,   // \u2190 could be Option<Vec<{Chat,Message}Property>>\n\n`ChatKind` (chat.rs:12) has variants `Direct` / `Group` / `Channel` plus `Other(String)` via `impl_string_enum!`. Using `Vec<ChatKind>` gives the same forward-compat as `Vec<String>` (unknown wire values land in `Other(String)`) but lets pattern-matching consumers exhaustively dispatch on the known kinds without re-parsing strings at every call site.\n\nFor `properties`, the answer is more nuanced. The property selector enums (`ChatProperty`, `MessageProperty`, etc. in backend.rs) are `#[non_exhaustive]` but currently lack an `Other(String)` variant \u2014 wiring `Vec<ChatProperty>` directly would refuse to deserialize unknown property names, which is a behavior change from the current `Vec<String>`. Two paths:\n\n  (a) Leave properties as `Vec<String>` for now; only retype `kinds` (which is the cleaner case).\n  (b) Add `Other(String)` to the property selector enums and retype properties as `Vec<{Chat,Message}Property>`.\n\nPath (a) is the minimum-disruption move. Path (b) is the design-clean answer but couples this finding to a wider `Other(String)` propagation across the eight property-selector enums in backend.rs.\n\nIdiomatic Rust framing: when a crate defines an enum for a wire vocabulary, downstream wire-format types in the same crate should use that enum, not the underlying primitive. `Option<Vec<String>>` for an \"enumerable wire vocab\" is primitive obsession even when the enum itself preserves unknown values via a fallback variant. Separate from JMAP-ly0n.11 (urgency / mention_urgency, which have no defined enum in this crate yet).",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChatPushConfig.kinds and .properties are Option<Vec<String>>; should be typed against the crate's own ChatKind / *Property enums",
+  "updated_at": "2026-05-16T03:13:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:54:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "64b049e7-418e-5a29-bd3e-754ff599abe1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

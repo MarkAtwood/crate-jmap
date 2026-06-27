@@ -1,0 +1,33 @@
+{
+  "close_reason": "Ratified review observation. The JmapMetadataExt + with_metadata_session + SessionClient shape is the canonical extension-client template per workspace AGENTS.md and crate-jmap-mail-client/AGENTS.md. Cookie-cutter fidelity is the design intent. Defended.",
+  "closed_at": "2026-05-15T02:33:17Z",
+  "compaction_level": 0,
+  "content_hash": "d76fbaf0c6d02b43c3bec897f15a282af3a9798ff4654db252f81a3579a07c65",
+  "created_at": "2026-05-15T02:05:14Z",
+  "created_by": "Mark Atwood",
+  "description": "src/lib.rs:42-57 defines JmapMetadataExt + with_metadata_session(); src/methods/mod.rs:128-131 SessionClient struct; metadata.rs methods all on SessionClient. This is the canonical extension-client template per workspace AGENTS.md and crate-jmap-mail-client/AGENTS.md. Cookie-cutter fidelity is the whole point \u2014 any future suggestion to 'simplify by inlining methods on JmapClient' or 'remove the SessionClient indirection' would be a divergence-from-canonical regression that affects propagation across all extension-client siblings. Defend this.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Session-bound client + extension-trait shape matches canonical mail-client exactly",
+  "updated_at": "2026-05-15T02:33:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:05:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "0210d88b-1412-5713-83c1-d0f19df71273",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

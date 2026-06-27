@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-06-13T21:27:23Z",
+  "compaction_level": 0,
+  "content_hash": "95bb4a333845799dd3538461f71dca9d3949eeb11696c5eb7625b392e27207a8",
+  "created_at": "2026-06-13T21:12:45Z",
+  "created_by": "Mark Atwood",
+  "description": "In crate-jmap-chat-server MemoryBackend query_objects for Message, the hasMention filter (spec \u00a74.13) currently only checks the mentions array for the owner's ChatContact.id. It must also match messages where a broadcastMention's resolved recipient set includes the owner.\n\nFor the MemoryBackend reference impl, the resolution is:\n- scope='everyone': always matches (owner is always a member)\n- scope='here': matches if owner's PresenceStatus.availability is not 'unavailable' (deployment-defined predicate; reference impl uses this simple check)\n- scope='admins': matches if owner holds any role with admin-level permissions in the Space (deployment-defined predicate; reference impl can check for manage_space or a similar high-permission)\n\nThe hasMention filter validation at message.rs:207-211 already parses the boolean. The MemoryBackend needs the actual filtering logic.\n\nNote: the handler already validates that Message/query requires either chatId or hasMention:true (message.rs:212-214). This bead only adds the broadcast-mention resolution to the existing hasMention filter path.",
+  "ephemeral": 0,
+  "id": "JMAP-6kxh.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Extend hasMention filter to resolve broadcast mentions",
+  "updated_at": "2026-06-13T21:27:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:12:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6kxh",
+      "id": "1dbcb9e8-0737-5dc8-83ce-730f15a7ba2d",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-06-13T14:12:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6kxh.1",
+      "id": "404983cc-383c-5ae3-be1a-ba0447e76193",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

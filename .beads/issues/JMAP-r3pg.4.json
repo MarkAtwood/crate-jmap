@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T04:39:02Z",
+  "compaction_level": 0,
+  "content_hash": "0ed36f8d14afa594e9e11c6ec1d30ecb88cefca17f94d4f5c5a94326a1fac8ed",
+  "created_at": "2026-05-08T03:30:45Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8620 \u00a73.6.2 (referenced repeatedly in error registrations): a method call with an accountId the server does not recognise MUST return a method-level accountNotFound error. The generic handle_get / handle_changes / handle_query / handle_query_changes in jmap-server enforce this (crate-jmap-server/src/handlers.rs lines 27, 100, 158, 250 \u2014 all call account_exists and return JmapError::account_not_found() when false).\n\nFive /set-style handlers in this crate skip that validation:\n\n1. src/calendar.rs:49-57 (handle_calendar_set) \u2014 no account_exists call. Calls get_state directly; MockBackend (and presumably any tolerant real backend) returns Ok(\"0\") for unknown accounts, so the handler proceeds and returns a fake oldState/newState/empty-result envelope.\n2. src/event.rs:80-89 (handle_calendar_event_set) \u2014 same pattern.\n3. src/event.rs:336-352 (handle_calendar_event_copy) \u2014 checks account_exists for fromAccountId (line 354) but NOT for accountId (the destination). RFC 8620 \u00a75.4 requires fromAccountNotFound (handled) and accountNotFound (not handled).\n4. src/event_notification.rs:52-61 (handle_calendar_event_notification_set) \u2014 no account_exists.\n5. src/participant_identity.rs:42-51 (handle_participant_identity_set) \u2014 no account_exists.\n\nBy contrast, src/event.rs:602-610 (handle_calendar_event_parse) and src/principal.rs:24-32 (handle_principal_get_availability) do call account_exists. The pattern is inconsistent.\n\nWire impact: a /set against a typo'd accountId silently \"succeeds\" with empty results instead of returning accountNotFound. This is genuinely bad \u2014 clients receive a fake oldState/newState pair and may persist the wrong assumption. It also delays detection of misconfigured callers.\n\nNote the existing test in src/calendar.rs:245-252 asserts get_unknown_account_returns_account_not_found for /get only \u2014 there is no equivalent test for /set. Tests will catch the fix once added.\n\nFix: add account_exists call at the top of each /set handler, after extract_account_id and before get_state. Mirror the pattern in handle_calendar_event_parse (event.rs:604-610). Add a test per /set handler.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "/set handlers do not validate accountId existence; RFC 8620 \u00a73.6.2 requires accountNotFound",
+  "updated_at": "2026-05-08T04:39:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:30:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "fd6540c1-0503-5d59-b35d-21ffa2a094ca",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

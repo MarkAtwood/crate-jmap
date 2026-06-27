@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "5690da2e82ff7a588d003db64bf365f7c6342d5b044b95f8c9aad654f9e43b46",
+  "created_at": "2026-05-14T19:21:07Z",
+  "created_by": "Mark Atwood",
+  "description": "What is awkward: crate-jmap-contacts-server/src/card.rs:292-339 defines apply_jmap_patch \u2014 a 49-line private helper implementing path-based patching for ContactCard/copy. Meanwhile, /set update across the workspace uses jmap_server::json_merge_patch (RFC 7396 merge-patch with the bd:JMAP-sc1b.97 depth cap and the bd:JMAP-sc1b.87 absent-field regression tests).\n\nThe two implementations have divergent semantics:\n - json_merge_patch: RFC 7396, recursive merge, null leaf = remove, non-object values replace wholesale, NO array index traversal.\n - apply_jmap_patch: RFC 6901-ish JSON Pointer (no leading slash), splits on /, traverses through intermediate objects (creating empty objects on the way), array indices treated as string keys, replaces non-object intermediates with empty objects, null leaf = remove.\n\nThese two semantics will produce different results for the SAME patch input applied to the SAME card. A contributor who reads the /set code path and then the /copy code path will reasonably assume they share semantics; they don't, and the divergence is not documented anywhere.\n\nSuggested rewrite: route ContactCard/copy's optional override fields through json_merge_patch as well. This means the copy spec must be a merge-patch shape (no path-flattening) \u2014 which is what the canonical mail-server's Email/copy does (it accepts mailboxIds / keywords / receivedAt at the top level, applied as a merge over the source). It's also what the existing test 'copy_applies_flat_patch_correctly' actually exercises (flat top-level keys, merge semantics).\n\nReducing to one patch helper:\n (a) Eliminates the divergence-between-set-and-copy gotcha.\n (b) Cuts 49 lines of bespoke, partially-tested code with three open correctness issues (see JMAP-qz9v.4).\n (c) Aligns with the canonical extension-server template \u2014 mail-server has no equivalent helper.\n\nThis is at minimum an elegance fix and at maximum a correctness fix once the apply_jmap_patch bugs are addressed.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "apply_jmap_patch in card.rs duplicates jmap-server::json_merge_patch concept with divergent semantics \u2014 consolidate",
+  "updated_at": "2026-05-14T19:21:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:21:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "f5fdb52a-ee03-54cd-8960-8e00167b55ba",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

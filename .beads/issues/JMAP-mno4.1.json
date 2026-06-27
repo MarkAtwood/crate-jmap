@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added the 5 missing RFC 8984 \u00a74.4.6 Participant fields (scheduleForceSend: Option<bool>, sentBy: Option<String>, progress: Option<String>, progressUpdated: Option<UTCDate>, percentComplete: Option<u8>) with verbatim spec-text rustdoc per field. Non-breaking because Participant is #[non_exhaustive]. Added a round-trip test (participant_new_rfc8984_fields_round_trip) using a hand-built JSON oracle whose shape comes from the RFC 8984 \u00a74.4.6 spec text \u2014 independent oracle, not the code under test. cargo test + cargo clippy -D warnings clean; downstream jmap-calendars-types tests still pass.",
+  "closed_at": "2026-05-16T02:12:29Z",
+  "compaction_level": 0,
+  "content_hash": "2e45effb2231b9b47f5d9f0fa5690ac6ed368f29437ecf43ff4f303f6533bd62",
+  "created_at": "2026-05-15T22:05:51Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8984 \u00a74.4.6 defines Participant with the following fields that the current Rust struct does not type:\n\n- scheduleForceSend: Boolean (optional, default false) \u2014 client-set flag requesting server to send a scheduling message even when not normal. Spec note: 'The property MUST NOT be stored in the JSCalendar object on the server or appear in a scheduling message' \u2014 but it still appears in client-to-server requests and a typed binding is needed for clients.\n- sentBy: String (optional) \u2014 email in the From header of the last iMIP update for this participant. Validity: addr-spec.\n- progress: String (optional; Task-only) \u2014 per-participant Task progress.\n- progressUpdated: UTCDateTime (optional; Task-only) \u2014 timestamp progress was last set.\n- percentComplete: UnsignedInt 0\u2013100 (optional; Task-only) \u2014 per-participant Task completion.\n\nTrigger: any consumer (jmap-calendars-types today, jmap-tasks-types tomorrow per bd:JMAP-yfpq) deserializing a Participant with any of these fields gets them rolled into Participant.extra rather than typed-field access.\n\nBad behavior: serde round-trip is preserved by extras (workspace policy), but typed code paths cannot read or write these fields. The Task-only trio is especially load-bearing for the upcoming jmap-tasks-types consumer \u2014 Tasks per-participant progress is a first-class RFC concept.\n\nSeverity: this is an incomplete-binding bug, not a wire bug. Extras catches the data so deployments do not silently drop information, but consumers cannot reach it through Rust types. Since Participant is #[non_exhaustive] the fix is non-breaking.\n\nFix: add the five fields with appropriate Option<T> types (Option<bool>, Option<String>, Option<String>, Option<UTCDate>, Option<u8>). Add round-trip tests for each.",
+  "ephemeral": 0,
+  "id": "JMAP-mno4.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Participant missing 5 RFC 8984 \u00a74.4.6 typed fields (scheduleForceSend, sentBy, progress, progressUpdated, percentComplete)",
+  "updated_at": "2026-05-16T02:12:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:05:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mno4",
+      "id": "6acb48aa-5e62-54ea-bcb2-5d5f7bc61bc9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

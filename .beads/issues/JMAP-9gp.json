@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-9gp",
+  "title": "Review: jmap-mail-server RFC 8621 handlers",
+  "description": "Code review of all work done on jmap-mail-server (RFC 8621 handler layer). Covers correctness, maintainer risk, efficiency, and Rust idioms.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:44:23Z",
+  "updated_at": "2026-05-01T02:19:53Z",
+  "closed_at": "2026-05-01T02:19:53Z",
+  "notes": "Maintainer risk: HIGH \u2014 five P0 correctness bugs including silent spec non-conformance (onSuccessUpdateOriginal missing, wrong call_id format), a missing validation (empty mailboxIds), an update restriction bypass (undoStatus-only not enforced), and a within-request ordering bug (create+destroy child mailbox).\nIdiom rating: ACCEPTABLE \u2014 no unsafe, no Box<dyn Error> in public API, ownership patterns are reasonable. Main smell is the v.clone() pattern repeated for every serde parse and the duplicated Display/serde camelCase strings in SetErrorType.\nConfidence: 15% chance of missed bug. Least confident flags: JMAP-9gp.9 (VacationResponse TOCTOU \u2014 depends on whether MailBackend implementations provide their own locking). Uncertainty driven by: no read of the common/mod.rs MemoryBackend implementation for find_thread_by_message_ids, and no read of jmap_types::JmapError API. Would raise confidence if: ran cargo test, verified RFC 8620 \u00a76.3 onSuccessUpdateOriginal wire format."
+}

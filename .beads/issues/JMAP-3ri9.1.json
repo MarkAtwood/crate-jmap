@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "5 FileNode get/changes/query/queryChanges wiremock tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/helpers.rs, tests/integration_get_query.rs (5 tests: fetchParents, no-fetchParents, changes, depth+filter query, queryChanges); 35 total pass; clippy clean",
+  "closed_at": "2026-05-05T04:30:35Z",
+  "compaction_level": 0,
+  "content_hash": "6d35765c2e3a1f71f41bd457ea39ad3ef3eb049ef4c2d4eb2261cb87b9b8ea84",
+  "created_at": "2026-05-05T02:53:39Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-filenode-client/tests/integration_get_query.rs with 5 async wiremock integration tests covering FileNode/get, /changes, /query, /queryChanges. Oracle: draft-ietf-jmap-filenode-13 \u00a73.2.1, \u00a73.2.2, \u00a73.2.5, \u00a73.2.6; RFC 8620 \u00a75.2, \u00a75.5, \u00a75.6.\n\n**Tests:**\n1. file_node_get_with_fetch_parents: call with fetch_parents=Some(true); mock returns 2 nodes (the requested file and its parent dir); assert resp.list.len()==2, node names; assert request body has \"fetchParents\":true. Oracle: \u00a73.2.1 ancestor nodes returned alongside requested nodes.\n2. file_node_get_without_fetch_parents_omits_field: call with fetch_parents=None; assert request body does NOT contain fetchParents key. Oracle: \u00a73.2.1 default false.\n3. file_node_changes_returns_change_lists: call with since_state=\"s3\"; mock returns created [\"n10\",\"n11\"], updated [\"n5\"]; assert fields; assert sinceState == \"s3\" and no maxChanges in request. Oracle: RFC 8620 \u00a75.2.\n4. file_node_query_with_depth_and_filter: call with depth=Some(2), filter {\"parentId\":\"dir1\"}; assert resp.ids.len()==3; assert request body contains \"depth\":2. Oracle: \u00a73.2.5 depth parameter.\n5. file_node_query_changes_returns_added_and_removed: assert old/new queryState, removed [\"n8\"], added[0].id==\"n12\" and index==2. Oracle: RFC 8620 \u00a75.6.\n\n**Algorithm:** MockServer::start().await, mount Mock for POST /api/, build session with primaryAccounts[\"urn:ietf:params:jmap:filenode\"] = \"acc1\", construct SessionClient, call method, assert response, capture received_requests and assert request body.\n\n**Acceptance criteria:** All 5 tests pass. No test derives expected values from code.",
+  "ephemeral": 0,
+  "id": "JMAP-3ri9.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: FileNode/get /changes /query /queryChanges",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:53:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3ri9",
+      "id": "a6684b50-56b0-5fd5-b780-998a74c6d776",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

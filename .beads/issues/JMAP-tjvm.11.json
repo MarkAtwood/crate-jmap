@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "9179822b0196278a49dd88cd88fbf7f43102a916d5104a9185b120194732a1d7",
+  "created_at": "2026-05-15T01:46:38Z",
+  "created_by": "Mark Atwood",
+  "description": "Several call sites do:\n```rust\nargs[\"update\"] = serde_json::to_value(&u).map_err(|e| {\n    jmap_base_client::ClientError::InvalidArgument(\n        format!(\"...: serializing update map failed: {e}\"))\n})?;\n```\nwhere `u: HashMap<Id, PatchObject>`. `Id` is `#[serde(transparent)]` over\nString and `PatchObject` is `#[serde(transparent)]` over\n`Map<String, Value>`. The combination is infallible to convert to\n`serde_json::Value` \u2014 there is no condition under which `to_value` can\nreturn Err for these inputs. The .map_err branch is dead code.\n\nAffected sites (non-exhaustive):\n  - email.rs:122-126 (email_set update)\n  - email.rs:268-272 (email_import emails_value)\n  - identity.rs:91-95 (identity_set update)\n  - mailbox.rs:102-106 (mailbox_set update)\n  - submission.rs:176-181 (email_submission_set onSuccessUpdateEmail)\n  - submission.rs:195-199 (email_submission_set update)\n  - vacation.rs:63-67 (vacation_response_set update)\n\nThe map_err branches for `serde_json::to_value(p)` on params structs that\ncontain `Option<Vec<String>>` or `Option<bool>` etc. are ALSO dead \u2014 those\nare all infallible. The only currently-fallible path through the typed API\nwould be a user-defined type with a Serialize impl that panics or returns\nErr (e.g. via #[serde(serialize_with = ...)] with a function that\nfails). None of those exist here.\n\nFix: replace with `.expect(\"HashMap<Id, PatchObject> Serialize is\ninfallible\")` matching the existing pattern at email.rs:42, 129, etc.\n(\"Id slice Serialize is infallible\").\n\nNet effect: removes ~50 lines of dead error-path boilerplate and keeps the\nstyle consistent across the crate.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Dead error-mapping branches: serde_json::to_value(<infallible types>).map_err(...)",
+  "updated_at": "2026-05-17T14:12:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:46:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "cc9956a3-0ac0-572f-bfb0-245b6fc64d07",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

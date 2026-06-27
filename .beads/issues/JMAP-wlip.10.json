@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Extracted the dispatcher's createdIds-extraction loop to a private helper fn extract_created_ids_into(primary: &Value, sink: &mut HashMap<Id, Id>) placed next to the JmapHandler trait doc that specifies the response contract. The dispatcher loop becomes a one-liner that calls the helper; the silent-skip behaviour (entries without a string 'id' field) is now auditable in one place rather than inlined in the hot dispatch path. The lower-cost alternative path from the bead was chosen over the typed-HandlerOutcome reshape because the latter is a breaking API change that propagates to every extension *-server crate; that more invasive reshape can be filed separately if a workspace major bump is planned.",
+  "closed_at": "2026-05-14T14:00:45Z",
+  "compaction_level": 0,
+  "content_hash": "9c01e9e7ffd87aaa3e8ee720dafe18f231a8a7a8d2f71fb830d36659d82f6781",
+  "created_at": "2026-05-14T12:54:02Z",
+  "created_by": "Mark Atwood",
+  "description": "What is awkward: crate-jmap-server/src/lib.rs:189-205 re-introspects primary_value.get(\"created\").and_then(|v| v.as_object()) to extract creationId \u2192 id mappings AFTER the handler has produced its response Value. The dispatcher thus has implicit knowledge of the /set response shape, encoded as serde_json::Value navigation rather than a typed return.\n\nThe HandlerFuture return type today is Result<(Value, Vec<Invocation>), JmapError>. The dispatcher reaches into the Value to find the 'created' key. The handler authoring contract (JmapHandler doc comment, lib.rs:55-61) says: 'Handlers for /set methods \u2026 that create objects MUST include an \"id\" field (type string) in each entry of the \"created\" map.' \u2014 a textual contract enforced by ad-hoc JSON navigation.\n\nSuggested rewrite: change HandlerFuture to Result<HandlerOutcome, JmapError> where:\n    pub struct HandlerOutcome {\n        pub primary: Value,\n        pub extra: Vec<Invocation>,\n        pub created_ids: Vec<(Id, Id)>,   // (creation_id, server_id) pairs\n    }\nGeneric /set handlers in handlers.rs populate created_ids explicitly; non-/set handlers pass an empty Vec. The dispatcher iterates created_ids without re-parsing the Value. Two wins:\n  (a) the contract is now in Rust types, not in a paragraph of docstring.\n  (b) the silent-skip path (lib.rs:198-202: 'Entries without an \"id\" field are silently skipped \u2014 the dispatcher cannot produce an error for a method call that already succeeded') goes away entirely \u2014 there's no map to skip from.\n\nCost: breaking API change to the JmapHandler trait, which propagates to every extension *-server crate. The reshape is mechanical (Ok((value, vec)) \u2192 Ok(HandlerOutcome::new(value).with_extra(vec))) but touches 8+ crates per workspace AGENTS.md canonical-template rule. Not free.\n\nLower-cost alternative: keep the trait shape, but extract the .get(\"created\").iter into a dedicated helper fn extract_created_ids(primary: &Value, sink: &mut HashMap<Id, Id>) and move it next to the handler doc contract. The navigation is still ad-hoc but it lives in one place; the dispatcher reads better.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Dispatcher createdIds-extraction uses get(\"created\").and_then.iter pattern that re-reads the response after handler returned",
+  "updated_at": "2026-05-14T14:00:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:54:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "71fcda11-a660-5f5c-89b1-5617a2d95db0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

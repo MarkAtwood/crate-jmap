@@ -1,0 +1,33 @@
+{
+  "close_reason": "Declined \u2014 workspace bikeshedding signal per AGENTS.md convergence rule. Same pattern as bd:JMAP-6xs8.11 (declined): the Filter/Operator 'Excluded from extras preservation' doc blocks are stable, citing the canonical workspace AGENTS.md section in three places gives independent readers a complete local explanation. Per AGENTS.md 'Bikeshedding': only flag findings with engineering basis that would survive a code review comment thread; a DRY refactor of stable doc text for marginal diff-churn benefit would not.",
+  "closed_at": "2026-05-17T16:57:55Z",
+  "compaction_level": 0,
+  "content_hash": "c16b976c37c2b6ff42d9de2dd62995fe39ae89b7f99b5f15138ea98531a757a8",
+  "created_at": "2026-05-15T05:35:29Z",
+  "created_by": "Mark Atwood",
+  "description": "query.rs has near-identical \"# Excluded from extras preservation\" + \"## What to do instead\" + cross-reference blocks on each of Operator (lines 20-52), Filter (lines 76-100), FilterOperator (lines 114-122). Each block is ~25-30 lines. Reader fatigue: a contributor scrolling through the file sees the same paragraphs three times before reaching the `pub enum` declarations. Suggested rewrite: keep a single comprehensive block at the module level (already exists, lines 7-14, but is much shorter than the per-type blocks); shrink each type's doc to a one-line \\\"# Extras: excluded (see module doc)\\\" pointer. The current shape is rustdoc-rendered-friendly (each type's docs page is self-contained) but at-source-level it's high noise.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Filter / Operator doc blocks duplicate same 30-line text 3 times in one file",
+  "updated_at": "2026-05-17T16:57:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:35:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "1da3e75d-e422-5e43-abae-afa499c127e6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

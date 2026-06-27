@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "f51f06542b2a9c7ba516ca015a29075f55e8c0a04be8a3f7293603ef0a1d0705",
+  "created_at": "2026-05-15T20:42:59Z",
+  "created_by": "Mark Atwood",
+  "description": "Files:\n- crate-jmap-chat-client/src/lib.rs:24-29 (six `pub mod` declarations)\n- crate-jmap-chat-client/src/methods/mod.rs:8-15, 1287-1289 (ten sub-modules)\n\n`lib.rs` declares:\n```rust\npub mod methods;\npub mod session;\npub mod sse;\npub mod types;\npub mod utils;\npub mod ws;\n```\n\nAnd `methods/mod.rs` declares ten `pub mod` sub-modules (`blob`, `chat`, `contact`, `custom_emoji`, `message`, `misc`, `quota`, `space`, `space_ban`, `space_invite`).\n\nCombined with the explicit `pub use methods::{...}` re-exports in `lib.rs:32-45`, callers can reach the same type via two paths:\n\n- `jmap_chat_client::Quota`\n- `jmap_chat_client::methods::quota::Quota`\n\nSame for `ChatSseEvent` (root re-export + `sse::ChatSseEvent`), `ChatWsExt` (root + `ws::ChatWsExt`), `ChatCapability` (root + `session::ChatCapability`), every input/patch struct, etc.\n\nCaller impact:\n- The crate has implicitly committed to both paths. A future refactor that renames `methods::quota` to `methods::quotas` or moves the `Quota` struct into `methods/mod.rs` directly breaks every consumer who imports the inner path.\n- IDE auto-import can pick the inner path arbitrarily, leading to inconsistent imports across a downstream codebase.\n- `cargo public-api` diffs treat the two paths as distinct items, doubling the surface area shown.\n\nExamination of the modules:\n- `types` and `utils` \u2014 the *only* path: `types::BodyType` etc. and `utils::format_receipt_timestamp` are not re-exported at the root. So `pub mod` is necessary here. Consider re-exporting at the root too (matches the convention of every other module), or commit to the inner path as canonical.\n- `methods`, `session`, `sse`, `ws` \u2014 fully duplicated by root re-exports. `pub mod` adds nothing for the consumer; consider `pub(crate) mod`.\n- The ten `methods::*` sub-modules \u2014 same: every public item is re-exported through `methods/mod.rs::pub use ...`. `pub(crate)` would not regress reachability via the crate root, only eliminate the inner path.\n\nFix paths:\n1. **Tighten visibility**: change `pub mod methods`, `pub mod session`, `pub mod sse`, `pub mod ws` to `pub(crate)`. Re-export `types` and `utils` items at root and tighten those too. Net change: single canonical path for every item.\n2. **Document both paths as committed**: add a crate-level rustdoc note \"all public items are accessible from both the crate root and their defining module; both paths are stable.\" Then maintenance cost is real and visible.\n\nOption 1 is cleaner. Option 2 is honest about current state.\n\nThe same pattern likely affects every other `*-client` and `*-server` crate in the workspace per canonical-template propagation. A workspace-wide decision is needed before this can be acted on.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.47",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "pub mod granularity creates dual paths for every re-exported item",
+  "updated_at": "2026-05-15T20:42:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:42:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "6ce537b5-3362-5dbb-b022-bcb670353cce",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

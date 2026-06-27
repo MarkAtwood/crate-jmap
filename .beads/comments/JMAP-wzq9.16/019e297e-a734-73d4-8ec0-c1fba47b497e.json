@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T02:37:07Z",
+  "id": "019e297e-a734-73d4-8ec0-c1fba47b497e",
+  "issue_id": "JMAP-wzq9.16",
+  "text": "Blocked on canonical workspace propagation. ClientError::InvalidArgument(String) is jmap_base_client's existing error variant \u2014 adding typed sub-variants requires changing jmap-base-client's public API and then propagating new typed-variant call sites across all extension-client siblings (mail, chat, calendars, tasks, contacts, filenode, sharing, metadata). The string-typed posture is consistent across canonical mail-client (email.rs:120-125, mailbox.rs, etc. all return ClientError::InvalidArgument(format!(...))). Fix needs to land at jmap-base-client (typed error subset) + canonical mail-client (call-site migration), then propagate to siblings."
+}

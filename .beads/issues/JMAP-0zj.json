@@ -1,0 +1,52 @@
+{
+  "acceptance_criteria": "Invalid combos return invalidProperties; bodyValues read and used when partId present; tests cover mutual-exclusivity and single-text/html-part rules",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:35:27Z",
+  "compaction_level": 0,
+  "content_hash": "df8674b1038af2845e05f7b3fa2a27bffee37f35eda9a87466cf85f860bd9a09",
+  "created_at": "2026-05-02T00:06:18Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8621 \u00a74.6 defines strict rules for email creation: (1) bodyStructure and textBody/htmlBody/attachments are mutually exclusive \u2014 if bodyStructure is present, the other three MUST NOT be; (2) if textBody is given, it must contain exactly one part of type text/plain; (3) if htmlBody is given, exactly one part of type text/html; (4) within EmailBodyPart, client may specify partId OR blobId but not both; (5) bodyValues (map from partId to EmailBodyValue) must be parsed and used to supply body content for parts with partId. Currently handle_email_set (email.rs lines 461\u2013660) calls build_email_from_create without any of this validation. The bodyValues field is not read at all.",
+  "ephemeral": 0,
+  "id": "JMAP-0zj",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Epic: JMAP-sz1 (jmap-mail-server RFC 8621 compliance)",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/set create: validate bodyStructure and parse bodyValues",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:30:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wdp",
+      "id": "2292c6df-4d73-5ef5-9ea6-190e92781774",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-01T17:19:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-b50",
+      "id": "6fbaf4fb-d48d-5bf4-a70f-eb7be99e5661",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-01T17:25:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xv",
+      "id": "7612ccd1-530a-5acf-9e3e-e17636a5cc1e",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

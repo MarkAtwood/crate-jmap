@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T05:54:19Z",
+  "compaction_level": 0,
+  "content_hash": "1a9e05f7157389947a266b6adeccf7e6f680e0f2b38fbaf420c37ff98f875161",
+  "created_at": "2026-05-08T03:19:34Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/event_copy.rs:16-36 takes `create: serde_json::Value` with no validation. RFC 8620 \u00a75.4 (referenced by draft-ietf-jmap-calendars-26 \u00a75.7) says `create` is \"Map<Id, T>\" \u2014 a JSON object whose keys are caller-chosen creation ids and whose values are partial T objects.\n\nIf a caller passes `json!(\"hello\")` or `json!([])` or `json!(null)`, we send a bad request to the server. Server will reject with `invalidArguments`, but the client could do better.\n\nMore importantly: the documented argument `fromAccountId: &str` has an empty guard, but `accountId` (the destination, looked up from the session) does not \u2014 and `create` has no shape validation at all. The empty-guard pattern is partial and inconsistent.\n\nSuggested fix: either type `create` as a builder/struct (CopyRequest in PLAN.md \u00a7A.4) or at minimum require `create.is_object()` before sending and return InvalidArgument otherwise. Keeps the bad-input failure local and gives a better error message than 'server returned invalidArguments at /create.'",
+  "ephemeral": 0,
+  "id": "JMAP-231o.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "calendar_event_copy: from_account_id is the only Id arg with empty-guard, accepts arbitrary content for create",
+  "updated_at": "2026-05-08T05:54:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:19:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "8a87e694-8567-50da-ac34-d21fcf1d3fbf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

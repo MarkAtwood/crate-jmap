@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "created_at": "2026-05-12T05:52:55Z",
+  "id": "019e1abe-d605-7078-a76a-5ccf65b5a089",
+  "issue_id": "JMAP-cf7p.1",
+  "text": "Landed in commit cc25eb6. Crate-jmap-testjig/ directory created with Cargo.toml (publish=false, axum 0.8, tokio with rt-multi-thread/macros/signal/sync, tokio-tungstenite + subtle from workspace, jmap-server foundation + 8 extension server crates with memory feature), src/lib.rs (NOT-FOR-PRODUCTION crate doc + #[forbid(unsafe_code)]), src/main.rs (scaffold-only placeholder binary). Added to workspace.members. Workspace gates clean: cargo build --workspace, cargo clippy --workspace -- -D warnings, cargo test --workspace, RUSTDOCFLAGS=-D warnings cargo doc -p jmap-testjig --no-deps. TLS-stack policy preserved: cargo tree -i openssl --workspace continues to report 'did not match any packages'. axum 0.8 + tokio-tungstenite 0.29 + hyper 1.x route through tokio-rustls 0.26 with no openssl transitive."
+}

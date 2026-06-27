@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Adopted extras policy across 33 in-scope types in jmap-chat-types per the canonical pattern from JMAP-lbdy.2. Tagged-enum + flatten compatibility verified for EphemeralMessage and ChatMessagePush. cargo test --workspace --all-features: 1702 (+33 new). Commit 2957e6e.",
+  "closed_at": "2026-05-11T19:17:35Z",
+  "compaction_level": 0,
+  "content_hash": "0f8a0aec93b5988d15f6535cd4831015d379c6affaf362ea9b26dce4f0f04f10",
+  "created_at": "2026-05-09T00:51:44Z",
+  "created_by": "Mark Atwood",
+  "description": "Apply the workspace extras-preservation policy (JMAP-lbdy) to crate-jmap-chat-types.\n\nIn scope (estimate ~15-20 public wire-shaped Deserialize structs):\n- Chat + nested: Member, Role\n- Message + nested: MessageAction, ReactionGroup, ReadDisposition struct types (if any)\n- Space + nested: Channel, Category, MemberRole (if struct)\n- ChatContact, Endpoint, NetworkAddress (if struct)\n- ReadPosition\n- CustomEmoji\n- SpaceInvite\n- SpaceBan\n- PresenceStatus\n- Federation peer types (if defined)\n- WebSocket ephemeral types\n- Push subscription types\n\nOut of scope:\n- Filter / Comparator algebra types.\n- String-enum types (ChatKind, DeliveryState, etc.).\n- Property selector enums.\n\nCookie-cutter consistency: jmap-chat-types follows the same extension-types shape as the canonical jmap-mail-types per workspace AGENTS.md (and is itself a normative reference for the JMAP Chat draft). Scope and field-shape are inherited from parent epic JMAP-lbdy and apply identically to every sibling extension-types crate. Each in-scope struct adds one field with the documented attribute; no public types added/renamed/removed.\n\nAcceptance: every in-scope struct has `pub extra: Map<String, Value>` with the documented attributes; one round-trip preservation test per type; PLAN.md updated; cargo test/clippy/fmt clean.\n",
+  "ephemeral": 0,
+  "id": "JMAP-lbdy.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Adopt extras policy in jmap-chat-types",
+  "updated_at": "2026-05-11T19:17:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-08T17:51:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-lbdy",
+      "id": "c353508e-56a1-5029-aed1-adc9a272cc6a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

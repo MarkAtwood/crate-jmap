@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T06:27:35Z",
+  "compaction_level": 0,
+  "content_hash": "0b36f064a70b604c2a416a89646c90a3729c3f28a9b552004f2d6af203cc74ea",
+  "created_at": "2026-05-11T00:26:29Z",
+  "created_by": "Mark Atwood",
+  "description": "After JMAP-g7wu.9.1 through .4 land, run a workspace-wide grep for remaining String/&str sites that semantically represent UTCDates:\n\n  rg -nP '(utc_[a-z]+|UTCDate as a string|: &str.*[Uu]TC|: String.*UTC|RFC 3339 string)' --type rust -g '!target/**'\n\nFile follow-up child beads for any additional sites found.\n\nLikely candidates to check:\n- jmap-mail-types (receivedAt, sentAt \u2014 already UTCDate via jmap-types?)\n- jmap-chat-types (timestamps in messages, space activity)\n- jmap-contacts-types (vCard-derived date fields)\n- Other *-client method args\n\nThe 0.2.0 release shouldn't ship with any String-typed UTCDate field on a public API surface.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.9.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Spotted during JMAP-g7wu.9.3 (tasks-server migration): jmap-calendars-server has an analogous CalendarsBackend::compute_utc_times method at crate-jmap-calendars-server/src/backend.rs:273-280 still returning (Option<String>, Option<String>). Also implemented at crate-jmap-calendars-server/src/lib.rs:716 (test backend). Same engineering argument applies \u2014 change to (Option<UTCDate>, Option<UTCDate>). This was not in the .9.3 bead scope but should be picked up by this audit sweep. File as a sibling .9.6 (or fold into .9.5's scope) before the 0.2.0 cut.\n[2026-05-10 audit results, filed by autonomous /do-beads session]\n\nAudit method: ran the bead-prescribed rg pattern across the workspace, then expanded to scan all crate-jmap-*-types/src/ for 'pub <ident>: (Option<)?String' fields with date/time-shaped names (date, time, expires, created, updat, sent, received, deleted, edited, before, after, _at, min_d, max_d). Each candidate was checked against its doc comment + relevant RFC/draft section to distinguish UTCDate (RFC 3339 + Z, equivalent to JSCalendar UTCDateTime per RFC 8984 \u00a71.4.1) from LocalDateTime (no offset), IANA tz strings, email addr-specs, ISO 8601 Duration strings, and LocalDate values.\n\nFindings \u2014 true positives, by crate:\n\n  jmap-calendars-types : 7 sites (event.created/updated, notification.created/after/before, capability.min_date_time/max_date_time) -> JMAP-g7wu.9.6\n  jmap-tasks-types     : 13 sites (Task.utc_start/utc_due/created/updated/progress_updated, CheckItem.updated, Comment.created/updated, TaskFilterCondition.after/before, TaskNotification.created, TaskNotificationFilterCondition.after/before) -> JMAP-g7wu.9.7\n  jmap-contacts-types  : 6 sites (Card.created/updated, CardFilterCondition.created_before/_after, updated_before/_after) -> JMAP-g7wu.9.8\n  jmap-filenode-types  : 7 sites (FileNode.changed + 6 filter bounds \u2014 the leftover-from-.9.2 set called out in this bead's notes) -> JMAP-g7wu.9.9\n  jmap-calendars-server: 2 trait method signatures (CalendarsBackend::compute_utc_times return, get_availability params) plus in-source test impl -> JMAP-g7wu.9.10\n  jmap-chat-server     : 1 internal validation quality finding (sender_expires_at + 5 sibling now_utc_string consumers) -> JMAP-g7wu.9.11\n\nOut-of-scope finds (not refiled \u2014 NOT UTCDate-shaped per spec):\n- LocalDateTime: CalendarEventFilterCondition.after/before, Task.start/due, Task.recurrence_id.\n- LocalDate: TasksAccountCapability.min_date_time/max_date_time (draft-ietf-jmap-tasks-XX \u00a71.6.1 lines 273-275 \u2014 distinct from calendars draft \u00a71.6.1 lines 347/351 which ARE UTCDateTime).\n- IANA tz strings: Task.time_zone, Task.recurrence_id_time_zone, TaskList.time_zone, Calendar.time_zone, Principal.time_zone, CalendarEvent.time_zone.\n- Email addr-specs: Task.sent_by, CalendarEvent.sent_by.\n- ISO 8601 Duration: Task.estimated_duration, TasksRecurrencesAccountCapability.max_expanded_query_duration.\n- Email RFC 8621 wire type: Email.sent_at uses jmap_types::Date (non-UTC-permitted), not UTCDate.\n\nCrates audited and found already-clean:\n- jmap-types, jmap-server (foundation).\n- jmap-mail-types (canonical extension-types \u2014 sent_at uses jmap_types::Date by spec design).\n- jmap-chat-types (UTCDate on expires_at/edited_at/deleted_at).\n- jmap-sharing-types (UTCDate on notification.created/after/before).\n- jmap-mime, all client crates.\n\nSequencing: all 6 child beads are P3/P4 and should be bundled into the 0.2.0 coordinated SemVer push alongside JMAP-g7wu.1, JMAP-g7wu.3, JMAP-r3pg.14, JMAP-g7wu.6.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "UTCDate audit sweep across remaining workspace crates",
+  "updated_at": "2026-05-11T06:28:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:26:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.9",
+      "id": "14406598-fb2c-52ea-b4a1-36788e9fd50d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

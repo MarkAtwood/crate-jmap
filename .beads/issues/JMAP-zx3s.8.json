@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Adopted option 1 (doc-only) per the bead's recommendation and the workspace's existing pub-Map precedent. Workspace AGENTS.md extras-preservation policy section now carries an explicit 'Caller contract \u2014 wire-key collisions' sub-section documenting the foot-shooting scenario, the underlying serde-flatten non-dedup behavior, and the explicit caller contract ('callers must not insert keys into extra whose name matches a typed field on the same struct'). Added in-tree regression test extra_collision_with_typed_field_round_trip_fails on EmailAddress that locks in the observable behavior (serialize emits two keys; deserialize rejects with 'duplicate field'). The test uses string-level oracle (matches count) not the code under test, and will fail loudly if a future serde release silently alters the contract. Per-field rustdoc unchanged (every extra field already says 'Catch-all for vendor/site/private extension fields not covered by the typed fields above'); the workspace AGENTS.md is the single source of truth so propagation to sibling crates is automatic. Option 2 (accessor/newtype) explicitly rejected as out-of-scope: it would require revisiting the workspace policy + jmap-types::MethodResponseError.extra precedent across 30+ crates.",
+  "closed_at": "2026-05-17T15:11:46Z",
+  "compaction_level": 0,
+  "content_hash": "f1d5131ae4e42311c36ba2c1a480e37061975c9343843fa64a490d5e03641a6f",
+  "created_at": "2026-05-15T04:55:16Z",
+  "created_by": "Mark Atwood",
+  "description": "## Caller contract risk: caller can construct wire-invalid JSON via the public \\`extra\\` map.\n\nThe new \\`pub extra: serde_json::Map<String, serde_json::Value>\\` field is reachable for direct mutation. Nothing prevents a caller from inserting a key whose name matches a typed field on the same struct (e.g. \\`addr.extra.insert(\\\"email\\\", json!(\\\"override@example.com\\\"))\\` on an \\`EmailAddress\\`).\n\nWhen such a struct is serialized, \\`#[serde(flatten)]\\` emits the typed field first and then the flattened map's entries verbatim \u2014 there is no dedup pass. The wire output therefore contains two entries with the same JSON key.\n\n### Concretely demonstrated\n\nA minimal repro on serde 1 / serde_json 1:\n\n```rust\nstruct A {\n    email: String,\n    #[serde(flatten, default, skip_serializing_if = \\\"serde_json::Map::is_empty\\\")]\n    extra: serde_json::Map<String, serde_json::Value>,\n}\n\nlet mut a = A { email: \\\"real@example.com\\\".into(), extra: Map::new() };\na.extra.insert(\\\"email\\\".into(), json!(\\\"override@example.com\\\"));\nlet s = serde_json::to_string(&a).unwrap();\n// s = {\\\"email\\\":\\\"real@example.com\\\",\\\"email\\\":\\\"override@example.com\\\"}\n\nlet _: A = serde_json::from_str(&s).unwrap();\n// thread 'main' panicked: duplicate field \\`email\\` at line 1 column 35\n```\n\nResult: the crate's own \\`Serialize\\` impl produces JSON that the crate's own \\`Deserialize\\` impl rejects. RFC 8259 \u00a74 calls duplicate keys \\\"unpredictable\\\"; downstream consumers will pick either value with no guarantee which.\n\n### Affected types (in this diff)\n\nEvery type that received an \\`extra\\` field is affected: \\`EmailAddress\\`, \\`EmailAddressGroup\\`, \\`EmailHeader\\`, \\`EmailBodyValue\\`, \\`EmailBodyPart\\`, \\`Email\\`, \\`MailboxRights\\`, \\`Mailbox\\`, \\`Address\\`, \\`Envelope\\`, \\`DeliveryStatus\\`, \\`EmailSubmission\\`, \\`Disposition\\`, \\`Mdn\\`, \\`MdnSendRequest\\`, \\`MdnSendResponse\\`, \\`MdnParseRequest\\`, \\`MdnParseResponse\\`, \\`Identity\\`, \\`SieveScript\\`, \\`SearchSnippet\\`, \\`Thread\\`, \\`VacationResponse\\`.\n\n### Why callers will hit this\n\nThe doc comment on every \\`extra\\` field describes it as a catch-all for vendor / site / private extension fields \u2014 without saying \\\"do not put keys matching the struct's typed field names here\\\". A caller programmatically forwarding key-value pairs from a vendor extension namespace will not check for collisions, and the failure surface is silent: serialize succeeds, the wire is malformed, and the next deserialize either picks the wrong value or throws \\`duplicate field\\` deep inside a transport stack.\n\n### Two ways to harden\n\n1. **Doc-only**: every \\`extra\\` field doc gains an explicit warning: \\\"Inserting a key whose name matches a typed field above produces wire-invalid JSON with duplicate keys; the resulting value will not round-trip through this crate's Deserialize impl.\\\" This is the cheapest fix.\n2. **Type-level**: hide the field behind \\`pub fn extra(&self)\\` / \\`pub fn extra_mut(&mut self)\\` accessors that validate insertions against the known typed-field set, or replace \\`Map<String, Value>\\` with a newtype that enforces the invariant. This is a forever-API choice and matches the workspace's \\\"validate on construction\\\" stance elsewhere (e.g. \\`Id::new_validated\\`).\n\nThe current pub-field shape locks the workspace into option 1.\n\n### Cross-references\n\n- Workspace AGENTS.md \\\"Extras-preservation policy for vendor/site fields\\\" specifies \\`pub extra\\` and \\`serde_json::Map<String, Value>\\` \u2014 this contract concern is workspace-wide, not local to jmap-mail-types.\n- bd JMAP-zx3s.4 covers test gaps; the duplicate-key case is one of the missing tests (would fail loudly today and document the contract).",
+  "ephemeral": 0,
+  "id": "JMAP-zx3s.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "pub `extra` field allows wire-key collisions with typed fields \u2014 produces non-round-trippable duplicate-key JSON",
+  "updated_at": "2026-05-17T15:11:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:55:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zx3s",
+      "id": "ab003c07-f945-571c-a2d3-a166331a9829",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

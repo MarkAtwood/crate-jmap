@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b89b0af8a46a3d2f7ec5738cdae0352b783dfd6fa2d57c5cc54ea42eb0df14c9",
+  "created_at": "2026-06-13T21:49:09Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-client/src/ws.rs has 11/24 lines covered (45.8%). Contains ChatWsExt trait (next_chat_frame). Uncovered: the frame parsing/dispatch logic and error branches. Requires a mock WebSocket server to exercise.",
+  "ephemeral": 0,
+  "id": "JMAP-w8fu.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Test coverage: chat-client ws.rs (45.8%)",
+  "updated_at": "2026-06-13T21:49:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:49:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w8fu",
+      "id": "7e9fae3e-053d-5266-aecf-9ad778447141",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

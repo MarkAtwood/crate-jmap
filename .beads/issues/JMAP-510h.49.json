@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced .expect on the response['list'] re-borrow with a let-else bail-out. Read-phase collects existing_ids/node_ids from an immutable borrow that drops before the .await; write-phase takes a fresh mutable borrow with let-else fallback. No behavioural change for the happy path; the panic-on-shape-mismatch case is now a graceful 'return the response as-is' which preserves the existing best-effort posture for an impossible-in-practice condition. Existing tests still cover both happy and error paths. Committed in 0aab25a. Gates: fmt/clippy/test/doc green.",
+  "closed_at": "2026-05-14T20:46:38Z",
+  "compaction_level": 0,
+  "content_hash": "4bd75c6a7c1480cbc34fc8f989201c99a64dc984d79e4ae1918bf9a0ce7222d2",
+  "created_at": "2026-05-14T20:14:45Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: src/filenode.rs:54-86 (handle_filenode_get, fetchParents branch).\n\nThe current shape:\n\n    if let Some(Value::Array(list)) = response.get(\"list\") {      // immutable borrow of response\n        let existing_ids: HashSet<String> = list.iter()\n            .filter_map(|item| item.get(\"id\")...)\n            .collect();\n        let node_ids: Vec<Id> = existing_ids.iter()...collect();\n        if !node_ids.is_empty() {\n            if let Ok(ancestors) = backend.get_ancestors(...).await {\n                let list = response[\"list\"].as_array_mut().expect(\"list must be array\");\n                //                                                ^^^^^^ workaround\n                for ancestor in ancestors {\n                    ...\n                    list.push(v);\n                }\n            }\n        }\n    }\n\nThe .expect() is the symptom. The author needed an immutable borrow first (to read existing_ids) then a mutable borrow later (to push ancestors). The immutable borrow lives across an .await, which forces it to be dropped before the mutable borrow can begin. Re-acquiring via response[\"list\"].as_array_mut() then requires an .expect() because the compiler cannot prove the shape is still Array (even though we just destructured Value::Array four lines earlier).\n\nWhat idiomatic Rust would do: use let-else (Rust 1.65+) to bind the immutable shape, collect what is needed, drop the borrow before .await, then take a single mutable borrow at the end:\n\n    let Some(list_ref) = response.get(\"list\").and_then(Value::as_array) else {\n        return Ok((response, tail));\n    };\n    let existing_ids: HashSet<String> = list_ref.iter().filter_map(...).collect();\n    let node_ids: Vec<Id> = existing_ids.iter().map(|s| Id::from(s.as_str())).collect();\n    drop(list_ref); // explicit, though NLL handles it\n    if node_ids.is_empty() {\n        return Ok((response, tail));\n    }\n    let Ok(ancestors) = backend.get_ancestors(caller, &account_id, &node_ids).await else {\n        return Ok((response, tail));\n    };\n    let Some(list_mut) = response.get_mut(\"list\").and_then(Value::as_array_mut) else {\n        // Should be unreachable \u2014 we just verified shape \u2014 but recoverable instead of panic\n        return Ok((response, tail));\n    };\n    for ancestor in ancestors { ... }\n\nWhy it matters: the current .expect() is provably unreachable today, but it is the kind of unreachable-by-construction that breaks under refactor. A future change that moves the .await above the existing_ids computation, or that swaps response between branches, can silently turn this into a real panic. The let-else form removes the panic and documents the shape requirement at the point of use.\n\nProduction-code-panic guidance: per the supplement, .expect() in production code needs a comment explaining why it cannot fail. There is no such comment here. The implicit reasoning ('we just matched Value::Array') lives in the reader's head, not in the code.\n\nCanonical comparison: jmap-mail-server has zero .expect() calls in its handlers outside the derive(Serialize)-infallible idiom. The fetchParents pattern is filenode-specific (no analog in mail-server).",
+  "ephemeral": 0,
+  "id": "JMAP-510h.49",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": ".expect(\"list must be array\") at filenode.rs:71 is a borrow-check workaround that fragile to refactor",
+  "updated_at": "2026-05-14T20:46:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:14:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "2b31a75a-0160-53af-80c1-a2f61a6e362f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "deferred: bodyProperties/bodyValues is a large feature gap requiring significant backend trait changes; filed separately",
+  "closed_at": "2026-05-01T12:25:21Z",
+  "compaction_level": 0,
+  "content_hash": "28b24e02e5e3a3e9d1936b45895eb4d44e2b9109cb31525a9e6d08613cf63ba8",
+  "created_at": "2026-05-01T12:17:20Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs handle_email_get, handle_email_parse: RFC 8621 \u00a75.1/\u00a75.8 define bodyProperties, fetchTextBodyValues, fetchHTMLBodyValues, fetchAllBodyValues, maxBodyValueBytes as request parameters that control which body values are returned. The handlers parse 'properties' but silently discard these body-fetch parameters without forwarding them to the backend. The MailBackend::get_objects and parse_email trait methods have no way to receive them. Result: clients requesting specific body content via these parameters always get the backend's default, regardless of request.",
+  "ephemeral": 0,
+  "id": "JMAP-a14.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/get and Email/parse drop body fetch params",
+  "updated_at": "2026-05-01T12:25:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T05:17:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a14",
+      "id": "c95b8cdd-9e9e-5531-a13c-1bd9e9ebfcd8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

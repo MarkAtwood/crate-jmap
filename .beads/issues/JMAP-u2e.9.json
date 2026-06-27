@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-u2e.9",
+  "title": "Untagged variant ordering comment is accurate but could be more defensive",
+  "description": "In crate-jmap-types/src/query.rs lines 22-26, the comment correctly documents why Operator must come before Condition in the untagged enum. This is correct and the comment is good. However, there is no #[doc(hidden)] or compile-time guard preventing future developers from reordering the variants. A stronger approach would be a doc comment example showing the failure mode, or a serialization test that would break if the order changed. The existing tests (filter_operator_or_roundtrip) cover this implicitly. This is a documentation/robustness observation at P4.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:27:53Z",
+  "updated_at": "2026-04-30T04:35:27Z",
+  "closed_at": "2026-04-30T04:35:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-u2e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:27:53"
+    }
+  ]
+}

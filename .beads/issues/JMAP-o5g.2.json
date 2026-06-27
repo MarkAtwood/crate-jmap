@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-o5g.2",
+  "title": "BackendSetError::Other inconsistency: mailbox.rs aborts, email.rs continues",
+  "description": "In handle_mailbox_set (create/update loops), BackendSetError::Other returns Err(JmapError::server_fail(...)) which aborts the entire Mailbox/set call. In handle_email_set, the same error variant inserts into notCreated/notUpdated and continues. RFC 8620 \u00a75.3 intent is that individual item failures go in the not* maps and processing continues. Inconsistency: same backend error type, different method-level behavior depending on object type.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T04:53:51Z",
+  "updated_at": "2026-05-01T05:00:07Z",
+  "closed_at": "2026-05-01T05:00:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-o5g",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 21:53:51"
+    }
+  ]
+}

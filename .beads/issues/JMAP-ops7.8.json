@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Renamed JmapFileNodeExt -> JmapFilenodeExt and file_node_* methods -> filenode_* across the public surface (trait, impl, helper-fn already matched). Aligned with workspace cross-crate trait-naming pattern Jmap<UrlToken>Ext (mail, chat, calendars, tasks, contacts, sharing, metadata all derive from the URI single-token) and with sibling jmap-filenode-server's handle_filenode_* handlers. Spec object name FileNode (PascalCase) is unchanged in types and in 'FileNode/*' method-name URL constants \u2014 only inconsistent Rust API identifiers within filenode-client were touched. Pre-release 0.1.1 so the breaking rename is in-bounds. Workspace cargo test and clippy pass.",
+  "closed_at": "2026-05-17T22:13:19Z",
+  "compaction_level": 0,
+  "content_hash": "f15530b8da881e1a93de68a44d1bd0533bbc199f8791eb490dab51307794b35f",
+  "created_at": "2026-05-17T22:02:17Z",
+  "created_by": "Mark Atwood",
+  "description": "**File**: crate-jmap-filenode-client/src/lib.rs and src/methods.rs\n\n**Divergence (within a single crate)**:\n- Trait name: \\`JmapFileNodeExt\\` (CamelCase, 2 tokens \\`File\\` + \\`Node\\`)\n- Session-builder fn: \\`with_filenode_session\\` (single token \\`filenode\\`)\n- Method names: \\`file_node_get\\`, \\`file_node_changes\\`, \\`file_node_set\\`, \\`file_node_copy\\`, \\`file_node_query\\`, \\`file_node_query_changes\\` (snake_case, 2 tokens \\`file_node\\`)\n\nThe spec object name is \\`FileNode\\` (one word in PascalCase by convention, two-token semantically). Three different conventions for the same word in the same public surface.\n\n**Cross-crate context**: all other extension clients are internally consistent:\n- mail-client: \\`JmapMailExt\\` + \\`with_mail_session\\` + \\`email_get\\` (subject differs from object so no comparison)\n- chat-client: \\`JmapChatExt\\` + \\`with_chat_session\\` + \\`chat_get\\`\n- calendars-client: \\`JmapCalendarsExt\\` + \\`with_calendars_session\\` + \\`calendar_get\\`\n- contacts-client: \\`JmapContactsExt\\` + \\`with_contacts_session\\` + \\`address_book_get\\`/\\`contact_card_get\\`\n\nEach uses one casing consistently across the trait, helper, and method names.\n\n**What goes wrong**:\n1. IDE autocomplete on \\`client.with_\\` shows \\`with_filenode_session\\` but the user then types \\`fn.file_node_\\` expecting consistency \u2014 fails to find. Or vice versa.\n2. Grep for \\`filenode_\\` to find filenode-client usages misses the \\`file_node_\\` methods (and vice versa).\n3. A future filenode-server (which currently uses \\`handle_filenode_get\\` per its own snake-token convention \u2014 see crate-jmap-filenode-server) is inconsistent with the client's \\`file_node_get\\` method names.\n\n**Fix**: pick one \u2014 preferred is the single-token \\`filenode\\` form to match the trait helper and the server-side handlers. Rename methods to \\`filenode_get\\`, \\`filenode_changes\\`, etc.\n\nAlternative: pick \\`file_node_*\\` snake-2-token form and rename the trait to \\`JmapFileNodeExt\\` (already is, but rename helper to \\`with_file_node_session\\`). Less preferred \u2014 none of the other workspace siblings have a 2-token domain object.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "filenode-client mixes 3 casings for 'FileNode' in its own public API: `JmapFileNodeExt` trait + `with_filenode_session` fn + `file_node_get` methods",
+  "updated_at": "2026-05-17T22:13:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:02:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "2a9f184f-5153-5f4e-af9f-bf8ea0a449d2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

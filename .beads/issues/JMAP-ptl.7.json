@@ -1,0 +1,33 @@
+{
+  "close_reason": "JMAP-ptl.20: fixed via clippy --fix. JMAP-ptl.21: labeled opinion, existing iterator chains are already good. JMAP-ptl.7: documented architectural choice \u2014 in-process filter chosen over query_objects delegation due to tree-mode complexity",
+  "closed_at": "2026-05-01T16:07:32Z",
+  "compaction_level": 0,
+  "content_hash": "99a6b682479701f77a28e30bf9702afe7df709734a59cf180dfc3847e5591c8d",
+  "created_at": "2026-05-01T15:31:47Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs:196 handle_mailbox_query calls get_objects::<Mailbox>(None) to retrieve all mailboxes, then filters in-process. The MailBackend trait defines query_objects::<Mailbox> which backends can implement with an index, but the handler never calls it. For accounts with thousands of mailboxes (shared hosting, large organizations), every Mailbox/query allocates and deserializes the full mailbox list. Backends cannot improve Mailbox/query performance through their query_objects implementation because it is dead code from the handler's perspective.",
+  "ephemeral": 0,
+  "id": "JMAP-ptl.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/query fetches all mailboxes in-process; backend query_objects<Mailbox> unreachable",
+  "updated_at": "2026-05-01T16:07:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:31:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ptl",
+      "id": "bebb2b99-3806-5c02-893d-5f7933f7fa35",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

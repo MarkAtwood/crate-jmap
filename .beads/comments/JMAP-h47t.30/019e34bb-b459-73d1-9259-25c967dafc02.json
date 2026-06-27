@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T06:59:37Z",
+  "id": "019e34bb-b459-73d1-9259-25c967dafc02",
+  "issue_id": "JMAP-h47t.30",
+  "text": "Filed as descendant of JMAP-h47t but the actual work is workspace-wide (120 handle_* fns across 7 sibling extension-server crates plus the canonical mail-server). Suggest re-parenting as top-level workspace-sweep like JMAP-k9va (Id::from sweep) and JMAP-7g82 (MemoryError sweep) \u2014 same shape as those existing sweep beads. Leaving open for the next /do-beads session to pick up at workspace scope, or for the owner to schedule explicitly.\n\nDecomposition plan if worked: 7 per-crate child beads (mail-server canonical first per propagation rule; then chat, calendars, contacts, filenode, metadata, sharing). Mail-server has 32 handle_* fns and is the biggest; the smallest is metadata-server at 5. Each child is mechanical pure-docs adding the wire-shape rustdoc shape demonstrated in commit 216cc61 on JMAP-h47t.17."
+}

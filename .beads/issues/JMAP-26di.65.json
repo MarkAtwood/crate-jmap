@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "f1133eb56862c58153a76f8878342d4850ad68d3eb6871faaf475c8f1c940d22",
+  "created_at": "2026-05-15T20:53:08Z",
+  "created_by": "Mark Atwood",
+  "description": "methods/mod.rs:377-380 \u2014 'pub fn with_sort_ascending(mut self, v: bool) -> Self'. At call sites: 'input.with_sort_ascending(true)' or 'input.with_sort_ascending(false)' \u2014 the meaning of the bool is opaque without consulting the doc-string. The Rust review guide explicitly calls out this anti-pattern: 'bool parameters that are really two-variant enums in disguise. fn process(input: &str, verbose: bool) \u2014 the caller cannot tell at the call site what true means.' Idiomatic form: 'pub enum SortDirection { Ascending, Descending }' with 'with_sort_direction(SortDirection::Ascending)'. The underlying MessageQueryInput.sort_ascending field can stay as bool (since the wire serialization to 'isAscending: bool' matches), and the conversion happens in the setter. Counter-argument: this is purely call-site readability; sort_ascending is a near-universal builder convention name. The counter-argument has some weight \u2014 bool-for-sort-direction is widely tolerated. Marking as P4 + opinion because the engineering basis (call-site readability) is weak relative to the API churn cost (introducing a new enum + setter rename).",
+  "ephemeral": 0,
+  "id": "JMAP-26di.65",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "MessageQueryInput::with_sort_ascending(bool) is bool-as-enum at call sites",
+  "updated_at": "2026-05-15T20:53:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:53:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "0fe1aed3-06bf-52e4-8135-bc9021f081ad",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

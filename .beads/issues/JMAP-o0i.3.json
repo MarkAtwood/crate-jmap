@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-o0i.3",
+  "title": "Missing PartialEq on Session and AccountInfo",
+  "description": "Session and AccountInfo are public data types returned by fetch_session that lack PartialEq. Both would derive correctly: Session fields are String, HashMap<String, V> (V: PartialEq), and AccountInfo fields are String, bool, HashMap<String, serde_json::Value> (Value: PartialEq). Without PartialEq callers cannot write assert_eq!(session, expected_session) in integration tests, nor use Session in data structures that require equality. serde_json::Value implements PartialEq, so there is no obstacle to deriving. Add #[derive(PartialEq)] (and Eq) to Session and AccountInfo.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:34:22Z",
+  "updated_at": "2026-04-30T01:42:38Z",
+  "closed_at": "2026-04-30T01:42:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-o0i",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:34:22"
+    }
+  ]
+}

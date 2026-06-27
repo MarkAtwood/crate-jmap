@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T08:38:21Z",
+  "compaction_level": 0,
+  "content_hash": "0f0bfaf938b8900ac8fec22fe5f2af9a179d85ac90349377eab5e724de85f49c",
+  "created_at": "2026-05-14T03:38:59Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/memory.rs:430-432\n\n  #[derive(Debug)]\n  pub struct MemoryError(pub String);\n\nThe 'memory' feature is documented as 'API stability is opt-in via\nthis feature and may break across minor versions while the crate is\npre-1.0' (lib.rs:25-27, memory.rs:21-23). That is a written-down\nintent but not a Rust-level enforcement. Downstream consumer\ncrates that use MemoryBackend (this workspace's test suite, the\njmap-testjig binary, and any third party building demos against\nthe docs) match on MemoryError(s) literally \u2014 that match shape is\nthe type's contract whether the rustdoc says 'unstable' or not.\n\nSpecific footguns:\n\n1. Adding a #[source] error chain (anyhow style or std-Error\n   source(): ergonomic for real-world debugging) requires\n   reshaping the tuple. Every match site breaks.\n\n2. The pub field makes the string-allocation choice part of the\n   contract: callers can read the unbounded String at any time.\n   Switching to Cow<'static, str> or a small-string optimization\n   variant is breaking.\n\n3. Other reference impls in this workspace follow the same\n   pattern (will need a canonical-template sweep) so the breakage\n   cost compounds.\n\nFix:\n  #[non_exhaustive]\n  #[derive(Debug)]\n  pub struct MemoryError {\n      message: String,\n  }\n\n  impl MemoryError {\n      pub fn new(s: impl Into<String>) -> Self { ... }\n      pub fn message(&self) -> &str { ... }\n  }\n\nPlus #[non_exhaustive] on the struct. The Display impl already\ngoes through self.0 / self.message \u2014 Display callers see no\ndifference. Tests that pattern-match on the tuple field migrate\nto .message().\n\nThe 'pre-1.0 minor break is OK' policy is the right escape valve\nif a consumer needs structured error chaining urgently, but every\nbreak costs propagation churn at every downstream crate. Better\nto land the shape that future-proofs both fronts at once.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: MemoryError exposes pub String tuple field",
+  "updated_at": "2026-05-17T08:38:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:38:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "ffa34ff5-f932-5ba2-9a2e-11373a95f0d6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

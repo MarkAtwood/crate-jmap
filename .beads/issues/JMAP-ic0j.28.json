@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T20:06:27Z",
+  "compaction_level": 0,
+  "content_hash": "1f6c8561933eef65c24f9ade6875b1cf82397e6ef0dd11d8980556b6860f983c",
+  "created_at": "2026-05-15T17:12:18Z",
+  "created_by": "Mark Atwood",
+  "description": "src/memory.rs:290-320 \u2014 MemoryBackend exposes four public methods whose\nintent is test-fixture mutation:\n\n    pub fn set_default_calendar_for_test(&self, account_id: &str, default_id: Option<&str>);\n    pub fn set_default_participant_identity_for_test(&self, account_id: &str, default_id: Option<&str>);\n    pub fn get_default_calendar(&self, account_id: &str) -> Option<Id>;\n    pub fn get_default_participant_identity(&self, account_id: &str) -> Option<Id>;\n\nThe `_for_test` suffix on the first two declares intent. But the visibility\nmodifier is `pub`, and the only gate is `#[cfg(feature = \"memory\")]` (the\nmodule declaration in lib.rs:44-45). Any downstream consumer who enables\n`memory` for a smoke test or example sees these in their IDE's\nautocomplete, has them surfaced by `cargo doc`, and can call them in\nproduction code.\n\nThe canonical mail-server (crate-jmap-mail-server/src/memory.rs) does NOT\nexpose any `*_for_test` or `get_*_for_test` methods. Mail's test seams that\nneed to read/mutate backend state live in `tests/common/mod.rs` (e.g.\n`FaultyBackend`), where they are invisible to downstream crates.\n\nWhat goes wrong for the caller:\n\n  1. A consumer enabling the `memory` feature for a non-test use (demo,\n     example, smoke test, integration scaffold) gets a backend with\n     \"test-only\" mutation knobs in its public API.\n  2. Once published with these signatures, removing `set_default_calendar_for_test`\n     or renaming `get_default_calendar` is a SemVer break. The maintainer\n     is locked in.\n  3. The `_for_test` naming convention is informal \u2014 it does not prevent\n     downstream consumers from using them. A consumer writing a \"test\"\n     today that ships to production tomorrow imports the methods and\n     depends on their behaviour.\n  4. The signature divergence from canonical mail-server (which has no such\n     methods) means a contributor cookie-cutting a calendars-style memory\n     fixture into mail-server has nowhere to put it; conversely, propagating\n     mail's \"no fixture knobs\" policy to calendars requires deleting four\n     pub methods.\n\nFix options:\n\n  (a) Gate behind a stricter `#[cfg(test)]`-only or `pub(crate)` boundary;\n      move test consumers into `tests/common/`. This is the canonical\n      mail-server pattern.\n  (b) Add a separate `test-fixtures` cargo feature, gate these methods\n      behind it, document that the feature is unstable and intended only\n      for downstream test code.\n  (c) Keep them `pub` under `memory`, but rename to `set_default_calendar` /\n      `set_default_participant_identity` (drop `_for_test`) and document\n      that MemoryBackend is itself a demonstration backend whose mutation\n      knobs are part of its supported API surface. Consistent with the\n      \"MemoryBackend is reference impl, not production\" framing.\n\n(a) matches canonical-template policy. (c) is the most honest framing of\ncurrent behaviour. (b) is a compromise that preserves the test-only intent.\n\nP2 \u2014 published-API design decision, not a present-day bug.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend exposes set_default_*_for_test and get_default_* as pub API (gated only by feature='memory')",
+  "updated_at": "2026-05-15T20:06:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:12:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "67cf7be7-107c-5b58-946e-d1a1d9de1e3d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

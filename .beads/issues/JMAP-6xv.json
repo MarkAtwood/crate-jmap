@@ -1,0 +1,36 @@
+{
+  "acceptance_criteria": "Email/get parses all 5 body-value fetch args; default property list used when properties=null; tests verify both behaviors against RFC examples",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:29:38Z",
+  "compaction_level": 0,
+  "content_hash": "f8e132483915b38ec3daf8c9c2a64f41822b559fd520e4b6d2c1c2708836a281",
+  "created_at": "2026-05-02T00:06:05Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8621 \u00a74.2 requires Email/get to parse 5 additional arguments that control body retrieval: bodyProperties (String[]), fetchTextBodyValues (Boolean, default false), fetchHTMLBodyValues (Boolean, default false), fetchAllBodyValues (Boolean, default false), maxBodyValueBytes (UnsignedInt, default 0). Currently handle_email_get (email.rs ~line 27) ignores all five. Additionally, when 'properties' is null/omitted, the handler must return only the RFC 8621 \u00a74.2 default property list (id, blobId, threadId, mailboxIds, keywords, size, receivedAt, messageId, inReplyTo, references, sender, from, to, cc, bcc, replyTo, subject, sentAt, hasAttachment, preview, bodyValues, textBody, htmlBody, attachments) \u2014 currently all properties are returned. Both issues are in email.rs lines 27\u201385 and lines 63\u201375.",
+  "ephemeral": 0,
+  "id": "JMAP-6xv",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Epic: JMAP-sz1 (jmap-mail-server RFC 8621 compliance)",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/get: body-value fetch args + default property list",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:19:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-b50",
+      "id": "49ef8614-30d9-5baa-b53a-9df9d84eee8a",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

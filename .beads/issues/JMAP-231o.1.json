@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T04:32:03Z",
+  "compaction_level": 0,
+  "content_hash": "23f330300407161ddcc51fd44b9172c57a765138ebfd54e0e781a63a69c18967",
+  "created_at": "2026-05-08T03:11:33Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:74 declares `updated: Option<HashMap<String, T>>`. RFC 8620 \u00a75.3 says the `updated` map is keyed by id with values that are either an Updated object OR null (server returns null when the update was applied with no extra info to report).\n\nTrigger: server returns `{\"updated\": {\"ev1\": null, \"ev2\": null}, ...}` after a successful CalendarEvent/set update. Current code calls `extract_response::<SetResponse<CalendarEvent>>` (event.rs:88). serde will fail to deserialize `null` into `CalendarEvent` (Calendar, ParticipantIdentity, etc).\n\nBad behavior: every typed `*_set` call that performs an update of an existing object \u2014 the most common JMAP write \u2014 will return `ClientError::Parse` instead of a successful SetResponse, even though the server's response is fully spec-compliant.\n\nWire shape required by RFC 8620 \u00a75.3: `updated: Option<HashMap<Id, Option<T>>>`. Note the inner Option AND that the key is an Id, not an arbitrary String.\n\nCross-crate note: jmap-mail-client/src/methods/mod.rs:77 has the same field shape and the same bug. File scope here is calendars-client; mail-client should get its own follow-up.\n\nSmoke test in tests/calendar_smoke_tests.rs:91 only exercises 'created', not 'updated', so it does not surface this. Add a test covering the update-success path to lock down the fix.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetResponse<T>.updated cannot deserialize per-id null values",
+  "updated_at": "2026-05-08T04:32:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:11:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "882ae1c7-2c7c-53c6-afd1-746bda85e88d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

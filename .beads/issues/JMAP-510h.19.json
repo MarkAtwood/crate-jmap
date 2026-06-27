@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Refactor landed in d402218. handle_filenode_get and handle_filenode_query no longer extract+reconstitute; they pass args through to the generic handle_get/handle_query and read accountId back from the response shape for post-processing. Other extension-server siblings that use the generic handlers (chat, calendars, addressbook, card, metadata, principal, etc.) already use this pattern \u2014 filenode-server now matches the canonical shape.",
+  "closed_at": "2026-05-14T20:49:10Z",
+  "compaction_level": 0,
+  "content_hash": "3fbd11f933b7a84e0e6c5a2f2d9e3099f4e02209b92365864d0632591ac5bd07",
+  "created_at": "2026-05-14T19:51:56Z",
+  "created_by": "Mark Atwood",
+  "description": "src/filenode.rs:38-50 (handle_filenode_get) and src/filenode.rs:904-919 (handle_filenode_query) repeat the same dance:\n\n1. extract_account_id(args) \u2192 (Id, Map)\n2. mutate the Map (reconstitute) by re-inserting accountId\n3. call into jmap_server::handlers::handle_get / handle_query with the reconstituted Value::Object\n\nThe handler comment at filenode.rs:40-41 admits 'the generic helper re-parses accountId itself, which is fine \u2014 the duplicate parse is cheap'. The double parse is not the issue; the issue is that the handler is fighting the extract_account_id signature. Either:\n\n(a) extract_account_id should return both the parsed Id AND the original Value (or a Value-preserving handle) so the handler can both peek at the parsed Id (for backend.get_ancestors / query_subtree) and forward the un-mutated Value to the generic handler. That avoids the reconstitute.\n\n(b) The generic handler in jmap_server::handlers should accept the (Id, Map) tuple directly, removing the reconstitute step.\n\n(c) Refactor: a small helper 'with_account_id<R>(args, |id, args| async { ... }) -> Result<R, JmapError>' that handles the extract-and-keep-args pattern.\n\nSuggested rewrite: option (a). The doc comment 'duplicate parse is cheap' is the kind of comment that should not need to exist \u2014 it signals an API mismatch.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extract_account_id + reconstitute pattern is repeated boilerplate",
+  "updated_at": "2026-05-14T20:49:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:51:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "ae794cf8-08b8-5b9a-b4aa-7311c985821e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

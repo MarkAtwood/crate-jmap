@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decision recorded \u2014 no code change needed.",
+  "closed_at": "2026-05-03T02:42:16Z",
+  "compaction_level": 0,
+  "content_hash": "63d51093607b1398f8936c04eb0b4e2db5af9d370c8cd10b22954bfe0c84ad70",
+  "created_at": "2026-05-03T02:38:59Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mdn_send checks CRLF not just on client-intent fields (subject, textBody, reportingUA) but also on nominally server-set fields (mdnGateway, originalMessageId, originalRecipient, error items). The comment explains why: a client CAN supply these fields in the shared Mdn struct, and any that reach RFC 5322 header generation must be CRLF-clean to prevent header injection. A future contributor might argue 'these are server-set, skip the check' \u2014 they would be wrong. The defense is correct and must stay.",
+  "ephemeral": 0,
+  "id": "JMAP-ocea.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CRLF injection defense on server-set fields is correct and should be preserved",
+  "updated_at": "2026-05-03T02:42:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T19:38:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ocea",
+      "id": "35fb926e-ec0f-5f81-8678-11cc2f310aa5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

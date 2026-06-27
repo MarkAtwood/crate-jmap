@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:53:33Z",
+  "compaction_level": 0,
+  "content_hash": "382a028b6777b179b4ccf579cf6f792e36444b3b87413c2010ff06bf741c964f",
+  "created_at": "2026-05-04T23:52:29Z",
+  "created_by": "Mark Atwood",
+  "description": "ChatPushCapability has no #[serde(default)] but ChatCapability does. A server omitting any required field causes hard Err(ClientError::Parse) instead of a usable partial struct. Fix: add #[serde(default)] to ChatPushCapability for robustness parity.",
+  "ephemeral": 0,
+  "id": "JMAP-4g6p.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChatPushCapability: missing #[serde(default)] \u2014 hard parse failure on absent fields",
+  "updated_at": "2026-05-04T23:53:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T16:52:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4g6p",
+      "id": "65616109-225d-5d4a-9efa-ca3511d9d53d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

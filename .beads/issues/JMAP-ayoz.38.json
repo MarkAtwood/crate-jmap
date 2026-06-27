@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed commit 1fab628. validate_metadata_filter's silent-Ok on a Filter typed-deserialize failure (a known field carrying the wrong VALUE type, like relatedIds: 42 instead of an array of Id strings) is now pinned end-to-end by two new integration tests in tests/metadata_tests.rs (query_filter_known_field_wrong_value_type_returns_unsupported_filter, query_changes_filter_known_field_wrong_value_type_returns_unsupported_filter). Both tests dispatch through register_metadata_handlers, hit the validate_metadata_filter precheck (which silently OKs the malformed shape), and then rely on the downstream generic handler's optional_arg -> JmapError::unsupported_filter mapping to surface the error. The tests assert response type == 'unsupportedFilter'. If a future refactor of jmap_server::handlers::handle_query or jmap_server::helpers::optional_arg ever silent-OKs a malformed filter shape, these tests fail loudly, signalling that the silent-Ok in validate_metadata_filter has become a pass-through bug and both paths need revisiting. Per the bead's own recommendation, this is option (1) \u2014 test-based contract pinning \u2014 rather than option (3) which would duplicate the generic handler's error semantics in two places. validate_metadata_filter's inline rustdoc updated to point at both regression tests. Quality gates: cargo fmt, clippy --workspace -D warnings, doc -D warnings, test --workspace all green (155 suites, 0 failures).",
+  "closed_at": "2026-05-17T05:43:13Z",
+  "compaction_level": 0,
+  "content_hash": "2deaadb3b8633b946dff486f37e7ad0440f63ebdf95721305e0c9d03b15c5011",
+  "created_at": "2026-05-14T15:05:37Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:560-563 in validate_metadata_filter:\n\n    let filter: Filter<MetadataFilterCondition> = match serde_json::from_value(filter_val.clone()) {\n        Ok(f) => f,\n        Err(_) => return Ok(()),\n    };\n\nThe function silently returns Ok(()) when the filter cannot be typed as Filter<MetadataFilterCondition>. The rustdoc justifies this:\n\n    'fails to deserialize at all (the generic will surface the deserialize\n    failure as `unsupportedFilter`, which is the spec-correct error for\n    malformed filter shape).'\n\nThis is a real non-local invariant: the cross-field \u00a73.4.1 validation is bypassed for malformed filters AND the downstream generic handler is trusted to surface a different error. If a future refactor of `jmap_server::handlers::handle_query` ever silent-OKs malformed filter shapes (e.g. via #[serde(default)] on Filter<T> or by switching to a value-tree walk), this validate function becomes a silent-bug pass-through.\n\nIdiomatic Rust treats non-local invariants either as:\n\n1. **A test contract** \u2014 an integration test that sends a malformed filter (something Filter<MetadataFilterCondition> cannot deserialize from) and asserts the response is the spec-correct error type, NOT a query that ignored the filter.\n2. **A debug_assert in test cfg** \u2014 debug_assert on the postcondition.\n3. **A local return** \u2014 propagate the deserialize error as Err(JmapError::unsupported_filter(...)) here, making the validate function's contract self-contained.\n\nOption (1) is most defensible because it doesn't change the runtime behavior and it explicitly couples the two crates via a regression test. Option (3) duplicates the downstream handler's error semantics \u2014 if the generic ever stops mapping deserialize failures to unsupportedFilter, we'd need to keep two paths in sync.\n\nCross-reference: JMAP-ayoz.6.3 (Metadata/query integration test for filter validation). The malformed-filter case should land alongside the relatedIds-without-relatedType case in that test.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "validate_metadata_filter silent-Ok on Filter deserialize failure depends on downstream behavior",
+  "updated_at": "2026-05-17T05:43:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:05:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "65c60505-4985-5cc4-b1ce-c091f03b714e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Superseded by JMAP-7a8b.1 (same issue, more precise framing)",
+  "closed_at": "2026-05-03T13:02:46Z",
+  "compaction_level": 0,
+  "content_hash": "f0f30f38399e0b6ba04b492003135e60ee28b691301ca2f9bef509704a1af85f",
+  "created_at": "2026-05-03T13:00:02Z",
+  "created_by": "Mark Atwood",
+  "description": "MdnSendResult.sent and .not_sent are pub fields with HashMap<Id, _> keys. Once any downstream crates use this (e.g. backend implementors), changing to HashMap<String, _> is a breaking API change. The fix is now: change Id to String before v0.1. The MdnBackend trait's send_mdns also takes HashMap<Id, Mdn> \u2014 same issue. Both need to change together.",
+  "ephemeral": 0,
+  "id": "JMAP-7a8b.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MdnSendResult public API uses Id for creation IDs \u2014 will fossilize before next release",
+  "updated_at": "2026-05-03T13:02:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:00:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7a8b",
+      "id": "27f3e4a4-5f95-5c70-9f8c-398c51a686eb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

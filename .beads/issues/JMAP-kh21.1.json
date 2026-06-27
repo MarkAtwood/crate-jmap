@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "6 AddressBook wiremock tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/helpers.rs and tests/addressbook_tests.rs (4 tests: get, changes, set create, onDestroyRemoveContents); clippy clean",
+  "closed_at": "2026-05-05T15:47:11Z",
+  "compaction_level": 0,
+  "content_hash": "60079e7466aeda018aa2c0500b4e4ce8cbd8bd20aa6ecbf1371d0a509ff73dc6",
+  "created_at": "2026-05-05T02:54:06Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-contacts-client/tests/contacts_addressbook_tests.rs with 6 async wiremock tests. Oracle: draft-ietf-jmap-contacts-10 \u00a74.1 (AddressBook/get example), \u00a74.2 (onSuccessSetIsDefault example), \u00a72.3 (set args).\n\n**Tests:**\n1. address_book_get_returns_spec_example: mock returns \u00a74.1 fixture; assert first AB name==\"Personal\", is_default==true, my_rights.may_read==true.\n2. address_book_get_null_ids_sends_ids_null: assert request body has \"ids\":null when ids=None passed.\n3. address_book_changes_returns_correct_states: assert old_state, new_state, has_more_changes==false, updated contains \"ab1\".\n4. address_book_set_on_success_set_is_default_sends_correct_wire: pass onSuccessSetIsDefault as string id; assert request body contains \"onSuccessSetIsDefault\":\"<id>\" and does NOT contain \"onDestroyRemoveContents\".\n5. address_book_set_on_destroy_remove_contents_serializes: pass onDestroyRemoveContents=true; assert request body contains \"onDestroyRemoveContents\":true.\n6. address_book_get_401_returns_error: mock responds 401; assert result is Err.\n\n**Acceptance criteria:** All 6 tests pass. Mock verified called once each.",
+  "ephemeral": 0,
+  "id": "JMAP-kh21.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: AddressBook/get /changes /set",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:54:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-kh21",
+      "id": "2e22d07a-cd87-554b-a2e6-0f1486b3a617",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

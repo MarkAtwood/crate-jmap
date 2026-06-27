@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Both check_count_caps and check_space_count_limits collapsed to find_map; 277 chat-server tests pass.",
+  "closed_at": "2026-05-17T19:45:54Z",
+  "compaction_level": 0,
+  "content_hash": "296df60d034517e80682d51cac1fd724b2eae68f6f0c690b3cdfc8729f5f1199",
+  "created_at": "2026-05-17T19:17:38Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/src/memory.rs:2800-2828 (new code introduced this pass via commit 8853c54) contains four sequential blocks of the shape:\n\n  if let Some(e) = exceeded(\"roles\", cur_roles, add_roles, limits.max_roles_per_space) {\n      return Some(e);\n  }\n  if let Some(e) = exceeded(\"members\", cur_members, add_members, limits.max_space_members) {\n      return Some(e);\n  }\n  if let Some(e) = exceeded(\"channels\", cur_channels, add_channels, limits.max_channels_per_space) {\n      return Some(e);\n  }\n  if let Some(e) = exceeded(\"categories\", cur_categories, add_categories, limits.max_categories_per_space) {\n      return Some(e);\n  }\n  None\n\nThe shape encodes 'try four checks in order, return the first hit'. Rust's iterator combinator for this is .find_map:\n\n  [\n      (\"roles\", cur_roles, add_roles, limits.max_roles_per_space),\n      (\"members\", cur_members, add_members, limits.max_space_members),\n      (\"channels\", cur_channels, add_channels, limits.max_channels_per_space),\n      (\"categories\", cur_categories, add_categories, limits.max_categories_per_space),\n  ]\n  .into_iter()\n  .find_map(|(label, cur, add, cap)| exceeded(label, cur, add, cap))\n\nEngineering basis: the function's contract \u2014 'first cap to trip determines the SetError' \u2014 is encoded structurally in the sequence rather than narratively. A future reviewer reading the four if-let-Some blocks must verify that all four return on Some(e) and that the trailing None matches the contract. The combinator form expresses the contract in one line.\n\nCounter-argument (taste-of-bikeshed risk): the if-let chain is more debuggable under a step-debugger than a combinator chain, and a future addition of a fifth cap (e.g. invites-per-Space) requires the same effort either way. Held at P3 because the engineering basis is real but the impact is local to one function's readability \u2014 not soundness, not correctness, not API surface.\n\nNew-code finding: introduced this review pass via 8853c54 (apply_space_patch backend-canonical cap enforcement).",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.106",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "check_count_caps chains 4 'if let Some(e) = exceeded(...) { return Some(e); }' early-returns where .find_map would express intent",
+  "updated_at": "2026-05-17T19:45:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T12:17:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "32c41d78-c322-575e-b89e-1451598b4e14",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

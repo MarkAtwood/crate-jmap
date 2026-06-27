@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Adopted extras policy across 23 in-scope types in jmap-jscontact-types and 3 types in jmap-contacts-types. 4 Hash-derived sub-types (NameComponent, AddressComponent, PartialDate, Timestamp) excluded pending JMAP-lbdy.12. cargo test --workspace --all-features: 1759 (+26 new). Commit 2322d0a.",
+  "closed_at": "2026-05-11T19:41:30Z",
+  "compaction_level": 0,
+  "content_hash": "8cdfbe25196dec68643db352b122ad015d6dbf2b48c30982e079727a3efb56cf",
+  "created_at": "2026-05-09T00:51:54Z",
+  "created_by": "Mark Atwood",
+  "description": "Apply the workspace extras-preservation policy (JMAP-lbdy) to crate-jmap-contacts-types.\n\nIn scope (estimate ~3 public wire-shaped Deserialize structs):\n- AddressBook, MyRights\n- ContactCard\n\nOut of scope:\n- Filter / Comparator algebra (ContactCardFilterCondition, ContactCardComparator).\n- Property selector enums.\n\nCoordination: when JMAP-sehw lands new typed sub-types in jscontact.rs, those typed sub-types MUST also include `extra` per this policy. Add a cross-reference to JMAP-sehw description at landing time so the contributor remembers to include extras from day one.\n\nAcceptance: every in-scope struct has `pub extra: Map<String, Value>` with the documented attributes; one round-trip preservation test per type; PLAN.md updated; cargo test/clippy/fmt clean.",
+  "ephemeral": 0,
+  "id": "JMAP-lbdy.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Adopt extras policy in jmap-contacts-types",
+  "updated_at": "2026-05-11T19:41:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-08T17:51:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-lbdy",
+      "id": "e9bd9b97-eb3a-5788-9c4e-07824ee626b0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

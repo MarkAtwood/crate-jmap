@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d8294007a15ed9ad5bcc523b689c34b9e0ba91ca66c3ad343792de43dc97ca8f",
+  "created_at": "2026-05-18T05:30:09Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence** \u2014 Dependencies / Restrictions table rows past line 21 of each extension-server AGENTS.md:\n- crate-jmap-mail-server/AGENTS.md L127, L142 \u2014 rich list with runtime-vs-dev distinctions, citations to e.g. mime-tree-as-RFC-5322-gateway with `bd:JMAP-g7wu.11`\n- crate-jmap-chat-server/AGENTS.md L156, L172 \u2014 adds `subtle` and `getrandom` with constant-time-compare design constraint\n- crate-jmap-calendars-server/AGENTS.md L122, L137 \u2014 adds `thiserror` but no rationale (see bd:JMAP-ops7.46)\n- crate-jmap-tasks-server/AGENTS.md L122, L137 \u2014 thin generic list\n- crate-jmap-contacts-server/AGENTS.md L122, L137 \u2014 thin generic list\n- crate-jmap-filenode-server/AGENTS.md L121, L136 \u2014 thin generic list\n- crate-jmap-sharing-server/AGENTS.md L121, L136 \u2014 thin generic list\n- crate-jmap-metadata-server/AGENTS.md L122, L137 \u2014 thin generic list\n\n**Caller-observable cost**: a contributor adding a new dep to (e.g.) calendars-server has no guidance on whether to follow the chat-server constant-time-compare convention, or whether the workspace tolerates `thiserror` (yes per calendars-server, no per mail-server's \"No thiserror\" line \u2014 see bd:JMAP-ops7.46). The cookie-cutter siblings' thin rows treat dep policy as an oral tradition.\n\n**Fix**: cookie-cut a richer Dependencies row from mail-server canonical into the 7 siblings, with per-sibling cross-references to crate-specific exceptions (e.g. chat-server's `subtle`+`getrandom`, calendars-server's `thiserror` \u2014 assuming bd:JMAP-ops7.46 resolves in favor of keeping it). Pure doc sweep, no code change.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "7 sibling extension-server AGENTS.md Dependencies rows are thin (generic dep list, no rationale); canonical mail-server's row is rich with runtime-vs-dev distinctions and citations \u2014 content past L21 drift",
+  "updated_at": "2026-05-18T05:30:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:30:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "f801dd99-a681-5f26-ab32-aaf408dcadda",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

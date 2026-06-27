@@ -1,0 +1,33 @@
+{
+  "close_reason": "Acknowledged. 'What is good' beads are decision/note observations \u2014 no code change required. They document good practices that the workspace already uses, retained for future reviewer reference if needed.",
+  "closed_at": "2026-05-18T03:01:42Z",
+  "compaction_level": 0,
+  "content_hash": "8ae465c7ebe02f9fa8b6a65fc275ff20a1e9ef6fab14ca51d7ad7b1105945461",
+  "created_at": "2026-05-14T19:23:25Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:438-456 walks change-log entries and folds create/update/destroy operations across the time window, retaining only the net effect for each Id. RFC 8620 \u00a75.2 doesn't mandate this de-dup, but emitting the same id in created AND destroyed in the same /changes response (e.g. for a create-then-destroy sequence in the queried window) would confuse clients. The current logic correctly: drops created/updated entries when a later destroy is seen, dedups create-then-create as a single created, dedups update-then-update as a single updated. A future contributor might suggest 'just emit each change-log entry verbatim, the client can figure it out' \u2014 the answer is no, the de-dup matches what the spec example responses imply and matches how the canonical mail-server sibling handles it (verify on propagation).",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "What is good: the changelog de-dup logic in get_changes (memory.rs:438-456) correctly handles created->destroyed and updated->destroyed sequences",
+  "updated_at": "2026-05-18T03:01:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:23:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "b377d90e-648c-5610-87be-bb6ade2b2b64",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

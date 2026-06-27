@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-09T18:01:37Z",
+  "compaction_level": 0,
+  "content_hash": "25db0beb6f113899fb5577db36bd0b3d6b42529d45e207d955e9c84918556fcc",
+  "created_at": "2026-05-09T08:08:45Z",
+  "created_by": "Mark Atwood",
+  "description": "Apply pattern E to jmap-filenode-client.\n\nPattern (full): Delete vacuous inline tests that exercise build_request without invoking production methods\n\nReference: see calendars-client (which already has the change) for the exact shape, and the JMAP-tco1 epic description for the source bead that defined the pattern (JMAP-231o.{6,10,19,29,8}).",
+  "ephemeral": 0,
+  "id": "JMAP-tco1.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Self-contained playbook reference (workspace AGENTS.md cookie-cutter consistency sweep, JMAP-tco1):\n\nPATTERN: delete vacuous _request_shape inline tests\nTARGET: jmap-filenode-client\nCANONICAL REFERENCE: crate-jmap-calendars-client (commit d462d5d)\n\nThe full step-by-step playbook for Pattern E is in JMAP-tco1's notes\nfield (run 'bd show JMAP-tco1' and read the 'Per-pattern playbook' section\nfor PATTERN E). Includes: before/after code snippets, target file\nglob, error-message preservation rules, helper-function signatures,\nvalidation steps.\n\nWHY THIS BEAD EXISTS: 2026-05-09 work session unilaterally applied\nPattern E to calendars-* without propagating to siblings \u2014 the LOCKED\ncrate markers were misread as 'API stability lockdown' rather than\n'canonical-template, propagate or change-canonical-first'. This bead\ncatches jmap-filenode-client back up.\n\nCLOSEABLE WHEN: target crate matches the canonical reference (manual diff\nagainst canonical shows only RFC/draft content differences, no shape\ndifferences) AND workspace gates pass (cargo test --workspace, cargo\nclippy --workspace --tests -- -D warnings, cargo fmt --check).",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sweep E -> jmap-filenode-client: Delete vacuous inline tests that exercise build_re",
+  "updated_at": "2026-05-09T18:01:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T01:08:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tco1",
+      "id": "74f39740-2c50-56db-b35a-549747746475",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

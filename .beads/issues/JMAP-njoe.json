@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "cargo check -p jmap-chat-client passes; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:48:05Z",
+  "compaction_level": 0,
+  "content_hash": "13508c1a443fb37058ef26f512fd5bc906730a615d0a61a2fea6561404a0fd11",
+  "created_at": "2026-05-04T15:06:09Z",
+  "created_by": "Mark Atwood",
+  "description": "WHAT: Port all Chat method implementations from ~/PROJECT/crate-jmapchat-client/src/methods/chat.rs\n\nALGORITHM: For each method on SessionClient:\n- chat_get(ids: Option<&[&str]>, properties: Option<&[&str]>) -> Result<GetResponse<Chat>, ClientError>\n  \u2192 build_request(\"Chat/get\", json!({accountId, ids, properties}), USING_CHAT) + extract_response\n- chat_query(input: &ChatQueryInput) -> Result<QueryResponse, ClientError>\n- chat_changes(since_state: &str, max_changes: Option<u64>) -> Result<ChangesResponse, ClientError>\n- chat_typing(chat_id: &str, typing: bool) -> Result<TypingResponse, ClientError>\n- chat_query_changes(since_query_state: &str, max_changes: Option<u64>) -> Result<QueryChangesResponse, ClientError>\n- chat_create(input: &ChatCreateInput) -> Result<SetResponse, ClientError>\n- chat_update(id: &str, patch: &ChatPatch) -> Result<SetResponse, ClientError>\n- chat_destroy(ids: &[&str]) -> Result<SetResponse, ClientError>\n\nAll follow the exact pattern from the reference. Type imports: jmap_chat_types::Chat.\nDeclare in methods/mod.rs: pub mod chat;\n\nDEFENSIVE RULES: No unwrap(). session_parts() propagates errors via ?.\nACCEPTANCE: cargo check -p jmap-chat-client; clippy clean; all 8 method signatures compile",
+  "ephemeral": 0,
+  "id": "JMAP-njoe",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-client: methods/chat.rs \u2014 Chat/* methods",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T08:07:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ds04",
+      "id": "3e55b47b-ce8b-5b73-bd80-5a69f6d9a357",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T11:29:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w",
+      "id": "c7e89d98-ec21-5c15-a457-90532ed2ceaf",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T08:07:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s1ei",
+      "id": "ee4345f2-1f95-5293-8c7e-025ad650bee2",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

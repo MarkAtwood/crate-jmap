@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T23:45:14Z",
+  "compaction_level": 0,
+  "content_hash": "47e5e84c68c0d068e7b18ddb1bc27ebad634939ae17c2c52db324a7629dc4f90",
+  "created_at": "2026-05-17T23:34:42Z",
+  "created_by": "Mark Atwood",
+  "description": "**Not yet a finding \u2014 a probe to fill an audit gap.**\n\nThe workspace AGENTS.md 'Security testing' section says the log-capture canary tripwire (pattern 2) is REQUIRED for any module that emits tracing::* events with an argument that interpolates a secret-bearing type via ? or % syntax. Reference precedent: crate-jmap-base-client/tests/common/log_capture.rs + crate-jmap-base-client/tests/log_redaction.rs.\n\nWorkspace state: log_capture.rs exists in exactly TWO places \u2014 jmap-base-client (precedent) and jmap-metadata-server (tests/common/log_capture.rs, declared via `pub mod log_capture;` in tests/common/mod.rs).\n\nNONE of the other 7 extension-server crates carry a log_capture.rs. This may be:\n(a) correct, if those crates emit no tracing::* events that interpolate secret-bearing types \u2014 in which case no action;\n(b) a gap, if any of those crates does emit such events and the canary is missing.\n\nThis probe is to determine which.\n\n**Audit procedure**:\n1. For each of mail-server, chat-server, contacts-server, calendars-server, tasks-server, filenode-server, sharing-server:\n   - rg 'tracing::(trace|debug|info|warn|error)' src/\n   - For each hit, classify the interpolated args: are any of them types that the workspace AGENTS.md 'Per-type Debug redaction canary' rule applies to (e.g. wrappers around credentials, session tokens, blob bytes, verification codes, invite codes, secret-bearing types from jmap-base-client)?\n   - If yes \u2192 that crate needs a log_capture.rs canary modeled on metadata-server's.\n2. For the audit result, file follow-up beads ONLY for crates where the audit identifies a real secret-bearing interpolation; do NOT pre-position canaries against speculative future risk.\n\n**Expected outcome**:\n- Most likely: the audit finds zero or one secret-bearing interpolation outside metadata-server, because the extension-server crates are mostly storage-shape and don't handle credentials directly (the base-client is the credentials boundary). The probe closes with 'no propagation needed; metadata-server's canary is sufficient'.\n- If audit finds 2+: file a sweep bead to propagate canaries to those crates only.\n\n**Why this is a probe and not a finding**: I did not run the audit; the prior workspace-API review pass also did not. Filing this gives the next reviewer a concrete checklist to discharge rather than a fabricated 'every server crate must have log_capture.rs' bead that would be unwarranted.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Probe: audit each extension-server crate for tracing::* call sites that interpolate secret-bearing types; propagate metadata-server's tests/common/log_capture.rs canary to crates that need one",
+  "updated_at": "2026-05-17T23:45:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T16:34:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "23d77939-ca27-5ad9-8d52-d05c3d1cf62b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

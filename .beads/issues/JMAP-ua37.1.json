@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Rewrote jmap-metadata-types for draft-ietf-jmap-metadata-02. Deleted metadata.rs (old Metadata enum + Annotation/ImapMetadata/WebDavMetadata variants), backend.rs (MetadataProperty + JmapObject impls). Rewrote capability.rs (DataTypeMetadataInfo replaces MetadataCapability), filter.rs (MetadataTextMatch replaces MetadataFilterCondition). Added namespace.rs (is_registered_namespace/is_vendor_namespace/is_valid_namespace). Removed jmap-types dependency. Updated lib.rs and tests. 35 tests pass (16 unit + 15 integration + 4 doctests).",
+  "closed_at": "2026-06-05T03:31:28Z",
+  "compaction_level": 0,
+  "content_hash": "f919bc80ff1819d4d00d73277ca978204f81d09cbcd6304fe20a7e638ff2ffda",
+  "created_at": "2026-06-05T02:25:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Complete rewrite of jmap-metadata-types to align with draft-ietf-jmap-metadata-02.\n\n**What changes:**\n- DELETE: Metadata enum (Annotation/ImapMetadata/WebDavMetadata variants), MetadataProperty enum, MetadataFilterCondition (standalone), MetadataCapability (standalone shape), UniquenessKey, all associated round-trip tests\n- ADD: MetadataValue type \u2014 the value shape inside namespace-keyed metadata/privateMetadata maps (\u00a72.1-2.2: key is namespace identifier, value is server-defined object)\n- ADD: DataTypeMetadataInfo struct (\u00a72.3) \u2014 capability advertisement per opted-in type (metadataNamespaces: String[], privateMetadataNamespaces: String[], metadataMaxSize: UnsignedInt|null, privateMetadataMaxSize: UnsignedInt|null)\n- ADD: MetadataTextMatch struct \u2014 filter helper for the 6 new filter conditions (metadataExists, privateMetadataExists, metadataTextContains, privateMetadataTextContains, metadataTextEquals, privateMetadataTextEquals)\n- ADD: Namespace validation helpers \u2014 registered names (no dot, IANA registry) vs vendor domain names (contains dot)\n- KEEP: JMAP_METADATA_URI capability constant (urn:ietf:params:jmap:metadata unchanged between revisions)\n- KEEP: Crate exists as a type-only crate with serde + jmap-types deps\n\n**Spec reference:** draft-ietf-jmap-metadata-02 \u00a72 (Metadata Properties), \u00a72.3 (DataTypeMetadataInfo), \u00a73.1 (Metadata Capability)\n\n**Wire format:** metadata and privateMetadata are Id[Object] maps keyed by namespace identifier. The Object shape is intentionally opaque (server-defined per namespace). MetadataValue can be serde_json::Value or a thin newtype.",
+  "ephemeral": 0,
+  "id": "JMAP-ua37.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Rewrite jmap-metadata-types for -02 architecture",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-04T19:25:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ua37",
+      "id": "eb6aa7f8-9435-5b4f-bc20-703e9a146883",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

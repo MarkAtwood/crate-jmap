@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed: replaced is_none()+unwrap() with let-else in MemoryBackend::send_mdns",
+  "closed_at": "2026-05-03T13:05:35Z",
+  "compaction_level": 0,
+  "content_hash": "e0421e28741b5f41ab040e02136d11825cb0d6a5c43dbf7c96db0ecdb8b4e616",
+  "created_at": "2026-05-03T13:01:38Z",
+  "created_by": "Mark Atwood",
+  "description": "In MemoryBackend send_mdns: 'if dnt_address.is_none() { ...; continue; } let dnt_address = dnt_address.unwrap();' \u2014 clippy::option_if_let_chain and the let-else pattern (stabilized Rust 1.65) make .unwrap() after .is_none() unnecessary. Idiomatic: 'let Some(dnt_address) = dnt_address else { not_sent.insert(...); continue; };'. The .unwrap() is provably safe here but the pattern should not appear in code that students will read as the canonical backend example.",
+  "ephemeral": 0,
+  "id": "JMAP-7a8b.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "dnt_address.is_none() + .unwrap() pattern \u2014 should be let-else in MemoryBackend",
+  "updated_at": "2026-05-03T13:05:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:01:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7a8b",
+      "id": "29400900-831d-5b65-b9f7-5a4e59ecf21c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

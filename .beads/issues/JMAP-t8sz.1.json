@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Removed 'when the URI is known' hedge; doc now says 'Always use this instead'",
+  "closed_at": "2026-05-02T22:19:22Z",
+  "compaction_level": 0,
+  "content_hash": "e8a7e0fe901a81c8b8e499a520c109b48104f59fb94d1a795b4b4f381df948dc",
+  "created_at": "2026-05-02T22:17:58Z",
+  "created_by": "Mark Atwood",
+  "description": "unknown_capability_with_detail's doc comment says 'Use this in preference to unknown_capability() when the URI is known', hedging with a condition. But the deprecated note on unknown_capability() now says 'always use unknown_capability_with_detail'. A future contributor reading the _with_detail doc may infer there are legitimate cases to call the bare unknown_capability(). The hedge should be removed from _with_detail's doc to match the 'always' policy \u2014 scenario: contributor sees hedge, concludes unknown_capability() is acceptable when URI is unavailable, adds a call site, triggering a deprecation suppression pattern. Maintenance consequence: repeated incorrect usage and PRs that have to be corrected.",
+  "ephemeral": 0,
+  "id": "JMAP-t8sz.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "unknown_capability_with_detail doc still says 'when URI is known' \u2014 contradicts 'always use' deprecation",
+  "updated_at": "2026-05-02T22:19:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:17:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-t8sz",
+      "id": "25791f01-902f-5b3e-a424-1481a789a944",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

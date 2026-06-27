@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T22:55:06Z",
+  "compaction_level": 0,
+  "content_hash": "d2fd9fc5d8b961a44e52dab63f1ec8faae38416dccdc36ed5bd7c101f6177155",
+  "created_at": "2026-05-10T22:20:46Z",
+  "created_by": "bd-spin/bd-spin-20260510T221713Z-3712501",
+  "description": "Pre-existing rustdoc warning blocks RUSTDOCFLAGS='-D warnings' cargo doc -p jmap-contacts-types. Fix: change [`PatchObject`](jmap_types::PatchObject) to [`PatchObject`]. Unrelated to JMAP-9wh7 but discovered while running rustdoc acceptance checks.",
+  "ephemeral": 0,
+  "id": "JMAP-9l8c",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "docs: redundant explicit link target on PatchObject in jmap-contacts-types card.rs:154",
+  "updated_at": "2026-05-10T22:55:06Z"
+}

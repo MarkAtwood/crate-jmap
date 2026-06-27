@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T06:50:03Z",
+  "compaction_level": 0,
+  "content_hash": "4656eea6beb24227d7425f1c61f0f4352e03bad67f61f78ce6efa834d480004e",
+  "created_at": "2026-05-02T06:46:24Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/chat.rs:354-363\nIssue: When known_direct_contact_ids pre-check fires (intra-batch duplicate contactId), the code re-fetches all chats and tries to find the canonical id with .min_by(). If no matching Direct chat is found (possible if the earlier successful create was concurrently destroyed between the insert into known_direct_contact_ids at line 492 and this re-fetch), the fallback is Id::from(\"unknown\"). This fabricated id is returned verbatim to the client in the alreadyExists SetError existingId field. The client receives a pointer to a non-existent object.\nImpact: Client receives wrong existingId value. A client that follows up with a /get for id \"unknown\" gets notFound. Violates RFC 8620 \u00a75.3 which requires existingId to point to the surviving object.\nFix: If the re-fetch finds no matching chat, return serverFail (not alreadyExists with a fake id), or re-examine whether known_direct_contact_ids should be cleared on concurrent destroy.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Intra-batch dedup re-fetch fallback returns Id(\"unknown\") to client",
+  "updated_at": "2026-05-02T06:50:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:46:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "a064a61e-d232-5802-a77a-8759b62ccb05",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

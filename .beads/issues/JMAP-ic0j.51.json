@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:04:30Z",
+  "compaction_level": 0,
+  "content_hash": "3c54e397d7c1f94c44d1804b4b7fb781f98eaba38756f2f1cc5e720d95746e80",
+  "created_at": "2026-05-15T17:24:46Z",
+  "created_by": "Mark Atwood",
+  "description": "backend.rs:367 and :470 carry #[allow(clippy::too_many_arguments)]:\n\n  #[allow(clippy::too_many_arguments)]\n  fn query_calendar_events(\n      &self,\n      caller: &Self::CallerCtx,\n      account_id: &jmap_types::Id,\n      filter: Option<&jmap_calendars_types::CalendarEventFilterCondition>,\n      sort: Option<&[jmap_calendars_types::CalendarEventComparator]>,\n      limit: Option<u64>,\n      position: i64,\n      args: &CalendarEventQueryArgs,\n  ) -> impl Future<...>;     // 7 args including self\n\n  #[allow(clippy::too_many_arguments)]\n  fn get_availability(\n      &self,\n      _caller: &Self::CallerCtx,\n      _account_id: &jmap_types::Id,\n      _principal_id: &jmap_types::Id,\n      _utc_start: &jmap_types::UTCDate,\n      _utc_end: &jmap_types::UTCDate,\n      _show_details: bool,\n      _event_properties: Option<&[String]>,\n  ) -> impl Future<...>;     // 7 args including self\n\nThe crate already uses the args-struct pattern in adjacent surface area: CalendarEventQueryArgs, CalendarEventGetArgs, CalendarEventSetArgs, SetAccumulators (the latter explicitly introduced 'to keep finalize_set_response under clippy's too_many_arguments threshold' per its rustdoc at helpers.rs:21).\n\nThe same fix applies here: extend CalendarEventQueryArgs to absorb filter/sort/limit/position (or introduce a dedicated QueryCallArgs struct), and introduce GetAvailabilityArgs for principal_id/utc_start/utc_end/show_details/event_properties.\n\nLint suppressions ('#[allow(clippy::too_many_arguments)]') are signal noise: clippy fires on too_many_arguments because the function is hard to call correctly (positional args are easy to swap, especially when many are the same type \u2014 here, three different &Id values in get_availability). Suppressing the lint silences the warning without fixing the call-site ergonomics.\n\nSame pattern in canonical jmap-mail-server: rg #[allow.too_many_arguments showed the same suppressions on adjacent methods (multi-arg JmapBackend methods). Workspace-wide template-level fix.\n\nTwo more findings hide behind this one: JMAP-ic0j.36 (ParseResult::new takes two same-type Vec<Id> positional args \u2014 same family of footgun) and the get_availability signature here (utc_start/utc_end both &UTCDate \u2014 easy to swap).",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.51",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Two #[allow(clippy::too_many_arguments)] suppressions could be lifted via args-struct pattern already in use",
+  "updated_at": "2026-05-17T17:04:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:24:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "30c1d757-7625-5c57-b9ac-9ae4bc990d2d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

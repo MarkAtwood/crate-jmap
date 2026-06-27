@@ -1,0 +1,39 @@
+{
+  "id": "JMAP-kit",
+  "title": "snippet.rs: SearchSnippet/get with capability gating",
+  "description": "Implement SearchSnippet/get in src/snippet.rs.\n\n## Method to implement\n\n### SearchSnippet/get (RFC 8621 \u00a75.9)\n- Input: accountId, filter (same FilterCondition as Email/query), emailIds\n- Output: list of SearchSnippet objects \u2014 one per requested emailId\n  - id: emailId\n  - subject: highlighted snippet of subject, or null\n  - preview: highlighted snippet of body, or null\n- Highlight format: mark matched terms with a tag (RFC leaves format to implementation; use <mark>term</mark>)\n\n## Capability gating\n- If the backend does NOT support SearchSnippet (backend.supports_type::<SearchSnippet>() returns false):\n  \u2192 return accountNotSupportedByMethod error invocation (not a panic, not a 400)\n- MemoryBackend: supports SearchSnippet (simple substring search)\n\n## Source references\n- Stalwart (AGPL \u2014 read, do not copy): search snippet handling in ~/GIT/stalwart-jmap-server/main/crates/jmap/src/email/\n- RFC 8621 \u00a75.9\n- supports_type pattern: check jmap-chat-server for capability gating example\n\n## Test vectors\n- SearchSnippet/get with filter={text: 'hello'} on email containing 'hello world' \u2192 preview contains '<mark>hello</mark>'\n- Backend with supports_type=false \u2192 accountNotSupportedByMethod error\n\nDepends on: JMAP-8ph, JMAP-5c0, JMAP-tf6\nParent: JMAP-445",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:02:58Z",
+  "updated_at": "2026-04-30T20:57:22Z",
+  "closed_at": "2026-04-30T20:57:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-2n8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:39:42"
+    },
+    {
+      "depends_on_id": "JMAP-5c0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:04"
+    },
+    {
+      "depends_on_id": "JMAP-8ph",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:03"
+    },
+    {
+      "depends_on_id": "JMAP-tf6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:05"
+    }
+  ]
+}

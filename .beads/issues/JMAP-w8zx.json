@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:43:38Z",
+  "compaction_level": 0,
+  "content_hash": "a4fb49ecadfc95412d447eb6e2db90d76f3d0246ad3a26878ed7dc9cfa3101dd",
+  "created_at": "2026-05-02T23:38:29Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/tests/common/mod.rs:2361: the string 'rfc822; test@example.com' is hardcoded as the final_recipient test value. The 'rfc822' prefix is an RFC 2298 / RFC 8098 address-type token, but this is not explained anywhere near the constant. A maintainer unfamiliar with RFC 8098 \u00a73.2 would not know whether 'rfc822;' is a magic string, a placeholder, or a normative requirement. Fix: add a comment citing RFC 8098 \u00a73.2 (Original-Recipient and Final-Recipient address-type syntax).",
+  "ephemeral": 0,
+  "id": "JMAP-w8zx",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Document rfc822 address-type prefix in MemoryBackend send_mdns",
+  "updated_at": "2026-05-02T23:43:38Z"
+}

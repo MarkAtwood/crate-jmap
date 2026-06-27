@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T13:13:43Z",
+  "id": "019e3612-3253-7cee-9b70-88ca2256017d",
+  "issue_id": "JMAP-tjvm.19",
+  "text": "Bead body explicitly says 'less confident about whether the workspace's typed FilterCondition fully covers the spec's filter algebra' and 'Did not exercise the typed-filter path against a real query.' This is a design judgment that depends on workspace-wide validation of jmap-mail-types::EmailFilter completeness against the JMAP filter spec \u2014 not feasible autonomously without real-server smoke. Labeling human."
+}

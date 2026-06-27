@@ -1,0 +1,33 @@
+{
+  "close_reason": "Resolved by JMAP-qz9v.8 (commit 8bcd51d). The match block in handle_address_book_set with 'Some(Value::Null) | None => {}' and '_ => {} // malformed \u2014 silently ignored' duplicate empty arms was eliminated when the JMAP-qz9v.8 fix converted the up-front arg parsing to a typed Option<String> and the downstream match to 'if let Some(id_str) = on_success_set_is_default'. The clippy::pedantic match_same_arms smell is gone because the duplicate arms are gone. The deeper 'lift JMAP args to typed enums' observation the bead made remains as a workspace-wide opportunity; not filing as a new bead because there's no specific actionable scope without a workspace-architectural decision call.",
+  "closed_at": "2026-05-18T02:56:14Z",
+  "compaction_level": 0,
+  "content_hash": "554f7bc8af01065e7859a4c74ac8651af1f9fec8552729c3f10bfde364f7d9cc",
+  "created_at": "2026-05-14T19:44:01Z",
+  "created_by": "Mark Atwood",
+  "description": "addressbook.rs:322-384. The onSuccessSetIsDefault match block:\n\n    match on_success_set_is_default {\n        Some(Value::String(id_str)) => { ... },\n        Some(Value::Null) | None => {}\n        _ => {} // malformed \u2014 silently ignored\n    }\n\nclippy::pedantic flags this with match_same_arms: the two empty arms collapse to a single `_ => {}`. Keeping them split is defensible (the comment \"malformed \u2014 silently ignored\" documents the third case as distinct from the legitimate-null case), but the idiomatic Rust pattern would express this with an exhaustive enum match and a dedicated helper enum like `OnSuccessSetIsDefault::{Apply(Id), NoOp, Malformed}` rather than splitting JSON Value patterns.\n\nEngineering cost: zero (the code is correct). The finding is a marker for the stringly-typed-deserialization smell: deserializing the JMAP arg as serde_json::Value and pattern-matching on Value::String / Value::Null / catchall is what you do when you have not lifted the per-method arg into a typed struct. The mail-server canonical extension args (e.g. EmailSubmission/set onSuccessUpdateEmail) likely have the same shape; lifting to a typed `OnSuccess` enum across the workspace is a separate proposal \u2014 file there if accepted.\n\nThis is the natural place to flag the under-typed wire-arg parsing in /set handlers as a workspace-wide idiom concern. The current code works; it just is not the idiomatic way to consume a JMAP method's args.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.51",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_address_book_set match arms 'Some(Value::Null) | None => {}' and '_ => {}' have identical bodies",
+  "updated_at": "2026-05-18T02:56:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:44:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "d7baa620-f715-518f-a508-ef7764eb1308",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

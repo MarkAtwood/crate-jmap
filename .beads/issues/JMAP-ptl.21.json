@@ -1,0 +1,33 @@
+{
+  "close_reason": "JMAP-ptl.20: fixed via clippy --fix. JMAP-ptl.21: labeled opinion, existing iterator chains are already good. JMAP-ptl.7: documented architectural choice \u2014 in-process filter chosen over query_objects delegation due to tree-mode complexity",
+  "closed_at": "2026-05-01T16:07:31Z",
+  "compaction_level": 0,
+  "content_hash": "c281fc6f446c07ad6b13414433396d71f8e7f4f8e9ae5c4f19d41d6ddd948099",
+  "created_at": "2026-05-01T15:43:58Z",
+  "created_by": "Mark Atwood",
+  "description": "Several places build a Vec with a for loop and .push(), where .map().collect() is more idiomatic: email.rs:833-836 (refs Vec), submission.rs:750-754 (delivery_status HashMap), submission.rs:376-383 (non_ref_ids). The for+push pattern is not wrong but signals 'I couldn't figure out the iterator' to a Rust practitioner. With_capacity would also be applicable in a few of these. The most glaring instance is refs in assign_thread which builds a Vec<&str> from two slices \u2014 this should be in_reply_to.iter().chain(references.iter()).map(|s| s.as_str()).collect()... which it already does. Actually the submission.rs delivery_status loop is the clearest case.",
+  "ephemeral": 0,
+  "id": "JMAP-ptl.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Multiple for loops with .push() building Vec could use .map().collect()",
+  "updated_at": "2026-05-01T16:07:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:43:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ptl",
+      "id": "cd54f359-0b23-5df2-b272-4e68447d2e0f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

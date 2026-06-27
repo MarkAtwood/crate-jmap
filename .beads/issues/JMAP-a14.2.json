@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T12:25:20Z",
+  "compaction_level": 0,
+  "content_hash": "f5069b46a5651e76df2172d39096c218bf7e63636e3280f31080b089d77530ba",
+  "created_at": "2026-05-01T12:15:22Z",
+  "created_by": "Mark Atwood",
+  "description": "backend.rs: SetError struct has no maxRecipients field. RFC 8621 \u00a77.5: when tooManyRecipients is returned a \"maxRecipients\" UnsignedInt property MUST also be present. If a backend returns BackendSetError::SetError(SetError{error_type:TooManyRecipients,...}), the serialized JSON will never include maxRecipients, violating the MUST. The struct needs a maxRecipients: Option<u64> field (skip_serializing_if None) to carry this required property.",
+  "ephemeral": 0,
+  "id": "JMAP-a14.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetError struct cannot carry tooManyRecipients.maxRecipients",
+  "updated_at": "2026-05-01T12:25:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T05:15:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a14",
+      "id": "cc66c9e9-4305-584b-a9cd-241dc73166ed",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

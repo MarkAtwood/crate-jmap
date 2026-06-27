@@ -1,0 +1,33 @@
+{
+  "close_reason": "domain changes handlers now delegate to handle_changes",
+  "closed_at": "2026-05-02T06:39:20Z",
+  "compaction_level": 0,
+  "content_hash": "00ab267c3463e84e718661b2a36bdbc6bf34d133623edcd0f5e608bcabe3e0f6",
+  "created_at": "2026-05-02T03:57:27Z",
+  "created_by": "Mark Atwood",
+  "description": "Every */changes handler (handle_chat_changes, handle_message_changes, handle_space_changes, handle_ban_changes, handle_mailbox_changes, handle_thread_changes, handle_identity_changes, handle_submission_changes, handle_email_changes) contains an identical 15-line block: extract sinceState, extract maxChanges, call get_changes, build the JSON response. The generic handle_changes in jmap-server/src/handlers.rs already implements this correctly. The domain-specific handlers reimplement it either because they add updatedProperties:null (mail handlers) or because they were written before the generic existed. The non-generic handlers should either delegate to handle_changes or extract the common parsing into a shared helper. This is an iterator/collection issue because each handler re-maps result.created/updated/destroyed with .iter().map(|id| id.as_ref()).collect::<Vec<_>>().",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Repetitive max_changes/sinceState parsing duplicated across every changes handler",
+  "updated_at": "2026-05-02T06:39:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:57:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "39ef2cc8-716c-569c-ba86-83d0a416dcb0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

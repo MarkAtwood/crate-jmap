@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: removed MAX_FETCH_ALL cap from test backend get_objects; ids=None now returns all objects",
+  "closed_at": "2026-05-02T19:30:47Z",
+  "compaction_level": 0,
+  "content_hash": "a8099773200db252e8c3f2e2ec9e3c63432851c4e0e5d4687c7ccf68b8b5cf2d",
+  "created_at": "2026-05-02T19:18:36Z",
+  "created_by": "Mark Atwood",
+  "description": "common/mod.rs MAX_FETCH_ALL=500 silently truncates when ids=None. The debug_assert fires in debug builds (printing a warning to stderr) but in release tests (cargo test --release) or when the test spawns more than 500 objects, assertions are silently dropped and tests pass against a truncated object set. The Mailbox/set destroy loop uses ids=None to fetch all emails for a mailbox, so any test that creates more than 500 emails will silently miss some. Because the truncation happens in the test backend not the library code, a failing test will look like a handler bug not a test infrastructure bug.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::get_objects ids=None silently truncates at MAX_FETCH_ALL=500",
+  "updated_at": "2026-05-02T19:30:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "38a0cc49-8660-5e87-85cd-8adcad813c3e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

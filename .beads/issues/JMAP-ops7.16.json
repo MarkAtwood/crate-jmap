@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Mechanical sweep across 7 sibling extension-client crates done. Each crate's:\n- USING_<EXT> capability slice constant in methods/mod.rs now references jmap_<ext>_types::JMAP_<EXT>_URI\n- session.primary_account_id() calls in <ext>_account_id() and session_parts() helpers now reference the const\n\nDoc-comment URI text strings, error-message strings (debug context), and test wire-format assertions left as-is \u2014 those are user-facing or oracle text, not symbol references.\n\nChat-client: USING_CHAT + USING_CHAT_PUSH + chat_account_id + session_parts\nCalendars-client: USING_CALENDARS + USING_PARSE + USING_AVAILABILITY + calendars_account_id + session_parts\nTasks-client: USING_TASKS + tasks_account_id + session_parts\nContacts-client: USING_CONTACTS + contacts_account_id + session_parts\nFilenode-client: USING_FILENODE + filenode_account_id + session_parts\nSharing-client: USING_SHARING + principals_account_id + session_parts (URI is urn:ietf:params:jmap:principals)\nMetadata-client: metadata_account_id only (USING_METADATA + session_parts already used the const)\n\nWorkspace cargo test, clippy all clean. 7 files, +33 -26 lines.",
+  "closed_at": "2026-05-17T22:38:48Z",
+  "compaction_level": 0,
+  "content_hash": "a2b4ccf0b1280d21ee1b1837e359dfe1a2d066c57aa639c122a7456672696706",
+  "created_at": "2026-05-17T22:20:31Z",
+  "created_by": "Mark Atwood",
+  "description": "Background: JMAP-ops7.6 added jmap-mail-types::JMAP_MAIL_URI / JMAP_SUBMISSION_URI / JMAP_VACATIONRESPONSE_URI and updated jmap-mail-client's production-code call sites (USING_MAIL constant + mail_account_id + session_parts) to reference the constants instead of hardcoded URI strings.\n\nThe 7 sibling extension-client crates (chat, calendars, tasks, contacts, filenode, sharing, metadata) already have JMAP_<EXT>_URI constants exposed by their respective *-types crates, but their *-client crates still hardcode the URI string in:\n- The USING_<EXT> capability slice constants in methods/mod.rs\n- session.primary_account_id(\"urn:ietf:params:jmap:<ext>\") calls in mail_account_id() and session_parts() (sibling-named methods)\n\nWorkspace policy (jmap-mail-client AGENTS.md): \"this crate is the canonical extension-client template. Changes here propagate to siblings.\"\n\nScope:\n- jmap-chat-client    \u2014 USING_CHAT constant + primary_account_id sites + ChatCapability TBD if it lands (see JMAP-ops7.5)\n- jmap-calendars-client \u2014 USING_CALENDARS + primary_account_id sites\n- jmap-tasks-client   \u2014 USING_TASKS + primary_account_id sites\n- jmap-contacts-client \u2014 USING_CONTACTS + primary_account_id sites\n- jmap-filenode-client \u2014 USING_FILENODE + primary_account_id sites\n- jmap-sharing-client \u2014 USING_PRINCIPALS + primary_account_id sites (URI is urn:ietf:params:jmap:principals)\n- jmap-metadata-client \u2014 USING_METADATA + primary_account_id sites\n\nEach crate's *-types dep already carries the URI constant, so this is a mechanical replacement of \"urn:ietf:params:jmap:<ext>\" string literals with jmap_<ext>_types::JMAP_<EXT>_URI references. Doc-comment URI text strings stay as text.\n\nVerify with cargo check, cargo test, cargo clippy per crate.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Adopt JMAP_*_URI constants across 7 sibling extension-client crates (consistency follow-up to JMAP-ops7.6)",
+  "updated_at": "2026-05-17T22:38:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:20:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "14e38f1c-37ee-56e5-8c16-5ba5d290b9ec",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

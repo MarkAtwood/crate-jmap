@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "736d2ce9abb37cfbe4cbc9dcb374809d513b1a82cac3b75811280425b4d461bb",
+  "created_at": "2026-05-14T16:45:50Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/parse.rs:63 \u2014 parse_request signature is:\n\n    pub fn parse_request(body: Value, max_calls: usize) -> Result<JmapRequest, JmapError>\n\n`body: Value` means the JSON parse has already happened in the\ncaller's code by the time parse_request runs. The function's own\ndoc comment (parse.rs:28-55) acknowledges this and lays out a long\ncaller-responsibility list:\n\n- Caller must enforce HTTP body byte-size limit before parsing.\n- Caller must use `serde_json::from_slice` (or equivalent) with the\n  serde_json recursion limit honored.\n- Caller \"should consider rejecting request bodies that exceed ~32\n  levels of JSON nesting\".\n\nThe runtime cost of these obligations is high: serde_json's default\nrecursion limit is 128, well above the documented \"32 levels\ncomfortably exceeds any legitimate JMAP request shape\". A naive\nconsumer that does `let body: Value = serde_json::from_slice(&bytes)?`\nalready eats up to 128 levels of stack before parse_request runs.\n\nWhat callers cannot depend on: that calling parse_request is\nsufficient for safe JMAP request handling. The function's name and\nposition suggest \"do this and you're protected\"; the doc says\n\"actually do these three other things first, only one of which is\ncovered by a default crate behaviour\".\n\nWhat goes wrong when this stays as-is: consumers cargo-cult the\nexample in README.md (\"parse_request(body_json, /* max_calls */ 16)\")\nwithout reading the full doc, and ship a server that stack-overflows\non a 200-level adversarial nested JSON. The kit's defenses for\nResultReference path depth (MAX_JSON_POINTER_DEPTH = 32 in parse.rs)\nand merge patch depth (MAX_MERGE_PATCH_DEPTH = 32 in helpers.rs) do\nnot fire because they are downstream of the JSON parse.\n\nResolution paths:\n\n- Offer a `parse_request_bytes(body: &[u8], max_calls: usize) ->\n  Result<JmapRequest, JmapError>` variant that does the JSON parse\n  internally with a kit-controlled depth limit. Keep the existing\n  Value-taking function for consumers that already have a Value\n  (federation hand-off, test fixtures).\n\n- Document the depth-limit obligation more prominently \u2014 surface it\n  in README.md \"How to use\" rather than burying it in parse.rs\n  doc.\n\n- Ship an `enforce_json_depth(&serde_json::Value, max_depth: usize)`\n  helper that walks an already-parsed Value to count depth, so\n  consumers who have a Value can defend in depth.\n\nThe library-kit posture in workspace AGENTS.md is \"consumer brings\nHTTP, auth, persistence\". The depth-cap obligation does fit that\nposture in principle, but the doc-buried form invites footguns.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "parse_request takes serde_json::Value not bytes \u2014 JSON-depth-cap responsibility unenforceable from inside the kit",
+  "updated_at": "2026-05-14T17:29:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:45:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "95982ff3-c5dc-5c48-82a8-0d924d2e7b0a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in commit 5caf280. Per parent sgrr.17 ratification of option (c) doc-only hardening, this bead resolves identically: PartialDate.month and PartialDate.day rustdoc now explicitly says the type does not range-check, callers MUST verify 1..=12 / 1..=31 before treating as RFC 9553 \u00a72.8.1-conformant. README Gotchas list gains a corresponding bullet cross-referencing bd:JMAP-sgrr.14 and bd:JMAP-sgrr.15 so the pattern of unbounded-numeric findings is visible.",
+  "closed_at": "2026-05-17T14:54:37Z",
+  "compaction_level": 0,
+  "content_hash": "f1f17452bb5651ef86a34b5bb046aeba08f61230348199385620ff142abd3374",
+  "created_at": "2026-05-15T03:42:31Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs:888-915 defines PartialDate.month at line 899 and PartialDate.day at\nline 903 as Option<u32>. RFC 9553 \u00a72.8.1 specifies month is 1..=12 and day is\n1..=31 (with month-specific cap of 28/29/30/31). The crate's doc comment\nmirrors the spec: 'Calendar month, 1..=12' / 'Calendar day of month, 1..=31'.\n\nThere is no validation. A caller can construct PartialDate { month: Some(13),\nday: Some(32), year: Some(2024), ... } and it round-trips through serde. A\nconsumer reading the PartialDate has to range-check both fields themselves \u2014\nno helper, no Result-returning constructor, no validate method.\n\nCousin of JMAP-sgrr.5 (which is about UnsignedInt 2^32 vs 2^53) and JMAP-sgrr.15\n(NonZeroU32 for list_as). The pattern recurs.\n\nTwo fixes:\n\n(a) Newtypes: Month(NonZeroU8) capped at 12, Day(NonZeroU8) capped at 31. Both\n    have validating constructors that return Result.\n(b) Validate on the type via a deserialize_with helper, rejecting out-of-range\n    on the deserialize path. Construction in Rust remains unchecked.\n\n(a) catches the bug at compile time for Rust callers. (b) catches it only at\ndeserialize time. (a) is breaking to apply later; (b) is not.\n\nThis is a paper cut individually. Across PartialDate + the list_as / pref\nfields in this crate, it adds up to a pattern of 'spec values have bounds the\ntype does not capture'. Worth deciding once.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "PartialDate.month and PartialDate.day have no validation \u2014 month=13 and day=32 deserialize successfully",
+  "updated_at": "2026-05-17T14:54:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:01:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr.17",
+      "id": "9dc745a7-9769-51cd-9d04-62e061e6fb4a",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T20:42:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "a032b231-04ae-50de-8201-31e7c4a5475b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

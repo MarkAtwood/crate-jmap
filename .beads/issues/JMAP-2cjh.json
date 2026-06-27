@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:42:45Z",
+  "compaction_level": 0,
+  "content_hash": "fc7f98c5d5fdcecf21316a7179090aab6371635e51be51f6aabdd77bdaa0238c",
+  "created_at": "2026-05-02T23:39:41Z",
+  "created_by": "Mark Atwood",
+  "description": "In src/mdn.rs handle_mdn_send (lines 190-242), the CRLF injection check covers: subject, text_body, reporting_ua, final_recipient, and extension_fields. The Mdn struct also contains mdn_gateway (doc: server-set on parse) and original_message_id (doc: server-set on parse). These fields are on the same Mdn struct used for both send and parse. A client sending a malicious MDN/send request could include mdn_gateway or original_message_id with CRLF. The handler does not check them. The spec says they are server-set (ignored on send), but the server does not strip them \u2014 they pass through serde deserialization into the Mdn handed to send_mdns. Either validate+reject these fields on send, or document that server-set fields are ignored/stripped before processing.",
+  "ephemeral": 0,
+  "id": "JMAP-2cjh",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mdn handle_mdn_send: CRLF check misses server-set fields (mdn_gateway, original_message_id)",
+  "updated_at": "2026-05-02T23:42:45Z"
+}

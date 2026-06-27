@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added tests/push_subscription_smoke_tests.rs with 9 smoke tests covering all 3 PushSubscription methods: create (USING_CORE only when no chat_push; USING_CHAT_PUSH when chat_push set; chatPush map serialisation; accountId always absent; empty device_client_id/url rejected; duplicate accountId in chat_push slice rejected with diagnostic context), update (verificationCode + types Patch::Set serialisation with USING_CORE; types+chatPush Patch::Clear emit nulls and switch to USING_CHAT_PUSH; expires Patch::Set emits verbatim UTCDate; empty id rejected), destroy (threads ids; empty rejected; always USING_CORE because destroy is property-blind). All 9 pass; clippy -D warnings clean.",
+  "closed_at": "2026-05-16T01:56:21Z",
+  "compaction_level": 0,
+  "content_hash": "4544d6cd86fa1425c5a4e2cc93f145649d67c1c91b47e43dc2a18eeba7dd2440",
+  "created_at": "2026-05-16T01:48:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Add to tests/misc_smoke_tests.rs (or new file): push_subscription_create (covers RFC 8620 \u00a77.2 + chat:push extension, USING_CHAT_PUSH capability), push_subscription_update (patch shape), push_subscription_destroy (threads ids, empty rejected). Spec: RFC 8620 \u00a77.2 + draft-atwood-jmap-chat-00 chat push extension.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.6.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "PushSubscription/* smoke tests: 3 methods, no coverage",
+  "updated_at": "2026-05-16T01:56:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T18:50:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "78dcd0dc-6e3c-5935-91c5-5066cd9b2eb4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

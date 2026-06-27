@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Fixed by JMAP-r3pg.2 commit 99a8be3 \u2014 handle_calendar_event_get doc rewritten with correct \u00a75.7 reference and accurate arg names (recurrenceOverridesBefore/After, reduceParticipants, timeZone).",
+  "closed_at": "2026-05-08T05:42:05Z",
+  "compaction_level": 0,
+  "content_hash": "371db8f4e4d666dfbc19e464d068e0acd9c7c8051be175c12cf3adce4858cea1",
+  "created_at": "2026-05-08T03:34:01Z",
+  "created_by": "Mark Atwood",
+  "description": "src/event.rs:14-18 doc-comment on handle_calendar_event_get:\n\n    /// Handle a CalendarEvent/get method call (draft-ietf-jmap-calendars-26 \u00a75.4).\n    ///\n    /// Extra args (`expandRecurrences`, `reducedParticipants`, `fetchCalendars`)\n    /// are passed through to the generic handler which forwards them to the\n    /// backend via the args `Value`.\n\nThree problems:\n1. The section reference is wrong: \u00a75.4 is the per-user properties section. CalendarEvent/get is \u00a75.7 (line 1417 of the draft).\n2. The arg names are wrong: spec defines recurrenceOverridesBefore, recurrenceOverridesAfter, reduceParticipants (no 'd'), and timeZone. There is no expandRecurrences on /get (that's /query \u00a75.11) and there is no fetchCalendars in the draft at all (a search of the draft text returns 0 hits).\n3. The claim 'are passed through to the generic handler which forwards them to the backend via the args Value' is wrong \u2014 the args go through but the generic handler does not consume them, the backend never sees them, and the typed CalendarsBackend trait has no plumbing to receive them. See JMAP-r3pg.2 for the production bug; this is the parallel doc bug.\n\nThis doc-comment will mislead any future contributor who reads it as the contract for /get extra args.\n\nFix: rewrite with correct \u00a75.7 reference and correct arg names. State honestly which args are currently dropped (until JMAP-r3pg.2 lands) and which are forwarded.\n\nSeverity: P3 because doc accuracy. Bumps to P2 once anyone implements a backend trusting this doc.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Doc on handle_calendar_event_get mislabels extra args \u2014 claims 'expandRecurrences', 'reducedParticipants', 'fetchCalendars'",
+  "updated_at": "2026-05-08T05:42:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:34:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "609b6b66-8ddc-5a53-ae1a-55591b33e445",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

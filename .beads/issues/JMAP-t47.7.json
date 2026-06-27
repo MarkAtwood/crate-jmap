@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.7",
+  "title": "BlobIntegrityMismatch field names are backwards in error message",
+  "description": "error.rs: ClientError::BlobIntegrityMismatch has fields 'expected' and 'actual'. In upload_blob (blob.rs line 176-179), 'expected' is set to server_lower (the server's reported hash) and 'actual' is set to local_sha256 (what we computed locally). In download_blob (line 261-264), 'expected' is set to expected_lower (the hash the caller passed in) and 'actual' is set to the locally-computed hash of the downloaded bytes. This naming is inconsistent between the two call sites: for upload, 'expected' means 'what the server said' (not what the caller expected); for download, 'expected' means 'what the caller said'. The error message reads 'blob integrity check failed: expected {expected}, got {actual}' \u2014 for upload this translates to 'expected [server hash], got [local hash]', which reads backwards to a user who is thinking about what they uploaded. The convention should be: 'expected' = what the local computation produced (the ground truth), 'actual' = what the remote said. This will generate recurring bug reports from users who see the error and misdiagnose which side is wrong.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:34:11Z",
+  "updated_at": "2026-04-30T01:42:35Z",
+  "closed_at": "2026-04-30T01:42:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:34:10"
+    }
+  ]
+}

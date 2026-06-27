@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T22:23:22Z",
+  "id": "019e2896-57ac-7c43-95ee-26d34b76492d",
+  "issue_id": "JMAP-3t94.13",
+  "text": "Canonical jmap-mail-server (crate-jmap-mail-server/src/memory.rs:444) has the same MemoryError(pub String) shape. Fixing this in sharing-server alone would diverge from the canonical and from all 6 other extension-server siblings. Per workspace AGENTS.md 'Canonical Templates': change canonical first, then propagate.\n\nOut-of-scope-for-/do-beads JMAP-3t94 \u2014 needs a workspace-architectural decision and a sibling sweep, not a unilateral sharing-server change."
+}

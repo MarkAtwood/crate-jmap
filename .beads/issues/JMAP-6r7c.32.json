@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in 2a1a5be. Added \u26a0 'Level-2+ templates silently mis-expand' section to expand_url_template rustdoc enumerating the silent failure modes (reserved-expansion {+var}, fragment-style {#var}, list-shaped {var*}) and pointing callers to use an RFC-6570-compliant external library before passing through plain-URL methods. Reaffirms RFC 8620 \u00a72 Level-1-only SHOULD.",
+  "closed_at": "2026-05-17T11:36:17Z",
+  "compaction_level": 0,
+  "content_hash": "1b2db96b6e9ad836e27e88fa74d75707786c52b69636e7ac6f7f90671dcf805a",
+  "created_at": "2026-05-14T23:17:53Z",
+  "created_by": "Mark Atwood",
+  "description": "blob.rs:131-152 \u2014 pub fn expand_url_template\n\nThe contract:\n- Caller supplies (name, value) pairs.\n- Template variables not in `vars` return Err(InvalidSession).\n- Extra `vars` entries are silently ignored.\n- Unmatched '{' is Err(InvalidSession).\n- Only RFC 6570 Level-1 simple substitution; no `{+var}`, no fragment-style, no list-shaped values.\n\nDefensive-code-forcing aspects:\n\n1. **Caller must remember to expand every URL field before use.** The doc-comment on subscribe_events (client.rs:347-381) reminds the caller about template expansion, but the call() and upload_blob methods do not. A caller who passes the raw session.api_url (which is NOT a template \u2014 it's a plain URL) to call() works correctly. A caller who passes the raw session.upload_url (which IS a template) to upload_blob will have the template substituted internally (good). But what about subscribe_events? The docstring shows the expansion, but the function itself just takes a &str and accepts the literal template \u2014 yielding a server-side error rather than a client-side one. Internal validation could surface this faster.\n\n2. **No type distinguishes \"template URL\" from \"plain URL\".** Both session.upload_url and session.api_url are pub String. A caller cannot tell from the type which is which; they have to read the spec. A typed wrapper (UrlTemplate vs UrlPlain) would make the contract enforceable.\n\n3. **The RFC 6570 Level-1-only restriction is in the docstring** but not enforced. A server that returns a Level-2 template (`{+blobId}` for reserved-character expansion) would have its template silently mis-expanded by the percent-encoding logic. The percent-encoding treats every non-unreserved byte as something to escape \u2014 but Level-2 reserved expansion would expect '/' and ':' to NOT be escaped. A caller composing a download URL from such a template would get a server-rejected URL.\n\nRecommendation: low priority, but worth documenting in the function-level rustdoc that \"Templates conforming to RFC 6570 Level-2 or higher will be mis-expanded by this function. JMAP servers SHOULD use Level-1 only per RFC 8620 \u00a72; if your server uses higher levels, you must expand the template yourself before calling this function.\"",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "expand_url_template panics-vs-errors contract is documented as 'unknown var returns Err' \u2014 but template syntax is non-trivial",
+  "updated_at": "2026-05-17T11:36:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:17:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "ec8d0dbe-b1c7-5ede-9ea6-d0fe222633a3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

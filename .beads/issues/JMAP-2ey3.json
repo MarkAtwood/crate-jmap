@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e270b056b053ff47e4c5f3cafcb144f77fbef2c2d6dc414cfd20386c5246e5ec",
+  "created_at": "2026-06-13T20:32:39Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec (draft-atwood-jmap-chat-push-00) defines ChatMessageEntry.unreadCount as UnsignedInt|null optional \u2014 total unread across non-muted Chats at push generation time. Servers SHOULD include for APNs aps.badge. Missing from crate-jmap-chat-types/src/push.rs.",
+  "ephemeral": 0,
+  "id": "JMAP-2ey3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add ChatMessageEntry.unreadCount field",
+  "updated_at": "2026-06-13T20:32:39Z"
+}

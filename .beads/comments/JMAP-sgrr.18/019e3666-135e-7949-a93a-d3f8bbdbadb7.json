@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T14:45:20Z",
+  "id": "019e3666-135e-7949-a93a-d3f8bbdbadb7",
+  "issue_id": "JMAP-sgrr.18",
+  "text": "Recommendation ratified after no human pushback in ~58 hours (committed 2026-05-15T04:05Z, ratified 2026-05-17T13Z): option (c) \u2014 status quo + workspace AGENTS.md note. Close this with reason citing workspace-wide scope; the work product is adding a workspace AGENTS.md subsection documenting the set-as-map idiom contract (HashMap<String, bool> values MUST be true per RFC 9553 \u00a71.5.1 et al.; callers responsible for that). De-labeling for the autonomous frontier to do the close + AGENTS.md edit."
+}

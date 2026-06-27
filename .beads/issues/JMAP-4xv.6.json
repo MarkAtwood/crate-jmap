@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-4xv.6",
+  "title": "Email/query: limit is always Some(n) after parsing but typed as Option<u64>",
+  "description": "After parsing, limit: Option<u64> is never None \u2014 absent/null maps to Some(256) and invalid is rejected. Yet it is passed as Option<u64> to query_objects and unwrapped with .unwrap_or(256) in the collapseThreads path (the or(256) branch is dead). Type should be u64 for the parsed local variable; only convert to Option<u64> when calling backend.query_objects if None means 'no limit'. Current code: the backend never receives None for limit from Email/query, so it cannot distinguish 'client asked for no limit' from 'client asked for 256'.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:58:49Z",
+  "updated_at": "2026-05-01T03:08:17Z",
+  "closed_at": "2026-05-01T03:08:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-4xv",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:58:49"
+    }
+  ]
+}

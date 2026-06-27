@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.25",
+  "title": "BearerAuth/BasicAuth auth_header: identical bodies across two impls",
+  "description": "auth.rs lines 157-162 and 210-214: BearerAuth::auth_header and BasicAuth::auth_header have identical bodies \u2014 both return Some((AUTHORIZATION.as_str().to_string(), self.header_string.clone())). The shared structure is an AuthHeader struct or a free fn authorization_header(value: &str) -> (String, String) that both impls call. Rewrite: fn authorization_header(value: &str) -> (String, String) { (AUTHORIZATION.as_str().to_owned(), value.to_owned()) } and call it from both impls.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:13:20Z",
+  "updated_at": "2026-04-30T01:02:45Z",
+  "closed_at": "2026-04-30T01:02:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:13:20"
+    }
+  ]
+}

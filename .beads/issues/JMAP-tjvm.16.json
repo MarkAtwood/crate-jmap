@@ -1,0 +1,33 @@
+{
+  "close_reason": "Superseded by bd:JMAP-1j9k.9 (closed by commit b6d2ebb on 2026-05-17). The workspace adopted the OPPOSITE policy: public method-input Params structs do NOT use #[non_exhaustive]; forward-compat for future spec-defined fields is the flatten-ed 'extra: serde_json::Map<String, serde_json::Value>' field per workspace AGENTS.md extras-preservation policy. Adding #[non_exhaustive] to EmailGetParams/EmailCopyParams/MailboxSetParams/EmailSubmissionSetParams/EmailImportInput/EmailParseParams would now be the regression \u2014 those six structs and the rest of the sibling Params structs across calendars/contacts/filenode/metadata/tasks already follow the no-non_exhaustive + extras-flatten canonical shape established by EmailGetParams. The bead's own agent-authored recommendation was correct at the time it was filed (2026-05-15) but the workspace decision rolled the other way two days later. The 6 mail-client structs the bead lists already carry the workspace-canonical 'extra' flatten field for vendor forward-compat; that's the intended design.",
+  "closed_at": "2026-05-17T12:59:14Z",
+  "compaction_level": 0,
+  "content_hash": "ab0cc383ce45e7c81cb1f9c2153e36d04781d11136068c937aad4a69e12896da",
+  "created_at": "2026-05-15T01:51:29Z",
+  "created_by": "Mark Atwood",
+  "description": "Six public input-parameter structs in src/methods/mod.rs lack #[non_exhaustive]:\n\n  - EmailGetParams (line 42)\n  - EmailCopyParams (line 69)\n  - MailboxSetParams (line 89)\n  - EmailSubmissionSetParams (line 113)\n  - EmailImportInput<'a> (line 149)\n  - EmailParseParams (line 255)\n\nThe three Deserialize response structs (EmailImportCreated, EmailImportResponse, EmailParseResponse) DO have it. SessionClient does too. So this is an inconsistent pattern, not a blanket oversight.\n\nRisk: every one of these structs corresponds to RFC 8621 method arguments that may grow. RFC 8621 \u00a74.1.8 lists fetchTextBodyValues, fetchHTMLBodyValues, fetchAllBodyValues, maxBodyValueBytes, bodyProperties \u2014 but the spec authors could add more in a future revision (RFC errata, new draft features, see e.g. draft-ietf-jmap-quotas which extends method args). Without #[non_exhaustive], any new typed field is a breaking change for callers who used struct-literal construction.\n\nMitigation already in place:\n  - EmailGetParams, MailboxSetParams, EmailSubmissionSetParams, EmailParseParams derive Default \u2014 callers using `..Default::default()` are protected against ADDITIONS of typed fields. But struct literals with all fields named WILL break, and the Rust compiler error message is unhelpful.\n  - EmailCopyParams (required from_account_id) and EmailImportInput (required blob_id / mailbox_ids / borrowed lifetimes) do NOT derive Default. Callers MUST use struct literal \u2014 which means ANY new typed field is breaking with no mitigation.\n\nThe `extra: serde_json::Map<...>` flatten field handles VENDOR-extension growth via the workspace extras policy. But it does NOT handle SPEC-defined typed-field growth \u2014 the value lives in `extra` until someone promotes it to a typed field, and that promotion is the breaking change.\n\nAction: add #[non_exhaustive] to all six. Cookie-cutter implication (workspace AGENTS.md \"Canonical Templates\"): same sweep across the six sibling extension-client crates' Set/Get/Copy/Import/Parse params types.\n\nMark says NO HUMAN \u2014 I have a clear recommendation:\nRecommendation: add #[non_exhaustive] to all six, accept the modest caller-side breakage today (callers must add `..Default::default()` or use a constructor) in exchange for safe future spec-field additions.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Missing #[non_exhaustive] on public input param structs: EmailGetParams, EmailCopyParams, MailboxSetParams, EmailSubmissionSetParams, EmailImportInput, EmailParseParams",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:51:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "24e8cd4d-4d7f-5f5a-be0b-ad492ff2fd3d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

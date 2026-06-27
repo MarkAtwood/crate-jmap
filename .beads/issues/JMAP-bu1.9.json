@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-bu1.9",
+  "title": "SSE UTF-8 split-codepoint handling via raw_buf + valid_up_to \u2014 correct and non-trivial",
+  "description": "The SSE stream accumulates raw bytes in raw_buf before decoding, using Utf8Error::valid_up_to() to decode the valid prefix and leave the remainder for the next chunk. The drain_end = valid_up_to.max(1) handles the stuck-byte case (invalid byte at position 0 would otherwise stall forever). A contributor might 'simplify' this by using String::from_utf8_lossy(), which would silently replace invalid bytes with U+FFFD and could corrupt event IDs or state tokens. The current approach is correct.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:26:28Z",
+  "updated_at": "2026-04-30T01:31:39Z",
+  "closed_at": "2026-04-30T01:31:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-bu1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:26:28"
+    }
+  ]
+}

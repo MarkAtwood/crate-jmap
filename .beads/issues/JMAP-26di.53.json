@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "chat_create refactored to match-as-expression: 'let (create_obj, client_id_opt) = match input { ... }'. Each arm now evaluates to a (Value, Option<&str>) tuple instead of using deferred-init bindings outside the match.\n\nGroup arm retains its early-return on empty name \u2014 'return Err(...)' is allowed inside match arms.\n\nBehaviour-equivalent. cargo test -p jmap-chat-client green, cargo clippy --all-targets -- -D warnings clean, cargo fmt clean.\n\nspace.rs:180-186 referenced in the bead is a single-branch conditional-build (no match), already idiomatic. message.rs is single-branch and irrelevant per the bead's own note.\n\nCommitted as 10c84b2.",
+  "closed_at": "2026-05-15T21:26:23Z",
+  "compaction_level": 0,
+  "content_hash": "e0c1a8ac659afc50d5f2a708d7cc7656a71cc27d1e273cbbfccab98ff52da567",
+  "created_at": "2026-05-15T20:51:03Z",
+  "created_by": "Mark Atwood",
+  "description": "chat.rs:185-249 declares 'let create_obj;' outside the match and assigns inside each arm. The idiomatic Rust pattern is match-as-expression: 'let (create_obj, client_id_opt) = match input { Direct {...} => (json!(...), *client_id), Group {...} => (...), Channel {...} => (...) };'. The deferred-init form works but is ML-style rather than Rust-style \u2014 readers expect match-to-be-an-expression and have to do extra work to parse the deferred-init pattern. Engineering basis: maintainability \u2014 match-as-expression is the established Rust idiom for this exact shape (build different values per variant). Same pattern appears in space.rs:180-186 (smaller, less impactful) and message.rs:172-181 (single-branch, irrelevant).",
+  "ephemeral": 0,
+  "id": "JMAP-26di.53",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChatCreateInput create_obj uses deferred-init binding instead of match-as-expression",
+  "updated_at": "2026-05-15T21:26:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:51:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "e2def3ed-3935-51b0-9d5d-b31597e26318",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

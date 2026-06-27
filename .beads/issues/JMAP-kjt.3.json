@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-kjt.3",
+  "title": "Add VacationResponse object type (RFC 8621 \u00a78)",
+  "description": "RFC 8621 \u00a78 defines VacationResponse as a singleton object type (one per account). It is entirely absent from jmap-mail-types. Fields: id (Id, server-set singleton id, always 'singleton'), isEnabled (bool), fromDate (UTCDate, optional), toDate (UTCDate, optional), subject (String, optional, null means server-generated), textBody (String, optional), htmlBody (String, optional). VacationResponse/get, /set are the supported methods.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:05:20Z",
+  "updated_at": "2026-04-30T04:24:30Z",
+  "closed_at": "2026-04-30T04:24:30Z",
+  "design": "Straightforward struct with #[non_exhaustive], PartialEq, Eq, Serialize, Deserialize. The id field is always the string 'singleton' per RFC 8621 \u00a78 but is still a regular Id field in the wire format. isEnabled defaults to false on creation per the spec.",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-kjt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:05:20"
+    }
+  ]
+}

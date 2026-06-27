@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "cargo test -p jmap-filenode-types and clippy both exit 0. FileNode with role:None serializes \"role\":null.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Removed skip_serializing_if from FileNode.role; updated doc-comment table and test to match spec \u00a73.1 String|null type",
+  "closed_at": "2026-05-05T03:09:10Z",
+  "compaction_level": 0,
+  "content_hash": "5c0e7bf46a789a4230fe7bcd71fb4caf9f5c42e445877e8e4582fe01b6b160a4",
+  "created_at": "2026-05-05T02:50:56Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Remove #[serde(skip_serializing_if = \"Option::is_none\")] from the role field on FileNode in crate-jmap-filenode-types/src/filenode.rs. The spec (draft-ietf-jmap-filenode-13 \u00a73.1 line 486) types role as String|null \u2014 a required-nullable field that must appear as null in wire JSON when unset, same as parentId, blobId, shareWith, size, and type.\n\n**Algorithm:**\n1. In filenode.rs, remove #[serde(skip_serializing_if = \"Option::is_none\")] from the role field.\n2. Update the doc-comment nullable/optional table: move role from the Optional column to the Nullable (must appear as null) column.\n3. Add test filenode_role_serializes_as_null: construct a FileNode with role: None, serialize with serde_json::to_string, assert the output contains \"role\":null.\n4. Add test filenode_role_null_round_trips: deserialize JSON with \"role\": null \u2192 assert role is None; re-serialize \u2192 assert \"role\":null present.\n5. Run cargo test -p jmap-filenode-types and cargo clippy -p jmap-filenode-types -- -D warnings.\n\n**Defensive programming rules:**\n- No unwrap in library code. Test assertions use .expect() with descriptive messages.\n\n**Acceptance criteria:**\n- Serializing FileNode with role: None produces JSON containing \"role\":null (not absent).\n- Round-trip: JSON with \"role\":null \u2192 None \u2192 \"role\":null.\n- Deserializing JSON with no role key also succeeds (Option default None).\n- cargo test -p jmap-filenode-types exits 0. Clippy clean.",
+  "ephemeral": 0,
+  "id": "JMAP-p3i5.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix FileNode.role must serialize as null not absent",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:50:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-p3i5",
+      "id": "a382157e-d016-507e-9741-5f57a51dacd7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

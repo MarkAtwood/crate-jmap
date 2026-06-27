@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in bf895d2: added 'Field semantics' section to ContactCardFilterCondition distinguishing exact-match, range, and text-match field classes; flagged text-match semantics as server-defined per RFC 9610 \u00a73.3.1, with portability warning that callers SHOULD treat text-match as approximate full-text-search filters, not exact value tests.",
+  "closed_at": "2026-05-15T23:05:24Z",
+  "compaction_level": 0,
+  "content_hash": "470af4de604966b37aee8e90c5370ad34e5681af27ebaa1d21f751b18a369d22",
+  "created_at": "2026-05-15T22:46:04Z",
+  "created_by": "Mark Atwood",
+  "description": "ContactCardFilterCondition exposes 11 text-match fields whose doc\ncomments describe what each field matches against in the data model but\ndo NOT describe the matching semantics:\n\n- text, name, name_given, name_surname, name_surname2\n- nickname, organization\n- email, phone, online_service\n- address, note\n\nFor each, the open question is:\n- Case-sensitive vs case-insensitive?\n- Substring vs prefix vs exact?\n- Unicode normalization (NFC/NFD)?\n- Accent folding (\u00c1 matches a)?\n- Word-boundary vs raw-substring?\n\nRFC 9610 \u00a73.3.1 leaves matching semantics to the server. The wire-types\ncrate cannot pin them. But the doc comments give a false sense of\nportability \u2014 \"Matches any NameComponent value\" implies \"any caller can\nwrite portable code that filters by name.\"\n\nReal-world consequence: server A (e.g. Stalwart) does case-insensitive\nNFC-normalized substring match; server B (e.g. Cyrus) does exact-case\nNFD substring match; a caller writing\n`filter.name = Some(\"m\u00fcller\".into())` gets different result sets from\nidentical queries. The wire-types crate has no way to detect this.\n\nDistinction to preserve:\n- \"exactly equal to\" filters (RFC 9610 \u00a73.3.1: `uid`, `kind`,\n  `inAddressBook`, `hasMember`) \u2014 semantics are fully spec-defined.\n- \"text-matches\" filters (RFC 9610 \u00a73.3.1: text, name, email, etc.) \u2014\n  semantics are server-defined.\n\nMinimum fix: add a rustdoc clause to `ContactCardFilterCondition`\nexplaining the distinction and stating that text-match semantics are\nserver-defined; portable code MUST NOT assume case-folding, Unicode\nnormalization, or accent handling.\n\nStronger fix: per-field annotation marking each as \"exact\" or\n\"server-defined match\". Adds rustdoc-doctest-verifiable structure.\n\nCross-reference:\n- RFC 9610 \u00a73.3.1 \"Filtering\" prose, especially the \"Matches X if Y\"\n  vs \"Equal to X if Y\" phrasings.\n- card.rs:188-307 (the FilterCondition struct).",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactCardFilterCondition text-match fields have undocumented matching semantics (server-defined)",
+  "updated_at": "2026-05-15T23:05:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:46:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "9a17ab58-1f01-570a-9ab2-99e58834b002",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T05:32:10Z",
+  "id": "019e3991-ffc1-7a20-a06b-9870d3288b9d",
+  "issue_id": "JMAP-ops7.45",
+  "text": "Three pass-3 subagents independently surfaced this same divergence (jscalendar/jscontact subagent, AGENTS.md content-drift subagent, error-type cluster subagent) \u2014 confirms the finding is real, not a phantom. Per-crate review epic bd:JMAP-ic0j (calendars-server) may have additional context."
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T10:47:10Z",
+  "compaction_level": 0,
+  "content_hash": "747b95fe1f0a018d2d945386a689fd06cd8ed1c68840e8973cb1f197f7083d83",
+  "created_at": "2026-05-14T20:56:43Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/memory.rs:125-128 (next_node_id) and\ncrate-jmap-filenode-server/src/memory.rs:196-205 (seed_node).\n\n```rust\nfn next_node_id(&mut self) -> Id {\n    self.node_counter += 1;\n    Id::from(format!(\"node-{}\", self.node_counter))\n}\n```\n\n```rust\npub fn seed_node(&self, account_id: &str, node: FileNode) {\n    let mut guard = self.inner.lock().unwrap();\n    if let Some(store) = guard.accounts.get_mut(account_id) {\n        store.nodes.insert(node.id.clone(), node);\n    }\n}\n```\n\nThe ID-counter and the seed path are unaware of each other. If a\ndownstream contributor / consumer writes test fixtures with the\nnatural-looking IDs:\n\n```rust\nbackend.seed_node(\"acc1\", make_dir(\"node-1\", \"fixture-root\", None));\n```\n\n\u2026and then exercises the create handler, `next_node_id` will emit\n`Id::from(\"node-1\")` on the first create call. The `HashMap::insert`\nin `create_object` (memory.rs:473) silently overwrites the seeded\nfixture. The seeded `fixture-root` node is lost; the test sees a\nsingle node named whatever the handler created. The test result is\nnot \"the seed was lost\" \u2014 it is a successful-looking create response\nplus a subsequent get returning the new node. Debugging the lost\nfixture is awkward.\n\nTwo compounding factors:\n\n1. `MemoryBackend::seed_node` does NOT bump `node_counter`. Even if\n   the seed populates `node-1` ... `node-3` and the counter is at\n   0, the next create emits `node-1` and overwrites the seed.\n2. The output of `next_node_id` is documented nowhere \u2014 the format\n   `node-N` is implementation detail. A test author with no reason\n   to peek inside memory.rs will pick exactly that format because it\n   reads cleanly in tests.\n\nRequired fix (choose one):\n\n(a) Document the ID format in `seed_node`'s docstring with a\n    warning: \"Do not seed IDs of shape `node-N` \u2014 those collide\n    with the ID counter.\" Easy but relies on contributor reading\n    the docstring.\n\n(b) Have `seed_node` parse the seeded ID for the `node-N` shape and\n    bump `node_counter` past it. Easy enough: if id matches\n    `^node-([0-9]+)$`, set `node_counter = max(node_counter, N)`.\n    Slightly fragile but matches the reference-impl spirit.\n\n(c) Change `next_node_id` to use a less-likely-to-collide prefix\n    like `mem-node-N` or a UUID. Best long-term, but a layered\n    breaking change to any test that hardcoded expected ids.\n\nP3 hygiene: the trap is real and was demonstrably easy to hit on my\nfirst read of the file, but the fix is a per-file local change and\nthe production-vs-reference-impl distinction limits blast radius.\n\nLABELS: api-contract, defensive",
+  "ephemeral": 0,
+  "id": "JMAP-510h.61",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::next_node_id format collides with externally-seeded node IDs of shape 'node-N'",
+  "updated_at": "2026-05-17T10:47:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:56:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "6dc4e8aa-bec4-55d9-8b93-c5dded815dd3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-sf2.15",
+  "title": "SetError struct: public fields with no #[non_exhaustive] \u2014 adding a field is a breaking change",
+  "description": "backend.rs:52-67: SetError has 4 public fields (error_type, description, properties, existing_id) but no #[non_exhaustive]. A builder pattern (SetError::new().with_description()) is provided and documented, but the struct can also be constructed or pattern-matched with struct literal syntax by external users. Adding a new field (e.g., 'details', 'status_code') is a semver-breaking change without #[non_exhaustive]. Add #[non_exhaustive] to enforce builder-only construction going forward.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:31:39Z",
+  "updated_at": "2026-05-01T02:45:26Z",
+  "closed_at": "2026-05-01T02:45:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sf2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:31:39"
+    }
+  ]
+}

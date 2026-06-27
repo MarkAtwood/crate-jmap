@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "401f4a9af57018476fab6d271669ced125b316154234e429846f59021da7973f",
+  "created_at": "2026-05-15T22:15:30Z",
+  "created_by": "Mark Atwood",
+  "description": "**Contract risk**: many public fields use `std::collections::HashMap`:\n\n- `Location.location_types: Option<HashMap<String, bool>>`\n- `Location.links: Option<HashMap<String, Link>>`\n- `VirtualLocation.features: Option<HashMap<String, bool>>`\n- `Relation.relation: Option<HashMap<String, bool>>`\n- `Participant.send_to: Option<HashMap<String, String>>`\n- `Participant.roles: HashMap<String, bool>` (REQUIRED)\n- `Participant.delegated_to/from: Option<HashMap<String, bool>>`\n- `Participant.member_of: Option<HashMap<String, bool>>`\n- `Participant.links: Option<HashMap<String, Link>>`\n- `Alert.related_to: Option<HashMap<String, Relation>>`\n- `TimeZoneRule.recurrence_overrides: Option<HashMap<LocalDateTime, PatchObject>>`\n- `TimeZoneRule.names: Option<HashMap<String, bool>>`\n- `TimeZone.aliases: Option<HashMap<String, bool>>`\n\nRust's default `HashMap` randomizes its iteration order per process\n(via `RandomState`). serde_json's `Serialize` impl for `HashMap`\niterates the map and writes keys in iteration order. Therefore the\nJSON byte output of any of these structs is non-deterministic across\nprocesses.\n\n**What goes wrong for callers**:\n- A consumer that wants byte-stable wire output (for ETags, content\n  hashing, idempotent storage, deterministic snapshot testing,\n  reproducible-build artifacts) cannot get it from these types.\n  A `Participant` with two roles `{\\\"attendee\\\": true, \\\"chair\\\":\n  true}` will serialize as either ordering randomly.\n- The existing extras tests (e.g. `participant_preserves_vendor_extras`)\n  only verify a single key survives round-trip, so they don't catch\n  the multi-key non-determinism. The `time_zone_with_standard_rule_\n  round_trips` test compares `assert_eq!(back, raw)` and would be\n  flaky if any participating HashMap had \u22652 entries; the spec\n  example happens to use single-entry maps everywhere, so the test\n  passes today by accident.\n- Cross-implementation interop tests against a reference server that\n  emits sorted-key JSON will see false mismatches when this crate is\n  the producer.\n\n**Fix shape** (breaking change):\nSwitch the field type to `BTreeMap<K, V>` (sorted) or `IndexMap<K, V>`\n(insertion-ordered) \u2014 but either is a breaking API change because\ncallers' code that uses `HashMap`-specific methods (`get`, `iter`,\n`.entry()`, etc.) would still compile for `BTreeMap`/`IndexMap`, but\nconstructor patterns like `let m: HashMap<_, _> = vec![...].into_iter().collect()`\nbreak. Hence the maintainer is now LOCKED into HashMap's\nnon-determinism as part of the contract.\n\nNote: `serde_json::Map` (used for `extra` fields) is NOT affected \u2014\nunder default features it is a `BTreeMap` and is deterministic.\nOnly the typed `HashMap<K, _>` fields are at issue.\n\n**Cross-reference**: this is a real divergence from the workspace\nposture that wire bytes should be reproducible. The maintainer\nshould decide whether to deprecate HashMap usage workspace-wide\n(file as workspace-architectural) before this crate publishes 1.0.",
+  "ephemeral": 0,
+  "id": "JMAP-mno4.12",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "blocked",
+  "timeout_ns": 0,
+  "title": "HashMap<K, _> fields on Participant/Location/VirtualLocation/Relation/TimeZoneRule/TimeZone leak std::collections::HashMap's iteration-order non-determinism into wire serialization",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:21:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o7v4",
+      "id": "491f0c93-b424-57dd-a3c8-f7f87c20d529",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-15T15:15:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mno4",
+      "id": "e9d87b47-0b8b-5d34-a843-f8d099ea625a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

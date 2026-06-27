@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T15:00:51Z",
+  "id": "019e3674-473c-7cd1-a736-bc6f543d6ecf",
+  "issue_id": "JMAP-zx3s.1",
+  "text": "Recommendation ratified after no pushback in ~48 hours: option (A) \u2014 update workspace AGENTS.md to use Other(String) to match universal existing practice across all extension-types crates. Option (A) is purely AGENTS.md text editing, no code churn, no public-API break. Option (B) would force a 14+ crate breaking rename for no engineering benefit. Claiming for execution."
+}

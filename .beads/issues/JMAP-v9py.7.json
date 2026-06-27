@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T000911Z-2258131",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-13T00:43:52Z",
+  "compaction_level": 0,
+  "content_hash": "e7f8f1fb0c4c3b9538b6a60ab5adf50172ce6c542eee1fdd40303bec2c83db32",
+  "created_at": "2026-05-12T23:35:28Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec: draft-atwood-jmap-chat-00 commit 9344aec (\"refactor: implementation-defined emoji authorization\").\n\nSpec text: \"Authorization for CustomEmoji/set is implementation-defined, for both Space-scoped and server-global emoji. Returns forbidden SetError when unauthorized.\"\n\nCurrent state: handle_emoji_set in chat-server/src/emoji.rs delegates to update_object/destroy_object \u2014 there is no policy hook for whether the caller is allowed.\n\n## Acceptance\n\n- New ChatBackend method:\n  ```rust\n  fn may_set_custom_emoji(\n      &self,\n      _caller: &Self::CallerCtx,\n      _account_id: &Id,\n      _target_space_id: Option<&Id>,\n      _op: EmojiSetOp,\n  ) -> impl Future<Output = Result<bool, Self::Error>> + Send {\n      async { Ok(true) }\n  }\n  ```\n  where `EmojiSetOp` is a small enum in chat-server::backend module: { Create, Update, Destroy }.\n- handle_emoji_set in chat-server/src/emoji.rs consults may_set_custom_emoji BEFORE calling the underlying create_object/update_object/destroy_object. On false: SetError::Forbidden with description \"Implementation-defined emoji authorization denied this operation.\"\n- MemoryBackend implements may_set_custom_emoji as: server-global (target_space_id = None) \u2192 true; Space-scoped \u2192 true if caller's principal_id is in the Space members list, else false. Document this in rustdoc as \"demonstration only; not a production policy.\"\n- Test: MemoryBackend with no Space \u2192 CustomEmoji/set create with no spaceId \u2192 succeeds\n- Test: MemoryBackend with Space, caller is a Space member \u2192 succeeds\n- Test (requires test-only Backend per integration.rs precedent): Backend that always returns false \u2192 CustomEmoji/set returns Forbidden SetError\n\n## Out of scope\n\n- Per-permission gating (e.g. \"only manage_emoji holders\") \u2014 that's the deployment's may_set_custom_emoji impl\n- Rate-limiting (separate hook if needed)",
+  "ephemeral": 0,
+  "id": "JMAP-v9py.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Layer B: ChatBackend::may_set_custom_emoji + CustomEmoji/set handler integration",
+  "updated_at": "2026-05-13T00:43:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-12T16:35:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py",
+      "id": "3a7ff8c8-d2a7-5f5e-a1e3-face8f897bad",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

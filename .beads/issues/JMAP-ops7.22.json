@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "066600629170b4c5162c6f93dc7893ddbd9db827c8446ebc6962ac46022f10f6",
+  "created_at": "2026-05-17T22:57:22Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**:\n- crate-jmap-chat-client/src/methods/mod.rs:654, :813, :850, :894, :977, :1063, :1086, :1187, :1206, :1231, :1262, :1302, :1340, :1370, :1399, :1522 \u2014 16 `pub fn new(...)` constructors on `*Input`/`*Patch`/`*QueryInput` types\n- crate-jmap-mail-client/src/methods/mod.rs \u2014 uses `#[derive(Default)]` on Params types; constructs via `MailboxSetParams { on_destroy_remove_emails: Some(true), ..Default::default() }`\n- 5 other extension clients (calendars, tasks, contacts, filenode, sharing, metadata) \u2014 same `Default::default()` + struct-literal pattern as mail\n\n**Divergence**:\n\nchat-client publishes `pub fn new(...)` constructors on every `*Input` type, threading mandatory args through positional parameters:\n\n    pub fn new(name: &'a str, blob_id: &'a Id) -> Self {\n        Self { name, blob_id, /* defaults for other fields */ }\n    }\n\nEvery other extension client uses `Default::default()` for the same role:\n\n    let params = MailboxSetParams {\n        on_destroy_remove_emails: Some(true),\n        ..Default::default()\n    };\n\n**What goes wrong**:\n\n1. A consumer working across multiple extension clients sees two idioms for what is conceptually the same operation (\"construct a request input struct\"). For chat: `MessageCreateInput::new(space_id, content)`. For mail: `EmailCopyParams { from_account_id, ..Default::default() }`.\n\n2. Workspace AGENTS.md \"Public-API construction\" specifies the canonical construction story (decided 2026-05-17, bd:JMAP-sgrr.27):\n   - Public wire-format types are `#[non_exhaustive]`, so struct-literal construction is a compile error externally.\n   - The kit deliberately does NOT compensate with `fn new(...)` on every type.\n   - External callers deserialize from JSON: `serde_json::from_value::<Name>(json!({ ... }))`.\n   - Per-crate `Default` impls MAY be added.\n   - `#[doc(hidden)]` test-only constructors are tolerated for unit tests.\n\n   chat-client's `*Input` types may be NON-wire-format types (they're builder structs for client method calls, not wire shapes). If so, they're outside the AGENTS.md \"wire-format\" carve-out \u2014 but the workspace convention for client method-input types is still `Default + struct-literal-with-..Default::default()` (5 sibling crates agree).\n\n3. Cookie-cutter divergence: chat-client is the lone outlier across 8 extension clients.\n\n4. The `pub fn new()` shape and the `XxxQueryInput` struct shape (see JMAP-ops7.20) are tightly coupled in chat's design. Both decisions should be resolved together.\n\n**Recommendation**:\n\nThis is a workspace-architecture decision. Two options:\n\n**Option A**: chat-client conforms to the 7-sibling shape. Remove the 16 `pub fn new()` constructors. `#[derive(Default)]` on every `*Input` type. Callers use struct-literal + `..Default::default()`. Forward-compat via `#[non_exhaustive]` if applicable.\n\n**Option B**: workspace adopts chat's shape as canonical-going-forward. Add `pub fn new(...)` constructors to every analogous `*Params` / `*Input` type in mail/calendars/tasks/contacts/filenode/sharing/metadata clients. Document the convention in workspace AGENTS.md.\n\nOption A is the smaller change and aligns with the workspace's existing canonical-template propagation rule (mail-client is canonical, chat-client diverges). Option B is bigger but more ergonomic.\n\nEither way: file as `human` for the workspace maintainer to decide direction, then propagate.\n\n**Coupling**: closely related to JMAP-ops7.20 (chat `*QueryInput` struct vs positional everywhere else). The two beads should be decided together \u2014 picking Option A for both means chat-client conforms to siblings; picking Option B for both means the workspace adopts chat's overall input-struct + new()-constructor pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "chat-client `*Input` types ship 15+ `pub fn new(...)` constructors; the 7 sibling extension clients use `Default::default()` + `..Default::default()` everywhere",
+  "updated_at": "2026-05-17T22:57:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:57:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "3782e435-b079-503b-8502-df5d0a11ba84",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

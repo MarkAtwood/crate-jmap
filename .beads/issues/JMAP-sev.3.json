@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-sev.3",
+  "title": "ClientConfig request_timeout=Duration::ZERO behavior is version-dependent and undocumented",
+  "description": "client.rs JmapClient::new() accepts Duration::ZERO for request_timeout with comment 'some reqwest versions treat Duration::ZERO as no timeout'. Different reqwest versions differ: some treat zero as instant-timeout (every request fails immediately), others as no timeout. The comment names the ambiguity but does not document which version is installed or what behavior the code actually relies on. A dependency upgrade could silently flip all requests to instant-fail. Fix: either reject Duration::ZERO with an explicit error, or document the actual behavior of the pinned reqwest version and add a compile-time or test assertion.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:30:21Z",
+  "updated_at": "2026-04-30T00:32:35Z",
+  "closed_at": "2026-04-30T00:32:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sev",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:30:21"
+    }
+  ]
+}

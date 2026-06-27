@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed doc comment: 'omits the field' \u2192 'the notFound field will be JSON null'",
+  "closed_at": "2026-05-01T16:18:24Z",
+  "compaction_level": 0,
+  "content_hash": "1b4c566c843778d0fc54aa0ab711d185098b94aa15effdd8e01e199d5ba1ae26",
+  "created_at": "2026-05-01T16:17:36Z",
+  "created_by": "Mark Atwood",
+  "description": "The doc comment on not_found_json() says 'Returns Value::Null when the slice is empty (omits the field per RFC 8620 \u00a75.1)'. Returning Value::Null does not omit the field \u2014 the json\\! macro will emit notFound: null, not an absent key. RFC 8620 \u00a75.1 accepts null (that is the correct value), so behavior is correct, but the comment description is misleading. \u2014 Change 'omits the field' to 'sets the field to JSON null'.",
+  "ephemeral": 0,
+  "id": "JMAP-5jz.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "not_found_json doc comment: 'omits the field' is inaccurate",
+  "updated_at": "2026-05-01T16:18:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T09:17:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-5jz",
+      "id": "70b4c5bc-72ac-515c-a91f-ce9ffceff202",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

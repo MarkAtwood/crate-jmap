@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ab9286181285f3480b2a580bf7babc3698b5d3da5f1c0a5ed87d032f1dac0ffd",
+  "created_at": "2026-06-13T20:32:37Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec (draft-atwood-jmap-chat-push-00) defines ChatMessageEntry.mentionScopes as String[] containing scope values like everyone, here, admins. The monorepo has has_mention_all: bool which loses which scopes are targeted. This matters for per-scope urgency override logic in push spec. Replace has_mention_all with mentionScopes: Vec<String>.",
+  "ephemeral": 0,
+  "id": "JMAP-51lu",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Fix ChatMessageEntry.mentionScopes: should be String[] not has_mention_all bool",
+  "updated_at": "2026-06-13T20:32:37Z"
+}

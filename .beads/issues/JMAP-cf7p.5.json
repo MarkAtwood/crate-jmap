@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "close_reason": "Landed src/ws.rs + tests/ws_smoke.rs. GET /ws upgrades via axum's ws feature, negotiates 'jmap' subprotocol per RFC 8887 \u00a74.2, handles Request/Response/WebSocketPushEnable/WebSocketPushDisable envelopes, emits RFC 8887 \u00a74.3.4 RequestError on malformed frames without closing the socket. Push polling reuses sse::* helpers (POLL_INTERVAL/snapshot_all_states/diff_snapshots/TypesFilter promoted to pub(crate)). Session.capabilities advertises urn:ietf:params:jmap:websocket with supportsPush=true. pushState honoring deferred to JMAP-cf7p.12. 74 testjig tests pass (added 6 ws unit + 2 ws_smoke integration). Workspace clippy/test green; rustdoc clean. openssl-free per workspace TLS policy.",
+  "closed_at": "2026-05-12T06:43:28Z",
+  "compaction_level": 0,
+  "content_hash": "f1c4202c1c078caa54032bf25cb60a4a07772aa0c33568a66e0ee1b5a49d8ed6",
+  "created_at": "2026-05-12T05:47:23Z",
+  "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "description": "Implement the WebSocket transport per RFC 8887.\n\n- GET /ws upgrades to a WebSocket connection.\n- Frame shape per RFC 8887: each WS message is a JSON object with '@type' = Request | Response | RequestError | StateChange | WebSocketPushEnable | WebSocketPushDisable.\n- Request frames dispatch through jmap_server::Dispatcher like POST /jmap. Response frames echo back on the same connection.\n- StateChange frames are pushed when push is enabled (WebSocketPushEnable handshake).\n- Subprotocol: 'jmap'.\n\nUse tokio-tungstenite (already in scaffold .1 deps). The axum::extract::ws path is the conventional way to upgrade a connection inside an axum handler.\n\n## Acceptance\n\n- A WebSocket client can open ws://localhost:<port>/ws with 'jmap' subprotocol\n- Send a Request frame, receive a Response frame on the same socket\n- After WebSocketPushEnable, server pushes StateChange frames matching SSE behavior\n- WebSocketPushDisable stops the push\n- cargo clippy / cargo test workspace clean\n\n## Depends on .3 (MemoryBackend wiring); shares change-tracking infrastructure with .4 (SSE)",
+  "ephemeral": 0,
+  "id": "JMAP-cf7p.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "WebSocket endpoint: GET /ws per RFC 8887",
+  "updated_at": "2026-05-12T06:43:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T22:47:23Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p",
+      "id": "79ebc18f-1449-531c-ab04-af9b7241a82d",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-11T22:47:23Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p.3",
+      "id": "e7c5b3e7-e1d4-5906-8fe7-ebf7418134aa",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

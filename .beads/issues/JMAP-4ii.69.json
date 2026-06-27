@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:55:11Z",
+  "compaction_level": 0,
+  "content_hash": "a03b8ba1d2783d1643222d0d2cbde0f356dcd37ebac4c5757e1c31d30829eea2",
+  "created_at": "2026-05-02T04:48:11Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_email_copy onSuccessUpdateOriginal loop (line 2238-2280) calls args.get(\"onSuccessUpdateOriginal\").and_then(|v| v.as_object()) (borrow), making patch: &Value throughout. This forces patch.clone() at line 2256 for update_object. The function takes args: Value by ownership and could use args.remove(\"onSuccessUpdateOriginal\") to take ownership and avoid the clone. This is a separate code path from JMAP-4ii.59 (submission onSuccessUpdateEmail) and JMAP-4ii.68 (email_set update loop).",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.69",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "email_copy.rs onSuccessUpdateOriginal patch.clone() from borrow",
+  "updated_at": "2026-05-02T04:55:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:48:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "195f953c-efe6-5bae-a033-a5ef25903561",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

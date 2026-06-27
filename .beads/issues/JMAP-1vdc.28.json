@@ -1,0 +1,33 @@
+{
+  "close_reason": "duplicate of JMAP-1vdc.5",
+  "closed_at": "2026-05-02T19:36:57Z",
+  "compaction_level": 0,
+  "content_hash": "7393f9daa8e3fa69e75b65f9fdbe2a90ba584ac8f3bbc75648b0d74a163600fe",
+  "created_at": "2026-05-02T19:34:59Z",
+  "created_by": "Mark Atwood",
+  "description": "In crate-jmap-server/src/helpers.rs, the test now_utc_string_subsecond_uniqueness builds a HashSet of 10 calls and describes intent to assert at least 2 are distinct, but the final statement is 'let _ = seen;' which discards the set without asserting. The test comment says 'we call 10 times and assert at least 2 are distinct' but no assertion is made. A new contributor reading this test believes it verifies sub-second uniqueness; in fact it verifies nothing. The comment at the end explains the probabilistic nature but a passing test that asserts nothing is misleading. Fix: either convert to a real assertion ('assert\\!(seen.len() > 1, ...)') or remove the test and keep only the format test.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "helpers.rs: now_utc_string_subsecond_uniqueness test asserts nothing",
+  "updated_at": "2026-05-02T19:36:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "39d4baf0-a0dc-5531-a57a-03f1353b197c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

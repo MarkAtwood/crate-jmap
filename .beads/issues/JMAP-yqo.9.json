@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:28Z",
+  "compaction_level": 0,
+  "content_hash": "18b1b606ba72b2520fec1e1d5a684a5a16d872991fd680a2442d0ab52edf7cec",
+  "created_at": "2026-05-02T02:55:03Z",
+  "created_by": "Mark Atwood",
+  "description": "register_mail_handlers accepts a generic C (caller context) but ClosureHandler::call discards it with _caller. The README/lib.rs doc warns about this, but the warning is only in a Rust doc comment that most consumers won't read carefully. Any consumer who passes a per-request auth token in C and assumes it reaches the handler will silently not get auth enforcement. This is a public API invariant that fossilizes the moment consumers depend on register_mail_handlers. The consequence of getting it wrong is an authentication bypass.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "caller context C silently dropped \u2014 no compile-time indication that auth is not forwarded",
+  "updated_at": "2026-05-02T03:22:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:55:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "b762d8cf-c3a8-51f8-ac40-cedec0ff8e6d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

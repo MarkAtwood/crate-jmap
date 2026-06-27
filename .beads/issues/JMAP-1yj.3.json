@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-1yj.3",
+  "title": "Email/changes doc says RFC 8621 \u00a75.2 instead of RFC 8620",
+  "description": "email.rs:103: '/// Handle an Email/changes method call (RFC 8621 \u00a75.2).' Should be RFC 8620 \u00a75.2 \u2014 Email/changes is the base-protocol /changes method applied to Email, not an RFC 8621-specific method.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T04:01:21Z",
+  "updated_at": "2026-05-01T04:02:57Z",
+  "closed_at": "2026-05-01T04:02:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-1yj",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 21:01:21"
+    }
+  ]
+}

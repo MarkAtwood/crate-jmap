@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Rewrote MemoryBackend::update_object's lookup-or-NotFound block at memory.rs:664-676 to use the idiomatic .ok_or_else(...)? form (form (b) from the bead, the canonical mail-server shape). Preserved .cloned() \u2014 the inline comment now explicitly documents that the clone is deliberate for atomic-on-failure semantics, and that the canonical mail-server uses .get_mut() but does NOT preserve this property. clippy clean. Second occurrence of the manual_let_else idiom found in MockBackend::destroy_object (lib.rs:474-481), filed as JMAP-3t94.39 per AGENTS.md Scope and Style (the .36 bead's stated scope was memory.rs only). Sibling-crate propagation per the bead's workspace-scope note is not in this bead's scope and remains as future workspace-architectural work. All 11 tests pass.",
+  "closed_at": "2026-05-14T22:49:57Z",
+  "compaction_level": 0,
+  "content_hash": "966d5127b432b407ee4c996d04cd61cbe218e30f3ff1f3279a9719acaac585b9",
+  "created_at": "2026-05-14T22:44:04Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:664-676 in MemoryBackend::update_object expresses 'lookup or return NotFound' as a clone-then-match shape:\n\n```rust\nlet existing = inner\n    .objects_mut(O::TYPE_NAME, account_id.as_ref())\n    .get(id)\n    .cloned();\n\nlet mut current = match existing {\n    Some(v) => v,\n    None => {\n        return Err(BackendSetError::SetError(SetError::new(\n            SetErrorType::NotFound,\n        )))\n    }\n};\n```\n\nclippy::manual_let_else fires here (and is implied by -W clippy::pedantic). The idiomatic forms are:\n\n(a) let-else:\n```rust\nlet Some(mut current) = inner.objects_mut(O::TYPE_NAME, account_id.as_ref()).get(id).cloned() else {\n    return Err(BackendSetError::SetError(SetError::new(SetErrorType::NotFound)));\n};\n```\n\n(b) ok_or_else + ?:\n```rust\nlet mut current = inner\n    .objects_mut(O::TYPE_NAME, account_id.as_ref())\n    .get(id)\n    .cloned()\n    .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;\n```\n\n(b) matches the canonical jmap-mail-server shape at crate-jmap-mail-server/src/memory.rs:1049-1051 (.get_mut(id).ok_or_else(...)?). The sharing-server form is wordier and creates a binding (existing) that is only used once on the next line.\n\nNote: the sharing-server's clone-first design is deliberate \u2014 bd:JMAP-3t94.13 / JMAP-3t94.19 establish that the patch must NOT mutate stored state on failure, and cloning first gives that atomicity. Both rewrites preserve that property; the change is purely about the bind+match shape.\n\nWorkspace-scope: the same match-on-cloned-Option shape appears in 4 sibling MemoryBackends \u2014 metadata-server/memory.rs:780, calendars-server/memory.rs:721, contacts-server/memory.rs:660, chat-server/memory.rs:734 \u2014 so propagating the fix is a workspace-architectural sweep, not a sharing-server-only cleanup. Canonical jmap-mail-server is the only sibling using the idiomatic form (and uses the get_mut variant that does NOT preserve atomic-on-failure, per its own comment at memory.rs:1053-1057). The sharing-server sweep should adopt form (b) with .cloned() preserved, not form (b) without clone.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::update_object uses manual match-on-Option instead of let-else / ok_or_else?",
+  "updated_at": "2026-05-14T22:49:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T15:44:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "21a3c065-e611-5194-b4fb-8ba1b40ed6cb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

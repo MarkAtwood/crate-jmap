@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:36:32Z",
+  "compaction_level": 0,
+  "content_hash": "7d8a84221a44108063c56b2de7a2169c51045c1b242c070ba8052b9c7cb9da31",
+  "created_at": "2026-05-02T19:18:57Z",
+  "created_by": "Mark Atwood",
+  "description": "seed.rs: for every email that starts a new thread (plain-simple, html-attachment, multi-mailbox, large-email, html-only, no-subject, custom-keywords, very-old, special-headers, child-mailbox-email, sort-test-1/2/3), the code uses threads.entry(name).or_insert_with(|| email.thread_id.clone()). or_insert_with is appropriate when the key may already exist, but for these emails the key is always new. The pattern was copy-pasted from the thread-alpha case where the key is explicitly pre-inserted to hold the value for later replies. For the non-thread-alpha cases, threads.insert(name, email.thread_id) is clearer and removes the false impression that the entry guard is necessary.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "seed.rs: threads.entry().or_insert_with() pattern is redundant for non-threaded emails",
+  "updated_at": "2026-05-02T22:36:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "5ec64654-959a-50f5-b4db-19a9345959df",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

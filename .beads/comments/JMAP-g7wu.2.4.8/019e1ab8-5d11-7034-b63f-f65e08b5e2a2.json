@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "created_at": "2026-05-12T05:45:51Z",
+  "id": "019e1ab8-5d11-7034-b63f-f65e08b5e2a2",
+  "issue_id": "JMAP-g7wu.2.4.8",
+  "text": "Landed in commit 8624fb5. ChatLimits struct (non_exhaustive, Default + new(...) constructor + 4 with_*-style builder setters) and ChatBackend::limits(caller, account_id) -> ChatLimits trait method (sync default returning ChatLimits::default \u2014 values: 50/10_000/500/100). MemoryBackend gains doc-hidden set_limits_for_test setter. Enforcement happens in handle_space_set's update arm BEFORE apply_space_patch: query limits once per request, then per-target fetch Space via get_objects::<Space>, count current (roles | members | uncategorized_channel_ids + sum categories.channel_ids | categories) and Add* ops from parsed Vec<SpacePatchOp>, compare (existing + add) per collection. First cap to trip surfaces as overQuota SetError on the whole update target (RFC 8620 \u00a75.3 atomicity). Remove/Update-only and pure-create/destroy paths bypass the check. 7 new integration tests cover: default-caps-allow, addCategories-over-cap, atomic-reject-whole-target, addChannels-over-cap, first-offender-surfaces, no-Add-bypasses, create-only-unaffected. Workspace gates: cargo test --workspace clean (all crates pass), cargo clippy --workspace -- -D warnings clean, RUSTDOCFLAGS=-D warnings cargo doc -p jmap-chat-server --no-deps clean. This is a new method on ChatBackend with a default impl, so no extension-server siblings need updating in the same pass."
+}

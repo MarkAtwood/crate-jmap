@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260513T041030Z-2473287",
+  "created_at": "2026-05-13T05:07:21Z",
+  "id": "019e1fbb-79b0-78b8-9001-0970c5179e0c",
+  "issue_id": "JMAP-v9py",
+  "text": "Epic-level human escalation from /do-beads (autonomous frontier converged):\n\nAll 12 originally-actionable children (.1, .2, .3, .5, .6, .7, .8, .9, .10, .11, .12, .14) are closed. The 6 remaining open children are all human-labeled and cannot proceed autonomously:\n\n  Layer A leftover:\n    .4 \u2014 Space/query non-member preview gating (isPublic + isPubliclyPreviewable) \u2014 human-labeled\n\n  Layer D leftover:\n    .13 \u2014 Wire sha256 typed field into Blob upload response (jmap-base-client) \u2014 human-labeled\n\n  Layer E (already explicitly deferred per this epic's description):\n    .15 \u2014 draft-atwood-jmap-chat-federation-00 new crates \u2014 deferred+human\n    .16 \u2014 draft-atwood-jmap-chat-filenode-00 new crates \u2014 deferred+human\n    .17 \u2014 draft-atwood-jmap-chat-calendars-00 new crates \u2014 deferred+human\n    .18 \u2014 draft-atwood-jmap-chat-tasks-00 new crates \u2014 deferred+human\n\nbd ready keeps re-surfacing this epic on the ready frontier because it is not labeled human (only its children are), but there is no autonomous work left on it. Labeling the parent human so it stops cycling.\n\nHuman decision needed: which of .4 / .13 to resolve next, and whether the Layer E deferrals stay deferred for this pass or get scheduled now."
+}

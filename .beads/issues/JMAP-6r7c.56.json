@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T00:12:13Z",
+  "compaction_level": 0,
+  "content_hash": "ab70d91588acb8d463724bec1f60efa0dbd7bfd20d7881e4ab13081575215c0a",
+  "created_at": "2026-05-14T23:31:52Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-base-client/benches/session_and_urls.rs:116-129 uses positional format args:\n\n    accounts.push_str(&format!(\n        r#\"\\\"A{:03}\\\": {{\n            \\\"name\\\": \\\"user{}@example.com\\\",\n            ...\n        }}\"#,\n        i, i\n    ));\n\nWorkspace-wide convention is inline format args \u2014 commit 71e9bb2 (style(base-client): inline positional args in error format strings) explicitly swept positional args out of `src/` to enforce the `uninlined_format_args` clippy lint. The bench file added in commit df8c601 was not part of that sweep and re-introduces the pattern.\n\nWhat goes wrong: clippy::uninlined_format_args fires on this; the workspace pre-commit gate runs `cargo clippy --workspace -- -D warnings` which means this fails the gate when benches are included in clippy's scope (cargo clippy --workspace --all-targets). Even if benches are not currently in scope, the inconsistency violates the cookie-cutter discipline (workspace AGENTS.md: 'identical idioms, identical helper names').\n\nFix: `\"A{i:03}\"` ... `\"user{i}@example.com\"` and drop the trailing `, i, i`.\n\nLow priority \u2014 mechanical fix, no functional impact.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.56",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "benches/session_and_urls.rs large_session_json uses positional format args \u2014 inconsistent with workspace-wide inline-args sweep",
+  "updated_at": "2026-05-15T00:12:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:31:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "6635fce8-14a0-5df3-aadf-30bc1a53b3a0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

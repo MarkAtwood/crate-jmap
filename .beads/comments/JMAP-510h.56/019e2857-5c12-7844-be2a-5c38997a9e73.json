@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T21:14:34Z",
+  "id": "019e2857-5c12-7844-be2a-5c38997a9e73",
+  "issue_id": "JMAP-510h.56",
+  "text": "Scope split per workspace canonical-template rule (AGENTS.md):\n\n- onSuccessDestroyOriginal: implemented in this bead (mirrors canonical\n  mail-server::handle_email_copy coverage).\n- destroyFromIfInState: deferred to bd:JMAP-2svx (workspace-canonical\n  fix on mail-server first, then propagate to all 7 extension-server\n  siblings in one pass). Honoring it here in isolation would diverge\n  from canonical and violate the propagation rule.\n\nImplementation notes:\n- handle_filenode_copy now takes a call_id: &str argument, mirroring\n  handle_email_copy's signature. The implicit FileNode/set response\n  carries the original client call_id per RFC 8620 \u00a76.3.\n- Honors the FileNode top-level onDestroyRemoveChildren flag for the\n  implicit destroys (FileNode draft \u00a73.2.4 'with the same behaviour'\n  reads onto \u00a73.2.3 nodeHasChildren semantics). This is filenode-\n  specific behavior, not a canonical divergence \u2014 mail-server has\n  no analogous flag because Emails are leaf objects."
+}

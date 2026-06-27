@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T02:18:35Z",
+  "id": "019e38e0-c369-79e9-8a56-b757b40a65b4",
+  "issue_id": "JMAP-x2gd.24",
+  "text": "Review-acknowledgement bead. Verified: `generate_invite_code` at memory.rs uses `getrandom::fill` (verified via grep), and the regression canary test `generate_invite_code_is_csprng` is intact at memory.rs around line 3057. Both the impl and the test are preserved as-is per the bead's recommendation. No code change required."
+}

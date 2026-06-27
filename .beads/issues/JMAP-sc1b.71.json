@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T07:14:14Z",
+  "compaction_level": 0,
+  "content_hash": "31dc9aa215374bc8119e53f99896dac24efef37e825497a7c56853d886a4b0c6",
+  "created_at": "2026-05-11T06:59:10Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Sites:\n- crate-jmap-types/src/methods.rs:50    pub state: String (GetResponse)\n- crate-jmap-types/src/methods.rs:91    pub old_state: String (ChangesResponse)\n- crate-jmap-types/src/methods.rs:93    pub new_state: String (ChangesResponse)\n- crate-jmap-types/src/methods.rs:253   pub old_state: Option<String> (SetResponse)\n- crate-jmap-types/src/methods.rs:255   pub new_state: String (SetResponse)\n- crate-jmap-mail-client/src/methods/mod.rs:193   pub old_state: Option<String> (EmailImportResponse)\n- crate-jmap-mail-client/src/methods/mod.rs:195   pub new_state: String (EmailImportResponse)\n\n`jmap-types` already exports the `State` newtype (crate-jmap-types/src/id.rs:67):\n\n```rust\n#[non_exhaustive]\npub struct State(String);\n```\n\n\u2026and exposes a `State::new_validated` constructor (RFC 8620 \u00a71.2 character set check). Every `since_state` / `since_query_state` request-side field correctly uses `&State` (see e.g. crate-jmap-mail-client/src/methods/email.rs:72,177). Only the response-side fields drop to raw `String`.\n\nThis is a direct parallel of closed bead JMAP-sc1b.48 (4 sites used account_id: String while 52 used Id). Same engineering argument: typed responses make invalid wire values rejectable at deserialize time, eliminate string-typing of values with documented invariants, and align the public API.\n\nWhy P2: SemVer-affecting (changes public field types across 7 response structs that are re-exported by 7+ client crates). The fix is mechanical (`String \u2192 State`), the wire format is unchanged because `State` is `#[serde(transparent)]`, and it brings the workspace into consistency with the pattern .48 already established for account_id.\n\nWhy idiomatic-rust: \"Primitive obsession: raw u64 for IDs, String for paths/URIs/names\" \u2014 workspace AGENTS.md section 1 type-design \u2014 \"anywhere a newtype would prevent confusion between values of the same primitive type.\"\n\nNote that jmap-types/State has `AsRef<str>` so .as_ref() callers won't break; constructions via `String::new\" or \"x.to_string()\" become `State::from(...)` or for fallible construction `State::new_validated(...)?`.\n\nNote also: EmailImportResponse was added in commit 72fc913 (5 days ago); the regression was avoidable \u2014 the cookie-cutter rule (\"jmap-mail-client is canonical for extension-client family\") should have forced State, but the canonical itself uses String here, so the new addition propagated the existing inconsistency. Fix in jmap-types first, then propagate per workspace AGENTS.md rule.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.71",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: 5 sites use state: String / old_state: String while jmap-types::State newtype exists",
+  "updated_at": "2026-05-11T07:14:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T23:59:10Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "e419567f-01ba-559f-a278-bf46f5cb7b0b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

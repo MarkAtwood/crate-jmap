@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:55:06Z",
+  "compaction_level": 0,
+  "content_hash": "788540f9328b90135fa5cd625af49ce03a29882aee4f715f99ce42c2d9ac6c6a",
+  "created_at": "2026-05-02T04:47:03Z",
+  "created_by": "Mark Atwood",
+  "description": "chat-server backend.rs SetError is a public type with #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)] but no std::fmt::Display impl. mail-server SetError has one (lines 126-134 of mail-server/backend.rs). A public library error-value type that callers may format in logs or error messages needs Display. The divergence means chat-server callers cannot format SetError values the same way mail-server callers can.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.63",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat-server SetError missing Display impl",
+  "updated_at": "2026-05-02T04:55:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:47:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "f44b7d6c-80d4-53cf-9f78-89268d14b04f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T05:17:29Z",
+  "compaction_level": 0,
+  "content_hash": "76ace546c81d9b1ebfa9aa74057fbab96a13be2e4bdfa46e898a578de812af50",
+  "created_at": "2026-05-02T05:10:59Z",
+  "created_by": "Mark Atwood",
+  "description": "JMAP-4ii.48 was fixed in handlers.rs (added Value::Object guard) but 16 domain-specific handlers still use args[\"key\"].take() on mut args: Value without the Object guard, so non-Object args cause a panic caught only by tokio::task::spawn. Affected handlers: chat-server: handle_chat_get (chat.rs:21), handle_chat_query (chat.rs:117), handle_space_get (space.rs:23), handle_space_query (space.rs:116), handle_message_get (message.rs:23), handle_message_query (message.rs:116), handle_contact_get (contact.rs:21), handle_contact_query (contact.rs:253), handle_emoji_get (emoji.rs:21), handle_emoji_query (emoji.rs:114), handle_position_get (position.rs:26), handle_presence_get (presence.rs:26), handle_ban_get (ban.rs:25), handle_invite_get (invite.rs:24); mail-server: handle_thread_get (thread.rs:20), handle_vacation_get (vacation.rs:31). Fix: add let Value::Object(mut args) = args else { return Err(JmapError::invalid_arguments(\"args must be an object\")) } at the top of each handler, matching the pattern already in handle_chat_set, handle_space_set, handle_contact_set, and all the fixed handlers.rs handlers.",
+  "ephemeral": 0,
+  "id": "JMAP-fr0.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "args[\"key\"].take() panic in 16 domain handlers \u2014 incomplete JMAP-4ii.48 fix",
+  "updated_at": "2026-05-02T05:17:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T22:10:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-fr0",
+      "id": "c0201335-5d7f-52fa-ba5b-237bee518141",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

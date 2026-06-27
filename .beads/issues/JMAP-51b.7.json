@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-51b.7",
+  "title": "parse_request discards structured error from serde (see JMAP-51b.3)",
+  "description": "parse_request map_err(|_| ...) discards the serde error entirely. The plain key insight from the rusty pass: the error should be preserved in description for operator diagnostics. Same as JMAP-51b.3 but filed separately for idiom tracking. Fix: map_err(|e| JmapError::not_request()) then attach e.to_string() via description.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:54:03Z",
+  "updated_at": "2026-04-30T17:57:04Z",
+  "closed_at": "2026-04-30T17:57:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-51b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:54:03"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8de54a1f1109f179794f97787e6fa425a5cb315ea10a6ef111911fd8647c7725",
+  "created_at": "2026-05-18T01:56:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace-architectural decision: every extension-server crate has at least one ~350-475 line handle_*_set handler that exceeds clippy::pedantic's too_many_lines threshold (100) by ~3x. The canonical mail-server has a 2578-line email.rs whose handle_email_set is the largest. Splitting in any sibling without first splitting the canonical violates workspace AGENTS.md 'Canonical Templates'.\n\n## Current sizes (selected from JMAP-x2gd.58 survey)\n\n- jmap-chat-server: handle_message_set 474L, handle_chat_set 373L, handle_space_set 363L, handle_emoji_set 355L\n- jmap-mail-server: email.rs 2578L (handle_email_set), mailbox.rs 1195L, submission.rs 984L, sieve.rs 1218L, mdn.rs 607L\n\nOther extension-server siblings likely have analogous sizes (audit pending).\n\n## Two paths\n\n**(a) Accept the size, silence the lint.** Mark each long /set handler with #[allow(clippy::too_many_lines)] on the canonical mail-server and propagate the allow attribute to every extension-server sibling in the same pass. Document in workspace AGENTS.md 'Canonical Templates' that the one-big-fn-per-/set-handler shape is deliberate.\n\nPros: zero code churn. Preserves cookie-cutter consistency. Lint stops being workspace-wide noise that hides the next legitimate hit.\n\nCons: 350+ line handlers stay difficult to review and to test in isolation. The 'cookie-cutter consistency' argument is partly self-fulfilling \u2014 if mail-server is canonical, the size is canonical, and the size argument never loses.\n\n**(b) Split each /set into per-op sub-functions.** Refactor jmap-mail-server first (canonical), then propagate the same split to all extension-server siblings in the same pass. Each /set's create/update/destroy paths become named sub-fns; the orchestrator shrinks to ~50 lines.\n\nPros: per-sub-fn testability. Easier review (each sub-fn is ~50-100 lines). Lint passes naturally.\n\nCons: ~140-200 sub-functions across the workspace (8 extension-server crates \u00d7 ~16-25 sub-fns each). Large coordinated commit. Cross-cutting test infrastructure changes if any per-op sub-fn needs distinct fixtures. Risk of bugs introduced by the mechanical refactor.\n\n## Recommendation\n\nThe bead JMAP-x2gd.58 (chat-server review) recommended this workspace-arch decision be made before any chat-server-local action. Both paths are plausible; the choice is workspace-architectural.\n\nIf (a) is chosen: the implementation is ~1 line per handler \u00d7 ~25 handlers across 8 crates plus the AGENTS.md policy note. Small.\n\nIf (b) is chosen: file per-crate epic children. Land mail-server first per canonical-template rule. Propagate to siblings. Budget for review churn.\n\n## Engineering basis\n\n- bd:JMAP-x2gd.58 (chat-server review) directly.\n- Workspace AGENTS.md 'Canonical Templates' propagation rule.\n- clippy::pedantic too_many_lines lint threshold = 100 lines (default).\n- Mail-server canonical email.rs:2578 directly.\n\n## Related\n\n- bd:JMAP-ljr6 (workspace const fn sweep) \u2014 same canonical-template propagation pattern but for a different lint.\n- bd:JMAP-8zcl (workspace canonical-template sweep for 'Authorisation contract' rustdoc) \u2014 same shape but for docs.",
+  "ephemeral": 0,
+  "id": "JMAP-eedw",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace-arch decision: handle_*_set handler sizes (~350-2578 lines) vs clippy::too_many_lines",
+  "updated_at": "2026-05-18T01:56:02Z"
+}

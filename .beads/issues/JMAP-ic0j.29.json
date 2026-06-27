@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T19:39:46Z",
+  "compaction_level": 0,
+  "content_hash": "deeb64c012ef1951bff7ea10c92280bf204abd4dc40c8bc514e0d3f4a4da6707",
+  "created_at": "2026-05-15T17:12:33Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs:10-13 \u2014 calendars re-exports the property enums from\njmap_calendars_types:\n\n    pub use jmap_calendars_types::backend::{\n        CalendarEventNotificationProperty, CalendarEventProperty, CalendarProperty,\n        ParticipantIdentityProperty,\n    };\n\nsrc/lib.rs:49-53 \u2014 the crate-root re-export does NOT include them:\n\n    pub use backend::{\n        AddedItem, BackendChangesError, BackendSetError, CalendarsBackend, ChangesResult, GetObject,\n        JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,\n        SetObject,\n    };\n\nA consumer wanting `CalendarProperty` must write\n`use jmap_calendars_server::backend::CalendarProperty` \u2014 the shorter\n`use jmap_calendars_server::CalendarProperty` does not compile.\n\nThe canonical mail-server (crate-jmap-mail-server/src/lib.rs:89-94)\nre-exports its seven property enums at the crate root:\n\n    pub use backend::{\n        ... EmailProperty, EmailSubmissionProperty, IdentityProperty, MailboxProperty,\n        SearchSnippetProperty, ThreadProperty, VacationResponseProperty\n    };\n\nWhat goes wrong for the caller: a backend author writing cookie-cutter\nimports across both crates writes\n`use jmap_mail_server::EmailProperty;` (works) but must write\n`use jmap_calendars_server::backend::CalendarProperty;` (works) \u2014 the\npath depth diverges by exactly one segment. A search-and-replace from\n\"jmap_mail_server::EmailProperty\" to \"jmap_calendars_server::CalendarProperty\"\nsilently produces an unresolvable import.\n\nOnce published in 0.1.x, adding the crate-root re-export is non-breaking but\nremoving the deeper `backend::` re-export later would be a SemVer break. The\ninverse (publishing both re-export paths now) doubles the API surface\npermanently.\n\nFix: add the four property enums to the crate-root `pub use backend::{...}`\nin lib.rs:49-53, matching the canonical mail-server's re-export depth.\nRemoving the existing `backend::` path is a future-SemVer concern but does\nnot need to happen now.\n\nP2 \u2014 published-API consistency, not a present-day bug.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Property enums re-exported only from backend.rs, not from crate root (diverges from canonical)",
+  "updated_at": "2026-05-15T19:39:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:12:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "5cd276b2-a87b-53be-b2d2-bedf1ba43244",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

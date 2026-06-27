@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "all steps complete",
+  "closed_at": "2026-05-05T15:51:34Z",
+  "compaction_level": 0,
+  "content_hash": "3029e0c0f96df2f0558eaf4e6b422275b6d3c69482fc9adb4b677ed6cff67f65",
+  "created_at": "2026-05-05T00:47:38Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement draft-ietf-jmap-filenode-13 extension trait over jmap-base-client. JmapFileNodeExt adds 6 typed methods: file_node_get, file_node_changes, file_node_set (FileNodeSetRequest with onDestroyRemoveChildren, onExists: FileNodeOnExists enum Replace/Rename, compareCaseInsensitively), file_node_copy (FileNodeCopyRequest with fromAccountId), file_node_query (FileNodeQueryRequest with depth), file_node_query_changes. Spec: draft-ietf-jmap-filenode-13. Pattern: jmap-chat-client. Blocked by: jmap-filenode-types epic.",
+  "ephemeral": 0,
+  "id": "JMAP-3ri9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-filenode-client: JMAP FileNode client methods",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:48:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-p3i5",
+      "id": "9494e971-cb30-5dd6-b836-1e6f3bdfb874",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T02:20:24Z",
+  "compaction_level": 0,
+  "content_hash": "495a223151a85238dd86df8cdda431b3302210ed90f1b3229ff90607f9d6e723",
+  "created_at": "2026-05-14T03:15:43Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/helpers.rs:128-132.\n\n    pub(crate) fn iso8601_before(a: &str, b: &str) -> bool {\n        let a_sec = &a[..a.len().min(19)];\n        let b_sec = &b[..b.len().min(19)];\n        a_sec < b_sec\n    }\n\nThe byte-index slice &a[..N] requires N to be a UTF-8 char boundary. If input has a multi-byte character (\u22652 bytes) intersecting byte index 19, the slice panics.\n\nCurrent call sites:\n- space.rs:1321: invite expiry, expires_at is UTCDate (validated 20-char ASCII)\n- space.rs:1408: same (different context but same fact)\n- message.rs:408: sender expiry, expires_at is UTCDate (validated)\nAll current callers pass UTCDate-derived strings which are guaranteed 20-char ASCII per the UTCDate validation in jmap-types::id.rs:165-197. So the panic is currently unreachable.\n\nBut:\n1. JMAP-x2gd.7 documents that two sites (message.rs:355 sentAt, position.rs:163 lastReadAt) wrap client-supplied strings via UTCDate::from (no validation). If those values are ever passed to iso8601_before in the future, the panic becomes reachable.\n2. The function is a public-via-crate helper (pub(crate)). A future contributor reading the signature ('takes &str') has no way to know it requires ASCII-only input.\n\nFix: defense-in-depth, accept either non-ASCII without panicking. Two options:\n(a) Use .get(..19).unwrap_or(a) \u2014 silently truncates on non-boundary.\n(b) Use .chars().take(19).collect::<String>() \u2014 semantically correct but allocates.\n(c) Take &UTCDate instead of &str \u2014 types enforce the precondition.\n\n(c) is the workspace-idiomatic fix; the function's only callers already have UTCDate-typed values.\n\nTrade-off: this is currently a 'theoretical issue with no plausible trigger' under the workspace test-and-call-site invariants. If JMAP-x2gd.7 is closed first, this becomes pure defense-in-depth. Labeled P3 accordingly.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "helpers::iso8601_before uses byte-index str slicing; non-ASCII input panics. Defense-in-depth on validated-only call sites.",
+  "updated_at": "2026-05-18T02:20:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:15:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "7dc46755-4eb4-5bfb-bfe0-46261841b5b5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

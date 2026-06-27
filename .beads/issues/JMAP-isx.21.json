@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-isx.21",
+  "title": "BackendChangesError and BackendSetError missing From<Self::Error> impl \u2014 requires manual match at call sites",
+  "description": "Every handler that calls get_changes/query_changes maps BackendChangesError::Other(inner) => JmapError::server_fail(inner.to_string()). This pattern is repeated 6+ times. With impl From<BackendChangesError<E>> for JmapError (or similar), the ? operator would eliminate the repeated map_err blocks. More importantly, the repeated manual match is where JMAP-isx.2 slipped in \u2014 a contributor copied the pattern and got the error type wrong. The adapter pattern would make the correct conversion the default path. Fix: implement From<BackendChangesError<E>> for JmapError where E: std::error::Error, and similarly for BackendSetError.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:23:03Z",
+  "updated_at": "2026-04-30T23:37:27Z",
+  "closed_at": "2026-04-30T23:37:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-isx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:23:03"
+    }
+  ]
+}

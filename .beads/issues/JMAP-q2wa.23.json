@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in next commit. PLACEHOLDER_ID extracted to pub(crate) const in src/helpers.rs, sibling to PLACEHOLDER_BLOB_ID. All 6 literal sites (5 write + 1 read) converted. Visibility deferred to pub(crate) rather than pub per the bead's caution about public-API stability commitment. cargo test, clippy, fmt all clean. Sibling-propagation notes left on q2wa.7.1-.7.7.",
+  "closed_at": "2026-05-15T07:13:12Z",
+  "compaction_level": 0,
+  "content_hash": "a0b8106989a6a599a6100411ed44fd9db0e122d84073a10cc0a42d51d65f4f4d",
+  "created_at": "2026-05-14T16:32:07Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs:64-87 (`MailBackend::create_object` doc) documents the sentinel contract:\n\n> - **`id`**: The `id` field in the input object is always set to\n>   `\"placeholder\"`. The backend MUST replace it with a real, unique,\n>   account-scoped ID and return that ID as the first element of the\n>   result tuple.\n\nThe string `\"placeholder\"` is hardcoded as a literal at src/email.rs:1685:\n\n```\nlet mut email = Email::new(\n    Id::from(\"placeholder\"),  // \u2190 literal, not a constant\n    blob_id,                  // \u2190 uses crate::helpers::PLACEHOLDER_BLOB_ID\n    ...\n);\n```\n\n\u2026and at sibling sentinel sites (Mailbox/set create, Identity/set create, etc.).\n\nContrast with `PLACEHOLDER_BLOB_ID` at src/helpers.rs:19 which IS a `pub(crate) const` used at email.rs:1681 to fill the same role for `blob_id`.\n\nContract issue: the `MailBackend::create_object` docstring promises backends a specific sentinel value (`\"placeholder\"`), but the value is encoded only as a literal. A future rename (e.g. to namespace-collide-proof `__jmap_placeholder_id__`) is a coordinated multi-site edit, and any backend that wants to detect-and-replace the sentinel must hardcode the same literal \u2014 drifting from any future rename.\n\nThis is a sibling of JMAP-q2wa.5 (which addresses the `placeholder-blob` literal drift in memory.rs). The fix is symmetric: extract a `PLACEHOLDER_ID` constant alongside `PLACEHOLDER_BLOB_ID` and use it at every sentinel write site.\n\nStronger fix: expose `PLACEHOLDER_ID` and `PLACEHOLDER_BLOB_ID` as `pub const` (not `pub(crate)`) so backends can use them in their own `create_object` impls \u2014 e.g.:\n\n```\nfn create_object<O: SetObject>(&self, ..., obj: O) -> ... {\n    if obj.id().as_ref() == jmap_mail_server::PLACEHOLDER_ID {\n        // generate real id\n    }\n}\n```\n\n\u2026rather than every backend hardcoding `== \"placeholder\"` and risking drift.\n\nPriority P3 because: the docstring contract is currently clear enough to a careful reader, and this is a maintenance-burden / future-rename issue rather than an active bug. But if the constants get publicly exposed in a future minor and any consumer takes a dependency on them, the contract becomes stable forever \u2014 so this decision should be made deliberately.\n\nCookie-cutter amplification: every sibling extension-server crate has the same sentinel pattern. Suggested cross-check.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sentinel id 'placeholder' is a string literal, no public/crate constant",
+  "updated_at": "2026-05-15T07:13:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:32:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "77fa9cd0-7a43-59d6-8c9e-f853588fb49b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

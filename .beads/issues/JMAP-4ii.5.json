@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:12:31Z",
+  "compaction_level": 0,
+  "content_hash": "c941699e3f5309074e1cc5de6afa7b0cf00ba6dcfe1dfe50ca4a8b3419949ce0",
+  "created_at": "2026-05-02T03:55:27Z",
+  "created_by": "Mark Atwood",
+  "description": "thread.rs handle_thread_changes response does not include updatedProperties. RFC 8620 \u00a75.2 requires updatedProperties in every /changes response. This is the same bug as Identity/changes; listed separately because there are two distinct files to fix.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Thread/changes missing updatedProperties field",
+  "updated_at": "2026-05-02T04:12:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:55:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "c8f8a3e3-c4d8-590f-bc88-3e6cdf39a653",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

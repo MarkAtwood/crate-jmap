@@ -1,0 +1,33 @@
+{
+  "close_reason": "ClientConfig.max_ws_message exposed (default 1 MiB) + validation. New connect_ws_with_limit free function takes explicit cap; existing connect_ws is now a thin wrapper using DEFAULT_WS_MAX_MESSAGE_BYTES. JmapClient::connect_ws_session convenience method uses self.config.max_ws_message. 3 new tests; rustdoc/clippy/fmt clean.",
+  "closed_at": "2026-05-09T07:21:23Z",
+  "compaction_level": 0,
+  "content_hash": "fb97bee1aa3ce16573618098a036ddd0c3cfabe95bdb72b4287132abe21b29f3",
+  "created_at": "2026-05-08T03:04:46Z",
+  "created_by": "Mark Atwood",
+  "description": "src/ws/mod.rs:41 \u2014 `MAX_WS_MESSAGE_BYTES: usize = 1 << 20` is a private const. ClientConfig exposes `max_sse_frame` for the analogous SSE limit (also defaulting to 1 MiB) but the WebSocket equivalent is not configurable. A user who needs larger SSE frames AND larger WS messages can bump SSE but will be blocked at 1 MiB on WS. Inconsistent surface. Either expose `max_ws_message: usize` on ClientConfig, or document why WS is fixed at 1 MiB. Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "WebSocket message size cap is hardcoded; ClientConfig has no ws_max_message setting",
+  "updated_at": "2026-05-09T07:21:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:04:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "199e81cb-a4fe-598a-afb5-8725eca01722",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

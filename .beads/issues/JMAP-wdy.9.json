@@ -1,0 +1,33 @@
+{
+  "close_reason": "Opinion-level observation; no action needed",
+  "closed_at": "2026-05-01T23:09:25Z",
+  "compaction_level": 0,
+  "content_hash": "5dcc774e172d8caf02a5f7612e754b5d0f836170ca2bef112fbc51de54250b6b",
+  "created_at": "2026-05-01T16:30:09Z",
+  "created_by": "Mark Atwood",
+  "description": "Using limit=0 as the sentinel for cannotCalculateChanges (not tooManyChanges) is a sound protocol design choice, well-tested (backend.rs tests), and correctly documented. A contributor might want to unify these into a single variant or change the sentinel. Resist: the distinction between 'can never calculate changes' and 'changes exceed a limit' is important for clients \u2014 tooManyChanges lets clients retry with a smaller sinceState window.",
+  "ephemeral": 0,
+  "id": "JMAP-wdy.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BackendChangesError TooManyChanges{limit:0} = cannotCalculateChanges is correct",
+  "updated_at": "2026-05-01T23:09:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T09:30:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wdy",
+      "id": "f6a32543-48f4-5bec-a84c-83978fb7dcc1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

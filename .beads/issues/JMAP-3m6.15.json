@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.15",
+  "title": "ClientError string variants lose structured error data",
+  "description": "ClientError::Parse(String), InvalidArgument(String), MethodNotFound(String), and InvalidSession(String) all wrap formatted strings instead of structured fields. For Parse in particular, serde_json::Error carries position (line/column), error kind, and path \u2014 all lost by .map_err(|e| ClientError::Parse(e.to_string())). Callers cannot recover error structure, match on error kind, or display position info without re-parsing the message string. The thiserror #[from] path for serde_json::Error already exists (via the Serialize variant) but is not used for parse-side errors. At minimum, a ClientError::ParseResponse(serde_json::Error) variant would let callers inspect what failed and why. Without it, debugging server response shape mismatches requires correlating string messages manually.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:00:54Z",
+  "updated_at": "2026-04-30T03:49:43Z",
+  "closed_at": "2026-04-30T03:49:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:00:53"
+    }
+  ]
+}

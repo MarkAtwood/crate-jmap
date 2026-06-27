@@ -1,0 +1,31 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "95bb8b3f623dfe489559feb6d11eb9847d7a6c35642645e50fbea4563f3b188e",
+  "created_at": "2026-05-14T12:35:56Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-j7pa",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {
+    "dispatcher": "bd-review-loop",
+    "dispatcher_run": "bd-review-loop-20260518T022701Z-100155",
+    "final_failures": 0,
+    "final_iter": 1,
+    "final_verdict": "genuine_convergence",
+    "log_dir": "/home/mark/.local/state/bd-review-loop/crate-jmap/20260518T022701Z",
+    "model": "anthropic/claude-opus-4-7",
+    "variant": "max"
+  },
+  "no_history": 0,
+  "notes": "bd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; ",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "in_progress",
+  "timeout_ns": 0,
+  "title": "Review: crate-jmap-mail-server since 9c0d34f",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

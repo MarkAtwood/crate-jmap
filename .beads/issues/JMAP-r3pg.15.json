@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T22:57:03Z",
+  "compaction_level": 0,
+  "content_hash": "96e1cadd66b9376d247465cb8a6e6ff5183626901f70410d762057eb67cdb480",
+  "created_at": "2026-05-08T03:33:33Z",
+  "created_by": "Mark Atwood",
+  "description": "src/event.rs:226-245:\n\n    let is_per_user_only = patch_val\n        .as_object()\n        .map(|m| {\n            m.iter()\n                .all(|(k, v)| v.is_null() || B::is_per_user_property(k))\n        })\n        .unwrap_or(false);\n\nThis treats a patch entry with value: null as 'matches per-user' for routing purposes. Concretely, an all-null patch like { \"title\": null, \"description\": null } evaluates is_per_user_only = true (every value is null) and routes to update_per_user_properties even though the keys are shared properties. update_per_user_properties on the default impl falls back to update_object so this is observably correct, but a backend that overrode update_per_user_properties to scope storage to the user would receive a patch trying to clear shared properties via the per-user code path.\n\nSpec basis: draft-ietf-jmap-calendars-26 \u00a75.4 (line 1300 onward) says the per-user property *list* is keywords/color/freeBusyStatus/useDefaultAlerts/alerts. The spec does not say 'a clear of any property is treated as per-user'. The all-null exemption appears to be an attempt to handle 'set all per-user properties to default' as a no-op but accidentally also matches 'clear shared properties'.\n\nRecommended clarification: only match on key, not on null value. Replace 'v.is_null() || B::is_per_user_property(k)' with just 'B::is_per_user_property(k)'. If the intent was to make a clear-only patch route by shared status, document that explicitly with a comment, but the spec doesn't require that.\n\nTest coverage: the three routing tests in event.rs:1101-1169 all use non-null values, so this edge case is uncovered.\n\nP3 because the default backend impl makes the bug invisible. Higher severity for any backend that actually splits per-user storage.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Per-user-property routing logic in event.rs:226-245 handles 'all-null' patch as per-user \u2014 consider clarification",
+  "updated_at": "2026-05-10T22:57:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:33:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "6ba96562-3a9b-59f5-95cb-17a04e1a47c4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

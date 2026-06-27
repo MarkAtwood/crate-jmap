@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:08:38Z",
+  "compaction_level": 0,
+  "content_hash": "f80fb8c73728a72c06d026a3c850f544785bababcf1b70c6fc148fb3f6306718",
+  "created_at": "2026-05-15T16:57:51Z",
+  "created_by": "Mark Atwood",
+  "description": "event.rs:573-582 \u2014 when handling /copy, source_id is extracted from each create entry as:\n\n  let source_id: Id = match client_val.get('id').and_then(|v| v.as_str()) {\n      Some(s) => Id::from(s),\n      None => {\n          not_created.insert(create_id, json!({'type': 'invalidProperties', 'properties': ['id']}));\n          continue;\n      }\n  };\n\nTwo distinct error conditions collapse into one diagnostic:\n1. The 'id' key is absent.\n2. The 'id' key is present but not a JSON string (e.g. number, bool, object, null).\n\nBoth surface as 'invalidProperties: id'. For (2) the diagnostic is also fine ('id' is the bad property) but the client cannot tell whether they forgot to send 'id' or they sent it as the wrong type. RFC 8620 \u00a75.4 references \u00a75.3 for invalidProperties shape \u2014 the 'description' field is allowed and useful here.\n\nCheap fix:\n\n  let source_id: Id = match client_val.get('id') {\n      Some(Value::String(s)) => Id::from(s.as_str()),\n      Some(_) => { /* non-string id */\n          not_created.insert(create_id,\n              json!({'type': 'invalidProperties', 'properties': ['id'], 'description': 'id must be a string'}));\n          continue;\n      }\n      None => { /* missing id */\n          not_created.insert(create_id,\n              json!({'type': 'invalidProperties', 'properties': ['id']}));\n          continue;\n      }\n  };\n\nLower-priority because the existing diagnostic is spec-conformant; a curious client author who finds it confusing has to dig. P3 polish.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CalendarEvent/copy: missing 'id' string detected as None \u2014 diagnostic conflates two cases",
+  "updated_at": "2026-05-17T17:08:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T09:57:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "705d7d2d-31d2-56e2-933e-2ca29703aa68",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

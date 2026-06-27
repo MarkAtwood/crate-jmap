@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already done in commit 32df62d (2026-05-17, 'refactor(chat/contacts/sharing-server): MemoryError \u2192 canonical shape'). Sharing-server's MemoryError is now the canonical #[non_exhaustive] named-field shape with new() / description() at crate-jmap-sharing-server/src/memory.rs:303-307 \u2014 verified by direct inspection. The bead's premise ('pub struct MemoryError(pub String)') no longer matches the code. Workspace-wide propagation of the canonical shape was tracked under JMAP-k2gc / JMAP-826m.47; sharing-server was one of the three remaining laggards (chat, contacts, sharing) that 32df62d swept together. Anti-pattern 4 ('might already be done') from workspace AGENTS.md applies.",
+  "closed_at": "2026-05-17T11:07:14Z",
+  "compaction_level": 0,
+  "content_hash": "6baba208e455fbef313ea1fc962821bb5e1a036f487275c2409b0b4799554468",
+  "created_at": "2026-05-14T21:57:51Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/memory.rs:240\n\n```rust\n#[derive(Debug)]\npub struct MemoryError(pub String);\n```\n\nTwo API-contract risks bundled together:\n\n1. The inner `String` is publicly exposed. Once `MemoryError(\"...\".into())`\n   is constructible from external callers (and it is, because both the\n   struct and the field are `pub`), the maintainer cannot:\n   - Add `#[non_exhaustive]` (would break struct-literal construction)\n   - Wrap a real error-source chain (e.g. `Box<dyn Error>` + context) without\n     either renaming the field (breaking pattern destructure) or keeping the\n     `pub String` as a synthesized-from-the-source field (lossy).\n\n2. The choice locks the impl into \"all errors are strings\". A future\n   MemoryBackend that internally surfaces a typed error (database error\n   chain, serde error variants) cannot do so without either (a) lossy\n   downcast to a string at the boundary, or (b) a breaking change.\n\nThe canonical mail-server sibling (`crate-jmap-mail-server/src/memory.rs:444`)\nhas the same shape, so this is workspace policy across the sibling family. But\nworkspace policy locking does not make this finding less of a contract risk \u2014\njust a wider-scoped one. Filing here against sharing-server because the\npresent review is scoped to it; a separate workspace-wide bead would propagate\nthe fix.\n\nWhat goes wrong for callers when this stays as-is: a downstream consumer\nwriting integration tests that pattern-match on `MemoryError(\"specific\nmessage\".to_string())` becomes coupled to the exact wording of error\nstrings produced by MemoryBackend. There is no Display contract beyond\nthe default. Both axes (construction and inner format) are caller-visible\nand immutable post-0.1.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryError(pub String) \u2014 public tuple field locks impl, blocks future #[non_exhaustive]",
+  "updated_at": "2026-05-17T11:07:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:57:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "fa4fa3e9-3259-5e98-8e0e-f152ab0cd7a3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

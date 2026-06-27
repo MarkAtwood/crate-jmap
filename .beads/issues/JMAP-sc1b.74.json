@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T18:32:20Z",
+  "compaction_level": 0,
+  "content_hash": "6d9fd8d083ba3871f285d3dd50936e1e58f67641e7244f71da75f746e4754c1d",
+  "created_at": "2026-05-11T06:59:54Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Sites in crate-jmap-jscalendar-types/src/lib.rs:\n- line 204:   pub until: Option<String>          // RecurrenceRule.until is a LocalDateTime per RFC 8984 \u00a74.3.3\n- line 469:   pub offset: String                  // OffsetTrigger.offset is a SignedDuration per RFC 8984 \u00a74.5.2\n- line 487:   pub when: String                    // AbsoluteTrigger.when is a UTC date-time\n- line 445:   pub schedule_updated: Option<String> // Participant.scheduleUpdated is a UTC date-time\n- line 561:   pub acknowledged: Option<String>    // Alert.acknowledged is a UTC date-time\n\nThe crate defines `LocalDateTime`, `Duration`, and `SignedDuration` as newtype wrappers around `String` precisely to document temporal intent at the type level (see lib.rs:18-27 design rationale: \"These are modelled as newtype wrappers around String to document intent at the type level\"). Then the fields that actually carry temporal values use raw `String` anyway, so the type-level documentation never reaches the consumer.\n\nDoc-comment on line 469 even literally says \"Duration offset from `relative_to` (SignedDuration string)\" \u2014 the field SHOULD be typed `SignedDuration`, the docstring already names the right type.\n\nFor the UTC date-time fields (line 487 AbsoluteTrigger.when, line 445 Participant.scheduleUpdated, line 561 Alert.acknowledged) \u2014 these are not strictly RFC 8984 LocalDateTime; they are full UTC offset \"YYYY-MM-DDTHH:MM:SSZ\". `jmap_types::UTCDate` is the right type, BUT this crate is documented as \"jmap-types only for Id\" \u2014 taking a UTCDate dep is consistent with that crate's already-imported `use jmap_types::Id` on line 33.\n\nWhy P3 (not P2): same wire format (all transparent newtypes), but invariant-on-the-type for parser/serializer is unenforced. Self-inconsistency: the crate goes to the trouble of defining the newtypes then doesn't apply them. Caller gets less type-level information than the source intent provides.\n\nSuggested fix: change `until: Option<String>` \u2192 `Option<LocalDateTime>`, `offset: String` \u2192 `SignedDuration`, and the three UTC-date-time fields \u2192 `UTCDate` (which re-pulls jmap-types but that dep is already declared).\n\nNote about RFC 8984 \"until\" \u2014 \u00a74.3.3 says `until` is a LocalDateTime, not a UTC date-time. So `until` is correctly typed `Option<LocalDateTime>` not `Option<UTCDate>`.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.74",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: jscalendar-types defines LocalDateTime/Duration/SignedDuration newtypes but doesn't use them for fields of those types",
+  "updated_at": "2026-05-11T18:32:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T23:59:53Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "9674858f-3d11-5394-8781-248e7b4d9b2c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Deferring per bead author recommendation. The bead's own conclusion is 'an elegance flag, not a maintainer-burden flag, because the macro is short and self-contained. Worth doing on the next workspace-wide refactor of ClosureHandler.' Three options considered: (1) lift macro to one module-private definition inside mail-server only \u2014 fixes local 3x duplication but breaks cookie-cutter symmetry with the 7 sibling extension-server crates that have the same 3x shape, requiring same-pass propagation per canonical-template rule; (2) replace with a generic fn \u2014 requires ClosureHandler API change in jmap-server, real workspace-wide refactor (8 crates affected); (3) defer until that refactor lands. Bead author already picked (3) and I agree: the elegance-vs-cost ratio is marginal, the right trigger is a jmap-server ClosureHandler change, and closing this prevents it cycling through every /do-beads session as a low-priority distractor. If/when the ClosureHandler refactor happens, the macro elimination can be folded into the same epic without needing this bead reopened \u2014 the duplication is loud enough to be re-noticed by any reviewer touching that code.",
+  "closed_at": "2026-05-16T19:04:25Z",
+  "compaction_level": 0,
+  "content_hash": "e19634798d8401b156041fceed8458b3661450bdf33f23809500f9d2170d4efa",
+  "created_at": "2026-05-14T12:45:46Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src/lib.rs has three near-identical macro_rules! 'reg' definitions inside three separate registration functions:\n\n- register_mail_handlers (lib.rs:144-157)\n- register_mdn_handlers   (lib.rs:282-295)\n- register_sieve_handlers (lib.rs:325-338)\n\nAll three are the same five-line ClosureHandler wrapper. The only differences are which trait bounds the surrounding function declares (B: MailBackend vs B: MailBackend + MdnBackend vs B: MailBackend + SieveBackend) \u2014 none of which affect the macro body.\n\nA future contributor adding a fourth registration entry-point (e.g. register_quota_handlers when JMAP Quotas land) will copy the macro a fourth time, perpetuating the drift risk. Per the cookie-cutter rule each of the other 7 extension-server crates has the same shape (since 514352c propagated CallerCtx-aware ClosureHandler), so this is a 7x-amplified maintainer-burden flag, not just a mail-server local issue.\n\nSuggested rewrite: lift the macro to a module-private 'helpers' module, or \u2014 better \u2014 replace the macro with a small generic helper function. The macro exists because Rust can't easily express 'wrap a closure-of-async-block in an Arc<dyn JmapHandler>' as a plain fn (the closure captures the backend Arc and the async block needs to move it), but a generic fn taking a 'F: Fn(Arc<B>, String, Value, B::CallerCtx) -> Fut where Fut: Future<Output = ...>' would work. The Box::pin step in the macro is what's stopping a plain fn refactor; if jmap_server::ClosureHandler exposed a constructor that accepted an unboxed Fn-of-Future, the macro could be deleted.\n\nThis is an elegance flag, not a maintainer-burden flag, because the macro is short and self-contained. Worth doing on the next workspace-wide refactor of ClosureHandler.",
+  "ephemeral": 0,
+  "id": "JMAP-j7pa.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "register_*_handlers macro duplicated three times verbatim",
+  "updated_at": "2026-05-16T19:04:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:45:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-j7pa",
+      "id": "d804f8f4-fe38-5702-8e3b-26f3225cf75e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

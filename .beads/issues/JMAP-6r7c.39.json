@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in 8fafffb. Added JmapClient::call_session(session, req) that reads session.api_url internally \u2014 wrong-URL-field mistake impossible. Additive (call(&str, &req) unchanged). Routing-correctness test via wiremock with upload_url etc. pointing at UNMOCKED path. Followup bd:JMAP-6r7c.64 tracks the same pattern for upload_blob/download_blob/subscribe_events.",
+  "closed_at": "2026-05-17T11:44:01Z",
+  "compaction_level": 0,
+  "content_hash": "874c4439cb552dcc9164f7fd331a5bd210572d1b64c2659d56989c24af54194e",
+  "created_at": "2026-05-14T23:19:32Z",
+  "created_by": "Mark Atwood",
+  "description": "client.rs:304 \u2014 pub async fn call(&self, api_url: &str, req: &JmapRequest) -> ...\n\nThe function takes api_url as a bare &str. The doc-comment explains:\n\"api_url is taken as an explicit parameter (not from self) because the caller holds a Session and selects the correct URL from it.\"\n\nThat choice makes sense for the foundation-client design (the JmapClient doesn't own a Session because session can be re-fetched, swapped, etc.). But the API forces every caller to write:\n\n  client.call(&session.api_url, &req).await?\n\n\u2026and gives them no help if they pass session.upload_url, session.download_url, or session.event_source_url by mistake. The mistake is silent at the type level. At runtime, posting a JSON body to the upload URL endpoint produces an HTTP-level error from the server \u2014 which surfaces as ClientError::Http with whatever status the server returned. A caller debugging an integration cannot quickly tell that the bug is \"wrong URL\", not \"server is broken\".\n\nThe defensive shape would be:\n\n  pub async fn call(&self, session: &Session, req: &JmapRequest) -> Result<...>\n\n\u2026where session.api_url is read internally. The minor cost: the caller must hold a Session before calling. The major benefit: the wrong-URL bug becomes impossible.\n\nSame logic applies to upload_blob (takes upload_url_template) and download_blob (takes download_url_template via DownloadBlobParams).\n\nWorkaround for now: type-check at the call site by writing `client.call(&session.api_url, &req)` consistently. A grep over downstream code can audit this \u2014 but every new caller is one rebase from getting it wrong.\n\nRecommendation: in the next minor release, ADD a Session-taking variant alongside the existing &str variant. E.g.:\n  pub async fn call_session(&self, session: &Session, req: &JmapRequest)\n  -> Result<JmapResponse, ClientError>\n\nThe current call() stays for backward compat. New code uses the Session-taking variant.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JmapClient::call takes api_url as &str \u2014 caller must remember to use session.api_url not session.upload_url",
+  "updated_at": "2026-05-17T11:44:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:19:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "b85ffbfe-c6c3-5b8c-acd8-36e93530ceee",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

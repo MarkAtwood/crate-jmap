@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:29:26Z",
+  "compaction_level": 0,
+  "content_hash": "921e28421e110f7b6ef6bdda3cc01a677b6f128698d8397cedc77f0cfe6ca7e4",
+  "created_at": "2026-05-14T21:59:49Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/backend.rs:77-87\n\n```rust\n/// Returns true if this account supports the given JMAP object type.\n///\n/// Called by the server consumer (e.g. the session capability builder) \u2014\n/// NOT called internally by the handler library. Backends that support\n/// all types unconditionally can return `true` always.\n///\n/// Example: a backend backed by a read-only external directory might\n/// return `false` for `Principal` writes, though `forbidden` SetErrors\n/// from `create_object`/`update_object`/`destroy_object` are the primary\n/// enforcement mechanism.\nfn supports_type<O: JmapObject>(&self) -> bool;\n```\n\nThe docstring contradicts itself:\n\n1. \\\"NOT called internally by the handler library.\\\" If the library\n   never calls it, then the handler will faithfully forward\n   `create_object` / `update_object` / `destroy_object` to the\n   backend regardless of what `supports_type` returns. The example\n   even confirms this: \\\"forbidden SetErrors ... are the primary\n   enforcement mechanism\\\".\n\n2. \\\"Called by the server consumer (e.g. the session capability\n   builder)\\\". The session capability builder is not part of this\n   crate or any sibling crate in the workspace \u2014 it's the\n   downstream consumer's responsibility (per the workspace\n   AGENTS.md \\\"jmap-testjig\\\" section: HTTP, SSE, WS, auth,\n   capability advertisement are all consumer-bring-everything).\n   So the trait is exposing a hook for a consumer-defined\n   capability builder that the workspace does not ship.\n\n3. The doc says \\\"Returns true if this account supports the given\n   JMAP object type\\\" but takes no `account_id` argument \u2014 the\n   signature is `(&self) -> bool` parameterized only by `O`. So\n   it's actually per-backend, not per-account. Yet the doc says\n   \\\"this account\\\" twice. Pick one.\n\nA backend implementor reading this cannot tell:\n- Whether returning `false` has any wire-visible effect today.\n- Whether it might gain wire-visible effect in a future revision\n  (capability-driven method registration).\n- What signal the consumer (downstream session-capability builder)\n  is expected to derive from the return value.\n\nWhat goes wrong for callers when this stays as-is: every backend\nreturns `true` always (both in-tree impls do exactly this) because\nthe contract is too unclear to use differently. The method becomes\ntrait noise.\n\nResolution options:\n- If the method is genuinely useful for downstream capability\n  builders, document its expected consumer side: \\\"Consumers SHOULD\n  call this when building the JMAP Session capability object to\n  hide methods that the backend rejects unconditionally.\\\" Then\n  fix the per-backend-vs-per-account wording.\n- If no consumer in the workspace actually uses it, remove from\n  the trait. The `forbidden` SetError path is the actual\n  enforcement mechanism per the docstring's own admission.\n- If keeping it, add a `account_id` argument so the doc's wording\n  matches the signature, and document that consumers like the\n  testjig must call it during session-capability assembly.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Fixed contradictions in SharingBackend::supports_type rustdoc: (a) clarified 'per-backend, NOT per-account' since the signature takes no account_id, (b) named the intended consumer (downstream JMAP Session capability builder, not part of this workspace), (c) reiterated that the library does not call this method and the SetError(Forbidden) path is the wire-visible enforcement mechanism. The deeper question 'is this method useful enough to keep?' is canonical-shared (mail-server has the same shape) and deferred.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SharingBackend::supports_type \u2014 purpose contradicts its own doc; not called by library, consumer expectations undefined",
+  "updated_at": "2026-05-14T22:29:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:59:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "03627a64-cf27-5047-aa1a-dc43437c40b4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

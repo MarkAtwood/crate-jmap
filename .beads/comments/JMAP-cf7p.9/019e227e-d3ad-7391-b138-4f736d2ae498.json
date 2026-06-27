@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260513T175453Z-2820386",
+  "created_at": "2026-05-13T17:59:58Z",
+  "id": "019e227e-d3ad-7391-b138-4f736d2ae498",
+  "issue_id": "JMAP-cf7p.9",
+  "text": "De-labeling human and claiming. Mark's 2026-05-13T17:34Z comment explicitly accepted option (1c) testjig-internal mpsc + (2) single-bead scoped to testjig, and said \"De-labeling human; bead is now claimable by /do-beads.\" The 2026-05-13T17:57Z agent re-escalation asked Mark to reconsider on workspace-wide-shape grounds (Option A watch::Receiver<()> + couple .10/.12), but Mark's explicit decision (timestamped 23 minutes prior) remains the most recent human ruling.\n\nPer AGENTS.md \"When NOT to file human\" rule #2 (\"You already decided this\"): a deferred-by-human decision should not be re-escalated by a subsequent agent merely because it had ideas. Following Mark's accepted shape: option 1c, testjig-internal mpsc, single bead. The replay-cluster question (.10/.12) stays a separate concern \u2014 those beads can independently grow their own replay shape later.\n\nIf the implemented option 1c shape is not what Mark wants on review, this is one revert away."
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "positive observation or resolved, no action needed",
+  "closed_at": "2026-05-02T07:05:19Z",
+  "compaction_level": 0,
+  "content_hash": "c372e53533cedf60f48b11e4cfc89e9cd7d0d6ce9f38d5673445482e60d1c655",
+  "created_at": "2026-05-02T05:38:53Z",
+  "created_by": "Mark Atwood",
+  "description": "process_create builds delivery_status with a mutable HashMap::new() and a for loop with .insert(). More idiomatic: let delivery_status: HashMap<_, _> = envelope.rcpt_to.iter().map(|rcpt| (rcpt.email.clone(), DeliveryStatus::new(...))).collect(); \u2014 eliminates mut binding and uses iterator semantics.",
+  "ephemeral": 0,
+  "id": "JMAP-287.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "submission.rs delivery_status HashMap: for loop with insert() should be .map().collect()",
+  "updated_at": "2026-05-02T07:05:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T22:38:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-287",
+      "id": "013a4cbf-9074-55d4-851a-aef610f45682",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

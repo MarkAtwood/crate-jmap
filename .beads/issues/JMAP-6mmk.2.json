@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "description serializes as null when None. All tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Removed skip_serializing_if from AddressBook.description; added test confirming null serialization; 22+1 tests pass; clippy clean",
+  "closed_at": "2026-05-05T03:59:21Z",
+  "compaction_level": 0,
+  "content_hash": "0d35ef47927781e4500beef10474da148a24253c728b48a179637121597b8cc5",
+  "created_at": "2026-05-05T02:51:19Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Remove skip_serializing_if from AddressBook.description. Spec \u00a72 and \u00a74.1 example show \"description\": null always present.\n\n**Algorithm:**\n1. In addressbook.rs, change description field: remove skip_serializing_if, keep #[serde(default)].\n2. Add test address_book_description_null_serializes: AddressBook with description: None \u2192 serialized JSON contains \"description\":null. Oracle: spec \u00a74.1 both example address books have \"description\": null.\n3. Verify address_book_round_trip_with_description still passes (Some case unaffected).\n4. Run cargo test -p jmap-contacts-types.\n\n**Acceptance criteria:**\n- Serializing with description: None produces \"description\":null in JSON.\n- cargo test -p jmap-contacts-types exits 0. Clippy clean.",
+  "ephemeral": 0,
+  "id": "JMAP-6mmk.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix AddressBook.description serializes as null not absent",
+  "updated_at": "2026-05-05T03:59:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:51:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6mmk",
+      "id": "94185746-1822-5be1-bcdf-6f0134963917",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

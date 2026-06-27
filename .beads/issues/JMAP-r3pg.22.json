@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Resolved 2026-05-10: removed tokio from [dependencies] in canonical jmap-mail-server and propagated to all 6 sibling extension-server crates (chat, calendars, contacts, tasks, filenode, sharing). Production code uses std::future::Future, never tokio types. Dev-deps still pull in tokio for #[tokio::test]. cargo test --workspace clean; cargo clippy --workspace -- -D warnings clean. Commit a6210dc.",
+  "closed_at": "2026-05-10T23:29:43Z",
+  "compaction_level": 0,
+  "content_hash": "34e1ed443edb32a01d6a1acb7a54a5a5116e7c4ec7724ebe05519cdd9a9ad570",
+  "created_at": "2026-05-08T03:35:12Z",
+  "created_by": "Mark Atwood",
+  "description": "Cargo.toml:20 declares tokio = { workspace = true } as a regular dep. Cargo.toml:23 adds dev-deps tokio = { workspace = true, features = [\"rt-multi-thread\", \"macros\"] }.\n\nThe library code itself uses tokio only in #[cfg(test)] modules (test_support module gates on #[cfg(test)], and #[tokio::test] is dev-only). Searching src/ for tokio:: returns no production-code uses. The only 'real' use is via the AFIT bound 'impl Future<Output = ...> + Send' which doesn't actually need tokio \u2014 that's a std future.\n\nIf the workspace tokio default features pull in any IO/runtime code, this crate is forcing every consumer to pay the binary cost of tokio just to consume the trait. Recommend:\n1. Drop tokio from regular [dependencies], OR\n2. Use tokio = { workspace = true, default-features = false } in regular deps if there is some reason to keep the dep (e.g. one of the bound types requires Send-compatible futures from tokio types).\n\nWorth checking the workspace tokio definition:\n    grep tokio /home/mark/PROJECT/JMAP/Cargo.toml\n\nThis is not a hot finding \u2014 workspace tokio is likely already minimal. P4/opinion. The same pattern probably exists in jmap-mail-server and could be coordinated.\n\nCompile-time impact: dropping tokio from regular deps reduces type-resolution graph size for each consumer. Marginal but cumulative.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Cargo.toml: tokio is a runtime dep but only the no-default tokio is needed in lib code",
+  "updated_at": "2026-05-10T23:29:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:35:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "fb68a7f3-c406-5004-b407-aa4cf24162fa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

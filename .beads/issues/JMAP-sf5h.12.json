@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in 0bf1ae3 (paired with .13). Added '# Byte ordering' section to Sha256::from_raw_digest pinning the FIPS 180-4 MSB-first convention with explicit references to sha2/ring/openssl output and a flag for HSM/non-standard sources that must reorder before calling.",
+  "closed_at": "2026-05-16T04:12:44Z",
+  "compaction_level": 0,
+  "content_hash": "cd3fa97415ea5c28de77578744f952623f8ec43b7da8bc7178b1da395fa796ea",
+  "created_at": "2026-05-16T03:48:42Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-cid-types/src/digest.rs:130-143 declares:\n\n    /// Format 32 raw digest bytes as a canonical lowercase-hex\n    /// [Sha256]. Infallible because every byte produces two\n    /// lowercase-hex nibbles by construction.\n    pub fn from_bytes(b: &[u8; 32]) -> Self { ... }\n\nThe docstring does not specify byte ordering. The implementation processes b[0] first and emits its high nibble first, then low nibble \u2014 i.e. the wire hex string places b[0] in positions 0-1, b[31] in positions 62-63. This matches FIPS 180-4 SHA-256 output convention (most significant byte first), which is what the sha2, ring, and openssl crates all produce when finalising a SHA-256 hasher.\n\nBut it is implicit. For a wire-format crate that explicitly disclaims carrying any SHA-256 *computation* (lib.rs and the digest.rs module preamble both say \\\"servers / consumers compute the digest themselves\\\"), the byte-order convention IS part of the public contract. A consumer who has digest output from an unusual source \u2014 a hardware HSM that emits little-endian, a tape-archive format that pre-reverses, a custom test vector format \u2014 will silently produce wrong wire values.\n\nSuggested rustdoc addition:\n\n    /// Format a 32-byte SHA-256 digest into the canonical lowercase-hex\n    /// [Sha256] wire shape. The input is the digest as produced by a\n    /// standard FIPS 180-4 SHA-256 implementation (sha2, ring, openssl):\n    /// the most-significant byte first, with b[0] occupying positions\n    /// 0-1 of the resulting hex string and b[31] occupying positions\n    /// 62-63. Infallible because every byte produces two lowercase-hex\n    /// nibbles by construction.\n\nThe NIST FIPS 180-4 test vector already in tests (digest.rs:267-278) anchors the convention, but a contract claim belongs in the rustdoc, not the test. A doc test cross-referencing the sha2 or ring API output would tie this down further.",
+  "ephemeral": 0,
+  "id": "JMAP-sf5h.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sha256::from_bytes does not document byte ordering \u2014 implicit FIPS 180-4 big-endian convention",
+  "updated_at": "2026-05-16T04:12:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T20:48:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sf5h",
+      "id": "67adb05b-2730-59ed-9204-962d7362b7b4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

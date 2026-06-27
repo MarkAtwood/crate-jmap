@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T01:03:39Z",
+  "compaction_level": 0,
+  "content_hash": "8a2099461b6c69623410908548e4ff003cde2c1a248b722760a2f2218493092f",
+  "created_at": "2026-05-02T00:59:19Z",
+  "created_by": "Mark Atwood",
+  "description": "The round-1 fix added a non-string element guard to Email/set and EmailSubmission/set destroy arrays (RFC 8620 \u00a73.6.2). Neither handler has a test exercising this guard. Add tests: (1) Email/set with destroy: [123] returns invalidArguments; (2) EmailSubmission/set with destroy: [true] returns invalidArguments.",
+  "ephemeral": 0,
+  "id": "JMAP-sz1.1.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "No test: destroy array non-string returns invalidArguments",
+  "updated_at": "2026-05-02T01:03:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:59:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sz1.1",
+      "id": "0fe242c7-30da-5de4-a6ee-645e48209c55",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

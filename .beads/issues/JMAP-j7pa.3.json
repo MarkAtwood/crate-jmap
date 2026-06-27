@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Single-sourced via new pub const MAILBOX_FILTER_CONDITION_KEYS at jmap-mail-types/src/mailbox.rs:262 (co-located with MailboxFilterCondition). Drift-check unit test mailbox_filter_condition_keys_matches_struct_fields serialises a fully-populated struct literal and compares keys against the const, so adding a field without updating the const fails cargo test -p jmap-mail-types. The struct literal in the test uses non-exhaustive field listing, so adding a field without setting it ALSO fails to compile. mail-server/src/mailbox.rs:220 now references jmap_mail_types::MAILBOX_FILTER_CONDITION_KEYS instead of the private const. Behaviour preserved: unknown filter keys still produce unsupportedFilter per RFC 8620 \u00a75.5.",
+  "closed_at": "2026-05-16T18:52:38Z",
+  "compaction_level": 0,
+  "content_hash": "547fb773b1e41e1934b1d2e5fc613c43c825de1546a375947aec9690eb81cefd",
+  "created_at": "2026-05-14T12:44:31Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src/mailbox.rs:228 maintains 'const KNOWN_FILTER_KEYS: &[&str] = &[\"parentId\", \"name\", \"role\", \"hasAnyRole\", \"isSubscribed\"];' which is hand-synchronised with the fields of MailboxFilterCondition in jmap-mail-types. The maintenance comment at lines 223-227 acknowledges the drift risk explicitly: 'If a new field is added to MailboxFilterCondition, add its wire name here. Drift causes filter conditions to be rejected with unsupportedFilter instead of being applied \u2014 protocol misbehavior that is not a compile error.'\n\nMailboxFilterCondition is #[non_exhaustive] so the rustc exhaustiveness check cannot enforce this. A well-intentioned contributor adds a 5th field (e.g. 'sortOrder' filter) to MailboxFilterCondition, the list here doesn't get updated, and clients sending the new filter receive unsupportedFilter responses for what is now a legitimate filter. The bug is silent \u2014 tests for the new field would catch it only if they invoke the full /query path, not unit tests on the type.\n\nTwo options:\n\n1. Use a compile-time const computed from MailboxFilterCondition by exporting an array of known wire-key names from jmap-mail-types. Single source of truth; rustc enforces.\n\n2. Drop the pre-validation entirely and let serde return an 'unknown field' error during from_value (with #[serde(deny_unknown_fields)] on MailboxFilterCondition). Pre-1.0 the wire-format check is well-defined, but RFC 8620 \u00a75.5 unsupportedFilter is more specific than serde's generic error, so converting the serde error type to unsupportedFilter is the right boundary anyway.\n\nOption 1 keeps the current wire-error shape; option 2 trades a generic 'unknown field' message for the eliminated drift risk. Either fixes the latent maintainer-burden cost.",
+  "ephemeral": 0,
+  "id": "JMAP-j7pa.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "KNOWN_FILTER_KEYS list drifts silently from MailboxFilterCondition",
+  "updated_at": "2026-05-16T18:52:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:44:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-j7pa",
+      "id": "87e578fa-410b-5ead-9b97-cddf0da70143",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: update_object failure triggers destroy_object rollback; comment explains pattern",
+  "closed_at": "2026-05-02T19:41:55Z",
+  "compaction_level": 0,
+  "content_hash": "89c030ebb9776b7ba3561a4c9f3d24324caf85e7e346704d60a621982f281080",
+  "created_at": "2026-05-02T19:34:44Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_vacation_set (vacation.rs lines 185-225), when update_object returns NotFound the handler creates the singleton and immediately applies the patch via a second update_object call. If that second update_object call returns BackendSetError::SetError (line 211), the handler inserts into not_updated and continues \u2014 but the singleton object was already created (line 187-189). The state is now inconsistent: the singleton exists in storage but the client sees notUpdated. On the next call, update_object will succeed, so the client's patch is silently lost. The fix is to either not_updated with a clear description, or to not insert the not_updated entry when the second update fails after a successful create (which would be confusing in a different way). The code comment on line 179 acknowledges the concurrent-creation race but not this second-update failure path.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "VacationResponse/set upsert: create_object success but second update_object SetError leaves orphan singleton",
+  "updated_at": "2026-05-02T19:41:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "2695f31a-1022-51c0-8bb4-916132b6fca8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

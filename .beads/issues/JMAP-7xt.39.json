@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-7xt.39",
+  "title": "SseFrame missing Clone; SseEvent and StateChange missing PartialEq",
+  "description": "SseFrame derives Debug but not Clone. SseEvent derives Debug+Clone but not PartialEq. StateChange in push.rs derives Debug+Clone+Serialize+Deserialize but not PartialEq. Tests use match arms instead of == comparisons precisely because PartialEq is absent. Without Clone on SseFrame, callers cannot store or replay frames without consuming them. Without PartialEq on SseEvent/StateChange, unit tests must use match arms \u2014 a papercut for downstream consumers writing their own tests. Workspace pattern (jmap-types Id, State) derives both Clone and PartialEq on all data types.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:47:31Z",
+  "updated_at": "2026-04-30T00:54:47Z",
+  "closed_at": "2026-04-30T00:54:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:47:30"
+    }
+  ]
+}

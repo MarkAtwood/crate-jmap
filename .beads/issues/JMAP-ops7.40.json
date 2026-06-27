@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1e35263762667e1e7184f34b80d81a0014a228e0457f5402fd323d735a07ba53",
+  "created_at": "2026-05-18T05:30:10Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence** \u2014 numbered draft revision appears in AGENTS.md titles at 4 lines each in 5 files:\n- crate-jmap-chat-server/AGENTS.md L28, L34, L157, L174 \u2014 `draft-atwood-jmap-chat-00`\n- crate-jmap-calendars-server/AGENTS.md L28, L34, L123, L139 \u2014 `draft-ietf-jmap-calendars-26`\n- crate-jmap-tasks-server/AGENTS.md L28, L34, L123, L139 \u2014 `draft-ietf-jmap-tasks-06`\n- crate-jmap-filenode-server/AGENTS.md L28, L34, L122, L138 \u2014 `draft-ietf-jmap-filenode-13`\n- crate-jmap-metadata-server/AGENTS.md L28, L34, L123, L139 \u2014 `draft-ietf-jmap-metadata-01`\n- vs crate-jmap-mail-server/AGENTS.md \u2014 cites only \"RFC 8621\" (stable, no revision suffix)\n\n**Maintainer cost**: IETF drafts rev every few months. The current revision is hardcoded in 4 places per AGENTS.md across 5 files = 20 call sites. When a new draft revision lands, no automated check catches stale citations. The workspace draft-tracker beads (e.g. `bd:JMAP-v3ff` for the chat-spec edit) update spec content but do not necessarily sweep every AGENTS.md citation. A contributor reading crate-jmap-metadata-server/AGENTS.md today sees `draft-ietf-jmap-metadata-01` and may think they're tracking the current revision when in fact the IETF could have published draft-02 weeks ago.\n\n**Fix options**:\n(a) Switch to unversioned form (\"draft-ietf-jmap-metadata\") in AGENTS.md citations; track the current revision only in `PLAN.md` and `Cargo.toml`-adjacent README, where a single point of update is feasible. Recommended.\n(b) Add a doc-tests-style check to CI that grep-matches AGENTS.md numbered citations against an external source. Higher complexity, lower value.\n\nThis is a recurring class of staleness \u2014 fix the structure (option a) rather than chase the contents.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.40",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "5 extension-server AGENTS.md titles pin to numbered draft revision (draft-ietf-jmap-X-NN); canonical mail-server cites stable RFC 8621 with no suffix \u2014 citation drift is a staleness hazard",
+  "updated_at": "2026-05-18T05:30:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:30:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "0ee7f536-787f-5d8f-af92-b25f19a02716",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

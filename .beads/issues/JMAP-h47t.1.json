@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Wire literal at task_list.rs:247 changed to spec-canonical singular form. All tests updated to use independent spec oracle (draft-ietf-jmap-tasks-06 \u00a73.4 line 691) instead of self-oracling. cargo fmt + clippy + test green. Commit 51354c8.",
+  "closed_at": "2026-05-14T18:31:33Z",
+  "compaction_level": 0,
+  "content_hash": "278389e1c891f57fb00cdeeed8dabda885868f31691638e8e2ef4ca3c4884a5e",
+  "created_at": "2026-05-14T18:03:02Z",
+  "created_by": "Mark Atwood",
+  "description": "draft-ietf-jmap-tasks-06 \u00a73.4 (line 691) defines the SetError type as 'taskListHasTask' (singular). The implementation in crate-jmap-tasks-server/src/task_list.rs:247 emits 'taskListHasTasks' (plural). Tests in src/task_list.rs:337, src/lib.rs:659, tests/tasks_tests.rs:193 assert the plural form \u2014 they pass because they self-oracle against the implementation, violating the workspace test-integrity policy that the spec is the oracle. PLAN.md correctly cites the singular form. Trigger: any TaskList/set destroy with onDestroyRemoveTasks=false against a list that has tasks. Bad behavior: clients pattern-matching SetError.type against the draft will not match the response; the violation is silent (no top-level error). Fix: change the literal at task_list.rs:247 to 'taskListHasTask'; update assertions in three test files to use the singular form; cross-check PLAN.md and README.md (README also uses plural at lines 97/143/184). Note: this is the only crate-defined SetError type for TaskList/set destroy, so no other code depends on it.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "wire-protocol bug: taskListHasTasks should be taskListHasTask per draft-tasks-06 \u00a73.4",
+  "updated_at": "2026-05-14T18:31:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:03:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "3e7a1948-f082-5ac5-acc8-184eac9af60e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

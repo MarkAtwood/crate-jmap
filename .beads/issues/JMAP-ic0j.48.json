@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed. Dropped the `let obj_json = &obj_val;` rebinding; the four `.get(...)` calls now invoke `obj_val.get(...)` directly. cargo fmt + clippy -p jmap-calendars-server -- -D warnings + cargo test -p jmap-calendars-server + RUSTDOCFLAGS=\"-D warnings\" cargo doc -p jmap-calendars-server --no-deps all clean. Committed 48fff94.",
+  "closed_at": "2026-05-18T03:42:45Z",
+  "compaction_level": 0,
+  "content_hash": "657cbb5da309d94f8eafb76f7e83b19b162efc6065d22f27169bf1aa1202416a",
+  "created_at": "2026-05-15T17:23:58Z",
+  "created_by": "Mark Atwood",
+  "description": "event.rs:215:\n    let obj_json = &obj_val;\n    let has_utc_start = obj_json\n        .get(\"utcStart\")\n        ...\n\nThe rebinding does nothing useful \u2014 obj_json is just a second name for &obj_val, and the subsequent .get() calls would compile identically against obj_val directly because serde_json::Value::get takes &self and Rust auto-borrows for method calls. The rebinding is also asymmetric with the update branch (event.rs:312-331), which calls patch_val.get(...) directly without an intermediate &alias.\n\nEither delete line 215 and use obj_val.get(\"utcStart\") on lines 216-228, or wait \u2014 actually obj_val is moved into the 'Value::Object(mut m) => \u2026' arm at line 259. So the rebinding could be defensible if there's a borrow-vs-move issue.\n\nRe-reading: line 215 binds &obj_val for the validation block (215-243). Line 258 takes obj_val by value in the next match. So the borrow IS the right shape \u2014 but the rebinding adds no signal. Calling obj_val.get(...) directly auto-borrows for the duration of each method call without needing the named &alias.\n\nThe fix is one line: delete line 215, replace 'obj_json' with 'obj_val' on lines 217-227. Reduces noise without changing semantics.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.48",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Useless rebinding 'let obj_json = &obj_val;' in CalendarEvent/set create path",
+  "updated_at": "2026-05-18T03:42:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:23:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "dc84a48c-a2ff-57f7-9885-9179161891c8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T12:11:58Z",
+  "compaction_level": 0,
+  "content_hash": "fe67e7b1e59e668d963068f9cadd310b7f3b2d3f69886c9f71104e0bf9d36a8b",
+  "created_at": "2026-05-01T12:10:16Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs line 615 emits format!(\"#{call_id}\") as the call-id for the implicit Email/set invocation. RFC 8621 \u00a77.5 is explicit: 'both have the same method call id as they are due to the same call in the request'. The implicit Email/set MUST use the parent call-id verbatim (same as EmailSubmission/set's call-id), not a hash-prefixed variant. Clients correlating method responses by call-id will fail.",
+  "ephemeral": 0,
+  "id": "JMAP-u80.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "EmailSubmission/set implicit Email/set uses wrong call-id",
+  "updated_at": "2026-05-01T12:11:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T05:10:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-u80",
+      "id": "3422b494-336b-57f3-b86b-4b5cad26959a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

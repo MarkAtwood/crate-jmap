@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in 5417494. NonHexLowercase gained byte: u8 field carrying the offending UTF-8 byte at position 'at'. Display now reports 'byte 0x41 at byte 31'. Tests assert byte values against literal oracles (0x45/0x41/0x67). Non-breaking field addition under the per-variant #[non_exhaustive] from bd:JMAP-sf5h.10.",
+  "closed_at": "2026-05-16T04:19:16Z",
+  "compaction_level": 0,
+  "content_hash": "29bd6231eea7a821ea949a8504a82fd883d32cf8d856fd9a8184507f5c060d70",
+  "created_at": "2026-05-16T03:49:28Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-cid-types/src/digest.rs:44-47:\n\n    NonHexLowercase {\n        /// 0-based byte index of the first offending character.\n        at: usize,\n    },\n\nThe variant reports WHERE the offending byte is but not WHAT it is. A consumer that wants to surface a precise diagnostic \u2014 e.g. \\\"sha256 digest has uppercase 'F' at position 17, expected lowercase\\\" \u2014 cannot do so from the error alone. They have to re-walk the original input string to fish out the bad byte:\n\n    Err(err) => {\n        if let Sha256DigestErrorKind::NonHexLowercase { at } = err.kind {\n            let bad = input.as_bytes()[at]; // re-walk and re-bounds-check\n            log::warn!(\\\"non-hex byte 0x{bad:02x} at position {at}\\\");\n        }\n    }\n\nThis forces 100% of consumers that want a meaningful diagnostic to write the same boilerplate. The library has the offending byte in hand at construction time (digest.rs:119-125, the validator loop holds `b` and `i` simultaneously) and discards it. Adding a `byte: u8` field would be free in the construction path and would deliver a complete diagnostic to every caller.\n\nSuggested shape (composes with the per-variant non_exhaustive fix in the sibling finding):\n\n    #[non_exhaustive]\n    NonHexLowercase {\n        at: usize,\n        byte: u8,\n    },\n\nWith per-variant #[non_exhaustive] this is a backward-compatible addition. Without it, adding `byte` is a breaking change in v0.2 \u2014 which is why these two findings are linked.\n\nThis is api-contract,defensive in the workspace's terms: the API shape forces every caller to write the same boilerplate (re-walking the input to recover the discarded byte) when a small additive change would have done it once in the library.",
+  "ephemeral": 0,
+  "id": "JMAP-sf5h.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sha256DigestErrorKind::NonHexLowercase carries position but not the offending byte value \u2014 diagnostic gap",
+  "updated_at": "2026-05-16T04:19:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T20:49:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sf5h",
+      "id": "a2d69c72-2fb9-5320-8048-1849f5f7abaa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

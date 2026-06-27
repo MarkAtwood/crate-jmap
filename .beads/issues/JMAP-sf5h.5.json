@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in c430f73. Added PartialEq<str>, PartialEq<&str>, Borrow<str> impls on Sha256 mirroring the sibling jmap-types::Id newtype surface. Three new unit tests exercise the impls with independent string oracles. HashMap<Sha256, V>::get(&str) now compiles. Inline comment block on the impls cites the bd:JMAP-sf5h.7 From-asymmetry rationale.",
+  "closed_at": "2026-05-16T04:22:00Z",
+  "compaction_level": 0,
+  "content_hash": "f2514b7e3ce5411f3792983643bbe4c57a023c77686fbdae0f04b97b1142a975",
+  "created_at": "2026-05-16T03:41:32Z",
+  "created_by": "Mark Atwood",
+  "description": "Cookie-cutter inconsistency: jmap-types::Id, UTCDate, Date, State all carry PartialEq<str>, PartialEq<&str>, and Borrow<str> via the impl_string_newtype! macro (see crate-jmap-types/src/id.rs:72-116). jmap-cid-types::Sha256 omits all three. Practical impact: 'sha256 == \"e3b0...\"' does not compile; you must write 'sha256.as_str() == \"e3b0...\"'. HashMap<Sha256, V>::get(&str) does not compile without Borrow<str>. Caller-side this is a small papercut but per workspace AGENTS.md 'Canonical Templates' the type crates are deliberately cookie-cutter \u2014 every wire-format newtype should look like every other one. Suggested rewrite: add the four impls inline in digest.rs (not via the jmap-types macro \u2014 Sha256 is in a sibling crate; copy the pattern). Carry a // ABNF-validated newtype, sibling-of-Id shape doc comment so future readers know the consistency is intentional. Section 7 note: this is NOT 'opinion' \u2014 the macro pattern is documented at the workspace canonical-templates level and applies across the type family.",
+  "ephemeral": 0,
+  "id": "JMAP-sf5h.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sha256 lacks PartialEq<str> / PartialEq<&str> / Borrow<str> impls vs. sibling jmap-types Id newtype",
+  "updated_at": "2026-05-16T04:22:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T20:41:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sf5h",
+      "id": "9bc0816a-1b1c-5069-95c6-6333f91083cf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

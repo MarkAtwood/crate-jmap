@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T02:55:05Z",
+  "id": "019e2eb5-7691-7882-af79-0231b555cafd",
+  "issue_id": "JMAP-ly0n",
+  "text": "Idiom rating: ACCEPTABLE \u2014 crate is generally idiomatic (#[non_exhaustive] universal, no unsafe, no production unwrap/expect, manual impls only where derive would be wrong); five rusty findings filed (JMAP-ly0n.20-.24) are all P2/P3 type-design polish (sha256-newtype, stringly-typed push config, sender_id drift, missing Default on all-Option struct, Display/Serialize duplication). Zero soundness findings, zero unsafe findings, zero clippy-level findings worth flagging \u2014 the crate passes clippy --all-features at HEAD per workspace AGENTS.md pre-commit gate."
+}

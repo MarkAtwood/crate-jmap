@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T18:04:21Z",
+  "compaction_level": 0,
+  "content_hash": "47ee1c3ffcaa717b51ac5d04980714c52dd8159e9da2720df5f92376a9dcbb75",
+  "created_at": "2026-05-11T13:58:25Z",
+  "created_by": "Mark Atwood",
+  "description": "Backend-impl slice of JMAP-g7wu.2.4: implement AddChannel/RemoveChannel/UpdateChannel variants in MemoryBackend::apply_space_patch.\n\nCascading semantics for RemoveChannel:\n- All Messages in the removed channels are also destroyed (draft \u00a7Space/set line 1117).\n- Iterate the MemoryBackend's Messages store; for each Message with channel_id in the removed set, destroy it.\n\nULID assignment for AddChannel: generate new ChannelId.\n\nDepends on .4.1 (SpacePatchOp enum) landing. Parallelizable with .4.3 (roles+members) and .4.5 (categories) \u2014 different match arms.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.2.4.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "apply_space_patch MemoryBackend: Channel variants (with Message cascade)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T06:58:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4.1",
+      "id": "7bcd08fa-b8a0-5900-95d3-5994b7f84d95",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T06:58:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4",
+      "id": "f4fc4530-3b7a-5ac0-b969-acbbb70fad4c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

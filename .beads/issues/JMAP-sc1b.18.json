@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T18:12:57Z",
+  "compaction_level": 0,
+  "content_hash": "ab2f46ce31859ec44bba269350161e52402018caecc2a527f58b9d0882b34f60",
+  "created_at": "2026-05-07T20:29:09Z",
+  "created_by": "Mark Atwood",
+  "description": "Acceptable for type/wire crates but worth considering for:\n- jmap-server (dispatcher hot path; ResultReference resolution)\n- jmap-mime (parser; large messages)\n- jmap-base-client (URL/JSON serde for session fetch)\n\nLower priority: not a publish blocker, just a lifecycle gap. Worth flagging because performance regressions in the dispatcher would be invisible until users complain.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: 0 of 25 crates have benches/ directories",
+  "updated_at": "2026-05-11T18:12:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "ed585540-d5f9-5e5e-ac65-4cba1062eaee",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

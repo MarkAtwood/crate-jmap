@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "all steps complete",
+  "closed_at": "2026-05-05T15:49:31Z",
+  "compaction_level": 0,
+  "content_hash": "e3646f576b92cc2b951fe4c53b684e3cb1e57b02059665c09defa57612947608",
+  "created_at": "2026-05-05T00:47:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement draft-ietf-jmap-contacts-10 extension trait over jmap-base-client. JmapContactsExt adds 9 typed methods: address_book_get, address_book_changes, address_book_set (AddressBookSetRequest with onDestroyRemoveContents + onSuccessSetIsDefault), contact_card_get, contact_card_changes, contact_card_set, contact_card_copy (ContactCardCopyRequest with fromAccountId), contact_card_query, contact_card_query_changes. Spec: draft-ietf-jmap-contacts-10. Pattern: jmap-chat-client. Blocked by: jmap-contacts-types epic.",
+  "ephemeral": 0,
+  "id": "JMAP-kh21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-contacts-client: JMAP Contacts client methods",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:47:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6mmk",
+      "id": "695c0105-109e-5f24-bf49-ffe295ca4d2c",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

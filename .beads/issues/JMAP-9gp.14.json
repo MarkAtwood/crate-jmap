@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-9gp.14",
+  "title": "v.clone() pattern repeated 20+ times when serde_json::from_value borrows",
+  "description": "Throughout email.rs, mailbox.rs, submission.rs: every serde_json::from_value(v.clone()) clones the JSON value before deserializing. serde_json 1.x provides from_str/from_slice as alternatives, but the idiomatic fix for already-parsed JSON is from_value which consumes, not clones. Pattern: args.get('filter').map(|v| serde_json::from_value(v.clone())) \u2014 if args is owned or the value can be taken, use args.remove('filter') instead to avoid the clone. Where args must remain intact (e.g. reading multiple fields), a single clone of the subtree is unavoidable, but currently each field does its own clone. Impact: allocations proportional to JSON payload size on every method call.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:45:36Z",
+  "updated_at": "2026-05-01T02:15:47Z",
+  "closed_at": "2026-05-01T02:15:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9gp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:45:36"
+    }
+  ]
+}

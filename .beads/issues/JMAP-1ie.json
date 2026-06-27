@@ -1,0 +1,28 @@
+{
+  "id": "JMAP-1ie",
+  "title": "jmap-mail-client and jmap-chat-client: extension trait design",
+  "description": "Design and document the extension trait pattern that jmap-mail-client and jmap-chat-client must use to add typed methods to JmapClient. The PLAN.md files for both crates show 'impl JmapClient { ... }' blocks which are invalid Rust for cross-crate inherent impls. This bead establishes the correct pattern before implementation begins in those crates.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-29T23:53:47Z",
+  "updated_at": "2026-04-30T00:09:32Z",
+  "closed_at": "2026-04-30T00:09:32Z",
+  "design": "Correct pattern is an extension trait, e.g.: pub trait JmapMailExt { async fn email_get(...) -> Result<...>; } impl JmapMailExt for JmapClient { ... }. This allows jmap-mail-client to define new methods on JmapClient without violating the orphan rule. Same pattern for jmap-chat-client: pub trait JmapChatExt. Both traits live in their respective crates and re-export from lib.rs. PLAN.md files for jmap-mail-client and jmap-chat-client must be updated to use this pattern. The extension trait must be in scope for callers (use jmap_mail_client::JmapMailExt). Evaluate whether to use async-trait crate or native async fn in trait (Rust 1.75 RPITIT).",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3g1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:53:51"
+    },
+    {
+      "depends_on_id": "JMAP-75e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:53:56"
+    }
+  ]
+}

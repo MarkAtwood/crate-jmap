@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ad62889f5fe656c5c8aa60930d1accfd40d49959f5083fbe185428972ce77e86",
+  "created_at": "2026-05-14T21:14:12Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8620 \u00a75.4 defines two arguments for the implicit Foo/set\ndestroy emitted by Foo/copy when onSuccessDestroyOriginal is true:\n\n- onSuccessDestroyOriginal: Boolean (default false)\n- destroyFromIfInState: String|null \u2014 passed as the ifInState\n  argument to the implicit Foo/set call\n\nAudit of the workspace shows none of the 7 *-server siblings honor\ndestroyFromIfInState; mail-server is the canonical template and\nignores it too:\n\n  jmap-mail-server/src/email.rs:2282-2576   honors onSuccessDestroyOriginal\n                                            but never reads destroyFromIfInState\n  jmap-filenode-server/src/filenode.rs (post bd:JMAP-510h.56) honors\n                                            onSuccessDestroyOriginal,\n                                            does NOT read destroyFromIfInState\n                                            (matched canonical mail-server\n                                            coverage)\n  jmap-chat-server, calendars-server, tasks-server, contacts-server,\n  sharing-server: Foo/copy is either stubbed or not implemented;\n  destroyFromIfInState gap is latent there too.\n\nFailure mode: client A reads source records at state S12, then issues\nFoo/copy with onSuccessDestroyOriginal:true and destroyFromIfInState:S12\nto ensure the implicit destroy only proceeds if the source is unchanged.\nMeanwhile client B mutates the source to S13. The handler ignores\ndestroyFromIfInState, the implicit destroy proceeds, and client A may\nhave destroyed data they did not intend to.\n\nPer workspace AGENTS.md 'Canonical Templates' rule, the fix lands first\non jmap-mail-server (the canonical extension-server template), then\npropagates in the same pass to every extension-server sibling that\nimplements Foo/copy. Today that is mail-server and filenode-server;\nwhen chat/calendars/tasks/contacts/sharing implement Foo/copy they must\ninclude the check.\n\nRequired fix shape on canonical:\n1. Parse destroyFromIfInState from args alongside onSuccessDestroyOriginal.\n2. Before running the implicit destroys, compare the current source-\n   account state to the destroyFromIfInState argument; if mismatched,\n   produce a notDestroyed entry of type 'stateMismatch' per RFC 8620\n   \u00a75.3 SetError semantics for the implicit Foo/set call. (The\n   implicit Foo/set response carries the standard newState/oldState\n   wire shape, so the client sees the failure there.)\n3. Mirror to filenode-server in the same commit.\n\nTest discipline: add a regression test that proves the wire-format\nnotDestroyed entry surfaces 'stateMismatch' on the implicit Foo/set\nresponse when destroyFromIfInState does not match the current source\nstate, and that the source data is left untouched.\n\nIndependent oracle: RFC 8620 \u00a75.4 verbatim text in\n~/PROJECT/jmap-chat-spec/references/rfc8620.txt:2255-2268.",
+  "ephemeral": 0,
+  "id": "JMAP-2svx",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "destroyFromIfInState ignored in Foo/copy across all 7 extension-server siblings (workspace-canonical)",
+  "updated_at": "2026-05-14T21:14:12Z"
+}

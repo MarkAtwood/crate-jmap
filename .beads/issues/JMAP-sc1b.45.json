@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:36:10Z",
+  "compaction_level": 0,
+  "content_hash": "d1ac3cc1ee799434e3d9ad818bcd8484e2b699c900c337e438a017a14f62d8e8",
+  "created_at": "2026-05-07T20:43:21Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace.dependencies declares serde, serde_json, thiserror, tokio (and 6 more) as canonical version pins. Only 2 crates inherit from it:\n- crate-jmap-mime/Cargo.toml \u2014 uses `mime-tree = { workspace = true }` and `serde_json = { workspace = true }`\n- crate-jmap-mail-server/Cargo.toml \u2014 dev-dep `mime-tree = { workspace = true }`\n\nEvery other crate redeclares `serde`, `serde_json`, `thiserror`, `tokio` with fresh version strings and feature lists. This means the workspace.dependencies table is non-authoritative; it serves only as documentation that doesn't match reality.\n\nFix: convert all per-crate dep entries to `{ workspace = true }` references. Specifically for:\n- serde\n- serde_json\n- thiserror (where used)\n- tokio\n- http\n- url (jmap-base-client)\n- futures (jmap-base-client)\n- reqwest (jmap-base-client)\n- tokio-tungstenite (jmap-base-client)\n\nTied to JMAP-sc1b.3 (workspace.package inheritance) and JMAP-sc1b.X (reqwest feature mismatch) \u2014 fixing them together is one commit.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.45",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: 23 of 25 crates ignore workspace.dependencies for serde, serde_json, thiserror, tokio",
+  "updated_at": "2026-05-07T21:36:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "ff5d6100-23a9-54fc-b747-7ae8ccd68f8a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

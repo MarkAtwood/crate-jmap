@@ -1,0 +1,42 @@
+{
+  "close_reason": "Implemented Option A across .5.1 (trait method MetadataBackend::get_metadata_changes with default impl) and .5.2 (MemoryBackend override extending ChangeEntry with ChangeRecord{ id, related_type, type_name } captured at mutation time, including destroy-time snapshot). Strict \u00a73.3 conformance now achieved on the reference MemoryBackend; the default impl path documents the partial conformance for backends that have not adopted the override yet.",
+  "closed_at": "2026-05-12T00:28:23Z",
+  "compaction_level": 0,
+  "content_hash": "5401f419a32f6077a06c892275bf37e84aaec559168316fd7c563a010faa579b",
+  "created_at": "2026-05-11T21:22:51Z",
+  "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "description": "Per draft-ietf-jmap-metadata-01 \u00a73.3, both filterRelatedType and filterMetadataType MUST filter the created, updated, AND destroyed arrays in the response. The handler implementation in JMAP-06zp.3.3 filters created and updated by re-fetching the objects via get_objects, but cannot filter destroyed because the objects no longer exist.\n\n## Strict-conformance options\n\nA. Extend MetadataBackend with a new method get_changes_with_filter(...) that takes filterRelatedType and filterMetadataType. Backend implementations would consult their change log (which already records relatedType / @type alongside each change entry) and pre-filter at the storage layer. Both server-side correctness and efficiency improve (no per-Id fetch).\n\nB. Add a get_destroyed_metadata_metadata method that takes a list of destroyed Ids and returns (id -> (relatedType, @type)) so the handler can post-filter. Less efficient but no breaking trait change.\n\nC. Document that under JMAP-06zp.3.3's implementation, filterRelatedType / filterMetadataType filter created+updated only; destroyed entries are returned unfiltered. This is a known divergence from \u00a73.3 strict reading.\n\n## Current state\n\nOption C is in effect: handler-level post-filtering filters created and updated arrays; the destroyed array is preserved as-is. This is a pragmatic choice given:\n- The spec defines the filter behavior in terms of 'Metadata objects whose [property] equals ...', which is ill-defined for destroyed objects.\n- A client that wishes to perfectly filter destroyed entries can do so by remembering each Id's relatedType / @type from prior /get responses and filtering client-side.\n- Backends that can do better (e.g. by carrying relatedType / @type in their change log) can implement Option A in a follow-up.\n\n## Acceptance\n\nPick A or B and implement it. Update the handler to call the new backend method when one of the filter args is present. Move the post-filter unit tests to verify the destroyed array is filtered correctly.\n\nBlocker for closing this: Mark's decision on A vs B.",
+  "ephemeral": 0,
+  "id": "JMAP-06zp.3.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Decision (2026-05-11, Mark): Option A \u2014 add `MetadataBackend::get_metadata_changes` with a default impl that delegates to `get_changes::<Metadata>` (preserving current handler-level behavior bit-for-bit). Backends that want strict \u00a73.3 conformance override the method and pre-filter at storage.\n\nCorrection to the original bead description: `MemoryBackend`'s `ChangeEntry` does NOT currently record `relatedType` or `@type`; it only carries bare `Vec<Id>` for each of created/updated/destroyed (see memory.rs:89). Strict-conformance implementations need to extend the change log first. This is captured in child .5.2.\n\nDecomposition:\n  .5.1 \u2014 Add `get_metadata_changes` trait method + default impl; refactor handler. Non-breaking. No MemoryBackend changes.\n  .5.2 \u2014 MemoryBackend override: extend ChangeEntry with (related_type, type_name) records, override the method, add destroyed-filter tests, clean up the partial-conformance note in metadata.rs:49-60.\n\nHuman label removed; this bead remains open as the umbrella tracker until .5.1 and .5.2 are both closed. Autonomous /do-beads loop can drive both children.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Metadata/changes filter post-processing \u2014 strict-conformance for destroyed array requires backend extension",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T14:23:02Z",
+      "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+      "depends_on_issue_id": "JMAP-06zp.3.3",
+      "id": "b9f9e126-0526-51fa-9766-dbe1780277e9",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T14:22:51Z",
+      "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+      "depends_on_issue_id": "JMAP-06zp.3",
+      "id": "d4dfdc64-1c84-57bc-a856-a6d197aceb83",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

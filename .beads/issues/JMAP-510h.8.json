@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Both /set and /copy now track 'renamed_to' across the collision-detection block and overwrite the response value's name field after create_object succeeds. The MUST is enforced regardless of backend echo behaviour. New MockBackend::set_create_object_override_name knob makes the regression test set_create_rename_response_name_overrides_backend_echo provable: with the knob armed, the response carries the renamed candidate ('foo-1'), not the backend-echoed override ('backend-normalised'). Committed in 428be8a. Gates: fmt/clippy/test/doc green.",
+  "closed_at": "2026-05-14T20:42:55Z",
+  "compaction_level": 0,
+  "content_hash": "46f68dc85fa85836e992f350f976e75962dadacf37961d4e0b72613547bb63c9",
+  "created_at": "2026-05-14T19:50:02Z",
+  "created_by": "Mark Atwood",
+  "description": "draft-ietf-jmap-filenode-13 \u00a73.2.3 (lines 572-575): 'If \"rename\", the server will change the \"name\" field to not clash, using an algorithm of its choice. If the server changes the name, it MUST include the new \"name\" value in the created or updated response field for this id.'\n\nThe current src/filenode.rs:323-329 mutates the JSON Value obj_with_id by inserting the candidate name. The deserialized FileNode then carries that renamed name into backend.create_object. The response insertion at filenode.rs:450-454 serializes whatever the backend returned in 'created_obj'.\n\nThe MUST condition is satisfied for backends that echo the supplied node verbatim (like MemoryBackend). But the FileNodeBackend trait contract (src/backend.rs:35-46) is that create_object returns '(assigned_id, created_object)' \u2014 there is no contract that the backend echoes the requested name. A backend that returns the stored snapshot using its own normalized name field (e.g., one that strips trailing whitespace or applies its own NFC normalization) will lose the rename, and the client will see the original colliding name in the response.\n\nThis same risk exists for compareCaseInsensitively case-folded names.\n\nRequired: after backend.create_object succeeds, the handler must verify the response object's 'name' field matches the renamed candidate. If not, overwrite the name in the response Value before inserting into the created map. Alternatively, change the FileNodeBackend contract to require the backend echo the supplied name and add a test asserting it.\n\nThe MUST in the spec is unconditional; the handler currently delegates the obligation to backends without enforcing it.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "OnExists::Rename does not surface the renamed name in the response when backend echoes the unrenamed object",
+  "updated_at": "2026-05-14T20:42:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:50:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "1a8f7bf0-7535-52b9-8317-1489e915c8b5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

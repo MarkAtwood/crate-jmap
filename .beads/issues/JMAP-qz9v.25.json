@@ -1,0 +1,33 @@
+{
+  "close_reason": "Deferred to workspace-design bead (filed adjacent). The bead's two options are both workspace-canonical reshapes, not contacts-server-local fixes:\n\n(a) Drop with_account / seed_object from siblings \u2014 touches 4 crates (calendars, tasks, contacts, filenode) and is a test-fixture API regression.\n(b) Add them to canonical mail-server (and any other lacking siblings) \u2014 touches 1+ crates.\n\nEither path is a canonical-template question requiring a single workspace-wide decision before propagation. Filed as the design discussion; reopen if/when that resolves toward a specific path and this crate becomes the to-be-swept-from canonical.",
+  "closed_at": "2026-05-18T03:08:34Z",
+  "compaction_level": 0,
+  "content_hash": "175161fadda018177193658140375643e1a19303db988d191a98add87dfb424f",
+  "created_at": "2026-05-14T19:30:52Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/src/memory.rs:234-245\n\nSIGNATURES:\n    #[must_use]\n    pub fn with_account(self, account_id: &str) -> Self { ... }\n    pub fn register_account(&self, account_id: &Id) { ... }\n\nPROBLEM:\nThe two public functions register an account but disagree on the\nparameter type: `with_account` takes `&str` and internally does\n`Id::from(account_id)`; `register_account` takes `&Id`. Callers must\nremember which to use:\n\n    // builder-style\n    let backend = MemoryBackend::new().with_account(\"acc1\");\n    // method-style\n    backend.register_account(&Id::from(\"acc1\"));\n\nThis crate also has `seed_object(account_id: &str, ..., id: &str, ...)`\n(memory.rs:251-257) \u2014 also `&str` for both account id and object id. The\nContactsBackend trait methods (account_exists, create_object, etc.) all\ntake `&Id`. The result is that the test-fixture surface uses `&str` and\nthe trait surface uses `&Id` \u2014 callers writing test fixtures get a\ndifferent type idiom than the production code they're testing.\n\nWHAT CALLERS CANNOT DEPEND ON:\nOnce both signatures ship in 0.1.x, unifying them is a breaking change.\nThe next maintainer cannot decide \"we should use &Id everywhere\" without\nforcing every downstream caller of with_account / seed_object to migrate.\n\nWORKSPACE NOTE:\nThe canonical sibling jmap-mail-server has only `register_account(&Id)`;\nno `with_account` or `seed_object` exist there. So the contacts-server\ninconsistency was introduced as a localized addition, not propagated\nfrom the canonical. Per the canonical-template rule, either:\n(a) drop with_account / seed_object from contacts-server and use\n    register_account everywhere (and provide a separate &str\u2192&Id helper\n    in test utilities), or\n(b) add with_account / seed_object to the canonical mail-server and the\n    other 5 extension siblings with the same shape \u2014 but first decide\n    whether they take &str or &Id and pick ONE.\n\nExisting related bead: JMAP-qz9v.17 already flags that\nregister_account(&Id::from(\"\")) silently accepts the empty string. The\ninconsistency this bead flags is orthogonal (it is about type idiom\nmismatch on equivalent ops), not duplicate.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend with_account(&str) vs register_account(&Id) \u2014 type inconsistency on equivalent ops",
+  "updated_at": "2026-05-18T03:08:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:30:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "86651227-a4ac-5389-aa8c-cc505532af08",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

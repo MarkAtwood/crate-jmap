@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in aae60b4. Added 'Do not remove the cap' section to MAX_CONSECUTIVE_NON_TEXT_FRAMES rustdoc enumerating five reasons the cap is load-bearing. Defends against bd:JMAP-6lsm.6 regression.",
+  "closed_at": "2026-05-17T11:24:44Z",
+  "compaction_level": 0,
+  "content_hash": "98ee946a11b8e65f2be6539bac2af361fb53b48c17eabe72a11259cc63c13078",
+  "created_at": "2026-05-14T23:11:25Z",
+  "created_by": "Mark Atwood",
+  "description": "ws/mod.rs:120 defines MAX_CONSECUTIVE_NON_TEXT_FRAMES: usize = 64 and the next_frame() loop at lines 166-206 counts consecutive Ping/Pong/Frame messages, returning UnexpectedResponse after 64.\n\nA contributor may suggest 'tungstenite handles pings at the protocol layer, just continue the loop silently for any non-text non-close frame.' That removes the cap and reintroduces the bug bd:JMAP-6lsm.6 fixed.\n\nDefense:\n1. A hostile or misbehaving server can flood the WebSocket stream with no-op frames (Ping, Pong, Frame, future variants) and starve a caller of next_frame() indefinitely. The cap surfaces this as an error before the caller's outer loop is starved.\n2. 64 is high enough that a normal connection never trips it (typical WS streams interleave at most a handful of pings between data frames). Lower numbers (e.g. 8) would produce false positives on networks with weak NAT keepalives.\n3. Binary frames are explicitly NOT counted \u2014 they violate RFC 8887 \u00a74.1 and surface immediately on first occurrence (ws/mod.rs:185-193). This is a separate guarantee, not subsumed by the cap.\n4. The classify_message function (line 128) is extracted as a free function so the policy is unit-testable without a real WebSocket \u2014 the test suite at line 600+ exercises the classification explicitly.\n5. consecutive_skip_cap_matches_documented_value (line 649) is a tripwire test that fails loudly if the cap is retuned, forcing a deliberate choice.\n\nThis is defense against a class of resource-exhaustion attack that's invisible on happy-path testing. Resist requests to 'simplify' by removing the count.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "WebSocket consecutive-non-text-frame cap of 64: defend against 'tungstenite handles pings, just skip them silently'",
+  "updated_at": "2026-05-17T11:24:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:11:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "539f9cbb-cc15-5e49-a269-6c24b67be018",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

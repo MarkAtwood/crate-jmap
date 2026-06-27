@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e3dcce21c68b7a7b26f8ef76da5f5a10f9bb594ccdf699ffb00a7abab02a687a",
+  "created_at": "2026-05-14T19:51:04Z",
+  "created_by": "Mark Atwood",
+  "description": "src/filenode.rs has 5 instances of the pattern:\n\n  Err(_) => {\n      not_created/not_updated/not_destroyed.insert(\n          create_id,\n          json!({ \"type\": \"serverFail\", \"description\": \"unhandled backend error variant\" }),\n      );\n  }\n\n(lines 285-294, 465-473, 556-564, 650-660, 694-702). These catch-all arms exist because BackendSetError is #[non_exhaustive] (workspace AGENTS.md mandate). The forward-compat rationale is correct.\n\nProblem: when the upstream BackendSetError gains a new variant, every consumer will silently start returning 'serverFail: unhandled backend error variant' for that variant. The error message gives:\n- no variant name,\n- no error context,\n- no way for the client to distinguish this from a generic server fault.\n\nFor workspace internal debugging this is unactionable too \u2014 the only thing the user knows is 'something happened and the handler did not know about it'.\n\nRequired: at minimum, debug-format the error variant: 'description': format!(\"unhandled BackendSetError variant: {e:?}\"). Better: file a workspace-level bead to add a catch-all method on BackendSetError that returns a stable string label, so the catch-all arm here can extract a discriminator without depending on Debug format stability.\n\nAlso: confirm the same pattern exists in canonical jmap-mail-server (since this crate must mirror); if so, the fix belongs in the canonical first and propagates via the workspace canonical-templates sweep.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "BackendSetError exhaustive-match catch-all reports unactionable 'unhandled backend error variant'",
+  "updated_at": "2026-05-17T10:44:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:51:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "de896de0-8b57-5a81-add1-bd9357f86938",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

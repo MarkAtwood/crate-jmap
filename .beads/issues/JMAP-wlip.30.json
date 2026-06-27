@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a173bda6d3be97f1bb237b471c98b08bffc8c4bd43f66a42eacb82e1af3cdaf5",
+  "created_at": "2026-05-14T13:10:17Z",
+  "created_by": "Mark Atwood",
+  "description": "Invocation is a type alias '(String, Value, String)' in jmap-types representing (method_name, args, call_id). jmap-server indexes it as .0/.1/.2 in 11+ sites: src/lib.rs:153, 209 (handler dispatch); src/parse.rs:163-165 (find prior_responses by call_id); src/response.rs:30 (error_invocation construction); plus test code throughout. Every use site has a comment of the form 'Invocation layout: (method_name, args, call_id) \u2014 RFC 8620 \u00a73.3' because the tuple shape is otherwise opaque at the call site. Idiomatic Rust uses a named struct 'pub struct Invocation { method: String, args: Value, call_id: String }' so call sites read inv.method, inv.args, inv.call_id without explanatory comments. The current tuple shape is justified by JMAP wire serialization being a JSON triple [method, args, callId], but that is a Serialize/Deserialize concern (custom Serialize impl produces the array shape) \u2014 it does not require the in-memory Rust shape to be a tuple. What goes wrong if it stays: every new handler/dispatcher consumer must re-learn that .0=method, .1=args, .2=call_id; the workspace-wide AGENTS.md 'primitive obsession' rule for newtypes applies here at the slightly-larger-grained level of composite-tuple-vs-struct; refactoring Invocation later is a workspace-wide change because of the .0/.1/.2 indexing pattern is locked into every consumer. Note: this is a workspace-level change (Invocation lives in jmap-types), not a jmap-server-local one. Flag it here because jmap-server is the heaviest consumer; surface the workspace bead for the actual type-design discussion.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Invocation is a 3-tuple \u2014 .0/.1/.2 indexing all over jmap-server is primitive-obsession at the foundation type level",
+  "updated_at": "2026-05-14T14:12:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:10:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "c0b1b7f6-55a8-57e2-a9d0-d314ef91e063",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

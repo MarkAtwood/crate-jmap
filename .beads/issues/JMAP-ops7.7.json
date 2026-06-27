@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b18231b9b4bf43228ef878da285a345c9fd9cc7dc4afd594b68ce798b76e964d",
+  "created_at": "2026-05-17T22:02:16Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**:\n- crate-jmap-chat-types/ \u2014 no FilterCondition, no Comparator (survey confirmed)\n- crate-jmap-chat-server/src/backend.rs \u2014 \\`type Filter = serde_json::Value;\\` and \\`type Comparator = serde_json::Value;\\` on all 5 JmapObject impls (Chat, Message, Space, ContactCard analogue, etc.)\n\n**Divergence**: every other extension type crate exposes at least one typed FilterCondition struct:\n- mail-types: EmailFilterCondition, MailboxFilterCondition, EmailSubmissionFilterCondition\n- calendars-types: CalendarFilterCondition, CalendarEventFilterCondition, NotificationFilterCondition\n- tasks-types: TaskFilterCondition, TaskNotificationFilterCondition\n- contacts-types: ContactCardFilterCondition\n- filenode-types: FileNodeFilterCondition\n- sharing-types: PrincipalFilterCondition, ShareNotificationFilterCondition\n- metadata-types: MetadataFilterCondition\n\nchat is the only extension whose query-filter shape is \\`serde_json::Value\\` at the type-system level.\n\n**What goes wrong** (per AGENTS.md 'Filter algebra and control enums are explicitly EXCLUDED' / 'Silent-drop is a server-side query-correctness bug'):\n1. Clients have no compile-time check that they're constructing a valid chat filter \u2014 typos in field names compile fine, fail at backend-decode time.\n2. Backends can't dispatch on filter content via Rust pattern-matching; they have to interpret the JSON value or hand-roll a decoder.\n3. The workspace's own correctness rationale (silent-drop produces wrong result sets with no error signal) applies to chat-server today: a query containing \\`{\"acmeUnknownClause\": \"x\"}\\` silently passes through chat-server's \\`Value\\` type and gets dropped on backend interpretation \u2014 exactly the failure mode AGENTS.md says the workspace must avoid.\n\n**Mitigating context**: the JMAP Chat draft (\\`draft-atwood-jmap-chat\\`) may not yet specify the complete filter set for all 5 chat object types. \\`Value\\` may have been chosen as a placeholder pending spec maturity. If so, the right interim shape is still a typed struct with zero fields plus a serde \\`#[serde(deny_unknown_fields)]\\` so that filter clauses can be added one-by-one as the draft stabilizes, rather than \\`serde_json::Value\\`.\n\n**Fix**: define typed (possibly empty) FilterCondition structs in chat-types for each of the 5 chat object types. Plain shape:\n\\`\\`\\`rust\n#[non_exhaustive]\n#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]\n#[serde(rename_all = \"camelCase\")]\npub struct ChatFilterCondition {\n    // populate from draft-atwood-jmap-chat as it stabilizes\n    #[serde(flatten, default, skip_serializing_if = \"serde_json::Map::is_empty\")]\n    pub extra: serde_json::Map<String, serde_json::Value>,\n}\n\\`\\`\\`\nThen update chat-server's JmapObject impls to use \\`type Filter = ChatFilterCondition;\\` etc.\n\n**Note**: even with \\`extra: serde_json::Map\\` for vendor-extension preservation, the typed struct still gives \\`#[non_exhaustive]\\` + named-field discoverability + compile-time safety for the spec-defined clauses as the draft adds them.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "chat-types defines NO Filter/FilterCondition/Comparator types; chat-server backend uses `serde_json::Value` for all 5 object Filter/Comparator associated types",
+  "updated_at": "2026-05-17T22:02:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:02:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "74d8b877-6275-53bd-8fcf-39dc9c377dd0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

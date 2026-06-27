@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T03:41:57Z",
+  "id": "019e2ee0-60b9-7635-ae77-4d59432c44fd",
+  "issue_id": "JMAP-sf5h.7",
+  "text": "Errata: the ABNF rule that dropped out of the description due to a shell parse error reads \u2014 sha256-value = 64( %x30-39 / %x61-66 ) \u2014 i.e. exactly 64 octets, each in the lowercase-hex set [0-9 a-f]. Spec source: draft-atwood-jmap-cid-00 \u00a72 'Conventions'."
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:55:04Z",
+  "compaction_level": 0,
+  "content_hash": "401802618821aa576dcc7e12180810a956ab5efe029956f89fdf8e0420cbd3fa",
+  "created_at": "2026-05-02T00:44:39Z",
+  "created_by": "Mark Atwood",
+  "description": "MemoryBackend::get_objects silently truncates results to 500 when ids=None. The return value has no truncation flag; a test with 501 objects calling get_objects(None) will receive 500 results with no error or indication that results were cut. A test author may write a test that inadvertently passes despite incomplete coverage because results are silently missing.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend MAX_FETCH_ALL truncates silently with no indication to callers",
+  "updated_at": "2026-05-02T00:55:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:44:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "fdc35079-d375-5d5a-bd17-d7b90d5caf85",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

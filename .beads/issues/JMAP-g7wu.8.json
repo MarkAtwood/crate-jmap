@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Bead was filed before JMAP-yfpq.4 / JMAP-yfpq.5 landed; those beads completed the actual work (path-dep, top-level re-exports, jscalendar module alias, round-trip tests for 13 sloppy fields). The remaining residue was a stale doc-comment on Task referencing 'JMAP-g7wu.8' and 'jmap-jscalendar-types once it lands'. Rewrote the doc to point callers at the actual typed-access pattern (serde_json::from_value via the re-exports). cargo test/clippy/RUSTDOCFLAGS=-D warnings doc all clean.",
+  "closed_at": "2026-05-11T04:57:06Z",
+  "compaction_level": 0,
+  "content_hash": "385c343b93b4aace19039dc117a660ddd79836b60e9bedf58bef1c1436ba1d40",
+  "created_at": "2026-05-11T00:06:17Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-tasks-types/src/task.rs:162-166\n\nComment reads: 'serde_json::Value to defer parsing cost and avoid maintaining a full ... representations in a future semver-breaking release.'\n\nPer the workspace Sloppy-Value pattern (AGENTS.md), the preferred hybrid is the calendars approach: keep the public field as serde_json::Value for round-trip fidelity, AND add parallel typed sub-types in a sibling module that consumers can opt into via serde_json::from_value.\n\nThis is a non-breaking change: existing callers using Value continue to work; new callers can opt into typed access.\n\nCoordinate with JMAP-sehw (jmap-jscontact-types) and JMAP-x59i (jmap-jscalendar-types) \u2014 the typed JSCalendar sub-types should likely live in jmap-jscalendar-types once that crate exists. Blocked-soft on JMAP-x59i.1.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add typed JSCalendar sub-types to jmap-tasks-types (currently serde_json::Value)",
+  "updated_at": "2026-05-11T04:57:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:06:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu",
+      "id": "bbd468bb-a25f-5e2d-9440-b2847fec41ac",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

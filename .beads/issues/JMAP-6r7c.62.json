@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed paired with .20. New AuthHeader<'a> opaque wrapper with manual Debug redacting the value bytes to '[REDACTED]'. The credential is reachable only via the explicit expose_value() accessor; the call-site name is the visible signal in code review against a future tracing::*-formatter leak. Canary regression test asserts the wrapper Debug never contains the canary literal.",
+  "closed_at": "2026-05-18T04:26:08Z",
+  "compaction_level": 0,
+  "content_hash": "cade7eac87f7ba5de4bd1fae93956e8cd11c6184ee9174b8cdd0812462dbc4b9",
+  "created_at": "2026-05-14T23:37:34Z",
+  "created_by": "Mark Atwood",
+  "description": "Section A \u2014 Key Material Lifecycle (compile-time tagging).\n\nAuthProvider::auth_header at crate-jmap-base-client/src/auth.rs:112-139 returns Option<(&str, &str)> \u2014 a plain string tuple. The trait rustdoc at lines 100-102 carries a verbal contract:\n\n  'Implementations must not log the return value of auth_header; it contains credentials.'\n\nThis contract is documentation-only. A custom AuthProvider implementor (kith, stoa, third-party consumer) can compile a tracing::info!(header = ?self.auth_header(), ...) call without any warning. The workspace AGENTS.md 'Security testing' section anticipated this and prescribed the Debug + log-capture canary tripwires for the SHIPPED implementations (BearerAuth, BasicAuth, NoneAuth). The tripwires do not transit through to third-party implementations.\n\nThe workspace-wide rule from /review-crypto-security Section A is more strict: 'In Rust, prefer wrappers that gate access (secrecy::Secret<T>, zeroize::Zeroizing<T>).'\n\n# What goes wrong\n\nA future *-client extension crate or a downstream consumer implements a custom AuthProvider (e.g., OAuth refresh token, session-cookie auth, mTLS-bound session) and writes a normal-looking debug log:\n\n```rust\nimpl AuthProvider for OAuthRefresh {\n    fn auth_header(&self) -> Option<(&str, &str)> {\n        tracing::debug!(\"injecting auth\"); // OK\n        let hdr = (\"authorization\", self.current_bearer.as_str());\n        tracing::trace!(?hdr, \"injecting auth\"); // SILENT LEAK\n        Some(hdr)\n    }\n}\n```\n\nThe credential leaks via Debug-formatted args. No compile-time signal. No test in this crate catches it.\n\n# Suggested fix (forward-major-version)\n\nMigrate AuthProvider::auth_header to return a typed secret wrapper. Options:\n\n1) Newtype owned by this crate:\n\n```rust\n#[non_exhaustive]\npub struct AuthHeader<'a> {\n    name: &'a str,\n    value: &'a str, // exposed only via .value() with a 'do not log' doc\n}\n\nimpl fmt::Debug for AuthHeader<'_> {\n    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {\n        f.debug_struct(\"AuthHeader\").field(\"name\", &self.name).field(\"value\", &\"[REDACTED]\").finish()\n    }\n}\n\ntrait AuthProvider {\n    fn auth_header(&self) -> Option<AuthHeader<'_>>;\n}\n```\n\nThis is a SemVer-break for the trait signature; defer to the next major.\n\n2) Add the secrecy crate dependency and return Option<(&str, SecretSlice<u8>)> or similar. Heavier.\n\n3) Document the constraint more loudly and add a doctest example that demonstrates the discipline. Cheap, but does not prevent the leak.\n\n# Why this is opinion, not bug\n\nThe contract is documented; the SHIPPED implementations are tripwired. The defect window is in HYPOTHETICAL third-party implementations. The fix is a major-version breaking change. P3 with the opinion label, surfaced for completeness; if the workspace's next-major plan does not include AuthProvider reshape, close as wontfix.\n\n# Cross-reference\n\nThis finding is the security-side companion to the JMAP-6r7c.20 finding ('AuthProvider::auth_header signature locks header into single static pair'). Both call for a major-version reshape of the same method. Address them together when the next major lands.\n\n# References\n\n- secrecy crate docs (Secret<T>, ExposeSecret)\n- secrecy::SecretString and SecretBox<T> shapes\n- workspace AGENTS.md 'Security testing' Pattern 2 (the log-capture canary that ALREADY runs for BearerAuth/BasicAuth but cannot run for arbitrary external impls)",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.62",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AuthProvider::auth_header returns (&str, &str) \u2014 no compile-time secret-typing prevents accidental log/Display by implementors",
+  "updated_at": "2026-05-18T04:26:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T13:57:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-prpm",
+      "id": "b2c4fe2f-1e47-54db-91d9-9096fd6ca93e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

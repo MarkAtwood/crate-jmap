@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "cargo check -p jmap-chat-client passes; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:48:09Z",
+  "compaction_level": 0,
+  "content_hash": "d3a5ee791cb0629a136c3106e0f495cd5255a7540d365ef7f5811d2b86249166",
+  "created_at": "2026-05-04T15:06:27Z",
+  "created_by": "Mark Atwood",
+  "description": "WHAT: Port SpaceBan and SpaceInvite method modules from ~/PROJECT/crate-jmapchat-client/src/methods/space_ban.rs and space_invite.rs. Methods for SpaceBan: space_ban_get, space_ban_changes, space_ban_create, space_ban_destroy. Methods for SpaceInvite: space_invite_get, space_invite_changes, space_invite_create, space_invite_destroy. Types: jmap_chat_types::SpaceBan, SpaceInvite. ACCEPTANCE: cargo check passes; clippy clean",
+  "ephemeral": 0,
+  "id": "JMAP-8q4x",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-client: methods/space_ban.rs + space_invite.rs",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T08:07:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ds04",
+      "id": "46fdb67a-820c-54c7-9eb3-efa6dc8d924d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T08:07:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s1ei",
+      "id": "7196060f-c1d2-5f24-9e1d-bbfb3bc6f496",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T11:29:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w",
+      "id": "f892c05d-3294-51b4-9f25-5f57cb166134",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

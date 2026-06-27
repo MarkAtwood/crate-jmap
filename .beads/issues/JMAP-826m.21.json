@@ -1,0 +1,33 @@
+{
+  "close_reason": "Moved scope to workspace bead JMAP-w4jf. The bead's title was misleading: maxChanges=0 is NOT silently treated as None \u2014 the code correctly rejects 0 with invalidArguments per RFC 8620 \u00a75.2. The actual issue the description names is code duplication between jmap-metadata-server::handle_metadata_changes and the canonical jmap-server::handle_changes maxChanges parser. That is a workspace-canonical refactor (extract a shared parser in jmap-server, use it from extension-server pre-delegate paths), not a metadata-server-local fix. Tracking under JMAP-w4jf as P2 with the full sibling-audit scope. The current per-crate duplication has low actual drift risk because no maxChanges-shape changes land without workspace review.",
+  "closed_at": "2026-05-15T08:19:57Z",
+  "compaction_level": 0,
+  "content_hash": "d8c79c53dc18adf4dbc6ed24156cee6741822a92dd569e40078aeab601258400",
+  "created_at": "2026-05-14T17:54:33Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: handle_metadata_changes at metadata.rs:118-123:\n\n  let max_changes: Option<u64> = match args.get(\"maxChanges\") {\n      None | Some(Value::Null) => None,\n      Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {\n          JmapError::invalid_arguments(\"maxChanges must be a positive integer\")\n      })?),\n  };\n\nThe filter(|&n| n > 0) rejects maxChanges=0 with invalidArguments. Good. But this is the metadata-server's COPY of the canonical jmap-server::handle_changes (handlers.rs:176-181). The duplication exists because handle_metadata_changes does its own arg-parsing to extract the filter args FIRST.\n\nMaintenance consequence: if jmap-server's behavior for maxChanges parsing changes (e.g. cap to MAX_CHANGES_HARD_LIMIT), metadata-server's copy will drift. No comment, no DRY structure, no test confirming that metadata-server's parsing matches jmap-server's.\n\nFix direction: extract a shared maxChanges parser in jmap-server, use it from both handlers. The current 7-line duplication is small but is the kind of thing that adds up across 7 extension crates.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MaxChanges == 0 silently treated as None \u2014 semantic ambiguity between 'no cap' and 'reject everything'",
+  "updated_at": "2026-05-15T08:19:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:54:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "bea59103-2a48-5655-84b2-5b4128fca780",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2e4fa6d2c4279339ea835a12a5f7baf80f916b3cec2a207c9ce08e1aedab5346",
+  "created_at": "2026-05-14T14:26:30Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs:116 declares 'pub use jmap_server::ClosureHandler;'.\n\nWhat callers cannot depend on:\n- The shape of ClosureHandler<B, C> (generic params, Send/Sync bounds, the BackendCallFn signature, the constructor parameter list) is owned by jmap-server, not by jmap-metadata-server. If jmap-server's next minor release reshapes ClosureHandler (e.g. adds a third generic param for a tracing span, or renames new() to with_backend()), this crate's public API silently breaks because the re-export carries the upstream shape verbatim.\n\nWhy the re-export is leaky:\n- register_metadata_handlers() already does all the ClosureHandler wrapping internally via the reg! macro. A consumer of jmap-metadata-server never has to name ClosureHandler \u2014 they only need MetadataBackend and register_metadata_handlers.\n- There is no example, no doctest, and no other reference to ClosureHandler anywhere in the metadata crate's docs or signatures that requires it to be publicly available from jmap_metadata_server::ClosureHandler. The only legitimate caller path is jmap_server::ClosureHandler directly.\n\nRecommendation:\n- Drop the re-export (delete lib.rs:116). Consumers who want ClosureHandler reach for it via 'use jmap_server::ClosureHandler;' \u2014 which they must already be doing for Dispatcher anyway.\n- If the sibling canonical (jmap-mail-server) also re-exports ClosureHandler, this fix needs to be a canonical-template propagation: change the canonical first, then propagate to every extension-server sibling in the same pass per workspace AGENTS.md.\n\nWhat goes wrong if this stays:\n- Maintainability cost on every jmap-server release. The crate's apparent stability surface is bigger than its actual ownership.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "API: pub use jmap_server::ClosureHandler at lib.rs:116 re-exports a foundation type unnecessarily",
+  "updated_at": "2026-05-17T20:02:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:26:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "9de98e9d-274f-590d-8567-e979b9b00cf0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

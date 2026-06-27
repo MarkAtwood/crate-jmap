@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in 5e18f72: dropped _use_imports helper and the rights binding + \"let _ = rights\" workaround in address_book_round_trip_with_description; the test now asserts on the round-tripped value's description, removing the dead code.",
+  "closed_at": "2026-05-15T22:55:10Z",
+  "compaction_level": 0,
+  "content_hash": "fb7ece373840e39266288c13e1e2e802ea950d0a382f3776c7d38b9e1a3881a0",
+  "created_at": "2026-05-15T22:35:59Z",
+  "created_by": "Mark Atwood",
+  "description": "Two dead-code artifacts in crate-jmap-contacts-types/src/lib.rs test module:\\n\\n1. lib.rs:669-672 \u2014 fn _use_imports() with body 'let _: HashMap<String, bool> = HashMap::new();'. The comment 'Suppress unused-import warnings' explains intent, but HashMap is now used by 18+ sloppy_field_* tests via 'let nicks: HashMap<String, Nickname> = ...' patterns. The workaround is now dead.\\n\\n2. lib.rs:308-314, 333-334 \u2014 address_book_round_trip_with_description constructs a 'rights' AddressBookRights value, never uses it for any assertion, and silences the warning with 'let _ = rights'. The comment 'rights field unused directly; just suppress unused-variable warning' admits the dead code.\\n\\nWorkspace AGENTS.md 'No Dead Code': 'Never leave commented-out code, unused variables, TODO comments, or debug prints in committed code.' Test code is committed code.\\n\\nFix: delete fn _use_imports entirely; delete the rights construction and the 'let _ = rights' line from address_book_round_trip_with_description.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Dead test code: _use_imports helper and unused rights variable",
+  "updated_at": "2026-05-15T22:55:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:35:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "07c0ef28-6546-55eb-babc-d8e45125b305",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

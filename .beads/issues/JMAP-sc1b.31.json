@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:26:09Z",
+  "compaction_level": 0,
+  "content_hash": "d1d4d1de501e949bd70305ea5e126918050681d90f9f9a2a3077dab3bfc24dd6",
+  "created_at": "2026-05-07T20:29:18Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-tasks-client/README.md and crate-jmap-filenode-client/README.md examples use the placeholder `jmap_base_client::JmapClient::new(/* ... */)`. At best ambiguous; at worst encourages users to call a non-existent constructor (see JMAP-sc1b.X for the broken signature).\n\nAlready covered by 'P1: 4 client READMEs use nonexistent JmapClient::new(string) signature'. Filing as separate P3 because the placeholder vs string-arg flavors are slightly different fixes \u2014 the placeholder ones can be fixed more cheaply.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: tasks-client and filenode-client doc-test placeholders use 'JmapClient::new(/* ... */)'",
+  "updated_at": "2026-05-07T21:26:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "f5f915f3-98f0-5bd0-bf1c-e48bb7fe8bb1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

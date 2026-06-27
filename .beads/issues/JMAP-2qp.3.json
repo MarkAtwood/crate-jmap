@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T06:07:26Z",
+  "compaction_level": 0,
+  "content_hash": "58e5a4fbc8c7d7f2ecea6dc3790cd3b0018af66ce28929ff7752bf50e7de1268",
+  "created_at": "2026-05-01T05:47:51Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8621 \u00a74.5 defines collapseThreads as an argument to Email/queryChanges (the same argument used with the Email/query that produced the query state). The handler never reads it and never forwards it to the backend. For a backend that distinguishes collapsed vs non-collapsed query states this means the backend cannot return the correct delta. For a client that used collapseThreads=true in the original query, the queryChanges response may include per-email deltas that should have been collapsed to per-thread deltas. Fix: parse collapseThreads from args and pass it through to the backend's query_changes call (requires adding it to the QueryChangesResult or as a separate backend parameter).",
+  "ephemeral": 0,
+  "id": "JMAP-2qp.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/queryChanges drops collapseThreads argument",
+  "updated_at": "2026-05-01T06:07:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-04-30T22:47:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-2qp",
+      "id": "a368e366-af58-5f37-9e96-1c7e5688caee",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "close_reason": "Folded into JMAP-06zp.3.1 (commit 73ec426): trait + helpers written together to avoid dead-import warnings; all acceptance criteria already met.",
+  "closed_at": "2026-05-11T21:22:14Z",
+  "compaction_level": 0,
+  "content_hash": "26f989cfae45a703a3e58e5dda7461ae46a3382e951dce90fd4bd8a48fedef11",
+  "created_at": "2026-05-11T21:14:04Z",
+  "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "description": "Build on .3.1 scaffolding. Implement the MetadataBackend trait (extends JmapBackend) with the full method set:\n\n- create_object<O: SetObject>(caller, account_id, create_id, obj) -> Result<(Id, O), BackendSetError>\n- update_object<O: SetObject>(caller, account_id, id, patch) -> Result<Option<O>, BackendSetError>\n- destroy_object<O: SetObject>(caller, account_id, id) -> Result<(), BackendSetError>\n- supports_type<O: JmapObject>() -> bool\n\nCookie-cut from jmap-sharing-server::backend::SharingBackend.\n\nhelpers.rs (already stubbed in .3.1): finalize SetAccumulators / finalize_set_response / set_error_value implementations matching the sharing/filenode pattern.\n\n## Acceptance\n- cargo check -p jmap-metadata-server clean\n- cargo clippy -p jmap-metadata-server -- -D warnings clean\n- cargo doc -p jmap-metadata-server --no-deps clean\n- MetadataBackend trait is doc-commented identically in spirit to SharingBackend\n\n## Out of scope\n- Method handler bodies (.3.3)\n- Memory backend (.3.4)\n\n## Depends on\nJMAP-06zp.3.1",
+  "ephemeral": 0,
+  "id": "JMAP-06zp.3.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Flesh out MetadataBackend trait + helpers.rs for jmap-metadata-server",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T14:14:26Z",
+      "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+      "depends_on_issue_id": "JMAP-06zp.3.1",
+      "id": "436509ff-66fa-5de9-a086-684a64dbab7b",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T14:14:04Z",
+      "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+      "depends_on_issue_id": "JMAP-06zp.3",
+      "id": "f131a198-fa8c-508d-a44b-cfc8c0176470",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

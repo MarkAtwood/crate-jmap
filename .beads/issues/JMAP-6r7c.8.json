@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T00:08:07Z",
+  "compaction_level": 0,
+  "content_hash": "cccc79da33d1c4a313e3e03856a476f3c59311c84fcd445d9d2d53b4dc069892",
+  "created_at": "2026-05-14T23:09:28Z",
+  "created_by": "Mark Atwood",
+  "description": "README.md lines 196-200 in the SSE section shows:\n\n    SseEvent::Unknown { event_type } => {\n        // keepalive ping or unrecognized event type \u2014 safe to ignore\n        let _ = event_type;\n    }\n\nBut the actual variant (sse.rs:54-61) is:\n\n    Unknown {\n        event_type: String,\n        data: String,\n    }\n\nA user copy-pasting this code into their app will hit 'missing field data in pattern' from the Rust compiler. The fix is either { event_type, .. } or { event_type, data: _ }.\n\nREADME code blocks are not run as cargo doc-tests (only lib.rs doc-comments are), so this bug is not caught by CI \u2014 it surfaces only when a user copies the example and tries to compile it.\n\nThis is a user-visible README rot bug. The fix is a single-character edit (add ', ..' inside the destructure). Either fix it inline OR add // ignore-doctest markers and rely on the example file as the runnable demo. Note that examples/session_fetch.rs does NOT use this pattern, so the README is the only place this snippet appears.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README WebSocket example destructures SseEvent::Unknown missing data field \u2014 code will not compile",
+  "updated_at": "2026-05-15T00:08:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:09:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "dc436ccc-fcd6-56b8-8a2b-1859ac322474",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

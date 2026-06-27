@@ -1,0 +1,33 @@
+{
+  "close_reason": "documented as intentional tradeoff",
+  "closed_at": "2026-05-02T06:29:28Z",
+  "compaction_level": 0,
+  "content_hash": "833724d13130292e532c189fb2944301905afb78c0b784a90a7bc277c14a69e3",
+  "created_at": "2026-05-02T03:56:18Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/lib.rs: JmapHandler::call signature takes 'method: String' and 'call_id: String' by value. Every handler implementation receives these owned strings but most just ignore them or pass them into an async block. At the dispatch site (lib.rs:170-173) method_clone and call_id_clone are cloned specifically to pass by value into the spawned task. Using &str would avoid the allocations for handlers that do not need ownership; those that do (e.g. EchoHandler) can call .to_owned() inside. However: because the return type is a Pin<Box<Future + Send + 'static>>, the handler cannot borrow from the call \u2014 the future must own its data. So String is correct for the args and caller, but method and call_id could be passed as String only to handlers that actually capture them. This is a real tradeoff; the current design opts for simplicity at the cost of one clone per dispatch. Flag as a considered tradeoff that should be documented, not necessarily changed.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JmapHandler::call takes method/call_id by String not &str",
+  "updated_at": "2026-05-02T06:29:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:56:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "adea8edb-bfec-5fac-b18f-2f678b38f706",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

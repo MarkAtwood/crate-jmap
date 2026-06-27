@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decision recorded: manual rfc3339 parser is correct for test-only code; no chrono dep",
+  "closed_at": "2026-05-02T21:11:50Z",
+  "compaction_level": 0,
+  "content_hash": "cf68b360a4791392965b8e086227c24ba13410e23aa27444d999b08beddc8b0e",
+  "created_at": "2026-05-02T19:33:50Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/common/mod.rs implements rfc3339_to_epoch_secs as a manual two-function fallible parser (try_rfc3339_to_epoch_secs + rfc3339_to_epoch_secs) with zero external dependencies. A future contributor might suggest replacing it with the chrono or time crates for simplicity.\n\nDo not add chrono or time here. Reasons:\n1. This is test infrastructure, not production code. Test helpers must not pull new deps into the workspace's dependency graph.\n2. chrono pulls in either libc (POSIX) or winapi (Windows) and optional features (serde, etc.); time pulls in proc-macros. Neither is acceptable overhead for a sorting helper used only in MemoryBackend.\n3. The manual parser is fully exercised via the calling code (sort_thread_email_ids) and handles the only needed operation: converting RFC 3339 strings with UTC or \u00b1HH:MM offsets to i64 epoch seconds for comparison. It explicitly documents its limitations (no leap-second handling, no date validation) which are irrelevant for test ordering.\n4. The Hinnant civil_from_days algorithm in jmap-server helpers.rs is already tested with independent Python-derived vectors; the epoch-seconds parser in test code is similarly self-contained and easily auditable.\nThe correct response to 'this looks tedious' is 'yes, and it is 80 lines and handles everything we need'.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "rfc3339_to_epoch_secs manual parser: no chrono dep in test code",
+  "updated_at": "2026-05-02T21:11:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:33:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "689fb39e-c0e0-51bb-a7da-e547ef817eb0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

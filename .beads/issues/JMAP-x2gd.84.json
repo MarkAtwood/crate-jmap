@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Re-classification confirmed by direct inspection of canonical mail-server: crate-jmap-mail-server/src/memory.rs:109-125 carries the byte-identical Inner struct with HashMap<(&'static str, String), ...>; 6 .to_owned() sites at lines 131, 138, 149, 151, 160, 207 (same count as chat-server). As-cast pattern confirmed at lines 370, 378, 945, 953 (4 sites vs. chat-server's 5; mail-server's limit cast at 378 already saturates via .min(usize::MAX as u64) per JMAP-x2gd.78 alignment).\n\nRe-classification recorded as comments on JMAP-x2gd.52 and JMAP-x2gd.53 (2026-05-16) so the next agent picking up either knows to scope the work as a workspace-wide sweep (mail-server canonical first, then chat-server propagation, then 6 sibling backends: calendars, tasks, contacts, filenode, sharing, metadata). The actual sweep is workspace-architectural-scale work that should be scoped as its own multi-bead epic when prioritized, not done autonomously in a do-beads pass.\n\nPrecedent: matches JMAP-x2gd.67 / .69 / .86 / .87 pattern \u2014 re-classification bead completes by recording cross-walk on underlying findings, not by executing the multi-crate sweep.",
+  "closed_at": "2026-05-16T17:45:25Z",
+  "compaction_level": 0,
+  "content_hash": "dc26f6d488a9485312e82eb4c98017c0da7d21b88330e7ba764c58c58b4eb4a0",
+  "created_at": "2026-05-14T15:54:27Z",
+  "created_by": "Mark Atwood",
+  "description": "Cross-walk of crate-jmap-mail-server/src/memory.rs (2742 lines, the canonical extension-server template per workspace AGENTS.md \"Canonical Templates\") against crate-jmap-chat-server/src/memory.rs confirms that BOTH patterns flagged in JMAP-x2gd.52 and .53 are workspace-canonical, not chat-server-local. The 2nd rusty pass's confidence note explicitly flagged this cross-walk as the missing exercise; now done.\n\nPattern 1 \u2014 Inner struct + .to_owned() HashMap key allocations:\n- chat-server memory.rs:80-104 defines Inner with HashMap<(&'static str, String), HashMap<Id, Value>>\n- mail-server memory.rs:109-125 defines the same nested HashMap shape\n- chat-server uses .to_owned() on account_id in 6 sites (lines 110, 117, 128, 130, 139, 148)\n- mail-server uses .to_owned() on account_id in 6 sites (lines 131, 138, 149, 151, 160, 207)\n- Same shape, same call-site count, same hot-path-allocation idiom\n\nPattern 2 \u2014 query_objects pagination as-casts:\n- chat-server memory.rs:603-612 uses (position as usize).min(...) and (n as usize)\n- mail-server memory.rs:347-356 uses identical (position as usize).min(...) shape\n- Both are clippy::cast_possible_truncation candidates; mail-server's limit cast is slightly safer (n.min(usize::MAX as u64) as usize) \u2014 see JMAP-x2gd.78 for chat-server's drift on this specific point\n\nPattern 3 \u2014 objects_ref / objects_mut / current_state / bump_state helpers:\n- chat-server memory.rs:106-149 vs mail-server memory.rs:127-161 \u2014 identical signatures and bodies\n\nImplications:\n- JMAP-x2gd.52 (Inner HashMap-key allocations): re-classified as workspace-sweep. The fix lands in mail-server first (canonical), then propagates to chat-server, then to future siblings (calendars, tasks, contacts, filenode, sharing, metadata) when they are authored. A nested-HashMap-with-account-id-outer-key restructure on mail-server is the canonical-template change; chat-server inherits from it.\n- JMAP-x2gd.53 (query pagination as-casts): re-classified as workspace-sweep. Same propagation direction.\n\nPrecedent: this matches the JMAP-x2gd.67 / .69 / .46.1 pattern for api-contract findings that turned out to be workspace-canonical.\n\nThe two original beads should remain open as 'chat-server scope' tracking; this bead is the parent for the workspace-wide sweep that lands the fix in mail-server first.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.84",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Workspace-canonical re-classification of JMAP-x2gd.52 and .53: mail-server memory.rs has byte-identical Inner-key-allocation + as-cast patterns",
+  "updated_at": "2026-05-16T17:45:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:54:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "86377fa9-850d-533a-be74-9b44f0c0338e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

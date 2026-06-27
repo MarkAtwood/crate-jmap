@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T10:56:13Z",
+  "compaction_level": 0,
+  "content_hash": "3eb5dd89f46c3fd7743fcbdd5223c2509e5162881da6358da86f72fe17a96a42",
+  "created_at": "2026-05-14T20:04:10Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/memory.rs:196-205\n\n```rust\n/// Add a pre-existing node to an account (used to set up test\n/// fixtures).\n///\n/// The state counter is NOT incremented \u2014 this is silent fixture\n/// setup.\npub fn seed_node(&self, account_id: &str, node: FileNode) {\n    let mut guard = self.inner.lock().unwrap();\n    if let Some(store) = guard.accounts.get_mut(account_id) {\n        store.nodes.insert(node.id.clone(), node);\n    }\n}\n```\n\nThe doc notes only that state is not bumped. Several other\ninvariant violations go unmentioned:\n\n1. **Dangling `parent_id`.** A seeded node may reference a parent\n   that does not exist in the store. `get_ancestors` will silently\n   truncate the chain when it hits the missing id (memory.rs:604\n   `if let Some(node) = store.nodes.get(&parent_id)` \u2014 the walk just\n   stops). Downstream impacts: a `fetchParents` query against a\n   dangling-parent fixture returns a partial parent chain that the\n   client cannot distinguish from \"this node IS at the root\".\n\n2. **Silently-dropped seeding for unknown account.** The `if let\n   Some(store) = ...` branch makes the call a no-op when\n   `account_id` was not registered first. The function returns `()`\n   \u2014 the caller cannot tell whether the seed succeeded or was\n   discarded. A test that calls `seed_node` before `with_account`\n   produces a passing-but-empty backend; a regression in test setup\n   is invisible.\n\n3. **Duplicate-id overwrite.** `HashMap::insert` replaces; a test\n   that seeds two nodes with the same id silently keeps the second.\n   Sibling-test reuse can produce ghost cleanups.\n\n4. **No cycle check.** A test that seeds A with parent=B and B with\n   parent=A will produce infinite-loop behaviour on `get_ancestors`.\n   The actual `get_ancestors` impl uses a `visited` set so the loop\n   terminates, but the result is \"every node in the cycle is its own\n   ancestor\" \u2014 a wrong-shape ancestor chain. The cycle case for\n   `seed_node` should at minimum be documented as the caller's\n   responsibility to avoid.\n\nWhy this is `api-contract,underspecified` rather than just a docs\ngap: the function is the documented seam for \"downstream contributors\nto study and for smoke tests / examples\" per the module-level doc.\nA contributor copying this pattern into a real backend will copy\nthe no-validation semantics by default and ship a backend that\naccepts inconsistent data.\n\nSuggested fix:\n\n- Either validate in `seed_node` (reject dangling parent, reject\n  duplicate id, reject cycles) and return `Result<(), MemoryError>`.\n- Or rename to `unchecked_seed_node` and document the four\n  invariants above as caller-managed preconditions.\n\nPropagation note: canonical sibling does not have a comparable\nseed-node helper; the closest analogues are\n`MemoryBackend::store_blob` (memory.rs:262-266 in mail-server, no\nvalidation) and the per-domain seeding done through full handler\ncalls. Mail-server's `store_blob` has the same \"silently drop on\nunknown account\" foot-gun but for blobs. Filing the propagation\ncontext as a hint, not a hard ask \u2014 the fix can be local first.\n\n`api-contract,underspecified` because the seed semantics shape what\n\"a valid backend state\" means, and four classes of invalid state\nslip through silently.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.42",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::seed_node accepts dangling parent_id with no validation, breaks tree invariants silently",
+  "updated_at": "2026-05-17T10:56:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:04:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "f044bfce-6668-5405-b40c-38b9182aefdc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

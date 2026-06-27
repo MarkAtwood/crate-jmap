@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-jxj.5",
+  "title": "Documented SSE id-reset limitation: None conflates 'no id' and 'empty id'",
+  "description": "SseFrame::id uses Option<String> and conflates 'no id: field' with 'bare id: field' (reset). The doc comment on SseFrame::id correctly documents this limitation and its practical impact (JMAP servers do not send bare id: resets). A contributor might suggest adding a tristate \u2014 the doc comment explains why this simplification is intentional and defendable.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:40:46Z",
+  "updated_at": "2026-04-30T15:42:40Z",
+  "closed_at": "2026-04-30T15:42:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-jxj",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:40:45"
+    }
+  ]
+}

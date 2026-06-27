@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T22:05:10Z",
+  "id": "019e37f8-c046-7cb7-9e6b-60bb8b5ad9c9",
+  "issue_id": "JMAP-ops7.15",
+  "text": "Workspace-architectural decision required before any fix. File a precursor decision bead with the three policy options (typed enum + Other(String) vs plain String vs plain String + prop::* consts) before /do-beads attempts implementation."
+}

@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T175453Z-2820386",
+  "close_reason": "Landed in commit 127eaf0 (testjig SSE Last-Event-ID + WS pushState replay), paired with cf7p.12 per Mark's 2026-05-13 acceptance. Producer-driven event log in new crate-jmap-testjig/src/replay.rs (StateChangeLog with per-type 1024-entry VecDeque rings, process-global monotonic u64 event ids).\n\nAcceptance criteria status:\n\n- 'src/sse.rs get_events() reads the Last-Event-ID request header': YES. parse_last_event_id() in sse.rs handles missing/empty/numeric/non-numeric cases.\n\n- 'On reconnect, the server emits any pending state events whose id is > Last-Event-ID before transitioning to the live poll/signal stream': YES. emit_pending() fires at poll_loop entry; if there are entries in the log past last_seen, a state event is emitted before the main select! loop starts.\n\n- 'The event-id scheme needs to survive process restart for this to be meaningful \u2014 currently each connection starts at 0. Either (a) make the id a process-global counter (still loses across restart, but at least survives reconnects within one process), or (b) make the id encode the full per-type state snapshot': option (a) per Mark's 2026-05-13 acceptance. next_event_id is process-global on the StateChangeLog inner mutex, starting at 1.\n\n- 'Workspace tests: add a tests/sse_resume.rs integration test that exercises the reconnect path': YES. New tests/sse_resume.rs::last_event_id_replays_missed_changes asserts: open SSE, observe event id N, close, mutate twice with no SSE, reopen with Last-Event-ID: N, observe replay frame with id > N within 5s budget. Test passes.\n\nRing buffer rollover semantics: a client at Last-Event-ID < oldest_event_id falls back to 'start at current' and must resync via Foo/changes. Tracked at log.oldest_event_id() \u2014 currently not surfaced to the SSE consumer as a distinct error event (RFC 8620 \u00a77.3 is a SHOULD, not MUST, on the replay-incomplete signal). Future polish.\n\nPre-commit gate clean: cargo fmt, cargo clippy --workspace --tests -- -D warnings, cargo test --workspace (2125 passed / 0 failed, +11 from cf7p.9 baseline), RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps (no warnings), cargo tree -i openssl --workspace (empty).\n\nWorkspace member count unchanged: 30. Lines added: ~620 testjig-internal (replay.rs + integration test + SSE/WS refactor). Zero changes to any *-server crate; zero foundation-trait surface change.",
+  "closed_at": "2026-05-13T18:22:03Z",
+  "compaction_level": 0,
+  "content_hash": "b65f87b588b98749b6a5492d04ed520aff378fd27d17275a2540cb9d683d1c9f",
+  "created_at": "2026-05-12T06:31:09Z",
+  "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "description": "RFC 8620 \u00a77.3 says:\n\n> When a new connection is made to the event-source endpoint, a client following the server-sent events specification will send a Last-Event-ID HTTP header field with the last id it saw, which the server can use to work out whether the client has missed some changes. If so, it SHOULD send these changes immediately on connection.\n\nThe bd:JMAP-cf7p.4 SSE endpoint does NOT implement this. The event id is a monotonic counter, but reconnects do not replay missed events \u2014 the client must issue Foo/changes to catch up.\n\nAcceptance:\n- src/sse.rs get_events() reads the Last-Event-ID request header.\n- On reconnect, the server emits any pending state events whose id is > Last-Event-ID before transitioning to the live poll/signal stream.\n- The event-id scheme needs to survive process restart for this to be meaningful \u2014 currently each connection starts at 0. Either (a) make the id a process-global counter (still loses across restart, but at least survives reconnects within one process), or (b) make the id encode the full per-type state snapshot so the server can decide on replay without keeping history.\n- Workspace tests: add a tests/sse_resume.rs integration test that exercises the reconnect path.\n\nNote: this is a 'SHOULD' in the RFC, not a 'MUST'. The MVP is correct; this is a polish improvement.\n\nCross-references:\n- bd:JMAP-cf7p.4 (parent slice \u2014 original MVP).\n- RFC 8620 \u00a77.3 Last-Event-ID guidance.",
+  "ephemeral": 0,
+  "id": "JMAP-cf7p.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "testjig SSE: honor Last-Event-ID on reconnect per RFC 8620 \u00a77.3",
+  "updated_at": "2026-05-13T18:22:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T10:58:16Z",
+      "created_by": "bd-spin/bd-spin-20260513T175453Z-2820386",
+      "depends_on_issue_id": "JMAP-cf7p.9",
+      "id": "6482215f-774a-599b-b425-95d8974a55fa",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T23:31:09Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p",
+      "id": "fbb7c643-a9c5-59c0-bf71-9fb39bc7a3c8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

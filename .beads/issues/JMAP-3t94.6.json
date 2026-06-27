@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:15:59Z",
+  "compaction_level": 0,
+  "content_hash": "9c1d3dbae637e5cb592268a565fa670b0d3d4cf23047f057562a98f09b30bf05",
+  "created_at": "2026-05-14T21:51:22Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/memory.rs:382-430 query_objects takes _filter and _sort as ignored parameters. The result is the SAME id list regardless of any filter the caller passes. The integration test at tests/query_changes_tests.rs:73-262 introduces an entire FilteringBackend wrapper just so accountIds filtering can be tested.\n\nMaintainer burden scenario:\n  1. A downstream implementor of SharingBackend reads memory.rs as the reference. They see query_objects returning a sorted+paginated id slice with no filter evaluation. They reasonably conclude that 'filter evaluation is handled upstream by the dispatcher' or 'filters are advisory'.\n  2. Their backend ignores filter too.\n  3. A client passes filter={'type':'individual'}; the response includes groups, locations, and resources. The client treats this as a server bug.\n  4. The implementor opens an issue against this crate asking why the reference backend doesn't honor filters. The repeating class of user reports begins here.\n\nThe module-level docstring at memory.rs:15-17 says 'a number of RFC 9670 edge cases are simplified (see source comments)' which is supposed to cover this \u2014 but the only inline comment near query_objects is a one-line // Apply JSON Merge Patch elsewhere. There is no rustdoc on query_objects saying 'this implementation IGNORES filter and sort; production backends MUST evaluate them.'\n\nFix: add a prominent rustdoc on query_objects (and query_changes which delegates to get_changes for the same reason):\n\n    /// **Reference-only**: this implementation ignores  and .\n    /// Production backends MUST evaluate the filter expression and apply\n    /// the comparators per RFC 8620 \u00a75.5. The crate's integration tests\n    /// wrap this backend in a  (see\n    /// ) when filter evaluation is required.\n\nSame shape exists in 6 sibling MemoryBackends \u2014 propagation needed.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Added prominent reference-only rustdoc on both query_objects and query_changes documenting that filter/sort are ignored, citing the FilteringBackend integration test wrapper as the contract for downstream implementors. Sibling propagation (6 other MemoryBackends) deferred to a workspace sweep.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::query_objects silently ignores filter and sort \u2014 reference impl misleads downstream implementors",
+  "updated_at": "2026-05-14T22:15:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:51:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "25618f47-f263-5114-9266-ff13945fef30",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

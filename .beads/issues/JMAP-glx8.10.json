@@ -1,0 +1,33 @@
+{
+  "close_reason": "GOOD observation acknowledged. The 'Excluded from extras preservation' rustdoc on ContactCardFilterCondition and ContactCardComparator, plus the README 'Filter extensibility' section, encode the workspace JMAP-lbdy filter-algebra-exclusion decision at point-of-temptation. Keep them as they are \u2014 length is the point. No code change needed.",
+  "closed_at": "2026-05-15T22:55:33Z",
+  "compaction_level": 0,
+  "content_hash": "1ee4698e992d6f7d308be32379e4f241f7a239de7a4a935a54ff0c454a156cb9",
+  "created_at": "2026-05-15T22:37:20Z",
+  "created_by": "Mark Atwood",
+  "description": "card.rs:198-219 (ContactCardFilterCondition) and card.rs:315-322 (ContactCardComparator) both carry a '# Excluded from extras preservation' rustdoc section explaining (1) why these types deliberately have no 'extra' catch-all, (2) the IETF-track path forward (draft-ietf-jmap-metadata, bd JMAP-06zp), (3) the pre-IETF escape (Value-tree or fork). README.md \u00a7'Filter extensibility' carries the same message at user-facing-doc level. Both link to bd JMAP-lbdy.\\n\\nA future contributor who sees 'every other type has extras, why don't these' will (a) try to add extras and (b) be redirected to the spec-conformant alternative without breaking the type. The rustdoc-as-defense pattern is the right move here \u2014 a comment that says 'don't do X' next to the type that would tempt X is worth more than a workspace AGENTS.md rule that the contributor might not read.\\n\\nDo not delete these doc sections to 'shorten the rustdoc'. The length is the point \u2014 it documents a non-obvious decision and saves the next contributor (or future-you) from re-litigating it.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "GOOD: pre-emptive Filter-extensibility rustdoc + README explaining the exclusion",
+  "updated_at": "2026-05-15T22:55:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:37:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "24997333-ba6d-5e5a-8f55-f9e3d56ee73a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

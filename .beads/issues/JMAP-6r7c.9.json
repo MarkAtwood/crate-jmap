@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T00:07:28Z",
+  "compaction_level": 0,
+  "content_hash": "1dec96dd903143085e92ade68a86467c6bec16d100a288131c47604b01fbd189",
+  "created_at": "2026-05-14T23:09:37Z",
+  "created_by": "Mark Atwood",
+  "description": "examples/session_fetch.rs:104 contains:\n\n    println!('state:           {}', session.state);\n\nThe Session type has a manual Debug impl (request.rs:212-227) that redacts the state field as '[opaque]' precisely because 'it uniquely identifies the client's session and is the same shape of leak as logging a session cookie' (request.rs:204-206, bd:JMAP-sc1b.99).\n\nState is a String, and {} formatting uses Display (which prints the raw string), bypassing the Debug redaction. The example output to stdout shows the literal state token.\n\nWhy this matters: the example is the canonical 'how do I use this crate' reference. A user reading this code learns: 'session.state is fine to log/display.' That is exactly opposite the redaction intent. A user building a JMAP client with logging instrumentation will reach for the example pattern and emit state tokens to their logs.\n\nWorkspace AGENTS.md 'Security testing' section #2 set up log-capture canary tests in tests/log_redaction.rs precisely to catch this class of leak through tracing \u2014 but that harness doesn't cover example code, and the example reaches around the protection via Display.\n\nFix options:\n1. Add an inline comment near line 104: '// session.state is a session-identifying opaque token; do not log in production'.\n2. Replace the line entirely with a placeholder: println!('state:           [opaque]').\n3. Print the state's length only: println!('state:           {} bytes', session.state.len()).\n\nOption (1) is the minimum acceptable fix. The example is teaching API usage, and a single comment line at the point of misuse makes the contract visible.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "examples/session_fetch.rs prints session.state via Display, bypassing the Session Debug redaction",
+  "updated_at": "2026-05-15T00:07:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:09:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "6ed5bb1d-2119-53b3-b756-e573bd4be463",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

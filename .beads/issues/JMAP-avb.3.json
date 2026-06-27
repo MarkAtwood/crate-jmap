@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T07:03:45Z",
+  "compaction_level": 0,
+  "content_hash": "87f801a2f98daab918fb19d6b16a29e48fccb9c8432f8e889e7c9bd02d259c0d",
+  "created_at": "2026-05-02T06:56:04Z",
+  "created_by": "Mark Atwood",
+  "description": "In crate-jmap-server/src/lib.rs, BackendCallFn is typed as dyn Fn(Arc<B>, String, serde_json::Value) -> HandlerFuture. In ClosureHandler::call the second String argument passed to call_fn is call_id (line 279: (self.call_fn)(Arc::clone(&self.backend), call_id, args)). The doc comment on JmapHandler::call explains that method is passed as the first String and call_id as the second, but ClosureHandler silently drops method entirely and forwards call_id in what appears to be the method position. Any BackendCallFn closure that inspects its second String argument expecting a method name receives call_id instead. The doc comment on ClosureHandler says it ignores call_id but the signature passes it to the closure. This was present before round 1 but was made more prominent by the new ClosureHandler doc comment added in round 1 which describes the CallerCtx limitation without mentioning the method/call_id swap. P3 doc/API confusion risk.",
+  "ephemeral": 0,
+  "id": "JMAP-avb.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClosureHandler passes call_id instead of method to BackendCallFn",
+  "updated_at": "2026-05-02T07:03:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:56:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-avb",
+      "id": "edc52804-e99e-5428-ad4f-f42f9e147ce0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

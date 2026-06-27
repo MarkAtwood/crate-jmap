@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-jxj.2",
+  "title": "connect_ws has no connect timeout: hangs indefinitely",
+  "description": "tokio_tungstenite::connect_async_with_config does not accept a connect timeout; the HTTP path sets a 10-second connect timeout via reqwest::ClientBuilder::connect_timeout. A server that stalls during the TCP/TLS handshake will hang connect_ws forever. Caller wrapping with tokio::time::timeout helps but is not documented. Fix: wrap connect_async_with_config call with tokio::time::timeout and surface as ClientError::WebSocket on expiry.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:40:24Z",
+  "updated_at": "2026-04-30T15:46:35Z",
+  "closed_at": "2026-04-30T15:46:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-jxj",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:40:24"
+    }
+  ]
+}

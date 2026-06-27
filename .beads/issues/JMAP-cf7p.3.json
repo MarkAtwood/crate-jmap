@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-12T06:10:45Z",
+  "compaction_level": 0,
+  "content_hash": "ea6e58050cf051c0c55bb1b3b1e4d3f4e36e6f470a415b6905657f3a1f3e85cf",
+  "created_at": "2026-05-12T05:47:05Z",
+  "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "description": "Instantiate the 8 reference MemoryBackends from the workspace's extension-server crates, register each crate's handler functions with jmap_server::Dispatcher, and mount them at a single account-id under a single principal so a JMAP client can issue calls across all 8 extensions through the same testjig instance.\n\nThe 8 extension server crates and their register_* functions:\n- jmap-mail-server::register_mail_handlers\n- jmap-chat-server::register_chat_handlers\n- jmap-calendars-server::register_calendar_handlers (verify exact name)\n- jmap-tasks-server::register_tasks_handlers (verify exact name)\n- jmap-contacts-server::register_contacts_handlers (verify exact name)\n- jmap-filenode-server::register_filenode_handlers (verify exact name)\n- jmap-sharing-server::register_sharing_handlers (verify exact name)\n- jmap-metadata-server::register_metadata_handlers (verify exact name)\n\nThe dispatcher needs a CallerCtx type that all 8 backends share. For the testjig that's '()' (single hardcoded principal, no per-request identity). MemoryBackends use 'type CallerCtx = ();' already so this lines up.\n\n## Acceptance\n\n- A JMAP request like {methodCalls: [['Mailbox/get', {accountId: ...}, 'c1']]} works\n- A JMAP request like {methodCalls: [['Chat/get', {accountId: ...}, 'c1']]} works\n- Cross-extension requests in a single envelope (e.g. Email/get + Chat/get back-to-back) succeed\n- cargo clippy --workspace -- -D warnings clean\n- cargo test --workspace clean\n\n## Depends on .2 (router)",
+  "ephemeral": 0,
+  "id": "JMAP-cf7p.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wire all 8 reference MemoryBackends into the dispatcher",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T22:47:05Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p",
+      "id": "8375bb98-cd37-5b01-86b3-e10b96e2c145",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-11T22:47:05Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p.2",
+      "id": "f47a5330-3aef-570f-b1b2-428e6061d522",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

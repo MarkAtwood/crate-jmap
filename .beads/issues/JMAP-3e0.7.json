@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3e0.7",
+  "title": "blob.rs percent_encode: byte as char cast \u2014 prefer char::from(byte)",
+  "description": "blob.rs line 85: out.push(byte as char) \u2014 the as cast for numeric-to-char conversion is not idiomatic Rust; it silently truncates for values > 127. char::from(byte) is explicit about converting a u8 (valid ASCII guaranteed by the preceding is_ascii_alphanumeric/branch guards), and clippy::as_conversions flags unbounded as casts. While the existing guards make this safe, char::from(byte) communicates intent and is clippy-preferred.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:15:03Z",
+  "updated_at": "2026-04-30T01:23:40Z",
+  "closed_at": "2026-04-30T01:23:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3e0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:15:03"
+    }
+  ]
+}

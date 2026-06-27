@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-he4.3",
+  "title": "AuthProvider::auth_header returns String; pre-stored value could be &str",
+  "description": "auth.rs:108: auth_header() signature is fn(&self) -> Option<(&'static str, String)>. BearerAuth and BasicAuth both pre-compute and store the header string in header_string: String. The return could be Option<(&'static str, &str)> (borrowing self.header_string), which eliminates a per-request heap allocation for every call to fetch_session, call, upload_blob, download_blob, and subscribe_events. The current design forces a .clone() on every call (auth.rs:163, 213). Owned return type is only justified when the value is computed on-demand; here it is pre-stored.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:25:17Z",
+  "updated_at": "2026-04-30T01:31:45Z",
+  "closed_at": "2026-04-30T01:31:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-he4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:25:17"
+    }
+  ]
+}

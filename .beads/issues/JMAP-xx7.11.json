@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-xx7.11",
+  "title": "Auth pre-validation at BearerAuth/BasicAuth construction is correct \u2014 must not be deferred to first request",
+  "description": "BearerAuth::new and BasicAuth::new validate the header value at construction time (HeaderValue::from_str). A contributor might suggest deferring validation to the first request to 'simplify' the constructor. This would be wrong: runtime errors from per-request credential injection are harder to surface, debug, and test than construction-time errors. The current design fails fast at the point where the programmer has the wrong value, not at 03:00 when the first request is sent. The pre-computed header_string also eliminates per-request allocation. Both the fast-fail and the allocation savings justify the current approach.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T14:50:22Z",
+  "updated_at": "2026-04-30T14:59:09Z",
+  "closed_at": "2026-04-30T14:59:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-xx7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 07:50:22"
+    }
+  ]
+}

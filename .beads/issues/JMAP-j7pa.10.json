@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced parse_address_list and extract_msg_ids in MemoryBackend with mime-tree-delegating helpers parse_address_list_via_mime_tree and parse_msg_ids_via_mime_tree at memory.rs:1945. Email/get .from/.to/.cc properties now parse through the same mime-tree gateway as header:<name>:asAddresses, so the encoded-word / quoted-comma / group cases that previously diverged now agree. New integration test email_get_from_property_matches_as_addresses asserts the equivalence on an input exercising both edge cases. mime-tree was already a hard runtime dep (commit e99c3dc); no new dependency. 253 mail-server tests pass (was 252).",
+  "closed_at": "2026-05-16T19:03:36Z",
+  "compaction_level": 0,
+  "content_hash": "156def9e1c4d1b501d0c43dd4ec4c70a1b36527df6351dcee8aa2c59cab8ce9b",
+  "created_at": "2026-05-14T12:47:07Z",
+  "created_by": "Mark Atwood",
+  "description": "MemoryBackend has two distinct paths that both parse RFC 5322 address-list headers:\n\n1. memory.rs:1827 parse_address_list \u2014 hand-rolled simple parser used by parse_rfc5322_headers during Email/import and Email/copy. Output goes into email.from / .to / .cc which clients see on a plain Email/get request for the 'from' property.\n\n2. email.rs:307 apply_header_form (As*) \u2014 uses mime_tree::parse_header_typed (mail-parser underneath) when a client requests 'header:From:asAddresses' or :asGroupedAddresses.\n\nThese parsers have different behaviour on identical input:\n\n- RFC 2047 encoded-words: mime-tree decodes (=?UTF-8?Q?John_Sm=C3=AEth?= \u2192 John Sm\u00eeth); parse_address_list keeps the literal encoded-word as the display name.\n- RFC 5322 groups: mime-tree handles 'Friends: a@x, b@y;' as a group structure; parse_address_list splits on commas inside the group, producing mangled output.\n- Quoted-strings with commas in display names: 'Smith, John' <a@x> \u2192 mime-tree treats as one mailbox; parse_address_list splits on the comma, getting two malformed entries.\n\nNet result: in MemoryBackend, the JMAP 'from' property and the 'header:From:asAddresses' property can return semantically different values for the same email. The RFC 8621 spec says both forms parse the same Address-list grammar \u2014 a conforming server should produce equivalent results.\n\nThis is a MemoryBackend reference-impl simplification, explicitly acknowledged by the parse_rfc5322_headers doc comment (memory.rs:1703-1704: 'intentionally simple \u2014 it handles the common cases in tests. A production implementation would use a proper MIME library.'). So this is not a wire-protocol bug in the published mail-server crate \u2014 production backends are expected to use a proper parser for both paths.\n\nBut for the workspace tests, this means tests that compare 'from' values against 'header:From:asAddresses' on real-world inputs will see false discrepancies blamed on the As* path. The workspace test suite currently dodges this by using RFC-grade simple inputs in both code paths; if a future test stitches them together against more complex fixtures, the inconsistency will surface as a test failure that looks like a bug in As* when it's actually parse_address_list misbehaving.\n\nTwo options for the reference impl:\n\na. Route parse_rfc5322_headers' address-extraction through mime-tree too \u2014 single source of truth, behavioural alignment with As*. mime-tree is now a hard dep of mail-server (e99c3dc), so the cost is zero.\n\nb. Document the divergence explicitly in memory.rs:1703 and add a test that asserts the known mismatch on a fixture with encoded-words, so future surprise is visible.\n\nOption (a) is the better engineering call now that mime-tree is mandatory. The parse_address_list / extract_msg_ids functions in memory.rs become dead code and can be removed.",
+  "ephemeral": 0,
+  "id": "JMAP-j7pa.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend uses two different address parsers (Email/get from vs As*)",
+  "updated_at": "2026-05-16T19:03:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:47:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-j7pa",
+      "id": "72725a99-02a7-5568-b18d-77de846ee9ab",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

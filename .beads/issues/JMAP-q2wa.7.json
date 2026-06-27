@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decomposed into 7 per-sibling child beads (.7.1 through .7.7), one per extension-server sibling crate (chat, calendars, tasks, contacts, filenode, sharing, metadata). Each child carries the specific 6-pattern sweep list with cross-references to the mail-server commits that landed the canonical fix. The children join the autonomous frontier; closing this orchestration bead so it doesn't permanently block the ready queue. Sibling-propagation notes I left earlier (q2wa.18, .16, .15) are preserved in this bead's comment history for context.",
+  "closed_at": "2026-05-15T07:04:54Z",
+  "compaction_level": 0,
+  "content_hash": "a98d52ba282df2bae13e090e9cda2511e4df8f66d04e6b205e5278c888f2a0c4",
+  "created_at": "2026-05-14T16:21:22Z",
+  "created_by": "Mark Atwood",
+  "description": "jmap-mail-server is the canonical extension-server template (workspace AGENTS.md \"Canonical Templates\"). The findings in this review epic \u2014 particularly the Pattern G regressions, server_fail_from_backend misses, and the silent-drop-on-non-string bug \u2014 all need a propagation pass to chat-server, calendars-server, tasks-server, contacts-server, filenode-server, sharing-server (and metadata-server, sieve-server when those land).\\n\\nThe sibling check is mandatory under the propagation rule: 'If you change this crate, propagate the change to every extension-server sibling in the same pass (or file a follow-up sweep bead before merging).'\\n\\nThis bead is the follow-up sweep marker. When the P0/P1 findings in this epic are addressed, add the sibling-equivalent fixes (or document why they don't apply, e.g. apply_header_form is mail-specific) before closing.\\n\\nSpecific siblings to check:\\n- Pattern G unwrap_or(Value::Null): scan every */sibling-server/src/*.rs for the antipattern\\n- server_fail leak: grep for 'JmapError::server_fail(e.to_string())' across all siblings\\n- silent-drop on non-string property: identify all */sibling-server set handlers' build_*_from_props equivalents and audit their non-string handling\\n- filter-roundtrip silent fallback: check sibling memory.rs files for the same .ok().and_then(.ok()) pattern",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Cookie-cutter propagation: P0 P1 findings must be checked against 6 sibling extension-server crates",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:21:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "d67f98d1-32b3-5aa9-a8ad-b007c841d66d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

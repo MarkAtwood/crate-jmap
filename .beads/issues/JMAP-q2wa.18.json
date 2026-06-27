@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in 18531e5 with a docs-only rewrite. Picked Path 3 from the bead's three suggested paths (document the contract) over Path 1 (add caller+account_id args) because the method's actual contract is a GLOBAL backend-capability check ('did this impl wire up type O?'), not an account-scoped one. Per-account capability variation belongs in the consumer's session-capability builder per workspace library-kit posture, not on the trait. The handler's only call site (snippet.rs:35) confirms this \u2014 it gates BEFORE extract_account_id, with no account in scope. New doc enumerates in-scope types, removes the false 'NOT called internally' claim, and explains the stateless signature. Sibling-propagation note left on bd:JMAP-q2wa.7. cargo doc passes under -D warnings; tests unchanged.",
+  "closed_at": "2026-05-15T06:58:21Z",
+  "compaction_level": 0,
+  "content_hash": "c4d8a67ce35c3568cc998f976208474d56cfdfecefd9a3a83cf8816c71f42107",
+  "created_at": "2026-05-14T16:30:26Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs:230-234 declares:\n\n```\n/// Returns true if this account supports the given JMAP object type.\n/// Called by the server consumer (e.g. the session capability builder) \u2014\n/// NOT called internally by the handler library. Backends that support all\n/// types unconditionally can return `true` always.\nfn supports_type<O: JmapObject>(&self) -> bool;\n```\n\nThree contract gaps a caller will hit:\n\n1. **What types may be queried?** The signature is generic over `O: JmapObject`. The docstring does not enumerate the RFC 8621 types in scope (`Email`, `Mailbox`, `Thread`, `Identity`, `EmailSubmission`, `VacationResponse`, `SearchSnippet`, plus optionally `SieveScript` and `Mdn`). What about types from sibling extensions (`Calendar`, `Chat`, etc.)? Should a backend answer `true` or `false` for those? Should it answer at all?\n\n2. **No `caller`/`account_id` arguments.** Every other backend method on `MailBackend` (and on `JmapBackend`) takes `&Self::CallerCtx` and an `account_id`. This method is the only exception. The doc says \"Returns true if this account supports the given JMAP object type\" \u2014 but there is no account_id to scope the answer by. The text and the signature disagree. This forces the backend to answer globally (yes/no, regardless of which account is being queried), which prevents per-account or per-tenant capability variation.\n\n3. **Why not internal?** \"NOT called internally by the handler library\" \u2014 then why is it on the trait? If the only caller is the consumer's session-capability builder, the backend author and consumer are likely the same party, so the trait method is just an in-process contract between two parts of the consumer's own code. Putting it on the public `MailBackend` trait makes it a stable contract for all third-party consumers, which is over-shaped.\n\nCompare with the `Backend caps and limits` convention in workspace AGENTS.md, which mandates: \"Args are plumbed even when the default ignores them\" \u2014 but only for cap methods. `supports_type<O>` is not a cap method; it is a capability-advertisement method, and the convention is unclear.\n\nSuggested fix paths (pick one, document the choice):\n- Add `&Self::CallerCtx` and `account_id: &jmap_types::Id` arguments to match the rest of the trait, even if default `true` ignores them.\n- OR demote to `pub(crate)` on the workspace's reference impl and move the contract to the consumer's session-capability builder layer (where it belongs per AGENTS.md library-kit posture).\n- OR document explicitly which `JmapObject::TYPE_NAME` strings are in scope and what `false` means.\n\nCookie-cutter amplification: any sibling extension-server crate that follows this pattern will inherit the underspecification.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MailBackend::supports_type underspecified contract",
+  "updated_at": "2026-05-15T06:58:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:30:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "c3fe9bd8-dbb2-5a2a-a2f1-87a0fa4a1164",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

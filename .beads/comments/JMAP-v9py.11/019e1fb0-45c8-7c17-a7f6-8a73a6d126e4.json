@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260513T041030Z-2473287",
+  "created_at": "2026-05-13T04:55:06Z",
+  "id": "019e1fb0-45c8-7c17-a7f6-8a73a6d126e4",
+  "issue_id": "JMAP-v9py.11",
+  "text": "Closing as the on-disk work satisfied the acceptance criteria in commit 154822e (feat(cid-types): scaffold crate (bd:JMAP-v9py.11)). The bead was in_progress under a stale claim from bd-spin session 20260513T000911Z, whose PID is no longer alive; the actual work landed and cargo check -p jmap-cid-types passes."
+}

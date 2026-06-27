@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Cross-walk recorded on underlying finding JMAP-x2gd.64 (now labeled workspace-canonical with cross-reference comment). The actual workspace-wide doc-sweep across all 8 extension-server siblings is multi-bead epic-scale work that the next agent picking up JMAP-x2gd.64 will plan; not autonomous frontier work. Close pattern mirrors JMAP-x2gd.84 (memory.rs reclassification close).",
+  "closed_at": "2026-05-16T17:57:28Z",
+  "compaction_level": 0,
+  "content_hash": "b9489eb1f5114053da96a8fe43416daf2a4ca6ab6b80f7c08df181e80ce76501",
+  "created_at": "2026-05-14T15:42:04Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\nJMAP-x2gd.64 (\"`ChatBackend::update_object` `Ok(None)` vs\n`Ok(Some(updated))` semantics are ambiguous when the backend\nbumps `updatedAt` / membership counters on every successful\nwrite\") was filed as chat-server-local. The 3rd-pass confidence\nnote explicitly flagged this as \"did NOT cross-check whether\nmail-server's analogous method has the same ambiguity. If yes,\nre-parent as workspace-canonical alongside .67's seven.\"\n\nThe cross-walk is now done. Result: **WORKSPACE-CANONICAL.**\n\n## Evidence\n\n**Chat-server** (`crate-jmap-chat-server/src/backend.rs:309-313`):\n\n```\n/// Apply a partial update (patch) to an existing object.\n///\n/// Returns `Some(updated_object)` if the backend modified any properties\n/// beyond what the client requested (RFC 8620 \u00a75.3 server-set field echo),\n/// or `None` if the patch was applied verbatim.\n```\n\n**Mail-server** (`crate-jmap-mail-server/src/backend.rs:106-110`):\n\n```\n/// Apply a partial update (patch) to an existing object.\n///\n/// Returns `Some(updated_object)` if the backend modified any properties\n/// beyond what the client requested (RFC 8620 \u00a75.3 server-set field echo),\n/// or `None` if the patch was applied verbatim.\n```\n\nThe ambiguous sentence \u2014 \"modified any properties beyond what the\nclient requested \u2026 or `None` if the patch was applied verbatim\" \u2014\nis **byte-identical** in both crates. Both fail to address the\ncase where the backend timestamps every successful write\n(`updatedAt`-equivalent fields exist on Mailbox / Email / Identity\non the mail side; on Space / Chat / Message on the chat side),\nwhich makes the `None` branch unreachable on any production-grade\nimplementation.\n\nMail-server adds extra paragraphs (lines 112-119) covering\nhandler-side obligations and caller-context plumbing \u2014 useful but\northogonal to the ambiguity. The core \"modified beyond what the\nclient requested\" phrase is the gap, and it is identical.\n\n## Implication for fix planning\n\nPer workspace AGENTS.md \"Canonical Templates\" rule:\n\n> If you reshape this crate in a way that diverges from\n> `jmap-mail-server`, change `jmap-mail-server` first, then\n> propagate to every other extension-server sibling.\n\nFixing JMAP-x2gd.64 in chat-server alone is a regression of the\ncookie-cutter intent. The fix MUST land in\n`MailBackend::update_object` first, then propagate to all 8\nextension-server siblings.\n\n## Recommendation\n\nRe-parent JMAP-x2gd.64 as workspace-canonical alongside the\nseven findings in JMAP-x2gd.67 (.35 / .38 / .43 / .46 / .47 / .48 / .51).\nRe-priced from \"chat-server-local doc tightening\" to\n\"workspace-canonical doc convention\" \u2014 same priority, but the\nfix surface expands to all extension-server crates.\n\n## Engineering basis\n\nDirect cross-walk of `crate-jmap-mail-server/src/backend.rs:106-119`\nagainst `crate-jmap-chat-server/src/backend.rs:309-313`. The\nidentical-sentence finding is verifiable by `diff` of the two\ndoc-block ranges.\n\n## What is NOT workspace-canonical\n\nJMAP-x2gd.65 (\"`apply_space_metadata_patch` `SetErrorType` selection\nambiguity\") is **chat-server-LOCAL** \u2014 mail-server has no analog\nmethod. All `MailBackend` partial-update paths route through the\ngeneric `update_object`; mail-server has no semantic-mutation-key\nsplit that would need a separate `apply_*_metadata_patch`. .65\nstays as filed.\n\nA broader workspace-canonical \"name the `SetErrorType` variants on\nevery backend method that takes a wire blob ID or validates wire\nvalues\" finding is possible but would attach to\n`create_object` / `update_object` / `import_email` / `copy_email`\ngenerically, not to a metadata-patch method.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.69",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Workspace-canonical reclassification of JMAP-x2gd.64: update_object Ok(None)-vs-Some ambiguity is byte-identical in mail-server",
+  "updated_at": "2026-05-16T17:57:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:42:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "ed360852-09c5-5283-aae2-b74377aba801",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

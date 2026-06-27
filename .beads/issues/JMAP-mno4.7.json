@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added a crate-level 'Spec-driven divergences (deliberate, do not fix)' rustdoc section (item 1) defending the bare String at_type vs jscontact-types' Option<String>. Cites RFC 8984's zero-defaultType + 12+ mandatory-@type annotations and RFC 9553 \u00a71.3.4's defaultType notion. References PLAN.md and bd:JMAP-sgrr.3. A future 'consistency' PR proposing Option<String> at_type now hits a rendered-rustdoc defense at the top of every cargo doc page.",
+  "closed_at": "2026-05-16T02:29:59Z",
+  "compaction_level": 0,
+  "content_hash": "9f99b4d1f8beb09db5e3abbae963d7b1700749b76b60c299f134a4fd23e9028e",
+  "created_at": "2026-05-15T22:08:31Z",
+  "created_by": "Mark Atwood",
+  "description": "Every public struct in this crate has a bare 'pub at_type: String' field with #[serde(rename = \"@type\")] (e.g. src/lib.rs:123, 150, 234, 279, 318, 382, 405, 519, 544, 621, 658, 711). This diverges from the sibling jmap-jscontact-types where at_type is Option<String> with default + skip_serializing_if.\n\nThe divergence is correct and grounded in the specs:\n- RFC 8984 has zero (verified by grep: 'defaultType' appears 0 times) defaultType annotations and 12+ '@type: \"X\" (mandatory)' annotations. JSCalendar requires @type on every sub-object.\n- RFC 9553 \u00a71.3.4 introduces defaultType and permits omitting @type in implied-type positions.\n\nThis is documented in PLAN.md \u00a755-68, AGENTS.md design-constraints table, and bd:JMAP-sgrr.3.\n\nWhat a future contributor might wrongly suggest: 'Make at_type Option<String> for consistency with jscontact-types'. The defense is: the workspace canonical-templates rule (workspace AGENTS.md) explicitly permits 'differences mandated by the relevant RFC or draft', and this is exactly that case. The spec-driven divergence is more important than visual symmetry across sibling crates.\n\nIf the consistency complaint persists, point them at the PLAN.md justification and the bead trail (bd:JMAP-sgrr.3).",
+  "ephemeral": 0,
+  "id": "JMAP-mno4.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Bare String at_type (vs Option<String> in jscontact) is spec-correct and well-defended \u2014 defend against 'consistency' PRs",
+  "updated_at": "2026-05-16T02:29:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:08:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mno4",
+      "id": "5c30ec76-6975-55d5-805b-3c8fbb4c9651",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

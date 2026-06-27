@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-5xe.1",
+  "title": "WS send_request tests are false oracles: don't exercise WsRequestFrame",
+  "description": "ws/mod.rs tests send_request_includes_at_type_request, send_request_includes_id_when_provided, send_request_omits_id_when_none (lines 322-398) manually reconstruct the old JSON-mutation approach (serde_json::to_value + obj.insert) rather than serializing WsRequestFrame. If WsRequestFrame serde had a bug (e.g. @type key wrong, flatten clash), all three tests would still pass. Violates test oracle principle: tests must verify the actual code path, not a manually-reconstructed equivalent.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:27:09Z",
+  "updated_at": "2026-04-30T17:31:41Z",
+  "closed_at": "2026-04-30T17:31:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-5xe",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:27:09"
+    }
+  ]
+}

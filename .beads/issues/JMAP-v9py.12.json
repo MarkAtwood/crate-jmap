@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T041030Z-2473287",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-13T04:58:01Z",
+  "compaction_level": 0,
+  "content_hash": "a4b01c8f0362e6d9713ec2edd0f2572e15f59f9d890c82a1b644894bcfbfb64c",
+  "created_at": "2026-05-12T23:36:46Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec: draft-atwood-jmap-cid-00 \u00a73.\n\nSpec text: \"sha256: a String. Lowercase hex, exactly 64 chars. ABNF: 64( %x30-39 / %x61-66 ).\"\n\n## Acceptance\n\n- New type Sha256Digest in crate-jmap-cid-types/src/digest.rs\n- Newtype wrapping String with the ABNF validation\n- Constructors:\n  - `Sha256Digest::from_hex(s: &str) -> Result<Self, Sha256DigestError>` \u2014 validates length and lowercase-hex\n  - `Sha256Digest::from_bytes(b: &[u8; 32]) -> Self` \u2014 formats a 32-byte digest to lowercase hex (infallible)\n- Serialize/Deserialize round-trips as the bare hex string (NOT a wrapped object)\n- Deserialize rejects: wrong length, uppercase chars, non-hex chars\n- impl Display, AsRef<str>\n- Error type `Sha256DigestError { kind: enum Kind { WrongLength { got: usize }, NonHexLowercase { at: usize } } }`\n- Unit tests:\n  - Round-trip: valid 64-char lowercase hex preserves bit-for-bit\n  - Reject upper-case hex\n  - Reject 63 chars, 65 chars, 0 chars\n  - Reject any non-hex character (e.g. 'g')\n  - from_bytes([0xde, 0xad, ..]) produces \"deadbeef...\" formatted output\n- Extras-policy aware: this is a primitive value type (not an object), so no `extra` field; matches jmap-types::Id precedent\n\n## Out of scope\n\n- The Blob/FileNode-side fields that USE Sha256Digest (D.3)\n- Capability detection (D.4)\n- crypto::sha2 computation helper \u2014 kept out of the type crate (no crypto deps; consumer computes)",
+  "ephemeral": 0,
+  "id": "JMAP-v9py.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Layer D: Define Sha256Digest typed shape in jmap-cid-types",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-12T16:37:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py.11",
+      "id": "cc688270-4d8e-5d93-bfe0-bf6670fe9c12",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-12T16:36:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py",
+      "id": "f83a65a6-0b22-53e2-909e-994152266f16",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed: MAINTENANCE comments added; Message/get now respects RFC 8620 \u00a75.1 properties parameter",
+  "closed_at": "2026-05-02T21:07:23Z",
+  "compaction_level": 0,
+  "content_hash": "6063d84164af03eceaae7cc3daec7c83d96c6adc774c651f91d1b69b99470727",
+  "created_at": "2026-05-02T21:03:50Z",
+  "created_by": "Mark Atwood",
+  "description": "The MESSAGE_READONLY constant (crate-jmap-chat-server/src/message.rs:429-437) lists all server-set fields that must not appear in update patches. It lacks a MAINTENANCE comment documenting this invariant.\n\nPattern to follow: crate-jmap-mail-server/src/mailbox.rs lines 662-667 (SERVER_SET constant) has explicit MAINTENANCE documentation.\n\nRisk: When new server-set fields are added to the Message struct in jmap-chat-types (e.g., a future 'encryptionMetadata' field), a maintainer may forget to add them to MESSAGE_READONLY, allowing clients to overwrite server-managed state. This is a silent protocol violation\u2014no compile error signals the drift.\n\nThe constant correctly rejects patches containing any field in this list, but without the MAINTENANCE note, the list may fall out of sync as the Message type evolves.",
+  "ephemeral": 0,
+  "id": "JMAP-oslg.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MESSAGE_READONLY constant needs MAINTENANCE comment to stay in sync with Message struct",
+  "updated_at": "2026-05-02T21:07:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:03:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-oslg",
+      "id": "2a9cf1ef-2ac9-5e16-aeca-afbce7e6c90f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

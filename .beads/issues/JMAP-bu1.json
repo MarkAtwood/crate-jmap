@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-bu1",
+  "title": "Review: jmap-client iteration 3",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:25:07Z",
+  "updated_at": "2026-04-30T01:32:03Z",
+  "closed_at": "2026-04-30T01:32:03Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 Two issues (JMAP-bu1.1 and JMAP-bu1.3) represent an API design decision that cannot be undone without a breaking change once callers exist. The window to fix is now, before public release. The other risks are documentation/spec-precision issues with plausible but low-frequency real-world impact.\nConfidence: 10% chance of missed bug. Least confident flags: JMAP-bu1.4 (SSE .trim() vs RFC 8895 one-space strip \u2014 low real-world impact since event IDs with meaningful surrounding whitespace are pathological). Uncertainty driven by: no live server testing; SSE and WebSocket code paths are only unit-tested with mocks, not against a real JMAP server sending edge-case frames. Would raise confidence if: integration test against an actual JMAP server (Cyrus, JMAP Proxy) exercising reconnect with Last-Event-ID."
+}

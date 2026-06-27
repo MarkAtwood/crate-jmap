@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "095bf849a76d0af146fdca59892877f37324fe58cecdc1cf1f7d343dd3076e11",
+  "created_at": "2026-06-05T03:56:32Z",
+  "created_by": "Mark Atwood",
+  "description": "Per-extension-server integration of draft-ietf-jmap-metadata-02 helpers. Each opted-in extension-server MemoryBackend needs three integration points:\n\n**1. query_objects filter matching (\u00a73.5):** Wire the 6 metadata filter conditions (metadataExists, privateMetadataExists, metadataTextContains, privateMetadataTextContains, metadataTextEquals, privateMetadataTextEquals) into the MemoryBackend query_objects filter matcher. Metadata values live in the object's extras map under the 'metadata' and 'privateMetadata' keys. Use jmap_metadata_server::filter helpers.\n\n**2. get_changes ignoreMetadataOnlyChanges (\u00a72.4):** Honor the ignoreMetadataOnlyChanges request arg. When true, objects whose only changed properties are metadata/privateMetadata are excluded from the updated array. Use jmap_metadata_server::changes helpers (is_metadata_property, is_metadata_only_change).\n\n**3. /set patch validation (\u00a72.1, \u00a72.3):** In create/update paths, validate metadata/privateMetadata patches \u2014 namespace validation (registered vs vendor per DataTypeMetadataInfo), depth limits (maxDepth). Use jmap_metadata_server::validate helpers (validate_depth, supports_namespace).\n\nCanonical mail-server first (.1), then propagate to 6 siblings (.2-.7) per workspace canonical-template rule.\n\n**Depends on:** JMAP-ua37.2 (jmap-metadata-server rewrite, already landed).",
+  "ephemeral": 0,
+  "id": "JMAP-s4kp",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Wire metadata-02 helpers into extension-server MemoryBackends",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

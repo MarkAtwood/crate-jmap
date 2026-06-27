@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T06:58:13Z",
+  "id": "019e2a6d-b563-7ad4-bba0-688f89a30810",
+  "issue_id": "JMAP-q2wa.7",
+  "text": "Sibling-propagation note for q2wa.18: The doc rewrite of MailBackend::supports_type in crate-jmap-mail-server (commit on main) needs propagation to the same method in chat-server, calendars-server, contacts-server, tasks-server, filenode-server, metadata-server, sharing-server. The false 'NOT called internally' claim is workspace-wide; the 'stateless because global, not per-account' framing is workspace-wide; the types-in-scope enumeration must be adapted to each crate's RFC."
+}

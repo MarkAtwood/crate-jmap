@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Re-scoped to workspace-canonical-first sweep at JMAP-pk88. This bead's complaint is correct but its scope is wrong per the workspace canonical-template propagation rule. Not fixing metadata-server in isolation.",
+  "closed_at": "2026-05-15T08:49:14Z",
+  "compaction_level": 0,
+  "content_hash": "cef9cf3d0bef7fd56add6c73d6c972b224a26d0c5e94fcdc1edf81d8cf772cc9",
+  "created_at": "2026-05-15T07:37:19Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace AGENTS.md: 'No `.unwrap()` or `.expect()` in library code \u2014 propagate errors with `?`.' The .unwrap()s on Mutex locks (memory.rs:286, 450, 461, 509, 521, 576, 632, 679, 774, 866, 940; lib.rs:196, 205, 213, 222, 233, 242, 257, 294, 306, 384, 431, 456) are arguably the canonical exception (Mutex::lock returns PoisonError only on a prior thread panic-with-guard-held, which the workspace's #[forbid(unsafe_code)] makes a programmer-bug case). But the exception is undocumented at every site. \u2014 Idiomatic Rust either (a) attaches a single module-level // SAFETY:-style comment or doc block explaining 'these unwraps signal a programmer bug if they fire, see policy', (b) wraps in a single `fn lock_state(&self) -> MutexGuard<'_, ...>` helper that documents the assumption once, or (c) converts to .expect with a stable string the panic message can be grepped for. The current state \u2014 bare .unwrap() at every site \u2014 is the form a new contributor will copy without thinking about the policy. Engineering impact: low operationally (poisoning is rare), high pedagogically for a 'reference implementation' touchstone.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.48",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mutex .unwrap() throughout MemoryBackend and MockBackend without panic-policy comment",
+  "updated_at": "2026-05-15T08:49:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T00:37:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "df97c185-d4b9-5aad-863e-13b35a226e19",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

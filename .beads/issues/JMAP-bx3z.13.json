@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:34:07Z",
+  "compaction_level": 0,
+  "content_hash": "c476f49a836aab07b6c51dd1a1352bebf2e8a63f715786ed0e5a69f2f78bdeb0",
+  "created_at": "2026-05-02T19:18:32Z",
+  "created_by": "Mark Atwood",
+  "description": "validate_header_form checks that well-known headers are not requested in incompatible forms: e.g. Date headers cannot be requested as asAddresses, address headers cannot be requested as asDate, etc. A future contributor might remove this validation as 'over-engineering', arguing that returning null is harmless. RFC 8621 \u00a74.1.2 explicitly requires servers to return invalidArguments when a recognised header is requested in an incompatible form. Silently returning null would violate the spec and allow clients to silently receive wrong data.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "validate_header_form rejects incompatible form/header combinations per RFC 8621 \u00a74.1.2",
+  "updated_at": "2026-05-02T22:34:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "78b669eb-0969-5316-b283-fe5f80607228",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

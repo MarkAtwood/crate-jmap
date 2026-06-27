@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T16:13:52Z",
+  "compaction_level": 0,
+  "content_hash": "d956b16f50978660c7af91dab2c570709326f79cdecd3e1638fa956c34b378b4",
+  "created_at": "2026-05-15T05:19:20Z",
+  "created_by": "Mark Atwood",
+  "description": "src/availability.rs:51-56: docstring for BusyPeriod.event reads 'Represented as a raw JSON value to avoid a circular type dependency: CalendarEvent is defined in a sibling module'.\n\nThere is no circular type dependency. CalendarEvent lives in src/event.rs, BusyPeriod lives in src/availability.rs; both are sibling modules in the same crate, neither depends on the other. Using Option<serde_json::Value> would be perfectly fine if it were a typed Option<crate::CalendarEvent>; the only constraint is that it would force consumers of BusyPeriod to also know about the full CalendarEvent type. The real reason is wire-format flexibility (the spec says event is 'a CalendarEvent restricted to a subset of fields' and the restriction is server-defined).\n\nFix: replace 'to avoid a circular type dependency' with the real rationale, e.g.: 'Represented as a raw JSON value because the server may return only a subset of CalendarEvent fields per draft \u00a72.2 (event privacy and detail-access rules), and modelling that subset as a typed projection is harder than letting consumers deserialize the Value themselves when they need typed access.'\n\nFile path: crate-jmap-calendars-types/src/availability.rs:51-56",
+  "ephemeral": 0,
+  "id": "JMAP-1rwf.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "calendars-types: BusyPeriod.event doc cites nonexistent circular dep",
+  "updated_at": "2026-05-17T16:13:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:19:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1rwf",
+      "id": "e1d8e92a-4402-5e09-8d73-21fc0336e797",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

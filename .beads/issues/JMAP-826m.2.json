@@ -1,0 +1,33 @@
+{
+  "close_reason": "Not a real bug on re-read \u2014 walk_filter_for_related_ids_constraint correctly recurses into all FilterOperator children regardless of operator value (AND/OR/NOT). Test gap is at most a P4 readability item, filed separately below.",
+  "closed_at": "2026-05-14T17:49:35Z",
+  "compaction_level": 0,
+  "content_hash": "3540c20e87bf18751ad02cb09c346701a10e88823d4a6fbdc8ec7b5fbb79f01b",
+  "created_at": "2026-05-14T17:49:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: client sends { \"filter\": { \"operator\": \"NOT\", \"conditions\": [ { \"relatedIds\": [\"EM1\"] } ] } }. walk_filter_for_related_ids_constraint at metadata.rs:570-595 iterates op.conditions and recurses \u2014 so the NOT-wrapped relatedIds-without-relatedType IS detected. Coverage: there is a unit test (metadata.rs:1237 query_nested_related_ids_without_related_type_returns_invalid_arguments) but it uses OR, not NOT. The function comment at metadata.rs:569 says 'AND/OR/NOT operator nodes recurse' but no test covers NOT.\n\nThis is not a correctness bug, downgrading. Filing as P4 readability instead \u2014 close as duplicate of follow-up.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "validate_metadata_filter does not walk Filter::Operator NOT children \u2014 wait, it does. Verify the test coverage is wrong",
+  "updated_at": "2026-05-14T17:49:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:49:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "da2d228b-e9d2-5ac2-acaa-147729f3811a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

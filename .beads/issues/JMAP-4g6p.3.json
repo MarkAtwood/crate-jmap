@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:53:34Z",
+  "compaction_level": 0,
+  "content_hash": "76b9a3670606c5e7d88e617511211332f7f046b5008a8531a1ab7be4acb02112",
+  "created_at": "2026-05-04T23:52:29Z",
+  "created_by": "Mark Atwood",
+  "description": "SessionClient captures session at construction time. If session expires and is re-fetched, a new SessionClient must be created. This is undocumented. Fix: add one sentence to SessionClient doc: 'Re-create after re-fetching session; captures session state at construction time.'",
+  "ephemeral": 0,
+  "id": "JMAP-4g6p.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SessionClient: missing lifecycle warning in doc \u2014 session snapshot must be re-created",
+  "updated_at": "2026-05-04T23:53:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T16:52:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4g6p",
+      "id": "49304cb3-4235-5642-8428-78cc7f88d2f8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

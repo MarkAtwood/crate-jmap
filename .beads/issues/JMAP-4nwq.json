@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "44ee9fc8c7e680330c59db2d85edeeda5f4ade06f473d4b27b2de3a033f6ac1f",
+  "created_at": "2026-05-15T02:33:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace-wide gap. Every extension-client crate (mail, chat, calendars, tasks, contacts, filenode, sharing, metadata) defines a SessionClient struct with a manual Debug impl that redacts the inner JmapClient (which holds auth credentials). The manual impl is intentional credential-leak prevention. But there is no per-type Debug-redaction canary test asserting that a credential literal does NOT appear in format!(\"{sc:?}\") output.\n\nWorkspace AGENTS.md \\\u00a7Security testing pattern 1 says: 'Required when any new type wraps a credential string, a session token, ...'. SessionClient wraps JmapClient which wraps an HTTP client with credentials \u2014 the credential is one layer down, but the wrapping is still a leak risk if a future contributor either (a) derives Debug on JmapClient or (b) derives Debug on SessionClient.\n\nFix: add a canary test to each of the 8 client crates (7 extension-client siblings + base-client). The test constructs a SessionClient using a JmapClient configured with a canary literal bearer token (e.g. 'CANARY-LEAK-TOKEN-DO-NOT-LOG'), formats the SessionClient with {:?}, and asserts the canary string does NOT appear.\n\nCanonical-template: land in jmap-mail-client first, then propagate to the 6 sibling extension-clients + jmap-base-client. Recommend grouping with any future log-capture-canary epic for the same types (JMAP-sc1b.102 reference).\n\nSpawned from JMAP-wzq9.12 close comment.",
+  "ephemeral": 0,
+  "id": "JMAP-4nwq",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "SessionClient Debug redaction canary tests are missing across all extension-client siblings",
+  "updated_at": "2026-05-15T02:33:30Z"
+}

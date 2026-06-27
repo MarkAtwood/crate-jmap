@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T02:39:54Z",
+  "id": "019e2ea7-9118-7d09-8dce-5ce4e1a5830b",
+  "issue_id": "JMAP-ly0n",
+  "text": "Maintainer risk: MEDIUM \u2014 the new code (space_set, ephemeral, push) is well-tested in isolation but interacts with two cross-cutting decisions (URI-form ChatContact.id; extras-preservation + serde tag) that have at least one real correctness issue (SenderId 'self' sentinel collision) and a handful of consistency drift cases (ChatPresenceEvent.presence as String, ChatTypingEvent.sender_id as String, README/EphemeralMessage::Unknown mismatch). None of these are deployment-blocking; all of them will generate repeat questions or silent misbehavior in downstream consumers if not addressed."
+}

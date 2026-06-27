@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T12:37:43Z",
+  "compaction_level": 0,
+  "content_hash": "462bc263a69c79766dca55bb6df9611b1c11fa4086b8ae325a4da5a0cd1b9da1",
+  "created_at": "2026-05-01T12:36:45Z",
+  "created_by": "Mark Atwood",
+  "description": "backend.rs SetError struct (line 55) has no max_size: Option<u64> field and no with_max_size() builder. RFC 8621 \u00a77.5 says: 'A maxSize UnsignedInt property MUST be present on the SetError specifying the maximum size of a message that may be sent, in octets' whenever a backend returns TooLarge for an EmailSubmission. Because SetError is #[non_exhaustive] and serialized by serde, a backend cannot currently express this mandatory field. Fix: add pub max_size: Option<u64> with serde rename maxSize and a with_max_size(n: u64) builder.",
+  "ephemeral": 0,
+  "id": "JMAP-iuf.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetError missing max_size for tooLarge",
+  "updated_at": "2026-05-01T12:37:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T05:36:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-iuf",
+      "id": "2eefe5ed-64c1-5c34-bf28-0025ef6dc943",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

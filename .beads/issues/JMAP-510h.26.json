@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T10:33:05Z",
+  "compaction_level": 0,
+  "content_hash": "107486ece0dbee297a9a3091d633639825e190484257ace877638fb8efc96af6",
+  "created_at": "2026-05-14T19:52:52Z",
+  "created_by": "Mark Atwood",
+  "description": "src/filenode.rs:1586-1611 (unit test): seeds backend.set_sibling(None, 'foo', 'existing-id-1'), then attempts to create a node with name='foo' under onExists='rename'. Asserts:\n\n  assert!(resp[\"notCreated\"].is_null(), ...);\n  assert!(resp[\"created\"].is_object(), ...);\n\nWhat is NOT asserted: that the created node's name is the suffixed value (e.g., 'foo-1'), which is THE OBSERVABLE BEHAVIOR of the rename branch.\n\ndraft-ietf-jmap-filenode-13 \u00a73.2.3 lines 572-575: 'If \"rename\", the server will change the \"name\" field to not clash, using an algorithm of its choice. If the server changes the name, it MUST include the new \"name\" value in the created or updated response field for this id.'\n\nThe spec's MUST is exactly the assertion missing from the test. A regression where the rename loop incorrectly returned without mutating obj_with_id would still pass this test.\n\nRequired: add 'assert_eq!(resp[\"created\"][\"c1\"][\"name\"], \"foo-1\")' (or the actual algorithm output). Source for the suffix shape: filenode.rs:312 'let candidate = format!(\"{node_name}-{suffix}\");' \u2014 but the assertion needs to come from the spec's MUST, not from the implementation's format string.\n\nThis also exposes JMAP-510h.8 (the renamed-name-not-propagated-from-backend bug): if the backend's response shape changes, this assertion catches the regression.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Test 'set_create_collision_rename_uses_suffixed_name' does not assert the rename actually happened",
+  "updated_at": "2026-05-17T10:33:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:52:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "3e1802b9-9ab5-5afb-9119-de85951ba665",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

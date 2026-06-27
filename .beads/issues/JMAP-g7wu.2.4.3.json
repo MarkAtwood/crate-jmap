@@ -1,0 +1,75 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T041030Z-2473287",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-13T04:38:36Z",
+  "compaction_level": 0,
+  "content_hash": "930f8dd31e3cecb9168ead5c95a27cea4ec9a29dc644e18490e0b46fbba49c26",
+  "created_at": "2026-05-11T13:58:23Z",
+  "created_by": "Mark Atwood",
+  "description": "Backend-impl slice of JMAP-g7wu.2.4: implement AddRole/RemoveRole/UpdateRole and AddMember/RemoveMember/UpdateMember variants in MemoryBackend::apply_space_patch.\n\nCross-cutting concern: role-hierarchy enforcement.\n- Members may only add/modify roles whose 'position' is strictly less than their own highest-position role (draft \u00a7Space/set lines 1096, 1102).\n- This check spans BOTH role and member ops (a member-add with role_ids has to verify the caller can grant those roles).\n\nCascading semantics for RemoveRole:\n- Members holding ONLY the removed role(s) are demoted to @everyone (draft line 1099).\n- Iterate space.members; for each, intersect their role_ids with the removed set; if the result is empty, replace with @everyone.\n\nULID assignment for AddRole: generate new RoleId using same ULID source as Space/Message creation.\n\nDepends on .4.1 (SpacePatchOp enum) landing. Parallelizable with .4.4 (channels) and .4.5 (categories) \u2014 different match arms in the same apply_space_patch fn.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.2.4.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Decision (2026-05-11, Mark): re-scoped per JMAP-ga0q approval. Foundation `JmapBackend::principal_id` resolves the identity blocker; `Space.owner_id` (JMAP-g7wu.2.4.11) resolves the owner-tracking blocker. This bead now lands the FULL backend implementation including role-hierarchy enforcement and owner protection \u2014 not just the mechanical slice.\n\n## Re-scoped acceptance (replaces the prior 'mechanical-only slice' framing)\n\nBackend implementation in MemoryBackend::apply_space_patch covering AddRole/RemoveRole/UpdateRole and AddMember/RemoveMember/UpdateMember variants, with:\n\n  1. **Permission gating** \u2014 for each op, resolve caller's effective permissions via the caller's principal_id (Self::principal_id(caller)). Caller's permissions = union of permissions across all roles where role_id \u2208 caller's space membership + @everyone defaults. Compare against required permissions from required_permissions_for_op (JMAP-g7wu.2.4.10).\n\n  2. **Role-hierarchy enforcement** \u2014 per draft \u00a7Space/set lines 1096, 1102: members may only add/modify roles whose 'position' is strictly less than their own highest-position role. Backend reads caller's highest role position from Space.members and rejects ops referencing roles at or above that ceiling. Cross-cuts AddRole/UpdateRole AND AddMember/UpdateMember (the latter when role_ids contains a role above the caller's ceiling).\n\n  3. **Owner protection** \u2014 RemoveMember on member where member.id == space.owner_id MUST reject. UpdateMember may modify the owner's nick or role_ids but cannot transfer ownership (Space/transferOwnership is reserved for future spec work).\n\n  4. **Cascade semantics for RemoveRole** \u2014 members holding only removed roles are demoted to @everyone (draft line 1099). Iterate space.members; for each, intersect their role_ids with the removed set; if the result is empty, replace with @everyone.\n\n  5. **ULID assignment for AddRole** \u2014 generate new RoleId using same source as Space/Message creation.\n\n  6. **Whole-patch reject on permission failure** \u2014 if any op in the patch is forbidden, the WHOLE update for that Space id is rejected. Matches RFC 8620 /set atomicity for the affected update target.\n\n  7. **Single-user mode handling** \u2014 when Self::principal_id(caller) returns None, the backend allows all ops without identity-dependent checks. Documented in MemoryBackend rustdoc as 'no-identity mode; not suitable for multi-user deployments'.\n\nEstimated landing: ~600-800 LOC + tests including hierarchy/owner/cascade coverage.\n\n## Updated dependencies\n\n  - Depends on JMAP-g7wu.2.4.1 (SpacePatchOp enum \u2014 closed)\n  - Depends on JMAP-ga0q.1 (foundation principal_id \u2014 open, blocks)\n  - Depends on JMAP-g7wu.2.4.10 (required_permissions_for_op helper \u2014 open, blocks)\n  - Depends on JMAP-g7wu.2.4.11 (Space.owner_id field \u2014 open, blocks)\n\n## Supersedes\n\n  - JMAP-g7wu.2.4.7 (handler-side permission gates) \u2014 closed as superseded; gates are backend-canonical per workspace policy from JMAP-ga0q.\n\nHuman label removed; the autonomous /do-beads loop can pick this up once all four dependencies land.\nDesign reversal (2026-05-12, Mark): the 2026-05-11 re-scope above is partially SUPERSEDED. Spec author has reversed the single-owner design \u2014 the JMAP Chat spec will NOT declare a normative `Space.ownerId` field; \"who controls a Space\" is implementation-defined / out-of-band. Workspace impl revert is tracked as JMAP-g7wu.2.4.12.\n\nUpdated acceptance criteria (replaces the 2026-05-11 \"Re-scoped acceptance\" block in the description above):\n\nBackend implementation in MemoryBackend::apply_space_patch covering AddRole/RemoveRole/UpdateRole and AddMember/RemoveMember/UpdateMember variants, with:\n\n  1. **Permission gating** \u2014 for each op, resolve caller's effective permissions via `Self::principal_id(caller)`. Caller's permissions = union of permissions across all SpaceRoles where role_id is in caller's `members[i].role_ids` + `@everyone` defaults. Compare against required permissions from `required_permissions_for_op` (JMAP-g7wu.2.4.10).\n\n  2. **Role-hierarchy enforcement** \u2014 per draft \u00a7Space/set lines 1096, 1102: members may only add/modify roles whose `position` is strictly less than their own highest-position role. Backend reads caller's highest role position from `Space.members` and rejects ops referencing roles at or above that ceiling. Cross-cuts AddRole/UpdateRole AND AddMember/UpdateMember (the latter when `role_ids` contains a role above the caller's ceiling).\n\n  3. **DROPPED \u2014 Owner protection.** The 2026-05-11 re-scope required \"RemoveMember on member where member.id == space.owner_id MUST reject\" and \"Destroy requires caller == ownerId\". Both are gone. The new posture: backend exposes server-extensible hooks but enforces no owner-keyed identity logic of its own.\n\n     Replacement for \"owner cannot be removed\": expose a `MemoryBackend` config knob (e.g., `protect_last_admin: bool`, default `false` for backward compat with existing tests) that, when set, causes `RemoveMember` to reject if the removal would leave zero members holding any of `manage_members` / `manage_space`. The check is purely permission-graph-based; it does not reference a designated \"owner\". Document the knob's existence in MemoryBackend rustdoc and PLAN.md as \"deployment-policy stand-in; production backends will replace this with their own last-admin protection logic.\"\n\n     Replacement for \"destroy requires owner identity\": the `Space/destroy` path (NOT in this bead's variant set, but referenced for completeness) keeps requiring `manage_space` permission only. Stronger destroy authorization (multi-admin approval, designated controller, etc.) is server-defined and not enforced in MemoryBackend.\n\n  4. **Cascade semantics for RemoveRole** \u2014 members holding only removed roles are demoted to `@everyone` (draft line 1099). Iterate `space.members`; for each, intersect their `role_ids` with the removed set; if the result is empty, replace with `@everyone`.\n\n  5. **ULID assignment for AddRole** \u2014 generate new RoleId using same source as Space/Message creation.\n\n  6. **Whole-patch reject on permission failure** \u2014 if any op in the patch is forbidden, the WHOLE update for that Space id is rejected. Matches RFC 8620 /set atomicity for the affected update target.\n\n  7. **Single-user mode handling** \u2014 when `Self::principal_id(caller)` returns None, the backend allows all ops without identity-dependent checks. Documented in MemoryBackend rustdoc as \"no-identity mode; not suitable for multi-user deployments.\"\n\n## Updated dependencies\n\n  - Depends on JMAP-g7wu.2.4.1 (SpacePatchOp enum \u2014 closed)\n  - Depends on JMAP-g7wu.2.4.10 (required_permissions_for_op helper \u2014 closed)\n  - Depends on JMAP-ga0q.1 (foundation principal_id \u2014 closed)\n  - Depends on JMAP-g7wu.2.4.12 (revert workspace Space.ownerId impl \u2014 open) \u2014 must land BEFORE this bead can pick up, otherwise the backend would still have a stale `space.owner_id` field to reckon with.\n\nThe dep on JMAP-g7wu.2.4.11 (closed-superseded) is satisfied; left in place for history.\n\nEstimated landing: ~600-800 LOC + tests including hierarchy / cascade / last-admin-protection coverage. Slightly smaller than the 2026-05-11 estimate since owner-protection logic is gone.\nDe-labelling human per JMAP-tqhv recommendation (2026-05-12): blocker JMAP-g7wu.2.4.12 (Space.ownerId revert) closed, bead's 2026-05-12 re-scoped acceptance is concrete enough to claim. Tracked under JMAP-v9py compliance sweep.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "apply_space_patch MemoryBackend: Role + Member variants (with role-hierarchy enforcement)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T15:28:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ga0q.1",
+      "id": "1b82a08b-44fe-5c15-a66b-d7b852b82dd7",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T06:58:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4",
+      "id": "483a2af1-165e-55e1-8d94-00218bb3649d",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-11T06:58:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4.1",
+      "id": "66e05bf5-dd6e-5961-af3f-16d1519014b2",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-12T09:12:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4.12",
+      "id": "7d5855f6-2895-544c-a676-49b8d34d2dc3",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T15:28:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4.11",
+      "id": "addb574b-8510-52c4-99ac-7f75f70467b7",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T15:28:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4.10",
+      "id": "fc4375f1-0180-5f9b-a184-d6b4f3a7b825",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

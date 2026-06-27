@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Cannot eliminate the manual Serialize/Deserialize/Display triplication \u2014 workspace dep policy in crate AGENTS.md forbids strum and serde_with. The bead's own analysis acknowledged this constraint. Actionable fix: replaced the single-variant 'Singleton round-trips' test (1 of 23 typed variants audited) with a table-driven test that iterates ALL 23 typed variants and asserts (a) Display produces the expected wire string, (b) Serialize emits the same, (c) Deserialize rebuilds the typed variant \u2014 explicitly NOT Custom. A future contributor that adds a Display arm without a matching Deserialize arm now fails (c) at first test run, catching the silent drift filed as bd:JMAP-wlip.22 mechanically. The triplication maintenance burden remains; it's now testable. Resolves the unaudited-synchronization risk without changing the dep allowlist.",
+  "closed_at": "2026-05-14T13:33:56Z",
+  "compaction_level": 0,
+  "content_hash": "54525c3bf9157535ba143fda27b740e32a628c9a4f5801c37376d274c5f412d2",
+  "created_at": "2026-05-14T13:10:04Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs:244-321 implements three parallel mappings for SetErrorType's 24 known variants plus the Custom(String) catch-all: (1) Display (lines 246-272) maps each variant to its camelCase wire string; (2) Serialize (276-280) delegates to to_string(); (3) Deserialize (282-320) hand-writes a Visitor with a 24-arm match that mirrors Display in reverse. Adding a variant requires touching exactly two arms (Display and Deserialize). The pairs MUST stay in sync \u2014 a Display string like 'overQuota' that doesn't appear in the Deserialize match becomes a Custom('overQuota') on round-trip, producing the silent contract drift already filed as JMAP-wlip.22. Idiomatic Rust uses #[serde(rename_all = 'camelCase')] + #[serde(untagged)] (or a Custom variant with serde(other)) to derive the round-trip from a single source of truth, OR uses strum::Display/EnumString to derive Display alongside FromStr. The workspace dep policy in crate AGENTS.md restricts deps to 'serde, serde_json, tokio, http, thiserror' \u2014 neither strum nor serde_with is on the list. That makes the manual impl a forced choice today, but the choice is not a free maintenance lunch: the 24-arm pair is the same maintenance burden the policy was trying to avoid, and JMAP-wlip.22's round-trip asymmetry is exactly the failure mode this section warns about. What goes wrong if it stays: every future RFC extension that adds a typed variant requires synchronized edits to Display + Deserialize arms; the test asserting 'Singleton round-trips as singleton' (line 919) covers exactly one variant out of 24, so the synchronization is unaudited for 23 of them.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetErrorType manual Serialize/Deserialize + Display triplicates the variant\u2192wire-string mapping",
+  "updated_at": "2026-05-14T13:33:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:10:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "e47f9db1-545a-5688-bb93-aa80f97e2b4f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

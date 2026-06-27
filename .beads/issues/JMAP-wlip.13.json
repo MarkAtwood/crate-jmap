@@ -1,0 +1,33 @@
+{
+  "close_reason": "No-op resolution: defense of the existing principal_id default-None / fn-not-method design. The shape is intentional (security seam enforced by types). Closing as a no-op; the defended shape stays. (Related: JMAP-wlip.6 closed by adding a rustdoc paragraph explaining the no-&self rationale.)",
+  "closed_at": "2026-05-14T13:54:26Z",
+  "compaction_level": 0,
+  "content_hash": "a15fd867fce3cf5f3adba635a12634f024d3789beb8c63ee4424297b816af6c8",
+  "created_at": "2026-05-14T12:54:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this choice is correct: JmapBackend::principal_id is a trait method with a default impl that returns None (backend.rs:777-780). A naive future contributor will suggest making this required (no default), arguing 'every backend should declare its identity story'. That suggestion is wrong because:\n\n1. Single-user / dev / test-fixture backends have a defensible 'no identity' story \u2014 they don't honor identity-dependent JMAP semantics, and the type system should let them say so by inheriting the default. Forcing them to write  adds boilerplate without information.\n\n2. The default's documentation is explicit (backend.rs:761-768): 'Returns None for deployments that have not wired identity\u2026 A None-returning backend CANNOT honor JMAP semantics that depend on caller identity'. Consumers who *need* identity get a hard signal (Option<&Id> \u2192 match on None \u2192 cannot proceed); consumers who don't need it pay no boilerplate cost.\n\n3. The fn-not-method shape (no &self) structurally enforces 'identity comes from CallerCtx, not from backend state'. Identity-minting is forbidden by construction, not just by docstring. That's an unusually clean security seam.\n\n4. The contract documented at backend.rs:770-772 ('Implementations MUST NOT mint identity \u2014 they MUST read it from the CallerCtx populated by the HTTP/auth middleware before dispatch() was called') is enforced by Rust types \u2014 there is no &self, so no way to read from backend state.\n\nWhat a future contributor might incorrectly suggest changing: adding &self to the signature 'for consistency with the other backend methods'. Reject \u2014 the inconsistency is the point. Or making it required (no default) 'so every backend is forced to think about it'. Reject \u2014 the default is the signal, and most backends correctly inherit it.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "principal_id default impl returning None \u2014 defensible identity-seam design",
+  "updated_at": "2026-05-14T13:54:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:54:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "cec66430-7674-504c-b43e-f43c2a194661",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T175453Z-2820386",
+  "close_reason": "Implemented RFC 8621 As* header forms via mime-tree 0.3 typed-header API. Workspace mime-tree dep bumped 0.1->0.3; jmap-mail-server promotes mime-tree from optional to hard dep. apply_header_form now calls mime_tree::parse_header_typed for AsAddresses/AsGroupedAddresses/AsDate/AsMessageIds/AsURLs and converts via canonical jmap_mail_types::EmailAddress/EmailAddressGroup. Pinning test replaced with 5 RFC-grounded oracle tests (James Smythe address-list, RFC 5322 \u00a73.3 sample date, RFC 5322 \u00a73.6.4 msg-id, RFC 2369 List-Help URLs). All workspace tests green; clippy + fmt + doc clean. Commit e99c3dc.",
+  "closed_at": "2026-05-13T18:41:33Z",
+  "compaction_level": 0,
+  "content_hash": "8356518fb67349513c408644002914c39555f7c7d5cf074a1d2cb44f18bf32b2",
+  "created_at": "2026-05-11T00:06:05Z",
+  "created_by": "Mark Atwood",
+  "description": "Sites: crate-jmap-mail-server/src/email.rs:306, 316, 325, 334, 343\n\nFive RFC 8621 header forms are stubbed with eprintln('not yet implemented') + null return:\n- AsAddresses (RFC 8621 \u00a74.1.2.3.2)\n- AsGroupedAddresses (\u00a74.1.2.3.3)\n- AsDate (\u00a74.1.2.3.4)\n- AsMessageIds (\u00a74.1.2.3.5)\n- AsURLs (\u00a74.1.2.3.6)\n\nAlso pinned by integration test assertion at crate-jmap-mail-server/tests/integration.rs:6598 that panics if 'not yet implemented' property unexpectedly returns non-null.\n\nImplementing these is required for full RFC 8621 \u00a74 conformance. After implementation, drop the integration test pinning and remove the eprintln stubs.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement 5 As* header forms in jmap-mail-server email.rs",
+  "updated_at": "2026-05-13T18:41:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T19:11:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.11",
+      "id": "4ef357ed-bba7-5028-8f79-bf2318f95c5c",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-10T17:06:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu",
+      "id": "743a46b5-35b0-5cc3-aad1-63a4a0baa1bf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

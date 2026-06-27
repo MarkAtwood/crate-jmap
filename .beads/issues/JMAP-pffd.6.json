@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added #[allow(deprecated)] to jmap_error_all_constructors_serialize in response.rs",
+  "closed_at": "2026-05-02T22:17:13Z",
+  "compaction_level": 0,
+  "content_hash": "0390a20d61113034141551dc79b963700bbc062632422005cdab462ead7bcce0",
+  "created_at": "2026-05-02T22:15:33Z",
+  "created_by": "Mark Atwood",
+  "description": "response.rs:339 calls JmapError::unknown_capability() in jmap_error_all_constructors_serialize without #[allow(deprecated)]. The commit added #[allow(deprecated)] in error.rs (same crate as the deprecated fn) but missed this cross-crate call site. cargo test -p jmap-server currently emits a deprecation warning; cargo test -p jmap-server -- -D warnings or clippy -D warnings will treat it as an error and break CI. Fix: add #[allow(deprecated)] to the jmap_error_all_constructors_serialize test function.",
+  "ephemeral": 0,
+  "id": "JMAP-pffd.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "missing #[allow(deprecated)] on response.rs test using unknown_capability()",
+  "updated_at": "2026-05-02T22:17:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:15:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-pffd",
+      "id": "ccde6969-e029-5a21-81a8-7187cf98d270",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

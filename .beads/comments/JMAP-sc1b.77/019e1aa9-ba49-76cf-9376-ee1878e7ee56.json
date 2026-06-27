@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "created_at": "2026-05-12T05:29:51Z",
+  "id": "019e1aa9-ba49-76cf-9376-ee1878e7ee56",
+  "issue_id": "JMAP-sc1b.77",
+  "text": "REVERTED in commit a7d3273 (bd:JMAP-sc1b.111). Per the workspace AGENTS.md policy narrowing in bd:JMAP-sc1b.110, classifier-attribute strings on data-object sub-types in type crates that mirror an externally-owned schema (RFC 9553 JSContact, RFC 8984 JSCalendar) should NOT receive the typed-enum-with-Other(String) catch-all pattern. The 10 sites converted by 3e27837 are now bare String / Option<String> again. This bead is not reopened \u2014 the revert supersedes its outcome."
+}

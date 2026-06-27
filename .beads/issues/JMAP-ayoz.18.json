@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Affirmative review finding \u2014 verified in-source. The 'every test has an Oracle: spec citation' convention is uniformly applied: 40/40 in src/metadata.rs, 10/10 in src/memory.rs, 26/26 in tests/metadata_tests.rs (test-attribute count exactly equals Oracle-comment count in each file). Spot-checks confirm citations reference spec sections (draft \u00a73.1, draft \u00a73.3, RFC 8620 \u00a75.3, RFC 8620 \u00a75.1, etc.) rather than internal sources, satisfying the workspace AGENTS.md 'tests must have an independent oracle' rule. The defense is per-test and in-source \u2014 a future contributor adding a test without an oracle citation would be visibly inconsistent with every neighbour. No code change warranted; the convention is self-perpetuating once established at this density.",
+  "closed_at": "2026-05-17T09:06:15Z",
+  "compaction_level": 0,
+  "content_hash": "6b8b1ea925c2d90cc479088d3200fa3c6fb8a00c52781061ee38f71768bf6db0",
+  "created_at": "2026-05-14T14:22:40Z",
+  "created_by": "Mark Atwood",
+  "description": "Every test in metadata.rs::tests and tests/metadata_tests.rs starts with a doc comment of the form:\n\n    /// Oracle: draft-ietf-jmap-metadata-01 \u00a73.1 \u2014 ...\n    /// Oracle: \u00a73.1 + RFC 8620 \u00a75.3 \u2014 ...\n\nThis is the workspace's test-integrity rule made visible at every test site. A future contributor proposing to 'simplify' by removing the oracle comment, OR proposing a test that has no oracle citation, is doing it wrong. The oracle is part of the test, not its annotation.\n\nThe convention is load-bearing for the workspace 'tests must have an independent oracle' rule in /home/mark/.config/opencode/AGENTS.md \u2014 without the citation, a reader cannot tell whether the assertion's expected value was derived from the impl (forbidden) or from the spec (required).\n\nDefend against: 'these comments are noise', 'this should be in the test function name', 'consolidate similar oracles'. The point is per-test traceability; consolidation defeats it.\n\nSpecific tests where the discipline pays \u2014 set_create_uniqueness_violation_returns_already_exists, set_create_private_when_not_permitted_returns_forbidden, changes_filter_drops_non_matching_destroyed. Each cites the \u00a7/RFC clause that defines the expected behavior, and the assertion is on the spec-defined wire value (e.g. exact 'alreadyExists' string), not on impl internals. Worth preserving across future test additions.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Test oracle discipline: every test cites a draft section + RFC clause explicitly",
+  "updated_at": "2026-05-17T09:06:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:22:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "3366347c-5d3c-59bf-8426-8eac4f41e3d3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

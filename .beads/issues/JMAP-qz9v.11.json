@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in 20a10c1. MemoryBackend.update_object now enforces RFC 9610 \u00a72 at-most-one-default invariant for AddressBook: when the patched object becomes default, all other previously-default AddressBooks in the same account are demoted in the same critical section. Demoted ids are recorded in the change_log so AddressBook/changes surfaces them per RFC 8620 \u00a75.2.\n\nKept Ok(None) return \u2014 that is workspace canonical per crate-jmap-mail-server/src/memory/mod.rs:1223 ('MemoryBackend does not echo server-modified fields'). The bead's framing on Ok(None) was imprecise: per RFC 8620 \u00a75.3, Ok(Some) is for server-set fields ON THE PATCHED OBJECT, not for side-effect changes to OTHER objects. The handler-side concern about demoted books appearing in the wire 'updated' map for the regular update path (today only the onSuccessSetIsDefault block re-fetches other books) is tracked at bd:JMAP-qz9v.5.\n\nThree new integration tests on MemoryBackend exercise: promote-via-update demotes other books, demoted ids surface in /changes updated, idempotent re-promote of already-default book. 94+31+1 tests pass; workspace clippy + tests green.",
+  "closed_at": "2026-05-17T10:18:45Z",
+  "compaction_level": 0,
+  "content_hash": "83999d54dd65e91d0523a51efee6abe9f66969e3710f03482f049006e5d29b38",
+  "created_at": "2026-05-14T19:21:22Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: any AddressBook/set update or ContactCard/set update against MemoryBackend.\n\nBad behavior: memory.rs:646-702 applies the merge-patch to the stored value, bumps state, records the change-log entry, and then returns Ok(None) unconditionally (line 701). Per RFC 8620 \u00a75.3, returning None means 'the patch was applied verbatim and the client already has the updated state; emit the id with a null value in the updated map'. Returning Some(obj) means 'the server set additional fields beyond what the client requested; emit the full obj in updated so the client picks them up'.\n\nFor MemoryBackend this is mostly fine \u2014 the merge-patch IS the verbatim story. But the handler-level onSuccessSetIsDefault flow at addressbook.rs:354-372 RELIES on update_object returning Some(obj) to populate the updated map with the demoted books \u2014 and even more specifically, the addressbook.rs handler ALWAYS reaches the post-update fallback re-fetch loop (lines 354-372) because update_object never returns Some.\n\nSo the MemoryBackend implicitly forces the handler to re-fetch every other AddressBook from scratch on every isDefault transition. That's an O(N) scan per transition where it could have been O(1) (the backend already cleared the flag on a single book; just return Some(promoted) and let the handler trust the caller).\n\nFor Contacts this is a perf concern, not a correctness one. But the deeper issue is that MemoryBackend.update_object ALSO does not maintain the single-default invariant during a regular update where isDefault: true is set. Compare MockBackend.update_object at lib.rs:427-435 which DOES enforce single-default \u2014 the reference impl is LESS realistic than the test mock. Contributors studying memory.rs to learn the pattern will copy a backend that doesn't enforce the invariant. See JMAP-qz9v.5 for the broader single-default-on-create bug.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.update_object always returns Ok(None) even after applying a patch \u2014 handler emits 'updated: { id: null }' instead of server-set echo",
+  "updated_at": "2026-05-17T10:18:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:21:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "fec54dfa-6616-55d6-9527-f994a2b696e2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

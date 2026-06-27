@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in 8d12c8e. All sites where the format arg is a plain binding are now inline-capture: writeln! / format! calls in tests/common/mod.rs, the three bench convert_* closures, and examples/parse_eml.rs:36. The one positional site format!('bnd{}', i + 1) is kept because the arg is an expression (the bead explicitly recommended leaving it).",
+  "closed_at": "2026-05-15T06:35:47Z",
+  "compaction_level": 0,
+  "content_hash": "3d7e9b13fc973698235d92d1d43d836f6dcbed6b58d07247d3f2ea28d7eea048",
+  "created_at": "2026-05-15T06:06:47Z",
+  "created_by": "Mark Atwood",
+  "description": "What the code does: `crate-jmap-mime/benches/mime_pipeline.rs` and `crate-jmap-mime/examples/parse_eml.rs` use the legacy positional `format!(\"...{}\", x)` form in multiple places, including in the closure passed to `message_to_jmap_body` (`Id::from(format!(\"blob-{}\", p.part_id))`).\n\nWhat idiomatic Rust would do: inline-capture the identifier in the format string \u2014 `format!(\"blob-{part_id}\")`. Rust 1.58 stabilised this; the workspace targets a much newer rustc (1.88+ per Cargo.toml `rust-version` inheritance), so there is no MSRV reason to keep the legacy form. Clippy's pedantic `uninlined_format_args` flags every instance.\n\nWhy it matters: inline-captured format args are now the unambiguous idiom because (a) they read like Python f-strings or shell interpolation, which is the cognitive model every Rust practitioner since 2022 reads first, (b) they make the arg-to-placeholder correspondence visible at the point of use instead of via positional pairing, which is the source of most format-arg bugs, and (c) they reduce noise (`format!(\"blob-{part_id}\")` vs `format!(\"blob-{}\", part.part_id)` is a measurable readability win when there are multiple args). Two of the four bench-file `format_push_string` sites (lines 88, 185) compound the issue by also being positional \u2014 fixing both together is one edit.\n\nConcrete sites (in-scope diff only):\n- crate-jmap-mime/benches/mime_pipeline.rs:88 \u2014 `format!(\"Content-ID: <part-{}@example.com>\\\\r\\\\n\", idx)`\n- crate-jmap-mime/benches/mime_pipeline.rs:133 \u2014 `format!(\"bnd{}\", i + 1)` (this one has an expression, not just an ident, so inline-capture would need a `let n = i + 1;` first \u2014 leave as-is or inline; minor)\n- crate-jmap-mime/benches/mime_pipeline.rs:143 \u2014 `format!(\"Content-Type: multipart/mixed; boundary=\\\"{}\\\"\\\\r\\\\n\", boundaries[0])` (subscript, leave positional)\n- crate-jmap-mime/benches/mime_pipeline.rs:167 \u2014 `format!(\"Content-ID: <L{}-leaf-{}@example.com>\\\\r\\\\n\", level + 1, leaf_idx)` (level + 1 is an expression; `leaf_idx` can inline)\n- crate-jmap-mime/benches/mime_pipeline.rs:185 \u2014 `format!(\"Content-Type: multipart/mixed; boundary=\\\"{}\\\"\\\\r\\\\n\", inner)` (inner is a binding \u2014 straightforward inline)\n- crate-jmap-mime/benches/mime_pipeline.rs:299, 312, 325, 340, 353, 366 \u2014 six bench-loop closures `Id::from(format!(\"blob-{}\", p.part_id))` (`p.part_id` is a field access; one-step bind-and-inline)\n- crate-jmap-mime/examples/parse_eml.rs:36 \u2014 `Id::from(format!(\"blob-{}\", part.part_id))` (same pattern)\n\nOut of scope: lib.rs is unchanged in scope. The fix is mechanical and pure noise reduction \u2014 pair with t307.11 (`format_push_string`) in one cleanup commit.",
+  "ephemeral": 0,
+  "id": "JMAP-t307.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Bench and example use `format!(\"...{}\", x)` instead of inline-capture `{x}`",
+  "updated_at": "2026-05-15T06:35:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T23:06:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-t307",
+      "id": "84525c08-dd18-5359-ba83-75ccc079bd1e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

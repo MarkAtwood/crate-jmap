@@ -1,0 +1,33 @@
+{
+  "close_reason": "Investigated; not a real bug. The handle_metadata_set handler only invokes create_object::<Metadata>, and the trait invariant documents that backends must support Metadata::TYPE_NAME. Future-bug concern (O != Metadata bypassing uniqueness) belongs in P1 maintainer-burden, filed separately.",
+  "closed_at": "2026-05-14T17:49:53Z",
+  "compaction_level": 0,
+  "content_hash": "b7bc9824053a429ac30c7e73143e26d894d4cbea7a5fdf046e17e440ce45d8c0",
+  "created_at": "2026-05-14T17:49:47Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: an O::SetObject that serialize-then-deserializes round-trips to a Metadata variant where required-fields are missing. In memory.rs:702-708, if O::TYPE_NAME==Metadata::TYPE_NAME but serde_json::from_value::<Metadata>(val.clone()) fails, the function returns SetError(InvalidProperties). But the value 'val' has not yet had the server-assigned id injected, and the function proceeds to inject the id and call O::deserialize at line 729. Wait \u2014 re-reading: lines 702-722 are early returns. If they pass, line 724 mints the id. So this is fine on re-read.\n\nRe-reading more carefully: in line 696-697, val is created from serde_json::to_value(&obj) where obj is O (caller's generic type). For O = Metadata, val is the wire shape. Lines 703-721 attempt to convert val to Metadata for uniqueness checking. If this succeeds, key is computed and conflict checked.\n\nEdge case I missed: O does not have to be Metadata. The handler passes Metadata, but the trait is generic and the doc invariant requires the backend to support O::TYPE_NAME == Metadata::TYPE_NAME. If a future caller passes O != Metadata, lines 702-722 skip the uniqueness check entirely. supports_type<O> in the trait is the gatekeeper. The handler does not consult supports_type before calling create_object. Not a bug in current scope but a future-bug magnet.\n\nDowngrading. Closing \u2014 not a real correctness defect today; the current handler only ever passes Metadata.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.create_object loses uniqueness check when typed-deserialize fails after JSON round-trip",
+  "updated_at": "2026-05-14T17:49:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:49:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "db20245d-aa0b-54ac-9ee1-c7ccac4caf64",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

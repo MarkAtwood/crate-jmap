@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-isx",
+  "title": "Review: jmap-mail-server crate",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:16:07Z",
+  "updated_at": "2026-04-30T23:41:12Z",
+  "closed_at": "2026-04-30T23:41:12Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 correctness bugs in error propagation (wrong error types, partial-batch failure) and missing required wire fields are the primary risk. Wire format bugs (missing updatedProperties) will generate user reports. Error type mismatches are harder to catch in testing. The public API surface (result structs without non_exhaustive) will fossilize if published.\nConfidence: 15% chance of missed bug. Least confident flags: (1) onSuccessUpdateEmail key semantics (email IDs vs submission IDs) \u2014 did not confirm from RFC text; (2) whether Thread/changes updatedProperties is strictly required by the RFC or just conventional. Uncertainty driven by: not having RFC 8620/8621 text to hand, and no test coverage for the error-path scenarios (BackendSetError::Other). Would raise confidence if: ran the test suite against the RFC compliance test vectors, or read \u00a75.2 updatedProperties normative language.\nIdiom rating: ACCEPTABLE \u2014 The code is generally readable Rust. No unsafe, no Box<dyn Error> in public APIs, error enum design is good. Key issues: (1) unreachable pattern in snippet.rs (clippy), (2) result structs missing Debug, (3) repeated manual match on BackendChangesError is the pattern that introduced wrong-error-type bugs. The From impl issue is the most impactful idiom gap.\nRust idiom confidence: 20% chance of missed issue. Least confident flags: whether BackendSetError/BackendChangesError From impls are worth the API surface addition (they'd affect the public trait). Uncertainty driven by: didn't read the test file, may have missed iterator-style issues there."
+}

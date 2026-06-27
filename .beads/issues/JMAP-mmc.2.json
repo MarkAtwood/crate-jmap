@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T12:31:59Z",
+  "compaction_level": 0,
+  "content_hash": "fba53eb69f943ab7fe6e8a22087f7a9bb267fc9196dcce1c3726d9767e375e46",
+  "created_at": "2026-05-01T12:29:49Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8621 \u00a72.3 defines sortAsTree and filterAsTree as request arguments for Mailbox/query. mailbox.rs neither reads nor implements them. Client sending sortAsTree=true or filterAsTree=true silently gets wrong results: sorted by id string, ancestors not filtered. No error is returned. Affects any client using RFC-defined tree-shaped mailbox navigation.",
+  "ephemeral": 0,
+  "id": "JMAP-mmc.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/query: sortAsTree/filterAsTree silently ignored",
+  "updated_at": "2026-05-01T12:31:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T05:29:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mmc",
+      "id": "2cf47193-9ead-52de-ae1b-cd92b2341430",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

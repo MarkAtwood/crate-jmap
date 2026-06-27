@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added '# Deferred session-capability validation' rustdoc section to all 8 with_*_session trait methods (recommendation (a) from the bead body: doc-only fix). Lists explain the constructor accepts any Session including one without the relevant capability; the constructor performs no validation and never fails; validation is deferred to every per-method call which returns ClientError::InvalidSession with a description like 'no primary account for urn:ietf:params:jmap:<ext>' if the session is unsuitable. Each section includes a usage example or cross-reference for callers who want to guard at the binding site by pre-checking session.primary_account_id(\"urn:ietf:params:jmap:<ext>\"). Workspace canonical-template propagation rule followed: changed jmap-mail-client first, then propagated to the 7 sibling extension-client crates (chat, calendars, tasks, contacts, filenode, sharing, metadata) in the same pass \u2014 including jmap-metadata-client which had its own tracker JMAP-wzq9.32 (now also closable as resolved by this commit). Path (b) (typed Result<SessionClient, ClientError> contract) and path (c) (separate session_supports_<ext> predicate) deferred \u2014 both are breaking API changes, doc-only is the right 0.1.x move.",
+  "closed_at": "2026-05-17T13:55:04Z",
+  "compaction_level": 0,
+  "content_hash": "71994bea7dac048bf5a5a5483e6ca15aeb716172e8fe192a8637cc3a2546392c",
+  "created_at": "2026-05-15T03:19:56Z",
+  "created_by": "Mark Atwood",
+  "description": "Canonical mail-client analog of JMAP-wzq9.32 (metadata-client).\n\n`crate-jmap-mail-client/src/lib.rs:42`:\n\n    pub trait JmapMailExt {\n        /// Create a `SessionClient` bound to this client and session.\n        ///\n        /// All JMAP Mail method calls are made through the returned `SessionClient`.\n        fn with_mail_session(&self, session: jmap_base_client::Session) -> methods::SessionClient;\n    }\n\n## The contract gap\n\n`with_mail_session` accepts ANY `jmap_base_client::Session` \u2014 including one whose capabilities do not include `urn:ietf:params:jmap:mail`, or whose accounts list is empty, or whose primary-accounts map has no entry for the mail capability.\n\nThe validation is deferred to every individual method call via `SessionClient::session_parts()` (in `methods/mod.rs`), which returns `Err(ClientError::InvalidSession)` when the session lacks the relevant capability or primary account.\n\nA caller reading the doc-comment on `with_mail_session` has no way to discover this. The function looks total (no `Result` return type), but every subsequent method call may fail with `InvalidSession` if the session was wrong.\n\n## Why this matters\n\n1. **Discoverability**: callers passing a session that does not advertise mail capability get `InvalidSession` errors on every method call, with no indication that the problem is upstream at `with_mail_session` rather than at the method itself.\n\n2. **Defensive coding**: callers cannot write a guard like 'check whether the session supports mail before calling `with_mail_session`'. There is no public predicate.\n\n3. **The asymmetry**: the trait promises 'JMAP Mail method calls are made through the returned SessionClient' but doesn't say what happens if the session can't support them.\n\n## Fix paths\n\n(a) **Doc-only**: add a paragraph to the trait doc-comment explaining that the returned `SessionClient` defers session-capability validation to per-method calls, and lists `InvalidSession` as the variant callers will see if the session is wrong.\n\n(b) **Typed contract**: change return type to `Result<SessionClient, ClientError>` and pre-validate. Breaking change at 0.1.0. Forces callers to handle errors at session-binding time.\n\n(c) **Predicate**: add a separate `JmapMailExt::session_supports_mail(&Session) -> bool` helper. Non-breaking. Callers can check before binding.\n\n## Workspace propagation\n\nPer workspace AGENTS.md \"Canonical Templates\", every extension-client sibling has the same `with_<ext>_session` shape and the same gap. Fix here first, then propagate to chat, calendars, tasks, contacts, filenode, sharing, metadata clients.\n\n## Cross-refs\n\n- JMAP-wzq9.32 \u2014 metadata-client side of this finding\n- JMAP-wzq9.13 (closed) \u2014 earlier ratification of the SessionClient shape (does not preclude these doc-additions or wzq9.32 fix-path (a))",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JmapMailExt::with_mail_session: deferred-validation contract not documented",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:19:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "04d61acd-797a-5339-8380-3470bb06ac45",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

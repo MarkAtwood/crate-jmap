@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-u2e.6",
+  "title": "Filter<T> derive macros may generate over-broad bounds",
+  "description": "In crate-jmap-types/src/query.rs lines 27-34, Filter<T> derives Clone, PartialEq, Serialize, Deserialize. The derive macros for these traits generate bounds like T: Clone, T: PartialEq, T: Serialize, T: for<'de> Deserialize<'de> \u2014 which is correct and exactly what is needed. However, the derive for PartialEq on Filter<T> generates impl<T: PartialEq> PartialEq for Filter<T>, and the Clone derive generates impl<T: Clone> Clone for Filter<T>. These are appropriately tight bounds. No issue. One observation: if Eq is added (finding JMAP-u2e.1), the Eq derive will generate impl<T: Eq + PartialEq> Eq for Filter<T>, which is also correct. This finding is informational \u2014 no action needed; the bounds are correct as written.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:27:32Z",
+  "updated_at": "2026-04-30T04:35:25Z",
+  "closed_at": "2026-04-30T04:35:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-u2e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:27:31"
+    }
+  ]
+}

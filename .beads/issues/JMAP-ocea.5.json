@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Deferred: the clean fix requires changing MdnBackend::send_mdns to take HashMap<String,Mdn> (creation IDs are not JMAP IDs). Breaking API change for a P3 elegance finding \u2014 not worth it at current scale. File separately if the trait is revisited.",
+  "closed_at": "2026-05-03T02:42:05Z",
+  "compaction_level": 0,
+  "content_hash": "101222c85a7971608e177bc807c3014e7ab405d79e7b9d6ca16957d875b74ff6",
+  "created_at": "2026-05-03T02:38:51Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mdn_send uses send_map: HashMap<Id, Mdn> but not_sent: HashMap<String, Value>. The asymmetry forces Id.as_ref().to_owned() conversions whenever an entry moves from send_map to not_sent (e.g. lines 313, 340). Use a consistent key type throughout (String or Id) to eliminate the friction. The conversion lines are subtle and easy to misread.",
+  "ephemeral": 0,
+  "id": "JMAP-ocea.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Inconsistent key types in handle_mdn_send (Id vs String in parallel maps)",
+  "updated_at": "2026-05-03T02:42:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T19:38:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ocea",
+      "id": "3df47473-a409-5bea-9eee-46042fd6f9d1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:26Z",
+  "compaction_level": 0,
+  "content_hash": "effd0389c95db79b40b1f4a6717cd71da0e498ef55f94f6d88747d38201b30c1",
+  "created_at": "2026-05-02T02:54:23Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mailbox_query hardcodes canCalculateChanges: true in the response (mailbox.rs:296). This claim is only valid if the backend can compute Mailbox/queryChanges for the same filter/sort. The implementation performs in-process filtering that backends cannot necessarily reproduce for queryChanges (they have no copy of the filter state). Any client that calls Mailbox/queryChanges expecting delta results will receive stale or incorrect data. Trigger: client calls Mailbox/query, then Mailbox/queryChanges trusting canCalculateChanges=true \u2192 incorrect delta.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/query canCalculateChanges hardcoded true \u2014 false for in-process filter backends",
+  "updated_at": "2026-05-02T03:22:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:54:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "98b80261-7740-53a3-96c3-d4914d8395f1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

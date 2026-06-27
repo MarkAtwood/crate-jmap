@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "principal_get_availability migrated: utc_start, utc_end now &UTCDate; is_empty() guards removed (unreachable through typed param); wire serialization uses .as_ref(); test fixture in tests/availability_tests.rs constructs values via UTCDate::new_validated; README method-table row + drift paragraph updated; PLAN.md drift \u00a7253 updated. cargo test --workspace clean (1427 passed, 0 failed). cargo clippy --workspace --tests -- -D warnings clean. cargo fmt --check clean.",
+  "closed_at": "2026-05-11T04:55:01Z",
+  "compaction_level": 0,
+  "content_hash": "e1e49499c255389fbc39089ef2c8e9efe258ccd997226a7dcdf0ead21f935148",
+  "created_at": "2026-05-11T00:26:25Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-calendars-client/src/methods/principal_availability.rs:22-23\n\nChange method signature:\n- utc_start: &str -> utc_start: &UTCDate\n- utc_end: &str -> utc_end: &UTCDate\n\nDrop the .is_empty() guard logic (lines 27-37) since &UTCDate cannot be empty by construction.\n\nUpdate call sites in tests and wiremock fixtures. Update README.\n\nThis is the same engineering argument as the closed JMAP-6by7 typed-Id epic: typed params make invalid states unrepresentable.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.9.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "UTCDate migration in jmap-calendars-client principal_get_availability method args",
+  "updated_at": "2026-05-11T04:55:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:26:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.9",
+      "id": "5e2c0092-dbbc-5067-9bd1-ec0c3db93c01",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

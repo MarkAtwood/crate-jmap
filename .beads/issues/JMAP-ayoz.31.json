@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed. Extracted collect_relevant_changes as a private associated function on MemoryBackend, called from both get_changes and get_metadata_changes. The since_state parse + change_log filter + max_changes cap-check sequence is now in one place. The TooManyChanges{limit:0} parse-error misuse was preserved verbatim per the bead's note that it is a separate finding. All 39 tests pass; clippy clean.",
+  "closed_at": "2026-05-14T14:58:40Z",
+  "compaction_level": 0,
+  "content_hash": "ef2a2bce96ea7915c5223146717c996c8aad09c8a205293ccf1cb816aa276161",
+  "created_at": "2026-05-14T14:32:13Z",
+  "created_by": "Mark Atwood",
+  "description": "src/memory.rs:441-446 and src/memory.rs:861-865 are byte-identical:\n\n    if let Some(max) = max_changes {\n        if relevant.len() as u64 > max {\n            return Err(BackendChangesError::TooManyChanges { limit: max });\n        }\n    }\n\nBoth branches are also preceded by identical 'parse since_state into u64 via TooManyChanges{limit:0}' (lines 427-430 and 846-849) \u2014 same anti-pattern (using TooManyChanges{limit:0} as a misuse of the variant for a parse error; that is its own correctness issue, separate finding worthy elsewhere).\n\nWhat goes wrong: any change to the cap-check logic (e.g. adding a maxSize-aware tally, switching from len() to a streamed scan) must be applied twice. Drift between the default-impl path (get_changes) and the override path (get_metadata_changes) is the exact failure mode the canonical-template propagation rule guards against, but at the intra-crate scope: the two impls already drift if one is updated and the other is not.\n\nIdiomatic fix: extract a private helper that walks the change_log Vec for a given type_name + account + since_state + max_changes and returns the relevant entries (or a TooManyChanges error). Both impls call this helper, and the cap check lives in one place. The Metadata-specific override adds only the per-record filter logic on top.\n\nNote: this is a clean-up; the canonical template (jmap-mail-server) does not have a get_metadata_changes equivalent so this DRY-up is metadata-server-specific. Cookie-cutter propagation does not apply here.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend get_changes and get_metadata_changes duplicate the max_changes overflow check verbatim",
+  "updated_at": "2026-05-14T14:58:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:32:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "fbcf421f-5ef9-506e-ad6b-456cd6166486",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

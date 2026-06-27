@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T000911Z-2258131",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-13T01:13:59Z",
+  "compaction_level": 0,
+  "content_hash": "1ff80a4682bb1a41fde5512a997152814709f84afca049d54d869325628095f2",
+  "created_at": "2026-05-12T23:35:46Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec: draft-atwood-jmap-chat-00 commit 0783fc4 (\"condition MessageRevision push on edit-history retention\") + \u00a7Message editHistory.\n\nSpec text: \"Servers MAY limit retained MessageRevisions; when the server does not retain edit history, the editHistory field MUST be omitted from Message/get and Message/changes responses. The Peer/deliver edit payload's history visibility is conditioned on retention.\"\n\nCurrent state: Message.edit_history: Option<Vec<MessageRevision>> exists in chat-types; MemoryBackend writes whatever the update_object path produces. There is no retention policy in the kit.\n\n## Acceptance\n\n- New ChatBackend method:\n  ```rust\n  fn retains_edit_history(&self) -> bool { false }\n  ```\n  Sync (not async) because it's a static deployment-policy flag, not a per-call decision.\n- handle_message_get and handle_message_changes consult backend.retains_edit_history() once per call; if false, project Message objects to omit edit_history before returning (i.e., set edit_history: None on the way out)\n- MemoryBackend defaults to retains_edit_history() = false. A test-only setter `MemoryBackend::set_retains_edit_history_for_test(bool)` flips it.\n- Test: Default MemoryBackend (false) \u2192 Message/get response on a message that has stored edit_history \u2192 response omits edit_history\n- Test: MemoryBackend with set_retains_edit_history_for_test(true) \u2192 Message/get response includes edit_history\n\n## Out of scope\n\n- Per-message retention bounds (server limits the COUNT of MessageRevisions kept) \u2014 that's a backend-internal storage decision\n- Federation Peer/deliver edit payload conditioning (Layer E federation work)\n- Migration of existing stored messages when retention flips (consumer responsibility)",
+  "ephemeral": 0,
+  "id": "JMAP-v9py.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Layer B: ChatBackend::retains_edit_history + Message/get and Message/changes handler integration",
+  "updated_at": "2026-05-13T01:13:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-12T16:35:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py",
+      "id": "07e5f763-75fe-5649-8877-ec4e38167aab",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

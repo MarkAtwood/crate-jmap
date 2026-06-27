@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:53:30Z",
+  "compaction_level": 0,
+  "content_hash": "e64afbeeb4a7b3bd8aa9bb60540872c8be28092fd769a788ceea9c07dea84d6e",
+  "created_at": "2026-05-15T20:29:41Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/quota.rs:31 Quota.resource_type: String. RFC 9425 \u00a74.1.1 enumerates only 'octets' and 'count'. Sibling field QuotaScope (types.rs:60) follows the workspace 'in-scope result enum' pattern with Unknown(String) catch-all. resource_type doesn't. Should be a #[non_exhaustive] enum { Octets, Count, Unknown(String) } matching the QuotaScope idiom and the workspace AGENTS.md 'Extras-preservation policy' for result enums. Round-trip preservation test required per same policy.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Quota.resource_type typed as String not enum, breaks consistency with QuotaScope",
+  "updated_at": "2026-05-17T17:53:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:29:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "0ae5b639-4a15-5f58-b754-8848d32665a0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

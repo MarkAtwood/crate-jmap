@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: query_objects receivedAt sort uses epoch comparison via rfc3339_to_epoch_secs",
+  "closed_at": "2026-05-02T19:41:06Z",
+  "compaction_level": 0,
+  "content_hash": "14c569e0d3f5aaed3d6875d7c2490654f3a0e6aa0b5869d6980c13fc71938b2a",
+  "created_at": "2026-05-02T19:34:29Z",
+  "created_by": "Mark Atwood",
+  "description": "query_objects in MemoryBackend sorts by receivedAt using lexicographic string comparison (mod.rs lines 483-486). When receivedAt strings use mixed formats \u2014 some with .mmmZ (from now_utc_string() via Email/set create) and some without (from UTCDate literals like '2025-12-31T00:00:00Z') \u2014 the sort order is wrong for same-second emails with different formats. '2025-12-31T00:00:00.999Z' sorts BEFORE '2025-12-31T00:00:00Z' lexicographically (because '.' < 'Z'), so an email created at T+999ms appears earlier than one created at exactly T when sorting ascending by receivedAt. This is distinct from the before/after issue (JMAP-1vdc.14) but has the same root cause: format inconsistency after the sub-second timestamp change.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ReceivedAt sort in query_objects breaks with mixed .mmmZ vs Z formats",
+  "updated_at": "2026-05-02T19:41:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "fb8c6fd8-f0b1-59dd-a908-b5f924b08784",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

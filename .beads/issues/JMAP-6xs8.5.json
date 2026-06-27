@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T16:41:06Z",
+  "compaction_level": 0,
+  "content_hash": "4bc153b7ee96117f92b7488c83c16015aad6fe99d443fe08a450d2d270e99684",
+  "created_at": "2026-05-15T05:33:53Z",
+  "created_by": "Mark Atwood",
+  "description": "Commit 52a3704 added `pub updated_properties: Option<Vec<String>>` to the base `ChangesResponse` type in jmap-types. The doc-comment correctly notes this field is only meaningful for RFC 8621 \u00a72.2 (Mailbox/changes) and RFC 9425 \u00a75 (Quota/changes). Concern: jmap-types is the foundation. Carrying a Mailbox+Quota-specific extension field on the base type leaks two extension specs into the foundation. Better alternatives that were not pursued: (a) define ChangesResponse as a generic that takes a per-type extension struct, e.g. `ChangesResponse<Ext = ()> { /* base fields */, ext: Ext }`; (b) define MailboxChangesResponse and QuotaChangesResponse as separate types in their respective extension crates that delegate via composition; (c) leave updated_properties as a flatten extras field that mail/quota types explicitly read. Maintenance cost: every future /changes extension (jmap-sharing, jmap-tasks, etc.) will face pressure to add their own typed field here \"for parity\" \u2014 same drift pattern that the chat-cap-stripping bead (JMAP-kt5k) just had to undo. The chosen approach (carry on base) is wire-compatible but fossilizes a coupling. Surface the architectural decision explicitly.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChangesResponse.updated_properties on base type couples Mailbox+Quota spec extensions into the foundation",
+  "updated_at": "2026-05-17T16:41:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:33:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "b43799f5-ac08-5213-b70f-4542ad11c8c7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

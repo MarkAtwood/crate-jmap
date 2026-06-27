@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "7 named tests pass; cargo check -p jmap-chat-client passes; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:24:59Z",
+  "compaction_level": 0,
+  "content_hash": "038ebcc67e1702e1e807e69426a5a72a827631c037ba0667dc1537fe8291b086",
+  "created_at": "2026-05-04T15:05:58Z",
+  "created_by": "Mark Atwood",
+  "description": "WHAT: Port methods/mod.rs from reference \u2014 response types, Patch<T>, SessionClient, all input/patch structs, JMAP helpers.\n\nSOURCE: ~/PROJECT/crate-jmapchat-client/src/methods/mod.rs (1087 lines). Port entirely, adapting imports.\n\nALGORITHM:\n1. Create crate-jmap-chat-client/src/methods/mod.rs and crate-jmap-chat-client/src/methods/ directory\n2. Response types (derive Deserialize, serde rename_all camelCase):\n   - GetResponse<T>, QueryResponse, ChangesResponse, SetResponse<T = serde_json::Value>\n   - QueryChangesResponse, AddedItem, TypingResponse, PushSubscriptionCreateResponse\n   - SetError { error_type: String, description: Option<String>, server_retry_after: Option<UTCDate> }\n3. Patch<T> enum (Keep, Set(T), Clear) with:\n   - Default = Keep; Serialize impl (returns error for Keep); Deserialize impl\n   - is_keep(&self) -> bool; map_entry(&self) -> Result<Option<Value>, serde_json::Error>\n   - From<T> for Patch<T>\n4. All input types (port from reference, substituting):\n   - crate::jmap::UTCDate \u2192 jmap_types::UTCDate\n   - crate::types::* \u2192 jmap_chat_types::* or crate::types::* (for ContactPresenceFilter/QuotaScope)\n   - crate::types::BodyType \u2192 check exact path in jmap_chat_types (likely jmap_chat_types::BodyType or similar)\n   - Keep all struct names identical to reference\n5. Constants: CALL_ID = \"r1\", USING_CHAT, USING_QUOTAS, USING_CORE, USING_CHAT_PUSH as &[&str] constants\n6. SessionClient struct: { client: JmapClient, session: jmap_base_client::Session }\n   - pub fn session_parts(&self) -> Result<(&str, &str), ClientError>: (api_url, chat_account_id)\n   - pub fn api_url(&self) -> &str\n   - async fn call_internal(&self, req: &JmapRequest) -> Result<JmapResponse, ClientError>\n7. build_request(method: &str, args: Value, using: &[&str]) -> JmapRequest using jmap_types::JmapRequest::new and Invocation type\n8. resolve_client_id(id: Option<&str>) -> String using ulid::Ulid::new().to_string() as fallback\n9. Declare module in lib.rs: pub mod methods;\n\nDEFENSIVE RULES:\n- Patch::Keep serializes to a runtime error (never silently sends null)\n- All Option<T> fields in input types use #[serde(skip_serializing_if = \"Option::is_none\")]\n- All Patch<T> fields use #[serde(skip_serializing_if = \"Patch::is_keep\")]\n- No unwrap() without comment\n\nTESTS:\n- patch_serialize_set: Patch::Set(42u32) serializes as 42\n- patch_serialize_clear: Patch::Clear serializes as null\n- patch_serialize_keep: Patch::Keep returns error from serde (not silently null)\n- patch_deserialize_value: json 42 \u2192 Set(42)\n- patch_deserialize_null: json null \u2192 Clear\n- patch_deserialize_absent: missing field + #[serde(default)] \u2192 Keep\n- get_response_roundtrip: deserialize GetResponse<String> from spec-shaped JSON\n\nACCEPTANCE: 7 named tests pass; cargo check -p jmap-chat-client; clippy clean",
+  "ephemeral": 0,
+  "id": "JMAP-s1ei",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-client: methods/mod.rs \u2014 response types, Patch<T>, SessionClient, input types",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T16:15:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w.1",
+      "id": "a696c4fe-f18c-58dd-b849-064deb9c1cdd",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T08:07:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ds04",
+      "id": "cc4f4c22-81a0-505c-9a42-b158692a52a8",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T11:29:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w",
+      "id": "d4a1b3dd-d92e-50c7-b6cf-c77405d937f8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

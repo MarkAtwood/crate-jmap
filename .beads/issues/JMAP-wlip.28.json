@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced 5 inline .iter().map(|id| id.as_ref()).collect::<Vec<_>>() patterns in crate-jmap-server/src/handlers.rs with direct json!() embedding of the Vec<Id>. Id already has #[serde(transparent)] so the wire shape is identical; the intermediate Vec<&str> allocation per call is gone. Sites covered: handle_changes (created/updated/destroyed), handle_query (ids), handle_query_changes (removed). Left handle_query_changes's  construction as-is \u2014 AddedItem lacks Serialize derive and adding one is API surface expansion that belongs in a separate bead if pursued. not_found_json was left as-is per the bead's path (a) choice \u2014 its own implementation is also slightly wasteful but the call sites are now consistent on the json!() embedding pattern.",
+  "closed_at": "2026-05-14T13:35:52Z",
+  "compaction_level": 0,
+  "content_hash": "ea8ac62088a362de5d25647184c013e4369d492aac47c0d9ee87f5f4fe0830ae",
+  "created_at": "2026-05-14T13:09:51Z",
+  "created_by": "Mark Atwood",
+  "description": "src/handlers.rs uses two different patterns to convert Vec<Id> to a JSON array within the same function. handle_get (line 69) uses the not_found_json(&not_found) helper, which is the dedicated shared helper from helpers.rs. handle_changes (lines 128-130) and handle_query (line 212) build the same array shape inline with 'result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>()' \u2014 three Id arrays repeated, each allocating an intermediate Vec<&str>. handle_query_changes does the same for 'removed' (line 301). The inline pattern is doubly non-idiomatic: (a) inconsistent with not_found_json in the same module, and (b) the intermediate Vec<&str> is unnecessary because Vec<Id> already implements Serialize and json!() will produce the identical wire shape from 'result.created' directly (Id is a String newtype). Idiomatic Rust: either pass result.created (Vec<Id>) directly into json!() and let serde do the work, or extend not_found_json to a generic 'ids_to_json_array' helper and use it everywhere. What goes wrong if it stays: maintenance cost (4 copies of the same pattern that must stay in sync), wasted allocations on every /get/changes/query response, and a future reader has to decide which convention to follow when adding a new method handler.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Inconsistent Id-array serialization in handlers.rs: not_found_json helper vs inline iter-map-collect",
+  "updated_at": "2026-05-14T13:35:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:09:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "7583eb4f-9691-5c08-865f-cf624a56e255",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

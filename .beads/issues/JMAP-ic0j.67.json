@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closing as opinion / no current consumer.\n\nThe proposed enrichment (changing `CannotCalculateOccurrences` to `CannotCalculateOccurrences { event_id: Id, reason: String }`) is technically clean (3 sites to update: 1 construction, 2 pattern matches) but lacks a current consumer:\n\n1. The wire response carries no info anyway. Spec draft-ietf-jmap-calendars-26 \u00a710.7.4 defines the method-level error as plain `cannotCalculateOccurrences` with no description field. The trait-level enrichment would never surface to clients.\n\n2. Backends can `tracing::error!` at the construction site today with whatever per-event context they have. The in-process diagnostic concern is solvable without an API change.\n\n3. No current consumer for the structured payload. The single non-test construction site (lib.rs:905, in a test fixture) and the two pattern matches (event.rs:995 handler, lib.rs:2038 test assertion) all use the unit variant adequately. No backend impl or observability layer in the workspace today reads structured context from this variant.\n\n4. The bead author acknowledged: \"Low priority because: (a) the wire response carries no info anyway, (b) backends can always tracing::error! before returning.\" And labeled opinion.\n\nThe `#[non_exhaustive]` enum marker preserves the option of adding context fields as a future non-breaking change IF a real consumer materialises. Until then, the unit variant matches both the wire surface and the bead author's own \"taste-not-bug\" framing.\n\nClosing per the workspace bikeshedding-signal rule. Reopen if a real backend / observability consumer for structured context emerges.",
+  "closed_at": "2026-05-18T03:43:32Z",
+  "compaction_level": 0,
+  "content_hash": "01812ace20a0a5acc1be7814d33482d34afb5536035e6aac8f8aa072bceb9564",
+  "created_at": "2026-05-15T18:10:10Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-calendars-server/src/backend.rs:716-722:\n\n    /// The backend cannot expand a recurrence required to return results\n    /// (e.g. unbounded recurrence with no end-date constraint, or a\n    /// reference to a recurrence rule the backend does not understand).\n    /// The handler maps this to a method-level `cannotCalculateOccurrences`\n    /// error (\u00a75.11, \u00a710.7.4).\n    #[error(\"server cannot expand a recurrence required by the query\")]\n    CannotCalculateOccurrences,\n\nUnit variant \u2014 no source error, no event-id reference, no diagnostic payload.\n\nA backend with multiple unbounded recurrences in a single query result (or a backend that wants to attach which event tripped the failure) has no path to surface that information. The handler at event.rs:912-913 maps to `JmapError::custom(\"cannotCalculateOccurrences\")` with no description.\n\nThe spec (draft-ietf-jmap-calendars-26 \u00a710.7.4) does not require a description, so the wire-level limitation is by design. The trait-level limitation is the design choice in question: trait users (backends + observability + future tooling that wants per-event diagnostics) have no path forward.\n\nWhat callers cannot rely on:\n- That a structured diagnostic for the failing recurrence is available anywhere in the trait surface.\n- That backend authors can do anything but `tracing::error!` from inside the backend before returning the unit variant.\n\nFix options:\n1. Add a struct variant: `CannotCalculateOccurrences { event_id: Id, reason: String }` or with a typed reason enum.\n2. Leave as unit (the current shape) and document explicitly that the trait surface intentionally provides no diagnostic payload because the wire response doesn't carry one anyway.\n\nThe `#[non_exhaustive]` enum marker already permits option 1 as a future non-breaking add. But once any external backend pattern-matches `QueryCalendarEventsError::CannotCalculateOccurrences` exhaustively (which `#[non_exhaustive]` partially prevents but exhaustive matches with a wildcard fallback still work), extending to struct-variant becomes more disruptive.\n\nLow priority because: (a) the wire response carries no info anyway, (b) backends can always `tracing::error!` before returning. Filed under leakage because the unit variant LEAKS the \"we have no story for diagnostics\" implementation choice into the trait.\n\nMark with `opinion` if the reviewer considers this taste-not-bug; the engineering basis is the workspace-wide pattern of carrying typed context in similar error enums (`AvailabilityError::Other(#[source] E)` does carry context, for example).",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.67",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "QueryCalendarEventsError::CannotCalculateOccurrences unit variant carries no offending-recurrence context",
+  "updated_at": "2026-05-18T03:43:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T11:10:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "24808efb-4b9b-553e-b464-145a2a23ae52",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

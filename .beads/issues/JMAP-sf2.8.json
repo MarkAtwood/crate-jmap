@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-sf2.8",
+  "title": "Set response maps: empty-vs-null inconsistency across handlers",
+  "description": "RFC 8620 \u00a75.3 implies empty created/updated/destroyed maps should be null. Mailbox/set (mailbox.rs:658-686) correctly returns null when empty. But Email/set (email.rs:559-571) returns {} for empty created/updated and [] for empty destroyed, not null. Submission/set and Identity/set also return {} or [] when empty. A client checking 'if resp.created \\!= null' would see {} as truthy and wrongly think objects were created. Rewrite to use null for empty maps consistently.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:29:21Z",
+  "updated_at": "2026-05-01T02:49:44Z",
+  "closed_at": "2026-05-01T02:49:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sf2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:29:20"
+    }
+  ]
+}

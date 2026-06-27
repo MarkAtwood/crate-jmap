@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-09T14:16:47Z",
+  "compaction_level": 0,
+  "content_hash": "c48360a96634926f1da27bfc3cc4d49d9fc8c95dd7e5de44cca3ae80b31b3db3",
+  "created_at": "2026-05-09T07:05:27Z",
+  "created_by": "Mark Atwood",
+  "description": "Mirror the calendars-client conversion in jmap-chat-client. Same structural change as the calendars-client child.",
+  "ephemeral": 0,
+  "id": "JMAP-6by7.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "0.2.0 typed-Id: jmap-chat-client",
+  "updated_at": "2026-05-09T14:16:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T00:05:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6by7",
+      "id": "34d4ce73-83a7-5c4c-a228-57ee7d051a4c",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-09T00:05:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6by7.1",
+      "id": "71e314a0-433d-5661-ae7b-a3fbaad6affd",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

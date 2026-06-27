@@ -1,0 +1,22 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-05T01:46:48Z",
+  "compaction_level": 0,
+  "content_hash": "8df9560651ac108b61c9961dcfff503e5ab2dada6040ccc2ede3ea1c149a1dc5",
+  "created_at": "2026-05-05T01:44:47Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-j7yy",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement AddressBook handlers",
+  "updated_at": "2026-05-05T01:46:48Z"
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added a Deserialize dispatch contract section (None|Some(\"PartialDate\")\u2192PartialDate, Some(\"Timestamp\")\u2192Timestamp, Some(other)\u2192Unknown) and an Error context section (custom strings without anchor in parent Anniversary; callers wrap+context) to the AnniversaryDate doc-comment. Note: the empty-string-as-sentinel ambiguity from contract gap (1) was already removed by bd:JMAP-sgrr.26's refactor; the doc-comment now reflects the cleaned-up behavior. The Unknown round-trip asymmetry overlap with bd:JMAP-sgrr.9 remains open as a separate bead. Pre-commit gate clean. Commit pending.",
+  "closed_at": "2026-05-15T04:01:14Z",
+  "compaction_level": 0,
+  "content_hash": "637fe53e9dd9210e1a063136cba89430f64fc4d0b4f378e0612108c65cc31df5",
+  "created_at": "2026-05-15T03:42:59Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs:967-997 implements Serialize and Deserialize for AnniversaryDate\nmanually because '#[serde(tag = \"@type\", other)] with tuple variants is not\nsupported by the derive macro' (lib.rs:954-955).\n\nThe Deserialize path at line 977 has two contract gaps the caller may not\nexpect:\n\n1. Tag normalization (lib.rs:990). The match arms treat empty string and\n   the literal 'PartialDate' identically. RFC 9553 \u00a71.3.4 says the default\n   type may be omitted, but it does NOT say 'PartialDate' literal is\n   interchangeable with omission. A peer that defensively always sends\n   '@type': 'PartialDate' deserializes correctly here \u2014 but a future change\n   to make the dispatch stricter would silently change parsing. The doc\n   comment on AnniversaryDate (lib.rs:943-955) does not document the\n   tag-normalization semantics.\n\n2. Error message quality (lib.rs:984, 991). Both branches call\n   serde_json::from_value(v).map_err(serde::de::Error::custom). The error\n   message a caller sees on a malformed Timestamp input would say\n   something like 'missing field utc' \u2014 but with no anchor to where in the\n   parent Anniversary the date field was. Callers debugging a deeply nested\n   ContactCard will not get a useful pointer.\n\n3. The Unknown branch (line 994) accepts a serde_json::Value that may not\n   round-trip. This overlaps with JMAP-sgrr.9 but the manual-impl context is\n   distinct: JMAP-sgrr.9 is about the Rust constructor reachability;\n   the contract gap here is that the doc-comment on AnniversaryDate at line\n   943-955 does not warn the caller about which @type values fall through\n   to Unknown vs. fail to parse.\n\nResolution: document the dispatch contract on the AnniversaryDate enum: 'When\ndeserializing, @type values \"\" (omitted) and \"PartialDate\" route to the\nPartialDate variant; \"Timestamp\" routes to Timestamp; all other strings route\nto Unknown(Value). Errors in parsing PartialDate or Timestamp surface as\ncustom-bound serde errors that do not include the path within a parent\nAnniversary.' Two sentences in the doc-comment close the gap.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AnniversaryDate manual Serialize impl drops error context \u2014 Timestamp serialization of an invalid utc field silently succeeds",
+  "updated_at": "2026-05-15T04:01:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:42:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "49165e96-5e09-50ab-b671-6f334f74800a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

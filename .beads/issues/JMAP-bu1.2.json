@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-bu1.2",
+  "title": "validate_sha256_format doc says lowercase-only but accepts A-F uppercase",
+  "description": "Function doc says '64 lowercase hex characters (RFC 6570 / JMAP-CID)' but b.is_ascii_hexdigit() accepts A-F (uppercase). The caller normalizes with to_ascii_lowercase() after validation. A contributor reading the doc will believe the validator enforces lowercase, may remove the normalization step as 'redundant', causing comparison failures on servers that return uppercase hex. Also references RFC 6570 (URI templates) which is wrong \u2014 SHA-256 format is from JMAP-CID \u00a71 only.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:25:24Z",
+  "updated_at": "2026-04-30T01:31:27Z",
+  "closed_at": "2026-04-30T01:31:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-bu1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:25:23"
+    }
+  ]
+}

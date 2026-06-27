@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:58:36Z",
+  "compaction_level": 0,
+  "content_hash": "64ebf1a34d8975770250ca669c015a9d5a3e887a59fe9a49320db135517de1d9",
+  "created_at": "2026-05-07T20:29:20Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-types/README.md 'What' table is significantly incomplete. Missing:\n\n- ChatKind, Presence, ChatPresenceEvent\n- ChatStreamDisable, ChatStreamEnable, ChatTypingEvent\n- SenderId, DeliveryState, ReadDisposition\n- All of backend::* property enums: ChatProperty, MessageProperty, SpaceProperty, SpaceBanProperty, SpaceInviteProperty, ChatContactProperty, CustomEmojiProperty, PresenceStatusProperty, ReadPositionProperty\n\nFix: regenerate 'What' table from the actual lib.rs pub use list. Possibly the same pattern in sharing-types, tasks-types, filenode-types, mail-types \u2014 file separately if so.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: chat-types README missing many exported types from 'What' table",
+  "updated_at": "2026-05-07T21:58:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "67f3cafd-891d-5ac1-b7bc-031d0f8baca2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

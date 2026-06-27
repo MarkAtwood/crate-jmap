@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T12:25:20Z",
+  "compaction_level": 0,
+  "content_hash": "36140e7e15176c1dc659d3f0bbb252432502d40671879042e524566f0eb21a18",
+  "created_at": "2026-05-01T12:16:13Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs handle_email_query: when client omits 'limit' the handler defaults to 256 (line 181-191), but the response JSON (lines 306-319) never includes a 'limit' field. RFC 8620 \u00a75.5: 'This is only returned if the server set a limit or used a different limit than that given in the request.' When client sends no limit and server applies 256, or when client sends limit>256 and server clamps to 256, the response MUST include limit:256. The field is entirely absent from the response construction.",
+  "ephemeral": 0,
+  "id": "JMAP-a14.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/query missing 'limit' in response when server applies default",
+  "updated_at": "2026-05-01T12:25:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T05:16:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a14",
+      "id": "ef0f6ea1-48ed-53c4-ac3b-d6f0e134984a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

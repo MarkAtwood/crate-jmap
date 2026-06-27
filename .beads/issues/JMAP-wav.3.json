@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T05:29:43Z",
+  "compaction_level": 0,
+  "content_hash": "04ae44c25f2eabb27be0a8d4c74d8c2c52d20a4ee822515d45ca2170a5cdfe05",
+  "created_at": "2026-05-01T05:27:10Z",
+  "created_by": "Mark Atwood",
+  "description": "vacation.rs: serde_json::to_value(&err).map_err(|e| JmapError::server_fail(e.to_string()))? on SetError is inconsistent with the rest of the codebase which uses .expect('SetError derives Serialize and is always serializable'). The map_err/? pattern is misleading \u2014 it suggests the serialization can fail and the whole handler returns early with a server error, but SetError is always serializable. The .expect() pattern documents the invariant correctly. Fix: replace all vacation.rs serde_json::to_value map_err patterns with .expect() to match email.rs, mailbox.rs, etc.",
+  "ephemeral": 0,
+  "id": "JMAP-wav.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "vacation.rs: use .expect() for infallible serde_json::to_value",
+  "updated_at": "2026-05-01T05:29:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-04-30T22:27:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wav",
+      "id": "b8c09233-08ce-5ea2-bce4-943f8df77dc0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

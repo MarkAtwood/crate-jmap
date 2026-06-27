@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:50:00Z",
+  "compaction_level": 0,
+  "content_hash": "6a753bd412a0f7370ceace0e8b632929336df153ff26201d568aa9cc3ebe26f5",
+  "created_at": "2026-05-02T23:46:17Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_mdn_send (crate-jmap-mail-server/src/mdn.rs lines 239-252), the CRLF checks for mdn_gateway and original_message_id have no comment explaining why client-supplied values for spec-marked (server-set) fields are validated. The spec (draft-ietf-jmap-mdn-17 \u00a72) marks both fields as '(server-set)', but \u00a72 also states finalRecipient 'if specified by the client ... the server will use the client provided value' and there is no equivalent explicit statement for mdn_gateway/original_message_id. The fields are accepted in the request object (the Mdn struct is shared for both send and parse). A brief comment should explain: these fields are server-set in the normal case but are accepted from the client to allow overrides; since the values flow into RFC 5322 headers, CRLF injection must still be checked even though the server would normally populate them.",
+  "ephemeral": 0,
+  "id": "JMAP-f0i2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mdn.rs: mdn_gateway/original_message_id CRLF checks lack rationale comment",
+  "updated_at": "2026-05-02T23:50:00Z"
+}

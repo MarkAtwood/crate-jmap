@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added #[doc(hidden)] to MemoryBackend::set_max_sieve_script_bytes AND its sibling set_max_sieve_scripts_per_account (same pattern, both had the same defect). Rewrote each docstring with 'Test-only' as the first sentence; docs now redirect production backends to the corresponding SieveBackend trait methods.\n\nThe bead only named set_max_sieve_script_bytes, but set_max_sieve_scripts_per_account had the exact same shape and same defect \u2014 applied the fix to both atomically rather than leaving a follow-up bead.\n\nDid NOT rename to set_*_for_test (chat-server convention). The chat-server canonical uses _for_test suffix; mail-server's set_* names predate that convention. Renaming would be a pre-1.0 break with no semantic gain; #[doc(hidden)] is sufficient to address the actual concern (consumers reading cargo doc and mistaking these for recommended configuration knobs).\n\nCookie-cutter posture: chat-server already has #[doc(hidden)] on all three of its set_*_for_test knobs (verified via grep). No sibling extension-server propagation needed. Calendars/contacts/tasks/filenode/metadata/sharing memory backends checked \u2014 no analogous publicly-exposed test knobs found.\n\nQuality gates: fmt + clippy --all-features --tests + test --all-features + doc --features memory,sieve all clean. All 23 sieve_integration tests pass.",
+  "closed_at": "2026-05-17T06:13:48Z",
+  "compaction_level": 0,
+  "content_hash": "75d4d116d4d715e3eca0ac05954a0afeef4f6cc51d35f95e03bfca4fbd8e566a",
+  "created_at": "2026-05-14T16:30:09Z",
+  "created_by": "Mark Atwood",
+  "description": "src/memory.rs:275-282 declares:\n\n```\n/// Set the maximum Sieve script size in bytes for size enforcement tests.\n///\n/// When set, `SieveBackend::max_sieve_script_bytes` returns this limit,\n/// causing `handle_sieve_set` to reject scripts exceeding it with `tooLarge`.\n#[cfg(feature = \"sieve\")]\npub fn set_max_sieve_script_bytes(&self, limit: u64) {\n    self.inner.lock().unwrap().max_sieve_script_limit = Some(limit);\n}\n```\n\nThe docstring states it is intended \"for size enforcement tests\" \u2014 but the method is `pub` without `#[doc(hidden)]`. A consumer reading `cargo doc` sees this as a recommended way to configure the reference impl's Sieve size limit, when the actual design intent is \"use this in test fixtures only; production should impl `SieveBackend::max_sieve_script_bytes` themselves on their real backend\".\n\nThe crate-level memory-module doc already says \"Not production.\" globally, but a per-method `#[doc(hidden)]` or a more explicit \"Test-only \u2014 use a real `SieveBackend` for production\" warning on this specific method would prevent confusion.\n\nThe same critique applies to `register_account` and `store_blob` (lines 263, 270), though those have legitimate use in example/demo code beyond pure tests. `set_max_sieve_script_bytes` is more clearly test-only because production backends would derive the limit from per-account quota state, not from a global mutator.\n\nPriority P2 because: `feature = \"memory\"` already carries a \"not production\" doc-level warning and pre-1.0 stability disclaimer. But the per-method intent is unclear to a doc-only reader.\n\nSuggested fix: either `#[doc(hidden)]` the test-only knobs, OR rewrite the docstring to make the test-only intent the first sentence:\n\n```\n/// **Test-only**: set the maximum Sieve script size in bytes. Production\n/// backends should implement `SieveBackend::max_sieve_script_bytes` directly\n/// on their own backend type.\n```",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::set_max_sieve_script_bytes is a test knob exposed on public API",
+  "updated_at": "2026-05-17T06:13:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:30:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "73cebc58-7ede-5d30-994a-1fc69453c287",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

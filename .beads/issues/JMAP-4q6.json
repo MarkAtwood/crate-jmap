@@ -1,0 +1,39 @@
+{
+  "id": "JMAP-4q6",
+  "title": "mailbox.rs: Mailbox/get,changes,query,queryChanges,set",
+  "description": "Implement all 5 Mailbox/* handler functions in src/mailbox.rs.\n\n## Methods to implement\n- Mailbox/get (RFC 8621 \u00a72.1): fetch mailboxes by id list or all; honor 'properties' filter\n- Mailbox/changes (RFC 8621 \u00a72.2): return created/updated/destroyed since sinceState\n- Mailbox/query (RFC 8621 \u00a72.3): filter+sort mailbox list; FilterCondition fields: parentId, name, role, hasAnyRole, isSubscribed\n- Mailbox/queryChanges (RFC 8621 \u00a72.4): removed + added items since sinceState\n- Mailbox/set (RFC 8621 \u00a72.5):\n  - create: parentId validation, role uniqueness check (only one Inbox, one Drafts, etc.)\n  - update: patch semantics via JSON Merge Patch\n  - destroy: onDestroyRemoveEmails flag \u2014 if false and mailbox non-empty \u2192 mailboxHasEmail error; if true, delete contained emails first (handler layer, not backend)\n  - Singleton mailboxes (Inbox) cannot be destroyed \u2192 forbidden error\n\n## Key design decisions\n- onDestroyRemoveEmails logic lives entirely in handler, not backend\n- Role uniqueness (at most one mailbox per role per account) enforced in handler\n- Backend sees only get_objects/set_object calls\n\n## Source references\n- Stalwart (AGPL \u2014 read, do not copy): ~/GIT/stalwart-jmap-server/main/crates/jmap/src/mailbox/\n- RFC 8621 \u00a72 (all Mailbox methods)\n- Copy pattern: ~/PROJECT/crate-jmapchat-server/jmapchat-server/src/chat.rs (StorageBackend CRUD pattern)\n\n## Test vectors (MemoryBackend integration tests)\n- Create mailbox \u2192 get \u2192 assert fields match\n- Set with onDestroyRemoveEmails=false on non-empty mailbox \u2192 expect mailboxHasEmail error\n- Set with onDestroyRemoveEmails=true \u2192 emails deleted, mailbox destroyed\n- Mailbox/query with parentId filter \u2192 only child mailboxes returned\n\nDepends on: JMAP-8ph, JMAP-5c0, JMAP-tf6\nParent: JMAP-445",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:02:11Z",
+  "updated_at": "2026-04-30T20:59:03Z",
+  "closed_at": "2026-04-30T20:59:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-2n8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:39:39"
+    },
+    {
+      "depends_on_id": "JMAP-5c0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:03:58"
+    },
+    {
+      "depends_on_id": "JMAP-8ph",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:03:58"
+    },
+    {
+      "depends_on_id": "JMAP-tf6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:03:59"
+    }
+  ]
+}

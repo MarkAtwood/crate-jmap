@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in same commit as JMAP-tjvm.7. New crate-jmap-mail-client/tests/extras_passthrough_tests.rs file holds 6 wire-level tests (1 per method that accepts a *Params struct with extras): each constructs the params with a vendor key in 'extra', invokes the production method through SessionClient, and asserts the vendor key appears at the correct path in args under server.received_requests()[0]. The struct-level tests in src/methods/mod.rs remain \u2014 they verify the serde derive contract; the new tests verify the production-method wire-passthrough contract. Both layers are needed; one tests serde, the other tests the method.",
+  "closed_at": "2026-05-17T13:06:57Z",
+  "compaction_level": 0,
+  "content_hash": "eb092047afaba114ffc3a9fe9acd8ae8d3940cd42fcb640ca8bdab4b5dbfc0c6",
+  "created_at": "2026-05-15T01:46:17Z",
+  "created_by": "Mark Atwood",
+  "description": "The 9 extras-policy tests in src/methods/mod.rs (lines 714-839) all follow\nthe same shape:\n```rust\nlet params = SomeParams { extra: {acme: ...}, ... };\nlet v = serde_json::to_value(&params).unwrap();\nassert_eq!(v[\"acmeCorpFoo\"], json!(...));\n```\nThese test that the *struct* serializes its extras correctly. They do NOT\ntest that the production method (`email_get`, `email_copy`, etc.) actually\nincludes those extras in the JMAP request body that goes onto the wire.\n\nThis is why bd:JMAP-tjvm.7 (silent-drop in email_copy, mailbox_set,\nemail_submission_set) was not caught by the test suite: the struct serializes\nperfectly, but the production method discards the result.\n\nFix: replace each per-struct extras test with a wiremock smoke test that:\n  1. constructs the params with a vendor key in extras,\n  2. calls the production method through SessionClient,\n  3. inspects server.received_requests()[0] and asserts the vendor key is in\n     methodCalls[0][1] (the args).\n\nThis exercises the same code path callers do. The struct-level test is\nnecessary but not sufficient.\n\nThis applies to every extension-client sibling cookie-cut from this template.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extras round-trip tests verify struct serialization, not wire passthrough",
+  "updated_at": "2026-05-17T13:06:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:46:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "40faa371-b2c3-5bff-8485-2512603ecf88",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

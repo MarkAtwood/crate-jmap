@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T22:05:07Z",
+  "id": "019e37f8-b6cf-7368-9d60-726bb9b06090",
+  "issue_id": "JMAP-ops7.6",
+  "text": "Fix spans crates: jmap-mail-types, jmap-mail-client. /do-beads must verify with cargo check --workspace."
+}

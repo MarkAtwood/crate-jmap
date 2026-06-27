@@ -1,0 +1,33 @@
+{
+  "close_reason": "won't-fix",
+  "closed_at": "2026-05-11T22:28:14Z",
+  "compaction_level": 0,
+  "content_hash": "9b5e90a58407653f0a263356b5c14e6fe2d891345341bf128a504ac500254a4b",
+  "created_at": "2026-05-11T16:33:52Z",
+  "created_by": "bd-spin/bd-spin-20260511T151456Z-658525",
+  "description": "Carved out of JMAP-g7wu.2.4.2: handler-side permission enforcement.\n\nSite: crate-jmap-chat-server/src/space.rs in handle_chat_space_set, after parsing the SpacePatchOp Vec but before calling backend.apply_space_patch().\n\nPer draft-atwood-jmap-chat-00 \u00a7Space/set lines 1093, 1096, 1102, 1105, 1108, 1111, 1114, 1117, 1120, 1123, 1126, 1129:\n- manage_space: addRoles/removeRoles/updateRoles space-wide metadata wired to update arm\n- manage_roles: addRoles/removeRoles/updateRoles family\n- manage_members: addMembers/removeMembers/updateMembers family\n- manage_channels: addChannels/removeChannels/updateChannels + addCategories/removeCategories/updateCategories families\n\nThis bead requires:\n1. New helper in chat-server: resolve_caller_permissions(backend, caller, account_id, space_id) -> HashSet<String> \u2014 reads the Space, finds the caller's memberships, unions their roles' permissions plus @everyone defaults.\n2. Per-op variant -> required-permission mapping helper.\n3. Reject the whole patch if the caller lacks any required permission (or partial-success: reject only the disallowed ops? The spec is ambiguous; recommend whole-patch reject to match RFC 8620 /set atomicity expectations for that update target).\n\nNote: role-position-hierarchy enforcement (members may only add/modify roles whose 'position' is strictly less than their own highest-position role) is OUT OF SCOPE for this bead \u2014 that check is in JMAP-g7wu.2.4.3 because it must be atomic with the mutation (backend-side).\n\nDeferred from .4.2 because the handler-permission-resolution helper is new infrastructure with its own design surface (where memberships live in Space, how @everyone defaults work, how chat-server consumers configure them) and is itself ~150-300 LOC + tests.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.2.4.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Handler-side permission gates for handle_chat_space_set (manage_space / manage_roles / manage_members / manage_channels)",
+  "updated_at": "2026-05-11T22:28:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T09:33:51Z",
+      "created_by": "bd-spin/bd-spin-20260511T151456Z-658525",
+      "depends_on_issue_id": "JMAP-g7wu.2.4",
+      "id": "c1ad879e-7c11-57e7-8f42-d9f278bd07cd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

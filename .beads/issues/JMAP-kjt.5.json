@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-kjt.5",
+  "title": "Add EmailSubmission query filter types (RFC 8621 \u00a77.2)",
+  "description": "RFC 8621 \u00a77.2 defines a separate filter condition for EmailSubmission/query. Fields: identityId (Id), emailId (Id), threadId (Id), undoStatus (String/UndoStatus), before (UTCDate), after (UTCDate). This is simpler than Email/query filter \u2014 only a condition struct, no nested operator support needed (spec does not define FilterOperator for submissions). jmap-mail-server will need this to implement EmailSubmission/query.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:05:36Z",
+  "updated_at": "2026-04-30T04:24:33Z",
+  "closed_at": "2026-04-30T04:24:33Z",
+  "design": "EmailSubmissionFilter struct, all fields Option. Uses existing UndoStatus enum for undoStatus field. No Filter union needed \u2014 the spec defines only a flat filter object for submissions.",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-kjt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:05:35"
+    }
+  ]
+}

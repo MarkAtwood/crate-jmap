@@ -1,0 +1,33 @@
+{
+  "close_reason": "Opinion-level observation; no action needed",
+  "closed_at": "2026-05-01T23:09:25Z",
+  "compaction_level": 0,
+  "content_hash": "494d4bfa6aae43b4a5006dae7f8de7883938e6c4c34ba336f6199961cc97145a",
+  "created_at": "2026-05-01T16:30:16Z",
+  "created_by": "Mark Atwood",
+  "description": "The 65536-email cap for collapseThreads=true queries, combined with returning total=null when capped, is the correct RFC 8620 \u00a75.5 behavior. The comment (lines 13-18 in email.rs) explains the OOM rationale and the 2MiB bound. A contributor might want to remove the cap or always return a total. Resist: without the cap a hostile client can OOM the server; returning a fictional total when the result is capped would mislead clients.",
+  "ephemeral": 0,
+  "id": "JMAP-wdy.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "COLLAPSE_THREADS_MAX_EMAILS cap and honest total=null are correct",
+  "updated_at": "2026-05-01T23:09:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T09:30:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wdy",
+      "id": "7da7c572-7f57-5f97-8693-57f2d8266a79",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

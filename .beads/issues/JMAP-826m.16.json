@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T08:16:07Z",
+  "compaction_level": 0,
+  "content_hash": "7a186963b9047cd96ca75094a251e004ce44660e839c158d45bd6858fddbffb7",
+  "created_at": "2026-05-14T17:53:20Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: MemoryBackend holds std::sync::Mutex (memory.rs:271) across every backend operation. The await_holding_lock lint is enabled (memory.rs:107) which is correct \u2014 no await happens while the guard is held. But the methods themselves are async, meaning a contention spike under any concurrent load (e.g. 100 simultaneous /set calls) will serialize ALL operations on a single mutex AND block the tokio worker thread until each operation finishes (no .await inside, so the worker won't yield).\n\nThis is documented (memory.rs:99-104) as 'std::sync::Mutex is used for simplicity'. For a 'reference implementation' that downstream contributors will study, the choice is an attractive nuisance: a contributor copies the pattern into their 'real' backend wrapped around a database connection pool, doesn't realize the lock-holding pattern is testing-grade, and ships a backend that serializes all writes through a single mutex.\n\nMaintenance consequence:\n(a) The 'this is reference impl, not production' disclaimer is repeated 4-5 times in module rustdoc but the mutex specifically is called out as 'used for simplicity' \u2014 implying it's fine for general use. It is not fine for any production load.\n(b) When a contributor's product hits scale, the obvious-from-the-code fix (swap to tokio::sync::Mutex per the rustdoc note) does NOT fix the underlying problem \u2014 they still serialize all reads and writes through one lock.\n\nFix direction: add a 'Concurrency model' bullet to the 'Metadata-specific behaviour' section explicitly stating: 'This impl serializes ALL operations through one std::sync::Mutex. Production backends must use per-account or per-record fine-grained locking or use an ACID storage layer.'",
+  "ephemeral": 0,
+  "id": "JMAP-826m.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend's std::sync::Mutex held during all backend method bodies blocks tokio scheduler \u2014 fine for tests, an attractive nuisance under any concurrent load",
+  "updated_at": "2026-05-15T08:16:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:53:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "fcdff54e-e500-5a07-ab66-43a2a749887a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

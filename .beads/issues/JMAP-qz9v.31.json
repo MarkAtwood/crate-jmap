@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T20:44:02Z",
+  "compaction_level": 0,
+  "content_hash": "0515ddb283afbe39594cc3e6ac731ac1062e86e0aa7490334b944325976ed76a",
+  "created_at": "2026-05-14T19:33:15Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION:\n- crate-jmap-contacts-server/Cargo.toml:21-28 (feature declaration)\n- crate-jmap-contacts-server/src/memory.rs:286-328 (demo_next_id)\n- crate-jmap-contacts-server/src/lib.rs (no doc-cfg, no API marker)\n\nFEATURE:\n    # Switches MemoryBackend::demo_next_id from the default deterministic\n    # \"<type><n:016x>\" pattern to a process-global timestamp+counter\n    # pattern matching the canonical jmap-mail-server next_id at\n    # email.rs:1748.\n    realistic-demo-ids = []\n\nPROBLEM:\nThis feature changes the runtime behavior of MemoryBackend (the public,\ndocumented reference implementation gated by `feature = \"memory\"`) but\ndoes not change the API surface at all. Specifically:\n\n1. **No #[doc(cfg(feature = \"realistic-demo-ids\"))]** anywhere in the\n   public docs. Consumers who enable both `memory` and\n   `realistic-demo-ids` see the same module docs, the same impl, and\n   no rustdoc hint that anything changed.\n\n2. **No compile-time signal.** There is no #[cfg]-gated public item, so\n   `--features memory,realistic-demo-ids` produces the same crate\n   metadata as `--features memory` would. The only difference is the\n   shape of the returned `Id` strings \u2014 runtime behavior.\n\n3. **Test breakage risk.** Test fixtures that hardcode expected ids\n   (e.g., `assert_eq!(resp[\"created\"][\"c1\"][\"id\"], \"addressbook0...01\")`)\n   will pass on default features and fail unpredictably when the\n   downstream consumer enables `realistic-demo-ids`. The id format\n   under the realistic mode is timestamp-based and not repeatable\n   across runs \u2014 every test run produces different ids.\n\n4. **Feature unification (Cargo additive features rule).** A downstream\n   crate that depends on jmap-contacts-server with default features\n   has no way to opt out if some OTHER crate in the dependency graph\n   enables `realistic-demo-ids`. Cargo's additive-feature model means\n   one transitive enable flips behavior for everyone. The doc comment\n   at memory.rs:268-285 calls demo_next_id \"NOT A PRODUCTION PATTERN\"\n   but the production code path is whatever the deepest dependency\n   selects.\n\nWHAT CALLERS CANNOT DEPEND ON:\n- That the id strings emitted by MemoryBackend are stable across\n  feature-flag changes by any dependent crate.\n- That `assert_eq!` on observed ids in their test suite continues to\n  pass when an unrelated downstream crate enables a feature.\n\nRECOMMENDED:\n(a) Move the feature behind a runtime constructor option instead of a\n    compile-time feature: `MemoryBackend::new().with_realistic_demo_ids()`.\n    Avoids the Cargo feature-unification problem entirely.\n(b) If keeping as a cargo feature, add #[doc(cfg(feature = \"...\"))]\n    annotations and ensure the rustdoc renders both modes clearly.\n(c) Mark `MemoryBackend::demo_next_id` itself non-public (it already is\n    `fn`, not `pub fn`, but mention in the impl-block doc that the\n    runtime format is feature-flag-controlled and not part of the\n    stability contract).\n\nFiled P2 because the failure mode is observable (test ids change) but\nnot catastrophic; consumers will discover it via flaky tests rather\nthan data loss.\n\nPROPAGATION: this feature exists ONLY in contacts-server, not in the\ncanonical jmap-mail-server (which uses uuid::Uuid::new_v4() directly).\nEither remove the feature from contacts-server (and align demo_next_id\nwith mail-server's uuid approach) or propagate the same feature to the\ncanonical and the 5 other extension siblings. The current state \u2014 a\ncontacts-only twist on the canonical's id-minting strategy \u2014 is a\ncookie-cutter regression.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "realistic-demo-ids feature changes runtime id format with no compile-time signal or API surface marker",
+  "updated_at": "2026-05-17T20:44:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:33:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "b1c11d4f-ad47-5b68-b872-5122bfa5db24",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

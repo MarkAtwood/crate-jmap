@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added new() constructors to all 12 public structs (NDay, RecurrenceRule, Location, VirtualLocation, Link + with_href/with_blob_id, Relation, Participant, OffsetTrigger, AbsoluteTrigger, Alert, TimeZoneRule, TimeZone) plus Default impls for Location, Link, Relation (the three with no mandatory fields). Constructors take only the spec-mandatory fields as args; all optional fields default to None and at_type is set to the wire discriminator literal. Chose constructor-with-mandatory-args over global Default-with-empty-strings because empty-string defaults for mandatory fields like NDay.day or RecurrenceRule.frequency would be wire-invalid. Added two tests: constructors_set_at_type_to_wire_discriminator (probes all 12) and link_constructors_satisfy_source_invariant. cargo test + clippy -D warnings clean.",
+  "closed_at": "2026-05-16T02:19:14Z",
+  "compaction_level": 0,
+  "content_hash": "5e5acae43f5d297c3c2a89a7ac0843bf8c4395bba325c2e57ed4a36b2100efe0",
+  "created_at": "2026-05-15T22:14:52Z",
+  "created_by": "Mark Atwood",
+  "description": "**Contract risk**: every public struct in this crate carries\n`#[non_exhaustive]` (workspace policy) but the crate ships no `Default`\nimpl, no `new()` constructor, and no builder pattern for any of them.\nCombined, this means external callers literally cannot construct any\nof `NDay`, `RecurrenceRule`, `Location`, `VirtualLocation`, `Link`,\n`Relation`, `Participant`, `OffsetTrigger`, `AbsoluteTrigger`, `Alert`,\n`TimeZoneRule`, or `TimeZone` from outside the crate. The only\nconstruction path is `serde_json::from_value(...)` round-trip.\n\n**What goes wrong for callers**:\n- Any consumer of `jmap-calendars-types` or future `jmap-tasks-types`\n  that wants to BUILD a wire-bound object server-side (e.g. constructing\n  a `CalendarEvent` to send to a client) cannot write\n  `RecurrenceRule { at_type: \"RecurrenceRule\".into(), frequency: ... }`.\n  They have to write `serde_json::from_value(json!({...}))` for every\n  sub-object \u2014 round-tripping their data through JSON just to satisfy\n  the type system.\n- Test fixtures in downstream crates inherit the same constraint.\n  The internal tests in this crate can construct directly because they\n  ARE the defining crate; external tests cannot.\n- Adding new optional fields (the whole point of `#[non_exhaustive]`)\n  is a non-breaking change, but ONLY if callers had a way to\n  construct in the first place \u2014 which they don't. So\n  `#[non_exhaustive]` is doing no work today; it only starts\n  protecting once constructors exist.\n\n**Fix shape** (non-breaking, additive):\n- Add `impl <Type> { pub fn new() -> Self { ... at_type set correctly ... } }`\n  for each struct, defaulting all `Option` fields to `None` and any\n  mandatory non-Option fields to their natural empty value\n  (`String::new()`, `HashMap::new()`).\n- OR implement a manual `Default` per struct that wires `at_type` to\n  the correct discriminator string, since auto-derived `Default` would\n  give `at_type = String::new()` and produce wire-invalid values.\n\nCaveats: a naive `new()` for `VirtualLocation` (with mandatory `uri`)\nand `Participant` (with mandatory `roles`) would still leave the\ncaller with an invalid object \u2014 but at least it gives them a\nstarting point to .uri = / .roles.insert(...) from.\n\n**Workspace-policy note**: this is the same friction every other\ntype-crate in the workspace inherits. If the fix lands here, it\nshould propagate to the canonical-template sweep (mail-types,\nchat-types, etc.). File as workspace-architectural if treated that\nway; otherwise this crate is a fine place to start.",
+  "ephemeral": 0,
+  "id": "JMAP-mno4.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Public structs are #[non_exhaustive] but ship no Default impl or constructor methods \u2014 callers cannot construct any of these types in Rust",
+  "updated_at": "2026-05-16T02:19:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:14:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mno4",
+      "id": "7eab3b75-47ff-53a7-9e5a-4d2609176f29",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

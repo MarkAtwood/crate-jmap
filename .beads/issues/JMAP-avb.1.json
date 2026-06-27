@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T07:03:45Z",
+  "compaction_level": 0,
+  "content_hash": "561b73645070469b7083c617c65dda0bdb4c35c1028436d314bf72e3c875bd8e",
+  "created_at": "2026-05-02T06:55:48Z",
+  "created_by": "Mark Atwood",
+  "description": "In crate-jmap-chat-server/src/space.rs, the Space/join handler increments invite.uses at line 667-671 before detecting the TOCTOU duplicate-member race at lines 714-738. When duplicate_count > 1 and the caller removes its own duplicate member entry, the invite uses increment is never reversed. Each concurrent join collision that fires this path silently consumes one invite use, potentially exhausting invite capacity without any successful join. The dedup rollback (line 732-734) writes back the deduped members but has no corresponding inverse update for the invite object. Fix: either defer the uses increment until after the TOCTOU check succeeds, or undo it on the race-loss path.",
+  "ephemeral": 0,
+  "id": "JMAP-avb.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Space/join: invite uses not rolled back on TOCTOU race loss",
+  "updated_at": "2026-05-02T07:03:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:55:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-avb",
+      "id": "5182f194-00a8-564d-828f-310fd281c10c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

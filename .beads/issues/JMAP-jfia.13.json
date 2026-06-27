@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decision record landed at JmapBackend::principal_id doc \u2014 explicit cross-reference to bd:JMAP-jfia.13 plus 'this suggestion is wrong' framing for the structural enforcement of the no-JIT-lookup policy.",
+  "closed_at": "2026-05-14T17:21:24Z",
+  "compaction_level": 0,
+  "content_hash": "85f025916851948a748c28a9bb330cbe46062a6699b9cd798b59ea744ceac009",
+  "created_at": "2026-05-14T16:38:13Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/backend.rs:936-939 \u2014 JmapBackend::principal_id is declared with signature:\n\n  fn principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id> { ... }\n\nNo &self receiver. A future contributor (or AI tool) will see this as \"an oversight, surely the backend wants self access to its identity store\" and suggest changing to `fn principal_id(&self, caller: ...) -> ...`. That suggestion is WRONG.\n\nWhy no &self is correct (the doc at backend.rs:919-935 makes the argument; this decision-record makes it visible at review time):\n\n  - Backends MUST NOT mint identity. Identity is the HTTP layer's job. The JMAP layer only READS the result of authentication.\n  - Without &self, a backend physically cannot do a JIT lookup against its storage. The auth-layer middleware must pre-resolve and stash the principal Id inside CallerCtx BEFORE dispatch() runs.\n  - The function-vs-method distinction is the structural enforcement of the policy. Comments alone could be ignored; the type system makes the wrong thing impossible.\n  - Consumers that want JIT-resolved identity (e.g. database-backed JWT \u2192 principal mapping) wire that mapping into the HTTP layer's CallerCtx construction step.\n\nA consumer hitting \"I can't access self.users.lookup() inside principal_id\" should restructure their HTTP layer to do the lookup before dispatch \u2014 not lobby for a &self signature change here.\n\nDefending this shape protects the workspace identity-seam policy from drift. Worth a permanent decision record so future reviewers do not re-litigate.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "principal_id as associated function (no &self) structurally enforces 'no JIT identity lookup'",
+  "updated_at": "2026-05-14T17:21:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:38:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "0e4d7439-141f-5df6-a889-490e136444fd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

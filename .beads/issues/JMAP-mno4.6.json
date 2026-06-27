@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Rewrote the README example to be a complete fn main() with explicit return type and ? operator inside the function body. Copy-paste now compiles standalone. Removed the cryptic '# Ok::<(), serde_json::Error>(())' rustdoc-hidden-line that doesn't render in plain markdown README.",
+  "closed_at": "2026-05-16T02:26:53Z",
+  "compaction_level": 0,
+  "content_hash": "686fc77e1e1b5512b8e290795ee43d1cc91541fd02bca70a44ac9dcb75f5d337",
+  "created_at": "2026-05-15T22:08:17Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-jscalendar-types/README.md lines 51-61 show:\n\n```rust\nuse jmap_jscalendar_types::RecurrenceRule;\nuse serde_json::json;\n\nlet rule: RecurrenceRule = serde_json::from_value(json!({...}))?;\n# Ok::<(), serde_json::Error>(())\n```\n\nThe '# Ok::<()>' line is a rustdoc-hidden marker that is meaningful inside //! doc-comments processed by cargo doc, but not in a standalone README.md. README.md is rendered by crates.io and GitHub, where:\n\n- the '#' line is shown verbatim (looks like a comment)\n- the surrounding 'let rule = ...?' is not inside a fn, so a reader who copies it into 'fn main() { ... }' gets 'error[E0277]: the ? operator can only be used in a function that returns Result' because main returns ().\n\nComparable precedent: JMAP-6xs8.1 (README.md JmapRequest example fails to compile outside crate) was filed P0 for the foundation crate jmap-types because the README is a primary consumer touch point. Lower priority here because (a) this crate's docs are not embedded via #[doc = include_str!(\"README.md\")] (verified \u2014 lib.rs has no include_str), (b) the snippet is illustrative not a quick-start.\n\nTwo options:\n\n(a) Wrap the snippet in 'fn main() -> Result<(), serde_json::Error> { ... ; Ok(()) }' so a verbatim copy compiles. Drop the rustdoc hidden line.\n\n(b) Mark the block as 'ignore' (```rust,ignore) so readers know not to expect it to compile standalone, and drop the rustdoc hidden line.\n\nRecommendation: (a) \u2014 the snippet is short, the wrap is one extra line, and it gives the reader a runnable example.",
+  "ephemeral": 0,
+  "id": "JMAP-mno4.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README.md example snippet uses ? operator outside fn \u2014 copy-paste yields E0277",
+  "updated_at": "2026-05-16T02:26:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:08:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mno4",
+      "id": "e7d7e1d7-a860-5bdf-9975-688524931760",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

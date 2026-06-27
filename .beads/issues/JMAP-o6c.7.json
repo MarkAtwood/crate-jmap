@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:41:17Z",
+  "compaction_level": 0,
+  "content_hash": "6d7af993ff253f8b00f0d1133a157870402f91ff1e6aafbb368289d245677c4e",
+  "created_at": "2026-05-02T03:25:13Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs handle_email_get (line ~387): DEFAULT_BODY_PROPERTIES.iter().map(|s| s.to_string()).collect() allocates a Vec<String> of 10 items from &'static strs on every call with no bodyProperties argument. The same pattern recurs at line ~1896 for DEFAULT_EMAIL_GET_PROPERTIES. Idiomatic Rust would keep body_properties as Vec<&str> (or &[&str]) throughout the function, only converting to String at the boundary where a String is actually needed. If the downstream code always needs owned Strings, using .map(|&s| s.to_owned()) is clearer than .to_string() on a &&str.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "body_properties default list uses .map(|s| s.to_string()).collect()",
+  "updated_at": "2026-05-02T03:41:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:25:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "f8ccf195-7ead-5d48-977d-fcbd67893425",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

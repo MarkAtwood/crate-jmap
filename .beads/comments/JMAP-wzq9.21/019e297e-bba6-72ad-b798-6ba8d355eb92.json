@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T02:37:12Z",
+  "id": "019e297e-bba6-72ad-b798-6ba8d355eb92",
+  "issue_id": "JMAP-wzq9.21",
+  "text": "Blocked on canonical workspace policy. The 'pub use jmap_base_client::ClientError; pub use jmap_types::{...}' pattern is identical across every extension-client crate. Lock-in via re-export is a workspace-wide property, not metadata-client-specific. Decision (newtype-wrap vs. accept the major-version coupling vs. inline minimal re-export) is canonical-template scope."
+}

@@ -1,0 +1,40 @@
+{
+  "id": "JMAP-aax",
+  "title": "jmap-client: implement JmapClient (client.rs)",
+  "description": "Implement crate-jmap-client/src/client.rs: JmapClient struct with new(), fetch_session(), call(), upload_blob(), download_blob(), subscribe_events(). Generalized from JmapChatClient. Includes three mandatory changes beyond generalization: extract_response must be pub, response body size caps must be added (HIGH security), and Session URL fields must be scheme-validated.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-29T23:31:03Z",
+  "updated_at": "2026-04-30T00:04:58Z",
+  "closed_at": "2026-04-30T00:04:58Z",
+  "design": "Rename JmapChatClient -> JmapClient. Remove all Chat-specific methods. Keep only five base methods. CHANGE 1 \u2014 extract_response visibility: promote from pub(crate) to pub so that jmap-chat-client and jmap-mail-client extension crates can use it. CHANGE 2 \u2014 response body size caps (HIGH security): fetch_session, call, and download_blob must enforce a maximum response body size before deserializing. Use reqwest's .take(N) on the response byte stream or check content-length header before reading. Suggested limit: 64 MiB for download_blob, 8 MiB for call, 1 MiB for fetch_session. Add a ResponseTooLarge variant to ClientError. CHANGE 3 \u2014 Session URL scheme validation: after deserializing the Session document, validate that apiUrl, uploadUrl, downloadUrl, and eventSourceUrl all use https:// (or http:// for local/test environments \u2014 emit a warning via eprintln\\! but do not error). URL validation logic (scheme check, path check, query/fragment check) for new() copies verbatim from jmapchat-client.",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-0ke",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:44"
+    },
+    {
+      "depends_on_id": "JMAP-3g1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:38"
+    },
+    {
+      "depends_on_id": "JMAP-bfg",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:44"
+    },
+    {
+      "depends_on_id": "JMAP-y4j",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:45"
+    }
+  ]
+}

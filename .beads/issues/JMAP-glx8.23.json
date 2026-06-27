@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added 8 negative-deserialize tests covering all 7 acceptance criteria. Split the duplicate-keys test into typed-field-reject (serde_derive strict-reject) vs vendor-extras-last-wins (flatten Map absorbs); the bead's single 'last-wins' hypothesis was incorrect for typed structs. Commit: 4ab3fd0.",
+  "closed_at": "2026-05-15T23:44:40Z",
+  "compaction_level": 0,
+  "content_hash": "4ec5ded679dcaebb3f52b4a0552c24b55f137f3d7c3197d7d7d88715ef6e4393",
+  "created_at": "2026-05-15T23:26:25Z",
+  "created_by": "Mark Atwood",
+  "description": "## Hypothesis\n\nThis crate is the wire-format deserialize boundary for RFC 9610 Contacts. Every `pub struct` here derives `Deserialize` and is called via `serde_json::from_str`/`from_value` on bytes that originate from an untrusted JMAP client. The existing test suite covers happy paths and a handful of edge cases (null `shareWith`, false-valued booleans in MUST-true maps, slash-keyed filter fields). It does **not** exercise:\n\n- Malformed JSON (truncated objects, mismatched braces, invalid UTF-8 escapes)\n- Oversized strings (e.g. `name` field exceeding the RFC 9610 \u00a72 documented 255 UTF-8 octet bound)\n- Integer overflow (e.g. `sortOrder` >= 2^31 \u2014 spec range is `[0, 2^31)`; type is `u32` allowing up to 2^32-1, so values in [2^31, 2^32) deserialise as valid `u32` but are wire-protocol violations)\n- Non-object values where the wire shape expects an object (e.g. `name: \"vincent\"` instead of `name: {...}` \u2014 the Sloppy-Value fields accept ANY JSON, see card.rs lines 124-137)\n- Deeply-nested sloppy fields (e.g. `{\"name\":{\"a\":{\"a\":{...}}}\\}` \u2014 `serde_json`'s default recursion limit of 128 protects against unbounded stack but does not bound memory)\n- Duplicate JSON object keys (RFC 8259 \u00a74 leaves behavior implementation-defined; `serde_json` last-wins)\n\n## What goes wrong without negative tests\n\nA type crate that ships without negative tests provides no contract to downstream consumers about what malformed input does. Three concrete risks:\n\n1. **Integrity**: a server that trusts `sortOrder: 2147483648` round-trips through this type cleanly and ends up storing a wire-protocol violation. JMAP-glx8 line-of-defense was 'handler layer rejects', but the handler crate doesn't exist yet (jmap-contacts-server is bd:JMAP-yfpq) and a downstream consumer reading this crate's docs has no test to point at confirming the type accepts the invalid value cleanly.\n2. **DoS**: per the workspace test-integrity rule, a passing test suite that doesn't exercise oversized/malformed input means a future refactor could break input-handling silently. No regression net.\n3. **Spec-conformance proof**: every deserialise test should have a paired negative test demonstrating the type rejects-or-cleanly-accepts wire violations. Acceptance criteria below pin the exact shape.\n\n## Acceptance criteria\n\nAdd tests under `tests::negative_deserialise` covering, at minimum:\n\n1. `malformed_json_returns_error` \u2014 truncated object, mismatched brace, unterminated string each produce `Err` from `from_str`, not panic.\n2. `oversized_name_deserialises_to_typed_field` \u2014 a 1000-byte name string deserialises cleanly (the 255-octet bound is handler-layer territory) and the test documents that fact.\n3. `sort_order_overflow_outside_spec_range_accepts` \u2014 values in `[2^31, 2^32)` deserialise to typed `u32` without error; documents the spec-range vs type-range gap.\n4. `sloppy_field_accepts_non_object_value` \u2014 `{ \"name\": \"vincent\" }` deserialises cleanly into `Option<serde_json::Value>` (the Sloppy-Value contract); `serde_json::from_value::<Name>(card.name.unwrap())` then returns `Err`. Documents handler-layer responsibility.\n5. `deeply_nested_sloppy_field_within_serde_json_limit_succeeds` \u2014 100-deep nested object deserialises cleanly.\n6. `deeply_nested_sloppy_field_beyond_serde_json_limit_errors` \u2014 200-deep nested object returns `Err` from `serde_json` (default RECURSION_LIMIT is 128).\n7. `duplicate_keys_last_wins` \u2014 JSON object with two `\"id\"` keys serialises the second value; documents the duplicate-key contract referenced in card.rs:247-267.\n\nEach test asserts ONLY the documented behavior of the type (cleanly-accepts or returns-Err); none assert handler-layer rejection (out of scope for a type crate).\n\n## Probe / downstream session\n\nA downstream `/do-beads JMAP-glx8` session executes the bead under appropriate permissions:\n\n1. Read card.rs:124-137 (Sloppy-Value contract) and lines 247-267 (extras collision contract).\n2. Add the 7 tests above to `src/lib.rs` tests module, following the existing oracle convention (Oracle: hand-typed JSON modelling the malformed shape).\n3. Run `cargo test -p jmap-contacts-types` to verify all pass.\n\nNo existing test or library code is changed; only new tests are added. Out-of-scope per workspace convention: changing the `u32` to a bounded type to enforce the spec range, adding length validation to the type. Those are handler-layer concerns.\n\n## Cross-reference\n\n- Workspace AGENTS.md 'Test Integrity' \u2014 negative tests use independent oracles.\n- card.rs:124-137 \u2014 Sloppy-Value contract that this test pins.\n- card.rs:247-267 \u2014 extras collision contract that test 7 pins.\n- bd:JMAP-yfpq \u2014 jmap-contacts-server (handler layer that will own pre-deserialise validation).",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "No negative-deserialization tests at the wire boundary (malformed/oversized/overflow input)",
+  "updated_at": "2026-05-15T23:44:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T16:26:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "a341ef45-3a0b-5f81-8304-e0a9ff9aae7b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

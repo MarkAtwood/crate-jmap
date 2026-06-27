@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Filled smoke coverage gaps in existing files: space_smoke_tests.rs +4 tests (space_join via InviteCode + empty-code guard, space_join via SpaceId, space_update full-member-management patch with name/description-clear/isPublic/add+remove+updateMembers, space_update empty-slice no-change semantic for add/remove_members), chat_smoke_tests.rs +3 tests (chat_update with name+description-set+avatar-clear, add+remove_members with ChatMemberRole::Admin+Member wire strings, update_member_roles with Member+Unknown(String) round-trip), message_smoke_tests.rs +3 tests (message_query_changes passthrough + empty guard, BodyType::Rich \u2192 'application/jmap-chat-rich' wire string, BodyType::Unknown round-trips caller-supplied wire string). Total +10 tests. All pass; clippy -D warnings clean.",
+  "closed_at": "2026-05-16T02:07:58Z",
+  "compaction_level": 0,
+  "content_hash": "77a87ece99fe08ccdc9982b5013b82ebad4e536bf29648f2ff30f6616f8b666d",
+  "created_at": "2026-05-16T01:48:52Z",
+  "created_by": "Mark Atwood",
+  "description": "Fill smaller coverage gaps in existing smoke test files:\\n- space_smoke_tests.rs: add space_join and space_update tests\\n- chat_smoke_tests.rs: add chat_update tests covering name, description, add_members, remove_members, update_member_roles patch paths (currently only muted+message_expiry_seconds are tested)\\n- message_smoke_tests.rs: add message_query_changes test and a BodyType::Rich serialization test (currently only Plain and Markdown)\\n\\nChatCreateInput::Channel coverage is tracked separately under JMAP-26di.1 (already closed) \u2014 do NOT add a Channel-variant test here unless that bead's resolution left gaps.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.6.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fill chat-client smoke coverage gaps: space_join, space_update, message_query_changes, chat_update non-muted paths, BodyType::Rich",
+  "updated_at": "2026-05-16T02:07:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T18:50:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "758fb87f-f6e7-5763-882c-d9fda7a14188",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

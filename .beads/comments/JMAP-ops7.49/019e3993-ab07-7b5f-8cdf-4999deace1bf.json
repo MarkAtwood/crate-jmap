@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T05:33:59Z",
+  "id": "019e3993-ab07-7b5f-8cdf-4999deace1bf",
+  "issue_id": "JMAP-ops7.49",
+  "text": "Within-blob.rs minimum fix is single-crate (jmap-base-client). Workspace-wide typed-Id-on-client policy decision touches all 8 extension-client crates + jmap-base-client. /do-beads must verify with `cargo check --workspace` if pursuing the full policy direction."
+}

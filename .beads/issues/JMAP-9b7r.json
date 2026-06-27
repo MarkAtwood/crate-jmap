@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b6d866819d9399a5335ccbe77cc1e4585637091403f2c6108cefa3bf747589ed",
+  "created_at": "2026-05-17T10:32:39Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-filenode-server/src/backend.rs:144 has an intra-doc-link `[`MemoryBackend`]: crate::memory::MemoryBackend` but the `memory` module is gated behind `#[cfg(feature = \"memory\")]` (lib.rs:42-43). Default rustdoc invocation runs without features, so the link is unresolved:\n\n```\nerror: unresolved link to `crate::memory::MemoryBackend`\n   --> crate-jmap-filenode-server/src/backend.rs:144:28\n```\n\nReproduces with: `RUSTDOCFLAGS=\"-D warnings\" cargo doc -p jmap-filenode-server --no-deps`. Passes with `--all-features`.\n\nTwo fix options:\n(a) Add `--all-features` to the standard rustdoc gate so feature-gated items are included.\n(b) Make the doc-link conditional, or replace with a plain markdown reference that doesn't require resolution.\n\nPre-existing breakage \u2014 discovered during JMAP-510h.26 (test-only change) when running the crate's pre-commit rustdoc gate. Parallel to bd:JMAP-m1yd (sharing-server rustdoc breakage).\n\nWorkspace-wide audit: every `*-server` crate that has a `memory` module behind a feature gate may have similar links. The fix likely belongs at the workspace level (run rustdoc with `--all-features` everywhere, or remove the feature-gated module pattern, or use conditional doc-links systematically).",
+  "ephemeral": 0,
+  "id": "JMAP-9b7r",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "filenode-server rustdoc broken intra-doc-link to crate::memory::MemoryBackend behind feature gate",
+  "updated_at": "2026-05-17T10:32:39Z"
+}

@@ -1,0 +1,41 @@
+{
+  "close_reason": "Resolved by the same commit 4ec9135 as bd:JMAP-sgrr.14. The crate-level rustdoc 'Design: numeric-range bounds are not type-enforced' section's table lists Directory.list_as and PersonalInfo.list_as alongside the pref sites and PartialDate.month/day; README Gotchas bullet consolidates all four findings. Option<NonZeroU32> was the type-level alternative but per parent sgrr.17 family decision (doc-only hardening), the kit does not take that public-API break.",
+  "closed_at": "2026-05-17T14:56:05Z",
+  "compaction_level": 0,
+  "content_hash": "897ead118166be73f473b6eb7a315de7ef974f404e007f0525183df20d7bf045",
+  "created_at": "2026-05-15T03:40:56Z",
+  "created_by": "Mark Atwood",
+  "description": "Two fields carry the 'must be > 0' constraint per RFC 9553:\n\n- Directory.list_as at lib.rs:770 (doc-comment 'Must be > 0 when set.', RFC 9553\n  \u00a72.6.2)\n- PersonalInfo.list_as at lib.rs:1110 (doc-comment 'Must be > 0 when set.',\n  RFC 9553 \u00a72.8.4)\n\nBoth are typed Option<u32>. A caller can construct .list_as = Some(0), serialize\nthe wire-invalid object, and have it round-trip. No validation, no Result-returning\nconstructor. Every consumer enforcing the constraint writes the same is_zero check.\n\nThe textbook Rust fix is Option<NonZeroU32>. That makes Some(0) impossible to\nconstruct at the type level and gives the caller a free conversion via\nNonZeroU32::new(n). Cost: every caller building these fields wraps their u32\nin NonZeroU32::new(...).expect(...) or matches on it; the type system pays them\nback by catching the bug at compile time.\n\nThis is breaking once 1.0 lands, so do it now if doing it.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "list_as fields are Option<u32> but RFC 9553 says 'must be > 0' \u2014 should be NonZeroU32",
+  "updated_at": "2026-05-17T14:56:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:40:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "64d9e6c8-271b-5f75-8e6b-cc386324bae9",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-14T21:06:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr.17",
+      "id": "94d684e8-267f-5068-8e6b-4df47b50ccf4",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

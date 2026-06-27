@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Review-acknowledgement bead; the lint at memory.rs:51 and accompanying doc-comment are intact. No code change required.",
+  "closed_at": "2026-05-18T02:17:28Z",
+  "compaction_level": 0,
+  "content_hash": "60fcf3538336e3e9257181ff5f94f9b98cab3c0718c0eedf1910b563343cfd90",
+  "created_at": "2026-05-14T03:16:46Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/memory.rs:50-52.\n\n    #![allow(async_fn_in_trait)]\n    #![deny(clippy::await_holding_lock)]\n\nThe deny lint at module level catches the canonical std::sync::Mutex + .await footgun: holding a sync mutex across an await point lets the runtime schedule another task on the same thread, deadlocking if that task tries to acquire the same mutex. The doc-comment at line 36-42 explains the choice clearly: 'std::sync::Mutex is used for simplicity. The await_holding_lock clippy lint is enabled module-wide and enforces that no lock guard is held across an .await. If a future change requires holding a guard across .await, switch to tokio::sync::Mutex rather than disabling the lint.'\n\nThe lint is non-trivial to satisfy in this module \u2014 every async impl method must acquire the lock, do its work, drop the guard, AND return \u2014 without spilling into any helper that itself .awaits. The current code does this consistently.\n\nA future contributor might propose:\n- 'Just disable the lint, the current pattern is verbose.' Bad \u2014 the verbosity is the point; the alternative is a hard-to-diagnose deadlock under load.\n- 'Switch to tokio::sync::Mutex globally.' Possible, but trades sync-with-deadlock-prevention for async-with-overhead. The current code's tight critical sections prefer sync mutex.\n- 'Move to RwLock.' Possibly worthwhile for read-heavy paths, but the deny lint must follow.\n\nPreserve both the lint and the doc-comment. They are the bus-factor protection for a non-obvious invariant.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend module-wide #![deny(clippy::await_holding_lock)] enforces a real concurrency invariant",
+  "updated_at": "2026-05-18T02:17:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:16:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "ea2344b8-d128-583f-b066-2aaa1cb546be",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

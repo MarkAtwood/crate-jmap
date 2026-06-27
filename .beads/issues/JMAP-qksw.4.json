@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "CalendarEvent/parse handler implemented. 19-method smoke test passes.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Implemented handle_calendar_event_parse: parses blobIds, calls parse_calendar_event_blobs (default puts all in notParsable); registered as CalendarEvent/parse; 2 tests; 26 total pass; clippy clean",
+  "closed_at": "2026-05-05T15:25:12Z",
+  "compaction_level": 0,
+  "content_hash": "ae6ffe1b79821881f9b723a1df04ceec7502a5d477c618c26e690a12c4ec79cb",
+  "created_at": "2026-05-05T03:02:10Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** CalendarEvent/parse handler is entirely missing from crate-jmap-calendars-server. Draft-ietf-jmap-calendars-26 \u00a75.13.\n\n**Algorithm:**\n1. Add ParseResult struct to backend.rs:\n   pub struct ParseResult {\n       pub parsed: HashMap<Id, Vec<CalendarEvent>>,\n       pub not_found: Vec<Id>,\n       pub not_parsable: Vec<Id>,\n   }\n2. Add to CalendarsBackend:\n   fn parse_calendar_event_blobs(&self, account_id: &Id, blob_ids: &[Id], properties: Option<&[String]>) -> impl Future<Output = Result<ParseResult, Self::Error>> + Send;\n   Default impl: all blobs in not_parsable.\n3. Implement handle_calendar_event_parse in event.rs:\n   - Parse accountId, blobIds, properties.\n   - Check account exists.\n   - Call backend.parse_calendar_event_blobs.\n   - Build response: accountId, parsed (null if empty), notFound, notParsable.\n4. Register CalendarEvent/parse in register_calendars_handlers.\n5. Export from lib.rs.\n6. Update smoke test from 18 to 19 methods.\n\n**Tests:**\n- Known blobIds \u2192 in parsed map.\n- Unknown blobIds \u2192 in notFound.\n- Unparseable blobs \u2192 in notParsable.\n- properties filtering respected.\n\n**Acceptance criteria:**\n- CalendarEvent/parse registered and returns non-unknownMethod.\n- cargo test -p jmap-calendars-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-qksw.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement CalendarEvent/parse handler (\u00a75.13)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:02:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw",
+      "id": "fca7d405-2b62-51b2-9a91-963520611fa8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

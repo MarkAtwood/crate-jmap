@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already documented: helpers.rs:91-103 explains the byte-index check, names the three cases (messageId, messageId/0, messageIdX), and explains why starts_with alone would be wrong.",
+  "closed_at": "2026-05-04T15:53:57Z",
+  "compaction_level": 0,
+  "content_hash": "7319a8392fcc6757cac2d828684c5012a0d9fed22848420de685aaa06b1835a7",
+  "created_at": "2026-05-02T00:43:31Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs find_immutable_patch_key checks key.as_bytes().get(field.len()) == Some(&b'/') in addition to key == field. This distinguishes 'messageId' (blocked), 'messageId/0' (blocked, sub-path), and 'messageIdX' (allowed, unrelated field with shared prefix). A naive starts_with(field) refactor would silently block legitimate fields that share a prefix with an immutable field name. The byte-index check is load-bearing \u2014 do not simplify it.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_immutable_patch_key uses byte-index check not starts_with to guard patch paths",
+  "updated_at": "2026-05-04T15:53:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "ca1b0ebd-881f-5e12-a417-3c2009155d22",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "cargo check -p jmap-chat-client passes; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:18:41Z",
+  "compaction_level": 0,
+  "content_hash": "e8d74329091d6179fd0cc08cc1cf560c1753d3007e07959099364a1683de2690",
+  "created_at": "2026-05-04T23:13:26Z",
+  "created_by": "Mark Atwood",
+  "description": "WHAT: Define two domain types that are needed by method modules but are not in jmap-chat-types.\n\nALGORITHM:\n1. Create crate-jmap-chat-client/src/types.rs\n2. Add ContactPresenceFilter:\n   #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]\n   #[serde(rename_all = \"kebab-case\")]\n   pub enum ContactPresenceFilter { Online, Away, Busy, Offline }\n   impl TryFrom<jmap_chat_types::Presence> for ContactPresenceFilter { ... }\n3. Add QuotaScope:\n   #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]\n   #[serde(rename_all = \"camelCase\")]\n   pub enum QuotaScope { Account, Domain, Global }\n4. Declare in lib.rs: pub mod types;\n\nSource: ~/PROJECT/crate-jmapchat-client/src/types.rs \u2014 port the enum definitions and impls for these two types only.\n\nDEFENSIVE RULES: No unwrap(). All variants from the reference.\n\nACCEPTANCE: cargo check -p jmap-chat-client; clippy clean",
+  "ephemeral": 0,
+  "id": "JMAP-gb1w.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-client: types.rs \u2014 ContactPresenceFilter, QuotaScope",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T16:13:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w",
+      "id": "e0340bf0-4319-5bb5-87c5-b1fefde42496",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in bf895d2: added pub const PROP_CREATED, PROP_UPDATED, PROP_NAME_GIVEN, PROP_NAME_SURNAME, PROP_NAME_SURNAME2 in a new card::prop module (re-exported as comparator_prop) for spelling-safe call sites. The property field remains String to preserve forward-compat with vendor sort keys and future RFC additions per the workspace filter-algebra exclusion (JMAP-lbdy).",
+  "closed_at": "2026-05-15T23:05:21Z",
+  "compaction_level": 0,
+  "content_hash": "99f3b742471bb23fd9097b157750d3e6e5cf754765cfde5a8d5aff904e3b2dcf",
+  "created_at": "2026-05-15T22:45:22Z",
+  "created_by": "Mark Atwood",
+  "description": "ContactCardComparator.property (card.rs:330) holds the sort-key string.\nRFC 9610 \u00a73.3.2 declares a small required + recommended set:\n- Required: \"created\", \"updated\"\n- Recommended: \"name/given\", \"name/surname\", \"name/surname2\"\n\nCurrent type:\n\n```rust\npub struct ContactCardComparator {\n    pub property: String,    // <-- free string, no constraint\n    ...\n}\n```\n\nA caller writing `comparator.property = \"name/givien\".into()` compiles,\nserializes, deserializes, and silently sorts wrong (the backend either\nrejects with an error or \u2014 worse \u2014 falls through to a default\ncomparator, returning a result set the caller cannot tell is wrong).\n\nThe workspace filter-algebra exclusion (correctly applied here via the\nrustdoc clause referencing bd JMAP-lbdy, lines 315-324) blocks the\ntyped-enum route: adding `Other(String)` on a comparator property is\nincoherent because the backend cannot honor an unknown sort key. But\nthe exclusion policy does NOT require the type to be a naked String\nwith zero helpers.\n\nMinimum-viable improvement: expose pub const string identifiers for the\nspec values, making typos a compile error:\n\n```rust\nimpl ContactCardComparator {\n    pub const PROP_CREATED:        &str = \"created\";\n    pub const PROP_UPDATED:        &str = \"updated\";\n    pub const PROP_NAME_GIVEN:     &str = \"name/given\";\n    pub const PROP_NAME_SURNAME:   &str = \"name/surname\";\n    pub const PROP_NAME_SURNAME2:  &str = \"name/surname2\";\n}\n```\n\nThen callers write:\n\n```rust\nContactCardComparator {\n    property: ContactCardComparator::PROP_NAME_GIVEN.into(),\n    is_ascending: true,\n    collation: None,\n}\n```\n\nTypos surface as `error[E0599]: no associated item named PROP_NAME_GIVIEN`.\n\nThe same gap applies to known-enumeration `Option<String>` filter fields:\n- `filter.kind` (RFC 9553 \u00a72.1.1: \"individual\"|\"group\"|\"org\"|\"location\"|\n  \"device\"|\"application\")\n- `filter.collation` (the comparator field, RFC 4790 registry)\n\nNote: this is **complementary** to the filter-exclusion policy, not in\nconflict with it. The policy excludes typed enums with `Other(String)`\non the comparator algebra; it does not exclude const helper strings.\n\nCross-reference: AGENTS.md \u00a7\"Filter algebra and control enums are\nexplicitly EXCLUDED\" \u2014 confirms typed enum is wrong; const pool is\nsilent on this and therefore allowed.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactCardComparator.property is a free String with no validator, no const pool, no parse method",
+  "updated_at": "2026-05-15T23:05:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:45:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "bd9a2bdb-58e3-588a-b6cd-05838fc592b2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

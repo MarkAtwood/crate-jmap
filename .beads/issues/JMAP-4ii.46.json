@@ -1,0 +1,34 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:27:20Z",
+  "compaction_level": 0,
+  "content_hash": "98d9f9d618f8c0ffb8a84e4ea412c3bdd52eb94701a36ccbd336e048aa70b72f",
+  "created_at": "2026-05-02T04:17:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Both crates define impl<E> From<E> for BackendSetError<E>. This means BackendSetError<SetError> cannot impl From<SetError> specially, so any code written as BackendSetError::from(set_error) where E=SetError will wrap it in Other(set_error) not SetError(set_error). A backend implementor who writes .map_err(BackendSetError::from) on a SetError-returning function will get Other(SetError(...)) in the dispatch arm for BackendSetError::Other instead of the SetError arm. This is a silent correctness trap for downstream implementors. The fix is to either not derive From<E> for E=Self::Error, or add a special From<SetError> impl that takes precedence (not possible with current orphan rules), or document the limitation very visibly.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.46",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "mail-server half fixed; waiting for chat-server",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BackendSetError From<E> blanket impl makes From<SetError> impossible",
+  "updated_at": "2026-05-02T04:27:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:17:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "320fbf79-3ec0-559c-916e-7f90fc475acc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T17:17:32Z",
+  "id": "019e36f1-6aef-7a49-a5ad-60c421e1e0a6",
+  "issue_id": "JMAP-ic0j.34",
+  "text": "Fixed. Added 'Re-registration semantics' section to register_calendars_handlers rustdoc at src/lib.rs:135-156, mirroring the canonical jmap-mail-server::register_mail_handlers contract at crate-jmap-mail-server/src/lib.rs:133-148. Three documented consequences: double-call, custom-overrides-go-LAST, no-collision-diagnostic. Doc cites the canonical sibling explicitly so future drift is caught by review. Verified: RUSTDOCFLAGS=-D warnings cargo doc clean, clippy --all-features --all-targets -D warnings clean, cargo test --all-features 120+13+1 passed."
+}

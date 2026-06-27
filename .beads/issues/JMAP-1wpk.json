@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "85353533956342ab7628ffd701e122bf2870512070c192c4b62db3c21d585818",
+  "created_at": "2026-05-15T23:01:14Z",
+  "created_by": "Mark Atwood",
+  "description": "cargo clippy -p jmap-jscontact-types --all-targets -- -D warnings fails on:\n\ncrate-jmap-jscontact-types/src/lib.rs:1735:20\n    let cases: &[(&str, serde_json::Value, fn(&AnniversaryDate) -> bool)] = &[\n\nclippy::type_complexity wants this factored into a type alias. The fix is:\n\n    type AnniversaryDateTestCase = (&'static str, serde_json::Value, fn(&AnniversaryDate) -> bool);\n    let cases: &[AnniversaryDateTestCase] = &[ ... ];\n\nOr add #[allow(clippy::type_complexity)] on the test fn.\n\nPre-existing on main as of a07804bf883d57ae0d2c3805f5e63c56fc3dfdc8; reproduced under clean checkout.\n\nTrigger discovery: workspace clippy gate during JMAP-glx8 review-loop work in crate-jmap-contacts-types.",
+  "ephemeral": 0,
+  "id": "JMAP-1wpk",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "clippy::type_complexity warning in jmap-jscontact-types tests (pre-existing)",
+  "updated_at": "2026-05-15T23:01:14Z"
+}

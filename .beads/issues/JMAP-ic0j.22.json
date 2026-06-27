@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:00:38Z",
+  "compaction_level": 0,
+  "content_hash": "75a5ac53ded2974a02b5a22d9540497e897261121bdb414dd5e600e083e0c64b",
+  "created_at": "2026-05-15T17:00:16Z",
+  "created_by": "Mark Atwood",
+  "description": "backend.rs:625-646 \u2014 query_calendar_events returns Result<QueryResult, QueryCalendarEventsError<Self::Error>>, where QueryCalendarEventsError carries exactly the two draft-specified method-level error codes:\n\n  ExpandDurationTooLarge \u2192 maps to expandDurationTooLarge (\u00a710.7.3)\n  CannotCalculateOccurrences \u2192 maps to cannotCalculateOccurrences (\u00a710.7.4)\n  Other(E) \u2192 maps to serverFail\n\nA naive shape would be:\n  fn query_calendar_events(...) -> Result<QueryResult, Self::Error>\n\u2026and force the backend to invent string-tagged errors. The typed enum:\n1. Prevents backends from inventing nonconformant error codes for these two cases.\n2. Keeps the handler's mapping (event.rs:883-892) a clean match arm rather than a string-prefix sniff.\n3. Marked #[non_exhaustive] so future draft errors (e.g. 'expansionRateLimitExceeded') can be added without SemVer break.\n\nThe handler maps these to JmapError::custom('expandDurationTooLarge') \u2014 the spec error name. This is exactly the shape RFC 8620 says custom method errors must take (\u00a73.6.1 'invalidArguments' enum + new method-specific codes).\n\nDEFEND when reviewers suggest 'just use Self::Error with String tags'.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "QueryCalendarEventsError enum keeps spec-required error codes typed",
+  "updated_at": "2026-05-17T17:00:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:00:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "911a1af8-d106-5c48-aec9-55346c8a6f50",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

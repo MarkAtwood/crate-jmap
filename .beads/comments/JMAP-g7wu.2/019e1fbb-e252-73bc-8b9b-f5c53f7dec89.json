@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260513T041030Z-2473287",
+  "created_at": "2026-05-13T05:07:47Z",
+  "id": "019e1fbb-e252-73bc-8b9b-f5c53f7dec89",
+  "issue_id": "JMAP-g7wu.2",
+  "text": "Epic-level human escalation from /do-beads (autonomous frontier converged):\n\n3 of 4 children closed (.1, .2, .3). The remaining open child is itself an epic that I just labeled human in this same /do-beads session:\n\n  .4 (JMAP-g7wu.2.4) \u2014 Space/set role/member/channel mutations \u2014 escalated to human; 11 of its 12 children closed, only .6 (integration tests, human-labeled) remains.\n\nThis parent epic surfaces on bd ready merely because it is not itself labeled human. Labeling so it stops cycling.\n\nHuman decision needed: same decision as JMAP-g7wu.2.4 \u2014 clear .6 to author integration tests, or accept partial close."
+}

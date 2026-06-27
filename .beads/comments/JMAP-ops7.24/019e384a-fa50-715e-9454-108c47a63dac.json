@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T23:34:58Z",
+  "id": "019e384a-fa50-715e-9454-108c47a63dac",
+  "issue_id": "JMAP-ops7.24",
+  "text": "Related per-crate finding (calendars-server): bd:JMAP-ic0j.26. This bead is the metadata-server sibling case with a distinct partial-compliance pattern variant. Fix spans crates: jmap-metadata-server only at the method level, but the workspace-wide pattern-selection question (filenode no-silent-drop vs metadata partial-compliance vs calendars silent-drop-no-compensation) should be resolved across ic0j.26 + ops7.24 in coordination. /do-beads must verify with cargo check --workspace if the resolution propagates the pattern across crates."
+}

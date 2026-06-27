@@ -1,0 +1,33 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T02:41:35Z",
+  "compaction_level": 0,
+  "content_hash": "96ca75fb73fd9b9449f0734111102c2a61fea288af73fd0777939d8d1af82def",
+  "created_at": "2026-05-11T02:18:37Z",
+  "created_by": "bd-spin/bd-spin-20260511T021545Z-3955436",
+  "description": "Mirror the canonical JMAP-uuoi.1 (calendars-client) wiremock smoke-test layout into crate-jmap-filenode-client/tests/.\n\nPattern oracle: crate-jmap-calendars-client/tests/availability_tests.rs (wiremock + production call + body_json assertion, ~40-60 LoC per test).\n\nMethods needing new smoke coverage in jmap-filenode-client:\nfile_node_get/set/query/changes/copy core paths; depth/onDestroyRemoveChildren passthrough\n\nAcceptance:\n- New wiremock-backed tests in crate-jmap-filenode-client/tests/*.rs.\n- cargo test -p jmap-filenode-client passes.\n- File layout mirrors calendars-client (split per method-family where the canonical splits).\n- Per workspace AGENTS.md Canonical Templates rule, do NOT diverge from the canonical's file layout, helper-pattern, or assertion shape without also changing the canonical first.",
+  "ephemeral": 0,
+  "id": "JMAP-uuoi.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock smoke tests for jmap-filenode-client (propagate from canonical)",
+  "updated_at": "2026-05-11T02:41:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T19:18:37Z",
+      "created_by": "bd-spin/bd-spin-20260511T021545Z-3955436",
+      "depends_on_issue_id": "JMAP-uuoi",
+      "id": "7227650a-7aae-5bba-ae15-c74bbc0f1709",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

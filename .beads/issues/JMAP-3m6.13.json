@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.13",
+  "title": "TransportConfig consumed at construction, not stored \u2014 correct ownership model",
+  "description": "The comment in auth.rs explains why there is no Arc<dyn TransportConfig> blanket impl: TransportConfig is consumed once to build the reqwest::Client. The Client is what's stored and cloned (it's already Arc-based internally). Storing TransportConfig would imply it is shared or reusable, which it is not. A future contributor might add Arc<dyn TransportConfig> for 'symmetry' with Arc<dyn AuthProvider>. That would be wrong. The comment is a good decision record.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:57:48Z",
+  "updated_at": "2026-04-30T02:49:12Z",
+  "closed_at": "2026-04-30T02:49:12Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:57:48"
+    }
+  ]
+}

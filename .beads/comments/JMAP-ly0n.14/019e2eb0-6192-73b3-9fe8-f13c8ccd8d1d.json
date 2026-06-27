@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T02:49:32Z",
+  "id": "019e2eb0-6192-73b3-9fe8-f13c8ccd8d1d",
+  "issue_id": "JMAP-ly0n.14",
+  "text": "Workspace-wide calibration: jmap-mail-types is the canonical template per workspace AGENTS.md, and its 8 Property enums in backend.rs ALSO lack #[non_exhaustive] \u2014 chat-types' shape matches the canonical defect. The other extension-types siblings (calendars-types, contacts-types, tasks-types) DO have #[non_exhaustive] on their Property enums. So the workspace-wide fix is: add #[non_exhaustive] in jmap-mail-types first (canonical), then propagate to jmap-chat-types. Filing this here keeps the chat-types finding clean; a parallel mail-types finding belongs under /review-workspace-api or a separate per-crate review. Not blocking \u2014 both crates' Property enums shipped pre-existing (the JMAP-ly0n diff did not introduce the defect), so no regression to roll back."
+}

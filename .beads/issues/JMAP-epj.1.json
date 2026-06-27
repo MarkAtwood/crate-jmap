@@ -1,0 +1,33 @@
+{
+  "close_reason": "duplicate of JMAP-epj.2",
+  "closed_at": "2026-05-01T12:04:29Z",
+  "compaction_level": 0,
+  "content_hash": "7718c2f7922418b06e4ff8d25e24f149e3e6a971aa2d03d074343a2691da13f1",
+  "created_at": "2026-05-01T12:04:00Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8621 \u00a74.7: 'For successfully copied Email objects, the created response contains the id, blobId, threadId, and size properties of the new object.' Current code puts the full email object (including mailboxIds, keywords, subject, etc.) in the created map. Triggered whenever any Email/copy succeeds. Clients that use the created entry to update their cache receive unexpected extra properties, and strict RFC-conformant parsers may reject the response.",
+  "ephemeral": 0,
+  "id": "JMAP-epj.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/copy created map must only include 4 fields",
+  "updated_at": "2026-05-01T12:04:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T05:03:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-epj",
+      "id": "c33e0a10-55ba-544c-b50f-3e3df7e8066d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

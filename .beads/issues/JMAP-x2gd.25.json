@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Already-improved: the sentinel-string pattern has been replaced by a typed RequiredPermissions enum that's fail-closed by construction. No further action needed.",
+  "closed_at": "2026-05-18T02:18:16Z",
+  "compaction_level": 0,
+  "content_hash": "481a6f3abed665d3c1201f62eef35e98e810f35f304c1cb9d4e7451203e4ce52",
+  "created_at": "2026-05-14T03:16:37Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/permissions.rs:43-122 (UNKNOWN_OP_SENTINEL + match arm).\n\nSpacePatchOp is #[non_exhaustive] upstream. A future-added variant cannot be matched at compile time from this crate. The match's wildcard arm returns &[UNKNOWN_OP_SENTINEL], where UNKNOWN_OP_SENTINEL = '__unknown_space_patch_op__' \u2014 a string no realistic caller will ever hold.\n\nThis is fail-closed: a backend evaluating the required-permission set against the caller's effective permissions will reject the op (because the caller doesn't hold the sentinel). The doc-comment is explicit: 'Backends that observe this sentinel MUST reject the op.'\n\nA future contributor might propose:\n- 'Return empty slice for unknown variants \u2014 let the backend's other checks fire.' Bad \u2014 empty required set means 'no permission required', which permits the op. Fail open, not closed.\n- 'Panic on unknown variants \u2014 they shouldn't exist.' Bad \u2014 kit consumers may legitimately receive ops they haven't recompiled against (jmap-chat-types upgrade across major versions).\n- 'Use an Err variant on a Result return type.' Possible, but invasively reshapes the helper's signature and forces every caller into match. The sentinel is a workable kludge given the non_exhaustive constraint.\n\nThe current shape \u2014 fail closed with an unmistakable sentinel string \u2014 is the right call. Preserve.\n\nNote: this same pattern is repeated in MemoryBackend's apply_space_patch_impl wildcard arm (memory.rs:1198-1203, stub_description fn). They reinforce each other; both should change together if the pattern ever evolves.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "permissions::required_permissions_for_op fails closed with sentinel string for unknown SpacePatchOp variants",
+  "updated_at": "2026-05-18T02:18:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:16:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "81379430-abc2-5353-a745-591fd46ed7b1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

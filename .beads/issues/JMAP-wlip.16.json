@@ -1,0 +1,33 @@
+{
+  "close_reason": "No-op resolution: the bead is a defense of the existing BackendChangesError::TooManyChanges { limit: 0 } single-variant-with-sentinel design, not a request to change it. The associated tests and rustdoc already document the contract. Closing as a no-op; the defended shape stays.",
+  "closed_at": "2026-05-14T13:54:04Z",
+  "compaction_level": 0,
+  "content_hash": "d19fc4e83128ae6ae79009ad377052e8b63325e4d1af2a1e3c01090b5f9bf558",
+  "created_at": "2026-05-14T12:55:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this choice is correct: BackendChangesError::TooManyChanges { limit: 0 } maps to cannotCalculateChanges, and { limit: N > 0 } maps to tooManyChanges with the suggested retry limit (backend.rs:418-432). The single-variant-with-sentinel shape avoids a CannotCalculateChanges sibling variant that would carry identical semantics but force the backend impl to choose which of two near-identical variants to return.\n\nWhat a future contributor might incorrectly suggest changing: split into two variants, CannotCalculate and TooManyChanges { limit: u64 }. Pros (clearer intent at the call site) lose to cons: (a) the storage backend rarely knows at error-construction time whether it can supply a partial window \u2014 both paths emerge from the same has-no-changelog branch in real backends; (b) every backend would have to choose, and most would pick wrong because the JMAP semantic distinction is subtle; (c) the existing single-variant shape lets the backend just say \"I cannot supply N changes\" with N = whatever it can supply, where 0 is the natural \"I cannot supply any\" answer.\n\nThe associated unit tests (backend.rs:795-821) document the mapping in code, and the rustdoc on the variant (backend.rs:382-388) names the limit=0 \u2192 full-resync semantics explicitly with RFC 8620 \u00a75.6 citation. A future contributor reading the source learns the contract directly; the test asserts the mapping holds. Compact, type-safe, no boilerplate.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BackendChangesError TooManyChanges limit=0 sentinel for cannotCalculateChanges",
+  "updated_at": "2026-05-14T13:54:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:55:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "3b354b3b-9ad9-5d14-848f-04af1633b153",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

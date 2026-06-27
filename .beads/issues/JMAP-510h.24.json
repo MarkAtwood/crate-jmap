@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T10:35:41Z",
+  "compaction_level": 0,
+  "content_hash": "b0f2e8301cb5647fe0d1905848f2f7ae83301041928d80cf138e7cceaa481354",
+  "created_at": "2026-05-14T19:52:50Z",
+  "created_by": "Mark Atwood",
+  "description": "src/filenode.rs:1229-1256 (unit test in src/) seeds backend.set_descendants('dir1', &['child1']) and asserts the destroy of dir1 returns 'nodeHasChildren'. The test passes because the nodeHasChildren guard short-circuits before the backend is consulted.\n\nBut if the guard were removed or broken, the backend (MockBackend) would return SetErrorType::NotFound (from src/lib.rs:388-397: 'destroy_object always returns NotFound'). The test would then fail with 'expected nodeHasChildren, got notFound', which looks like the original test of the guard.\n\nHowever, the test does NOT positively assert that the cascade-attempt path is gated by the guard \u2014 only that nodeHasChildren is the response. The same nodeHasChildren wire shape could be returned for unrelated reasons by a future change (e.g., a too-eager guard, a backend that returns nodeHasChildren via Backend::Other(MyError)).\n\nSuggested fix: use MemoryBackend (which actually destroys leafs and stores state) for this test instead. Then a successful destroy is observable as a state change, and the failed destroy with nodeHasChildren is the observable error path. The current test passes regardless of whether the backend was actually invoked.\n\nThe unit-test/integration-test split in this crate is part of the JMAP-510h.14 problem: unit tests in src/ use the weak MockBackend, integration tests in tests/ use the stronger MemoryBackend. Migrating to one harness simplifies this.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Test 'set_destroy_node_with_children_returns_node_has_children' uses MockBackend's degenerate destroy_object that always returns notFound",
+  "updated_at": "2026-05-17T10:35:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:52:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "5a80d819-3b54-5a3e-9975-c7a0b254893c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

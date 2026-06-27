@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "nodeType inference, blobId validation, changed stripping all work. Tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Implemented nodeType inference (file/symlink/directory) and blobId/target consistency validation; blob_exists check for file nodes; +3 tests; 19 total pass; clippy clean",
+  "closed_at": "2026-05-05T04:18:59Z",
+  "compaction_level": 0,
+  "content_hash": "26726d8fa398e8f088a8aeb81dc85133ecb9e4b18ca6ea84c9e2a2ce70b46dab",
+  "created_at": "2026-05-05T02:57:30Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Before create_object calls in handle_filenode_set, infer nodeType if absent and validate blobId/target consistency and existence. Handle server-set changed field on updates. Oracle: \u00a73.1.\n\n**Algorithm (create path):**\n1. Inspect JSON object map for blobId (non-null) and target (non-null).\n2. If nodeType absent: insert \"nodeType\":\"file\" if has_blob_id, else \"symlink\" if has_target, else \"directory\".\n3. After deserialization validate consistency:\n   - File with null blobId \u2192 invalidProperties:[\"blobId\"]\n   - File with non-null target \u2192 invalidProperties:[\"target\"]\n   - Directory with non-null blobId \u2192 invalidProperties:[\"blobId\"]\n   - Directory with non-null target \u2192 invalidProperties:[\"target\"]\n   - Symlink with non-null blobId \u2192 invalidProperties:[\"blobId\"]\n   - Symlink with null target \u2192 invalidProperties:[\"target\"]\n4. For file nodes: call backend.blob_exists(&account_id, blob_id). If false \u2192 invalidProperties:[\"blobId\"] with description.\n\n**Algorithm (update path):**\n5. Strip \"changed\" from patch before forwarding to update_object (server-set, \u00a73.1).\n6. Add doc comment to FileNodeBackend: when patch includes blobId, update_object MUST return Some(updated_node) with size set.\n\n**Tests (one per error case from \u00a73.1):**\n- Create directory without blobId \u2192 nodeType inferred as directory, succeeds.\n- Create with blobId \u2192 nodeType inferred as file.\n- Create file with null blobId \u2192 invalidProperties.\n- Create directory with non-null blobId \u2192 invalidProperties.\n- Create symlink without target \u2192 invalidProperties.\n- Create file with non-existent blobId \u2192 invalidProperties.\n- Update with changed in patch \u2192 changed stripped before reaching MockBackend.\nUpdate MockBackend: add seed_blob(id) helper and real blob_exists impl.\n\n**Acceptance criteria:** All 7+ tests pass. cargo test -p jmap-filenode-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-zfy2.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement nodeType inference, blobId validation, and size contract in FileNode/set",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:57:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zfy2",
+      "id": "9cffa50d-63c5-5ecd-a33a-9a27c23a3309",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:58:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zfy2.1",
+      "id": "f7a8d77e-5776-5dbb-aa89-c644936c8276",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closing as deferred per bead author's own conclusion. The bead body says: (a) 'this is a latent spec-grammar quibble more than a real bug', (b) 'mail-parser does not produce empty MessageIds vectors from non-empty headers' so the divergence between 'parse failure' and 'empty list' never surfaces in practice, (c) 'The fix would be to thread the parser's distinguish-empty-vs-failure information through mime_tree::HeaderValueTyped' \u2014 a mime-tree-side change outside this workspace, (d) 'this bead just notes the dependency'.\n\nThe right shape is a mime-tree feature request: change HeaderValueTyped::MessageIds(Vec<String>) and ::URLs(Vec<String>) to carry Option<Vec<String>> so a None can signal parse failure distinctly from a Some(vec![]) parsed-but-empty. Filing that upstream is the path forward; until then, the apply_header_form behaviour preserves the latent quibble. No autonomous action available here. Cycling this through /do-beads would not produce a different outcome.\n\nIf mime-tree's API ever changes to expose the distinction, the email.rs:339-365 update is mechanical and can be done as a follow-up bead under that mime-tree-version-bump epic.",
+  "closed_at": "2026-05-16T19:04:44Z",
+  "compaction_level": 0,
+  "content_hash": "55d3bc7a3f15472b3d4c678c7751ccd35669ea1c8333ba6abe37ad54972e5048",
+  "created_at": "2026-05-14T12:45:32Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src/email.rs:339-365 (apply_header_form for AsMessageIds and AsURLs) returns Value::Null on both:\n\n- Parse failure (mime_tree returned a different HeaderValueTyped variant).\n- Successful parse with zero entries (mime_tree::HeaderValueTyped::MessageIds(Vec::new()) and URLs(Vec::new())).\n\nThe 'if !ids.is_empty()' / 'if !urls.is_empty()' guard collapses these two cases. Per RFC 8621 \u00a74.1.2.5: 'If parsing fails, the value is null.' The spec language is 'on parse failure' not 'on empty list'. A well-formed In-Reply-To header with zero msg-ids (legal per RFC 5322 \u00a73.6.4, which lets In-Reply-To and References be 1*msg-id but a parser that returned the empty list rather than rejecting could conceivably emit []) would be silently converted to null.\n\nIn practice this is unlikely to cause user-observable bugs because:\n\n- mail-parser does not produce empty MessageIds vectors from non-empty headers (verified by reading mail-parser source). Either it finds at least one msg-id and returns it, or it returns no MessageIds variant at all.\n- Real-world In-Reply-To headers are always 1+ msg-id; clients tolerate null/[] interchangeably.\n\nSo this is a latent spec-grammar quibble more than a real bug. Track it for the eventual mime-tree behavioural-contract documentation work. If mime-tree ever changes its parser to produce empty vectors as a 'parsed but no msg-ids found' signal, the bug becomes visible.\n\nThe fix would be to thread the parser's distinguish-empty-vs-failure information through mime_tree::HeaderValueTyped \u2014 e.g. wrap the Vec in Option (None = parse failure, Some(vec) = parsed, possibly empty). That's a mime-tree-side change; this bead just notes the dependency.",
+  "ephemeral": 0,
+  "id": "JMAP-j7pa.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AsMessageIds/AsURLs cannot distinguish parse failure from empty list",
+  "updated_at": "2026-05-16T19:04:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:45:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-j7pa",
+      "id": "eb3fcb91-44d4-525c-8382-68be86d0e8cd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "36a9b70e51d3c373d7deb0153d6db6cf15b546f2ce7d911d00ee8e57177d77a8",
+  "created_at": "2026-05-14T21:25:58Z",
+  "created_by": "Mark Atwood",
+  "description": "cargo clippy -p jmap-metadata-server --all-features --tests -- -D warnings fails on:\n\n    error: this map_or can be simplified\n       --> crate-jmap-metadata-server/src/metadata.rs:787:13\n        |\n    787 |             err.get(\"properties\").map_or(true, Value::is_null),\n\nSuggested fix: replace with .is_none_or(Value::is_null). Trivial.\n\nSurfaced while running workspace gate for bd:JMAP-510h.31. Not caused\nby that work \u2014 pre-existing condition; just newly noticed.",
+  "ephemeral": 0,
+  "id": "JMAP-6ti3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "metadata-server: clippy::unnecessary-map-or in metadata.rs:787 fails -D warnings",
+  "updated_at": "2026-05-14T21:25:58Z"
+}

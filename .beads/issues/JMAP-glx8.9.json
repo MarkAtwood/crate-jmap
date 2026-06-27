@@ -1,0 +1,33 @@
+{
+  "close_reason": "GOOD observation acknowledged. The 21-test per-sloppy-field sweep (sloppy_field_* in src/lib.rs) is intentional: each test is independently failable, names both the wire field and the typed jscontact target type, and cites a specific RFC 9553 figure as oracle. Do not consolidate into a table-driven harness. No code change needed.",
+  "closed_at": "2026-05-15T22:55:32Z",
+  "compaction_level": 0,
+  "content_hash": "e74ec91a2ea1ad21a4844f8053a6857e105a9a47c4b460333f5564f8f232f19a",
+  "created_at": "2026-05-15T22:37:12Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs:686-1057 \u2014 21 sloppy_field_* tests, one per Option<serde_json::Value> field on ContactCard, each (1) deserializing hand-written JSON modelled on a specific RFC 9553 figure, (2) further deserializing the inner Value into the corresponding typed jmap-jscontact-types::* type, (3) re-serializing the typed value, (4) asserting back == card.field.unwrap() (i.e., the typed shape round-trips bit-equal to the original Value).\\n\\nThis is the right test pattern for the hybrid Value-with-opt-in-typed design:\\n- Independent oracle (RFC 9553 figures), per workspace test-integrity rule.\\n- Each test is small, focused, and asserts a single round-trip \u2014 failure points directly at the offending sub-type.\\n- The sweep covers every sloppy field, not just 'representative ones' \u2014 prevents the silent regression where a new field gets added to jmap-jscontact-types but its serde shape diverges from the wire format.\\n- The test name (sloppy_field_<wire>_roundtrips_through_jscontact_<type>) names both the wire field and the typed shape, making test failure messages self-describing.\\n\\nA future reviewer will be tempted to consolidate these into a parameterized test or table-driven harness. Don't. Each test is independently failable, independently debuggable, and the per-test rustdoc cites the specific RFC 9553 figure \u2014 that traceability is the point.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "GOOD: per-sloppy-field round-trip test sweep using RFC 9553 figure JSON",
+  "updated_at": "2026-05-15T22:55:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:37:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "de84f483-a161-5a72-a5bb-e56b507d1d8a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

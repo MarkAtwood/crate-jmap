@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fix already committed; parent epic closed",
+  "closed_at": "2026-05-01T15:11:37Z",
+  "compaction_level": 0,
+  "content_hash": "080d620f15b2ef03dcbf00a7a3d6c3bd0f459687db700ec7fdb31e3b2f782201",
+  "created_at": "2026-05-01T05:51:07Z",
+  "created_by": "Mark Atwood",
+  "description": "When collapseThreads=true and the fetch hits the 65536-email cap, the handler sets thread_total=None rather than returning a potentially wrong count. This is correct per RFC 8620 \u00a75.5: if the server can't determine the true total it should omit it. A future contributor might be tempted to return the capped count as the total (which would be actively wrong) or to always compute the total regardless of cap. The None-on-truncation design is intentional and correct.",
+  "ephemeral": 0,
+  "id": "JMAP-2qp.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "COLLAPSE_THREADS_MAX_EMAILS cap with honest total=None on truncation",
+  "updated_at": "2026-05-01T15:11:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-04-30T22:51:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-2qp",
+      "id": "fee62edb-27f4-5628-895e-ad4183011777",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Public-API change: SetResponse fields from Option<HashMap> to HashMap with #[serde(default)]. Pattern-matching changes for downstream callers. Coordinate with bd:JMAP-6by7 (0.2.0 typed-Id epic) since both are 0.2.0 *-client API cleanup. Deferred.",
+  "closed_at": "2026-05-09T07:37:20Z",
+  "compaction_level": 0,
+  "content_hash": "1c9968b4c4861054617bd2c692c23550e5e7014ab89a7c077c61e64265639f70",
+  "created_at": "2026-05-08T03:22:14Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:69-79: SetResponse has `created: Option<HashMap<String, T>>`, `updated: Option<...>`, `destroyed: Option<Vec<Id>>`, etc.\n\nRFC 8620 \u00a75.3 says these fields are present and may be empty when nothing was created/updated/destroyed. The wire format does not require them to be omitted on no-op. The current Option<...> shape leaks server inconsistency to the caller \u2014 some servers send `\"created\": null`, some send `\"created\": {}`, and the type does not distinguish.\n\nFor the typical caller, the type they want is `HashMap<...>` (possibly empty). For the meta-caller who cares whether the server sent the field at all, `#[serde(default)]` would let them get `HashMap` and never see None.\n\nSuggested fix:\n```\n#[serde(default = \"HashMap::new\")]\npub created: HashMap<String, T>,\n```\n\nThree benefits: (1) callers stop pattern-matching Some/None for empty results, (2) types align with RFC's prose model, (3) deserialization tolerates servers that omit empty fields without forcing the caller to handle it.\n\nThis applies equally to ChangesResponse \u2014 `created: Vec<Id>` is correct, but RFC 8620 \u00a75.2 doesn't let it be None. SetResponse's Option chain is over-defensive and propagates outward.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetResponse fields default to None \u2014 caller cannot distinguish 'created absent' vs 'no creates'",
+  "updated_at": "2026-05-09T07:37:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:22:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "6d2c0979-1880-54d2-b492-b656d4644510",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

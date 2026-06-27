@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Renamed roles_vacated_by_updates\u2192roles_intended_to_vacate, roles_actually_vacated\u2192roles_successfully_vacated",
+  "closed_at": "2026-05-02T21:15:50Z",
+  "compaction_level": 0,
+  "content_hash": "deabc624b3b6986c18939df0f9f601969fbef636ce8cf93ce56dcab734a4f134",
+  "created_at": "2026-05-02T19:34:41Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs handle_mailbox_set (lines 449-471 and 601-602): two HashSets track role vacations \u2014 'roles_vacated_by_updates' (pre-scan of the update patches, built before the loops) and 'roles_actually_vacated' (populated only after a vacating update succeeds). The names look like synonyms; the reader must read both definitions and their usage sites to understand the distinction is pre-computed-intent vs post-confirmed-outcome. Suggested rename: 'roles_intended_to_vacate' for the pre-scan set and 'roles_successfully_vacated' for the success set, making the intent/outcome contrast explicit at the declaration site.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mailbox.rs: roles_vacated_by_updates vs roles_actually_vacated naming pair misleads",
+  "updated_at": "2026-05-02T21:15:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "8c997a16-4593-5d5f-9a81-54486290093b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

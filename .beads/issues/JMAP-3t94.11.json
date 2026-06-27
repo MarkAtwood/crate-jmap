@@ -1,0 +1,33 @@
+{
+  "closed_at": "2026-05-14T22:26:58Z",
+  "compaction_level": 0,
+  "content_hash": "26f342f2596f72fee9d79d68006d208300f061e80c2dd6a49bd0586de54f5b80",
+  "created_at": "2026-05-14T21:52:17Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/principal.rs:213-217 and notification.rs:109-113 validate every destroy[] element is a JSON string and return JmapError::invalid_arguments at the top level if any element is non-string. A naive impl would skip non-string entries silently and produce a 'normal' /set response with only the string entries processed \u2014 which would be a quiet client-side compatibility break (clients receiving 'destroyed: [valid_id]' when they passed [valid_id, 123] would not know 123 was ignored).\n\nWhy this should be defended: a contributor optimizing the loop might say 'just filter to .as_str() and skip non-strings \u2014 RFC 8620 \u00a75.3 doesn't explicitly require the top-level error'. That argument loses on three points:\n  1. RFC 8620 \u00a75.3 says destroy is an Id[] (a JSON array of Id strings). A non-string element is a malformed request.\n  2. Silent-skip on malformed input is the workspace's catch-all anti-pattern \u2014 preserve-unknown applies to ADDITIVE fields, not to type violations on existing fields.\n  3. The error message includes the offending value (format!('destroy: every element must be a string Id; got {bad}')) which is actionable for clients debugging request construction.\n\nTest coverage: principal.rs:367-376 (set_destroy_non_string_element_returns_invalid_arguments) and notification.rs:309-319 (set_destroy_null_element_returns_invalid_arguments).",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Existing design defended \u2014 no code change needed. The destroy-array non-string-element invalidArguments enforcement remains at the top level in both /set handlers, with the inline RFC 8620 \u00a75.3 citation preserved through the .30 refactor (which changed the validation shape from find-then-iterate to single-pass collect-then-iterate without changing the semantic: any non-string element produces a top-level invalidArguments error, never silent skip). Tests set_destroy_non_string_element_returns_invalid_arguments and set_destroy_null_element_returns_invalid_arguments lock it in.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Destroy-array non-string element returns top-level invalidArguments, not silent skip",
+  "updated_at": "2026-05-14T22:26:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:52:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "f27895a7-1cf0-5742-94c7-bf6174900fda",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "3b9708a1d37fd82d00020914c16d95d12387eccf1b4448d9fc81fa0d186c8434",
+  "created_at": "2026-05-16T19:14:44Z",
+  "created_by": "Mark Atwood",
+  "description": "Propagation of bd:JMAP-ayoz.41.2 canonical pattern to jmap-calendars-server.\n\n## Scope\n\nInsert enforce_max_objects_in_set call (exact shape from .41.2) at top of all 4 calendars-server /set handlers, after account_exists:\n\n1. crate-jmap-calendars-server/src/calendar.rs handle_calendar_set\n2. crate-jmap-calendars-server/src/event.rs handle_calendar_event_set\n3. crate-jmap-calendars-server/src/event_notification.rs handle_calendar_event_notification_set\n4. crate-jmap-calendars-server/src/participant_identity.rs handle_participant_identity_set\n\n## Tests\n\nIntegration test per handler asserting over-limit returns JmapError type=limit description=maxObjectsInSet.\n\n## Acceptance\n\ncargo fmt+clippy+test+doc clean for jmap-calendars-server.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.41.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "in_progress",
+  "timeout_ns": 0,
+  "title": "Wire maxObjectsInSet enforcement into jmap-calendars-server (4 handlers)",
+  "updated_at": "2026-05-16T19:31:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T12:14:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.41.2",
+      "id": "9b5ae5f7-837b-559f-9f7e-9ad504eba04b",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-16T12:14:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.41.1",
+      "id": "c441e072-3ed2-59e7-86a5-c404ef386b33",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-16T12:14:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.41",
+      "id": "efc3f48d-3cf2-5091-b14d-b196a37fa503",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

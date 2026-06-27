@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already fixed by the bd:JMAP-ic0j.1 workspace MemoryError canonical-shape sweep. Verified at HEAD:\n\n```rust\n#[non_exhaustive]\n#[derive(Debug)]\npub struct MemoryError {\n    description: String,\n}\n\nimpl MemoryError {\n    pub fn new(description: impl Into<String>) -> Self { ... }\n    pub fn description(&self) -> &str { ... }\n}\n```\n\nBoth concerns the bead raises are resolved:\n1. **No #[non_exhaustive]** \u2192 present at the struct level. Future field additions are non-breaking.\n2. **pub String field exposes string-match brittleness** \u2192 field is private (named `description`, not the original tuple-struct pub String position). Callers can no longer destructure-match or .0-access. Read-side access is via the description() method, and the docstring on description() flags the content as implementation-defined and not part of the stability contract.\n\nThe bead also notes 'canonical sibling jmap-mail-server/src/memory.rs:449-452 has the same problem' \u2014 that statement was true at bead-file time (2026-05-14) but the sweep landed since: mail-server, calendars, filenode, metadata, tasks were on canonical first, and contacts (plus chat and sharing) were propagated in the same sweep (per workspace memory note 'memoryerror-canonical-shape-sweep'). The cookie-cutter-template propagation is complete.",
+  "closed_at": "2026-05-17T20:47:26Z",
+  "compaction_level": 0,
+  "content_hash": "fa2da374aa74ee78ca217fc7f2fcad44be6b651f87a3ea9a7dc77c2c99d38828",
+  "created_at": "2026-05-14T19:30:21Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/src/memory.rs:75-77\n\nCURRENT SHAPE:\n    /// A simple string error for `MemoryBackend` failures.\n    #[derive(Debug)]\n    pub struct MemoryError(pub String);\n\nCALLER CONTRACT PROBLEM:\n1. No #[non_exhaustive]. Adding a second field (backtrace, source error,\n   error_code, retry-after, etc.) is a breaking change for every caller\n   doing `MemoryError(\"...\".to_owned())` literal construction or pattern-\n   matching the tuple position. Once the `memory` feature ships in 0.1.x,\n   we cannot enrich the error type without a 0.2.x bump that breaks every\n   downstream integration test / smoke test that constructs a fixture\n   MemoryError directly.\n2. `pub String` field. Callers can match on the exact string content:\n       if let MemoryError(s) = e { if s == \"deserialize ContactCard: ...\"\n   The string content is implementation-defined (different formats at\n   memory.rs:362, 615, 623, 676), but nothing in the type signature or\n   the docstring tells callers this. The next refactor that changes\n   \"deserialize {type}: {err}\" to \"failed to deserialize {type}: {err}\"\n   silently breaks any caller doing string-match logic.\n\nWHAT CALLERS CANNOT DEPEND ON:\n- Cannot pattern-match safely; the variant set is implicitly closed but\n  not enforced.\n- Cannot read the error context programmatically \u2014 only via Display\n  format-string parsing.\n\nRECOMMENDED:\n- Add #[non_exhaustive] at the struct level.\n- Make the String field private; expose `as_str(&self) -> &str` and\n  optionally `kind(&self) -> ErrorKind` for typed matching.\n- Document that the Display content is implementation-defined and may\n  change across minor versions.\n\nNOTE: the canonical sibling jmap-mail-server/src/memory.rs:449-452 has\nthe same problem (pub String, no #[non_exhaustive]). Per the workspace\ncanonical-template propagation rule, fixing the canonical and then this\ncrate is the correct ordering. File the canonical fix as a separate\nbead; this finding scopes the contacts-server symptom.\n\nThe same shape problem exists for MockError (test_support module) but\nthat type is in a `pub(crate) mod test_support` so it does not appear\non the published API surface \u2014 out of scope.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "memory::MemoryError missing #[non_exhaustive] and exposes pub String \u2014 adding context is a breaking change",
+  "updated_at": "2026-05-17T20:47:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:30:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "e17c0b93-6d41-5f1c-8023-7ffdabe2515a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

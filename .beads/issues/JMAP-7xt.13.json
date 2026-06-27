@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.13",
+  "title": "JmapRequestBuilder maintains redundant call_ids HashSet",
+  "description": "request.rs JmapRequestBuilder (lines 28-32): maintains a HashSet<String> parallel to the method_calls Vec solely for duplicate-id detection. RFC 8620 \u00a73.3 maxCallsInRequest is typically 32; an O(n) linear scan over method_calls.iter().any(|c| c.2 == call_id) would be fast enough and eliminate the HashSet field plus the call_id.clone() in add_call. The dual structure silently grows with each add_call even on the success path. Suggested rewrite: remove call_ids field; replace HashSet::insert check with a linear scan of method_calls.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:23Z",
+  "updated_at": "2026-04-30T01:08:45Z",
+  "closed_at": "2026-04-30T01:08:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:23"
+    }
+  ]
+}

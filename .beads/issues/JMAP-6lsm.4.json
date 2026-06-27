@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T16:05:30Z",
+  "compaction_level": 0,
+  "content_hash": "ddaf0c55c5c853b31adc8bd99ad9a3d71c1700054ca65985fb95303a61fcc6e3",
+  "created_at": "2026-05-08T03:04:41Z",
+  "created_by": "Mark Atwood",
+  "description": "src/client.rs:50 \u2014 `max_upload_body: u64` is documented as \"Maximum response body for upload_blob() response parsing\". The field name reads as \"maximum size of an upload\" but it caps the JSON response body the server sends back, not the bytes the client sends. There is no cap on how much the client uploads. New users will set this to 100 MiB expecting to upload 100 MiB blobs and find blobs of any size still go through, while small server responses fail. This is the kind of footgun that produces a recurring class of GitHub issues. Fix: rename to `max_upload_response_body` (mirrors the existing `max_session_body` / `max_call_body` / `max_download_body` pattern). Note: locked crate, requires user approval. Filing for visibility.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "max_upload_body field name describes response, not upload \u2014 confusing public API",
+  "updated_at": "2026-05-08T16:05:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:04:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "422dc1dc-cb04-528e-8bba-c0096b90651c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

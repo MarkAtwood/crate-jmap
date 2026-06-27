@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added UTCOffset newtype (RFC 5545 / RFC 8984 \u00a74.7.2 TZOFFSETFROM/TZOFFSETTO format) consistent with LocalDateTime, Duration, SignedDuration newtype shape: #[non_exhaustive] tuple-struct around String with From<String>/From<&str>/AsRef<str>/Display impls, no validation (parsing deferred to backend per PLAN.md). Switched TimeZoneRule.offset_from and offset_to to UTCOffset. Breaking change to field type but acceptable: crate is pre-1.0 and structs are #[non_exhaustive]. Updated downstream tests in jmap-calendars-types and jmap-tasks-types (the only consumers that compared offsets directly to &str \u2014 they now call .as_ref()). cargo test --workspace + cargo clippy --workspace -D warnings clean.",
+  "closed_at": "2026-05-16T02:26:36Z",
+  "compaction_level": 0,
+  "content_hash": "465b673ae241ebf14c2923db9ee999abffbbdea1d23a0a27edc7e9fdcfd1d7a5",
+  "created_at": "2026-05-15T22:08:03Z",
+  "created_by": "Mark Atwood",
+  "description": "src/lib.rs:665, 669 type TimeZoneRule.offset_from and offset_to as bare String fields. RFC 8984 \u00a74.7.2 specifies these as 'TZOFFSETFROM property from iCalendar' / 'TZOFFSETTO property from iCalendar' \u2014 iCalendar (RFC 5545 \u00a73.3.14) defines the value as a signed UTC offset in the format \u00b1HHMM or \u00b1HHMMSS.\n\nThe crate already has three other 'spec-defined string format' newtypes (LocalDateTime, Duration, SignedDuration) modeled as transparent newtypes to document intent at the type level without validating. The offset strings follow exactly the same precedent \u2014 a well-defined ABNF shape with no parsing \u2014 yet they remain bare String.\n\nTwo consequences:\n\n1. A consumer reading offset_from has no type-level signal that this is a signed offset (vs. an arbitrary tz id, a localized name, etc.). Compare to TimeZone.tz_id which is also a bare String \u2014 but there the spec says tzId is 'a valid paramtext value' which is much less specific than '\u00b1HHMM[SS]'.\n\n2. The crate's documented design pattern (PLAN.md \u00a770-82: 'These wrappers exist to document intent at the type level') applied unevenly. A future contributor adding a new typed temporal field will reasonably ask why offset_from is not a newtype while LocalDateTime is.\n\nTwo options:\n\n(a) Add an UtcOffset newtype with the same minimal impl set as the other three newtypes, and use it for offset_from and offset_to.\n\n(b) Document the deliberate choice to leave offset strings as String \u2014 perhaps because the format is iCalendar-derived rather than RFC-8984-native, or because no consumer is expected to programmatically inspect the value.\n\nRecommendation: (a) \u2014 the precedent is established, the consumer surface is small (only TimeZoneRule), the change is non-breaking (#[non_exhaustive]). This is a P3 polish item, not load-bearing.",
+  "ephemeral": 0,
+  "id": "JMAP-mno4.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "TimeZoneRule.offset_from / offset_to: String without typed shape, no validation, no Display divergence from Duration newtypes",
+  "updated_at": "2026-05-16T02:26:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:08:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mno4",
+      "id": "ffcd223d-f008-54c7-a885-e3fa6cf69fee",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

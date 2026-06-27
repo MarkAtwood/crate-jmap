@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T10:56:29Z",
+  "compaction_level": 0,
+  "content_hash": "fb20598bc5a1117baf634e4aef87dec9d211412424b94ed0f05ffb0fb61cd1dd",
+  "created_at": "2026-05-14T20:03:48Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/memory.rs:186-194\n\n```rust\n/// Register an account and return `self` for chaining.\npub fn with_account(self, account_id: &str) -> Self {\n    self.inner\n        .lock()\n        .unwrap()\n        .accounts\n        .insert(account_id.to_owned(), AccountStore::new());\n    self\n}\n```\n\n`HashMap::insert(k, v)` replaces any existing entry. If the caller\nchains `MemoryBackend::new().with_account(\"acc1\")` and then later\n(perhaps via the cloned `Arc<MemoryBackend>` passed elsewhere) calls\n`with_account(\"acc1\")` again \u2014 say, as part of a re-setup in a\nmulti-stage integration test \u2014 every node, blob, and change-log\nentry under \"acc1\" is silently destroyed and replaced with a fresh\nempty `AccountStore::new()`.\n\nThe doc comment says \"Register an account and return `self` for\nchaining.\" It does not say \"and clear any existing state on\ncollision\". A consumer reading just the doc has no warning.\n\nThis is more than a docs gap because the alternative behaviour is\nplausible: `HashMap::entry(k).or_insert_with(AccountStore::new)`\nwould be a no-op on collision and would preserve the existing\nstate. Without explicit documentation, a caller cannot tell which\nsemantics they get.\n\nConcrete impact: the test in\n`crate-jmap-filenode-server/tests/filenode_tests.rs` constructs a\nnew `MemoryBackend` per test, so the test suite never hits this\ncase. A downstream consumer building a multi-stage demo (e.g. a\nboot script that registers accounts from a config file and may\nre-load on SIGHUP) WILL hit this case.\n\nSuggested fix:\n\n1. Change to `or_insert_with(AccountStore::new)` \u2014 preserve existing\n   state on collision. Add a sibling `reset_account(&str)` for the\n   \"destroy and recreate\" path if any test actually needs it. This\n   is the safer default.\n2. OR keep the destructive semantics and document them loudly in the\n   doc comment: \"Registering an account with an id that already\n   exists ERASES the existing account's state.\" Then add a\n   `register_account_idempotent` for the safe path.\n\nPropagation note: canonical sibling\n`crate-jmap-mail-server/src/memory.rs:270-273` (`register_account`)\nuses `inner.known_accounts.insert(...)` on a `HashSet`, which is\nidempotent for the \"is account known\" question because HashSet\ninserts the same key once. Mail-server does NOT have the same\nproblem \u2014 only filenode-server's nested `AccountStore` (with its own\nnodes/state/change-log inside) does. This is a single-crate fix,\nnot a propagation.\n\n`api-contract,underspecified` because the public method's behaviour\non collision is not documented and the two plausible semantics\ndiverge silently.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.41",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::with_account silently overwrites existing account state \u2014 undocumented destructive behaviour",
+  "updated_at": "2026-05-15T10:56:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:03:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "7ae29c58-95f4-5b09-9e3d-1a8e6dabdcb3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

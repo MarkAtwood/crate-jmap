@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already fixed by bd:JMAP-qz9v.2 (commit 4f64602). handle_contact_card_copy now rejects same-account /copy with invalidArguments matching the canonical mail-server pattern. Test copy_same_account_rejected_with_invalid_arguments locks in the fix.",
+  "closed_at": "2026-05-15T10:00:01Z",
+  "compaction_level": 0,
+  "content_hash": "4c885438e201192bdb0ce949e2b50c759252e4fa6c04d8783c21a43e3e883ef7",
+  "created_at": "2026-05-14T19:22:07Z",
+  "created_by": "Mark Atwood",
+  "description": "This is a duplicate detail-issue split out of JMAP-qz9v.2 specifically to capture the simplest immediate fix. RFC 8620 \u00a75.4: 'The id of the account to copy records to. This MUST be different to the fromAccountId.'\n\nTrigger:\n  ContactCard/copy { accountId: 'acc1', fromAccountId: 'acc1', create: { c1: { id: 'card1' } } }\n\nCurrent behavior: handler at card.rs:345 accepts both ids, fetches the card from acc1, calls copy_contact_card(from='acc1', to='acc1', card), MemoryBackend mints a new id in the same account, and now there are two copies of the same card in one account.\n\nSpec-correct behavior: return JmapError::invalid_arguments('accountId must be different from fromAccountId') at the top of handle_contact_card_copy, before any state queries.\n\nThe canonical mail-server enforces this at email.rs:2263-2268. A one-line check in card.rs that mirrors that pattern closes the gap. Sibling-divergence regression per the canonical-template rule.\n\nTest gap: no test covers the same-account case. Adding one would lock in the fix.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactCard/copy permits accountId == fromAccountId with no error \u2014 should be invalidArguments per RFC 8620 \u00a75.4",
+  "updated_at": "2026-05-15T10:00:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:22:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "6144b0b0-0492-5b22-afdc-ec7de6c4a2d8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

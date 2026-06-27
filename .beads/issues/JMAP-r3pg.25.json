@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Resolved 2026-05-10: moved is_per_user_property from CalendarsBackend trait to jmap-calendars-types as the free fn is_per_user_calendar_event_property() plus const PER_USER_CALENDAR_EVENT_PROPERTIES. Eliminates the trait-method-with-default-impl divergence vector for the IANA-registered spec list. event.rs handler now calls the free fn directly. Added 4 unit tests pinning the list to the spec and exercising the classifier. README.md / PLAN.md trait sketches updated. cargo test --workspace clean; cargo clippy --workspace --tests -- -D warnings clean. Commit b9b4469.",
+  "closed_at": "2026-05-10T23:37:14Z",
+  "compaction_level": 0,
+  "content_hash": "ecf7bfe4aa3ad4b9e91aa84f40d79c18fc46574f4428ff0b796ec09af9f4b750",
+  "created_at": "2026-05-08T03:42:13Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs:119-124:\n\n    fn is_per_user_property(prop: &str) -> bool {\n        matches!(\n            prop,\n            \"keywords\" | \"color\" | \"freeBusyStatus\" | \"useDefaultAlerts\" | \"alerts\"\n        )\n    }\n\nThis is a method on the CalendarsBackend trait with a default impl that matches the spec list (draft-ietf-jmap-calendars-26 \u00a75.4 / \u00a710.8.2). Two design issues:\n\n1. It is a static fn (no &self / no Self::) so it could be a free function. As a trait method with default impl, a backend implementor could override it to return a different list \u2014 but the spec list is fixed by IANA registration. Allowing overrides invites silent divergence from the wire protocol.\n\n2. It logically belongs to the protocol/types crate, not the server crate. jmap-calendars-types already owns the property registry (CalendarEventProperty enum at src/backend.rs lines 10-13 re-exports it). The per-user determination is metadata about a typed property, not about a backend.\n\nIdiomatic fix:\n- Move to jmap-calendars-types as either:\n  (a) a const PER_USER_PROPERTIES: &[&str] = &[\"keywords\", ...]; plus a free fn is_per_user_property(name: &str) -> bool\n  (b) a method on the CalendarEventProperty enum: pub fn is_per_user(&self) -> bool { matches!(self, Self::Keywords | ...) }\n- Drop the trait method here; have src/event.rs:233 call the free fn / enum method directly.\n\nOption (b) is more idiomatic Rust \u2014 the property-level metadata travels with the property type. It also makes it impossible to misuse a stringly-typed name that doesn't appear in the registered enum.\n\nTest gap: no unit test of is_per_user_property's correctness against the spec list. A simple table-driven test would catch a typo.\n\nP3 \u2014 works correctly today. Idiom and architectural placement issue.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "is_per_user_property on CalendarsBackend trait \u2014 hardcoded list, no &self, should be a free fn or in jmap-calendars-types",
+  "updated_at": "2026-05-10T23:37:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:42:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "95d0bf2c-6252-5e6d-b4d9-8c3fc4ee1a78",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

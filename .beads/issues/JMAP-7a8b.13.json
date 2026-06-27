@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decision recorded: onSuccessUpdateEmail enforcement is spec-mandated (draft \u00a73.1 MUST)",
+  "closed_at": "2026-05-03T13:08:17Z",
+  "compaction_level": 0,
+  "content_hash": "0d8130239321c3b744b9461f9a5d88358aef2878cac43575ab458eb133fc9568",
+  "created_at": "2026-05-03T13:01:10Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mdn_send requires onSuccessUpdateEmail to be present and set keywords/$mdnsent: true for each send entry. This might look overly strict. The spec (draft-ietf-jmap-mdn-17 \u00a73.1, lines 350-352) says: 'the server MUST reject an MDN/send which does not result in setting the keyword $mdnsent. Thus the server MUST check that the onSuccessUpdateEmail property of the method is correctly set.' The enforcement is correct. Do not relax it.",
+  "ephemeral": 0,
+  "id": "JMAP-7a8b.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "onSuccessUpdateEmail enforcement verified correct against spec \u00a73.1",
+  "updated_at": "2026-05-03T13:08:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:01:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7a8b",
+      "id": "c811080e-5e20-58e7-bc7f-fe58da688469",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

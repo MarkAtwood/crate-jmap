@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T04:20:21Z",
+  "compaction_level": 0,
+  "content_hash": "d3c2c27f355cad1dc99948e573bc1e0bf8649e52d2b358606ea6a832430a78ef",
+  "created_at": "2026-05-14T03:15:17Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/chat.rs:108-136, particularly the comment at line 117 ('O(1) fetch instead of O(n) per-create fetches').\n\nThe hoisted fetch at line 123-126 reads every Chat in the account (no filter pushdown):\n    backend.get_objects::<Chat>(caller, &account_id, None, None)\n\nFor an account with K Direct chats already + N to-create in this batch:\n- Old (per-create) cost: O(N * K) reads.\n- New (hoisted) cost: O(K + N) reads \u2014 one big fetch + a HashSet contains check per create.\n\nThis IS an improvement, but the comment claims 'O(1) fetch' which is wrong. The cost of the fetch is O(K) in the existing chat count; for an account with 100,000 chats and a batch of 5 creates, every batch pays a 100K-record scan.\n\nWorse: each cycle of the test suite (and each production /set call) repeats the full scan. With ALL chat types fetched (Direct + Group + Channel + any future kinds), the filter at line 127-131 only retains Direct chats, wasting cycles on the rest.\n\nMitigations:\n1. Add a backend.find_direct_chats_by_contact(caller, account_id, contact_ids) -> HashMap<Id, Id> method that the backend can push down to a real index (SQL: WHERE kind='direct' AND contact_id IN (...)) returning only the relevant rows.\n2. Or: skip the hoist when create batch is small and a single chat fetch by contact_id would be cheaper (the per-create fetch's actual cost is O(K) in MemoryBackend too \u2014 there's no point-lookup index \u2014 so the trade-off isn't obvious in the test backend, but is in production).\n\nThis is a 'comment is wrong' more than 'code is slow' bug at the kit level; the kit's choice not to expose a typed query is the real cost driver, tracked by JMAP-63k.9 per the comment chain.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Chat/set create's 'O(1) fetch' is actually O(N total chats in account); comment misleading",
+  "updated_at": "2026-05-17T04:20:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:15:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "77f3fd8e-9288-5bf3-a3da-2dd3b8c5ef98",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

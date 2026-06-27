@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:49:58Z",
+  "compaction_level": 0,
+  "content_hash": "52ea039c049eb66006bb00da53a1f2ce7d0d060c617e3b5ea0ed4ed897109c06",
+  "created_at": "2026-05-02T23:46:13Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mdn_send (mdn.rs:191-198) rejects entries where forEmailId is None with a per-entry invalidProperties notSent error. No integration test exercises this path. Tests 1-8 in mdn_integration.rs cover success, mdnAlreadySent, notFound (email), missing mdnsent patch, null onSuccessUpdateEmail, and parse cases, but nothing sends an entry with forEmailId absent or null and asserts the response is notSent[key].type == 'invalidProperties' with properties=['forEmailId']. The path is reachable because Mdn.for_email_id is Option<Id> and the JSON field has skip_serializing_if=Option::is_none, meaning a client can omit it or send null and hit this branch silently untested. File: crate-jmap-mail-server/src/mdn.rs:191-198, crate-jmap-mail-server/tests/mdn_integration.rs.",
+  "ephemeral": 0,
+  "id": "JMAP-vl37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MDN/send: no test for null/absent forEmailId per-entry invalidProperties",
+  "updated_at": "2026-05-02T23:49:58Z"
+}

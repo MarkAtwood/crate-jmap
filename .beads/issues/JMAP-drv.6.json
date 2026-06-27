@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-drv.6",
+  "title": "fetch_session maps URL join failure to InvalidArgument \u2014 wrong variant",
+  "description": "In fetch_session: self.base_url.join(\".well-known/jmap\").map_err(|e| ClientError::InvalidArgument(...)). The base_url was already validated by JmapClient::new to have http/https scheme and no path/query/fragment. url::Url::join with a valid base and the literal string \".well-known/jmap\" cannot fail. If it ever did, it would be an internal bug, not an invalid caller argument. The error should be InvalidSession (server-side unreachable) or an unreachable!() macro. Using InvalidArgument implies the caller passed a bad argument, which is misleading since base_url was already accepted by the constructor.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:36:43Z",
+  "updated_at": "2026-04-30T16:45:41Z",
+  "closed_at": "2026-04-30T16:45:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-drv",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:36:43"
+    }
+  ]
+}

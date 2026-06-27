@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "54fe82dce6715c67a30e32027f4428f8b96e20b0d427790b2b21c434cec02b5f",
+  "created_at": "2026-05-14T16:00:16Z",
+  "created_by": "Mark Atwood",
+  "description": "## Reclassification\n\nJMAP-x2gd.59 (P1) finds that ChatBackend's foundation methods \u2014\n`create_object` / `update_object` / `destroy_object` at\n`crate-jmap-chat-server/src/backend.rs:296-328` \u2014 have skeletal\ndocs missing 5 critical implementer contracts (SetErrorType\nselection, Some/None semantics for update_object, state-bump,\ncascade, multi-field atomicity).\n\nA 1-grep cross-walk of `jmap-mail-server` (the canonical\nextension-server template) confirms the same gap is present\nthere. Specifically (`crate-jmap-mail-server/src/backend.rs:80-134`):\n\n- `create_object` (mail-server): ~17 lines covering placeholder\n  sentinels and singleton types. Missing: SetErrorType selection\n  rules, state-bump contract, atomicity within multi-property creates.\n- `update_object` (mail-server): 14 lines covering Some/None\n  semantics. Missing: state-bump, cascade-on-foreign-key-mutation,\n  atomicity.\n- `destroy_object` (mail-server): 1 line, byte-identical\n  thinness to chat-server. Missing: SetErrorType for not-found,\n  cascade contract, state-bump, atomicity.\n\nThe canonical itself is below the contract bar JMAP-x2gd.59\nproposes. Per workspace AGENTS.md \"Canonical Templates\":\n\n> If you reshape an extension-server sibling in a way that\n> diverges from this crate, change this crate first, then\n> propagate to every other extension-server sibling in the\n> same pass.\n\nSo fixing chat-server's docs in isolation is the wrong move \u2014\nit creates divergence from the canonical that the next\nmail-server contributor would have to re-propagate.\n\n## Scope of the workspace sweep\n\nEight extension-server crates carry the same trio:\n\n| Crate | Status |\n|---|---|\n| jmap-mail-server | canonical, must be fixed first |\n| jmap-chat-server | matches JMAP-x2gd.59 description verbatim |\n| jmap-calendars-server | likely same shape, unaudited |\n| jmap-contacts-server | likely same shape, unaudited |\n| jmap-tasks-server | likely same shape, unaudited |\n| jmap-filenode-server | likely same shape, unaudited |\n| jmap-metadata-server | likely same shape, unaudited |\n| jmap-sharing-server | likely same shape, unaudited |\n\n(The seven non-canonical siblings each need a 1-grep verification\nthat their `create_object`/`update_object`/`destroy_object` are\nindeed cookie-cut from the canonical's thin shape before propagating;\nthe canonical's thin shape is confirmed.)\n\n## Precedent\n\nThis reclassification mirrors:\n- **JMAP-x2gd.67** \u2014 reclassified 7 prior api-contract findings as\n  workspace-canonical via mail-server cross-walk.\n- **JMAP-x2gd.69** \u2014 reclassified JMAP-x2gd.64 (update_object\n  Ok(None)-vs-Some ambiguity) as byte-identical to mail-server.\n\nBoth .67 and .69 stay open as workspace-sweep trackers; the\nper-crate beads they cover stay open as their per-crate\nmanifestations.\n\n## What this bead does NOT decide\n\nIt does not commit to the exact doc shape of the 5 contracts.\nThe bead description on JMAP-x2gd.59 sketches them; the eventual\nfix may revise based on implementer feedback or downstream-fit\nreview. Adopt the shape JMAP-x2gd.59 proposes as a starting\npoint and refine during the canonical write.\n\n## Recommendation\n\nWhen this sweep is worked:\n1. Audit the 7 non-canonical siblings' trios for their actual\n   current shape (1-grep each).\n2. Write the canonical doc on mail-server (the 5 contracts).\n3. Propagate to all 7 non-canonical siblings in the same pass,\n   adapted only for extension-specific cascade rules\n   (chat-server's cascade list is documented separately in\n   JMAP-x2gd.72/.73 \u2014 those go in apply_space_patch, not the\n   foundation methods).\n4. Close JMAP-x2gd.59 (and any analogous beads filed for the\n   other siblings during the canonical-first reviews of those\n   crates) when the propagation lands.\n\n## Engineering basis\n\n- chat-server backend.rs:296-328 read end-to-end (JMAP-x2gd.59).\n- mail-server backend.rs:80-134 read end-to-end this bead (the\n  cross-walk).\n- Workspace AGENTS.md \"Canonical Templates\" propagation rule.\n- Precedent: JMAP-x2gd.67, JMAP-x2gd.69.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.86",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace-canonical reclassification of JMAP-x2gd.59: ChatBackend foundation methods doc gap is workspace-wide, not chat-server-local",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:00:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "51005c77-a447-50a0-a58e-9857b2a9c239",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

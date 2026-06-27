@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "dbe37cd394b282c4747f20900c8ed9ed753e93ed81dae481d547b528d65bf3d4",
+  "created_at": "2026-06-13T21:48:55Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/src/position.rs has 106/199 lines covered (53.3%). Uncovered: handle_read_position_set create/update/destroy arms, handle_read_position_get filtering, chatId pre-validation paths, and most error-handling branches.",
+  "ephemeral": 0,
+  "id": "JMAP-w8fu.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Test coverage: chat-server position.rs (53.3%)",
+  "updated_at": "2026-06-13T21:48:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:48:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w8fu",
+      "id": "291b08dd-b7a0-50f8-8432-cd0b5834401d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

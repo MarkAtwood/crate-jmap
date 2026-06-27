@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-u2e.3",
+  "title": "#[non_exhaustive] missing from filter condition structs",
+  "description": "In crate-jmap-mail-types/src/query.rs, EmailFilterCondition is a public struct but lacks #[non_exhaustive]. In crate-jmap-mail-types/src/submission.rs, EmailSubmissionFilterCondition also lacks #[non_exhaustive]. The RFC may add new filter fields in future; without #[non_exhaustive], adding fields to these structs is a semver-breaking change for any code outside this crate that constructs them via struct literal syntax. Compare: EmailSubmission, Envelope, Address, DeliveryStatus in submission.rs all have #[non_exhaustive]. EmailComparator in query.rs also lacks #[non_exhaustive]. The pattern in the codebase is to mark all public structs #[non_exhaustive]; the filter condition structs are inconsistent with this. Note: #[non_exhaustive] + Default derive requires callers to use ..Default::default() in struct literals \u2014 already done in the tests (line 239, 244, 248 in query.rs tests), so this is already compatible.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:27:07Z",
+  "updated_at": "2026-04-30T04:34:19Z",
+  "closed_at": "2026-04-30T04:34:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-u2e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:27:07"
+    }
+  ]
+}

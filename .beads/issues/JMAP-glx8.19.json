@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in bf895d2: documented the collision contract on ContactCard.extra, AddressBook.extra, and AddressBookRights.extra \u2014 programmatically inserting a key matching a typed field name produces a duplicate JSON key on serialize. RFC 8259 \u00a74 leaves duplicate-key handling implementation-defined. Treat extra as a write-only catch-all for unknown keys discovered at deserialize.",
+  "closed_at": "2026-05-15T23:05:26Z",
+  "compaction_level": 0,
+  "content_hash": "696e9b7d1b6fc81d62e4cf6c3203c249e4a9c4433b9129622e95516f67676275",
+  "created_at": "2026-05-15T22:46:35Z",
+  "created_by": "Mark Atwood",
+  "description": "The diff adds `extra: serde_json::Map<String, serde_json::Value>` to\nthree structs with identical rustdoc:\n- AddressBookRights (addressbook.rs:37)\n- AddressBook       (addressbook.rs:81)\n- ContactCard       (card.rs:185)\n\nRustdoc body:\n\n> Catch-all for vendor / site / private extension fields not covered\n> by the typed fields above. Preserves unknown fields across\n> deserialize/serialize round-trip per workspace extras-preservation\n> policy (see workspace AGENTS.md).\n\nThe rustdoc does not document **collision semantics**: what happens if\na caller programmatically inserts a key that matches a typed field?\n\n```rust\nlet mut card = ContactCard::default();\ncard.name = Some(json!({\"full\": \"Joe\"}));\ncard.extra.insert(\"name\".into(), json!(\"conflict\"));\nlet wire = serde_json::to_string(&card).unwrap();\n```\n\nWith `#[serde(flatten)]` on `extra`, serialize emits BOTH keys. JSON\npermits duplicate keys (RFC 8259 \u00a74) but downstream behavior is\nimplementation-defined:\n- Most parsers take \"last wins\".\n- Some parsers reject duplicates outright (strict mode, e.g.,\n  serde_json's `--strict`, `denyUnknownFields`).\n- Some parsers preserve both and emit a tuple/list.\n\nA round-trip through serde_json itself takes \"last wins\" \u2014 the second\nkey replaces the first. So:\n\n```rust\nlet back: ContactCard = serde_json::from_str(&wire).unwrap();\n// back.name = ?\n```\n\nThe outcome depends on field-emit order, which depends on serde's\nstruct-field iteration order. Empirically: the typed `name` field is\nemitted FIRST (since serde processes named fields before flatten extras\nin the struct definition order), so `extra[\"name\"]` wins on round-trip,\nsilently OVERWRITING the typed value.\n\nA defensive caller would have to write:\n\n```rust\nif !card.extra.contains_key(\"name\") {\n    card.extra.insert(\"name\".into(), ...);\n}\n```\n\n\u2026on every insert. Forever. The workspace policy in AGENTS.md does not\ndocument this.\n\nTwo acceptable resolutions:\n\n1. Doc-only fix. Add a paragraph to the `extra` rustdoc on each affected\n   struct:\n\n   > Collision behavior: if `extra` contains a key matching a typed\n   > field of this struct, serialization emits both keys (JSON allows\n   > duplicates per RFC 8259 \u00a74, but downstream parsers may take\n   > last-wins, first-wins, or reject). Round-tripping through\n   > serde_json takes last-wins, which means a key inserted into\n   > `extra` overwrites the typed-field value on deserialize.\n   > Callers MUST NOT insert into `extra` a key that names a typed\n   > field of this struct.\n\n2. Runtime safeguard. On serialize, return Err or panic if a typed-field\n   key is present in `extra`. Cost: serde doesn't natively support this;\n   would require a custom Serialize impl that drops the flatten\n   attribute and walks fields manually. Heavy; not recommended.\n\nRecommendation: option 1 (doc-only), plus a const list of known field\nnames in each module that a defensive caller can use to validate:\n\n```rust\nimpl ContactCard {\n    pub const KNOWN_FIELDS: &[&str] = &[\n        \"id\", \"addressBookIds\", \"version\", \"created\", \"kind\",\n        // ... all 22+ typed field wire names\n    ];\n}\n```\n\nThis finding propagates: every struct in the workspace adopting the\nextras-preservation pattern (per AGENTS.md \u00a7\"Extras-preservation\npolicy\") has the same doc gap. File a workspace-wide bead to sweep\nthe rustdoc clauses once the pattern is settled.\n\nCross-reference:\n- AGENTS.md \u00a7\"Extras-preservation policy for vendor/site fields\"\n- The propagation epic is bd JMAP-lbdy\n- card.rs:184-185, addressbook.rs:80-81, addressbook.rs:36-37",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extra Map collision with known field names is undocumented and produces duplicate JSON keys",
+  "updated_at": "2026-05-15T23:05:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:46:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "38903f2b-27b4-5361-9e8d-559b4f33e502",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

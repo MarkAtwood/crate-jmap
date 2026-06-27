@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in 594608e. Wrapped session receiver in black_box() in bench_websocket_capability_deserialize at benches/session_and_urls.rs:270 to match the consistent black_box-both-ends pattern in the other six benches.",
+  "closed_at": "2026-05-17T11:19:37Z",
+  "compaction_level": 0,
+  "content_hash": "44cb8f4b05db87dcd77121337a7cf9ccb299e60937563072606f91372f232844",
+  "created_at": "2026-05-14T23:10:03Z",
+  "created_by": "Mark Atwood",
+  "description": "benches/session_and_urls.rs:259-270 (bench_websocket_capability_deserialize):\n\n    fn bench_websocket_capability_deserialize(c: &mut Criterion) {\n        let raw = typical_session_json();\n        let session: Session = serde_json::from_str(raw).expect('typical session must parse');\n        c.bench_function('session_websocket_capability_deserialize', |b| {\n            b.iter(|| {\n                let cap = session\n                    .websocket_capability()\n                    .expect('ws capability must parse');\n                black_box(cap);\n            })\n        });\n    }\n\nThe output is wrapped in black_box, but the INPUT session is not. The other six benchmarks in the same file (e.g. bench_primary_account_id_hit at line 248, bench_session_deserialize_typical at 171) consistently black_box BOTH ends of the iteration.\n\nIn practice the optimizer is unlikely to constant-fold this case because session.websocket_capability re-runs serde_json::from_value on a serde_json::Value (which allocates per call). Low practical risk.\n\nBut the divergence makes the bench harder to reason about. A future maintainer comparing the seven benches would see six consistent shapes and one anomaly, and either (a) waste time wondering whether the omission is intentional, or (b) copy-paste a new bench from the anomaly without thinking, propagating the inconsistency.\n\nFix: wrap session in black_box at line 264:\n    let cap = black_box(&session)\n        .websocket_capability()\n        .expect('ws capability must parse');",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "bench_websocket_capability_deserialize does not black_box the input session \u2014 inconsistent with other six benches",
+  "updated_at": "2026-05-17T11:19:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:10:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "3b423d61-b5cd-54bf-8959-e86f93ec2dbe",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

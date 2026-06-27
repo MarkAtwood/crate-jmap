@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-7xt.41",
+  "title": "AuthProvider::auth_header returns owned (String, String) per call",
+  "description": "AuthProvider::auth_header() returns Option<(String, String)>. Both BearerAuth and BasicAuth pre-compute and store the header string, then clone it on every call (auth.rs lines 158-162, 211-215). The header name is also freshly allocated from AUTHORIZATION.as_str().to_string() on every call. Since the stored string never changes, returning a reference (Option<(&str, &str)>) with a lifetime tied to &self would eliminate all per-call allocation and the AUTHORIZATION.as_str().to_string() idiom. Alternative that keeps owned: at minimum replace AUTHORIZATION.as_str().to_string() with 'authorization'.to_owned() or a &'static str constant.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:47:44Z",
+  "updated_at": "2026-04-30T00:56:20Z",
+  "closed_at": "2026-04-30T00:56:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:47:44"
+    }
+  ]
+}

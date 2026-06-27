@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T19:01:35Z",
+  "id": "019e2d03-f5c4-7b39-86f2-09e104be3744",
+  "issue_id": "JMAP-ic0j",
+  "text": "API contract risk (supplement pass #2): MEDIUM \u2014 2 new findings on top of the prior 15. The single most consequential addition is JMAP-ic0j.68 (P1 leakage), which raises the impact ceiling above the prior supplement's high-water mark: ~12 sites in calendars-server alone (and ~100 across the 7 extension-server siblings workspace-wide) hand-roll the leaky pattern `json!({\"type\":\"serverFail\", \"description\": e.to_string()})` in /set per-id maps. The principal.rs:121 fix (.53) covered only the top-level JmapError path; the per-id Value path has no analog helper, so the JMAP-jfia.20 backend-Display redaction contract is silently bypassed at every /set Other arm. The other new finding (JMAP-ic0j.69, P3 opinion) is a within-crate seed_object signature divergence \u2014 paper cut, no security implication. Risk classification unchanged at MEDIUM because (a) the most-consequential finding has a clear single-helper fix and (b) the per-id path was always intentional plain JSON, not a public API surface, so propagation across siblings is mechanical."
+}

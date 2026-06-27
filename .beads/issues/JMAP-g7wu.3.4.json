@@ -1,0 +1,32 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T02:37:51Z",
+  "compaction_level": 0,
+  "content_hash": "8eaadbb19f83aea35b8430efc073343d8d3dbeba0f8ca2a53516e9d3f60db2c4",
+  "created_at": "2026-05-11T00:06:57Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.3.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "helpers.rs builder-struct refactor in jmap-contacts-server (propagate from canonical)",
+  "updated_at": "2026-05-11T02:37:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:06:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.3",
+      "id": "a154d320-a597-53fb-bf71-58837454f33b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

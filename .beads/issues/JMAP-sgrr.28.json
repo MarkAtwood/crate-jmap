@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Documented Unknown dispatch contract precondition on the variant rustdoc; added pin test covering the three recognised dispatch paths. Behaviour is intentional (Unknown is for shapes the dispatcher does not recognise) and now documented + regression-pinned. Commit 02a532d.",
+  "closed_at": "2026-05-15T04:31:54Z",
+  "compaction_level": 0,
+  "content_hash": "bf404f3b05178000ec48231bd5aa3510da8171563a7a6546153abfa07e13b9ca",
+  "created_at": "2026-05-15T04:21:05Z",
+  "created_by": "Mark Atwood",
+  "description": "A Rust-side caller constructing AnniversaryDate::Unknown wrapping a\nserde_json::Value that happens to be an object with a known @type (or\nno @type at all) will not survive a serialize-then-deserialize\nround-trip as Unknown \u2014 it will land on the matching typed variant.\n\nInverse of sgrr.9 (which fixed non-object Values landing in Unknown\nnot round-tripping). sgrr.9 closed the non-object asymmetry; this\nfinding documents the unaddressed object-with-known-@type asymmetry.\n\nTrace, reading lib.rs:1034-1076:\n\n1. let original = AnniversaryDate::Unknown(\n       json!({\\\"@type\\\": \\\"PartialDate\\\", \\\"year\\\": 2000}));\n2. Serialize impl at lib.rs:1039 emits the JSON Value verbatim:\n       {\\\"@type\\\": \\\"PartialDate\\\", \\\"year\\\": 2000}\n3. Deserialize impl at lib.rs:1054 sees is_object() = true.\n4. v.get(\\\"@type\\\").and_then(|t| t.as_str()) returns Some(\\\"PartialDate\\\").\n5. Match arm at lib.rs:1066 routes to PartialDate variant.\n6. Result: AnniversaryDate::PartialDate(PartialDate {\n       at_type: Some(\\\"PartialDate\\\"), year: Some(2000), ... })\n\nVariant identity lost. Similarly for Some(\\\"Timestamp\\\")-tagged\nValues, and for {} (empty object, no @type, routes to default\nPartialDate with all-None fields).\n\nWhy the caller cares:\n\n- The doc on AnniversaryDate::Unknown (lib.rs:1018-1031) claims\n  preservation for round-trip fidelity: \\\"Carries the raw\n  serde_json::Value so a future-spec @type variant ... round-trips\n  losslessly\\\". The lossless guarantee silently holds only when the\n  inner Value's @type is one the deserialize impl does NOT recognise.\n- A composing caller (e.g. building a partial Card from multiple\n  upstream sources) who wraps an arbitrary date-shaped Value in\n  Unknown has no compile-time or runtime signal that the wrapping\n  will be undone on the next round-trip.\n- The doc comment does not state the precondition \\\"Value must have\n  @type set to a string NOT in {None, \\\\\\\"PartialDate\\\\\\\", \\\\\\\"Timestamp\\\\\\\"}\n  or be a non-object\\\". The contract for callers wrapping known\n  shapes is undocumented.\n\nTwo ways to address (callers cannot fix this in their code; this is\na contract decision):\n\n(a) Document the precondition explicitly on AnniversaryDate::Unknown\n    rustdoc: \\\"Unknown is intended for unknown @type values only.\n    Construct via Unknown(v) where v is either non-object or has\n    @type set to a value not in {\\\\\\\"PartialDate\\\\\\\", \\\\\\\"Timestamp\\\\\\\"}.\n    Wrapping a recognised shape will lose variant identity across\n    serialize-then-deserialize.\\\"\n(b) Reject construction at the API boundary: make the variant\n    pub(crate) and expose a fallible AnniversaryDate::unknown(v) ->\n    Result<Self, _> that validates the precondition. (Breaking,\n    requires major-version bump.)\n\nProbe to confirm under /do-beads (cannot run in read-only review):\n\n    #[test]\n    fn unknown_object_with_known_at_type_loses_variant_identity() {\n        let original = AnniversaryDate::Unknown(\n            serde_json::json!({\\\"@type\\\": \\\"PartialDate\\\", \\\"year\\\": 2000}));\n        let wire = serde_json::to_value(&original).unwrap();\n        let back: AnniversaryDate =\n            serde_json::from_value(wire).unwrap();\n        // Documents the asymmetry, not asserts the desired shape:\n        assert!(!matches!(back, AnniversaryDate::Unknown(_)),\n            \\\"contract gap: variant identity lost across round-trip\\\");\n    }\n\nRecommendation: option (a). The breaking change in (b) is large for\na 0.1.x kit crate and the documented precondition is sufficient if\ncallers are warned. Filed at P2 because no spec-conformant wire\ninput triggers this (RFC 9553 emitters do not produce\nUnknown-tagged dates with @type set to a known kind), but a Rust-\nside composing caller can hit it without warning.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AnniversaryDate::Unknown(object-with-known-@type) round-trips to typed variant, not Unknown",
+  "updated_at": "2026-05-15T04:31:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:21:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "385ccb5b-8985-5b4f-a421-28e223ecf77b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

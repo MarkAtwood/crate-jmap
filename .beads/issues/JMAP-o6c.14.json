@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:45:49Z",
+  "compaction_level": 0,
+  "content_hash": "7894789cb9d3691c5525bf28aad1d7862cac6e48205cb12fe60e9fe7e37a9168",
+  "created_at": "2026-05-02T03:25:40Z",
+  "created_by": "Mark Atwood",
+  "description": "Every handler module (mailbox.rs, email.rs, submission.rs, identity.rs, vacation.rs) repeats the pattern: serde_json::to_value(se).unwrap_or_else(|e| json!({ \"type\": \"serverFail\", \"description\": e.to_string() })). This appears at least 30 times across the codebase. Idiomatic Rust would extract this into a small helper fn set_error_to_value(se: &SetError) -> Value (or impl From<SetError> for Value) so the intent is clear and the fallback is defined in one place. As-is a bug in the fallback path must be fixed in 30+ locations.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Repeated serde_json::to_value(se).unwrap_or_else pattern should be a helper",
+  "updated_at": "2026-05-02T03:45:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:25:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "d9448ef1-a324-51be-913f-70deacb7b572",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

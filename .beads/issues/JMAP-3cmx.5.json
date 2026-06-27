@@ -1,0 +1,67 @@
+{
+  "acceptance_criteria": "16 new tests pass. Clippy clean. Epic closed.",
+  "assignee": "Mark Atwood",
+  "close_reason": "All 5 EmailSubmission methods implemented; 16 new wiremock + unit tests pass; clippy clean; PLAN.md updated with all methods",
+  "closed_at": "2026-05-05T03:50:08Z",
+  "compaction_level": 0,
+  "content_hash": "b766c002f829e5eeea331e2b9ba2545b39e95a3e883343d518a4b786befd06a0",
+  "created_at": "2026-05-05T02:55:28Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Final quality gate and export verification for jmap-mail-client.\n\n**Algorithm:**\n1. mod.rs has pub mod submission.\n2. lib.rs re-exports EmailSubmissionSetParams.\n3. cargo test -p jmap-mail-client: all pass including 16 new tests.\n4. cargo clippy -p jmap-mail-client -- -D warnings: zero warnings.\n5. PLAN.md updated to list all 5 EmailSubmission methods.\n6. Close epic JMAP-3cmx.\n\n**Acceptance criteria:** All commands exit 0. EmailSubmissionSetParams accessible from crate root.",
+  "ephemeral": 0,
+  "id": "JMAP-3cmx.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Done signal: mail-client EmailSubmission complete",
+  "updated_at": "2026-05-05T03:50:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:55:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx.4",
+      "id": "07226b24-0fef-5c1b-accd-44346c171eaa",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:55:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx.3",
+      "id": "1b1a21b3-7091-5b8a-99b8-1f10ecf3cf31",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:55:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx",
+      "id": "33fa200b-9707-5eec-bffd-e5f871483656",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:55:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx.2",
+      "id": "3dc7c907-e763-5564-8fba-de6883707ab2",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:55:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx.1",
+      "id": "785ec56e-f63a-5622-acd5-3fa13b65674c",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

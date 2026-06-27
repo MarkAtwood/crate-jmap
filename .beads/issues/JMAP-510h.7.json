@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added 'Some(NodeType::File) if has_target' arm to the consistency_error match in handle_filenode_set, producing invalidProperties[target]. Regression test set_create_file_with_blob_and_target_returns_invalid_properties uses the correct wire shape for the target field (Vec<String>, not bare string). Committed in a56bd11. Gates: fmt/clippy/test/doc green.",
+  "closed_at": "2026-05-14T20:44:54Z",
+  "compaction_level": 0,
+  "content_hash": "6b271953d79c254eccc8ded095b9d6d67e2432bb50ecd71188fd5db1bc04a6b3",
+  "created_at": "2026-05-14T19:50:01Z",
+  "created_by": "Mark Atwood",
+  "description": "src/filenode.rs:372-389 (nodeType inference) and src/filenode.rs:407-422 (consistency_error matching).\n\nTrigger: client sends FileNode/set create with nodeType absent (or null), blobId=<some-blob>, AND target='/etc/passwd'. The inference at filenode.rs:377-383 prefers blob over target ('if has_blob { file } else if has_target { symlink } else { directory }'). The resulting node has node_type = File, blob_id = Some(...), target = Some('/etc/passwd').\n\nThe consistency_error match arms cover:\n- NodeType::File if !has_blob \u2192 error\n- NodeType::Directory if has_blob \u2192 error\n- NodeType::Directory if has_target \u2192 error\n- NodeType::Symlink if has_blob \u2192 error\n- NodeType::Symlink if !has_target \u2192 error\n- _ \u2192 None\n\nThere is no arm 'NodeType::File if has_target \u2192 error'. So a file node with both blobId and target passes the validation silently.\n\nBad behavior: the FileNode is created with both fields populated. \u00a73.1 (line 482-490 of the spec around target field semantics) implies these are mutually exclusive (target is only meaningful for symlinks). The backend then stores the conflicting state and a future Get returns a confusing object.\n\nRequired: add 'Some(NodeType::File) if has_target => Some((\"target\", \"file node must not have target\"))' before the catch-all arm at filenode.rs:421.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "nodeType inference loses target consistency check when both blobId and target are non-null",
+  "updated_at": "2026-05-14T20:44:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:50:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "e3ce9a35-924d-5bfd-a9a3-8df5268728b6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

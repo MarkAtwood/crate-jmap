@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed: added HashSet to 'use std::collections::{HashMap, HashSet};' in submission.rs.",
+  "closed_at": "2026-05-04T15:51:05Z",
+  "compaction_level": 0,
+  "content_hash": "8c6daae33d67cda63cbcf23b9718d1989d3ce9141d94967eb1564c547fb9538a",
+  "created_at": "2026-05-02T00:44:01Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs L368-369: non_ref_id_set is typed as std::collections::HashSet<Id> with a fully-qualified path, while HashMap is already brought into scope with use std::collections::HashMap at the top of the file. Fix: add HashSet to the existing use statement and drop the std::collections:: prefix.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "HashSet fully-qualified inside handle_submission_set",
+  "updated_at": "2026-05-04T15:51:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:44:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "0350e593-dcf4-53ca-a62d-0ba98a195741",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

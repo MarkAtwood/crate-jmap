@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T000441Z-1660907",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-12T00:42:02Z",
+  "compaction_level": 0,
+  "content_hash": "aa5d3be1c883178e526768f52b7e587e3c99d3a63f6cdbc1958b349ff2196548",
+  "created_at": "2026-05-11T18:12:18Z",
+  "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "description": "Follow-up to JMAP-sc1b.18 (which landed the workspace bench convention and the canonical bench in crate-jmap-server).\n\nThe base client in jmap-base-client is the third of three crates the .sc1b.18 review identified as worth benchmarking (URL building, session JSON deserialization, blob URL construction).\n\nPattern to copy from crate-jmap-server:\n1. Add to crate-jmap-base-client/Cargo.toml [dev-dependencies]:\n     criterion = { version = '0.8', default-features = false, features = ['cargo_bench_support'] }\n2. Add to crate-jmap-base-client/Cargo.toml:\n     [[bench]]\n     name = '<bench-name>'\n     harness = false\n3. Create crate-jmap-base-client/benches/<bench-name>.rs with criterion harness.\n\nSuggested workloads:\n- Session response JSON deserialization (typical and large account-id list).\n- Blob URL construction (template parameter substitution).\n- Capability URI lookup against a typical session capabilities map.\n\nRun with: cargo bench -p jmap-base-client\n\nAcceptance: at least one benches/<file>.rs target that compiles, runs to completion, and reports timings for at least three workloads.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.106",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "De-labeling human (2026-05-11, Mark): implementation chore. Bench pattern is fully documented in the bead body (copy from crate-jmap-server canonical bench). Workload suggestions provided. No pending decision.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add criterion benches/ to crate-jmap-base-client (URL/JSON serde for session fetch)",
+  "updated_at": "2026-05-12T00:42:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T11:12:17Z",
+      "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "fe2bb440-b21b-5026-a43b-0a762773d91c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

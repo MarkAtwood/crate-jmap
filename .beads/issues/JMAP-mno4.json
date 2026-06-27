@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "4a0ef315e051789605ecbca8c462190e6d135e1403cf5b13651528b4753cc254",
+  "created_at": "2026-05-15T22:02:54Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-mno4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {
+    "dispatcher": "bd-review-loop",
+    "dispatcher_run": "bd-review-loop-20260516T020928Z-1618410",
+    "final_failures": 0,
+    "final_iter": 1,
+    "final_verdict": "genuine_convergence",
+    "log_dir": "/home/mark/.local/state/bd-review-loop/crate-jmap/20260516T020928Z",
+    "model": "anthropic/claude-opus-4-7",
+    "scope": "crate-jmap-jscalendar-types since 9c0d34f",
+    "variant": "max"
+  },
+  "no_history": 0,
+  "notes": "Maintainer risk: LOW \u2014 extras-preservation policy catches all the missing-typed-field cases (JMAP-mno4.1), wire data round-trips correctly, and the spec coverage is otherwise tight. The only real exposure is documentation drift on Link.href (JMAP-mno4.2) and the workspace-wide newtype impl-set question (JMAP-mno4.3). No correctness bugs found.\nConfidence: 15% chance of missed bug. Least confident flags: JMAP-mno4.4 (AlertTrigger non-object edge cases \u2014 I could not be 100% certain that serde_json::from_value on a non-object Value gracefully falls into the Unknown branch without panicking via custom; the implementation reads correctly but I did not write a probe to confirm \u2014 read-only review prohibits probing per the prompt). Uncertainty driven by: not running probe code, only reading 1149 LOC plus spec text. Would raise confidence if: a brief probe session (filed as JMAP-mno4.4 itself) running 4 round-trip tests on hostile AlertTrigger inputs confirmed the read.\nAPI contract risk: MEDIUM \u2014 JMAP-mno4.17 (Link.href/blob_id mutual requirement not encoded) is a real P1 defensive-code-forcing instance that every consumer will hit; mno4.10/.12/.14/.15/.19 are P2 contract gaps where the type-level promise diverges from runtime enforcement; mno4.11/.13/.16/.18 are P3 workspace-policy-driven or low-likelihood acceptances. The single workspace-policy-driven opinion items are mno4.11 (serde_json baked into public API \u2014 accepted) and mno4.16 (roles can be empty \u2014 soft spec language). No contract issues found that would block downstream consumption at 0.1.x; several issues that would compound into a painful 1.0 stabilization if not addressed first.\nAPI contract confidence: 85% \u2014 strong reading of all 1149 LOC and the workspace AGENTS.md policy stack. Least confident flags: mno4.19 (AlertTrigger Deserialize edge cases \u2014 claim that null/array/non-string @type all dispatch into Unknown(Value) is derived from reading the impl, not from running a probe; read-only review forbids probing per the prompt). 15% residual uncertainty driven by: not actually running cargo doc to check rustdoc rendering, not running cargo expand on the #[derive(Deserialize)] to confirm that an empty roles HashMap really does deserialize (I asserted it from the absence of a custom validator, which should hold but I did not verify), and not exhaustively reading jmap-types::PatchObject's public API (used by TimeZoneRule.recurrence_overrides \u2014 if PatchObject has a methods surface I missed, mno4.18's framing might need adjustment). Would raise confidence to 95%+ with: 4-line probe session running serde_json::from_value::<AlertTrigger> on the 4 hostile inputs in mno4.19, plus running cargo doc to verify the per-type docstrings render with the gaps I claim.\nbd-review-loop: iter=1 verdict=question_tool_invoked failures=1 history=; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; ",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "in_progress",
+  "timeout_ns": 0,
+  "title": "Review: crate-jmap-jscalendar-types since 9c0d34f",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

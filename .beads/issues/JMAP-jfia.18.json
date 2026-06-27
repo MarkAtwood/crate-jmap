@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "9d9d640084fac1943e64f51d4374fd3747947444ed07cd9ad060df83695ed012",
+  "created_at": "2026-05-14T16:44:55Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/backend.rs:225 \u2014 RESERVED_SET_ERROR_WIRE_NAMES is\ndeclared `pub const` with a hand-maintained list of 8 wire-name strings.\n\nThe constant is intended as the source of truth for the debug_assert in\n`with_extra`. Making it `pub` was justified at the time as \"consumers\ncan reference the same list \u2014 e.g. a future contract test, or a\nwire-format conformance check\" (per the comment on the constant).\n\nThe contract problem: once `pub`, the constant's value becomes part of\nthe API surface. Adding a new typed field to SetError (say\n`maxKeywords` for a hypothetical RFC 8621 errata) requires appending\nthe new wire-name to the constant. Any consumer that did one of the\nfollowing silently breaks:\n\n- Iterates the constant and assumes its length is stable\n  (`for name in RESERVED_SET_ERROR_WIRE_NAMES { \u2026 }` with a fixed\n  expectation about iteration count).\n- Pattern-matches against the constant's individual strings (e.g. a\n  consumer's own wire-shape test that hard-codes the same 8 names).\n- Treats the constant as a closed enumeration of \"wire fields a\n  consumer's extra-injection logic should avoid\" \u2014 a new typed field\n  later makes a previously-valid `with_extra(name, \u2026)` call newly\n  invalid.\n\nWhat callers cannot depend on: that any of the above stay working\nacross additions to the constant. Additions are non-breaking by the\ntype system but are breaking for consumers that lean on the value.\n\nWhat goes wrong when this stays as-is: the kit cannot grow SetError\ntyped fields without minor-version bumps that silently break consumer\ncontract assumptions; or the constant freezes and new typed fields\nhave to ship under a different mechanism.\n\nResolution: make the constant `pub(crate)`. The runtime debug_assert\non `with_extra` already implements the consumer-facing contract\n(\"you cannot pass these strings\"); consumers do not need direct\nread access. The test\n`reserved_set_error_wire_names_matches_serialized_surface` lives\nin the same crate and uses the constant directly without needing\npublic visibility.\n\nIf a future consumer use case genuinely requires the public list,\nship it through a stable function (`is_reserved_wire_name(&str) ->\nbool`) so the kit retains additive freedom.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "RESERVED_SET_ERROR_WIRE_NAMES pub const locks consumer assumptions about typed-field set",
+  "updated_at": "2026-05-14T17:28:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:44:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "c876e8a0-3b77-5c56-ac75-a3e43399c2a4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

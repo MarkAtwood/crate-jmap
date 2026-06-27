@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-1yj.2",
+  "title": "submission_set unconditional new_state fetch inconsistency",
+  "description": "handle_submission_set always fetches new_state even when nothing mutated. All other handlers (identity, vacation, email) use 'if mutated { fetch } else { old_state.clone() }'. The inconsistency is harmless but confuses the pattern.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T04:01:16Z",
+  "updated_at": "2026-05-01T04:02:56Z",
+  "closed_at": "2026-05-01T04:02:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-1yj",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 21:01:15"
+    }
+  ]
+}

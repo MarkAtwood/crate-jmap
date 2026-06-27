@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:34:14Z",
+  "compaction_level": 0,
+  "content_hash": "03636e04cf0761ccb968603a8c3efc62acb6d0fdffad2020c866c134aab3f972",
+  "created_at": "2026-05-02T03:25:57Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs extract_header_values (line ~313): uses 'return if req.all { Value::Array(vec\\![]) } else { Value::Null }' inside a None branch \u2014 the 'return' is unnecessary and Clippy's needless_return lint would flag it. The correct form is just 'if req.all { \u2026 } else { \u2026 }' as the last expression in the branch. Also, the entire 'match headers { None => return \u2026; Some(h) => h }' could be written as 'let Some(headers) = \u2026 else { return if req.all \u2026 }' using let-else. Minor but representative.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "if req.all { return \u2026 } else { return \u2026 } \u2014 unnecessary explicit return",
+  "updated_at": "2026-05-02T03:34:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:25:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "348df59a-8229-534c-83df-340d3f90573e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-12T06:14:14Z",
+  "compaction_level": 0,
+  "content_hash": "49812a50728ac191a0a974ffb1f61a36cdd5fa7bf8aa944d0d2710715786d430",
+  "created_at": "2026-05-12T05:47:46Z",
+  "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "description": "Expose a public library API so per-client-crate integration tests can spawn the testjig in-process and hit it without subprocess management.\n\nAPI shape (sketch \u2014 final shape TBD by claimant):\n\n    pub fn spawn_in_process(config: TestjigConfig) -> TestjigHandle;\n\n    pub struct TestjigConfig { /* port: 0 for random, token: default 'test-token' */ }\n\n    pub struct TestjigHandle {\n        pub addr: std::net::SocketAddr,\n        pub token: String,\n        // shutdown signal; drop = abort\n    }\n\nThe handle's Drop impl aborts the tokio task running the server. The addr is the actual bound address (so port=0 callers get a real port back). The token is exposed so the test can build an Authorization header against it without hardcoding.\n\nAdd a smoke-test integration test in crate-jmap-testjig/tests/ that:\n1. Spawns in-process at port 0\n2. Builds an HTTP client (reqwest with rustls-tls)\n3. Fetches /.well-known/jmap and asserts all 8 capability URIs present\n4. POSTs a Core/echo via /jmap and asserts the echo\n5. Drops the handle and asserts the server stops cleanly\n\n## Acceptance\n\n- spawn_in_process docs make clear: NOT FOR PRODUCTION\n- The smoke test passes\n- cargo clippy / cargo test workspace clean\n- The handle type is Send + Sync so tests can move it across tokio task boundaries\n\n## Depends on .3 (so backends are actually wired) and .6 (so auth is on the same code path tests use)",
+  "ephemeral": 0,
+  "id": "JMAP-cf7p.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Integration test harness: pub fn spawn_in_process() -> (handle, addr)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T22:47:45Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p.3",
+      "id": "7e4685a6-72f8-575b-96f6-647c03d066e1",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T22:47:45Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p",
+      "id": "e1c816ff-8c6b-52b0-8a79-8e0b00f2c059",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

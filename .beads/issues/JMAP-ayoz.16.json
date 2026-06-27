@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Stale \u2014 subsumed by bd:JMAP-ayoz.9 (closed 2026-05-17, commit f2eb26c).\n\nThe bead critiqued the four-representation walk inside the old filter_changes_array helper (Value::String \u2192 String \u2192 Id \u2192 String \u2192 Value::String per id). That helper was removed in the JMAP-ayoz.9 refactor; the post-fix code at metadata.rs:175-247 has a cleaner shape:\n\n- Vec<String> for the raw response arrays (line 188-203).\n- Dedup via &str-borrowing HashSet, with Id::from called only on unique ids destined for the backend call (line 209-215).\n- Single get_objects round-trip (line 218-221).\n- HashMap<String, &Metadata> lookup built once (line 224-227).\n- New filter_array_via_lookup helper (memory.rs:312-358) consumes the Vec<String> directly against the &HashMap; no per-array re-fetch.\n\nThe bead's recommended rewrite was substantively what JMAP-ayoz.9 landed (single union get_objects, filter both arrays from one lookup). The 'Id allocation is throwaway' critique no longer applies because the Id construction now feeds the dedup-output channel into the single backend call. Closing as already-done.",
+  "closed_at": "2026-05-17T09:15:04Z",
+  "compaction_level": 0,
+  "content_hash": "4c92adce96755752ce0a546e41decb2b3bea3db5fbb94c81ae7d3ba74da2a047",
+  "created_at": "2026-05-14T14:22:16Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:210-247 \u2014 filter_changes_array converts Value array entries into String (id_strs), then into Id (ids_for_fetch), looks up by id_str against a HashMap<String, &Metadata>, then maps back to Value::String for the final array. Four representations for the same underlying ID:\n\n    Value::String      (input from the response we just built)\n    -> String          (id_strs, filter-mapped from values)\n    -> Id              (ids_for_fetch, for the backend call)\n    -> String          (HashMap key)\n    -> Value::String   (output)\n\nThe HashMap key is String not Id because the lookup is  not . So the Id allocation in ids_for_fetch is throwaway \u2014 the only place it's used is the get_objects argument.\n\nSimpler rewrite \u2014 keep a single Id-keyed lookup:\n\n    let ids_owned: Vec<Id> = ids.iter()\n        .filter_map(|v| v.as_str().map(Id::from))\n        .collect();\n    let (objects, _not_found) = backend.get_objects::<Metadata>(\n        caller, account_id, Some(&ids_owned), None,\n    ).await.map_err(|e| server_fail_from_backend(&e))?;\n    let lookup: HashMap<Id, &Metadata> = objects.iter()\n        .filter_map(|m| m.id().map(|id| (id.clone(), m)))\n        .collect();\n    let filtered: Vec<Value> = ids_owned.into_iter()\n        .filter(|id| {\n            lookup.get(id).is_some_and(|meta| {\n                filter_related_type.is_none_or(|rt| meta.related_type() == rt)\n                && filter_metadata_type.is_none_or(|types| \n                    types.iter().any(|t| t == meta.type_name()))\n            })\n        })\n        .map(|id| Value::String(id.as_ref().to_owned()))\n        .collect();\n\n\u2026or just keep the existing four-representation walk if Id's hashing cost is higher than String's (it's just a newtype around String, so it isn't).\n\nWhy P4 not P3: the existing code is correct and tested. The simpler rewrite is taste \u2014 but the four-step conversion is a thinking-tax every reader pays. Worth flagging because the function is non-trivial (TOCTOU semantics, filter combinator, fall-through cases) and the data-shape complexity makes the actual logic harder to verify.\n\nIf the JMAP-ayoz.9 fix (single get_objects round-trip for created+updated union) is applied, the rewrite there is the natural place to fold this into. Mark this as opinion-adjacent \u2014 engineering basis is weak; the existing code reads fine to a Rust reader, just costs a beat.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "metadata.rs filter_changes_array's id-Rust gymnastics is harder to read than necessary",
+  "updated_at": "2026-05-17T09:15:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:22:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "0f140718-10d3-5134-80c6-7a39454802cd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

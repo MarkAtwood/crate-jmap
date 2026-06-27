@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T09:07:27Z",
+  "id": "019e2ae4-049d-75ec-ad45-252e92562490",
+  "issue_id": "JMAP-826m.31",
+  "text": "Blocked on JMAP-826m.14. If .14 resolves toward 'drop MockBackend entirely' (option i), MockBackend::new_with_account ceases to exist and the inconsistency disappears for free. If .14 keeps MockBackend, then aligning new_with_account / new_with_accounts is a small unblocked fix that should land in the same sweep that addresses the broader MockBackend disposition."
+}

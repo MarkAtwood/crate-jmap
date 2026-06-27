@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-13T15:41:54Z",
+  "id": "019e2200-6ea8-7a82-90a5-16597d7ebf9d",
+  "issue_id": "JMAP-g7wu.2.4.6",
+  "text": "Rescoped 2026-05-13 per Mark's Option-A decision.\n\nScope reduced from full 12-variant matrix + 4 permission gates + ULID assertions + cascade tests \u2192 single kitchen-sink smoke test exercising all 12 ops in one /set call as an admin caller (~80 LOC).\n\nThree follow-up beads filed under JMAP-g7wu.2.4 for the items that were out of scope of the existing impl beads:\n\n  * JMAP-g7wu.2.4.13 (P2, autonomous) \u2014 manage_space gate on top-level Space metadata patches\n  * JMAP-g7wu.2.4.14 (P2, autonomous) \u2014 manage_channels gate on Channel/Category ops in apply_space_patch\n  * JMAP-g7wu.2.4.15 (P3, human-decision) \u2014 MemoryBackend next_id: sequential vs ULIDs design question\n\nRemoving 'human' label. The kitchen-sink test is straightforward autonomous work; /do-beads can claim it."
+}

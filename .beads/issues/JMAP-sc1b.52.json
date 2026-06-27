@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T22:18:29Z",
+  "compaction_level": 0,
+  "content_hash": "0180d5bbb4aacea46808e82a083a10ccf4dcfc3e7fbc23bba9a65b9d6564dd4d",
+  "created_at": "2026-05-07T20:43:25Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/response.rs:85 defines:\n\n```rust\npub struct RequestError { ... }\n```\n\nIt does not implement std::error::Error or Display, despite the name. Callers can construct it but can't `?` it or print it via `{}`.\n\nPer AGENTS.md crate-jmap-server is LOCKED \u2014 needs Mark's approval before edit.\n\nOptions:\n1. Implement std::error::Error + Display (probably the right fix)\n2. Rename the struct to indicate it's a wire payload, not a Rust error (e.g. RequestErrorPayload)\n\nNote: this struct is used to construct HTTP problem-details responses (RFC 7807), so calling it 'Error' is reasonable from the wire-spec perspective but confuses Rust idiom expectations.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.52",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: RequestError struct named 'Error' but doesn't impl std::error::Error or Display",
+  "updated_at": "2026-05-07T22:18:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "0e06c74a-b9a3-5a2b-93b0-e2a38ff7020f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

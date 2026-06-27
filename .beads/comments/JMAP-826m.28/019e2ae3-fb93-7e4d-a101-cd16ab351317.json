@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T09:07:25Z",
+  "id": "019e2ae3-fb93-7e4d-a101-cd16ab351317",
+  "issue_id": "JMAP-826m.28",
+  "text": "Blocked on JMAP-826m.14. The unit-vs-integration test duplication noted here is the same canonical-template question .14 is asking. If .14 resolves toward option (i) 'drop MockBackend entirely; move all tests to tests/ using MemoryBackend', the duplication evaporates by structural means. If .14 resolves toward (ii) or (iii), keeping both surfaces is a deliberate choice that needs separate justification per test."
+}

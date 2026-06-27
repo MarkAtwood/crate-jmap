@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T21:44:15Z",
+  "compaction_level": 0,
+  "content_hash": "af8da98b43f02032b9c731983428302315778a23e35036b21822b774136a3cdb",
+  "created_at": "2026-05-16T03:53:19Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-cid-types/src/digest.rs:73 defines Sha256DigestError as a #[non_exhaustive] struct with a single pub kind: Sha256DigestErrorKind field, and a Display impl that just delegates to self.kind.fmt(f). The wrapper adds zero information over Sha256DigestErrorKind directly.\n\nThe intent appears to be the thiserror two-tier pattern (outer struct = stable error type, inner enum = stable matchable variants, outer carries extra context like source location, span, input snippet, backtrace, etc.). That pattern pays off when the wrapper actually carries extra context. Here it does not \u2014 the wrapper is just an alias for the kind.\n\nWhat goes wrong:\n- Callers writing match err.kind { ... } when they could match on the enum directly add a level of indirection for no semantic gain.\n- #[non_exhaustive] on the wrapper struct prevents callers from constructing Sha256DigestError { kind } literals \u2014 a real friction in tests (note digest.rs:378 in the existing test does construct one directly, which works because the test is inside the crate, but external callers cannot). The myoss pass .10 covers the per-variant non_exhaustive question on the *enum*; this finding is about the *wrapper struct*.\n- The two-tier shape implies 'future fields coming' that nothing in PLAN.md or the draft suggests are coming.\n\nTwo idiomatic resolutions:\n(a) Drop the wrapper. Make Sha256DigestErrorKind itself the error type (rename to Sha256DigestError, keep variants). thiserror-style without thiserror. This matches the canonical pattern for crate-internal error enums where no extra context is wanted.\n(b) Commit to the wrapper and give it real context fields: input length, a snippet of the offending input, the original &str if its lifetime survives. The myoss .14 / .15 findings (offending byte value, bounded int type) already point at fields that could live on the wrapper if anywhere.\n\nPre-v0.1.0, either is cheap. Post-publish, both become breaking. Decide now.",
+  "ephemeral": 0,
+  "id": "JMAP-sf5h.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sha256DigestError wrapper struct adds no fields over Sha256DigestErrorKind \u2014 pick one or commit to context fields",
+  "updated_at": "2026-05-17T21:44:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T20:53:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sf5h",
+      "id": "313987b9-c5fd-50d2-b0cf-a8b3b984dace",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

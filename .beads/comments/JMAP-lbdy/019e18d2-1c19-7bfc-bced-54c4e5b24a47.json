@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T20:54:43Z",
+  "id": "019e18d2-1c19-7bfc-bced-54c4e5b24a47",
+  "issue_id": "JMAP-lbdy",
+  "text": "Added 'human' label. The epic's remaining acceptance criterion ('every in-scope type has extra field') is gated on JMAP-lbdy.12 (Hash-vs-extras tension on the four JSContact sub-types NameComponent / AddressComponent / PartialDate / Timestamp), which is itself human-labeled and awaiting decision between resolution options A (drop Hash), B (manual Hash skipping extras \u2014 Hash/Eq invariant complication), or C (exclude those four types). Without that decision the epic cannot close. Marking the parent human so the autonomous /do-beads loop stops surfacing it as ready work."
+}

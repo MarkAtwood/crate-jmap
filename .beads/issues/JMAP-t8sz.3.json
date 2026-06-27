@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decision: exhaustive serialization test covers deprecated constructors. No code change needed.",
+  "closed_at": "2026-05-02T22:19:24Z",
+  "compaction_level": 0,
+  "content_hash": "3f8fbfbc16f5973d0a30bdc074a6a7c779f88708e2e24f24f75538c3e933e55c",
+  "created_at": "2026-05-02T22:18:27Z",
+  "created_by": "Mark Atwood",
+  "description": "The jmap_error_all_constructors_serialize test explicitly includes the deprecated unknown_capability() constructor rather than removing it when the deprecation was added. This is correct: the test's stated purpose is to guard the infallible-serialization invariant that error_invocation depends on. A deprecated constructor can still be called in the wild by code that hasn't migrated, and must serialize correctly. A future contributor might suggest removing the deprecated variant from the test to 'clean it up' \u2014 that would weaken the invariant guard.",
+  "ephemeral": 0,
+  "id": "JMAP-t8sz.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Exhaustive serialization test covers deprecated constructors \u2014 correct strategy",
+  "updated_at": "2026-05-02T22:19:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:18:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-t8sz",
+      "id": "fe94e5e3-9272-5832-b3cf-3508bc59e3cb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

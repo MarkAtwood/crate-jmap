@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-isx.12",
+  "title": "SetErrorType::Display allocates via serde_json::to_value on every format",
+  "description": "backend.rs:154-163: Display impl serializes self via serde_json::to_value(...).ok().and_then(|v| v.as_str().map(|s| s.to_owned())), then unwraps with a Debug fallback. This allocates a String from a JSON Value on every display call. It also silently falls back to Debug format if serde fails. A simple match arm on each variant (like thiserror does) is zero-allocation and cannot silently degrade. Fix: use a match expression returning &'static str, as is idiomatic for Display on simple string-valued enums.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:20:59Z",
+  "updated_at": "2026-04-30T23:34:09Z",
+  "closed_at": "2026-04-30T23:34:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-isx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:20:59"
+    }
+  ]
+}

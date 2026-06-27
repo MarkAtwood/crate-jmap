@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-55n.2",
+  "title": "subscribe_events doc: no timeout on initial response headers",
+  "description": "subscribe_events calls req.send().await with no timeout. The doc says 'No idle timeout is applied to the stream' but users will interpret this as only the idle-stream phase. In reality there is also no timeout covering the response-headers phase: after connect_timeout (10s, TCP only) passes, a server that accepts TCP but stalls on sending HTTP 200 will cause subscribe_events to hang forever. The doc should explicitly state this, or the API should accept an initial-response timeout parameter. Users following the 'wrap in tokio::time::timeout' guidance would cover this case, but only if they know to wrap the entire subscribe_events call not just the stream iteration.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:59:18Z",
+  "updated_at": "2026-04-30T07:05:32Z",
+  "closed_at": "2026-04-30T07:05:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-55n",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:59:18"
+    }
+  ]
+}

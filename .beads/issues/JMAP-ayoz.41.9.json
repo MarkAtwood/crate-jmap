@@ -1,0 +1,50 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Wired enforce_max_objects_in_set into handle_metadata_set immediately after the account_exists gate, mirroring the canonical mail-server pattern (bd:JMAP-ayoz.41.2) exactly:\n\n- src/helpers.rs: pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id}\n- src/metadata.rs: imported enforce_max_objects_in_set; called as\n    enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;\n  placed between account_exists and get_state per the canonical position.\n\nTests in tests/max_objects_in_set.rs (3 new tests):\n- metadata_set_over_limit_create_returns_limit_error (501 creates \u2192 JmapError type=limit description=maxObjectsInSet)\n- metadata_set_over_limit_destroy_returns_limit_error (501 destroys \u2192 same)\n- metadata_set_at_limit_passes_cap_check (exactly DEFAULT_CAP creates pass the cap)\n\nHand-built independent oracle (error_type, description string pair) per workspace test-integrity rules \u2014 the helper under test is never the oracle.\n\nPre-commit gate: cargo fmt clean, cargo clippy --workspace --all-features -D warnings clean, cargo test -p jmap-metadata-server clean (50+3+3+27+1 tests pass), workspace cargo test clean. Pre-existing rustdoc broken-intra-doc-link at lib.rs:50 surfaced and filed separately (counterpart of bd:JMAP-ha4n) \u2014 not introduced by this change (verified via git stash before/after).\n\nClosing this bead completes the metadata-server arm of the .41 sweep (the original direct target of the analysis bead). Committed in 32b9b00.",
+  "closed_at": "2026-05-17T20:01:43Z",
+  "compaction_level": 0,
+  "content_hash": "9e51133310cd01c48f8bbf9fad8a71b058fe4d36902c6c303c1a46b9ebc1c139",
+  "created_at": "2026-05-16T19:14:48Z",
+  "created_by": "Mark Atwood",
+  "description": "Propagation of bd:JMAP-ayoz.41.2 canonical pattern to jmap-metadata-server. This is the original direct target of bd:JMAP-ayoz.41.\n\n## Scope\n\nInsert enforce_max_objects_in_set call (exact shape from .41.2) at top of the metadata-server /set handler, after account_exists:\n\n1. crate-jmap-metadata-server/src/metadata.rs handle_metadata_set\n\n## Tests\n\nIntegration test asserting over-limit returns JmapError type=limit description=maxObjectsInSet.\n\n## Acceptance\n\ncargo fmt+clippy+test+doc clean for jmap-metadata-server.\n\n## Closes\n\nClosing this bead closes the cookie-cut sweep started by bd:JMAP-ayoz.41. The parent epic .41 should close in the same pass.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.41.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wire maxObjectsInSet enforcement into jmap-metadata-server (1 handler \u2014 original target of .41)",
+  "updated_at": "2026-05-17T20:01:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T12:14:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.41.2",
+      "id": "1f756be8-9436-542b-b140-abfb0bb0cd2e",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-16T12:14:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.41",
+      "id": "5954bf31-3dae-5fbb-94dd-5ec2f1304c1a",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-16T12:14:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.41.1",
+      "id": "bac5791b-9e6b-5ab9-b443-1ac86c8eb29e",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

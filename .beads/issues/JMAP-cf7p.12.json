@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T175453Z-2820386",
+  "close_reason": "Landed in commit 127eaf0 (testjig SSE Last-Event-ID + WS pushState replay), paired with cf7p.10 per Mark's 2026-05-13 acceptance ('option (2) pair with cf7p.10 in one PR sharing the same event-id scheme'). Same producer-driven event log in crate-jmap-testjig/src/replay.rs.\n\nAcceptance criteria status:\n\n- 'Outbound StateChange frames include a pushState field per RFC 8887 \u00a74.3.5.1': YES. build_state_change_frame() now emits {'@type':'StateChange', 'changed':{...}, 'pushState':'<u64>'} where pushState is the decimal encoding of the largest event id in the emitted batch.\n\n- 'The pushState encodes enough server state that on PushEnable with a prior pushState, the server can emit all StateChange events that have happened since': YES. parse_push_state() parses the u64; handle_push_enable() threads it into push_loop() which uses it as the initial last_seen. If the value is within the log's retained window, emit_pending() replays past entries on the first wake.\n\n- 'New tests/ws_resume.rs integration test exercises reconnect-with-pushState replay': YES. tests/ws_resume.rs::push_state_replays_missed_changes asserts the full cycle: open WS+PushEnable, mutate, capture pushState from frame, close WS, mutate twice with no WS, reopen WS with WebSocketPushEnable.pushState=captured, observe replay frame with pushState > captured.\n\n- 'Design likely couples to JMAP-cf7p.10 (SSE Last-Event-ID) and JMAP-cf7p.9 (signal-driven push); these three could land as a coordinated cluster': YES, exactly that landed. .9 was committed in c6c2c21 (signal-driven push); .10+.12 in 127eaf0 (shared replay log).\n\nWire-format note on pushState encoding: chosen as decimal u64 over alternatives (opaque base64, hex, etc.). Rationale: simplest representation that survives JSON.stringify roundtrip and parses back identically; the encoding is testjig-internal and free to evolve as long as emit-side and parse-side stay in sync. A production push server would likely encode as opaque-bytes to discourage clients from doing arithmetic on the token.\n\nPre-commit gate clean: cargo fmt, cargo clippy --workspace --tests -- -D warnings, cargo test --workspace (2125 passed / 0 failed), RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps (no warnings), cargo tree -i openssl --workspace (empty).\n\nThis pair (cf7p.10 + .12) closes the last of the three coordinated push beads (.9, .10, .12). The bd:JMAP-cf7p parent epic remains closed (its acceptance was the MVP-stage 8 slices); the 3 follow-up beads are now all closed.",
+  "closed_at": "2026-05-13T18:22:13Z",
+  "compaction_level": 0,
+  "content_hash": "9e273dc114ebb03942a83c9746f960fc8fe5f6dc1a4dcc1f695297cfe6104b86",
+  "created_at": "2026-05-12T06:43:09Z",
+  "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "description": "RFC 8887 \u00a74.3.5.2 says:\n\n> The last 'pushState' token that the client received from the server. Upon receipt of a 'pushState' token, the server SHOULD immediately send all changes since that state token.\n\nThe bd:JMAP-cf7p.5 WS endpoint parses the pushState field on WebSocketPushEnable but does NOT honor it \u2014 clients that reconnect after a missed change must issue Foo/changes themselves. The MVP additionally omits the pushState field from outgoing StateChange frames (RFC 8887 \u00a74.3.5.1 allows omission; clients fall back to /changes).\n\nSame shape as JMAP-cf7p.10 (Last-Event-ID for SSE) \u2014 both are spec SHOULDs, not MUSTs, and the right design touches the per-extension MemoryBackend's change-log surface.\n\nAcceptance:\n- Outbound StateChange frames include a pushState field per RFC 8887 \u00a74.3.5.1.\n- The pushState encodes enough server state that on PushEnable with a prior pushState, the server can emit all StateChange events that have happened since.\n- New tests/ws_resume.rs integration test exercises reconnect-with-pushState replay.\n- Design likely couples to JMAP-cf7p.10 (SSE Last-Event-ID) and JMAP-cf7p.9 (signal-driven push); these three could land as a coordinated cluster.",
+  "ephemeral": 0,
+  "id": "JMAP-cf7p.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "testjig WS: honor pushState on WebSocketPushEnable per RFC 8887 \u00a74.3.5.2",
+  "updated_at": "2026-05-13T18:22:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T23:43:08Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p",
+      "id": "3b2f5b8a-63e2-5942-bc39-2ce7deb045fa",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-13T10:58:16Z",
+      "created_by": "bd-spin/bd-spin-20260513T175453Z-2820386",
+      "depends_on_issue_id": "JMAP-cf7p.9",
+      "id": "c7b9aa81-6992-591f-90ef-f165b4d293a8",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d189734b7d18294a6214aa558d05082a5139e59c5f183729ac8f416ebf099ab5",
+  "created_at": "2026-05-15T07:59:49Z",
+  "created_by": "Mark Atwood",
+  "description": "**Pattern source**: bd:JMAP-826m.4 fixed MemoryBackend::query_objects to actually apply the typed filter and sort. The sibling MemoryBackend::query_changes at crate-jmap-metadata-server/src/memory.rs (line ~720 post-fix) still has _filter and _sort underscored, mirroring the pre-fix query_objects shape.\n\n**Trigger**: any /queryChanges call with a non-null filter or sort against MemoryBackend ignores both and reports created/updated/destroyed from the raw change log. RFC 8620 \u00a75.6 expects /queryChanges to return only entries that satisfy the filter \u2014 clients using a filtered /query and then a /queryChanges from that queryState get an inconsistent view.\n\n**Out of scope of bd:JMAP-826m.4**: that bead's title and description named only  and lines 566-614 specifically. This sibling bead captures the same vulnerability in the adjacent /queryChanges path.\n\n**Fix shape**: mirror the bd:JMAP-826m.4 pattern. Type-identity serde roundtrip on the filter into MetadataFilterCondition; reuse  to apply it. Sort similarly via . The created/updated/destroyed arrays from get_metadata_changes are already pre-filtered when the backend overrides get_metadata_changes (which this one does), so the residual /queryChanges filter is mostly for the auxiliary sort/queryState consistency. The destroyed array semantics under filtering follow draft-ietf-jmap-metadata-01 \u00a73.5 \u2014 clients that filter SHOULD reuse the same filter for /queryChanges as for /query.\n\n**Doc disclosure**: crate-jmap-metadata-server/src/memory.rs module doc (the //! block at top) already has a 'Metadata-specific behaviour' bullet calling out the /queryChanges gap, added in bd:JMAP-826m.4. Remove that bullet when this bead lands.",
+  "ephemeral": 0,
+  "id": "JMAP-ya7g",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.query_changes ignores filter and sort, same shape as bd:JMAP-826m.4 query_objects",
+  "updated_at": "2026-05-15T07:59:49Z"
+}

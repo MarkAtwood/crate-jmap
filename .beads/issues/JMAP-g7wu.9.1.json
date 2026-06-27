@@ -1,0 +1,33 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T03:05:27Z",
+  "compaction_level": 0,
+  "content_hash": "ca5a4b170884b2172dc94d22579740e892da2172444041cf07d50c5e2d32a4c1",
+  "created_at": "2026-05-11T00:26:17Z",
+  "created_by": "Mark Atwood",
+  "description": "Sites:\n- crate-jmap-calendars-types/src/event.rs:64,68 \u2014 utc_start, utc_end as Option<String>\n- crate-jmap-calendars-types/src/availability.rs:30,33 \u2014 utc_start, utc_end as String\n\nChange:\n- utc_start: Option<String> -> Option<UTCDate>\n- utc_end: Option<String> -> Option<UTCDate>\n- utc_start: String -> UTCDate\n- utc_end: String -> UTCDate\n\nThis is the canonical extension-types change per workspace AGENTS.md cookie-cutter rule. Lock the shape here first; propagate to sibling extension-types crates that have UTCDate-shaped String fields.\n\nAfter this lands, JMAP-g7wu.9.2 (filenode) and JMAP-g7wu.9.3 (tasks-server backend trait) propagate the pattern. JMAP-g7wu.9.4 (calendars-client method args) is then unblocked.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.9.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "UTCDate migration in jmap-calendars-types (CANONICAL extension-types change)",
+  "updated_at": "2026-05-11T03:05:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:26:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.9",
+      "id": "cde035d1-8f24-5e60-8b1b-365803d671fa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-55n.3",
+  "title": "fetch_session: unnecessary url::Url\u2192String conversion",
+  "description": "fetch_session calls base_url.join(...).to_string() then passes &url_string to http.get(). reqwest::Client::get() accepts impl IntoUrl and url::Url: IntoUrl, so the .to_string() call is an unnecessary allocation. Remove .to_string() and pass the Url directly. Same pattern may apply in other methods that construct URLs from Url::join.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:59:26Z",
+  "updated_at": "2026-04-30T07:05:34Z",
+  "closed_at": "2026-04-30T07:05:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-55n",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:59:26"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T01:06:11Z",
+  "compaction_level": 0,
+  "content_hash": "ccea91a6abc10f9435f17ccb2a15f8b54ffe4809fbbb1abc47f5ec1c7421bd51",
+  "created_at": "2026-05-02T00:57:14Z",
+  "created_by": "Mark Atwood",
+  "description": "Verified all 26 round-1 fixes. No new issues found.\n\nChecks performed:\n- e53.40/41/28 (submission.rs): sendAt is always set to now_utc_string(), client value ignored. UTCDate::from() used correctly. Correct.\n- e53.46 (submission.rs): not_updated keys removed after update loop; not_destroyed keys removed inside destroy if-block (after destroy loop). Both correctly prevent onSuccess side effects for failed operations. Failed creates never enter the map (only success path inserts). Correct.\n- e53.31 (submission.rs): DeliveryStatus::new uses Delivered::Queued. Correct.\n- e53.45 (submission.rs): destroy array validated upfront with find(|v| !v.is_string()); returns invalidArguments for whole request. Correct.\n- e53.42 (email.rs): Truncation loop walks back from limit with is_char_boundary. end=0 case exits immediately (is_char_boundary(0) is always true). Output is at most limit bytes. Correct.\n- e53.47 (email.rs): parse_header_property rejects extra suffix after 'all' via splitn(3,':') + check parts.get(2). Correct.\n- e53.45 (email.rs): Same destroy array validation pattern as submission.rs. Consistent.\n- e53.25 (email.rs): debug_assert fires if blob_id == 'placeholder-blob' after create_object, placed correctly after the Ok arm of create_object call. Correct.\n- e53.21 (email.rs): OnceLock<HashSet<&'static str>> initialized from IMMUTABLE_EMAIL_FIELDS. Exact-match path returns via find() on same array (always succeeds since set and array share data). Sub-path check ('/') fallback loop correct. Correct.\n- e53.30 (email.rs): apply_body_value_args takes &HashSet<&str>; body_prop_set built once before per-email loop in both handle_email_get (line 445) and handle_email_parse (line 1900). Both call sites pass &body_prop_set. Correct.\n- e53.7 (backend.rs): blob_exists default returns false. MemoryBackend overrides at line 825 (checks inner.blobs). FaultyBackend delegates to inner. Correct.\n- e53.35 (backend.rs): SetErrorType Display has #[allow(unreachable_patterns)] on wildcard arm. Matches all current variants explicitly. Correct.\n- e53.43 (tests/common/mod.rs): TOCTOU fixed \u2014 single lock held for duplicate check + thread assignment + insert + state bump (lines 662-783). No window between check and insert. Correct.\n- e53.39 (tests/common/mod.rs): Case-insensitive header matching using eq_ignore_ascii_case for Subject, Message-ID, In-Reply-To, References, From, To. Correct.\n\nTest suite: 113 tests pass, 0 failures.",
+  "ephemeral": 0,
+  "id": "JMAP-sz1.1.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Round 2 verification: all fixes correct",
+  "updated_at": "2026-05-02T01:06:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:57:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sz1.1",
+      "id": "2e28a1d9-01dd-5f4e-8298-b3379b8b13b5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

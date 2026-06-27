@@ -1,0 +1,41 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "closed_at": "2026-05-11T05:12:18Z",
+  "compaction_level": 0,
+  "content_hash": "fc0c41194979f632ebd9d47b9dadbdb326ca4727924b23f762266a47cea53956",
+  "created_at": "2026-05-10T21:56:33Z",
+  "created_by": "Mark Atwood",
+  "description": "**Extraction (sibling \u2014 mirror canonical .1).** Move `MemoryBackend` from `crate-jmap-sharing-server/tests/common/mod.rs` (547 LOC) to a public, feature-gated reference implementation in `src/memory.rs`.\n\nMirror the canonical pattern landed by .1 (jmap-mail-server): same module name (`memory`), same type names (`MemoryBackend`, `MemoryState`), same feature flag (`\"memory\"`), same documentation idiom.\n\n## Mechanical steps\n\n1. Create `crate-jmap-sharing-server/src/memory.rs` and move the contents of `tests/common/mod.rs` into it.\n2. Add `[features] memory = []` to Cargo.toml. Gate `pub mod memory;` in lib.rs.\n3. Rewrite `tests/common/mod.rs` as test-side helpers only (expected \u2264 200 LOC residue given the 547 starting size).\n4. Add `[dev-dependencies] jmap-sharing-server = { workspace = true, features = [\"memory\"] }`.\n\nAny divergence from .1's pattern is a regression. If a divergence seems necessary, stop and escalate.\n\n## Acceptance\n\n- `cargo test -p jmap-sharing-server --features memory` clean.\n- `cargo test -p jmap-sharing-server` clean (via dev-dependencies).\n- `cargo check -p jmap-sharing-server --no-default-features` clean.\n- `cargo clippy -p jmap-sharing-server --features memory --tests -- -D warnings` clean.\n- `cargo doc -p jmap-sharing-server --features memory --no-deps` clean.\n- `tests/common/mod.rs` \u2264 200 LOC of helpers.\n- Naming exactly matches the canonical (.1).\n\n## Depends on\n\nJMAP-hwdv.1 (mail-server canonical). Cannot start until .1 lands.\n",
+  "ephemeral": 0,
+  "id": "JMAP-hwdv.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Extract MemoryBackend to jmap-sharing-server/src/memory.rs (mirror canonical)",
+  "updated_at": "2026-05-11T05:12:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T14:56:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-hwdv",
+      "id": "4e875117-c4cb-5f6c-9f11-1dbb85ac71e8",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-10T14:56:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-hwdv.1",
+      "id": "93b66df6-bde4-51bc-aef1-1f2df5d23239",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

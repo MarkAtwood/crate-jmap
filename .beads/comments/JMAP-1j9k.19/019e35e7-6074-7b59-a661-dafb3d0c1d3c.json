@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T12:26:56Z",
+  "id": "019e35e7-6074-7b59-a661-dafb3d0c1d3c",
+  "issue_id": "JMAP-1j9k.19",
+  "text": "Escalating to human: workspace-wide Clone-derive policy on Params structs. The bead author preferred option A (add Clone to canonical mail-client's 5 Params structs, propagate to all siblings \u2014 calendars direction wins). The Clone derive remains on CalendarEventGetParams pending this decision (carried over from the JMAP-1j9k.10/.9/.11 commit). The decision impacts canonical mail-client and the workspace-wide Params struct family.\n\nNote this bead is labelled 'opinion' already; the engineering argument is borderline but the canonical-template propagation rule is the binding concern.\n\nSkipping in /do-beads loop."
+}

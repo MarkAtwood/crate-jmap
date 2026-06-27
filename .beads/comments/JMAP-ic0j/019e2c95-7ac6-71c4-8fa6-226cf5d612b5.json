@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T17:00:54Z",
+  "id": "019e2c95-7ac6-71c4-8fa6-226cf5d612b5",
+  "issue_id": "JMAP-ic0j",
+  "text": "Maintainer risk: MEDIUM \u2014 two P0 correctness bugs (id recycling, per-user-routing path-key misclassification) and four P1 issues (canonical-template divergences, README staleness, getAvailability ordering, change_log dedup masking) ship together with a fresh MemoryBackend that consumers will study. The cookie-cutter divergences from jmap-mail-server (MemoryError shape, calendar_has_events bool-vs-Result) are the highest maintenance-burden items because they'll get copied by third parties studying the reference impl."
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied option (A) minimal rename: ChatMemberRole::Unknown -> Other and BodyType::Unknown -> Other in crate-jmap-chat-client/src/types.rs. Updated two referring tests (chat_smoke_tests.rs ChatMemberRole::Unknown, message_smoke_tests.rs BodyType::Unknown). Renamed test function message_update_with_body_type_unknown -> message_update_with_body_type_other and updated all docstrings referencing 'Unknown(String) policy' to 'Other(String) policy'. Public API break in chat-client but consistent with workspace pattern. The deeper refactor (option B: move enums into jmap-chat-types and use impl_string_enum! macro) is left as a separate decision; the current jmap-chat-types crate does not contain client-only wire enums and the placement question is its own design discussion.",
+  "closed_at": "2026-05-17T15:22:21Z",
+  "compaction_level": 0,
+  "content_hash": "4321762c1fb7887e5813724f387f623b162d10f695afa136b2e7401879462d29",
+  "created_at": "2026-05-17T15:04:40Z",
+  "created_by": "Mark Atwood",
+  "description": "While executing JMAP-zx3s.1 (workspace policy: pick Other vs Unknown), I confirmed all type crates use `Other(String)` (mailbox.rs, query.rs, submission.rs, calendars/tasks notification.rs, etc.). But `crate-jmap-chat-client/src/types.rs` manually rolls two enums \u2014 `ChatMemberRole` (lines 124-131) and `BodyType` (lines 178-188) \u2014 that use `Unknown(String)` instead.\n\nThese don't use the workspace `impl_string_enum!` macro from jmap-types; they have hand-rolled Serialize/Deserialize impls. The variant naming divergence is:\n- Wire format: unaffected (the variant tag is Rust-side, not on the wire).\n- Source consistency: divergent \u2014 every type-crate enum says `Other(String)`, these client-side enums say `Unknown(String)`.\n- Tests: existing tests in `crate-jmap-chat-client/tests/{message_smoke_tests.rs, chat_smoke_tests.rs}` use `BodyType::Unknown(s)` and reference workspace 'Unknown(String) policy' verbiage that is now stale.\n\n**Question whether these should even live in jmap-chat-client at all.** Result enums normally belong in the canonical type crate (jmap-chat-types), not the client crate. Possible split bead: move ChatMemberRole and BodyType to jmap-chat-types, then unify under the workspace impl_string_enum! macro.\n\n**Scope options:**\n- (A) Minimal rename: `Unknown(String)` \u2192 `Other(String)` in jmap-chat-client + update referring tests + doc strings. ~10-line public API break (variant name change), tests updated in same commit.\n- (B) Move to jmap-chat-types and use impl_string_enum!. Larger refactor, sets up the canonical-template path. Public API break for jmap-chat-client consumers in both shape and import path.\n\nPre-existing finding: this bead was discovered while ratifying JMAP-zx3s.1's recommendation (option A: doc edit only). The premise that doc-edit was zero-churn turned out to be false workspace-wide; this bead captures the residue.",
+  "ephemeral": 0,
+  "id": "JMAP-zx3s.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-client: ChatMemberRole and BodyType use Unknown(String) \u2014 diverges from workspace Other(String) pattern",
+  "updated_at": "2026-05-17T15:22:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T08:04:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zx3s",
+      "id": "9771c158-b8cd-5c74-a9a5-e26b8645ea0b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

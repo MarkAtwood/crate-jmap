@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "3 Principal/get and /changes wiremock tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/principal_get_changes_tests.rs (3 tests: get round-trip, specific ids wire, changes sinceState); clippy clean",
+  "closed_at": "2026-05-05T14:34:44Z",
+  "compaction_level": 0,
+  "content_hash": "f7a5b521e467a22de01c8c3c87bec646d6ca74b5815e81f837064c7ab00ea437",
+  "created_at": "2026-05-05T02:53:12Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create tests/principal_get_changes.rs with 3 async wiremock integration tests. Oracle: RFC 9670 \u00a74.1 Figure 3 for Principal/get response; RFC 8620 \u00a75.1 and \u00a75.2 for request/response shapes.\n\n**Tests:**\n1. principal_get_round_trip: mock returns principal_get_response.json fixture; assert resp.list[0].id == \"P2342fnddd20\", name == \"Joe Bloggs\", email == Some(\"joe.bloggs@example.com\"); assert outbound request body has methodCalls[0][0] == \"Principal/get\" and ids == [\"P2342fnddd20\"] and using contains \"urn:ietf:params:jmap:principals\".\n2. principal_changes_round_trip: mock returns ChangesResponse with oldState \"s10\", newState \"s11\", created [\"P9\"]; assert fields; assert request has sinceState == \"s10\" and no maxChanges key.\n3. principal_changes_with_max_changes: assert request body has maxChanges == 50 when Some(50) passed.\n\n**Algorithm:** Use MockServer::start().await, mount Mock with POST /api/ matcher, call method, capture received_requests, deserialize body, assert fields.\n\n**Acceptance criteria:**\n- All 3 tests pass with #[tokio::test].\n- Mock verified called exactly once per test.\n- No test derives expected values from code under test.",
+  "ephemeral": 0,
+  "id": "JMAP-wwvy.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: Principal/get and Principal/changes",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:53:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wwvy",
+      "id": "0c70dd05-9673-5967-9013-95f4bcf9fe63",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:53:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wwvy.1",
+      "id": "5a86158f-e001-5054-8241-2396ea67882b",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

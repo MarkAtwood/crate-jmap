@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-isx.10",
+  "title": "Mailbox/set destroy: all emails fetched from backend for every mailbox in the destroy list",
+  "description": "mailbox.rs:530-533: 'backend.get_objects::<Email>(&account_id, None, None)' is called inside the destroy loop (one call per mailbox being destroyed). Destroying N mailboxes triggers N full email scans. The email list should be fetched once before the loop, same as the mailbox list is fetched at line 339. At scale (large mailbox count), this is O(N) full scans of the email store.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:20:42Z",
+  "updated_at": "2026-04-30T23:38:48Z",
+  "closed_at": "2026-04-30T23:38:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-isx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:20:41"
+    }
+  ]
+}

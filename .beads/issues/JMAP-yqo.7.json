@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:27Z",
+  "compaction_level": 0,
+  "content_hash": "65a4c8aea4b710380dcd849a0d01c80348bffe25cfcad45b41e3e2d1150830a9",
+  "created_at": "2026-05-02T02:54:50Z",
+  "created_by": "Mark Atwood",
+  "description": "MailBackend::blob_exists has a default implementation that always returns false. The doc says to override it, but it is a trait default, meaning a backend that forgets to override it will silently cause Email/parse to report every parseable blob as notFound instead of notParsable. This is hard to catch in tests because the MemoryBackend correctly overrides it. Contributor risk: anyone implementing MailBackend who does not read the full trait doc will ship a wrong notFound/notParsable classification.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "blob_exists default returns false \u2014 silently wrong for any backend that does not override",
+  "updated_at": "2026-05-02T03:22:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:54:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "4dff3398-8d63-5a3e-aa18-f2b07ef823c5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

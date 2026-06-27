@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T18:39:40Z",
+  "id": "019e1856-75a7-7a55-a23f-7b72a4894be5",
+  "issue_id": "JMAP-g7wu.2",
+  "text": "Adding 'human' label: this epic's only open child is JMAP-g7wu.2.4 which is itself human-labeled (awaiting sequencing decision on Space/set mutation decomposition, options A/B/C). No autonomous work remains under this epic until the human picks the path."
+}

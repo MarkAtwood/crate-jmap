@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T18:04:06Z",
+  "compaction_level": 0,
+  "content_hash": "e2d0ac4b163be930c299093dd640e59e8f31b827a10e009a7c3b12e51c1bc43c",
+  "created_at": "2026-05-15T20:29:10Z",
+  "created_by": "Mark Atwood",
+  "description": "src/session.rs:437-472. The new chat_capability_preserves_vendor_extras and chat_push_capability_preserves_vendor_extras tests only verify the deserialize half. AGENTS.md 'Extras-preservation policy' test discipline says 'For structs, the test asserts an unknown field survives serialize.' But these types are Deserialize-only (no Serialize derive at lines 22, 80) so the serialize half is uncheckable. Inconsistency: the extra field's #[serde(...skip_serializing_if = \"...\")] attribute (lines 67, 98) and the 'deserialize/serialize round-trip' rustdoc claim (lines 55, 95) are dead text \u2014 there's no Serialize to skip in.\n\nTwo cleanups, pick one:\n(a) Document explicitly that these types are deserialize-only at the wire boundary (client only reads capability from server, never sends). Drop the skip_serializing_if attribute and rewrite the round-trip rustdoc.\n(b) Add Serialize to the derives and extend each test to round-trip back through to_value/from_value.\n\nAdditionally: no test verifies that a typed field like supportedBodyTypes does NOT get duplicated into extra. Add: `{supportedBodyTypes:[...],acmeFlag:\"x\"}` should produce typed field populated AND extra containing only acmeFlag.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Extras-policy tests cover only deserialize half; Capability types lack Serialize",
+  "updated_at": "2026-05-17T18:04:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:29:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "90afa43b-66c4-5ef6-933c-bf6ca62a6c2d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

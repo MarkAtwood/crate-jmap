@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Introduced CalendarSetParams and TaskListSetParams; reshaped calendar_set/task_list_set to take params: Option<XxxSetParams> matching mail-canonical mailbox_set/address_book_set/filenode_set shape. Threaded params.extra onto wire via entry().or_insert() (typed wins on collision). calendar_set keeps if_in_state as inline Option<&State> per email_submission_set canonical (the bead body's suggestion to bundle if_in_state was inconsistent with the workspace canonical; followed the canonical instead). Added serde as direct dep of jmap-tasks-client (see ops7.13 for the broader divergence). 18 test-result lines green, full workspace clippy + rustdoc + fmt clean. Commit a017846.",
+  "closed_at": "2026-05-17T23:11:59Z",
+  "compaction_level": 0,
+  "content_hash": "23b0a16b2436228437b96c5bd983cdb6f14f5916250793e50225bc3bc323e6d3",
+  "created_at": "2026-05-17T22:55:52Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**:\n- crate-jmap-mail-client/src/methods/mod.rs:139 (`MailboxSetParams { on_destroy_remove_emails: Option<bool> }`)\n- crate-jmap-mail-client/src/methods/mailbox.rs:116, :156 (`mailbox_set(params: Option<MailboxSetParams>)`, applied via `if let Some(v) = p.on_destroy_remove_emails`)\n- crate-jmap-contacts-client/src/methods/mod.rs:40 (`AddressBookSetParams { on_destroy_remove_contents: Option<bool> }`)\n- crate-jmap-contacts-client/src/methods/addressbook.rs:180 (`if let Some(v) = p.on_destroy_remove_contents`)\n- crate-jmap-filenode-client/src/methods/filenode.rs:80 (`FileNodeSetParams { on_destroy_remove_children: Option<bool>, ... }`) \u2014 `filenode_set` uses the struct\n- crate-jmap-calendars-client/src/methods/calendar.rs:116 (`calendar_set(on_destroy_remove_events: Option<bool>, if_in_state: Option<&State>)`) \u2014 **inline, no Params struct**\n- crate-jmap-tasks-client (cargo find: `task_list_set(on_destroy_remove_tasks: Option<bool>)`) \u2014 **inline, no Params struct**\n\n**Divergence**:\n\nAll five extension `_set` methods that have a \"cascade on destroy\" knob serialize the same JSON key shape (`onDestroyRemove<Children>`, `onDestroyRemoveEmails`, etc.) but expose it through two different API shapes:\n\n| Crate | Method | Shape |\n|---|---|---|\n| mail | `mailbox_set` | `params: Option<MailboxSetParams>` (struct holds `on_destroy_remove_emails`) |\n| contacts | `address_book_set` | `params: Option<AddressBookSetParams>` (struct holds `on_destroy_remove_contents`) |\n| filenode | `filenode_set` | `params: Option<FileNodeSetParams>` (struct holds `on_destroy_remove_children`) |\n| calendars | `calendar_set` | `on_destroy_remove_events: Option<bool>` inline (also `if_in_state` inline) |\n| tasks | `task_list_set` | `on_destroy_remove_tasks: Option<bool>` inline |\n\n**What goes wrong**:\n\n1. A consumer writing JMAP client code that touches multiple object types must remember which crate exposes the cascade flag inline vs in a Params struct. Two crates (calendars, tasks) disagree with three siblings (mail, contacts, filenode).\n2. The Params shape is the canonical-template shape (mail-client is canonical per workspace AGENTS.md). When future extension authors mirror the mail-client pattern they will see 3 of 5 followers and reasonably conclude Params is the convention \u2014 only to find calendars and tasks have not joined.\n3. The Params shape is more forward-compatible: a future RFC field added to `<Object>/set` arguments goes onto the struct without changing the method signature. The inline shape requires a method signature change (breaking) every time the RFC adds a knob.\n4. The mail-client and contacts-client docs at line 116/180 use `if let Some(v) = p.on_destroy_remove_*` as the application idiom; calendars/tasks use `if let Some(odre) = on_destroy_remove_events`. Side-by-side they look like different protocols.\n\n**Fix**: introduce `CalendarSetParams { on_destroy_remove_events, if_in_state }` and `TaskListSetParams { on_destroy_remove_tasks }`, and switch the two methods to `params: Option<XxxSetParams>`. Matches mail-canonical-template. Pre-1.0 v0.1.x \u2014 small breaking change for the two outliers.\n\nAlternative (rejected): inline everywhere. That would force breaking changes on mail/contacts/filenode for the same workspace-API consistency, AND lose the forward-compat property described in (3).",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "calendars/tasks `_set` take `on_destroy_remove_*` inline; mail/contacts/filenode wrap it in a `*SetParams` struct \u2014 same RFC 8620 \u00a75.3 cascade-on-destroy semantics, two API shapes",
+  "updated_at": "2026-05-17T23:11:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:55:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "ba31baba-505d-553b-b83e-0168a9af5f94",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

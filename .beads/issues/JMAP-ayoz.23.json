@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4d9a54dd12b53468154e02ae3bee3682996b92eac263f4cb702f87da7837f055",
+  "created_at": "2026-05-14T14:26:42Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:339:\n    pub struct MemoryError(pub String);\n\nWhat callers cannot depend on / what locks the maintainer:\n- 'pub String' as the inner field is publicly accessible by position (err.0). Once consumers ship code that reads err.0 (perfectly reasonable for a published library \u2014 that is the standard way to access tuple-struct fields), the maintainer cannot change the inner representation without a major version bump. Specifically, you cannot:\n  * switch to an enum to distinguish concurrent-mutex-poison from serialize-failure\n  * switch to thiserror's #[from] chain over a source error\n  * narrow to Cow<'static, str> or Box<str> for memory savings\n  * add a second field (tuple-struct field addition is a breaking change without #[non_exhaustive])\n- The display impl writes the string verbatim with no prefix \u2014 also a contract callers may match on by substring.\n\nTwo missing API guards:\n1. The tuple field should be private: 'pub struct MemoryError(String)' with a constructor 'pub fn new(msg: impl Into<String>) -> Self' or just 'fn(_: String) -> Self' implementor-internal. Plus an accessor 'pub fn message(&self) -> &str' if read access is desired.\n2. The type should be '#[non_exhaustive]' so a future internal representation change can introduce additional fields without a major bump.\n\nSame shape exists in MockError at lib.rs:145 (test_support module \u2014 but the module is pub(crate) so MockError is effectively crate-private; not a public-surface issue there).\n\nSame shape exists in the canonical sibling jmap-mail-server::memory::MemoryError at memory.rs:449. Per the canonical-template propagation rule (workspace AGENTS.md), the canonical must change first. This finding is filed against this crate because the review scope is this crate, but the fix path goes through the canonical.\n\nWhat goes wrong if this stays:\n- Long-term: the memory backend's error type becomes harder to evolve than the 'reference implementation, not production' framing implies. The 'memory' feature is already explicitly marked as 'API may break across minor versions while the crate is pre-1.0' in lib.rs:28 \u2014 so this is mitigated for now, but the discipline of getting it right pre-1.0 still costs nothing and pays off when the gate is lifted.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "API: MemoryError(pub String) \u2014 public tuple field locks error representation forever",
+  "updated_at": "2026-05-17T20:02:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:26:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "a3e68694-4e2a-58bc-afc7-fdf719fc4597",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

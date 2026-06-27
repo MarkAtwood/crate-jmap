@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Hypothesis CONFIRMED via probe: serde_json with #[serde(flatten)] over extras Map silently overrides typed fields at serialize time. Probe results from EmailImportInput { blob_id: 'REAL', extra: {'blobId': 'SPOOF'} }: to_value() returns {'blobId': 'SPOOF', ...} (typed value LOST entirely); to_string() returns duplicate-keys JSON '{\"blobId\":\"REAL\",...,\"blobId\":\"SPOOF\"}' where serde_json on parse takes the LAST value = 'SPOOF'. Same vulnerability confirmed for EmailGetParams: extras 'fetchTextBodyValues'/'maxBodyValueBytes' overrode Some(false)/Some(1024) at to_value. JMAP-tjvm.1/.2 args-level fix is INSUFFICIENT because params Serialize emits the already-clobbered Map before the args-level merge runs. Workspace-wide bug affecting ~17 *Params/*Input structs in *-client crates plus every public data-object in *-types with the workspace extras-preservation pattern. Follow-up sweep filed as bd:JMAP-tjvm.38 with workspace-wide fix-shape recommendation (proc-macro that filters reserved keys from extras before flatten in the generated Serialize).",
+  "closed_at": "2026-05-17T13:02:46Z",
+  "compaction_level": 0,
+  "content_hash": "29476312362afa50f24057e13519b78589823139d1ec0595247496f6e4bbea01",
+  "created_at": "2026-05-15T01:47:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Hypothesis (NOT confirmed \u2014 read-only review could not probe):\n\nEmailImportInput uses #[serde(flatten)] for `extra: serde_json::Map<...>`.\nIf a vendor puts `{\"blobId\": \"spoofed\", \"mailboxIds\": {\"override\": true}}`\ninto extra, serde_json may emit a JSON object with duplicate keys \u2014 typed\n`blobId` followed by flattened `blobId`. Per RFC 8259 \u00a74, JSON object behavior\nwith duplicate keys is implementation-defined; serde_json on the deserialize\nside typically takes the last value, which means the spoofed extras value\nwould win.\n\nIf confirmed, this is a smuggling pattern equivalent to the email_get /\nemail_parse clobber bugs (JMAP-tjvm.1, .2) but at the per-entry level inside\nEmail/import's `emails` map, not at the top-level args.\n\nProbe (cannot run in review pass):\n```rust\nlet mut extra = serde_json::Map::new();\nextra.insert(\"blobId\".into(), serde_json::json!(\"SPOOF\"));\nlet input = EmailImportInput {\n    blob_id: &Id::from(\"REAL\"),\n    mailbox_ids: &[Id::from(\"mb1\")],\n    keywords: None, received_at: None, extra,\n};\nlet s = serde_json::to_string(&input).unwrap();\n// Question: does `s` contain \"blobId\":\"REAL\",\"blobId\":\"SPOOF\" (duplicate),\n// or \"blobId\":\"SPOOF\" (clobbered), or \"blobId\":\"REAL\" (typed wins)?\nlet v: serde_json::Value = serde_json::from_str(&s).unwrap();\nassert_eq!(v[\"blobId\"], \"REAL\");  // does this pass?\n```\nA wiremock-backed end-to-end test in tests/email_import_smoke_tests.rs\nwould be the right place to confirm or refute, since it exercises the same\nserialization \u2192 wire-decode path that a real server takes.\n\nCorrect resolution depends on outcome:\n  - If clobber \u2192 fix EmailImportInput by structuring typed fields after a\n    custom Serialize impl that strips reserved keys from extra before flatten.\n  - If duplicate-key \u2192 still a bug because RFC 8259 says behavior is\n    implementation-defined; emit warning or strip.\n  - If typed wins \u2192 safe today but fragile; add a redaction step to make\n    the safety explicit.\n\nDo NOT close JMAP-tjvm.1 or .2 as covering this \u2014 those are at a different\nlevel (top-level args merge in email_get/email_parse), not inside the\n`emails` map of email_import.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Hypothesis: EmailImportInput.extra may produce duplicate-key JSON via #[serde(flatten)]",
+  "updated_at": "2026-05-17T13:02:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:47:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "ab414313-d185-5d0d-a4d6-f5f355c76c8d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

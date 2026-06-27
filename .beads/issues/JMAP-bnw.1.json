@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-bnw.1",
+  "title": "Email/copy: mailboxIds not checked for empty",
+  "description": "Email/copy does not check that mailboxIds is non-empty. RFC 8621 \u00a76.1 requires at least one mailboxId. Email/import (line 889-897) and Email/set create (line 441-453) both validate this; copy does not. A client sending mailboxIds={} would silently create an email with no mailbox.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:47:25Z",
+  "updated_at": "2026-05-01T03:50:06Z",
+  "closed_at": "2026-05-01T03:50:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-bnw",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:47:25"
+    }
+  ]
+}

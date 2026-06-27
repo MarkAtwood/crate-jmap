@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "13 chat-server sites migrated to .expect(...) in commit 65646cf; workspace-wide propagation of the same pattern (~106 sites across siblings) filed as bd:JMAP-oehi.",
+  "closed_at": "2026-05-17T20:00:19Z",
+  "compaction_level": 0,
+  "content_hash": "c52bf9b3beeec6e181deb5ea713783ae6ac977d8b00897dfd6cf3a5482d7bf9c",
+  "created_at": "2026-05-14T15:54:10Z",
+  "created_by": "Mark Atwood",
+  "description": "16 sites across two test files use `.unwrap_or(\"\")` or `.unwrap_or(usize::MAX)` to extract values from `serde_json::Value` before asserting on them:\n\n- role_member_apply.rs:170, 296, 576, 768, 923 \u2014 `.as_str().unwrap_or(\"\")` followed by `assert!(desc.contains(\"manage_roles\"))` (5 sites)\n- channel_category_apply.rs:198, 235, 265, 330, 510, 520, 576, 584 \u2014 same pattern, plus the `.unwrap_or(usize::MAX)` variants for array-length checks (9 sites)\n\nExample (channel_category_apply.rs:517-524):\n\n    let chan_count = get_resp[\"list\"][0][\"uncategorizedChannelIds\"]\n        .as_array()\n        .map(Vec::len)\n        .unwrap_or(usize::MAX);\n    assert_eq!(chan_count, 0, \"...\");\n\n`unwrap_or(usize::MAX)` here is defensive theatre \u2014 if the field isn't an array, the test should fail loudly with 'expected array, got null' rather than coincidentally satisfying `!= 0` with a nonsense sentinel. Worse, in a future refactor where the assertion becomes `<= N` for some moderate N, the `usize::MAX` sentinel would PASS a buggy code path that was supposed to be a regression test.\n\nSimilarly, `.unwrap_or(\"\")` then `assert!(desc.contains(\"manage_roles\"))` will silently emit a confusing 'contains failed: \"\"' diagnostic if the field is absent, rather than 'expected description field to be a string but it was null'.\n\nIdiomatic Rust: `.expect(\"uncategorizedChannelIds must be an array\")` and `.expect(\"description must be a string\")`. Tests want loud, named failures, not silent fallthrough into confusing later assertions.\n\nEngineering basis: concrete bug-hiding path. A future schema change that drops the `description` field entirely would not flag any of these tests \u2014 they would `unwrap_or(\"\")` and then `false.contains(...)` to a confusing assert failure rather than the obvious 'the field isn't there' failure. The `usize::MAX` case is the worst \u2014 it's a sentinel value actively chosen to make negative-direction assertions pass artificially, which is the opposite of what a test should do.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.83",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "tests: .unwrap_or(\"\") and .unwrap_or(usize::MAX) in assertion paths hide schema-shape failures with confusing diagnostics",
+  "updated_at": "2026-05-17T20:00:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:54:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "bdcab702-3dc3-5b35-ac09-91d542c72a25",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

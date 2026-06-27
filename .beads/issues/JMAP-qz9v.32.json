@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T03:06:24Z",
+  "compaction_level": 0,
+  "content_hash": "c8d79e82d235890a0537e363efee6d23b4cc3d1f47b2afd5111313bb1b71c671",
+  "created_at": "2026-05-14T19:33:33Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/src/lib.rs:59-60\n\n    /// Capability URI for `urn:ietf:params:jmap:contacts`.\n    pub use jmap_contacts_types::JMAP_CONTACTS_URI;\n\nPROBLEM:\nThe canonical sibling jmap-mail-server/src/lib.rs:45,48,51 defines its\ncapability URIs LOCALLY as `pub const &'static str` rather than\nre-exporting from the types crate:\n\n    pub const JMAP_MAIL_URI: &str = \"urn:ietf:params:jmap:mail\";\n    pub const JMAP_SUBMISSION_URI: &str = \"urn:ietf:params:jmap:submission\";\n    pub const JMAP_VACATION_RESPONSE_URI: &str = \"urn:ietf:params:jmap:vacationresponse\";\n\nThis crate re-exports from jmap_contacts_types instead. Two practical\ncontract consequences:\n\n1. **Version coupling without justification.** A re-export makes this\n   crate's public API surface depend on jmap_contacts_types's public\n   API surface. If jmap_contacts_types renames or removes the constant\n   (which IS its right as a sibling crate evolving independently),\n   crate-jmap-contacts-server's API breaks. A local `pub const` would\n   decouple the two crates here.\n\n2. **Cookie-cutter inconsistency.** A consumer writing code against\n   multiple jmap-*-server siblings sees the same URI advertised in\n   different ways:\n       jmap_mail_server::JMAP_MAIL_URI          // local pub const\n       jmap_contacts_server::JMAP_CONTACTS_URI  // re-export\n   These are observationally equivalent today but their visibility\n   in the docs differs (rustdoc renders re-exports differently from\n   originals), and refactoring tools (rust-analyzer \"go to definition\")\n   jumps to different files.\n\nWHAT CALLERS CANNOT DEPEND ON:\nThat `crate-jmap-contacts-server`'s `JMAP_CONTACTS_URI` constant\ncontinues to exist if `jmap-contacts-types`'s constant moves or\nrenames. (Today this is a low-probability event; tomorrow,\npost-publication, the coupling matters.)\n\nRECOMMENDED:\nReplace the re-export with a local definition:\n\n    /// Capability URI for `urn:ietf:params:jmap:contacts` (RFC 9610).\n    ///\n    /// Include this in your Session object's `capabilities` map when\n    /// the contacts extension is available. See RFC 8620 \u00a72 for the\n    /// session capabilities concept.\n    pub const JMAP_CONTACTS_URI: &str = \"urn:ietf:params:jmap:contacts\";\n\nMirrors the canonical jmap-mail-server pattern at lib.rs:45-51.\n\nPROPAGATION: this is a contacts-only divergence from the canonical.\nThe fix is contained in lib.rs of this crate; no other sibling needs\nto change.\n\nP3 because the failure mode is hypothetical (the types crate would\nhave to break its API) and the fix is small.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JMAP_CONTACTS_URI re-exported from sibling type crate instead of locally defined \u2014 diverges from mail-server canonical, ties API to types crate's major version",
+  "updated_at": "2026-05-18T03:06:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:33:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "d060b3a3-1973-5428-a9b3-e99c96b22ef9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

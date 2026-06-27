@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "created_at": "2026-05-11T06:18:35Z",
+  "id": "019e15af-fb4c-788d-adb8-77ebad0ca7de",
+  "issue_id": "JMAP-g7wu.6",
+  "text": "[2026-05-10 do-beads triage] Extending MailBackend::query_objects to accept filter/sort args is a SemVer break on the canonical extension-server backend trait; per workspace AGENTS.md cookie-cutter rule it would propagate to every extension-server crate (chat, calendars, contacts, tasks, filenode, sharing).\n\nPer the jmap-server AGENTS.md policy ('Prefer non-breaking changes. Reshape only when the workspace is bumping a major.'), this should ride alongside the other 0.2.0-class API breaks: JMAP-g7wu.1 (CallerCtx forwarding), JMAP-g7wu.3 (helpers builder), JMAP-g7wu.9 (UTCDate newtype), JMAP-r3pg.14 (extract_account_id clean fix).\n\nDecision needed from human:\n1. Land now as isolated breaking change (rejects cookie-cutter coordination policy).\n2. Bundle into coordinated 0.2.0 push (recommended).\n3. Defer indefinitely until IMAP-migration workload demands it.\n\nRecommendation: option 2. Filter-pushdown shape matters more once a real backend exists (post hwdv.5/.6/.7 greenfield refs), so the canonical signature can be designed against actual implementations rather than the current MemoryBackend's hand-rolled loop.\n\nFiled per workspace AGENTS.md 'Turn questions into beads' rule rather than claiming and beginning a workspace-wide breaking change without coordination."
+}

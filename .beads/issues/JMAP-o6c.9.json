@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:36:18Z",
+  "compaction_level": 0,
+  "content_hash": "52c65e57af863c79873fc40b6bac3090538e246279f7d8cc8067729e1edda183",
+  "created_at": "2026-05-02T03:25:21Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs role_to_wire() uses serde_json::to_value(role) to serialize to String on every call. It is called once per mailbox in handle_mailbox_set's role-uniqueness check (two nested loops over all_mailboxes) and once per mailbox in the filter closure during handle_mailbox_query. For accounts with many mailboxes this allocates a String for each mailbox on each check. An idiomatic fix is a match-based impl returning &'static str, or caching the serialized form alongside the MailboxRole in the type (Display \u2192 to_str()). The serde roundtrip to validate wire format is sound reasoning but results in an allocation-per-call in loops.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "role_to_wire allocates String on every call in a hot filter loop",
+  "updated_at": "2026-05-02T03:36:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:25:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "8ae6fcfa-3bb4-5048-9048-d57c4b0a2413",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

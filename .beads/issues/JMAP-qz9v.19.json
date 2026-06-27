@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T20:48:27Z",
+  "compaction_level": 0,
+  "content_hash": "54bd27ec78142074d8de9919dd40b2a2290f7114acc287fb8cf53416a697d92c",
+  "created_at": "2026-05-14T19:22:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace AGENTS.md 'Caller identity (foundation seam)' establishes JmapBackend::principal_id(caller) -> Option<&Id> as the canonical (and only) way for a method to learn who is asking. ContactsBackend (backend.rs:34-111) extends JmapBackend, so technically it inherits the seam. But:\n\n 1. No method in handle_address_book_* or handle_contact_card_* calls principal_id.\n 2. No test exercises principal_id.\n 3. No doc comment on ContactsBackend explains how the seam relates to contacts (AddressBook ACLs, shareWith write authorization, isSubscribed-per-user state).\n\nThe crate-level AGENTS.md DOES include the 'Permission enforcement: backend canonical' section that says 'every AddressBook / ContactCard mutation must be authorized against the caller's effective rights on the AddressBook (RFC 9670 myRights semantics, propagated through jmap-sharing-server when present)'. So the intent is documented in agents, but not in the public type or in any reachable code path. Contributors searching for principal_id usage in this crate will find zero hits and conclude that contacts doesn't use the seam.\n\nThe proximate maintainer-burden cost is: a future contributor will add per-user-AddressBook-rights enforcement and won't know whether it goes in handler or backend. The workspace rule says backend; the contacts-server crate has no exemplary code showing what that looks like. Cross-reference: the jmap-chat-server canonical Space/set permission-enforcement work (JMAP-g7wu.2.4) is the first consumer of the seam; that pattern needs to be mirrored here.\n\nLower-priority because no code uses it yet, so there's no regression risk to fix; but raising it as 'risk' because the gap will calcify if AddressBook ACL enforcement work doesn't engage with the seam at the same time.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactsBackend trait has no fn principal_id \u2014 does not engage the workspace caller-identity foundation seam",
+  "updated_at": "2026-05-17T20:48:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:22:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "4959a0a3-d820-5c11-acac-fcf0ba862fed",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

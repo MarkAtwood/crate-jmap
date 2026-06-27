@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:34:07Z",
+  "compaction_level": 0,
+  "content_hash": "e222aae89f9abbe8494d188251c9e7855d5a1f9d00ba8262c968ab7b61a00164",
+  "created_at": "2026-05-02T19:19:20Z",
+  "created_by": "Mark Atwood",
+  "description": "The MemoryBackend.get_changes implementation uses an IdFate enum (Created, Updated, Destroyed) to deduplicate IDs across multiple change log entries in a single /changes window. The key rule: when an ID is created then destroyed within the window, it is removed from the map entirely (the client never knew about it, so it should not appear in either created or destroyed). A contributor might simplify to just tracking sets. But RFC 8620 \u00a75.2 explicitly requires this collapsing: if an object is created and destroyed in a single /changes window, it must be omitted from both lists.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.44",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "IdFate deduplication in get_changes correctly handles created+destroyed window collapsing",
+  "updated_at": "2026-05-02T22:34:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:19:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "3da9403c-df80-52ca-b3df-6f1a0a88d605",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

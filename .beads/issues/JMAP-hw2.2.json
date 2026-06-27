@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-hw2.2",
+  "title": "mailboxes_after_creates misleading variable name",
+  "description": "mailbox.rs:557 \u2014 variable is named mailboxes_after_creates but is fetched after both creates AND updates (updates run lines 470-542, then destroy loop starts at 551 and re-fetches at 556). The name implies only post-create state. Should be mailboxes_after_mutations to accurately reflect when it's fetched.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T04:16:25Z",
+  "updated_at": "2026-05-01T04:18:46Z",
+  "closed_at": "2026-05-01T04:18:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-hw2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 21:16:24"
+    }
+  ]
+}

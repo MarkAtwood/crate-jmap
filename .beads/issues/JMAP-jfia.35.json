@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "error_invocation switched from .unwrap_or_else fallback to .expect(). The unwrap_or_else fallback was actively harmful: a future Serialize-invariant regression would silently rewrite the original error. .expect lets the panic surface through task::spawn isolation.",
+  "closed_at": "2026-05-14T17:23:36Z",
+  "compaction_level": 0,
+  "content_hash": "7928ef5774359dd252aff3f2b98ba90fce36c9217b4ed2a5fb0a850062b6ca88",
+  "created_at": "2026-05-14T16:55:05Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/response.rs:30-41 \u2014 error_invocation maps a JmapError to its wire-format Value via:\n\n  pub fn error_invocation(call_id: &str, err: JmapError) -> Invocation {\n      // JmapError uses #[derive(Serialize)] with only String, Option<String>, and\n      // Option<Id> fields \u2014 all JSON-serializable primitives with string keys.\n      // serde_json::to_value only fails when a Serialize impl produces a non-string\n      // map key; the derived impl for JmapError cannot do this. The fallback is a\n      // defensive measure against a future jmap-types change that breaks the invariant;\n      // it prevents a panic at the cost of slightly less specific error information.\n      let err_value = serde_json::to_value(&err).unwrap_or_else(\n          |_| serde_json::json!({\"type\": \"serverFail\", \"description\": \"internal error\"}),\n      );\n      (\"error\".to_owned(), err_value, call_id.to_owned())\n  }\n\nThe same module ships an exhaustive contract test (line 364-404, `jmap_error_all_constructors_serialize`) that exercises every public JmapError constructor and asserts each one serializes:\n\n  for err in &errors {\n      let v = serde_json::to_value(err);\n      assert!(v.is_ok(), \"JmapError variant failed to serialize: {err:?}\");\n  }\n\nA serious Rust practitioner reads the pair \u2014 defensive `unwrap_or_else` paired with a comprehensive test that proves the defensive branch is dead \u2014 and asks why the function does not just `.expect()`. The defensive `unwrap_or_else` has three real costs:\n\n  1. Silent corruption-on-future-regression. If a `jmap-types` change DOES break the invariant \u2014 e.g. adding a new JmapError variant whose Serialize impl uses a non-string map key, or whose Display can fail \u2014 the resulting wire-format error invocation says `{\"type\": \"serverFail\", \"description\": \"internal error\"}` instead of the actual error. The original error is silently rewritten to a generic serverFail with no log, no trace, no signal. A `.expect()` would panic, the task::spawn panic isolation would catch it, and the operator would see the failed JmapError variant in the log. The \"defensive\" branch is less safe than the panic, not more.\n  2. Dead-code maintenance burden. The unwrap_or_else branch is by construction unreachable when the invariant holds. Reviewers reading the function spend attention on a branch that cannot fire; future contributors who edit the function feel obligated to keep the branch in sync (e.g. when changing the wire shape of serverFail). The branch is pure overhead.\n  3. The comment justifying the defensive branch (`prevents a panic at the cost of slightly less specific error information`) inverts the usual Rust idiom. Panics are the right outcome for invariant violations; degraded wire output is the wrong outcome.\n\nIdiomatic shape:\n\n  pub fn error_invocation(call_id: &str, err: JmapError) -> Invocation {\n      // Infallibility invariant covered by jmap_error_all_constructors_serialize.\n      let err_value = serde_json::to_value(&err)\n          .expect(\"JmapError serialization is infallible \u2014 see jmap_error_all_constructors_serialize\");\n      (\"error\".to_owned(), err_value, call_id.to_owned())\n  }\n\nThe `.expect()` documents the invariant inline, points the next reader at the test that proves it, and surfaces a future regression as a clear panic instead of a silent serverFail rewrite. Panic isolation in Dispatcher::dispatch already wraps the whole call in `task::spawn` and maps JoinError to a real serverFail invocation \u2014 the dispatcher's defensive layer is exactly the right place for the panic-to-serverFail mapping, not this helper.\n\nP3 chore rather than P1/P2 because the cost is invariant-erosion under future regression, not a current bug. But the pattern is exactly the kind of \"Rust unwrap discipline\" rule the Rust idiom checklist calls out: every `.unwrap()` or `.expect()` in production code needs a comment explaining why it cannot fail. Here, the comment + test exist; the `.expect()` does not.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "error_invocation defensive unwrap_or_else hides a tested-infallible invariant",
+  "updated_at": "2026-05-14T17:23:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:55:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "03129260-513b-50c0-a903-6b1331479b8d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

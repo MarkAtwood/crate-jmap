@@ -1,0 +1,33 @@
+{
+  "close_reason": "Pattern C applied: 14 sites across 6 *-client crates (one was already clean: tasks-client). iter().map(|id| Value::String((*id).to_owned())).collect() -> iter().copied().map(serde_json::Value::from).collect(). Behaviour-equivalent. Workspace green. Commit 5aa1721.",
+  "closed_at": "2026-05-09T08:14:58Z",
+  "compaction_level": 0,
+  "content_hash": "d2a2b690098bb10dd29bcb0838ab86a4cd87c98443c634195d20245f15f38a04",
+  "created_at": "2026-05-09T08:08:32Z",
+  "created_by": "Mark Atwood",
+  "description": "Apply pattern C to jmap-mail-client.\n\nPattern (full): iter().copied().map(Value::from) replacing iter().map(|id| Value::String((*id).to_owned()))\n\nReference: see calendars-client (which already has the change) for the exact shape, and the JMAP-tco1 epic description for the source bead that defined the pattern (JMAP-231o.{6,10,19,29,8}).",
+  "ephemeral": 0,
+  "id": "JMAP-tco1.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sweep C -> jmap-mail-client: iter().copied().map(Value::from) replacing iter().",
+  "updated_at": "2026-05-09T08:14:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T01:08:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tco1",
+      "id": "88659c62-9fc9-5355-b964-248844939340",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

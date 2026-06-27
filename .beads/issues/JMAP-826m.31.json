@@ -1,0 +1,48 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "a373c0975cdafbc4d3c4e0c95f6addb7f24e2265519d0c585cb1995873fd4f2e",
+  "created_at": "2026-05-14T17:56:39Z",
+  "created_by": "Mark Atwood",
+  "description": "What is awkward: lib.rs:194 MockBackend::new_with_account(account_id: &str) takes one account by name. memory.rs:283 MemoryBackend::new_with_accounts(account_ids: &[&str]) takes a slice. Same conceptual operation, different shapes.\n\nThis is a small papercut but compounds: every test that uses both backends has to remember which constructor takes a single name vs a slice. Tests in tests/metadata_tests.rs use new_with_accounts(&[\"acc1\"]); tests in metadata.rs::tests use new_with_account(\"acc1\"). The mock-vs-memory distinction creates two parallel test idioms.\n\nFix: align on one shape. The slice form is strictly more general, so MockBackend::new_with_account could become new_with_accounts(&[name]) at the call sites. Or add new_with_account convenience to MemoryBackend. Either way, ONE shape on both.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.31",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "blocked",
+  "timeout_ns": 0,
+  "title": "MockBackend.new_with_account vs MemoryBackend.new_with_accounts (plural, slice) is inconsistent \u2014 the same kind of constructor on two adjacent backends with different parameter shapes",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T02:07:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m.14",
+      "id": "14325339-c4dd-5a7e-bc8f-e49c62e1f810",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-17T02:19:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m.55",
+      "id": "7af6df7b-09fc-52c4-bd89-fba96daa2c26",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T10:56:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "a6686c40-0b57-5e5a-9313-469e247e2bb2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

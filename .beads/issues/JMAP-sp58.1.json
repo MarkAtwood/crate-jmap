@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decision correctly captured. No code change needed.",
+  "closed_at": "2026-05-02T22:20:50Z",
+  "compaction_level": 0,
+  "content_hash": "e071d6a0d511a9105f6e0772740570f70667b91f219fa6c2e5fd37721d525c62",
+  "created_at": "2026-05-02T22:20:15Z",
+  "created_by": "Mark Atwood",
+  "description": "The deprecated attribute on unknown_capability() and the 'Always use this instead' doc on unknown_capability_with_detail are mutually reinforcing. A contributor reading either entry point gets the full picture. If someone suggests removing the #[deprecated] because 'the doc already says so', resist: the deprecated attribute gives a compiler warning at every call site, which the doc comment cannot do.",
+  "ephemeral": 0,
+  "id": "JMAP-sp58.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Deprecation + doc pairing on unknown_capability is well-structured",
+  "updated_at": "2026-05-02T22:20:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:20:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sp58",
+      "id": "c701f51e-cba6-55fc-a6a4-6461f3baf6fb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

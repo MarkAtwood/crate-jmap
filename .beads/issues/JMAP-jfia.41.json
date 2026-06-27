@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "README gotchas at lines 199-200 corrected. The 'sortAsTree/filterAsTree rejected' claim was doubly wrong (these are RFC 8621-specific Email args; the generic handler silently ignores unknown args per RFC 8620 \u00a73.6). The 'in-process filtering only' claim was the opposite of the actual behavior \u2014 filter/sort are delegated to JmapBackend::query_objects per handlers.rs:251-268 and per the trait doc that mandates push-down. Commit 3cffaaa.",
+  "closed_at": "2026-05-15T07:19:31Z",
+  "compaction_level": 0,
+  "content_hash": "7316f69328418fc90d031c04b9a3d7ea0e4f6bb875e592c57fe0838b8428c9c3",
+  "created_at": "2026-05-14T17:37:50Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/README.md:200:\n\n  - **In-process filtering only.** `handle_query` fetches all objects and filters them in-process. For large accounts this is O(N) in the number of objects. Backends that can push filtering to storage should implement `query_objects` with real filter logic rather than relying on the generic handler.\n\nThis contradicts the actual code:\n\n1. crate-jmap-server/src/handlers.rs:251-268 \u2014 handle_query passes filter, sort, limit, position directly to backend.query_objects(). No in-process filtering happens in the handler.\n\n2. crate-jmap-server/src/backend.rs:1032-1044 \u2014 the JmapBackend::query_objects trait doc explicitly says:\n\n   > Implementations MUST honour the supplied `filter` and `sort` arguments\n   > efficiently \u2014 typically by pushing both into the indexed storage layer\n   > (database WHERE / ORDER BY, search index, etc.). Returning every\n   > matching id and relying on the caller to paginate after the fact\n   > degenerates to O(n) per page for IMAP-migration accounts.\n   >\n   > Handler implementations in `jmap-*-server` crates SHOULD NOT\n   > post-filter or post-sort the backend's result; doing so re-introduces\n   > the O(n) cost this method exists to avoid.\n\nThe gotcha is a contract claim the kit doesn't actually make. A consumer reading the README learns that handle_query is O(N) and decides not to use it, missing that the actual contract is the opposite \u2014 the backend trait MANDATES push-down filtering.\n\nWorse: the gotcha actively misleads about the kit's posture. A consumer who reads this gotcha and decides to write a custom handler 'because handle_query is O(N)' is duplicating work the foundation already does correctly.\n\nThis is a docs-as-contract failure: the published documentation is wrong, the documented behaviour is the opposite of the actual behaviour, and the api-contract risk is that consumers will write defensive code around a non-existent limitation.\n\nFix:\n\nReplace the gotcha with the actual behaviour:\n\n  - **Filter / sort are delegated to the backend.** `handle_query` parses\n    `filter` and `sort` from method args into the trait's `O::Filter` and\n    `O::Comparator` types, then passes them through `JmapBackend::query_objects`.\n    The backend MUST push filter and sort into indexed storage; the handler\n    does no in-process re-filtering. Backends that cannot push filter logic\n    into storage will hit the contract documented on `JmapBackend::query_objects`.\n\nThe other gotcha on line 199 also overpromises: `sortAsTree` and `filterAsTree` are rejected by the generic handler \u2014 but looking at handlers.rs:217-285 I do not see explicit rejection of those fields. They appear to be silently passed through to the backend trait (which has no Filter/Comparator variant for them). The 'rejects with unsupportedSort/unsupportedFilter' claim is also potentially stale; cross-check before fixing.\n\nPriority P2 under api-contract,docs because the documented contract directly contradicts the implementation and consumers WILL write defensive code around the wrong contract.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.41",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README gotcha 'handle_query fetches all objects and filters them in-process' contradicts current code",
+  "updated_at": "2026-05-15T07:19:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:37:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "71a556cf-afbf-5fce-8c38-86b55b275461",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "bb174defe76b0a9746b481fa8158a379b3704509fc27b8ef8a4f24a63f7fb3f5",
+  "created_at": "2026-06-13T21:49:20Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-client/src/methods/mod.rs has 74/132 lines covered (56.1%). Contains MessagePatch, SpacePatch, ChatPatch, and other patch/input struct Default impls, plus the Patch<T> custom serde. Uncovered lines are mostly the SpacePatch and ChatPatch field serialization paths and some MessageCreateInput fields. Need wire-shape tests for all patch structs.",
+  "ephemeral": 0,
+  "id": "JMAP-w8fu.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Test coverage: chat-client mod.rs (56.1%)",
+  "updated_at": "2026-06-13T21:49:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:49:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w8fu",
+      "id": "bb575dd0-e4e0-57bd-b122-c4120905a1e2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

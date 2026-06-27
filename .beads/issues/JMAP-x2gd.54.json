@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T02:04:00Z",
+  "compaction_level": 0,
+  "content_hash": "f9d79eabcd43f21a35a29cd57384c2e52e85346291fab8d4b5b77c26920051c1",
+  "created_at": "2026-05-14T04:24:45Z",
+  "created_by": "Mark Atwood",
+  "description": "Sites: at least 17 locations across space.rs, message.rs, emoji.rs, contact.rs, position.rs, ban.rs flagged by clippy::manual_let_else under -W clippy::pedantic. Representative hits include space.rs:1195 (and 4+ siblings in the same file), ban.rs:237 / 278 / 487 / 586, plus apply_add_role / apply_remove_role at memory.rs:2181 / 2231.\n\nCurrent pattern (one of many):\n\n    let id_str = match id_val.as_str() {\n        Some(s) => s,\n        None => continue, // unreachable: validated above\n    };\n\nIdiomatic Rust since 1.65 (Nov 2022):\n\n    let Some(id_str) = id_val.as_str() else { continue }; // unreachable: validated above\n\nFive lines collapse to one; the noise-to-signal ratio improves; and the divergent control flow ('this path leaves the function or loop iteration') is signaled by the keyword instead of being buried in a match arm. This is exactly the pattern let...else was added for. The two memory.rs sites at 2181/2231 use unreachable!() instead of continue and benefit even more from the rewrite because the panic message lives next to the binding it documents.\n\nWhat goes wrong if left: readability and signal-to-noise. The 5-line match is the dominant local-binding shape in handlers that do per-element validation, and every reviewer pays the cognitive cost of mentally collapsing it to its let-else equivalent. The MSRV for the workspace is well above 1.65 (the workspace freely uses async fn in trait, OnceLock, etc.), so the only reason these are still match-arm is convention drift from when they were first written.\n\nOne sweep bead, not 17 \u2014 the rewrite is mechanical and a single PR can sweep the file. Apply the rewrite under the same canonical-template propagation lens as JMAP-x2gd.52: check jmap-mail-server first since it's the canonical extension-server template, and propagate the sweep across all sibling extension-server crates. Standalone chat-server-only fix is fine if mail-server doesn't have the pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.54",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "manual_let_else: 17 'match { Some(s) => s, None => continue }' sites should use let...else (stable Rust 1.65+)",
+  "updated_at": "2026-05-18T02:04:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T21:24:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "86ff55c8-f00c-5ff7-b009-f26264bbf96f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

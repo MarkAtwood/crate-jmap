@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:35:06Z",
+  "compaction_level": 0,
+  "content_hash": "21efe5d62b22a533054a403160bf8cf75263f6d48eff44a107a39c35629ee4d7",
+  "created_at": "2026-05-02T04:29:25Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_email_changes in crate-jmap-mail-server/src/email.rs (lines 545-553) builds the JSON response without the updatedProperties field. RFC 8620 \u00a75.2 requires updatedProperties in every /changes response. Every other /changes handler in the workspace has it; Email/changes was missed in the round-2 fix sweep. A client receiving this response will either reject it or fail to update its cache correctly.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.56",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/changes missing updatedProperties field",
+  "updated_at": "2026-05-02T04:35:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:29:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "28737cce-160f-5993-a2cf-0f3ec46e5734",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

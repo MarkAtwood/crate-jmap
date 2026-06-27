@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "mail-types README: moved 'Filter extensibility' + 'Optional Features' from between #1/#2 (What it is / What it's for \u2014 disrupted elevator-pitch flow) to between #2/#3 (What it's for / How to use). Matches calendars-types canonical position.\n\nchat-types README: moved 'Crate family' from AFTER 'References' (made References non-terminal, violating workspace AGENTS.md README-convention rule that extras go BETWEEN the six mandated sections, not after) to between #5 (Gotchas) and #6 (References). Matches calendars-types and post-fix mail-types convention.\n\nBoth now follow the workspace AGENTS.md 'README convention' rule that crate-specific extras go between the six mandated sections, with References as the terminal section.",
+  "closed_at": "2026-05-17T22:41:42Z",
+  "compaction_level": 0,
+  "content_hash": "e1008ce6f43155633d27af04fdf0726dc6cf2338787845c2b0aab40f6b2991c4",
+  "created_at": "2026-05-17T22:02:57Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**:\n- crate-jmap-mail-types/README.md \u2014 inserts 'Filter extensibility' and 'Optional Features' H2s BETWEEN 'What it is' and 'What it's for'\n- crate-jmap-chat-types/README.md \u2014 appends 'Crate family' H2 AFTER 'References' (the final mandated section)\n\n**Spec (AGENTS.md, 'README convention')**:\n> A crate-specific extra section (e.g. 'Extension trait pattern', 'Filter extensibility') MAY appear, but it goes **between** the six required sections in a position that makes narrative sense \u2014 not in place of one of them.\n\nThe 'in between' wording explicitly disallows:\n- Putting extras between the first two mandated sections (mail-types does this \u2014 disrupts the elevator-pitch flow that readers expect from the canonical README shape).\n- Putting extras after the final 'References' section (chat-types does this \u2014 readers stop at References, expecting it to be terminal).\n\nOther 6 type crates correctly place extras after 'How it works' and before 'Gotchas', or between 'Gotchas' and 'References'.\n\n**What goes wrong**: a reader picking up mail-types and chat-types READMEs as the canonical templates (mail-types is one) propagates the wrong placement convention to new sibling crates. The other 6 crates' shape (extras-in-the-middle, References-terminal) is the right shape; the canonical template should match it.\n\n**Fix**:\n- mail-types: move 'Filter extensibility' and 'Optional Features' to after 'How it works' or 'Gotchas'.\n- chat-types: move 'Crate family' to before 'References'.\n\nSibling reference for correct structure: crate-jmap-calendars-types/README.md (extras between How it works and Gotchas, References is the final H2).",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README structure violation: mail-types and chat-types place crate-specific H2 sections OUTSIDE the AGENTS.md-mandated six-section sequence",
+  "updated_at": "2026-05-17T22:41:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:02:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "f3a42f8f-1d76-5971-a00d-d6c122957489",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

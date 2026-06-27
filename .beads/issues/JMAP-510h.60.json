@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T10:49:25Z",
+  "compaction_level": 0,
+  "content_hash": "61d8c564ea776bea056387b251bf3839ba7d89a3e622fde1ef0eb0555582099f",
+  "created_at": "2026-05-14T20:56:26Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/backend.rs:35-46 (FileNodeBackend::create_object) plus\ncrate-jmap-filenode-server/src/filenode.rs:254-446 (collision-detection pre-check).\n\nThe handler performs collision detection via\n`find_sibling_by_name(...)` BEFORE calling `create_object`. The two\ncalls are not transactional: a concurrent client can insert a\ncolliding-named sibling in the gap between the two backend calls.\n\nPer the workspace AGENTS.md \"Caller identity (foundation seam)\"\nsection, the rule is:\n\n> Backends are canonical for permission enforcement. Handlers do\n> NO permission checking. Defense-in-depth handler-side pre-checks\n> are allowed but the backend MUST re-verify atomically with the\n> mutation.\n\nThe same atomicity rule SHOULD apply to name-collision and cycle\nchecks (they are correctness invariants on the data, not just\npermissions). But `create_object`'s docstring (backend.rs:35-38)\nsays nothing about it:\n\n```rust\n/// Create a new FileNode.\n///\n/// Returns `(assigned_id, created_object)` on success.  `create_id` is\n/// the client-side creation id from the `/set` request.\nfn create_object<O: SetObject + Send + Sync>(\n    &self,\n    caller: &Self::CallerCtx,\n    account_id: &jmap_types::Id,\n    create_id: &str,\n    obj: O,\n) -> ...\n```\n\nA consumer implementing `FileNodeBackend` will read the docstring,\nsee no mention of \"MUST atomically check name collision against\nparentId\", and write a `create_object` that simply inserts the\nnode. A test against single-threaded `MemoryBackend` will pass.\nProduction traffic with concurrent writes will produce duplicate\nsibling names \u2014 silent corruption of the FileNode invariant that\n\"name is unique within a parent\".\n\nThe same critique applies to `update_object` (when patch touches\n`parentId` and the backend must enforce cycle prevention) and to\n`destroy_object` (when the backend must enforce the\n\"nodeHasChildren\" guard atomically with the destroy).\n\nRequired fix: extend the docstrings on `create_object`,\n`update_object`, and `destroy_object` to enumerate the invariants\nthe backend MUST re-verify atomically with the mutation:\n\n- create_object: name uniqueness under parentId; if-blob-then-blob-exists\n- update_object: cycle prevention if parentId changes; name uniqueness\n  if name changes\n- destroy_object: nodeHasChildren guard when called outside the\n  cascade context\n\nThis is `underspecified` rather than a bug \u2014 the current code path\nthrough MemoryBackend is correct because the same lock is held across\nthe read+write \u2014 but the docstring leaves the invariant unstated, so\nproduction consumers writing their own backend impls will get it\nwrong by default. P3 because the workaround (read the source) is\ntrivial for a careful implementor, but the trap is real.\n\nLABELS: api-contract, underspecified",
+  "ephemeral": 0,
+  "id": "JMAP-510h.60",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "FileNodeBackend::create_object contract does not require atomic name-collision re-validation; handler pre-check is TOCTOU",
+  "updated_at": "2026-05-17T10:49:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:56:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "6dcbb3e1-5cb3-524e-9ba7-be3eea8e0ead",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

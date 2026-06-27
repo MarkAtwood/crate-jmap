@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-he4.4",
+  "title": "hex_digit uses (b'0' + nibble) as char: char::from is more idiomatic",
+  "description": "blob.rs:99-104: hex_digit does (b'0' + nibble) as char and (b'A' + nibble - 10) as char. Both are safe because nibble is 0-15 (match arms) and results are < 128. char::from(b'0' + nibble) is more idiomatic and communicates the intent without relying on the reader knowing the as-cast semantics. Not a bug.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:25:28Z",
+  "updated_at": "2026-04-30T01:31:29Z",
+  "closed_at": "2026-04-30T01:31:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-he4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:25:28"
+    }
+  ]
+}

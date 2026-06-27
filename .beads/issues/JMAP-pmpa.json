@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T00:46:07Z",
+  "compaction_level": 0,
+  "content_hash": "800b9f28567ee66249efbfbd9a6298803077d4b5393efeb491a1b2c3a045b316",
+  "created_at": "2026-05-09T00:41:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Follow-up to closed JMAP-wrgs.1. The field crate-jmap-calendars-types/src/notification.rs:99 is currently:\n\n    /// A PatchObject encoding the change between `event` and the state\n    /// after the update.\n    pub event_patch: Option<serde_json::Value>,\n\nDoc says 'a PatchObject'; type is Value. This is a notification *payload* field (server \u2192 client), not an *update argument* (client \u2192 server), which is why the closed PatchObject adoption epic JMAP-wrgs.1 did not migrate it. The PatchObject typing is still spec-correct \u2014 it is just read-only on this side.\n\nProposed change (jmap-calendars-types/src/notification.rs:99):\n\n    pub event_patch: Option<jmap_types::PatchObject>,\n\nWire format unchanged (PatchObject is #[serde(transparent)]). Public API change: any caller pattern-matching on the field type or constructing CalendarEventNotification from a Value literal must migrate.\n\nPLAN.md (crate-jmap-calendars-types/PLAN.md \u00a72) currently does NOT justify this field as Sloppy-Value (\u00a72 covers recurrence_overrides nested PatchObject values; that is a different rationale than this top-level field). So either:\n  - Migrate to PatchObject (this bead's recommendation, matches the field's documented contract), OR\n  - Leave as Value AND add a PLAN.md note explaining why.\n\n## Scope\n\n- 1 line change + import in jmap-calendars-types/src/notification.rs.\n- Tests/fixtures: any test that constructs CalendarEventNotification via serde_json::from_value will keep working unchanged. Direct struct-literal constructions (if any) need a 'PatchObject::from_map(...)' wrapper.\n\n## Acceptance criteria\n\n'cargo test --workspace' clean, lib clippy clean, wire format byte-identical, PLAN.md updated to reference the typed field.\n\n## Coordination\n\nPublic API change to a non-locked crate but sets precedent for the LOCKED jmap-mail-types and jmap-tasks-types parallel fields (JMAP-6h5s follow-up bead, and the equivalent in tasks).",
+  "ephemeral": 0,
+  "id": "JMAP-pmpa",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Re-opened 2026-05-09 after the wider-scope survey identified 5 additional sibling fields. Now a child of parent epic JMAP-trmz. See epic for full sweep context.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Migrate CalendarEventNotification::event_patch to typed PatchObject",
+  "updated_at": "2026-05-10T00:46:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T17:32:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-trmz",
+      "id": "f318baff-c56b-504e-bca3-ee4b69f83eb5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

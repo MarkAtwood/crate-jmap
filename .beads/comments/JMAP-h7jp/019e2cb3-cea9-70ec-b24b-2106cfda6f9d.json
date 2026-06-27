@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T17:34:02Z",
+  "id": "019e2cb3-cea9-70ec-b24b-2106cfda6f9d",
+  "issue_id": "JMAP-h7jp",
+  "text": "Calendars-server portion done in JMAP-ic0j.2 (commit landing the next_ids per-(type, account) monotonic counter + 3 ported demo_id_tests). chat-server portion remains. Other extension-server siblings (tasks/filenode/sharing/metadata) need a confirmatory grep \u2014 mail-server is already on the timestamp+atomic pattern per the original bead description."
+}

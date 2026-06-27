@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Adopted extras policy across 8 types in jmap-calendars-types and 10 types in jmap-jscalendar-types. Capability objects excluded for consistency with mail-types canonical. Filter/comparator out of scope per workspace policy (already documented per-type). cargo test --workspace --all-features: 1720 (+18). Commit 19675fb.",
+  "closed_at": "2026-05-11T19:24:32Z",
+  "compaction_level": 0,
+  "content_hash": "9b770b4e8b5fca89ef9ada3742697d79dad85861cbe6bbf38720ac17db58c242",
+  "created_at": "2026-05-09T00:51:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Apply the workspace extras-preservation policy (JMAP-lbdy) to crate-jmap-calendars-types.\n\nIn scope (estimate ~25 public wire-shaped Deserialize structs):\n- Calendar, CalendarRights, IncludeInAvailability\n- CalendarEvent\n- ParticipantIdentity\n- CalendarEventNotification, Person\n- BusyPeriod (availability)\n- jscalendar.rs typed sub-types (14 types): Location, VirtualLocation, Link, Relation, Participant, RecurrenceRule, NDay, Alert, OffsetTrigger, AbsoluteTrigger, LocalDateTime, Duration, SignedDuration. AlertTrigger is an enum with an Unknown(Value) variant \u2014 review whether enum variants need extras (probably not for tagged enums, yes for struct variants).\n- Capabilities structs\n\nOut of scope:\n- Filter / Comparator algebra (CalendarFilterCondition, CalendarEventFilterCondition, CalendarEventComparator, NotificationFilterCondition).\n- Property selector enums.\n- Module-internal helpers.\n\nCoordination: this is the reference implementation's jscalendar.rs. The shape established here will be mirrored by jmap-tasks-types per JMAP-yfpq, and propagated to every extension-types sibling per the canonical-template rule in workspace AGENTS.md.\n\nAcceptance: every in-scope struct has `pub extra: Map<String, Value>` with the documented attributes; one round-trip preservation test per type; PLAN.md updated; cargo test/clippy/fmt clean.\n",
+  "ephemeral": 0,
+  "id": "JMAP-lbdy.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Adopt extras policy in jmap-calendars-types",
+  "updated_at": "2026-05-11T19:24:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-08T17:51:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-lbdy",
+      "id": "f27c9f89-fece-52d9-b819-ff85fd7057b0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

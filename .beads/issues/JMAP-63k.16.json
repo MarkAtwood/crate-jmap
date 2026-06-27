@@ -1,0 +1,33 @@
+{
+  "close_reason": "Added comment explaining the cap+1 probe technique and why fetched_count > collapse_cap is correct with no off-by-one.",
+  "closed_at": "2026-05-04T15:55:55Z",
+  "compaction_level": 0,
+  "content_hash": "d410c015bb7c425b5c3cec0334a6d6503fb4769a1d5d0ccaad89860d1d7c6c9a",
+  "created_at": "2026-05-02T06:46:14Z",
+  "created_by": "Mark Atwood",
+  "description": "File:/home/mark/PROJECT/JMAP/crate-jmap-mail-server/src/email.rs:635\nIssue: The cap check on line 635 reads: fetched_count < COLLAPSE_THREADS_MAX_EMAILS as usize. fetched_count is a usize (len()), and COLLAPSE_THREADS_MAX_EMAILS is u64 cast to usize. The asymmetry (u64 constant defined for backend use, usize used for comparison) requires the reader to reason that the as usize cast is safe on all target platforms. Additionally, the comment on line 634 ('Total is only honest when the fetch was not capped') does not explain the off-by-one: < means capped if ==, so a fetch of exactly 65536 items suppresses total even if the result set happens to be exactly 65536. This is intentionally conservative but not stated.\nFix: Add a brief inline comment at line 635 noting that == means we hit the cap and cannot trust the count.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "fetched_count vs COLLAPSE_THREADS_MAX_EMAILS cast asymmetry",
+  "updated_at": "2026-05-04T15:55:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:46:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "afdb85e2-14fb-5b7a-af27-8effcede7c22",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

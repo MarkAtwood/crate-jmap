@@ -1,0 +1,44 @@
+{
+  "acceptance_criteria": "cargo build succeeds with and without --features mdn; no mdn symbols leak into default build; register_mdn_handlers requires both MailBackend + MdnBackend bounds at compile time",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:24:28Z",
+  "compaction_level": 0,
+  "content_hash": "ee6a7c1a2d26db1a9f8f055ba486beec85db625cb3df542bfb1b00881b5e00ae",
+  "created_at": "2026-05-02T15:32:40Z",
+  "created_by": "Mark Atwood",
+  "description": "Wire the mdn feature flag in Cargo.toml for jmap-mail-types and jmap-mail-server, and expose register_mdn_handlers in lib.rs.",
+  "design": "jmap-mail-types/Cargo.toml: add mdn = [] to [features].\n\njmap-mail-server/Cargo.toml: add mdn = [\"jmap-mail-types/mdn\"] to [features].\n\njmap-mail-server/src/lib.rs additions (behind cfg(feature=mdn)):\n  pub mod mdn;\n  pub const JMAP_MDN_URI: &str = \"urn:ietf:params:jmap:mdn\";\n  pub use mdn::{MdnBackend, handle_mdn_send, handle_mdn_parse};\n  pub fn register_mdn_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)\n    where B: MailBackend + MdnBackend + 'static, C: Clone + Send + 'static\n\nRegisters exactly 2 method names: MDN/send, MDN/parse.\n\nNote: unlike most JMAP methods, MDN/send triggers an implicit Email/set for $mdnsent stamping. The handler calls into MailBackend directly for the email update \u2014 so the generic bound requires BOTH MailBackend and MdnBackend.\n\nUpdate crate-level doc comment to list the mdn feature and its 2 method names.\n\nNo /get, /set, /query, /changes \u2014 MDN has no stored object type.",
+  "ephemeral": 0,
+  "id": "JMAP-vcw",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mdn: feature flag wiring + register_mdn_handlers",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:33:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-klj",
+      "id": "67300a1d-281c-5a51-b664-a2d4dc64ce1f",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T08:33:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-pdb",
+      "id": "9f980f2a-ac81-5be8-a0ac-25a76fe90b27",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

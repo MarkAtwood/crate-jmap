@@ -1,0 +1,33 @@
+{
+  "close_reason": "Positive observation, no code action required. The bead praises the 11-test jscalendar_roundtrip module in tests/types_test.rs lines 791-1254 and warns future maintainers not to consolidate or weaken the tests. The per-test independent-oracle discipline (RFC 8984 \u00a76.x verbatim examples) is the verification that the hybrid sloppy-value pattern works for tasks-types. No code change recommended; current state is already optimal.",
+  "closed_at": "2026-05-17T15:41:16Z",
+  "compaction_level": 0,
+  "content_hash": "79de75623b1c9d9124597ca5cfe2c344da21fc7203bbe3e94bf73ed13aa50cf7",
+  "created_at": "2026-05-15T05:07:54Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/types_test.rs lines 791-1254 introduce a `mod jscalendar_roundtrip` containing 11 round-trip tests that prove every Option<serde_json::Value>-typed field on Task / TaskList can be decoded into the corresponding typed sub-type from jmap-jscalendar-types and re-encoded byte-equivalently.\n\nThis is the test-discipline that the sloppy-Value pattern requires: callers are told \"use serde_json::from_value::<Location>(...)\" \u2014 and this test suite proves that contract holds for each of the 11 fields, with hand-written JSON fixtures sourced from RFC 8984 \u00a74.x and \u00a76.x (each citing the section in a per-test comment).\n\nThe test fixtures use independent oracles (RFC 8984 \u00a76.2, \u00a76.8, \u00a76.9, \u00a76.10 verbatim examples), not values derived from the code under test. The pattern is documented in a 25-line module-level comment with the five-step recipe (build, deserialize, extract, typed-decode, byte-equal re-encode).\n\nWhat a future contributor or commenter might suggest:\n  - \"fold these tests together using a macro\" \u2014 defend by pointing at the per-RFC-section comments; the readability of the per-field test outweighs the macro's line savings.\n  - \"remove this test, the sloppy fields are just Value, what is there to test\" \u2014 defend by pointing at the consumer contract: any future change that breaks the typed-decode path is a silent API break.\n\nDo not let anyone consolidate, parameterize, or weaken these tests. They are the verification that the \"hybrid sloppy-value pattern\" (PLAN.md \u00a71-\u00a78 in the calendars sibling) actually works for tasks.",
+  "ephemeral": 0,
+  "id": "JMAP-ky8g.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JSCalendar sloppy-Value round-trip test suite (11 tests in jscalendar_roundtrip module)",
+  "updated_at": "2026-05-17T15:41:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:07:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ky8g",
+      "id": "e8bf56ec-a569-5cf6-95e9-911bc4aff347",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

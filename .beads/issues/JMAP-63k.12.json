@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T06:52:58Z",
+  "compaction_level": 0,
+  "content_hash": "48d95fb56c6883968be7af3e377dd51fa07cc2c63650094d2f12f270a81b73dd",
+  "created_at": "2026-05-02T06:45:55Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/chat.rs:350\nIssue: When known_direct_contact_ids.contains(&contact_id_str) is true (a duplicate within the same batch), the code performs a full get_objects::<Chat> re-fetch (line 350) to find the canonical id of the already-created chat. However, the canonical id was already returned by create_object and inserted into the 'created' map in the previous loop iteration. The re-fetch is a wasted backend call; the needed id is available in-memory.\nImpact: Any batch that creates two Direct chats for the same contactId pays one extra full-collection backend fetch. While this is an error path (duplicate in request), clients that retry or have race conditions will hit this unnecessarily.\nFix: Track created Direct-chat contactId\u2192serverId in a HashMap<String, Id> alongside known_direct_contact_ids. When an intra-batch duplicate is detected, look up the canonical id from that map directly instead of re-fetching.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat/set: intra-batch duplicate re-fetch discards already-available data",
+  "updated_at": "2026-05-02T06:52:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:45:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "de08ce0f-993e-5182-b2a5-c545f67e9ffa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:58:33Z",
+  "compaction_level": 0,
+  "content_hash": "5f9b33f52a6f731e8018850b90edaf49bebc77841bd5d49d28e27d993887af9e",
+  "created_at": "2026-05-07T20:29:06Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/README.md says 'All 26 RFC 8621 method names'. True for what register_mail_handlers registers, but lib.rs *also* exports:\n\n- `register_mdn_handlers` (RFC 9007: `MDN/send`, `MDN/parse`)\n- `register_sieve_handlers` (RFC 9661: `SieveScript/get`, `\u2026/set`, `\u2026/query`, `\u2026/validate`)\n\nThese are publicly available registration entry points that an integrator must find \u2014 they're silent in the README. Cargo features `mdn` and `sieve` gate them; the features themselves are undocumented in README (parallel to JMAP-sc1b.X for mail-types).\n\nFix: 'Registration' section should describe all three register_*_handlers entry points and call out which Cargo features gate which RFCs.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: mail-server README doesn't mention register_mdn_handlers or register_sieve_handlers",
+  "updated_at": "2026-05-07T21:58:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "d6875fc4-14ac-5e7e-bbbc-6bffca95261b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

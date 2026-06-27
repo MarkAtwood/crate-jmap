@@ -1,0 +1,32 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T02:37:53Z",
+  "compaction_level": 0,
+  "content_hash": "eb421ea68b6a6a2196713d56d61ece2a6a5c6efe541691e7b7c306ee494f8e0f",
+  "created_at": "2026-05-11T00:06:59Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.3.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "helpers.rs builder-struct refactor in jmap-sharing-server (propagate from canonical)",
+  "updated_at": "2026-05-11T02:37:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:06:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.3",
+      "id": "5a87982f-c268-5092-be69-767e5ebe499b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

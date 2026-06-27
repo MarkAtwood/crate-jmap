@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T13:13:42Z",
+  "id": "019e3612-2fda-7b58-9aa8-f2cc484f830d",
+  "issue_id": "JMAP-tjvm.18",
+  "text": "Bead body explicitly says 'Filing as P2 forces the conversation; resolution is a design call. The view-type design (EmailCreate omitting server-set fields) is non-trivial and may produce a worse API than the current Value escape hatch.' This is a design judgment between two non-equivalent API shapes (typed view-type vs current Value escape hatch) that needs human input. Labeling human."
+}

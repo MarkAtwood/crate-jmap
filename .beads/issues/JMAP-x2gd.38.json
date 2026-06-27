@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T08:32:45Z",
+  "compaction_level": 0,
+  "content_hash": "327b22458e9c06337695ad26a6680ee77ffb443cc4a858e63d1aadc93f9b492d",
+  "created_at": "2026-05-14T03:39:55Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/lib.rs:292\n\n  pub use jmap_server::ClosureHandler;\n\nThis re-export sits at the bottom of lib.rs, after the\nregister_chat_handlers function body, with no documentation. It\nlooks like a paste-in convenience for closure-shaped handler\nregistration in downstream code.\n\nEffect on the contract:\n\n1. jmap-chat-server's public API surface is now tied to\n   jmap_server::ClosureHandler. If jmap-server cuts a major\n   version that reshapes ClosureHandler (rename, generic-param\n   change, new associated type), jmap-chat-server is broken at\n   the same major bump \u2014 even if jmap-chat-server itself made no\n   changes.\n\n2. The workspace's path-dep convention (jmap-chat-server depends\n   on jmap-server via `path = '../crate-jmap-server'`) makes the\n   coupling invisible until the first release. The day someone\n   publishes to crates.io and jmap-server cuts a 0.x \u2192 0.y, every\n   consumer pinning ^0.x of jmap-chat-server breaks unless they\n   also bump jmap-server.\n\n3. No rustdoc on the re-export. A consumer browsing the docs sees\n   ClosureHandler appear in jmap-chat-server's exports but no\n   explanation of why or what it's for.\n\nWorkspace AGENTS.md API-contract section ('Versioning and\ndeprecation' / 'Implementation leakage'):\n\n  'Re-exports from upstream crates that lock the major version.\n   If you pub use foo::Bar and foo cuts a major version, your\n   crate's API is broken too. Either re-export through your own\n   newtype or document the upstream version pin.'\n\nFix options:\n\nA. (Likely correct) Delete the line. register_chat_handlers\n   builds the ClosureHandler internally via the reg! macro;\n   consumers do not need to construct one themselves. If a\n   consumer needs ClosureHandler for their own\n   non-chat-server-managed handler, they already depend on\n   jmap-server (it's the dispatcher source) and can import it\n   from there.\n\nB. Keep the re-export and document the upstream major-version\n   coupling in the lib.rs doc:\n     'jmap-chat-server's MSRV/major-version is pinned to\n     jmap-server's; bump them together.'\n\nC. Wrap in a newtype:\n     pub struct ClosureHandler<C>(jmap_server::ClosureHandler<C>);\n\n   \u2026with re-implemented constructor + Deref. Overkill for a\n   minor convenience.\n\nA is the minimum-change correct fix.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: pub use jmap_server::ClosureHandler leaks upstream major version",
+  "updated_at": "2026-05-17T08:32:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:39:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "67b21de4-9814-5651-bcf3-d07b7252ad4b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

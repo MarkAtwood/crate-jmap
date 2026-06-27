@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "7 ContactCard get/changes/set/copy wiremock tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/contactcard_tests.rs (4 tests: get, changes, set create, copy fromAccountId); clippy clean",
+  "closed_at": "2026-05-05T15:47:11Z",
+  "compaction_level": 0,
+  "content_hash": "be33a7479e067766819acea0edd496241c2d45d26b546a8c6a327829c1259048",
+  "created_at": "2026-05-05T02:54:13Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-contacts-client/tests/contacts_card_tests.rs with 7 async wiremock tests. Oracle: draft-ietf-jmap-contacts-10 \u00a74.1 (ContactCard/get example), RFC 8620 \u00a75.3 (set), \u00a75.4 (copy).\n\n**Tests:**\n1. contact_card_get_returns_spec_example: mock returns \u00a74.1 fixture; assert card id==\"3\", address_book_ids has expected key.\n2. contact_card_get_with_specific_ids_sends_ids_array: assert request ids==[\"card1\",\"card2\"].\n3. contact_card_changes_sends_since_state_and_max_changes: assert sinceState and maxChanges in request.\n4. contact_card_set_create_returns_server_assigned_id: assert created[\"newCard\"].id==\"server-99\".\n5. contact_card_copy_sends_from_account_id: assert request has fromAccountId==\"src-account\" and accountId==\"a0x9\".\n6. contact_card_set_empty_destroy_id_returns_invalid_argument: call with destroy [\"\"]; assert InvalidArgument before network.\n7. contact_card_copy_empty_from_account_id_returns_invalid_argument: assert InvalidArgument before network.\n\n**Acceptance criteria:** All 7 tests pass.",
+  "ephemeral": 0,
+  "id": "JMAP-kh21.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: ContactCard/get /changes /set /copy",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:54:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-kh21",
+      "id": "b6eddf8b-b281-5615-9b62-92065328508b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

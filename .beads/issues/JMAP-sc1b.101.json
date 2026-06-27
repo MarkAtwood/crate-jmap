@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T18:33:50Z",
+  "compaction_level": 0,
+  "content_hash": "0b8fa9376093bce48cc0110742b58b4adaf8cd900655326b00014f3c0c27d6b6",
+  "created_at": "2026-05-11T14:26:34Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Location: absent \u2014 no `PushSubscriptionBackend` trait or `register_push_subscription_handlers` function anywhere in workspace.\n\nGrep across the workspace confirms:\n- No `PushSubscriptionBackend` trait\n- No `register_push_subscription_handlers` function\n- No `generate_verification_code` method\n- No `handle_push_subscription_*` handler\n- Only client-side use: `crate-jmap-chat-client/src/methods/mod.rs:1119-1208` (the patch builder, separate bead JMAP-sc1b.92)\n\nCONCERN\nRFC 8620 \u00a77.2 defines `PushSubscription/set`. The server, on receiving a create request with a `url` and `keys`, MUST generate an unguessable `verificationCode` and POST it to the client's push URL. The client then patches it back to prove receipt. The code is the credential that authorizes the push subscription.\n\nWhen the PushSubscriptionBackend trait is added to this workspace (it is referenced in chat-client and is part of the RFC 8620 base, so it WILL be added at some point), the trait method that mints `verificationCode` will be in the same shape as `ChatBackend::generate_invite_code` was before JMAP-sc1b.78 fixed its doc:\n\n  /// Generate a verification code for this push subscription.\n  fn generate_verification_code(&self) -> String;\n\nIf the doc comment does not explicitly require a CSPRNG, the implementor will reach for `rand::thread_rng` or a timestamp \u2014 the same trap that .78 fixed for invite codes. AND the reference `MemoryBackend` impl will likely use a non-CSPRNG by default \u2014 the same trap that JMAP-sc1b.93 flags for the chat reference impl.\n\nWHAT GOES WRONG\nLatent. Today: nothing \u2014 the surface does not exist. Future: when the surface lands, the same defect class as .78 + .93 re-occurs unless a guardrail is in place now.\n\nPROPOSED FIX\nThis is a forward-looking bead. Three options for resolving it:\n\n(a) **Document the constraint now**: add a section to the `jmap-server` crate's PLAN.md or AGENTS.md saying 'any future Backend trait method that mints secret material must (1) require a CSPRNG in the trait doc verbatim, and (2) the reference `MemoryBackend` impl must use OsRng/getrandom in production builds, not a timestamp or counter'. Add a link to the .78 fix as precedent.\n\n(b) **Add a stub trait now**: a `PushSubscriptionBackend` skeleton with the correct doc and a CSPRNG-using reference impl, even if no method handlers exist yet. Removes the trap before someone walks into it.\n\n(c) **Pre-file the implementing bead**: create a placeholder `bd create` for the PushSubscription server-side work that explicitly notes the CSPRNG requirement in its description.\n\nRecommended: (a) + (c). (b) is overkill until the work is ready.\n\nORACLE\n- Closed JMAP-sc1b.78 \u2014 the in-repo precedent for the trait-doc CSPRNG requirement.\n- Open JMAP-sc1b.93 \u2014 the matching reference-impl bug for invite codes.\n- RFC 8620 \u00a77.2 \u2014 defines `verificationCode` as the ownership-proof secret.\n\nRISK CLASSIFICATION\nP3. Latent \u2014 only matters when the surface is built. Filed so the future implementor cannot miss the precedent.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.101",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security: latent \u2014 PushSubscription server-side handler does not exist; when added, generate_verification_code trait method needs CSPRNG warning matching .78",
+  "updated_at": "2026-05-11T18:33:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:26:33Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "9fb9a00e-f207-5590-892a-6ae202cfc1ce",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

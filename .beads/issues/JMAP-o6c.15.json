@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already addressed: blob_exists doc strengthened in yqo.7 (same session). Duplicate finding.",
+  "closed_at": "2026-05-02T03:33:07Z",
+  "compaction_level": 0,
+  "content_hash": "c7b480e5da12dc5464585098fbab93a6cec361c12988067b2c6416acafbc3303",
+  "created_at": "2026-05-02T03:25:41Z",
+  "created_by": "Mark Atwood",
+  "description": "backend.rs blob_exists has a default impl that returns false unconditionally. The doc comment warns implementors to override it, but any backend that forgets will cause Email/parse to report every blob as notFound even when it exists, silently failing parse requests. The risk: implementors who follow the trait doc may miss this override because the default compiles and 'works' without any obvious error. A better design would remove the default (requiring all impls to provide it) or return an error type that forces acknowledgment. At minimum, the MemoryBackend sets a good example, but contributors who copy from MemoryBackend may not realize the default is wrong.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "blob_exists default returns false \u2014 Email/parse always reports notFound",
+  "updated_at": "2026-05-02T03:33:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:25:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "defd29d0-769d-59b1-bebd-6f0f93cd4f92",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.47",
+  "title": "parse_sse_block is pub-exported but is an internal implementation detail",
+  "description": "lib.rs exports parse_sse_block as a public API item: 'pub use sse::{parse_sse_block, SseEvent, SseFrame}'. parse_sse_block takes a raw SSE block string \u2014 a format detail of the internal stream parser. Callers typically consume SseFrame from the subscribe_events stream and never need to call parse_sse_block directly. Exporting it exposes implementation detail, widens the semver surface, and may confuse callers about the intended usage. Consider making it pub(crate) unless there is a documented use case for callers to parse SSE blocks independently.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:48:32Z",
+  "updated_at": "2026-04-30T00:53:10Z",
+  "closed_at": "2026-04-30T00:53:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:48:32"
+    }
+  ]
+}

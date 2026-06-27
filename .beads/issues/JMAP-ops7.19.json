@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added <Object>Filter aliases to 6 sibling extension-types crates (calendars: CalendarFilter, CalendarEventFilter, NotificationFilter; tasks: TaskFilter, TaskNotificationFilter; contacts: ContactCardFilter; filenode: FileNodeFilter; sharing: PrincipalFilter, ShareNotificationFilter; metadata: MetadataFilter). Re-exported jmap_types::query::{Filter, FilterOperator, Operator} at each crate's lib.rs root. Also filled in MailboxFilter on mail-types canonical (was missing from EmailFilter/EmailSubmissionFilter pair). Non-breaking pure additions. Workspace cargo check + clippy + test + rustdoc on changed type crates all clean. Commit 559edc1.",
+  "closed_at": "2026-05-17T23:20:14Z",
+  "compaction_level": 0,
+  "content_hash": "b8af0178f339f7e4f80779f15096a551560dbba99cc93dc8d85cecd5b4fda540",
+  "created_at": "2026-05-17T22:56:15Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**:\n- crate-jmap-mail-types/src/query.rs:14-23 (canonical: re-exports plus the typed aliases)\n\nThe mail-canonical-template crate provides three things at its `query` module top:\n\n    pub use jmap_types::query::{Filter, FilterOperator, Operator};\n    pub type EmailFilter = Filter<EmailFilterCondition>;\n    pub type EmailSubmissionFilter = Filter<EmailSubmissionFilterCondition>;\n\nThis lets callers write `jmap_mail_types::EmailFilter::Condition(...)` without ever having to import `jmap_types`.\n\n**Divergence**: every other extension types crate that defines a `FilterCondition` does NOT provide the analogous re-exports or aliases:\n\n| Crate | `FilterCondition` defined | Re-exports `Filter`/`FilterOperator`/`Operator` from jmap-types? | `<Object>Filter` alias? |\n|---|---|---|---|\n| jmap-mail-types | \u2713 Email, Mailbox, EmailSubmission | \u2713 | \u2713 EmailFilter, EmailSubmissionFilter |\n| jmap-calendars-types | \u2713 Calendar, CalendarEvent, Notification | \u2717 | \u2717 (no `CalendarFilter`, `CalendarEventFilter`, `NotificationFilter` aliases) |\n| jmap-tasks-types | \u2713 Task, TaskNotification | \u2717 | \u2717 |\n| jmap-contacts-types | \u2713 ContactCard | \u2717 | \u2717 |\n| jmap-filenode-types | \u2713 FileNode | \u2717 | \u2717 |\n| jmap-sharing-types | \u2713 Principal, ShareNotification | \u2717 | \u2717 |\n| jmap-metadata-types | \u2713 Metadata | \u2717 | \u2717 |\n| jmap-chat-types | \u2717 (separate bead JMAP-ops7.7) | \u2717 | \u2717 |\n\n**What goes wrong**:\n\n1. A consumer of `jmap-tasks-types` who wants to write a typed filter expression must write:\n\n       use jmap_tasks_types::TaskFilterCondition;\n       use jmap_types::Filter;               // <-- second crate import\n       let f: Filter<TaskFilterCondition> = Filter::Condition(TaskFilterCondition::HasKeyword(\"flagged\".into()));\n\n   With the alias they would write:\n\n       use jmap_tasks_types::{TaskFilter, TaskFilterCondition};\n       let f: TaskFilter = TaskFilter::Condition(TaskFilterCondition::HasKeyword(\"flagged\".into()));\n\n   Same number of bytes, but the consumer never has to know `jmap-types` exists, which is the cookie-cutter property the workspace AGENTS.md README convention claims for sibling type crates.\n\n2. Workspace AGENTS.md \"Canonical Templates\" section names `jmap-mail-types` as the canonical extension-types template that all 7 siblings should mirror. The aliases at mail-types/src/query.rs:14-23 are part of that canonical shape. The 6 siblings without them are silent template divergences.\n\n3. A future extension types crate added to the workspace will read `jmap-mail-types` as the canonical and mirror the alias pattern, then find inconsistent prior art in the 6 siblings without it. The convention is ambiguous as-is.\n\n**Fix**: in each of calendars-types, tasks-types, contacts-types, filenode-types, sharing-types, metadata-types, add the canonical 3-line block plus per-`FilterCondition` alias:\n\n    pub use jmap_types::query::{Filter, FilterOperator, Operator};\n    pub type CalendarFilter = Filter<CalendarFilterCondition>;\n    pub type CalendarEventFilter = Filter<CalendarEventFilterCondition>;\n    pub type NotificationFilter = Filter<NotificationFilterCondition>;   // (and so on)\n\nNon-breaking: pure addition. Sibling type-crate users gain a shorter, cookie-cutter-consistent shape; existing callers reaching into `jmap_types::` directly continue to work.\n\nPer the workspace canonical-template propagation rule, this is a \"propagate canonical to siblings\" sweep, not a \"change canonical and follow up\".",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "6 of 8 extension types crates lack the canonical `<Object>Filter = Filter<XxxFilterCondition>` aliases that mail-types exports; callers must reach into `jmap_types::Filter` directly",
+  "updated_at": "2026-05-17T23:20:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:56:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "82cf69ea-673b-5f94-9540-effcf9b47aa3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

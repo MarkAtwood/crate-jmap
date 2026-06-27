@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T17:22:03Z",
+  "id": "019e36f5-8d97-78b2-8690-e55e27e50bb7",
+  "issue_id": "JMAP-ic0j.9",
+  "text": "Closing as canonical-template propagation deferred. Verified via rg in jmap-mail-server: the canonical sibling carries the SAME serde-error-in-description pattern at 9+ sites across email.rs, identity.rs, mailbox.rs, sieve.rs, submission.rs \u2014 both invalidProperties AND invalidPatch shapes. Confirms this is a workspace-wide pattern, not a calendars-local divergence.\n\nPer workspace AGENTS.md cookie-cutter rule, the structured-properties-array fix (peek into JSON for required-but-missing keys before deserialize, then build a real RFC 8620 \u00a75.3 properties array) must land in the canonical jmap-mail-server first then propagate to every extension-server sibling in the same pass. The bead itself labels this 'P4 because real clients work around it; cleaning up cuts down on first-encounter support questions but no client breaks today' \u2014 appropriate priority for any future workspace-wide sweep.\n\nPairs with bd:JMAP-ic0j.11, .35, .36, .51 in the same canonical-propagation-deferred family. If a future workspace-wide invalidProperties shaping epic is filed (peek-validate-then-deserialize pattern across all /set create paths), this finding is its calendars-server evidence baseline."
+}

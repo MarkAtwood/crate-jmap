@@ -1,0 +1,59 @@
+{
+  "acceptance_criteria": "~20 wiremock tests pass. Clippy clean.",
+  "assignee": "Mark Atwood",
+  "close_reason": "All AddressBook/ContactCard wiremock tests present (10 tests); no TODO/FIXME; clippy clean",
+  "closed_at": "2026-05-05T15:49:31Z",
+  "compaction_level": 0,
+  "content_hash": "3346e6506987bb1e2f37700d2b7da3231cbbee604671dc27761bcbfd21afdf05",
+  "created_at": "2026-05-05T02:54:26Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Final quality gate for jmap-contacts-client.\n\n**Algorithm:**\n1. cargo test -p jmap-contacts-client: all pass including ~20 new tests.\n2. cargo clippy -p jmap-contacts-client -- -D warnings: zero warnings.\n3. Close epic JMAP-kh21.\n\n**Acceptance criteria:** All commands exit 0.",
+  "ephemeral": 0,
+  "id": "JMAP-kh21.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Done signal: contacts-client wiremock coverage complete",
+  "updated_at": "2026-05-05T15:49:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:54:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-kh21.2",
+      "id": "12f00113-9d40-50e9-aad0-3cb3b9df387c",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:54:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-kh21.1",
+      "id": "5b137232-794d-5cb2-9c63-ad15f0a3df71",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:54:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-kh21.3",
+      "id": "c362999a-8864-58d4-9011-2d685452ffe2",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:54:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-kh21",
+      "id": "cfcfaac5-bdf2-50bd-8cf2-68ccd2dbc374",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

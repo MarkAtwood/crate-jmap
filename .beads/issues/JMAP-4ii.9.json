@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:15:23Z",
+  "compaction_level": 0,
+  "content_hash": "c51d46253122a3fe9fc30a6021482b3758e04b5df6054b159922983b86ec0699",
+  "created_at": "2026-05-02T03:55:47Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/src/space.rs line 643: 'let sid = space_id_str.unwrap()' is called in the else branch of a match that already established space_id_str.is_some(), but there is no comment documenting this invariant and there is no use of safe destructuring. The correct idiomatic Rust is to destructure the option in the match arm itself (e.g. 'else if let Some(sid) = space_id_str'), eliminating the unwrap entirely. As written, a future refactor that changes the match structure can silently introduce a panic path. CLAUDE.md forbids unwrap() in library code.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "space.rs:643 unwrap() in library code without invariant comment",
+  "updated_at": "2026-05-02T04:15:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:55:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "490b88e8-32f4-58fb-8fa4-3dd08f8de4e4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

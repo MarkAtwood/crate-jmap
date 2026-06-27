@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Already fixed by JMAP-tjvm.6 (search_snippet_get thread_ids removal). Verified: 'grep -n \u00a76 crate-jmap-mail-client/tests/*.rs crate-jmap-mail-client/src/methods/search_snippet.rs' returns no matches; all spec citations correctly reference \u00a75.1. The bead's body itself anticipated this ('The \u00a76 references in the factually wrong permits both threadIds and emailIds claim get deleted entirely as part of bd:JMAP-tjvm.6.') and noted that bd:JMAP-tjvm.6 would resolve the citations as a side effect of removing the non-spec parameter. Nothing further to do.",
+  "closed_at": "2026-05-17T14:10:40Z",
+  "compaction_level": 0,
+  "content_hash": "e56d39b535c68c7abb11247fabdc74b99da5d8c0cf4537d592ea31768614353e",
+  "created_at": "2026-05-15T01:46:39Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/search_snippet_smoke_tests.rs cites the wrong RFC section:\n  - line 4: \"RFC 8621 \u00a76 allows both\"\n  - line 10: \"RFC 8621 \u00a76 \u2014 SearchSnippet/get semantics\"\n  - line 11: \"RFC 8621 \u00a76.1 \u2014 request arguments\"\n  - line 134: \"RFC 8621 \u00a76 permits both\"\n\nSearchSnippet is RFC 8621 \u00a75 (rfc8621.txt:3786-3982). \u00a76 is Identities.\n\nThis is the kind of doc rot that snowballs: future contributors trust the\ncitation, search \u00a76 of the RFC, find nothing about SearchSnippet, and waste\nan hour resolving the discrepancy. Worse, they may \"fix\" the \u00a75 reference\nin search_snippet.rs to match the test files' \u00a76, propagating the wrong\ncitation.\n\nFix: globally s/\u00a76/\u00a75/ in tests/search_snippet_smoke_tests.rs. The \u00a76\nreferences in the *factually wrong* \"permits both threadIds and emailIds\"\nclaim get deleted entirely as part of bd:JMAP-tjvm.6.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Spec citations in search_snippet test files say \u00a76 instead of \u00a75",
+  "updated_at": "2026-05-17T14:10:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:46:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "8b6b9ade-ae7d-596c-b045-d7c449e64215",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

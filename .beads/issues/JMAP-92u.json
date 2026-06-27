@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T23:35:19Z",
+  "compaction_level": 0,
+  "content_hash": "a29ca3f8f6d598e40447a1981d3fc9bf2e106d5ea99294232fe9204f93cb892d",
+  "created_at": "2026-05-01T23:01:17Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec \u00a7ReadPosition Methods explicitly lists ReadPosition/changes as a required method. Currently only ReadPosition/get and ReadPosition/set are registered in lib.rs. Standard /changes wrapper like other object types.",
+  "ephemeral": 0,
+  "id": "JMAP-92u",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement ReadPosition/changes",
+  "updated_at": "2026-05-01T23:35:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T16:10:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x09",
+      "id": "239c92c8-dbfc-5091-a931-fb52e8e05e76",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

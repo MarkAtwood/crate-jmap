@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:00:34Z",
+  "compaction_level": 0,
+  "content_hash": "8c36afc871e917e9f997391b1f1ffe1b0d32c00f48da3b4e91a77cf07ca70443",
+  "created_at": "2026-05-15T16:59:51Z",
+  "created_by": "Mark Atwood",
+  "description": "principal.rs:47-59 \u2014 utcStart and utcEnd are extracted from the wire and immediately validated via UTCDate::new_validated() with explicit invalidArguments mapping. Client-supplied malformed values do NOT flow into the backend.\n\nThis is the right pattern for the wire boundary. Naive code might:\n- (a) Accept any string and let the backend deal with it \u2192 backend sees malformed input, has to decide how to fail, leaks impl details into the error.\n- (b) Use Default UTCDate parsing inside the typed struct \u2192 invariant only enforced inside type's own deserialize, not at the handler.\n\nThe chosen pattern explicitly validates at the boundary, maps to a spec-defined error code, and threads the validated UTCDate into the backend. The bd:JMAP-sc1b.70 commit (4c8a76a) deliberately introduced this pattern across mail-server and calendars-server.\n\nA future contributor might suggest 'simplify by passing &str to the backend' \u2014 that would re-create the old bug. Defend the validated-at-boundary pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Principal/getAvailability uses UTCDate::new_validated at the wire boundary",
+  "updated_at": "2026-05-17T17:00:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T09:59:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "b234bf2d-6768-541e-b65f-2aec5d0e0634",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

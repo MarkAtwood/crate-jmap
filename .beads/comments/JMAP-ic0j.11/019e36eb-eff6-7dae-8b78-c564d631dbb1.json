@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T17:11:33Z",
+  "id": "019e36eb-eff6-7dae-8b78-c564d631dbb1",
+  "issue_id": "JMAP-ic0j.11",
+  "text": "Closing as canonical-template propagation deferred. Verified via rg in jmap-mail-server: the canonical sibling carries the SAME uncentralized BackendSetError pattern across mdn.rs, vacation.rs (3 sites), mailbox.rs, email.rs, sieve.rs, submission.rs, identity.rs \u2014 confirming this is a workspace-wide pattern, not a calendars-local divergence. The bead body explicitly directs 'Verify whether mail-server centralized this before reshaping here' \u2014 mail-server has not centralized it. Per workspace AGENTS.md cookie-cutter rule, the consolidation must land in the canonical first then propagate to every extension-server sibling in the same pass. Pairs with bd:JMAP-ic0j.36, .51, .35 in the same canonical-propagation-deferred family. If a future workspace-wide map_backend_set_error helper consolidation epic is filed, this finding is its evidence baseline."
+}

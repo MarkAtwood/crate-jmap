@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in a07804b: applied option 2 (doc-only) matching the canonical Email.mailbox_ids precedent. Rationale: option 1 (typed wrapper like HashMap<Id, ()>) would (a) diverge from the workspace canonical pattern, (b) break the PatchObject 'null = remove' semantics that share the same map shape, and (c) require a broader sweep across Email.mailbox_ids, Email.keywords, and every similar field. Added rustdoc on address_book_ids, members, and keywords explaining the MUST-be-true contract and pointing handler authors (jmap-contacts-server) at the invalidProperties rejection path. Added 3 deserialise-cleanly tests pinning the type's permissive contract.",
+  "closed_at": "2026-05-15T22:59:03Z",
+  "compaction_level": 0,
+  "content_hash": "2f485fe30d286a6fa3e1d025a6d1b6bcbc9517ea0a387766b4a8d1f494b67ade",
+  "created_at": "2026-05-15T22:44:46Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 9610 \u00a73 says `addressBookIds` is `Id[Boolean]` \"the set of AddressBook\nids this card belongs to. Each value MUST be true.\" RFC 9553 \u00a72.1.6 says\nthe same for `members` (group membership): \"The keys are the URIs of the\nmember entities, and each value MUST be true.\"\n\nCurrent types (crate-jmap-contacts-types/src/card.rs:43,65) accept any bool:\n\n```rust\npub address_book_ids: Option<HashMap<Id, bool>>,\npub members:          Option<HashMap<String, bool>>,\n```\n\nA caller (server or client) inserting `false` produces a card that\ndeserializes / serializes cleanly but violates the wire-format contract.\nBackends that match membership / containment by truthiness silently\ndisagree across implementations.\n\nThe Rust type doesn't model the \"set\" intent \u2014 `HashMap<Id, bool>` is\nthe wrong shape for \"a set\". Two acceptable resolutions:\n\n1. Typed wrapper. Introduce a `pub struct IdSet(HashSet<Id>)` (or\n   `MemberSet`) with a custom serde adapter that emits `{id: true}` and\n   accepts `{id: true}` only. Makes `false` unrepresentable; wire format\n   identical for valid input.\n\n2. Doc-only fix. Add a rustdoc clause stating \"each map value MUST be\n   `true` per RFC 9610 \u00a73 / RFC 9553 \u00a72.1.6; servers MAY reject `false`\n   with InvalidArguments.\" Still forces every caller to write the\n   validation themselves, but at least documents the contract.\n\nThis is a contract that callers cannot satisfy correctly without\nwriting the validation themselves. Defensive-code-forcing on every\nconsumer.\n\nReferences:\n- RFC 9610 \u00a73 addressBookIds field\n- RFC 9553 \u00a72.1.6 members field\n- Compare: jmap-types Id-set helpers (if any)",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactCard.addressBookIds and members allow value=false; spec requires MUST true",
+  "updated_at": "2026-05-15T22:59:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:44:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "0dbea055-88d0-51c6-8de4-c0929ad9a7f6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

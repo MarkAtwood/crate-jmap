@@ -1,0 +1,35 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Folded into JMAP-g7wu.1 mega-PR per [2026-05-11 bundling decision]. extract_account_id signature changed from (args: &Value) -> Result<Id, JmapError> to (args: Value) -> Result<(Id, Map<String, Value>), JmapError>. Improved error message: 'arguments must be an object containing accountId' instead of the misleading 'accountId is required' for non-object payloads. Every handler call site across 8 server crates now uses 'let (account_id, mut args) = extract_account_id(args)?;' eliminating the redundant Value::Object pattern-match. ~80 call sites migrated.",
+  "closed_at": "2026-05-11T16:24:33Z",
+  "compaction_level": 0,
+  "content_hash": "ed0d7d18e507d24bbdb43ee4c0d024ed1ac636998daa9832acf8ab7181bd36e4",
+  "created_at": "2026-05-08T03:33:18Z",
+  "created_by": "Mark Atwood",
+  "description": "src/event.rs:341-346 and the four other /set handlers all start with:\n\n    let account_id = extract_account_id(&args)?;\n    let Value::Object(mut args) = args else {\n        return Err(JmapError::invalid_arguments(\"arguments must be a JSON object\"));\n    };\n\nextract_account_id (jmap-server/src/helpers.rs:25) already calls args.get(\"accountId\")... which only succeeds for JSON Object inputs (.get on Value::String returns None). So the second pattern-match is a redundant defensive check \u2014 it can never fail after the first call has succeeded. Worse, if the first call failed, the user gets 'accountId is required' (a misleading error for a non-object payload like '\"foo\"' or '[]').\n\nTwo cleanups:\n1. Make extract_account_id reject non-object inputs with a clearer message: 'arguments must be an object containing accountId'. Then drop the second pattern-match in every handler.\n2. Or invert: have extract_account_id return (Id, &serde_json::Map) so the handler doesn't need to re-destructure the Value.\n\nThe canonical extension-server jmap-mail-server has the same pattern, so coordinating the change across both crates (and propagating to every extension-server sibling) is a cookie-cutter consistency requirement per workspace AGENTS.md.\n\nTrivial; P3 because it doesn't affect wire output, only error message clarity for one edge case (caller passes a non-object as args). The dispatcher in jmap-server may guard against this upstream \u2014 worth checking before fixing.\n",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Investigated: minimal fix (make extract_account_id reject non-objects) does not eliminate the second pattern-match in handlers because handlers still need the Map<String,Value> for further field access. The clean fix requires changing extract_account_id signature to consume Value and return (Id, Map<String,Value>), which is an API break on the canonical jmap-server foundation crate and propagates across ~30 handler call sites in 7 extension-server crates. Per cookie-cutter rule this is one large coordinated change.\n\nActive work item \u2014 should land alongside the other API-break-class beads (JMAP-g7wu.1 CallerCtx forwarding, JMAP-g7wu.3 helpers builder refactor) so the coordinated cross-crate breakage happens once.\n[2026-05-10 do-beads triage] This bead's 'clean fix' is a SemVer break on jmap-server foundation that ripples across 7 extension crates (~30 handler call sites). Per jmap-server AGENTS.md: 'Prefer non-breaking changes. Reshape only when the workspace is bumping a major.'\n\nDecision needed from human:\n\n1. Do the minimal fix now (clarify error message in extract_account_id; second pattern-match stays because handlers need Map<String,Value>)? Improves error clarity for non-object payloads; no SemVer break; bead remains partly open for the pattern-match cleanup until a future 0.2.0.\n\n2. Land the clean fix as part of a coordinated 0.2.0 push alongside JMAP-g7wu.1 (CallerCtx forwarding through *Backend traits)? JMAP-g7wu.1 is currently labeled 'human' with 5 design questions outstanding, so this gates on those.\n\n3. Land the clean fix independently as a 0.2.0 push now? Requires committing to a major bump without the CallerCtx work being ready.\n\nRecommendation: option 2. The clean fix and JMAP-g7wu.1 are both extension-server SemVer breaks; bundling them halves the downstream pain. But the CallerCtx design questions need answering first.\n\nThis bead is now labeled 'human' to keep the do-beads loop from spinning on it.\nBundled into JMAP-g7wu.1 mega-PR per [2026-05-11 bundling decision] comment; opencode session 2026-05-11 picking up implementation",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extract_account_id used twice in /copy and /set handlers \u2014 second pattern-match destructures already-extracted args",
+  "updated_at": "2026-05-11T16:24:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:33:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "c680ab10-22bc-5525-a9e4-9ebb77ea62f4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

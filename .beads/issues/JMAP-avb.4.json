@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T07:03:45Z",
+  "compaction_level": 0,
+  "content_hash": "0f7cd2728e9331cecaa3bf41d25c6ac56183bc38f2c3d4c38adbd7970b92715f",
+  "created_at": "2026-05-02T06:56:53Z",
+  "created_by": "Mark Atwood",
+  "description": "File:crate-jmap-chat-server/src/space.rs:714\nIssue: The post-write duplicate-member dedup filter (lines 714-730) removes the first occurrence of account_id in post_members, not necessarily the entry this racer wrote. In a two-racer scenario, both racers see duplicate_count > 1 and both attempt to remove one entry. Their two cleanup writes (both update_object with a deduped slice) race again. The winning write determines final state, which can be: (a) 0 members if both removed the same (surviving) entry, or (b) 1 member from an arbitrary racer. In case (a) neither racer has a membership and both return serverFail/retry, but after retry no membership exists to be found \u2014 the join silently fails to persist.\nImpact: Under concurrent Space/join for the same account, membership can be permanently lost: both racers fail, the space is left with no member entry for the joining account, and a subsequent join by the same account will appear to succeed but find no pre-existing entry to deduplicate. The race window is small but real; the storage layer unique-constraint (mentioned in the comment) is the only safe guard.\nFix: Instead of removing the first occurrence, identify which entry this racer wrote (by comparing joinedAt to now_str, or by storing the entry value before writing and matching it exactly) and remove only that entry. Alternatively, filter by the exact member object rather than by id-only equality, using the timestamp as a tiebreaker.",
+  "ephemeral": 0,
+  "id": "JMAP-avb.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Space/join TOCTOU dedup removes wrong entry",
+  "updated_at": "2026-05-02T07:03:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:56:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-avb",
+      "id": "9280f3e6-3820-5201-9ec0-4bee1a7c7a97",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

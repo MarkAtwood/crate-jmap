@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed. Three additive methods on JmapClient: upload_blob_session, download_blob_session, subscribe_events_session. Each takes &Session and extracts the URL field internally. Three slimmed params structs (UploadBlobSessionParams, DownloadBlobSessionParams, SubscribeEventsSessionParams) omit the URL field. Existing &str/&JmapUrlTemplate variants unchanged; pure-additive shape. Three routing-discriminator integration tests in tests/client_tests.rs lock in the contract: mock matches only the expected URL, other Session URLs point at an unmocked path.",
+  "closed_at": "2026-05-18T04:43:46Z",
+  "compaction_level": 0,
+  "content_hash": "f163599cb67e24449abc3500d410b58d50c4cc29b57a218581bdb1391c8f8279",
+  "created_at": "2026-05-17T11:43:45Z",
+  "created_by": "Mark Atwood",
+  "description": "Followup to bd:JMAP-6r7c.39. JmapClient::call_session was added to prevent the 'I passed session.upload_url instead of session.api_url' confusion. The same type-safety pattern applies to:\n\n- upload_blob \u2014 takes upload_url_template as &str; can be passed session.api_url by mistake\n- download_blob \u2014 takes download_url_template as &str (via DownloadBlobParams); same risk\n- subscribe_events \u2014 takes event_source_url as &str\n\nAdd Session-taking convenience methods:\n- upload_blob_session(&self, session: &Session, account_id: &str, data: Bytes, content_type: &str) -> Result<BlobUploadResponse, _>\n- download_blob_session(&self, session: &Session, params: DownloadBlobParamsForSession<'_>) -> Result<Bytes, _>\n- subscribe_events_session(&self, session: &Session, last_event_id: Option<&str>) -> Result<...>\n\nThe download case is the trickiest because DownloadBlobParams carries fields beyond the template (account_id, blob_id, name, accept_type, expected_sha256); a Session-taking variant may take a slimmer params struct that omits download_url_template.\n\nAdditive shape; no SemVer break. Existing &str variants remain.\n\nAffects: crate-jmap-base-client/src/blob.rs (upload_blob, download_blob, DownloadBlobParams), crate-jmap-base-client/src/client.rs (subscribe_events).\nTests: extend tests/client_tests.rs with routing-correctness tests modeled on test_call_session_routes_to_session_api_url.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.64",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add Session-taking variants of upload_blob and download_blob",
+  "updated_at": "2026-05-18T04:43:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T13:57:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-prpm",
+      "id": "74493057-a16f-5fb2-9990-08f22abfbb71",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

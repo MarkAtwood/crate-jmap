@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:55:09Z",
+  "compaction_level": 0,
+  "content_hash": "666e342ae5b49ac355902262c3748bae929b67c4892ef2a976d039a0ac2651f2",
+  "created_at": "2026-05-02T04:47:26Z",
+  "created_by": "Mark Atwood",
+  "description": "presence.rs line 177: obj.insert(\"updatedAt\".to_string(), json\\!(now_utc_string())). Calling .to_string() on a &'static str literal routes through the Display/ToString path unnecessarily. Clippy::str-to-string flags this. Should be \"updatedAt\".to_owned() or String::from(\"updatedAt\").",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.67",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "presence.rs: .to_string() on string literal should be .to_owned()",
+  "updated_at": "2026-05-02T04:55:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:47:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "7b41d32b-59f5-5a31-9363-6274bf637cd7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

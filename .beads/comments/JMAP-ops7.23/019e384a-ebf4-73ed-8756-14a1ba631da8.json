@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T23:34:55Z",
+  "id": "019e384a-ebf4-73ed-8756-14a1ba631da8",
+  "issue_id": "JMAP-ops7.23",
+  "text": "Related per-crate finding (calendars-server): bd:JMAP-ic0j.26. This bead is the tasks-server sibling case. Fix spans crates: jmap-tasks-server only at the method level, but if the JMAP-ic0j.26 resolution requires propagation, ops7.23 + ic0j.26 should land in the same workspace sweep PR."
+}

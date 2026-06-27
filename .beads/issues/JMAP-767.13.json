@@ -1,0 +1,33 @@
+{
+  "close_reason": "reviewed pass 23: loop converged; no P0/P1/P2 found in current code",
+  "closed_at": "2026-05-01T12:39:54Z",
+  "compaction_level": 0,
+  "content_hash": "00543a8bde595e70c2d44acd71269b7c30de627ff67e9ed486e939e220a64f2d",
+  "created_at": "2026-05-01T11:49:53Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs:244-280 computes 'total' using a ternary on fetched_count vs cap, then computes page position, then the two are placed into a flat 5-tuple. The logic is hard to follow because 'total' depends on fetched_count (pre-collapse) but its value comes from all_ids.len() (post-collapse). A named struct or a brief let-block would make the relationship explicit. Suggested rewrite: extract a CollapseResult { ids: Vec<Id>, total: Option<u64>, position: usize } and populate it in a single expression block before the outer tuple assignment.",
+  "ephemeral": 0,
+  "id": "JMAP-767.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/query collapseThreads total derivation is confusingly structured",
+  "updated_at": "2026-05-01T12:39:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:49:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "1e3497b4-8916-5da5-921d-d7b117ea6ac6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

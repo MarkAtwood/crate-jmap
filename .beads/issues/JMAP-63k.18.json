@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed by JMAP-63k.22 (same function, same fix)",
+  "closed_at": "2026-05-02T06:54:03Z",
+  "compaction_level": 0,
+  "content_hash": "5717c99beef8f0bb6e4976b2b18b735a704f736f19f83219730ab0425db0d70e",
+  "created_at": "2026-05-02T06:46:20Z",
+  "created_by": "Mark Atwood",
+  "description": "File:/home/mark/PROJECT/JMAP/crate-jmap-chat-server/src/chat.rs:161\nIssue: handle_chat_changes (line 66) was refactored to delegate to jmap_server::handlers::handle_changes. handle_chat_query_changes (line 161) was not similarly refactored and still contains ~70 lines of duplicated logic identical to the generic jmap_server::handlers::handle_query_changes. This inconsistency is confusing: a reader comparing chat_changes and chat_query_changes will expect both to either inline or delegate, not one of each.\nFix: Replace handle_chat_query_changes body with a call to jmap_server::handlers::handle_query_changes::<Chat, B>(backend, args).await, mirroring handle_chat_changes.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_chat_query_changes does not delegate to generic handler",
+  "updated_at": "2026-05-02T06:54:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:46:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "c8d8bdf2-9d6d-5167-9d1f-66bc842f3c8f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

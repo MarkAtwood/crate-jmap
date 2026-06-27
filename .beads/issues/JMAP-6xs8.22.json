@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "f4ae6018d86032532d46075f673cece25f927640f09a0473da15123e9dc4423c",
+  "created_at": "2026-05-15T05:44:38Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-types/ has README.md, PLAN.md, AGENTS.md, CLAUDE.md,\nLICENSE, Cargo.toml \u2014 and no CHANGELOG.md or RELEASES.md.\n\njmap-types is published to crates.io at 0.1.1. The 13 commits in this\nreview epic added eight `pub extra` fields, migrated 10 sites to the\n`State` newtype, surfaced a new `updated_properties` field on the base\n`ChangesResponse`, and several other public-surface changes. None of\nthis is communicated to a crates.io consumer pinning to `^0.1`.\n\nWhat a caller depending on this API in production accepts:\n\n1. Between 0.1.1 and a future 0.1.2 (or 0.2.0), there is no published\n   record of what changed. The only audit trail is `git log` on the\n   monorepo, which the crates.io consumer does not have a path to\n   without manually finding the repository.\n2. Beads (bd) issues are the project's internal task tracker. They\n   document the *why*. They are not what an external caller reads to\n   know \\\"did 0.1.2 break me?\\\".\n3. Even within this workspace, the propagation rule on canonical\n   crates ('change here ripples through 30 sibling crates') depends\n   on contributors knowing what changed. CHANGELOG.md is the natural\n   index for that propagation.\n\nJMAP-6xs8.3 (\\\"Cargo.toml version not bumped despite breaking changes\\\")\ncovers the SemVer half. This finding covers the docs half: even if the\nversion is bumped correctly, there is currently no human-readable\nartifact accompanying the bump.\n\nFix candidates:\n- Add `CHANGELOG.md` following Keep-a-Changelog format. Start with\n  an `[Unreleased]` section that captures the 13 commits' worth of\n  changes (the bd epic JMAP-6xs8 children make a strong skeleton).\n- Inherit the workspace AGENTS.md convention if there is one for\n  changelogs (currently there isn't; this finding may prompt one).\n- Mirror the workspace README convention's six-section shape into a\n  changelog convention so all sibling crates follow the same pattern.\n\nThis finding applies to every workspace crate that ships to crates.io,\nnot just `jmap-types`. Filed here because this review's scope is\n`crate-jmap-types since 9c0d34f`; flag for the workspace-API\nsupplement to propagate.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "No CHANGELOG.md for published jmap-types 0.1.1 crate",
+  "updated_at": "2026-05-17T16:49:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:44:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "adde94a4-9774-5be2-a2b0-966ee2b664a2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

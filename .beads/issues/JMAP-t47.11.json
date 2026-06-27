@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.11",
+  "title": "send_request: serialize-then-mutate-JSON is fragile for @type injection",
+  "description": "ws/mod.rs send_request: The @type injection serializes req to serde_json::Value, mutates the map, then re-serializes to String. This creates two serde_json allocations per call and couples the frame format to the shape of JmapRequest's JSON serialization. A wrapper struct with #[serde(flatten)] + @type + id fields would serialize directly in one pass: 'struct WsRequestFrame { at_type: &str, id: Option<&str>, #[serde(flatten)] req: &JmapRequest }'. This is not purely aesthetic \u2014 the current pattern will silently produce wrong output if JmapRequest ever serializes to a non-object (e.g. if the type changes), degrading to the InvalidArgument error path. The wrapper approach makes the type constraint compile-time.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:35:04Z",
+  "updated_at": "2026-04-30T01:43:03Z",
+  "closed_at": "2026-04-30T01:43:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:35:04"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-8kf.17",
+  "title": "connect_ws auth_header param type does not match AuthProvider::auth_header return type",
+  "description": "ws/mod.rs connect_ws takes auth_header: Option<(&str, &str)> but AuthProvider::auth_header returns Option<(String, String)>. Callers must .as_deref() each tuple member to bridge the types. The doc comment does not mention this conversion. Either align the types (accept Option<(&str, &str)> and document the as_deref pattern) or accept Option<(String, String)> to match what the provider returns.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:22:07Z",
+  "updated_at": "2026-04-30T01:03:27Z",
+  "closed_at": "2026-04-30T01:03:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-8kf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:22:07"
+    }
+  ]
+}

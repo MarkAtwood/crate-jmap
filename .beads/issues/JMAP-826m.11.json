@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T08:02:40Z",
+  "compaction_level": 0,
+  "content_hash": "38fd905a7db1cd90c9c3f858431317d11a0d49e5645cac5b0d4587b8b0d8204e",
+  "created_at": "2026-05-14T17:52:08Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: a contributor doing a cookie-cutter propagation reads the metadata-server source for guidance on which crate is the canonical reference, sees:\n\n- helpers.rs:4: 'Items here mirror the canonical extension-server helpers pattern (see jmap_sharing_server::helpers for the template).'\n- lib.rs:281: 'Down-cast Metadata -> O via serde round-trip. This is the canonical bridge for the JmapBackend::get_objects generic parameter; identical to sharing-server's mock pattern.'\n- PLAN.md:49-52: 'Canonical template: ~/PROJECT/crate-jmap/crate-jmap-sharing-server/ \u2014 closest single-extension-server analog. MetadataBackend is cookie-cut from SharingBackend; ...'\n- PLAN.md:55-57: 'The canonical extension-server template is jmap-mail-server per the workspace AGENTS.md canonical-template propagation rule; jmap-sharing-server is the closest precedent...'\n\nWorkspace AGENTS.md (/home/mark/PROJECT/crate-jmap/AGENTS.md 'Canonical Templates' section) is explicit: 'Extension server canonical: jmap-mail-server'. Sharing-server is a sibling like metadata, not a canonical template.\n\nMaintenance consequence: when sharing-server diverges from mail-server (it has, on details like the unknown-account create_object guard), metadata follows sharing-server's pattern instead of mail-server's. Over time, sharing and metadata co-drift away from the canonical, and the cookie-cutter intent fragments. The PLAN.md attempt to thread the needle (line 55-57) actually concedes the inversion: it states the canonical is mail-server but then says cookie-cutting is done from sharing.\n\nFix: update helpers.rs:4 to cite jmap_mail_server::helpers. Update lib.rs:281 to remove the 'sharing-server' reference (or replace with 'mail-server'). Update PLAN.md:49-57 to either (a) remove the sharing-server template framing entirely, or (b) document a per-section deviation (e.g. 'MetadataBackend's single-object-family shape borrowed from sharing-server, but trait shape and propagation rule follow mail-server').",
+  "ephemeral": 0,
+  "id": "JMAP-826m.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "helpers.rs and src/lib.rs test_support docs name 'jmap_sharing_server' / 'sharing-server' as the canonical template, contradicting workspace AGENTS.md which names jmap-mail-server",
+  "updated_at": "2026-05-15T08:02:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:52:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "b93f7fc4-bcec-5913-9e5a-eac99db09de5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

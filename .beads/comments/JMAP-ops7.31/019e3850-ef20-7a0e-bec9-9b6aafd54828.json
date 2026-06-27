@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T23:41:29Z",
+  "id": "019e3850-ef20-7a0e-bec9-9b6aafd54828",
+  "issue_id": "JMAP-ops7.31",
+  "text": "Closed by commit 8065c58.\n\nAdded crate-jmap-calendars-server/tests/max_objects_in_set.rs mirroring the canonical\nmail-server/tasks-server pattern (5 tests covering all 4 /set handlers + 1 at-limit\npositive control).\n\nThe new test surfaced that 3 of 4 calendars-server /set handlers were missing the\ncap-enforcement call that the canonical pattern mandates: handle_calendar_event_set,\nhandle_calendar_event_notification_set, handle_participant_identity_set. Only\nhandle_calendar_set had the enforce_max_objects_in_set call. Added the missing\ncall to each, citing bd:JMAP-ops7.31 inline.\n\nThis is exactly the asymmetric coverage gap the bead anticipated ('this is exactly\nthe kind of asymmetric coverage gap the canonical-template rule is supposed to\nprevent'). The missing test was masking real bugs in 3 production code paths."
+}

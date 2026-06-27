@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "94b7835b0e4f8fdc0dd2f6f66585c77eb591bf78ce5f174ed5a69eb79e280ccb",
+  "created_at": "2026-05-17T22:02:56Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**: Cargo.toml \\`[features]\\` sections of the 8 extension servers.\n\n**Survey result**:\n- crate-jmap-chat-server/Cargo.toml:32 \u2014 \\`realistic-demo-ids = []\\` \u2713\n- crate-jmap-calendars-server/Cargo.toml:43 \u2014 \\`realistic-demo-ids = []\\` \u2713\n- crate-jmap-tasks-server/Cargo.toml:28 \u2014 \\`realistic-demo-ids = []\\` \u2713\n- crate-jmap-contacts-server/Cargo.toml:44 \u2014 \\`realistic-demo-ids = []\\` \u2713\n- crate-jmap-sharing-server/Cargo.toml:28 \u2014 \\`realistic-demo-ids = []\\` \u2713\n- crate-jmap-metadata-server/Cargo.toml:28 \u2014 \\`realistic-demo-ids = []\\` \u2713\n- crate-jmap-mail-server/Cargo.toml \u2014 ABSENT (rationale: mail-server's id minter is realistic-by-default via uuid; see JMAP-3t94.5)\n- crate-jmap-filenode-server/Cargo.toml \u2014 ABSENT (no documented rationale)\n\n**Divergence**: 7 of 8 server crates either have the feature or have a documented reason why not. filenode-server is the only one with neither. Per the survey, filenode-server/src/memory.rs at line 1394 uses a hardcoded UUID literal (\\`\"550e8400-e29b-41d4-a716-446655440000\"\\`) for one test fixture but no \\`#[cfg(feature = \"realistic-demo-ids\")]\\` gating anywhere.\n\n**What goes wrong**:\n1. Test fixtures across the workspace can build mail/chat/calendars/tasks/contacts/sharing/metadata records in realistic-ID mode by toggling the feature uniformly. filenode tests have to ship a separate fixture-generation path, or accept counter-based IDs.\n2. A future jmapchat-server reference impl or kith integration that turns on \\`realistic-demo-ids\\` workspace-wide will silently leave filenode in counter mode.\n3. New extension authors looking at the sibling pattern won't know whether to add the feature or not.\n\n**Fix** (one of):\n1. Add \\`realistic-demo-ids = []\\` to filenode-server/Cargo.toml with the parallel \\`#[cfg(feature = \"realistic-demo-ids\")]\\` ID-minter branch matching the sibling pattern (canonical reference: crate-jmap-calendars-server/src/memory.rs).\n2. Document in filenode-server/AGENTS.md or lib.rs why filenode is exempt (e.g., 'FileNode IDs are always content-addressed' or 'filenode tests don't use realistic IDs because ...'). This is a workspace-wide convention call.\n\n**Priority**: P2 (not P1) \u2014 it's a feature-flag asymmetry, not a runtime bug; no caller is broken today. But it does affect test-fixture composability across the workspace.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "filenode-server lacks `realistic-demo-ids` Cargo feature; 6 of 7 sibling extension servers have it (mail's absence is documented as 'always realistic')",
+  "updated_at": "2026-05-17T22:43:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:02:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "37bad9d9-a61e-5748-89a5-a0f479341635",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

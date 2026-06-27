@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:58:37Z",
+  "compaction_level": 0,
+  "content_hash": "2cbbeac401623dbcb3d8aefc74230833809de1764891cc04211a2025aca30985",
+  "created_at": "2026-05-07T20:29:21Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/README.md 'Usage' example says `Dispatcher<()>` and the 'CallerCtx' section says 'register_chat_handlers takes CallerCtx = ()'. Actual signature is generic:\n\n```rust\npub fn register_chat_handlers<B, C>(...)\nwhere C: Clone + Send + 'static,\n```\n\nThe README is more restrictive than the API. Fix the example to use a generic placeholder, e.g. `Dispatcher<MyCallerCtx>` with a comment explaining MyCallerCtx is your application's per-request context type.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: chat-server README claims Dispatcher<()>, but register_chat_handlers is generic over CallerCtx",
+  "updated_at": "2026-05-07T21:58:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "d0a428ca-aa62-5bae-9719-c6ca30498ee0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

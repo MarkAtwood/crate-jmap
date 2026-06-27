@@ -1,0 +1,33 @@
+{
+  "close_reason": "Test-only code; Mutex::lock().unwrap() is acceptable in test helpers where poison is unrecoverable.",
+  "closed_at": "2026-05-02T03:40:07Z",
+  "compaction_level": 0,
+  "content_hash": "d737cc356cd66dbddd2e43187ea815c94b621f6dbbdb14ec32340500ec8fc11b",
+  "created_at": "2026-05-02T03:25:27Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/common/mod.rs: every lock acquisition in MemoryBackend uses self.inner.lock().unwrap(), which panics if any test panics while holding the lock. Since async tests can run concurrently under tokio::test, a panic in one test can poison the Mutex and cause unrelated tests to panic with 'PoisonError'. Idiomatic practice is to use .expect('MemoryBackend inner lock poisoned') at minimum (documents the invariant), or to unwrap_or_else with lock.into_inner() to recover from poison. The current code obscures the root-cause panic in CI failures.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mutex::lock().unwrap() in test backend is not poison-safe",
+  "updated_at": "2026-05-02T03:40:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:25:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "7e228d9a-d8ce-5a2a-9ba7-f8723918f71e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

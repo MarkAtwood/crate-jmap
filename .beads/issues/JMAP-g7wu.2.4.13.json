@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T161839Z-2683045",
+  "close_reason": "Landed in commit 73f3d05. Added ChatBackend::apply_space_metadata_patch (no default impl; backend canonical per workspace AGENTS.md), reference MemoryBackend impl with manage_space gate, parallel test-only entry MemoryBackend::apply_space_metadata_patch_with_caller_id, handler swap in space.rs, impls in FaultyBackend/TrackingBackend/IdentityBackend, and 9 tests in tests/space_metadata_apply.rs covering single-user mode, manage_space holder, @everyone-only member, non-member, other-perms-without-manage_space, mixed metadata+structural atomicity, and single-field gating.",
+  "closed_at": "2026-05-13T16:35:02Z",
+  "compaction_level": 0,
+  "content_hash": "dc51f9e4964dfd6d0cc30ffb37f92d83ad46f5babde16f132944817c5411c529",
+  "created_at": "2026-05-13T15:40:36Z",
+  "created_by": "Mark Atwood",
+  "description": "Found by the JMAP-g7wu.2.4.6 do-beads triage 2026-05-13.\n\n## Problem\n\nSpace top-level metadata fields (`name`, `description`, `iconBlobId`, `isPublic`, `isPubliclyPreviewable`, etc.) are mutated via the standard RFC 8620 PatchObject path in `handle_space_set`, which dispatches through `update_object` \u2014 NOT through `apply_space_patch`. The permission-validation pre-check landed in JMAP-g7wu.2.4.3 (`validate_role_member_ops`) explicitly filters to Role/Member ops and does not cover this path. The `apply_space_patch` call only runs for the semantic mutation keys (addRoles, removeRoles, addMembers, etc., per draft-atwood-jmap-chat-00 \u00a7Space/set), not for top-level field assignments.\n\nNet effect: a caller without `manage_space` permission can today successfully mutate a Space's top-level metadata via standard /set update operations.\n\n## Spec authority\n\ndraft-atwood-jmap-chat-00 (current) at the field definitions for `name`, `description`, `isPublic`, `isPubliclyPreviewable`, etc. carries the marker 'Mutable by members with \"manage_space\" permission'. This is the normative basis for the gate.\n\n## Acceptance\n\n- handle_space_set's update path (the standard RFC 8620 PatchObject branch, NOT the semantic-mutation-key apply_space_patch path) verifies that the caller holds `manage_space` on the target Space before any top-level metadata field is mutated. Failure produces SetError::Forbidden with a descriptive message.\n- Enforcement is BACKEND-CANONICAL (per workspace AGENTS.md 'Caller identity (foundation seam)'). The handler MAY do a defense-in-depth pre-check, but the backend MUST re-verify atomically with the mutation.\n- Empty patches (no field changes) are still permitted to non-managers (consistent with RFC 8620 /set's tolerance for no-op updates).\n- Tests:\n  * Caller with `manage_space` mutates `description` \u2192 succeeds, change reflected.\n  * Caller without `manage_space` (just `@everyone` role) mutates `description` \u2192 SetError::Forbidden, no mutation.\n  * Caller without `manage_space` mutates a no-op patch (e.g. {}) \u2192 succeeds (or no-op response).\n  * Mixed patch (`name` + addMembers in one /set call) \u2192 still atomic; if caller lacks `manage_space`, both branches are rejected and rolled back.\n\n## Out of scope\n\n- Extending manage_channels enforcement (separate bead).\n- Changing the apply_space_patch path (already gates Role/Member ops correctly under JMAP-g7wu.2.4.3).\n- ULID migration (separate bead).\n- Spec ambiguity on what 'top-level metadata' includes \u2014 assume all RFC 8620 PatchObject paths that target a field NOT exposed via semantic mutation keys.\n\n## Cross-references\n\n- JMAP-g7wu.2.4.3 \u2014 Role/Member apply_space_patch with permission/hierarchy validation (the work this gate parallels)\n- JMAP-g7wu.2.4.6 \u2014 the test-matrix bead this finding came out of\n- workspace AGENTS.md 'Caller identity (foundation seam)' \u2014 the policy this gate operationalizes",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.2.4.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Space top-level metadata: enforce manage_space permission gate in handle_space_set",
+  "updated_at": "2026-05-13T16:35:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T08:40:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4",
+      "id": "dc3dc488-5bb6-5303-9559-80f46dc5dc14",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

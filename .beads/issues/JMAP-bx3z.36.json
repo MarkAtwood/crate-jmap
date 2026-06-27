@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: handle_email_get and handle_email_parse both insert id into effective_props before filter_properties when properties is explicitly specified",
+  "closed_at": "2026-05-02T19:26:48Z",
+  "compaction_level": 0,
+  "content_hash": "c8dd959c48febfe835bd769453b7d33014fbff4aea6b52d972e599d0ab30a251",
+  "created_at": "2026-05-02T19:19:04Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_email_parse (email.rs ~L1812-1820), when properties is Some([...]), effective_props is built from regular_props without inserting 'id'. filter_properties then omits 'id' from parsed Email objects. RFC 8620 \u00a75.1 requires id to always be present. Trigger: Email/parse with properties=['subject'] \u2192 parsed Email objects in the 'parsed' map have no 'id' field. DEFAULT_EMAIL_PARSE_PROPERTIES also omits 'id' (lines 56-74), so even the default case does not include it.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/parse drops 'id' when properties list is specified",
+  "updated_at": "2026-05-02T19:26:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:19:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "f9439a5d-e702-5db5-84a0-44a44240875e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "closed_at": "2026-05-14T22:14:04Z",
+  "compaction_level": 0,
+  "content_hash": "d02e022fe8066c4b3496fad3868655c541634ec1ba12045a303291b37e54c7c1",
+  "created_at": "2026-05-14T21:51:43Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/memory.rs:353-371. The dedup loop is:\n\n    for entry in &relevant {\n        for id in &entry.created {\n            if !destroyed.contains(id) && !created.contains(id) { ... }\n        }\n        for id in &entry.updated {\n            if !destroyed.contains(id) && !created.contains(id) && !updated.contains(id) { ... }\n        }\n        for id in &entry.destroyed {\n            created.retain(|c| c != id);\n            updated.retain(|u| u != id);\n            if !destroyed.contains(id) { ... }\n        }\n    }\n\nComplexity class: Vec::contains is O(n). For relevant.len() == K entries each with C ids, this is O(K * C * (created_so_far + destroyed_so_far + updated_so_far)). Worst case O(K^2 * C^2). The retain calls add another linear factor.\n\nTrigger scale: an account with sustained mutation that has not been compacted has a change_log entries grow to thousands. A /changes call spanning all of it walks the entire list and the dedup is N^2 over total ids.\n\nThe fix is the standard one: build three HashSets (created_set, updated_set, destroyed_set) parallel to the Vecs and use them for contains/retain. Memory cost is bounded by the same N \u2014 no real downside.\n\nThis is in the reference impl path and is documented as not-production, BUT downstream implementors copying this shape will inherit the quadratic behavior. The shape appears in 6 sibling MemoryBackends \u2014 propagation needed.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Folded into .3: the Vec::contains nested-loop dedup was replaced wholesale by a HashMap<Id, Outcome> approach in the same edit. Per-call complexity is now O(total ids across relevant entries) with O(1) lookups, vs. the previous O(n*m) where m = current dedup-set size.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "get_changes dedup uses Vec::contains in nested loop \u2014 O(n*m) per call",
+  "updated_at": "2026-05-14T22:14:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:51:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "04076128-95e1-5794-a4f5-6f9e49bb8b59",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

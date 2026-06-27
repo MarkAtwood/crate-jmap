@@ -1,0 +1,32 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:20:14Z",
+  "compaction_level": 0,
+  "content_hash": "efe8c7835e20bafff562ec1cac948604a83757b99da77c291a70413aebcd2306",
+  "created_at": "2026-05-05T01:16:46Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-3a4e.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "src/card.rs \u2014 ContactCard, ContactCardFilterCondition",
+  "updated_at": "2026-05-05T01:20:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:16:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3a4e",
+      "id": "fe534adc-1f24-5278-a70c-abcca7f59a37",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

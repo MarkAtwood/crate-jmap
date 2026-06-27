@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.9",
+  "title": "SSE unfold: comment the scan_from UTF-8 invariant at the invariant site",
+  "description": "In client.rs subscribe_events, the invariant that scan_from must be a valid UTF-8 char boundary is guarded by a while-loop at line 341, but the while-loop comment says 'Walk backward to a valid UTF-8 char boundary so that buf[scan_from..] never panics on multibyte characters.' \u2014 the invariant is documented at the enforcement point but not at the two other places that set scan_from (the initial 0usize in SseStreamState and the reset to 0 after consuming a frame). A contributor adding a new scan_from assignment path would have no cue that the invariant applies there too. Add a short type-level comment on SseStreamState.scan_from explaining the invariant it must satisfy.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:26Z",
+  "updated_at": "2026-04-30T01:12:51Z",
+  "closed_at": "2026-04-30T01:12:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:25"
+    }
+  ]
+}

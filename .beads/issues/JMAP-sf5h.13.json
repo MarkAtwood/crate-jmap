@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in 0bf1ae3 (paired with .12). Rewrote Sha256 type-level '# Construction' section to enumerate all four ABNF-validating paths (from_hex, TryFrom<&str>, TryFrom<String>, FromStr) plus the serde::Deserialize path, and to separate them from the one infallible constructor (from_raw_digest). Notes that the validating paths share the same parse logic from from_hex.",
+  "closed_at": "2026-05-16T04:12:45Z",
+  "compaction_level": 0,
+  "content_hash": "bb96f1a90558b57a1995b2ada92ff7c256af265b053f327b5ac53a5a3916ef74",
+  "created_at": "2026-05-16T03:48:58Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-cid-types/src/digest.rs:86-98 declares Sha256 with this top-level docstring:\n\n    /// SHA-256 digest carried on the JMAP wire as a 64-character\n    /// lowercase hex string (draft-atwood-jmap-cid-00 \u00a72).\n    ///\n    /// Construct with:\n    ///\n    /// - [Sha256::from_hex] \u2014 validates a candidate hex string.\n    /// - [Sha256::from_bytes] \u2014 formats 32 raw digest bytes into a\n    ///   canonical lowercase-hex string. Infallible.\n    ///\n    /// Wire format is the bare hex string \u2014 #[serde(try_from, into)] drives ...\n\nBut the type also implements (digest.rs:168-187):\n\n    impl TryFrom<String> for Sha256\n    impl TryFrom<&str> for Sha256\n    impl std::str::FromStr for Sha256\n\n\u2026and via #[derive(Deserialize)] + #[serde(try_from = \\\"String\\\")] it can be deserialised from any serde input. The \\\"Construct with\\\" rustdoc enumerates only 2 of the 5 publicly-stable construction paths.\n\nAPI-contract impact: a caller scanning rustdoc on the type to see \\\"how do I make one of these\\\" will see from_hex / from_bytes and miss that .parse::<Sha256>() or sha256: Sha256 = some_string.try_into()? also work. They will write extra glue (\\\"let s: String = ...; let sha = Sha256::from_hex(&s)?;\\\") where parse() or try_into() would be more idiomatic. Worse, in API surface review they may believe these conversions don't exist and write defensive code around the gap.\n\nSuggested replacement:\n\n    /// Construct with:\n    ///\n    /// - [Sha256::from_hex] / [TryFrom<&str>] / [TryFrom<String>] /\n    ///   [FromStr::from_str] \u2014 validate a candidate hex string against\n    ///   the ABNF.\n    /// - [Sha256::from_bytes] \u2014 format 32 raw digest bytes into the\n    ///   canonical lowercase-hex string. Infallible.\n    /// - Serde deserialization \u2014 validates via TryFrom<String>; same\n    ///   ABNF check as the explicit constructors.\n\nThe same docstring should also note that the four validating paths share the same validation logic \u2014 currently this is described only at the impl-block level (\\\"every deserialize path applies the same ABNF check from_hex does\\\") and not at the type level where API scanners look first.",
+  "ephemeral": 0,
+  "id": "JMAP-sf5h.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sha256 type-level rustdoc omits TryFrom / FromStr / Deserialize construction paths",
+  "updated_at": "2026-05-16T04:12:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T20:48:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sf5h",
+      "id": "6510d3de-219c-583e-aed9-39c07327abaf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

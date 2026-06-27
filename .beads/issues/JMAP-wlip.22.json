@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Made SetErrorType::custom canonicalise known wire-names to their typed variants \u2014 custom('forbidden') now returns Forbidden, not Custom('forbidden'). Round-trip is symmetric: serde_json::from_str of any known wire-name produces the same typed variant that custom() produces. Implementation: extracted SetErrorType::from_wire_str(&str) -> Option<Self> as the single source of truth; both custom() and the Deserialize visitor use it. Added canonicalise test that spot-checks 6 known wire-names and one unknown ('mdnAlreadySent' stays Custom). Existing custom_round_trips test still passes because 'mdnAlreadySent' is not a known name. Production call sites (sieve.rs invalidSieve/sieveIsActive, mdn.rs mdnAlreadySent, chat message.rs rateLimited, contacts addressbook.rs addressBookHasContents) all use names outside the typed-variant set, so behaviour is unchanged for them.",
+  "closed_at": "2026-05-14T13:40:48Z",
+  "compaction_level": 0,
+  "content_hash": "e8375e556a71c0013dbd9bbe2ea6bd172dc98b5b61ed621a834c259555c2413f",
+  "created_at": "2026-05-14T13:04:29Z",
+  "created_by": "Mark Atwood",
+  "description": "Path: crate-jmap-server/src/backend.rs:276-321 (Serialize + Deserialize for SetErrorType). The Display impl at backend.rs:244-274 emits Custom(s) as the bare string `s`. The Deserialize visitor's match-arm list at backend.rs:292-315 prefers every named variant before falling through to `other => SetErrorType::Custom(other.to_owned())`.\n\nConsequence: SetErrorType::custom(\"forbidden\") and SetErrorType::Forbidden are PartialEq-distinct (the derived PartialEq on the enum sees different variants) but produce the same wire bytes (\"forbidden\"). Round-trip is asymmetric:\n\n  let x = SetErrorType::custom(\"forbidden\");\n  let s = serde_json::to_string(&x)?;          // \"\\\"forbidden\\\"\"\n  let y: SetErrorType = serde_json::from_str(&s)?;\n  assert_eq!(x, y);                            // FAILS: y is Forbidden, not Custom\n\nReal-world failure mode: a handler emits `SetError::new(SetErrorType::custom(\"forbidden\"))` (typo: should have used the named variant). A test deserialises the wire response and compares to `SetErrorType::custom(\"forbidden\")`. The assertion fails with a confusing message \u2014 both sides print as \"forbidden\" via Display, but one is Custom and the other is Forbidden. The reader has to either Debug-print or check the variant tag with discriminant().\n\nSame pattern for every named variant: custom(\"invalidRecipients\") != InvalidRecipients, custom(\"mailboxHasChild\") != MailboxHasChild, etc. 13 mail variants + 10 base variants = 23 names whose Custom-form does not equal their named-form after round-trip.\n\nRight shape (two options):\n1. Custom validation: `SetErrorType::custom(s: impl Into<String>) -> Self` returns Custom(s) ONLY if s is not a known wire-name; if it IS a known name, return the corresponding named variant. The Deserialize visitor does the same logic \u2014 same code path, single source of truth.\n\n2. PartialEq override: implement PartialEq manually to compare wire strings rather than variant tags. SetErrorType::Forbidden == SetErrorType::Custom(\"forbidden\") becomes true. Hash impl needs the same treatment for HashMap/HashSet consistency.\n\n(1) is cleaner \u2014 preserves the typed-pattern-match advantage and eliminates the asymmetry entirely.\n\nA test asserting Custom(\"forbidden\") survives round-trip as Custom would also catch this, but adding the test without (1) or (2) just documents the bug instead of fixing it.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetErrorType::Custom(s) and named variant for same wire string are PartialEq-distinct but serde-asymmetric \u2014 silent contract drift on round-trip",
+  "updated_at": "2026-05-14T13:40:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:04:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "b8752676-e087-5c9f-a447-0c06e0cfa632",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

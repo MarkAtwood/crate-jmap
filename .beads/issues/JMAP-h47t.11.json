@@ -1,0 +1,33 @@
+{
+  "close_reason": "Deferred to workspace sweep JMAP-<filled-in-below>: this is a canonical-template-propagation cleanup spanning ~80 call sites across 8 extension-server crates. The original correctness concern (Err(_) silent placeholder) was already addressed by JMAP-h47t.24 / commit 0c18071 \u2014 the catchall now uses other.to_string() to preserve future-variant Display content. What remains is purely code-elegance consolidation, which the canonical-template rule says should land on jmap-mail-server first and propagate as one pass. Filed sweep as JMAP-vwx0 (priority P2).",
+  "closed_at": "2026-05-14T19:10:36Z",
+  "compaction_level": 0,
+  "content_hash": "00a78177f7e913758ab39d673ee8d73877c15bc80bb2045996b65667907495fd",
+  "created_at": "2026-05-14T18:09:06Z",
+  "created_by": "Mark Atwood",
+  "description": "The pattern:\n\n  match backend_result {\n      Ok(...) => { /* success */ }\n      Err(BackendSetError::SetError(set_err)) => { ... insert(set_error_value(&set_err)); }\n      Err(BackendSetError::Other(e)) => { ... insert(json!({type: serverFail, description: e})); }\n      Err(_) => { ... insert(json!({type: serverFail, description: 'unhandled backend error variant'})); }\n  }\n\nappears in task.rs create (172-199), task.rs update (289-321), task.rs destroy (343-369), task.rs copy (455-482), task_list.rs create (131-161), task_list.rs update (186-220), task_list.rs destroy (251-277), task_notification.rs destroy (132-158). That is eight near-identical 30-line blocks. The Err(_) catch-all is doubly wrong: BackendSetError is #[non_exhaustive], and any future variant added without sweep-updating all eight call sites silently maps to 'unhandled backend error variant' \u2014 a serverFail with no useful description rather than a structured SetError.\n\nSuggested rewrite: a private helper\n\n  fn map_backend_error<E: Display>(err: BackendSetError<E>) -> serde_json::Value {\n      match err {\n          BackendSetError::SetError(e) => set_error_value(&e),\n          BackendSetError::Other(e) => json!({type: serverFail, description: e.to_string()}),\n          _ => json!({type: serverFail, description: 'unhandled backend error variant'}),\n      }\n  }\n\nreduces each match arm to one line:\n\n  Err(e) => { not_xxx.insert(id, map_backend_error(e)); }\n\nThis is a cookie-cutter pattern across multiple extension-server crates per the canonical-template rule. Recommend filing the consolidation as a workspace sweep so it lands on jmap-mail-server (canonical) first and then propagates to chat/calendars/tasks/contacts/filenode/metadata/sharing in one pass.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Six-way duplication of BackendSetError \u2192 SetError JSON mapping across /set handlers",
+  "updated_at": "2026-05-14T19:10:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:09:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "694b9227-7e23-567e-8c88-432e3460d95a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

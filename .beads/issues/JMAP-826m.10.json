@@ -1,0 +1,33 @@
+{
+  "close_reason": "Superseded by sibling beads: (1) /query filter+sort ignored \u2014 IMPLEMENTED in JMAP-826m.4 (commit 92b46ac), MemoryBackend now applies typed filter and sort. (2) /queryChanges filter+sort ignored \u2014 DISCLOSED in memory.rs module doc by JMAP-826m.4, fix tracked at JMAP-ya7g. (3) update_object server-set-field echo gap \u2014 tracked separately at JMAP-826m.6. Bead .10's recommended remediation (implement OR loudly document) has been applied to all three concerns: implementation for (1), disclosure-plus-follow-up-bead for (2), and (3) is its own ready bead. The meta-risk bead concern about contributors copying gaps is reduced because the module doc now has a complete 'what is and is not implemented' list.",
+  "closed_at": "2026-05-15T08:01:03Z",
+  "compaction_level": 0,
+  "content_hash": "847ffe26cee771706c1116fa94649820a0dbf8a0e5318ce616c79ad7c7feb6b2",
+  "created_at": "2026-05-14T17:51:52Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: A downstream contributor reads memory.rs:5-13 ('reference implementation', 'for downstream contributors to study') and copies the MemoryBackend pattern into their own postgres-backed MetadataBackend. They notice query_objects is a stub that ignores filter and sort, conclude this is the workspace pattern, and ship a backend that silently ignores their clients' filter args. This becomes a class of issue reports against THEIR product, and the bug-vector trail leads back to this crate's 'reference implementation'.\n\nThe Metadata-specific behaviour list (memory.rs:26-41) discloses 4 limitations (uniqueness, maySetPrivate, quota, related-object validation). It does NOT disclose:\n- /query: filter ignored (memory.rs:566-614 has _filter, _sort)\n- /query: sort ignored\n- /queryChanges: filter+sort ignored (delegates to get_changes which doesn't filter either)\n- update_object: never reports Some(obj) server-set-field echo\n\nThe Single-user limitation section (memory.rs:43-83) is well-written and handles principal_id correctly. The /query/sort gap deserves the same treatment.\n\nMaintenance consequence: every contributor who reads this as a reference will reproduce the same gap. The crate gets a reputation for 'JMAP that says it supports filtering but actually returns everything'. Fixing the docs is cheap; fixing the reputation later is expensive.\n\nResolution options:\n(a) Implement minimal filter + sort in MemoryBackend (matches \u00a73.4 spec floor, ~100 lines).\n(b) Add a loud 'Metadata-specific behaviour' bullet documenting these gaps before someone copies the pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend mass-claims 'reference implementation' but lacks /query filter/sort, /query position correctness, server-set-field echo on update \u2014 contributors WILL copy this and inherit the gaps",
+  "updated_at": "2026-05-15T08:01:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:51:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "885ac22c-fa36-504a-97cb-d6863196527f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

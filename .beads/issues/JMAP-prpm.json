@@ -1,0 +1,33 @@
+{
+  "close_reason": "all steps complete",
+  "closed_at": "2026-05-18T04:48:12Z",
+  "compaction_level": 0,
+  "content_hash": "2c0ba4c4fee179fea5307471a376e693be259c7ec96e4b9175760439d1625f84",
+  "created_at": "2026-05-17T20:56:57Z",
+  "created_by": "Mark Atwood",
+  "description": "Umbrella epic to ratify the JMAP-6r7c review-pass recommendations that all conclude with 'land in a coordinated 0.2.0 minor bump'. Workspace AGENTS.md says 'Prefer non-breaking changes. Reshape only when the workspace is bumping a major.' This umbrella collects every public-API-breaking reshape on jmap-base-client identified by JMAP-6r7c so they land in a single coordinated version cut rather than three sequential minor bumps.\n\nWorkspace-coordination context: workspace Cargo.toml lines 55-59 anchors the workspace-wide 0.2 bump to four prereq beads (JMAP-g7wu.1 CallerCtx, JMAP-g7wu.3 helpers builder, JMAP-g7wu.9 UTCDate, JMAP-r3pg.14 extract_account_id) which all closed in early May 2026. The workspace-wide 0.2.0 bump is therefore unblocked at the prereq level; this epic collects the jmap-base-client-specific breaking changes that should ride along.\n\nScope (one bullet per bundled bead, all children of this epic):\n- JMAP-6r7c.20 \u2014 AuthProvider::auth_header signature locks header into single static pair (api-contract, P2)\n- JMAP-6r7c.26 \u2014 ClientError::Parse and Serialize variants expose serde_json::Error publicly (api-contract, P2)\n- JMAP-6r7c.31 \u2014 WsSession provides no concurrent-send safety (api-contract, P2)\n- JMAP-6r7c.36 \u2014 TransportConfig::build_client returns concrete reqwest::Client (api-contract leak, P2)\n- JMAP-6r7c.48 \u2014 DownloadBlobParams.expected_sha256 is Option<&str>, not Option<&Sha256> (type-design, P1)\n- JMAP-6r7c.50 \u2014 upload_blob takes four positional &str args; introduce UploadBlobParams (type-design, P1)\n- JMAP-6r7c.40 \u2014 Session URLs lack typed wrapper distinguishing template vs plain (api-contract defensive, P4)\n- JMAP-6r7c.43 \u2014 BlobUploadResponse PartialEq/Eq + extra Map ordering dependency (api-contract leak, P4)\n- JMAP-6r7c.62 \u2014 AuthProvider::auth_header returns (&str, &str) without secret-typing (crypto-security, P3)\n- JMAP-6r7c.63 \u2014 Username/AccountName newtypes with redacting Display (P3)\n- JMAP-6r7c.64 \u2014 Add Session-taking variants of upload_blob and download_blob (P3)\n- JMAP-6r7c.65 \u2014 Builder API for CustomCaTransport: multi-root, intermediates, mTLS (P3)\n\nOut of scope:\n- jmap-types changes (covered by JMAP-6xs8.3 and its umbrella) \u2014 coordinate the version bump but not the API reshape here\n- Sibling extension client crates (jmap-mail-client, jmap-chat-client) \u2014 workspace canonical-template rules require propagation only AFTER jmap-base-client bumps; file a propagation sweep bead at that time\n\nSequencing:\n1. Land .20 + .26 + .31 + .36 (api-contract reshapes \u2014 trait/error signatures)\n2. Land .48 + .50 (type-design \u2014 blob params)\n3. Land .40 + .43 (defensive shape fixes)\n4. Land .62 + .63 + .64 + .65 (new API surface \u2014 additive but rides the bump)\n5. Bump jmap-base-client Cargo.toml to 0.2.0\n6. CHANGELOG entry covering all bundled changes\n7. File propagation sweep beads for sibling *-client crates\n\nThis epic does NOT authorize the workspace-wide 0.2.0 bump on its own. Bumping jmap-base-client to 0.2.0 alone is asymmetric with the planned coordinated bump (workspace Cargo.toml comment lines 55-59) and may need workspace-architectural decision before publish. Filing this as 'human' so the maintainer can pick the timing: (a) ride the next coordinated bump, or (b) cut jmap-base-client 0.2.0 ahead of the workspace bump if the workspace bump is far off.\n\nRecommendation: option (a). The workspace-wide coordinated bump is the AGENTS.md-aligned timing and the prereq beads have all closed, so the coordinated cut is likely near-term. Holding this jmap-base-client umbrella as a ready-to-execute work batch that lands when the coordinated cut is scheduled minimises churn.",
+  "ephemeral": 0,
+  "id": "JMAP-prpm",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {
+    "dispatcher": "bd-review-loop",
+    "dispatcher_run": "bd-review-loop-20260518T034608Z-161817",
+    "final_failures": 0,
+    "final_iter": 1,
+    "final_verdict": "genuine_convergence",
+    "log_dir": "/home/mark/.local/state/bd-review-loop/crate-jmap/20260518T034608Z",
+    "model": "anthropic/claude-opus-4-7",
+    "variant": "max"
+  },
+  "no_history": 0,
+  "notes": "bd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; ",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "EPIC: jmap-base-client 0.2.0 coordinated minor bump \u2014 bundle breaking API reshapes",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

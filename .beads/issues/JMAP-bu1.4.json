@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-bu1.4",
+  "title": "parse_sse_block uses .trim() on id: value; RFC 8895 \u00a79.1 says strip exactly one leading space",
+  "description": "RFC 8895 \u00a79.1 says 'If the line contains a U+003A COLON character (:), collect the characters up to but not including the first U+003A COLON character, and let field be that string. Collect the characters after the first U+003A COLON character, and let value be that string. If value starts with U+0020 SPACE, remove it from value.' strip_prefix() + .trim() removes ALL leading and trailing whitespace from the id value, not just one leading space. An id that legitimately begins or ends with spaces (unusual but spec-valid) would be silently mangled. Also affects data: lines. Consistent with how most SSE implementations handle this in practice, but is a spec deviation that could generate a support issue.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:25:40Z",
+  "updated_at": "2026-04-30T01:31:24Z",
+  "closed_at": "2026-04-30T01:31:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-bu1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:25:39"
+    }
+  ]
+}

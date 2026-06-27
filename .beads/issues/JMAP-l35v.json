@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "f582801884c859f13c44574ec16a84ac3e4c5fe2e90254427bd162ae6b9641d0",
+  "created_at": "2026-05-16T18:43:28Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-jscontact-types/src/lib.rs:1735 declares `let cases: &[(&str, serde_json::Value, fn(&AnniversaryDate) -> bool)] = &[...]` which fails `-D clippy::type_complexity` on Rust 1.95. Fix: introduce a `type CaseRow = (&'static str, serde_json::Value, fn(&AnniversaryDate) -> bool);` alias above the test (or `#[allow(clippy::type_complexity)]` on the test fn with a justification comment). Pre-existing \u2014 does not block JMAP-j7pa.1 work but breaks workspace-wide `cargo clippy --workspace --all-targets -- -D warnings` gate.",
+  "ephemeral": 0,
+  "id": "JMAP-l35v",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "(BUG) clippy type_complexity in jscontact-types lib test",
+  "updated_at": "2026-05-16T18:43:28Z"
+}

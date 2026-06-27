@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:42:45Z",
+  "compaction_level": 0,
+  "content_hash": "63f35fcdd1786d5c1ac7aa581ab072d87499f934e93bf4746ced1a4d5677da54",
+  "created_at": "2026-05-02T23:39:09Z",
+  "created_by": "Mark Atwood",
+  "description": "src/mdn.rs lines 415-418 contain a TODO comment: '/// TODO: make this configurable via MdnBackend trait or server config.' attached to the MDN_PARSE_MAX_BLOB_IDS constant. CLAUDE.md policy prohibits TODO comments in committed code. Either file an issue (done \u2014 this issue) and remove the comment, or implement the configurability. The value (16) is also undocumented with respect to any spec limit.",
+  "ephemeral": 0,
+  "id": "JMAP-h2wv",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mdn src/mdn.rs: TODO comment in committed code",
+  "updated_at": "2026-05-02T23:42:45Z"
+}

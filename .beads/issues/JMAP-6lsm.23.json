@@ -1,0 +1,33 @@
+{
+  "close_reason": "Renamed private validate_session_urls -> validate_session_url_schemes for accuracy. Docstring now explicitly disclaims template-variable validation. Internal change only.",
+  "closed_at": "2026-05-09T07:24:52Z",
+  "compaction_level": 0,
+  "content_hash": "781141c7db9731400fbea1e59d95603f714418a1a99673739add714ff4e6ba9d",
+  "created_at": "2026-05-08T03:06:50Z",
+  "created_by": "Mark Atwood",
+  "description": "src/client.rs:664-680 \u2014 `validate_session_urls` iterates [api_url, upload_url, download_url, event_source_url] and checks scheme. Three of those four are RFC 6570 URI templates (containing {accountId}, {blobId}, {types}, etc.), not concrete URLs. Only api_url is a concrete URL. The current scheme check works because url_scheme() does a stringy split on '://' and templates always have the scheme on the left. But the function name implies stronger validation than 'check the prefix'. A template like `{scheme}://example.com/{path}` would have an empty scheme and be (correctly) rejected. Cleaner: rename to `validate_session_url_schemes` so the limited check is on the tin. Or expand the validation: ensure required template variables are present (api_url has none; upload_url must have {accountId}; etc.). Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "validate_session_urls treats RFC 6570 URI templates as bare URLs",
+  "updated_at": "2026-05-09T07:24:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:06:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "0dda2286-3f6b-5e4b-968c-f816a7e7d16f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Separate inline comments added to sortAsTree and filterAsTree rejection arms explaining explicit-rejection rationale per RFC 8621 \u00a72.3",
+  "closed_at": "2026-05-02T22:33:27Z",
+  "compaction_level": 0,
+  "content_hash": "45dd655d108005f0f6a3f9c7ee3a23faa412df440d09a5478b6d56ea5e4f0fba",
+  "created_at": "2026-05-02T19:19:38Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_mailbox_query, when sortAsTree=true or filterAsTree=true, the handler returns unsupportedSort or unsupportedFilter rather than silently ignoring the flag and returning flat results. A contributor might remove these checks as overly defensive, since the result 'looks' fine without tree traversal. But silently ignoring sortAsTree/filterAsTree would produce semantically wrong results for clients that rely on tree-mode semantics \u2014 e.g. filterAsTree affects whether child mailboxes are included based on parent match. Failing loudly with the correct RFC 8620 error is strictly better than silently returning wrong data.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.50",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/query sortAsTree/filterAsTree explicitly rejected with unsupportedSort/unsupportedFilter rather than silently ignored",
+  "updated_at": "2026-05-02T22:33:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:19:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "8d5e313f-e5d8-5540-8329-54fd39ce5184",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

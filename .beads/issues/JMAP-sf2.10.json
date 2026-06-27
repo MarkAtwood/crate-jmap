@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-sf2.10",
+  "title": "Mailbox/query uses EmailFilter as Mailbox filter type \u2014 wrong type in trait impl",
+  "description": "backend.rs:638-643: QueryObject for Mailbox uses EmailFilter as the Filter type with a comment saying Mailbox/query has no defined filter type. But Mailbox/query DOES have defined filter fields (parentId, name, role, hasAnyRole, isSubscribed per RFC 8621 \u00a72.3). The handler (mailbox.rs) hand-parses these fields from the raw args rather than using the trait Filter type. Backend implementors who override query_objects::<Mailbox> will receive an EmailFilter object, which is confusing and incorrect. Should define a MailboxFilterCondition type.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:29:36Z",
+  "updated_at": "2026-05-01T02:52:18Z",
+  "closed_at": "2026-05-01T02:52:18Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sf2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:29:35"
+    }
+  ]
+}

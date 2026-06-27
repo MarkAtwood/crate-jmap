@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T19:21:29Z",
+  "compaction_level": 0,
+  "content_hash": "977eee9fccb79be4cde434d10ea091f63c03ad09124822cdf043d5c090a987fd",
+  "created_at": "2026-05-15T19:00:49Z",
+  "created_by": "Mark Atwood",
+  "description": "The JMAP-ic0j.53 fix removed one leakage site at principal.rs:121 by replacing `JmapError::server_fail(e.to_string())` with `server_fail_from_backend(&e)`. That helper redacts to the constant `SERVER_FAIL_INTERNAL_DESC`. The closure note even cites \"calendar.rs:68, event.rs:45-46, event.rs:105, event.rs:179-180, etc.\" as already using the helper.\n\nBut the helper is `fn server_fail_from_backend(&E) -> JmapError` \u2014 it only fits sites that produce a top-level `JmapError`. The handler-level `account_exists` / `get_state` / `get_objects` map sites use it correctly.\n\nThe /set per-id `notCreated`/`notUpdated`/`notDestroyed` map values are a DIFFERENT shape \u2014 they are `serde_json::Value` objects keyed by id, not `JmapError`. The helper does not fit. So every `BackendSetError::Other(e)` arm in every /set handler has the hand-rolled leaky pattern:\n\n```rust\nErr(BackendSetError::Other(e)) => {\n    not_destroyed.insert(\n        id_str,\n        json!({ \"type\": \"serverFail\", \"description\": e.to_string() }),  // LEAK\n    );\n}\n```\n\nSites in calendars-server (non-test paths):\n\n- calendar.rs:150-153 (Calendar/set create BackendSetError::Other)\n- calendar.rs:209-212 (Calendar/set update BackendSetError::Other)\n- calendar.rs:267-272 (Calendar/set destroy \u2014 calendar_has_events transient `Err(e) \u2192 e.to_string()` site introduced by the bd:JMAP-ic0j.4 fix at bdf40aa)\n- calendar.rs:301-303 (Calendar/set destroy \u2014 cleanup_calendar_events `Err(e) \u2192 description: e` where `e: String` was BUILT from backend Display via calendar.rs:408/419/451/463 inside the cleanup helper)\n- calendar.rs:320-323 (Calendar/set destroy BackendSetError::Other)\n- event.rs:297-300, 418-421, 463-466, 661-664, 721-724 (CalendarEvent/set + copy paths)\n- event.rs:606 (CalendarEvent/copy serialize-source leak \u2014 separate site)\n- event_notification.rs:138-141 (CalendarEventNotification/set destroy)\n- participant_identity.rs:135-138, 190-193, 235-238 (ParticipantIdentity/set create/update/destroy)\n\nWorkspace-wide count (excluding worktrees and tests): roughly 100 sites across 7 extension-server crates \u2014 mail-server has the highest at ~30 sites (email.rs 7, mailbox.rs 6, sieve.rs 6, submission.rs 4, etc.), chat-server ~24 sites, contacts-server 8, filenode-server 9, tasks-server 9, metadata-server 6, sharing-server 4, calendars-server 12.\n\nWhat callers cannot rely on:\n\n- A backend author who carefully redacts secrets in `Self::Error::Display` (per the workspace JmapBackend::Error Display MUST-NOT contract tracked in JMAP-jfia.20) will see their redaction defeated for every /set per-id `Other` arm.\n- The `description` field in /set error maps is part of the wire contract \u2014 clients parse it. Once a downstream user gets accustomed to seeing backend-flavored text there, redacting it to a constant becomes a behavioral-change SemVer-adjacent compatibility wart.\n- A reader doing a security audit who searches for `e.to_string()` and `server_fail_from_backend` will find the principal.rs fix and assume the rest of the crate follows the same redaction discipline; they will be wrong.\n\nWhat's needed:\n\nA new helper at jmap-server level, parallel to `server_fail_from_backend`, that produces the per-id Value shape:\n\n```rust\npub fn server_fail_value_from_backend<E: std::fmt::Display + ?Sized>(_err: &E) -> Value {\n    json!({ \"type\": \"serverFail\", \"description\": SERVER_FAIL_INTERNAL_DESC })\n}\n```\n\n\u2026then a workspace-wide sweep across all 7 extension-server crates plus the cleanup_calendar_events helper signature (Result<(), String> \u2192 Result<(), BackendSetError<E>> or similar) so the typed error survives the helper boundary and the wire description is redacted at one chokepoint.\n\nPer the workspace AGENTS.md \"Canonical Templates\" rule, the canonical jmap-mail-server change goes first, then propagates to every extension sibling in the same pass. This finding is filed under JMAP-ic0j (the calendars-server review epic) because the same anti-pattern is present in this crate's diff and the prior supplement at 18:11 missed the per-id Value-path scope; a workspace-wide standalone epic may be the actual landing pad.\n\nRusty pass #2 at 18:15 explicitly noted this finding was out-of-scope for /review-rusty and that \"a workspace-wide bead for per-item BackendSetError::Other leakage might be worth filing under a different epic\". This is that bead.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.68",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "/set per-id 'serverFail' Value path bypasses redaction across calendar.rs:153/212/272/303/323, event.rs:300/421/466/606/664/724, event_notification.rs:141, participant_identity.rs:138/193/238 \u2014 same JMAP-ic0j.53 anti-pattern, workspace-wide",
+  "updated_at": "2026-05-15T19:21:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T12:00:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "c268edfe-61c1-580b-8c22-d6b1b1c7b0d4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

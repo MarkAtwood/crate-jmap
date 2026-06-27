@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-12T05:29:56Z",
+  "compaction_level": 0,
+  "content_hash": "b2e9e2fe3b91ee2d59eb34b4a0ddd0c6fb5598d8c6f7fb6669fdd03693d61a97",
+  "created_at": "2026-05-12T02:25:59Z",
+  "created_by": "Mark Atwood",
+  "description": "Per JMAP-sc1b.110 policy narrowing: classifier-attribute strings on data-object sub-types in externally-owned-schema-mirror type crates (jscalendar-types, jscontact-types) should NOT be typed enums.\n\nJMAP-sc1b.77 (commit 3e27837) converted 10 enumerated-string sites in jscalendar-types to 8 typed enums via the `impl_string_enum!` macro. This bead reverts that change.\n\n## Scope (concrete)\n\n### crate-jmap-jscalendar-types/src/lib.rs (10 sites)\n\nRestore the following fields to bare `String` (or `Option<String>` if previously optional):\n\n  - NDay.day                     (was Weekday)\n  - RecurrenceRule.frequency     (was Frequency)\n  - RecurrenceRule.skip          (was Skip)\n  - RecurrenceRule.first_day_of_week (was Weekday)\n  - Location.relative_to         (was LocationRelativeTo)\n  - Participant.kind             (was ParticipantKind)\n  - Participant.participation_status (was ParticipationStatus)\n  - Participant.schedule_agent   (was ScheduleAgent)\n  - OffsetTrigger.relative_to    (was OffsetTriggerRelativeTo)\n  - Alert.action                 (was AlertAction)\n\nRemove the 9 `impl_string_enum!` invocations and the 8 enum type definitions.\n\n### crate-jmap-jscalendar-types/Cargo.toml\n\nRemove the `jmap-types = { workspace = true }` dep. The crate goes back to its no-JMAP-dep posture (matches the AGENTS.md isolation constraint that jscontact-types also enforces).\n\n### crate-jmap-jscalendar-types/AGENTS.md\n\nIf JMAP-sc1b.77 added any 'jmap-types dep is allowed for the macro' language, remove it. Restore the original no-JMAP-dep statement.\n\n### Tests\n\nRemove the 18 round-trip tests added by .77 for the typed enums. If any of those tests covered serde shape that is still relevant for the bare-String case, keep those tests but adjust the type expectations.\n\n### Consumer: crate-jmap-calendars-types\n\nThis crate consumes jscalendar-types and may have method signatures or pattern-matches that touch the typed enums. Audit:\n\n  - Any `use jmap_jscalendar_types::{Weekday, Frequency, Skip, LocationRelativeTo, ParticipantKind, ParticipationStatus, ScheduleAgent, OffsetTriggerRelativeTo, AlertAction}` imports \u2192 remove.\n  - Any `match` arms on those types \u2192 restore string-literal comparisons.\n  - Any test fixtures that construct typed enum variants \u2192 restore string-literal construction.\n\n### Consumer: crate-jmap-calendars-server\n\nSame audit. May have handlers that pattern-match on Participant.kind or similar.\n\n## Acceptance\n\n  - All 10 sites in jscalendar-types restored to bare String (or Option<String>) with original PLAN.md rationale ('preserve forward-compatibility') re-asserted in doc comments where relevant.\n  - jmap-types dep removed from crate-jmap-jscalendar-types/Cargo.toml.\n  - Consumer crates (calendars-types, calendars-server) compile and test clean.\n  - cargo test --workspace clean.\n  - cargo clippy --workspace -- -D warnings clean.\n  - Cross-reference comment added on JMAP-sc1b.77 noting this revert and the policy reason.\n\n## Cross-references\n\n  - JMAP-sc1b.110 \u2014 workspace AGENTS.md policy narrowing (the basis for this revert)\n  - JMAP-sc1b.77 \u2014 the original conversion being reverted (already closed; this bead does not reopen it, just supersedes its outcome)\n  - JMAP-sc1b.108 \u2014 parallel jscontact-types decision (closed wontfix; this revert restores jscalendar-types to match)\n\n## Out of scope\n\n  - JMAP-native result enums (MailboxRole, ChatKind, etc.) \u2014 those stay typed per JMAP-sc1b.110's preserved in-scope policy.\n  - jscontact-types \u2014 never had the typed enums in the first place (JMAP-sc1b.108 was the propagation bead, closed wontfix).",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.111",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Revert JMAP-sc1b.77: un-type jscalendar-types classifier-string enums",
+  "updated_at": "2026-05-12T05:29:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T19:25:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "8a3aeb97-4229-56b2-a3d4-c53d94fdbdde",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-11T19:26:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b.110",
+      "id": "d9a3561c-c989-5290-836b-ff421751d0c9",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

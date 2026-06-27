@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Changed Patch::map_entry from pub fn to pub(crate) fn. All 13 call sites are internal (chat.rs, space.rs, misc.rs, contact.rs + tests) \u2014 no external use case. The previous pub signature leaked serde_json::Error into this crate's public SemVer surface.\n\nThe Patch<T> type itself stays pub (it appears in MessagePatch, ChatPatch, SpacePatch, PresenceStatusPatch, PushSubscriptionPatch field positions, all of which require Patch to be pub).\n\nDoc expanded to explain why the helper is internal and what external callers should do instead (let serde + #[serde(skip_serializing_if = 'Patch::is_keep')] handle wire serialization automatically).\n\nAPI break is acceptable per pre-1.0 status. cargo test, clippy --all-targets -- -D warnings, RUSTDOCFLAGS='-D warnings' cargo doc all green. Committed as d831f86.",
+  "closed_at": "2026-05-15T21:44:15Z",
+  "compaction_level": 0,
+  "content_hash": "300de0d51837616953912061a701483e1b7cb2ce6c904daeb884736cb8b57d3c",
+  "created_at": "2026-05-15T20:40:00Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-client/src/methods/mod.rs:153-163.\n\n`pub fn map_entry(&self) -> Result<Option<serde_json::Value>, serde_json::Error>` on `Patch<T: Serialize>` exposes `serde_json::Value` and `serde_json::Error` directly in the public type signature.\n\nTwo problems:\n\n1. **`serde_json::Error` in the return type couples this crate's SemVer to `serde_json`'s.** Today `serde_json` is 1.x stable so the practical risk is low, but per the audit prompt (\"Error types that wrap third-party error types in their public surface rather than mapping to a stable local enum\") this is the textbook leakage pattern. Any future swap of the JSON layer is a breaking change here.\n\n2. **The method is only used inside this crate.** All 13 call sites are in `chat.rs`, `space.rs`, `misc.rs`, `contact.rs` plus three test sites. There is no consumer-facing workflow that needs `Patch::map_entry`. External callers construct `Patch<T>` via `Patch::from(v)` / `Patch::Clear` and let serde do the rest. This is a strong candidate for `pub(crate) fn map_entry`. `Patch<T>` itself stays `pub` (it appears in `MessagePatch`, `ChatPatch`, `SpacePatch`, `PresenceStatusPatch`, etc., so it must remain public).\n\nRecommended fix: change `pub fn map_entry` to `pub(crate) fn map_entry`. Eliminates the leakage and locks the helper as an internal building block.\n\nIf maintainer wants to keep it `pub` for some future \"build raw JMAP requests\" workflow: at minimum, wrap the return type so callers depend on a local enum, not `serde_json::Error`.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Patch::map_entry exposes serde_json::Error in public signature; only used inside crate",
+  "updated_at": "2026-05-15T21:44:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:39:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "47f7a691-d989-5363-9e1f-d268eb5c233a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

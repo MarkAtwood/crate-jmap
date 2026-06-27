@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-13T16:02:16Z",
+  "compaction_level": 0,
+  "content_hash": "507429cdf39df46288d8372fc1da0fe7bb6b0d579ee0b85c83a50a0a5fcd08a0",
+  "created_at": "2026-05-13T15:41:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Found by the JMAP-g7wu.2.4.6 do-beads triage 2026-05-13.\n\n## Problem\n\nThe reference `MemoryBackend::next_id` (and its siblings across all 7 extension-server MemoryBackends) returns simple sequential strings like `\"role1\"`, `\"chat3\"`, `\"member5\"`. draft-atwood-jmap-chat-00 references ULIDs as the preferred id form in several places. JMAP-g7wu.2.4.3's acceptance criterion 5 said 'AddRole id is a valid ULID' \u2014 but the impl as shipped does not mint ULIDs. A test asserting ULID-format would fail.\n\nThis is not a security gap, not a soundness issue, and not a wire-format violation \u2014 JMAP-types' Id is a String-shaped opaque token by spec. It's a design-question about whether the reference MemoryBackends should match the spec's apparent preference.\n\n## Open question (human decision required)\n\nThree coherent paths:\n\n### Path A \u2014 Keep sequential ids\n- Pro: simpler, easier to read in test failures, no new dep (ULID crate)\n- Pro: the MemoryBackend is explicitly demo-only per workspace AGENTS.md; production backends are expected to do their own id minting anyway\n- Pro: zero migration work \u2014 current state is stable\n- Con: future contributors comparing reference impl to spec see a divergence\n\n### Path B \u2014 Migrate next_id to actual ULIDs across all 7 MemoryBackends\n- Pro: matches the spec's apparent preference\n- Pro: more realistic for contributors reading the reference impl to learn how a real backend should look\n- Con: requires touching all 7 MemoryBackends in one sweep (or filing 7 follow-up beads)\n- Con: ULID crate dep across 7 *-server crates (or behind a feature)\n- Con: ULIDs sort lexicographically by creation time, which would make some test fixtures less deterministic (or require seeding the ULID generator from a known clock)\n- Con: ~3-5 hours of mechanical work for zero functional improvement\n\n### Path C \u2014 Make next_id pluggable\n- Pro: lets tests pick deterministic ids while production picks ULIDs\n- Pro: doesn't lock in either path\n- Con: extra trait surface, mostly for a demo-grade impl\n- Con: violates the workspace 'MemoryBackend is intentionally demo-quality' posture\n\n## Recommendation\n\nPath A (keep sequential). Rationale: the MemoryBackend exists to support workspace tests and as a contributor reference; it is NOT a model production backend. Asking demo code to mint ULIDs is gold-plating. The spec's ULID preference applies to production backends, which are out of scope for this workspace.\n\nIf Path A is chosen, the second action item is to soften the spec's ULID language to 'SHOULD' if it is currently 'MUST', OR file a workspace AGENTS.md note clarifying that reference MemoryBackends are exempt from the ULID preference. (Verify spec wording before filing.)\n\n## Acceptance (path-dependent)\n\n- Decision recorded in this bead's comments.\n- If Path A: bead closes with the decision noted; no code change. Optional follow-up: spec-language softening if needed.\n- If Path B: 7 sub-beads or one sweep landed; ULID crate dep added; all MemoryBackend tests updated for the new id format.\n- If Path C: trait refactor designed and reviewed; one new bead per MemoryBackend implementation.\n\n## Cross-references\n\n- JMAP-g7wu.2.4.3 \u2014 the bead whose acceptance criterion 5 surfaced this divergence\n- JMAP-g7wu.2.4.6 \u2014 the test-matrix bead that triaged this finding\n- workspace AGENTS.md \u2014 the 'reference MemoryBackend is demo-only' posture this decision depends on",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.2.4.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::next_id: design decision on sequential ids vs ULIDs (workspace-wide)",
+  "updated_at": "2026-05-13T16:02:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T08:41:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4",
+      "id": "41f272bd-b586-57e8-8630-db877d61aeb9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

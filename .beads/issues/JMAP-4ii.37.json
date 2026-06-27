@@ -1,0 +1,33 @@
+{
+  "close_reason": "no-action: P3/P4 observation, not prioritized for JMAP-39s scope",
+  "closed_at": "2026-05-02T07:05:06Z",
+  "compaction_level": 0,
+  "content_hash": "4627c49071a57c5f448abbed1b704f3660acb3a02f8ee0003eb2deeae6a25977",
+  "created_at": "2026-05-02T03:57:27Z",
+  "created_by": "Mark Atwood",
+  "description": "Every /set handler ends with the same 6-line pattern: 'if map.is_empty() { Value::Null } else { Value::Object(map) }' for each of created/updated/destroyed/notCreated/notUpdated/notDestroyed. This pattern is repeated in chat.rs, space.rs, mailbox.rs, identity.rs, submission.rs, vacation.rs. A contributor adding a new /set handler must reproduce this pattern correctly; a mistake (e.g. sending Value::Object({}) instead of Value::Null for an empty map) violates RFC 8620 \u00a75.3 nullability. A helper fn null_if_empty_map(m: serde_json::Map<_,_>) -> Value or a macro would make this non-copyable.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "/set response body construction: 6-arm null-vs-map pattern repeated in every handler",
+  "updated_at": "2026-05-02T07:05:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:57:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "1b44e81a-9504-5acb-9cd8-b7c6a0b9b157",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

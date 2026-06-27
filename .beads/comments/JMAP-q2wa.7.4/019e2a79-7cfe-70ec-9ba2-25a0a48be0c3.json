@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T07:11:05Z",
+  "id": "019e2a79-7cfe-70ec-9ba2-25a0a48be0c3",
+  "issue_id": "JMAP-q2wa.7.4",
+  "text": "Add to the propagation pattern list: q2wa.20 documented register_*_handlers re-registration semantics (silent overwrite, last-call-wins, custom-override order matters). Mirror the 'Re-registration semantics' doc section to this crate's register_* entry points."
+}

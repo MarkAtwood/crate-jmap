@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:13:52Z",
+  "compaction_level": 0,
+  "content_hash": "0e9881c988e159c3fe47d6a214cee14929fdb5df3a787ede472070f65f4540f4",
+  "created_at": "2026-05-07T20:29:01Z",
+  "created_by": "Mark Atwood",
+  "description": "Running `RUSTDOCFLAGS=\"-D rustdoc::broken_intra_doc_links\" cargo doc --workspace --no-deps --all-features` fails. 11 unresolved intra-doc links across 6 crates:\n\n| Crate | File:Line | Broken link |\n|---|---|---|\n| jmap-base-client (LOCKED) | crate-jmap-base-client/src/error.rs:70 | `[`WsSession::send_request`]` |\n| jmap-base-client (LOCKED) | crate-jmap-base-client/src/error.rs:79 | `[`ClientConfig::max_sse_frame`]` |\n| jmap-calendars-types | crate-jmap-calendars-types/src/notification.rs:137 | `[`Alert`]` |\n| jmap-calendars-server | crate-jmap-calendars-server/src/backend.rs:113,126,155,226 | `[`CalendarEvent`]` (x4) |\n| jmap-calendars-server | crate-jmap-calendars-server/src/principal.rs:16 | `[`BusyPeriod`]` |\n| jmap-tasks-server | crate-jmap-tasks-server/src/backend.rs:134 | `[`Task`]` |\n| jmap-sharing-server | crate-jmap-sharing-server/src/backend.rs:43 | `[`Id`]` |\n| jmap-chat-client | crate-jmap-chat-client/src/methods/quota.rs:17 | `[`SessionClient::quota_get`]` |\n\nAll are mechanical fixes: add a `use` import, fully qualify the path, or escape the brackets. Note: jmap-base-client is a LOCKED crate per AGENTS.md \u2014 its 2 fixes need explicit user approval before edit.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P1: cargo doc --workspace fails with 11 broken intra-doc links across 6 crates",
+  "updated_at": "2026-05-07T21:13:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "dac83e40-703c-50bb-bb65-4e065995f9be",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

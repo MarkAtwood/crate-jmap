@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "5 EmailSubmission methods implemented. cargo test exits 0.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created submission.rs with all 5 EmailSubmission/* methods; added EmailSubmissionSetParams to mod.rs; exported from lib.rs; 11 unit tests (guards + request shapes + response deserialization)",
+  "closed_at": "2026-05-05T03:13:58Z",
+  "compaction_level": 0,
+  "content_hash": "00021556fbae0cb05ade2ac16fe6dac461b14c0376e013b4d5123ebe9114b4fe",
+  "created_at": "2026-05-05T02:55:00Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-mail-client/src/methods/submission.rs with all 5 EmailSubmission methods on SessionClient. Add EmailSubmissionSetParams to mod.rs. Wire up exports. Oracle: RFC 8621 \u00a77.1-7.5.\n\n**New types in mod.rs:**\npub struct EmailSubmissionSetParams {\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub on_success_update_email: Option<serde_json::Value>,  // Id[PatchObject]|null\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub on_success_destroy_email: Option<Vec<String>>,       // Id[]|null\n}\n\n**Methods to implement:**\n1. email_submission_get(ids: Option<&[&str]>, properties: Option<&[&str]>) -> Result<GetResponse<jmap_mail_types::EmailSubmission>, ClientError>\n   - Guard: reject empty strings in ids. Args: accountId, ids, properties.\n2. email_submission_changes(since_state: &str, max_changes: Option<u64>) -> Result<ChangesResponse, ClientError>\n   - Guard: since_state non-empty. Args: accountId, sinceState, optional maxChanges.\n3. email_submission_query(filter, sort, position, limit) -> Result<QueryResponse, ClientError>\n   - Args: accountId, optional filter/sort/position/limit. No collapseThreads.\n4. email_submission_query_changes(since_query_state: &str, max_changes, filter, sort) -> Result<QueryChangesResponse, ClientError>\n   - Guard: since_query_state non-empty.\n5. email_submission_set(create, update, destroy, if_in_state, params: Option<EmailSubmissionSetParams>) -> Result<SetResponse<jmap_mail_types::EmailSubmission>, ClientError>\n   - Guard: reject empty strings in destroy. Merge params fields into args JSON.\n   - Wire key for sort is \"sentAt\" (not \"sendAt\") per RFC 8621 \u00a77.3 line 4513.\n\n**Unit tests in submission.rs:** empty-id guard, empty-state guard, request shape for each method, onSuccessUpdateEmail in set request body.\n\n**Algorithm for each method:** validate \u2192 session_parts() \u2192 build args \u2192 build_request(..., USING_MAIL) \u2192 call_internal \u2192 extract_response.\n\n**Acceptance criteria:**\n- cargo test -p jmap-mail-client exits 0.\n- All 5 methods present on SessionClient.\n- EmailSubmissionSetParams exported from lib.rs.\n- Wire keys match RFC 8621 \u00a77: identityId, emailId, sendAt (object field), sentAt (sort property), onSuccessUpdateEmail, onSuccessDestroyEmail.",
+  "ephemeral": 0,
+  "id": "JMAP-3cmx.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement all 5 EmailSubmission/* client methods",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:54:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx",
+      "id": "9d29bc98-d88d-5b49-bd00-69b6ce7f97d8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

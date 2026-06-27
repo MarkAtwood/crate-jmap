@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T06:57:44Z",
+  "compaction_level": 0,
+  "content_hash": "038fc69c908dab74ea0f3cbc422a6b5d09f6adcc2aa199cf8fc36a42d744709e",
+  "created_at": "2026-05-14T18:16:59Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-tasks-server/src/lib.rs:52-60 re-exports all 14 handle_* functions:\n\n    pub use task::{\n        handle_task_changes, handle_task_copy, handle_task_get, handle_task_query,\n        handle_task_query_changes, handle_task_set,\n    };\n    pub use task_list::{handle_task_list_changes, handle_task_list_get, handle_task_list_set};\n    pub use task_notification::{\n        handle_task_notification_changes, handle_task_notification_get, handle_task_notification_query,\n        handle_task_notification_query_changes, handle_task_notification_set,\n    };\n\nEvery one of them has the same signature:\n\n    pub async fn handle_task_X<B: TasksBackend>(\n        backend: &B,\n        caller: &B::CallerCtx,\n        args: Value,\n    ) -> Result<(Value, Vec<Invocation>), JmapError>;\n\nThe args parameter is serde_json::Value. The doc on each handler is a one-liner like:\n\n    /// Handle a \\`Task/get\\` method call (draft-tasks-06 \u00a74.5).\n\nThis describes WHAT the function does, not WHAT a CALLER MUST PASS or WHAT A CALLER GETS BACK. The contract gap:\n\n  - What shape must \\`args\\` be? An object with \\`accountId\\`, optionally \\`ids\\`, etc.? The function will return invalidArguments for missing accountId \u2014 but a caller reading the rustdoc has no idea which fields are required, which are optional, and which are honored vs ignored.\n  - What is the structure of the returned Value? A JMAP-shape method response (\\\"accountId\\\", \\\"list\\\", \\\"notFound\\\", \\\"state\\\")? The caller has to read RFC 8620 \u00a75.1 to know.\n  - When is Vec<Invocation> empty vs populated? In every handle_* here it is always empty (no follow-up invocations are generated). Caller has no way to know that without reading every implementation.\n  - What JmapError variants can be returned? accountNotFound, invalidArguments, stateMismatch, serverFail, \u2026? The signature says only \\\"JmapError\\\".\n\nThe IMMUTABILITY problem: once these are pub in 0.1.x, the signature is committed. If a future revision wants to:\n\n  - Take a typed args struct (e.g. TaskGetArgs) instead of Value to catch shape errors at compile time\n  - Return a richer struct (e.g. TaskGetResponse) instead of Value\n  - Add a per-call config parameter (e.g. MaxSnippets for Task/get)\n\n\u2026each of those is a breaking change. The 14-function fan-out makes this 14 separate breaking changes.\n\nThree contract-shape options:\n\n  1. Mark the handle_* fns #[doc(hidden)] and remove from the prelude pub use. Document register_tasks_handlers as the only stable entry point. Consumers who want a different dispatcher pattern still have access via path imports but signal awareness of the stability disclaimer.\n\n  2. Keep the fns pub but document each handler as accepting \\\"a JSON value matching the JMAP method-args object for <method-name> per RFC 8620 \u00a75\\\". Plus document the return as \\\"(method-response Value per RFC 8620 \u00a75, additional invocations generated for back-references)\\\". This is the lowest-cost fix and makes the contract self-evident.\n\n  3. Add a typed pair of args/response structs alongside the Value path. Cost: doubles surface area. Benefit: forward-compat.\n\nThe minimum required fix is option 2 \u2014 close the contract gap without changing surface area. Whichever fix is chosen, applies to all 14 handlers as a single propagation across all extension-server siblings (canonical-template rule).",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Public handle_* fns take serde_json::Value with no documented contract on args shape \u2014 signature locked forever, callers must read RFC 8620 to know what to pass",
+  "updated_at": "2026-05-17T06:57:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:16:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "f1b94189-4188-5069-9d61-38ae10081953",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

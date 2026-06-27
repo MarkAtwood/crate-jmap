@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "created_at": "2026-05-11T07:55:25Z",
+  "id": "019e1608-a2d5-7ec0-be53-c68d94d5d238",
+  "issue_id": "JMAP-hwdv.6",
+  "text": "Closed by commit ed112ab. 1174 LoC. Includes both the MemoryBackend greenfield impl AND the same RFC 8620 sibling fixes (accountNotFound on /set + reject client id on /set create) that landed for tasks-server in JMAP-gpt1/JMAP-n22t and for calendars-server in JMAP-r3pg.4/JMAP-r3pg.6 \u2014 found via the same test-pattern. Acceptance: 12 integration tests pass, workspace gate clean (113 test groups, 0 failures). MemoryBackend epic JMAP-hwdv now has all 7 children closed (canonical .1 mail-server + 3 extractions + 3 greenfields). Cookie-cutter alignment complete across the extension-server family."
+}

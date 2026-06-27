@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "0b12f6f89063217be52643cc065f9c03282e9e24f82ddab251dc61e241e5d8e0",
+  "created_at": "2026-05-14T20:05:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/backend.rs:34-83 (whole trait\ndocstring is silent on identity); FileNode model in\ncrate-jmap-filenode-types defines `shareWith` ACLs.\n\nBackground: per workspace AGENTS.md \"Caller identity (foundation\nseam)\", `JmapBackend::principal_id(caller: &Self::CallerCtx) ->\nOption<&jmap_types::Id>` is the only way for a JMAP method to learn\nwho the caller is. The trait doc on `principal_id` lists which\nextensions need it correct:\n\n> A None-returning backend CANNOT correctly implement chat\n> role-hierarchy, calendar ACLs, sharing/myRights, per-user $seen\n> on shared mailboxes, or metadata isPrivate visibility scoping.\n\nFileNode is missing from this list. But FileNode HAS sharing\nsemantics \u2014 the `FileNode.shareWith` property (a per-principal ACL\nmap) is part of the wire shape. A `FileNode/get` call from principal\nP should:\n\n- Return only the nodes P has read access to (filtered by shareWith).\n- Return the `myRights` derived view (if/when the FileNode draft\n  adds it, parallel to RFC 8621 \u00a72 Mailbox.myRights).\n- Reject `FileNode/set` updates to nodes P does not have write\n  access to.\n- Reject `FileNode/copy` operations that read from a fromAccountId\n  P cannot see, or write to an accountId P cannot write to.\n\nNone of the trait's seven write/structural methods documents how the\nbackend should consult `principal_id` for these checks. The\n`crate-jmap-filenode-server/AGENTS.md` does say:\n\n> Permission enforcement: backend canonical\n> The filenode-specific implications: every FileNode mutation must\n> be authorized against the caller's effective rights on the parent\n> FileNode (RFC 9670 myRights semantics, propagated through\n> jmap-sharing-server when present).\n\n\u2026but this is buried in the per-crate AGENTS.md, NOT in the trait\ndocstring where backend implementors will look. A real-world backend\nauthor reading `pub trait FileNodeBackend` will see seven methods,\nnone of which mention the principal, and reasonably conclude that\npermission checking is the handler's job (which contradicts the\nworkspace policy that it is the backend's job).\n\nConcrete contract gap: the doc on\n`FileNodeBackend::create_object` says \"Create a new FileNode.\"\nNothing about authorization. A backend that follows the trait's\ndocumented contract literally \u2014 \"if create succeeds, return Ok\" \u2014\nwill permit any caller to create any node anywhere, including in\nshared directories the caller has no write access to. That is a\nsilent privilege-escalation bug rooted in a contract gap, not a\ncode bug.\n\nSuggested fix: add a header comment block to the trait that\n\n1. References the workspace foundation seam: `principal_id` is the\n   only identity surface.\n2. States the FileNode-specific implications: shareWith ACLs,\n   per-method enforcement (create requires write on the parent,\n   update requires write on the target, destroy requires write on\n   the target, copy requires read on source and write on destination\n   parent).\n3. Calls out that the handler library does NO authorization \u2014 the\n   backend is the canonical enforcement point \u2014 and the relationship\n   to jmap-sharing-server when present.\n\nPropagation note: every extension-server in the workspace shares\nthis concern. The canonical jmap-mail-server's trait doc has its\nown pass at this (the `isUnread` keyword discussion in the trait\nheader doc). FileNode's trait doc has zero. Apply the same depth\nof contract spec across the sibling family in a single sweep.\n\n`api-contract,underspecified` because the workspace policy\n(\"backend canonical for permission enforcement\") is documented in\nAGENTS.md but not in the trait's own rustdoc. A backend author who\nreads only the rustdoc \u2014 the documented contract \u2014 will produce\na wrong backend.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.44",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "FileNodeBackend trait doc says nothing about how principal_id maps to FileNode ACL semantics (shareWith)",
+  "updated_at": "2026-05-15T10:50:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:05:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "16ef729d-52e3-5f47-b55a-7ad14aaf28fd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

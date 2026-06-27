@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: submission_matches_condition HashSets built once before submission loop",
+  "closed_at": "2026-05-02T19:41:08Z",
+  "compaction_level": 0,
+  "content_hash": "94eb4b2c532599b5522ff750ea59943d8046b4dfdd777f3bf3aed50dab2fbb50",
+  "created_at": "2026-05-02T19:34:21Z",
+  "created_by": "Mark Atwood",
+  "description": "mod.rs:1947-1965 \u2014 submission_matches_condition allocates up to 3 fresh HashSets (identity_ids, email_ids, thread_ids) on every call, which is once per EmailSubmission object during EmailSubmission/query. The round-1 inMailboxOtherThan fix pre-builds the excluded set before the email loop, but no equivalent fix was applied to the submission filter. Fix: pre-build the sets in query_objects before the per-submission closure, mirroring top_level_excluded_set.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "submission_matches_condition: HashSet rebuilt per-submission inside filter loop",
+  "updated_at": "2026-05-02T19:41:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "44e184b6-5b2a-5dc5-9a2e-0d4d5fd32ce0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

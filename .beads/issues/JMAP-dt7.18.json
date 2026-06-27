@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.18",
+  "title": "auth.rs AuthProvider: cross-module panic consequence needs callsite pointer",
+  "description": "In auth.rs, the AuthProvider trait doc says that implementations violating the header-value contract 'will cause a panic in the WebSocket connection path (connect_ws)'. This is a non-obvious cross-module consequence: the panic occurs in ws/mod.rs connect_ws at the header parse step, not at the AuthProvider call site. A contributor implementing a custom AuthProvider who tests it only with HTTP (not WebSocket) will not see the panic in testing. The trait doc should either link to connect_ws or note that the panic is deferred until the auth header is parsed into a typed HeaderName/HeaderValue (only done in the WS path, not the HTTP path which uses .as_str() directly).",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:49Z",
+  "updated_at": "2026-04-30T01:12:50Z",
+  "closed_at": "2026-04-30T01:12:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:49"
+    }
+  ]
+}

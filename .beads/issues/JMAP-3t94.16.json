@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4473b11a4a479064d555bd51456c143d5deb5bf96d2998e9664c7a20cfbc87c2",
+  "created_at": "2026-05-14T21:58:40Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/lib.rs:62, 65\n\n```rust\npub use jmap_sharing_types::JMAP_PRINCIPALS_URI;\npub use jmap_sharing_types::JMAP_PRINCIPALS_OWNER_URI;\n```\n\nTwo problems:\n\n1. **Dual public location.** Both `jmap_sharing_types::JMAP_PRINCIPALS_URI`\n   and `jmap_sharing_server::JMAP_PRINCIPALS_URI` resolve to the same\n   `&'static str`. Documentation, examples, and downstream code paths\n   diverge \u2014 half of them will use the types-crate path, half the\n   server-crate path. Refactoring later (e.g. moving the constant into\n   a sub-module of the types crate) breaks the re-export silently.\n\n2. **Diverges from canonical mail-server.** `jmap-mail-server`\n   declares its URI constants locally:\n\n   ```rust\n   // crate-jmap-mail-server/src/lib.rs:45\n   pub const JMAP_MAIL_URI: &str = \\\"urn:ietf:params:jmap:mail\\\";\n   pub const JMAP_SUBMISSION_URI: &str = \\\"urn:ietf:params:jmap:submission\\\";\n   pub const JMAP_VACATION_RESPONSE_URI: &str = \\\"urn:ietf:params:jmap:vacationresponse\\\";\n   ```\n\n   `jmap-mail-types` does NOT declare these \u2014 grep confirms zero\n   occurrences in `crate-jmap-mail-types/src/`. So the canonical pattern\n   is \\\"server crate is the single public home for URI strings\\\".\n\n   `jmap-sharing-types` does declare both URIs (`capability.rs:15` etc.).\n   The proper canonical-template alignment is one of:\n   - Move declarations to `jmap-sharing-server` and have\n     `jmap-sharing-types` re-export them (or remove the types-crate\n     declaration if no consumer needs it there).\n   - Move canonical mail's `JMAP_*_URI` declarations into\n     `jmap-mail-types` and re-export from `jmap-mail-server`, then\n     propagate to all siblings.\n\n   Either direction is fine; the current state where two siblings have\n   genuinely-different homes for the same kind of constant is wrong.\n\nWhat goes wrong for callers when this stays as-is: a contributor cuts\nand pastes a `use jmap_X_server::JMAP_X_URI;` example from one crate to\nanother, hits a compile error in some siblings, and learns the hard way\nthat the workspace's URI constants live in two homes depending on which\nsibling they are talking to. Real productivity tax.\n\nNote: this finding is partially out-of-scope (it touches both the types\nand server crate boundaries), but the public-API expansion lives in the\nserver crate's diff. Mention here so the resolution bead can decide\nwhich direction to consolidate.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "JMAP_PRINCIPALS_URI / JMAP_PRINCIPALS_OWNER_URI re-exports create dual public locations; diverges from canonical mail-server's local declaration",
+  "updated_at": "2026-05-14T22:27:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:58:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "d0ad4900-1cf1-54ca-9794-26befe708b5c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

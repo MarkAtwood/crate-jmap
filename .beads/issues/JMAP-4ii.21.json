@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:12:29Z",
+  "compaction_level": 0,
+  "content_hash": "c54b2a118d2b86cece1d9c13d1c053f6f0a0943e586130f3d6be51c2b24eb38a",
+  "created_at": "2026-05-02T03:56:29Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src/identity.rs destroy loop (line ~270): iterates destroy_arr directly without a prior non-string check. The 'None => continue' arm is never executed because there is no pre-validation. Contrast with mailbox.rs which validates 'if let Some(bad) = destroy_ids.iter().find(|v| !v.is_string())' and returns an error for the whole request, and submission.rs which does the same. identity.rs silently skips non-string elements instead of rejecting them. The fix is either to add the same early-return guard (consistent with mailbox.rs/submission.rs), or document why silent skip is intentional. Either way the None => continue arm is currently never reached.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "identity.rs destroy loop: match id_val.as_str() with None => continue is unreachable dead code",
+  "updated_at": "2026-05-02T04:12:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:56:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "88317dd0-bc23-57d6-bf43-30a6e060651c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

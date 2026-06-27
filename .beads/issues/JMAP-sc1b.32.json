@@ -1,0 +1,33 @@
+{
+  "close_reason": "Won't fix \u2014 Cargo automatically defaults documentation to docs.rs/<name>. Marked opinion-grade in the original finding.",
+  "closed_at": "2026-05-07T21:48:58Z",
+  "compaction_level": 0,
+  "content_hash": "17f0c19be885e8069e79ed72dff8cc28b8897acbe37f4562d3b9edd38970f5a9",
+  "created_at": "2026-05-07T20:29:18Z",
+  "created_by": "Mark Atwood",
+  "description": "All 25 Cargo.toml manifests lack `documentation = \"https://docs.rs/<name>\"`. Cargo automatically defaults to docs.rs/<name> when omitted, so this is cosmetic \u2014 the docs.rs link works either way.\n\nMost established crates set it explicitly anyway (RustCrypto, tokio, serde) so that the value is visible in `cargo metadata` output and on the crates.io page header.\n\nMarked opinion: not a publish blocker, debatable whether worth setting. Convergence eligible.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: documentation field absent on all 25 crates",
+  "updated_at": "2026-05-07T21:48:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "f27a59c9-7366-5f23-b08b-72b3c4264978",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Affirmative review finding \u2014 verified in-source. The lint deny is at memory.rs:183 and lib.rs:159; the explanatory rustdoc unit defending why std::sync::Mutex (not tokio's) is correct, and what to do if a future change needs to .await inside the critical section, is at memory.rs:149-180 (the whole '# Concurrency' section). The lint + rationale pair is intact and self-documenting. No code change is warranted \u2014 the bead documents the convention is correct and load-bearing, and the in-source rustdoc already provides the durable defense.",
+  "closed_at": "2026-05-17T09:04:55Z",
+  "compaction_level": 0,
+  "content_hash": "1e6deed36039aeb391a61c03967b3640d53a7832ef142abfcc1de4916ee6846a",
+  "created_at": "2026-05-14T14:23:19Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:65-66 and lib.rs:123 both have:\n\n    #![deny(clippy::await_holding_lock)]    // or #[deny(...)] at module scope\n\nThis is the workspace's enforcement that MemoryBackend's std::sync::Mutex (memory.rs:69) is never held across an .await point. If a future change introduces an .await while a guard is held, clippy fails compilation. Without the lint, the bug would be silent in tests (single-task runtime) and would only surface in production multi-task workloads as deadlocks.\n\nmemory.rs rustdoc at lines 57-63 reinforces the invariant with a 'switch to tokio::sync::Mutex' fallback path, so when the lint fires the fix is mechanical and discoverable.\n\nDefend against: 'this lint is too restrictive', 'we can hold the lock across an await as long as we drop it before yielding'. No, you can't \u2014 clippy::await_holding_lock catches the exact future-state shape where the lock guard outlives the .await even if drop is in scope. The lint exists because the bug is non-obvious.\n\nAdjacent: same pattern in jmap-chat-server (tracked as bd:JMAP-x2gd.26) and presumably the canonical jmap-mail-server. Workspace-wide invariant.\n\nThis is the second cookie-cutter decision worth preserving against simplification pressure. Anyone touching the lock impl should see the lint and understand WHY it's there \u2014 the comment block above the deny attribute explains, succinctly: 'no lock guard is held across an .await'. Preserve the deny + comment as a unit.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Module-wide #![deny(clippy::await_holding_lock)] is correct concurrency invariant",
+  "updated_at": "2026-05-17T09:04:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:23:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "a4b30a7e-801d-5678-9fd4-9b2d7cf85334",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

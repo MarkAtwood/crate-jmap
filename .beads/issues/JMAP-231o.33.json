@@ -1,0 +1,33 @@
+{
+  "close_reason": "Won't fix: canonical jmap-mail-client uses '//' line comments at module headers (not '//!' module-rustdoc). Per workspace AGENTS.md cookie-cutter rule, calendars-client should mirror the canonical, not diverge. Minor inconsistency: event_parse.rs and principal_availability.rs in calendars-client use '//!' \u2014 those are the outliers, but flipping them workspace-wide is out of scope. Defer to a coordinated module-doc sweep across all extension-client crates if future-self decides '//!' is preferred.",
+  "closed_at": "2026-05-10T05:30:41Z",
+  "compaction_level": 0,
+  "content_hash": "f5c44f805e3ce10bad5bc0c8f752be226bca34204c6f4da393ba62dd29118051",
+  "created_at": "2026-05-08T03:23:25Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs has a 6-line file-top comment summarizing the module, but no `//!` doc-comment on the module itself. Consequence: rustdoc generates a 'Modules' page for jmap_calendars_client::methods with no description. Public types (GetResponse, SetResponse, etc.) have type-level docs, so the page is functional, but a single-line `//!` summary at the top of mod.rs would help.\n\nComparable: src/methods/event_parse.rs:1 already does `//! CalendarEvent/parse method (draft-ietf-jmap-calendars-26 \u00a75.13).`. The other methods/*.rs files use `//` line comments instead \u2014 inconsistent.\n\nTrivial fix; flag as Section 4 readability.\n\nFiles with `//` comments instead of `//!` modules docs:\n- src/methods/mod.rs:1\n- src/methods/calendar.rs:1\n- src/methods/event.rs:1\n- src/methods/event_copy.rs:1\n- src/methods/event_notification.rs:1\n- src/methods/participant_identity.rs:1\n\nFiles using `//!`:\n- src/methods/event_parse.rs:1\n- src/methods/principal_availability.rs:1\n- src/lib.rs:1",
+  "ephemeral": 0,
+  "id": "JMAP-231o.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "src/methods/mod.rs is 424 lines \u2014 module-level docs absent on public types",
+  "updated_at": "2026-05-10T05:30:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:23:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "52948bac-aed9-53c9-aec5-82c0fe72c730",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

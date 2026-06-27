@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T18:39:23Z",
+  "id": "019e1856-330a-7aa7-bb2a-abec6a7c1731",
+  "issue_id": "JMAP-g7wu.2.4",
+  "text": "Applied 'human' label per existing triage notes (2026-05-10): bead's own notes say 'This bead is now labeled human to keep the do-beads loop from spinning on it' but the label was never actually set. Notes lay out three decomposition options (A/B/C) for this 800-1500 LOC scope and recommend option C: land backend trait shape decision first, then four per-family sibling beads. Human needs to pick A/B/C before any work starts."
+}

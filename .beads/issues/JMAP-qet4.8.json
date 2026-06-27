@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "PLAN.md updated. cargo test --workspace exits 0.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Removed query.rs from module layout table; filter conditions now listed under principal.rs and notification.rs; type_ already correct (Option<PrincipalType>); cargo test passes",
+  "closed_at": "2026-05-05T04:39:30Z",
+  "compaction_level": 0,
+  "content_hash": "44e3b1da9c7f7af120d92979d0bde36e6e37d477cea4f6b810adbf3ca21fd61c",
+  "created_at": "2026-05-05T02:50:40Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Update crate-jmap-sharing-types/PLAN.md to reflect actual module layout (no query.rs; filter types live in principal.rs and notification.rs) and confirm type_ row shows Option<PrincipalType> after B1 fix.\n\n**Algorithm:**\n1. In PLAN.md Module Layout section, remove any mention of query.rs.\n2. Update filter condition entries to show their actual files.\n3. Confirm type_ row in the PrincipalFilterCondition table reads Option<PrincipalType>.\n4. Run cargo test --workspace to confirm no code was accidentally changed.\n\n**Acceptance criteria:**\n- PLAN.md has no reference to query.rs.\n- type_ row reads Option<PrincipalType>.\n- cargo test --workspace exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-qet4.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sync sharing-types PLAN.md: remove query.rs, update type_ entry",
+  "updated_at": "2026-05-05T04:39:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:50:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qet4.6",
+      "id": "82fae0b6-aa8d-55d5-b445-4b88efcb394b",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:50:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qet4",
+      "id": "cf2a1927-3d5b-5ae0-85ed-18a66e72711d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

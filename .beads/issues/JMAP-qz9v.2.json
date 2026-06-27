@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "All four RFC 8620 \u00a75.4 mandates now implemented in handle_contact_card_copy mirroring canonical mail-server: (1) same-account rejection with invalidArguments, (2) ifFromInState source-state precondition, (3) onSuccessDestroyOriginal with synthetic ContactCard/set invocation per RFC 8620 \u00a76.3, (4) destroyFromIfInState gating the implicit destroy. 8 new unit tests + 1 end-to-end integration test against MemoryBackend verify the full cascade. Implementation in commit 4f64602.",
+  "closed_at": "2026-05-15T09:52:20Z",
+  "compaction_level": 0,
+  "content_hash": "9a7b5ae8d87da49fb1c954d20035ffe915b3c98f1b641d67ae2ab9fd558eabbc",
+  "created_at": "2026-05-14T19:19:40Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: any ContactCard/copy call. RFC 8620 \u00a75.4 (the base /copy contract that ContactCard/copy inherits per RFC 9610 \u00a73.6) requires four behaviors that handle_contact_card_copy does NOT implement:\n\n 1. accountId MUST be different to fromAccountId. Currently a request with the same value in both is happily processed: card is fetched from acc, copy_contact_card is invoked into acc, and a duplicate id appears in the same account. Compare crate-jmap-mail-server/src/email.rs:2263-2268 which DOES reject this with invalidArguments.\n\n 2. ifFromInState \u2014 RFC 8620 \u00a75.4 specifies a state string for the SOURCE account; if supplied, must match the source account's get_state, otherwise stateMismatch. Currently ignored. Only ifInState (destination) is checked.\n\n 3. onSuccessDestroyOriginal: Boolean (default false) \u2014 RFC 8620 \u00a75.4 mandates that on success, the server MUST issue an implicit Foo/set destroy against the source account for each successfully copied id, with its response appended as a separate Invocation. Currently the argument is silently dropped and no follow-up invocation is emitted. handle_contact_card_copy always returns vec![] for the extra invocations.\n\n 4. destroyFromIfInState \u2014 the ifInState passed to the implicit destroy. Same fate as #3.\n\nFor a sibling check: crate-jmap-mail-server/src/email.rs:2244+ implements all four. Contacts diverges from the canonical extension-server template here.\n\nSeverity: P0. #1 is a data-integrity bug (silent duplicate-id creation in one account). #3/#4 are silent-data-loss vs silent-data-retention mismatches (the client asks the server to destroy originals; server cheerfully ignores). #2 is a lost-update race window.\n\nThe simplest minimal fix is to enforce #1 and reject the others as invalidArguments until properly implemented \u2014 but the cleanest fix is to mirror the canonical mail-server pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactCard/copy missing RFC 8620 \u00a75.4 mandates \u2014 accountId == fromAccountId, ifFromInState, onSuccessDestroyOriginal, destroyFromIfInState",
+  "updated_at": "2026-05-15T09:52:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:19:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "0f6e79c0-0b91-52df-bfe0-ffa1ad6ca367",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "acceptance_criteria": "sendAt > now + maxDelayedSend returns invalidProperties; sendAt in the past or nil is accepted; undoStatus set appropriately",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:32:24Z",
+  "compaction_level": 0,
+  "content_hash": "e3d4257a542478951d8454990d6f6e907d535c56f186cdc2ab386ffd960097ca",
+  "created_at": "2026-05-02T00:06:12Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8621 \u00a77.5 requires that when sendAt is supplied in EmailSubmission/set create, the server validates it: if the requested send time exceeds the server's maxDelayedSend capability (in seconds), the server MUST return an invalidProperties error. Currently submission.rs lines 774\u2013780 reads sendAt but stores it without any validation. The maxDelayedSend limit (from MailBackend capability) is never checked. Additionally, submissions with a future sendAt should be marked with undoStatus='pending' if undo is supported.",
+  "ephemeral": 0,
+  "id": "JMAP-iep",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Epic: JMAP-sz1 (jmap-mail-server RFC 8621 compliance)",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "EmailSubmission/set: validate sendAt against maxDelayedSend",
+  "updated_at": "2026-05-02T00:32:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:25:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xv",
+      "id": "6d69824f-cbf8-5d58-b92f-37e10936a508",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-01T17:19:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-fz8",
+      "id": "f2e41f5e-a3b5-5234-babd-924dd3bb3d11",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

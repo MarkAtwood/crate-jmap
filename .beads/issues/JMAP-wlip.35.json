@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "bb7ef4720c70f3b0765fa30f218b9e9e88895e6c0a63484edeba165bdcb028a6",
+  "created_at": "2026-05-14T13:41:46Z",
+  "created_by": "Mark Atwood",
+  "description": "Background: bd:JMAP-wlip.19 closed the documentation half \u2014 the SetErrorType doc now honestly acknowledges that the foundation carries 13 RFC 8621 mail-specific variants alongside the 10 RFC 8620 base variants, while explicitly forbidding further extension variants there. The actual reshape requires a workspace-architectural decision.\n\nCurrent state (foundation jmap-server::SetErrorType variants):\n- RFC 8620 \u00a75.3 base (10): Forbidden, OverQuota, TooLarge, RateLimit, NotFound, InvalidPatch, WillDestroy, InvalidProperties, Singleton, AlreadyExists\n- RFC 8621 mail-specific (13): MailboxHasChild, MailboxHasEmail, TooManyKeywords, TooManyMailboxes, BlobNotFound, ForbiddenFrom, InvalidEmail, TooManyRecipients, NoRecipients, InvalidRecipients, ForbiddenMailFrom, ForbiddenToSend, CannotUnsend\n- Custom(String) for everything else\n\nProposal: move the 13 mail variants to a new MailSetErrorType enum in jmap-mail-types and have jmap-mail-server map those to SetErrorType::Custom on the wire. The foundation SetErrorType keeps only the 10 RFC 8620 \u00a75.3 variants plus Custom.\n\nCost:\n- Breaking change to jmap-server (variant removal) \u2014 workspace-wide major bump.\n- Cascading propagation: every *-server crate that pattern-matches on these variants needs to rebase onto the new shape.\n- Every *-server crate's tests that compare SetErrorType::TooManyRecipients need to compare against SetErrorType::custom('tooManyRecipients') instead.\n- Public API surface shrinks for the foundation crate (good) but mail-extension callers lose typed pattern-matching (bad).\n\nWorkaround if not done: callers of mail-extension errors continue to enjoy typed pattern-matching while callers of other extensions use Custom. The asymmetry is documented but persists.\n\nDecision needed from Mark:\n- (a) Schedule the reshape for the next planned workspace major bump.\n- (b) Defer indefinitely; keep the asymmetry and the documented carve-out.\n- (c) Reshape now (major bump now).\n\nThis is closer to (a) territory \u2014 the asymmetry is a known cost of the kit-of-parts architecture, and the reshape is well-defined when a major bump arrives anyway.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Architectural decision: move RFC 8621 mail-specific SetErrorType variants out of foundation",
+  "updated_at": "2026-05-14T13:41:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:41:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "27f80186-55fe-599c-a3a4-6d77d0be190a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

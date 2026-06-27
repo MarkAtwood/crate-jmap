@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-jxj.9",
+  "title": "Rust idiom: SseStreamState owns data but is wrapped in Option for loop termination",
+  "description": "unfold state is Option<SseStreamState>; the None case terminates the stream. The pattern is correct and idiomatic for futures::stream::unfold. No change needed. DECISION: leave as-is.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:41:09Z",
+  "updated_at": "2026-04-30T15:42:34Z",
+  "closed_at": "2026-04-30T15:42:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-jxj",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:41:08"
+    }
+  ]
+}

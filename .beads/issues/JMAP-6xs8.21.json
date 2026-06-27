@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T16:51:43Z",
+  "compaction_level": 0,
+  "content_hash": "9bdebe7cf9b5f7a516e3af4f51c3d232582418b864880a656932515dabee75a4",
+  "created_at": "2026-05-15T05:44:21Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-types/src/methods.rs:210-223 implements `SetError::new`:\n\n    pub fn new(error_type: impl Into<String>) -> Self {\n        Self {\n            error_type: error_type.into(),\n            ...\n        }\n    }\n\nThere is no check that `error_type` is non-empty. `SetError::new(\\\"\\\")`\nsucceeds and produces a wire form `{\\\"type\\\": \\\"\\\"}` which is not a valid\nRFC 8620 \u00a75.3 SetError. An empty `type` field is meaningless: the\nRFC's machine-readable error type identifies which subsequent fields\nthe client should expect; the empty string identifies nothing.\n\nWhat a caller depending on this API in production accepts:\n\n1. The constructor's `# Errors` contract is: \\\"none, regardless of\n   input\\\". A server author that hands user input through to\n   `SetError::new` will emit a malformed wire error on empty input.\n   Clients deserialize it as `SetError { error_type: \\\"\\\".to_owned(), ...\n   }` and have to write `if err.error_type.is_empty() { /* server bug */\n   }` boilerplate.\n2. The doc-comment (methods.rs:201-209) describes the constructor as\n   producing \\\"a wire-shaped error\\\". It does not warn about the empty\n   case. The minimal-serialization test (methods.rs:639) actually\n   exercises `SetError::new(\\\"forbidden\\\")`, not `SetError::new(\\\"\\\")`.\n\nFix candidates:\n- Tighten `SetError::new` to `pub fn new(error_type: impl Into<String>)\n  -> Result<Self, ValidationError>` and reject empty input. This is a\n  breaking change to the constructor's return type; better done before\n  0.2.\n- Or: keep `new` permissive, add `new_validated(error_type) -> Result`,\n  document `new` as \\\"trusted input only\\\".\n- Or: do nothing, document the gotcha. Weakest option.\n\nComparable holes exist on `Id::from(\\\"\\\")` and `UTCDate::from(\\\"\\\")`,\nbut those are explicitly gotcha-documented in the README. The\n`SetError::new` case is NOT gotcha-documented.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetError::new(\"\") accepts empty error_type despite RFC 8620 5.3 requiring a non-empty type string",
+  "updated_at": "2026-05-17T16:51:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:44:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "fb7994eb-ed41-5f52-9ad4-4c34215e45d3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

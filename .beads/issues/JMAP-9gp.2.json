@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-9gp.2",
+  "title": "EmailSubmission/set onSuccessUpdateEmail: call_id missing '#' prefix",
+  "description": "submission.rs:400 pushes the Email/set extra invocation with call_id = call_id.to_string(). RFC 8621 \u00a77.5 requires the implicit call's call-id to be '#<call-id-of-EmailSubmission/set>'. The test oracle at integration.rs:1514 also asserts the wrong value ('call2' instead of '#call2'). Fix: format\\!('#{call_id}') in submission.rs and update the test oracle.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:44:33Z",
+  "updated_at": "2026-05-01T01:51:05Z",
+  "closed_at": "2026-05-01T01:51:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9gp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:44:33"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "close_reason": "Fixed in d3adb1f: SpaceInvite has manual Debug impl that redacts code. Regression test space_invite_debug_does_not_leak_code uses a canary literal that's never derived from the code under test.",
+  "closed_at": "2026-05-11T14:32:07Z",
+  "compaction_level": 0,
+  "content_hash": "9a90f180834c28a14114f721df362d8fb43476902e945d272309a9fb84fd9e2c",
+  "created_at": "2026-05-11T14:23:40Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Location: `crate-jmap-chat-types/src/space.rs:88-114`\n\n  #[non_exhaustive]\n  #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]\n  #[serde(rename_all = \"camelCase\")]\n  pub struct SpaceInvite {\n      pub id: Id,\n      pub code: String,   // <-- unguessable secret per backend.rs:74-89\n      ...\n  }\n\nCONCERN\n`SpaceInvite.code` is the unguessable invite-code credential (draft-atwood-jmap-chat-00 \u00a74.18, ChatBackend trait doc at backend.rs:74-89). Anyone with the `code` value can join the Space \u2014 it is functionally a chat-server invite-link token.\n\nThe type derives `Debug` with no manual redaction, so any `{:?}`-format of a `SpaceInvite` value writes the credential to the output stream. Cases:\n\n- A future `tracing::debug!(\"invite created: {:?}\", invite)` call lands in operator logs.\n- A test harness or fixture-generator that Debug-prints a SpaceInvite checks in to git.\n- A `#[derive(Debug)]` consumer struct that wraps SpaceInvite (e.g. a chat-server response builder) inherits the leak.\n- The current WsFrame::Unknown variant (ws/mod.rs:67-75) Debug-prints `raw: serde_json::Value` which can contain a SpaceInvite serialization.\n\nThis is exactly the shape that motivated the closed JMAP-sc1b.79 for BearerAuth/BasicAuth (manual redacting Debug impl + canary regression test). SpaceInvite is the SAME class of secret-bearing public type and got missed.\n\nWHAT GOES WRONG\nConfidentiality / key recovery \u2014 the invite-link token is leaked through any Debug-format path. Once leaked into a log or a CI artifact, the invite can be redeemed by anyone with read access to that log.\n\nPROPOSED FIX\n1. Remove `Debug` from the derive list at space.rs:90.\n2. Add a manual Debug impl that redacts `code` to `\"[REDACTED]\"` (mirror the BearerAuth shape at auth.rs:183-189).\n3. Add a regression test that constructs SpaceInvite with a canary code and asserts the canary does not appear in `{:?}` output (mirror auth.rs:443-475 test pattern added by .79).\n4. Consider applying the same treatment to PushSubscriptionPatch.verification_code (separate bead).\n\nORACLE\n- Canonical: the JMAP-sc1b.79 fix for BearerAuth/BasicAuth is the in-repo precedent.\n- ChatBackend trait doc-comment at `crate-jmap-chat-server/src/backend.rs:74-89` defines the `code` field as a credential.\n- draft-atwood-jmap-chat-00 \u00a74.18 normatively defines SpaceInvite.code.\n\nRISK CLASSIFICATION\nP2. Live confidentiality defect on a public credential-bearing type. The crate is positioned as canonical for the JMAP Chat wire format (per AGENTS.md), so any downstream consumer that imports SpaceInvite inherits the unsafe-by-default Debug derive.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.90",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security: SpaceInvite derives Debug exposing the unguessable code field (crate-jmap-chat-types/src/space.rs:90)",
+  "updated_at": "2026-05-11T14:32:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:23:40Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "996a4646-2e09-538e-989c-57ebcd97dcc8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

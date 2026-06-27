@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T16:33:05Z",
+  "compaction_level": 0,
+  "content_hash": "1f8ddfd4484b5180bf5da77593d2d578eb09cd55c8d68aa21ee31b231a2e5afd",
+  "created_at": "2026-05-15T05:34:24Z",
+  "created_by": "Mark Atwood",
+  "description": "ChangesResponse adds BOTH a typed Option<Vec<String>> field `updated_properties` (renamed \"updatedProperties\") AND a flatten `extra` field. Probe needed: if a server returns `{ ..., \"updatedProperties\": null, \"acmeCustom\": 1 }`, does `extra` catch only `acmeCustom` or also intercept the explicit `null` of `updatedProperties` somehow? Per serde docs, flatten visits remaining keys AFTER named fields are consumed, and null-valued keys for Option<T> fields are consumed by the named field. So this should be fine. But there's no test pinning the interaction. The methods.rs test `changes_response_accepts_explicit_null_updated_properties` proves `updated_properties: null` deserializes as None, and `changes_response_preserves_vendor_extras` proves an unknown field lands in extra. NOT TESTED: BOTH together. Recommendation: add a single test that combines an explicit null updatedProperties + a vendor extra + an unknown sub-field, to pin the interaction so a future serde change doesn't silently break it. Probe-deferred per read-only review.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extra field flatten + ChangesResponse.updated_properties unflatten ordering risk",
+  "updated_at": "2026-05-17T16:33:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:34:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "5ee897ce-09ce-510a-ad47-e3340b66aec9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

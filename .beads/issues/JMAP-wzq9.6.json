@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit d0a0bd4. metadata_set's doc-comment now includes an explicit paragraph explaining the typed-update vs untyped-create asymmetry: PatchObject has one stable shape, whereas a Metadata create object is one of three @type variants with vendor extras at every level, so forcing it through a single Rust type would fight the spec's extensibility model. Mirrors the canonical mail-client email_set posture.",
+  "closed_at": "2026-05-15T02:36:22Z",
+  "compaction_level": 0,
+  "content_hash": "9109b86a164db5671a8f07f5d38dde362a9675d7bd037bc9c9621c7c2a922af5",
+  "created_at": "2026-05-15T02:04:31Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/metadata.rs:130 metadata_set takes create: Option<serde_json::Value>. PLAN.md \u00a7Method-specific Notes calls out that the canonical filter type is jmap_metadata_types::MetadataFilterCondition (which the metadata-types crate does export). The choice to make /set's create map opaque is defensible (the create-map keys are caller-chosen creation ids; the values are partial Metadata objects with no id), but contrast: jmap_types::PatchObject is used for update (typed), while create is untyped. Asymmetric on its face. Suggested rewrite: keep Value for create (documented rationale: creation ids are caller-chosen strings and the create values are partial Metadata, which the spec accepts as the JSON wire shape) but add a one-line doc-comment on metadata_set explaining the asymmetry to head off the obvious 'why is update typed but create untyped?' contributor question. Mirrors what mail-client/src/methods/email.rs:97 already does well.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "metadata_set: filter/sort/create types are 'serde_json::Value' but PLAN.md describes them as typed",
+  "updated_at": "2026-05-15T02:36:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:04:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "35d1d46e-7d1c-5e0d-add0-409e09089f69",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

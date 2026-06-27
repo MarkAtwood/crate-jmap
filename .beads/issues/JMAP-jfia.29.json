@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4de4e6baeded2e0d453e6d51766c1a531e45814ed8e88b47be55937f5fbfccf7",
+  "created_at": "2026-05-14T16:48:37Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/lib.rs:228 \u2014 Dispatcher::dispatch signature:\n\n    pub async fn dispatch(\n        &self,\n        request: JmapRequest,\n        caller: CallerCtx,\n        session_state: State,\n    ) -> JmapResponse\n\nReturns a JmapResponse \u2014 the wire-format response and nothing else.\nThe internal loop in lib.rs:239-313 tracks information that's\nuseful to a production consumer but that the return type cannot\nsurface:\n\n- Whether any handler panicked (lib.rs:302-311 maps panics to\n  serverFail invocations, but the dispatcher caller can't tell\n  the difference between \"this method returned serverFail\n  legitimately\" and \"this method panicked and was caught\").\n- Per-method timing (used for tracing/observability).\n- Whether ResultReference resolution failed for any method\n  (currently maps to an error invocation; same as panic \u2014 wire\n  shape merges error origins).\n- The count of handlers whose `caller_clone` was actually used\n  (vs cloned and discarded due to early errors).\n\nWhat callers cannot depend on:\n\n1. That observability data about a dispatch will be surfaced. A\n   consumer that needs to emit `dispatch_panics_total{}` for SRE\n   alerting cannot get the panic flag from the response \u2014 they\n   must parse the response's methodResponses and pattern-match\n   on `\"type\": \"serverFail\"` with the static description string.\n   That pattern-match is brittle: it catches legitimate\n   serverFails too.\n\n2. That metrics can be added later without a major bump. Adding\n   a fourth field to the returned tuple (e.g. (JmapResponse,\n   DispatchMetrics)) breaks every existing call site.\n\n3. That a wrapper layer in consumer code is the only place\n   metrics can land. The wrapper has to do the same response-\n   walking pattern-match the dispatcher already did internally\n   \u2014 duplicate work.\n\nWhat goes wrong when this stays as-is:\n\n- Every production consumer rolls its own observability wrapper\n  around dispatch(), duplicating the kit's internal classification\n  logic. Either:\n   a. They get the panic detection right (rare in practice \u2014\n      legitimate serverFails get counted as panics)\n   b. They get it wrong silently.\n- Future kit features (per-call deadline, cancellation token,\n  request-scoped tracing context) can't be added at the\n  dispatch layer because there's no return-shape slot for\n  signalling outcome to the caller.\n\nResolution paths (one is sufficient):\n\n- Wrap the return type in a #[non_exhaustive] struct:\n\n    pub struct DispatchOutcome {\n        pub response: JmapResponse,\n        // future fields: dispatch_panics: usize, total_handler_time: Duration, etc.\n    }\n    pub async fn dispatch(...) -> DispatchOutcome;\n\n  This is the analogue of finding \u2191 JMAP-jfia.19 for HandlerFuture\n  output. Same rationale: the kit's first major bump is the right\n  time to convert \"single anonymous return\" into \"named-struct\n  return\".\n\n- Provide a separate observation API: `dispatch_with_observer(...,\n  observer: impl DispatchObserver) -> JmapResponse`. The observer\n  trait has method hooks for panic-occurred, method-started,\n  method-completed, etc. Consumers wire their telemetry to the\n  observer. The single-arg dispatch keeps working for consumers\n  that don't care.\n\n- Surface a parallel `tracing::span!` instrumentation inside\n  dispatch under a `tracing` Cargo feature, so consumers wire\n  their tracing subscriber and get the data via the tracing\n  ecosystem. (Adds a dep, but tracing is already in the kit's\n  dependency neighborhood implicitly through tokio.)\n\nThe cleanest is the first option (DispatchOutcome struct). It\nmatches the existing #[non_exhaustive] policy in the workspace\nAGENTS.md and aligns with finding JMAP-jfia.19's recommendation\nfor the handler return shape.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Dispatcher::dispatch returns JmapResponse with no surface for per-call metrics, panic flag, or handler timings",
+  "updated_at": "2026-05-14T17:29:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:48:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "b7fdb356-a285-52c3-919d-200aa50e5d44",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

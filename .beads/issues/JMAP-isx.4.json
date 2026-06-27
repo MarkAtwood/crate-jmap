@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-isx.4",
+  "title": "Email/import and Email/copy: BackendSetError::Other causes early exit, loses partial batch results",
+  "description": "email.rs:840 (import) and email.rs:1026 (copy): BackendSetError::Other triggers 'return Err(JmapError::server_fail(...))'. This discards all previously collected created/notCreated entries and returns a top-level invocation error. RFC 8621 \u00a75.7 allows partial success in batch operations. If 3 emails are imported and the 3rd fails with a storage error, the client receives an invocation error with no record of the 2 that succeeded. Fix: handle Other errors as per-item serverFail entries in not_created, consistent with the email.rs create/update/destroy loops.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:19:50Z",
+  "updated_at": "2026-04-30T23:26:05Z",
+  "closed_at": "2026-04-30T23:26:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-isx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:19:50"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1b1249d7bb2c8fa2a49092ab70737667614ae3f19c7387edc57221091a01ca51",
+  "created_at": "2026-05-15T23:01:35Z",
+  "created_by": "Mark Atwood",
+  "description": "EmailComparator (jmap-mail-types/src/query.rs:310) declares:\n\n    #[serde(default = \"bool_true\", skip_serializing_if = \"is_true\")]\n    pub is_ascending: bool,\n\nResult: is_ascending is omitted from wire when ascending (the default), present only when descending. Matches the JMAP spec convention that defaults are omittable.\n\nTaskComparator, TaskNotificationComparator, CalendarEventComparator, and ContactCardComparator all declare:\n\n    #[serde(default = \"default_ascending\")]\n    pub is_ascending: bool,\n\nResult: always emitted, even when ascending.\n\nWire-format spec-conformant in both cases (RFC 8620 \u00a75.5 default is true; receivers must treat absent as ascending). But this is a cross-crate wire-format divergence that downstream HTTP-diff tools, snapshot tests, and content-hash schemes will notice.\n\nEmailComparator is the workspace canonical for the extension-types family (workspace AGENTS.md 'Canonical Templates'). The propagation direction is therefore: apply skip_serializing_if = \"is_true\" + default = \"bool_true\" to the 3 extension-types sibling comparators (TaskComparator, TaskNotificationComparator, CalendarEventComparator, ContactCardComparator).\n\nTrigger: JMAP-glx8.6 contacts-types review noted the per-crate inconsistency. JMAP-glx8.4 closed the contacts-vs-siblings derive divergence by aligning contacts to the (Tasks, Calendars) camp; this bead is the opposite-direction propagation to align all four extension-types siblings to EmailComparator.",
+  "ephemeral": 0,
+  "id": "JMAP-18qe",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace API: comparator is_ascending wire-format skip behavior diverges between mail-types (skip) and 3 extension-types siblings (always-emit)",
+  "updated_at": "2026-05-15T23:01:35Z"
+}

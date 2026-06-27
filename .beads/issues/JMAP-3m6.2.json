@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.2",
+  "title": "send_request None-id branch has no test coverage",
+  "description": "ws::tests::send_request_includes_id_when_provided tests the Some(id) branch but no test exercises the None branch (where the id field should be absent from the frame). A regression in the None path would go undetected.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:53:54Z",
+  "updated_at": "2026-04-30T02:49:04Z",
+  "closed_at": "2026-04-30T02:49:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:53:54"
+    }
+  ]
+}

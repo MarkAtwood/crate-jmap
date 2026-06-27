@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b53286522d154b0f9293e07d5199fa135e424a3cb80498eed52cebba68994ed6",
+  "created_at": "2026-05-18T05:31:26Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence** \u2014 opaque-string newtype family across jmap-types + jmap-mail-types + jmap-jscalendar-types:\n\n| Crate | Newtype | `#[non_exhaustive]`? |\n|---|---|---|\n| jmap-types | `Id(String)` | yes |\n| jmap-types | `UTCDate(String)` | yes |\n| jmap-types | `Date(String)` | yes |\n| jmap-types | `State(String)` | yes |\n| jmap-jscalendar-types | `LocalDateTime` | yes |\n| jmap-jscalendar-types | `Duration` | yes |\n| jmap-jscalendar-types | `SignedDuration` | yes |\n| jmap-jscalendar-types | `UTCOffset` | yes |\n| jmap-mail-types | `Keyword(String)` (src/keyword.rs:89-91) | **NO** |\n\njmap-mail-types describes itself as the canonical extension-types template, yet has the laxest single-field-newtype derive shape in the workspace.\n\n**Caller-observable / maintainer cost**: a future maintainer who wants to add a derived-internal field (cached lowercase form, validation flag, etc.) to `Keyword` cannot do so without a SemVer-major. The same change to `Id` / `LocalDateTime` would be non-breaking.\n\n**Fix**: one-line attribute addition to crate-jmap-mail-types/src/keyword.rs:89-91. cargo test --workspace passes unchanged (no caller relies on outside-crate struct-literal construction of `Keyword`).",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.47",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "jmap-mail-types' Keyword(String) newtype lacks #[non_exhaustive]; 8 sibling workspace newtypes carry it \u2014 canonical extension-types template has the laxest single-field-newtype derive shape",
+  "updated_at": "2026-05-18T05:31:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:31:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "693b2967-126b-51f0-ac0a-2dd0d4b87343",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

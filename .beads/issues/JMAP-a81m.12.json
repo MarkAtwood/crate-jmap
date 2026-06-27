@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decision record noted",
+  "closed_at": "2026-05-02T21:44:30Z",
+  "compaction_level": 0,
+  "content_hash": "9c69536ed4fc2e9b4b4aaae20a6af87e3a1ba1def195feb0cbc38f7ef6cf5a9e",
+  "created_at": "2026-05-02T21:40:41Z",
+  "created_by": "Mark Atwood",
+  "description": "The previous code used Option<HashSet> as a workaround to extend a locally-constructed HashSet's lifetime into a match arm, then called .as_ref().unwrap() to recover a reference. The unwrap() could not panic (the None arm always populated the Option before taking the reference), but a reader had no way to verify this without reading the entire block. The new form names the HashSet directly in the outer scope and takes &on_demand in the None arm. This is the canonical Rust pattern for lifetime extension across match arms: bind the owned value before the match so its lifetime covers all arms, take a reference inside the arm that needs it. A contributor might suggest reverting to the Option pattern (thinking the unwrap makes the initialization explicit), but the Option wrapper was purely a lifetime workaround \u2014 it added a fallible-looking call with no actual fallibility. The new form is both cleaner and more honest about the control flow.",
+  "ephemeral": 0,
+  "id": "JMAP-a81m.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "on_demand borrow dance: owned value in outer scope, reference in match arm \u2014 idiomatic Rust lifetime extension",
+  "updated_at": "2026-05-02T21:44:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:40:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a81m",
+      "id": "6b384eb8-3542-5b47-a2e5-1d5855177f1a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

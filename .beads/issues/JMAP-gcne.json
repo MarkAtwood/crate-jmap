@@ -1,0 +1,23 @@
+{
+  "close_reason": "Handler fully implemented and registered: blobId, mailboxIds, keywords, receivedAt, ifInState, notCreated with blobNotFound, oldState/newState. 213 tests pass.",
+  "closed_at": "2026-05-02T20:35:26Z",
+  "compaction_level": 0,
+  "content_hash": "fdf97ed538429f76ed7f610468601b9207e2592b25ae5f7831380aeb3ec47cea",
+  "created_at": "2026-05-02T17:28:52Z",
+  "created_by": "Mark Atwood",
+  "description": "Email/import is a major RFC 8621 method not yet implemented. Takes a pre-uploaded RFC 5322 blob (blobId) + mailboxIds + optional keywords + optional receivedAt, stores it as a new Email object. Returns created map with id/blobId/size. jmap-test-suite has 8 test cases: import-valid-message, import-sets-mailbox, import-sets-keywords, import-sets-received-at, import-invalid-blob, import-not-found-blob, import-multiple, import-state-changes. Needs: new EmailImport args type in jmap-mail-types, import_email() method on MailBackend, handler in jmap-mail-server, MemoryMailBackend implementation, integration tests.",
+  "ephemeral": 0,
+  "id": "JMAP-gcne",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-mail-server: Email/import (RFC 8621 \u00a74.8)",
+  "updated_at": "2026-05-02T20:35:26Z"
+}

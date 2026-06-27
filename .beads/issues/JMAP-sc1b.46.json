@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:48:53Z",
+  "compaction_level": 0,
+  "content_hash": "e6c19f0a2885410c3aa6192d179f31208cbcb2f886650406c86c34e193e952a0",
+  "created_at": "2026-05-07T20:43:21Z",
+  "created_by": "Mark Atwood",
+  "description": "Cargo.toml workspace.dependencies declares: futures, http, reqwest, tokio-tungstenite, url. None of these are actually inherited by any crate via `{ workspace = true }`.\n\nThe single consumer of each (jmap-base-client) declares them directly with its own version pins.\n\nEither:\n1. Delete the 5 entries from workspace.dependencies (if not actually intended to be the canonical pin)\n2. Convert jmap-base-client to inherit from them (preferred \u2014 but jmap-base-client is LOCKED, needs approval)\n\nThe workspace.dependencies entries today exist purely as documentation of intent that doesn't match reality.\n\nTied to JMAP-sc1b.X (general workspace.dependencies adoption).",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.46",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: 5 workspace.dependencies entries have no consumer",
+  "updated_at": "2026-05-07T21:48:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "37fa27c4-7664-55b2-9ff8-78a7785670ad",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

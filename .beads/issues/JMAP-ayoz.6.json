@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decomposed into children per the bead's own recommendation: .6.1 (handler validation), .6.2 (MemoryBackend filter honoring), .6.3 (integration test for filter + invalidArguments), .6.4 (queryChanges integration test). The fifth recommended child (typed Comparator) is tracked separately at JMAP-ayoz.7. Closing the parent; the children carry the work.",
+  "closed_at": "2026-05-14T14:50:27Z",
+  "compaction_level": 0,
+  "content_hash": "01b252c8f3cf299ef0a6d2d8ccba1e6945a3db1e3f01641c7a278b20b91a4199",
+  "created_at": "2026-05-14T14:19:29Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:492-498 and metadata.rs:508-514 delegate Metadata/query and Metadata/queryChanges to jmap_server::handlers::handle_query/handle_query_changes::<Metadata, B>(...). \n\nNeither has any test in:\n- metadata.rs tests module (only /set + /changes are exercised)\n- tests/metadata_tests.rs (only all_five_methods_registered checks that the method NAME is registered \u2014 it sends a null filter and asserts the response is not 'unknownMethod', but does NOT exercise any filter or sort behavior)\n\nPLAN.md test-cases list (lines 175-189) explicitly mentions:\n- Metadata/query: relatedType + relatedIds filter; textMatch filter; combined filters.\n- Metadata/queryChanges: standard cycle.\n\n\u2026neither of which is implemented. This is a documented test debt at merge time.\n\nWhy this is P1 (correctness-adjacent, not just maintainer-burden):\n1. MetadataFilterCondition's relatedIds field has a spec contract \u2014 \u00a73.4.1: 'relatedIds MUST only be specified when relatedType is also specified... if relatedIds is specified without relatedType, the server MUST reject the query with an invalidArguments error'. This is wire-protocol-level validation. The generic jmap_server::handlers::handle_query is unaware of this Metadata-specific cross-field constraint \u2014 it just parses Filter then hands it to backend.query_objects. So the validation either has to land in the handler shim, in MetadataFilterCondition's Deserialize, or in the backend. Right now it's nowhere.\n2. MemoryBackend::query_objects at memory.rs:484-532 IGNORES the filter and sort args entirely (params are _filter, _sort) \u2014 returns the entire account's metadata sorted by id. So any Metadata/query call against the reference impl returns garbage. Tests that exercised real filters would surface this.\n3. QueryObject::Comparator for Metadata is defined in metadata-types/src/backend.rs:60 as serde_json::Value \u2014 not a typed comparator. So sorting is wire-anything-goes. Tests would force this to be honest.\n\nDecompose into 4-5 children:\na) Filter validation: relatedIds-without-relatedType \u2192 invalidArguments at the handler shim (NOT the backend) since it's a wire-level cross-field constraint.\nb) MemoryBackend::query_objects: actually honor relatedType/@type/isPrivate/relatedIds filters; sort on at least id.\nc) Integration test: /query with relatedType filter returns only matching ids; /query with relatedIds without relatedType returns invalidArguments.\nd) Integration test: /queryChanges standard cycle (state advances, removed/added correctness).\ne) Decide whether Comparator should be a typed enum (issue against metadata-types) \u2014 likely follow-up bead, not blocking.\n\nWire-format correctness gap means this isn't pure maintainer burden \u2014 Metadata/query and Metadata/queryChanges currently DO NOT WORK on the reference impl even though they pass dispatch. A consumer wiring the MemoryBackend into a smoke test and calling /query will get plausible-looking-but-wrong data back.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Metadata/query and Metadata/queryChanges have NO unit or integration test coverage",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:19:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "d88ba8f8-eec8-586c-9b5b-08195ae73e07",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

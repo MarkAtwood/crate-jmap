@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "cargo test -p jmap-sharing-types and cargo clippy -p jmap-sharing-types -- -D warnings both exit 0. Filter condition type_ is Option<PrincipalType> not Option<String>.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Changed PrincipalFilterCondition.type_ to Option<PrincipalType>; updated filter_condition_roundtrip; added filter_condition_type_other_roundtrip; 27+1 tests pass; clippy clean",
+  "closed_at": "2026-05-05T03:59:22Z",
+  "compaction_level": 0,
+  "content_hash": "cd567b6395ebbef4c3a856fd1dfade7f45f105acf70f7f925f7c66a0d495a4e2",
+  "created_at": "2026-05-05T02:50:31Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Change PrincipalFilterCondition.type_ field from Option<String> to Option<PrincipalType> in crate-jmap-sharing-types/src/principal.rs.\n\n**Algorithm:**\n1. In principal.rs, change the field declaration from Option<String> to Option<PrincipalType>.\n2. The #[serde(rename = \"type\")] attribute stays unchanged.\n3. Update the existing filter_condition_roundtrip test: change the assertion from .as_deref() == Some(\"individual\") to == Some(PrincipalType::Individual).\n4. Add test filter_condition_type_other_roundtrip: deserialize {\"type\": \"future-unknown-value\"} \u2192 assert Some(PrincipalType::Other(\"future-unknown-value\".to_owned())), then serialize back and assert round-trip produces same JSON.\n5. Run cargo test -p jmap-sharing-types.\n\n**Defensive programming rules:**\n- No unwrap in library code.\n- All test assertions use named error messages.\n\n**Acceptance criteria:**\n- cargo test -p jmap-sharing-types exits 0.\n- PrincipalFilterCondition { type_: Some(PrincipalType::Individual), ..Default::default() } serializes to {\"type\":\"individual\"}.\n- Deserializing {\"type\":\"future-val\"} gives Some(PrincipalType::Other(\"future-val\".to_owned())).\n- cargo clippy -p jmap-sharing-types -- -D warnings exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-qet4.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix PrincipalFilterCondition.type_ to use PrincipalType enum",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:50:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qet4",
+      "id": "bfc98001-4066-54c4-981e-f421bf32cfb0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

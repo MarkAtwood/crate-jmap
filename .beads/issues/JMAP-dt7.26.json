@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.26",
+  "title": "fetch_session/call: resp shadowing via inline block obscures auth-check pattern",
+  "description": "client.rs lines 140-144 and 198-202: the send/check/promote sequence is duplicated twice as an inline block with variable shadowing (raw_resp -> resp). The reader must look inside the block to see the three steps; the shadowing hides that the pre-check raw_resp and the post-check resp are different objects. Extract fn send_and_check(response: reqwest::Response) -> Result<reqwest::Response, ClientError> { Self::check_auth_status(response.status())?; response.error_for_status().map_err(ClientError::Http) } and call it at both sites.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:13:27Z",
+  "updated_at": "2026-04-30T01:02:46Z",
+  "closed_at": "2026-04-30T01:02:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:13:26"
+    }
+  ]
+}

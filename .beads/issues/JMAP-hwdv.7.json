@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T07:47:09Z",
+  "compaction_level": 0,
+  "content_hash": "14b0af5f1476b7aad88d756c5feb4b3a5fca56e7ff63f761b9e3b7cc76d4dda4",
+  "created_at": "2026-05-10T21:56:37Z",
+  "created_by": "Mark Atwood",
+  "description": "**Greenfield reference implementation.** Write a fresh `memory::MemoryBackend` for `jmap-tasks-server` from scratch, following the canonical pattern landed by .1 (mail-server).\n\nThis crate currently has no `tests/` directory at all. Implementation work, not refactor.\n\n## Mechanical steps\n\n1. Read the canonical pattern from .1 (jmap-mail-server's `src/memory.rs`).\n2. Read the `TasksBackend` trait surface in `crate-jmap-tasks-server/src/`.\n3. Implement a minimal `MemoryBackend`. `Arc<Mutex<MemoryState>>`, HashMap storage, hand-rolled change tracking, ID generation.\n4. Add `feature = \"memory\"` to Cargo.toml. Gate `pub mod memory;` in lib.rs.\n5. Create `tests/common/mod.rs` (\u2264 200 LOC helpers) and `tests/tasks_tests.rs` with happy-path + error-path coverage.\n6. Add `[dev-dependencies] jmap-tasks-server = { workspace = true, features = [\"memory\"] }`.\n7. Use JMAP Tasks draft examples as test oracle. Hand-written JSON fixtures.\n\n## Test minimum\n\n- `TaskList/get`, `TaskList/changes`, `TaskList/set`, `TaskList/query`, `TaskList/queryChanges` (5 tests)\n- `Task/get`, `Task/changes`, `Task/set`, `Task/query` (4 tests)\n- 2-4 error-path: invalidProperties, notFound, forbidden, willDestroy with linked tasks\n\nTotal: ~11-13 tests, ~400-650 LOC for tests file.\n\n## Coordination with architecture work\n\nJMAP-yfpq (tasks consumes jmap-jscalendar-types) is mostly API-preserving \u2014 re-exports keep type names stable. JMAP-lbdy adds `extra` field additively. This child's tests should use `serde_json::from_value` from JSON fixtures to stay immune to additive changes.\n\n## Acceptance\n\n- `cargo test -p jmap-tasks-server --features memory` clean \u2014 at least 9 tests pass.\n- `cargo test -p jmap-tasks-server` clean.\n- `cargo check -p jmap-tasks-server --no-default-features` clean.\n- `cargo clippy -p jmap-tasks-server --features memory --tests -- -D warnings` clean.\n- `cargo doc -p jmap-tasks-server --features memory --no-deps` clean.\n- Naming, layout, feature flag exactly match canonical (.1).\n- Total new LOC: 800-1500 (reference impl) + 400-650 (tests) \u2248 1200-2150 LOC.\n\n## Depends on\n\nJMAP-hwdv.1 (mail-server canonical).\n\n## Effort estimate\n\n1-3 days.\n",
+  "ephemeral": 0,
+  "id": "JMAP-hwdv.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Greenfield MemoryBackend + tests in jmap-tasks-server (mirror canonical)",
+  "updated_at": "2026-05-11T07:47:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T14:56:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-hwdv",
+      "id": "eb3423b7-9546-5ebe-9eac-69a4ae15238e",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-10T14:56:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-hwdv.1",
+      "id": "ff6fee22-608b-50c7-bd7c-2271dfee99d2",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:50:34Z",
+  "compaction_level": 0,
+  "content_hash": "037394f39fc6253fe9ef910c24d61537ef74bc7628aa346faa0ca7d242a23461",
+  "created_at": "2026-05-02T04:45:57Z",
+  "created_by": "Mark Atwood",
+  "description": "invite.rs lines 182-189: invite code = format\\!(\"{:012x}\", SystemTime::now().as_nanos() & 0xffff_ffff_ffff). This is a predictable 48-bit value seeded from nanosecond wall-clock time. An attacker who knows the approximate invite creation time can enumerate the code space. The comment acknowledges this is 'sufficient for MemoryBackend/test context' but the function ships as library code with no override mechanism \u2014 production callers get the same predictable implementation. Fix: accept an optional code parameter from the backend, or document a required hook; default generation must use a CSPRNG (e.g. getrandom). Acceptance: invite code generation uses cryptographically random bytes for production callers.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.62",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SpaceInvite code is nanosecond-timestamp-seeded, not cryptographically random",
+  "updated_at": "2026-05-02T04:50:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:45:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "26f3b9c0-5193-5321-bc03-dedbf7f5f6b3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

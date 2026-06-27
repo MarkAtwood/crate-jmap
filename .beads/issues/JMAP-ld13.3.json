@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Implemented in crate-jmap-jscontact; 27 tests pass; clippy clean",
+  "closed_at": "2026-05-05T18:57:13Z",
+  "compaction_level": 0,
+  "content_hash": "0fb494fd3c2a5b17689d6de28203911ae75543f6f4985e74d4b53a1e5dd1995d",
+  "created_at": "2026-05-05T18:48:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement RFC 9553 \u00a72.3-2.4 types in src/contact.rs (continued). Enums: CalendarKind (calendar/freeBusy + Other), PhoneFeature via String[Boolean] (no enum needed \u2014 extensible feature set). Calendar and SchedulingAddress are Resource subtypes.",
+  "ephemeral": 0,
+  "id": "JMAP-ld13.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-jscontact: EmailAddress, OnlineService, Phone, LanguagePref, Calendar, SchedulingAddress",
+  "updated_at": "2026-05-05T18:57:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T11:48:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ld13",
+      "id": "05866941-c6fb-52ec-826b-a50109a0952c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

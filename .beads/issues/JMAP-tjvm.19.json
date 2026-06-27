@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "45fd2c3d972980d212dc5dd770e61ee86eb2d973247cb73ad6ea621c84deead8",
+  "created_at": "2026-05-15T01:52:40Z",
+  "created_by": "Mark Atwood",
+  "description": "email_query, email_query_changes, mailbox_query, email_submission_query, email_submission_query_changes, search_snippet_get all take filter (and sort, where applicable) as raw serde_json::Value.\n\n  email.rs:142     email_query(filter: Option<serde_json::Value>, sort: Option<serde_json::Value>, ...)\n  mailbox.rs:121   mailbox_query(filter: Option<serde_json::Value>, sort: Option<serde_json::Value>, ...)\n  submission.rs:88 email_submission_query(filter: Option<serde_json::Value>, sort: Option<serde_json::Value>, ...)\n  submission.rs:121 email_submission_query_changes(... filter: Option<serde_json::Value>, sort: Option<serde_json::Value>)\n  search_snippet.rs:33  search_snippet_get(account_id, filter: serde_json::Value, ...)\n\nRFC 8621 defines specific filter conditions and sort properties:\n\n  Email/query (\u00a74.4): inMailbox, inMailboxOtherThan, before, after, minSize, maxSize, allInThreadHaveKeyword, someInThreadHaveKeyword, noneInThreadHaveKeyword, hasKeyword, notKeyword, hasAttachment, text, from, to, cc, bcc, subject, body, header, plus FilterOperator with AND/OR/NOT\n  Sort properties: receivedAt, from, to, subject, size, sentAt, hasKeyword, allInThreadHaveKeyword, someInThreadHaveKeyword\n\n  Mailbox/query (\u00a72.3): parentId, name, role, hasAnyRole, isSubscribed\n  Sort properties: sortOrder, name\n\n  EmailSubmission/query (\u00a77.3): identityIds, emailIds, threadIds, undoStatus, before, after\n  Sort properties: emailId, threadId, sentAt\n\nDefensive-code-forcing: every caller hand-constructs JSON with serde_json::json!() and has to remember the exact camelCase field names plus the FilterCondition vs FilterOperator distinction (RFC 8620 \u00a75.5). One typo (e.g. \"hasKeyboard\" instead of \"hasKeyword\") and the server may silently match nothing, or return invalidArguments depending on lenience.\n\nThe workspace type crates (jmap-mail-types) DO define typed FilterCondition / Comparator structs that match the spec. Per workspace AGENTS.md the filter/comparator algebra is intentionally NOT extended with extras/Unknown variants (Filter-algebra exclusion is explicit). So the type crate's typed shapes are stable and authoritative.\n\nRecommendation: change signatures to use typed filter/sort:\n\n  pub async fn email_query(\n      &self,\n      filter: Option<&jmap_mail_types::EmailFilter>,\n      sort: Option<&[jmap_mail_types::EmailComparator]>,\n      ...\n  ) -> Result<QueryResponse, ClientError>\n\n(or borrow patterns as appropriate). For callers that need to pass vendor-extension filters that don't fit the typed shape, keep an escape hatch via the same untyped Value parameter under a `_value` suffix or via a non_exhaustive enum variant.\n\nCaveat: per workspace policy, filter/comparator algebras MUST NOT carry the workspace extras/Unknown variant pattern (the \"filter algebra is excluded\" rule). Vendor filter additions go through the IETF-track jmap-metadata draft. So the typed signature is in fact the \"correct, complete\" surface \u2014 there is no vendor-escape-hatch design tension.\n\nSibling crates likely have the same pattern. Canonical-template sweep candidate. Same priority and same recommendation should land across chat-client, calendars-client, etc.\n\nMark says NO HUMAN \u2014 Recommendation: change signatures to typed filter/sort, plumb through workspace EmailFilter / EmailComparator types. Major-version-breaking for callers but aligns with the typed-Id / typed-State refactor (JMAP-6by7) precedent.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Query methods take untyped filter / sort: Option<serde_json::Value> \u2014 no compile-time spec check",
+  "updated_at": "2026-05-15T01:52:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:52:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "2640b364-0221-5a91-be3b-bb762a647876",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

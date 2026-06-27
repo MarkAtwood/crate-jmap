@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T05:32:11Z",
+  "id": "019e3992-022e-78ce-9c19-9d96244bf6d3",
+  "issue_id": "JMAP-ops7.46",
+  "text": "Per-crate review epic bd:JMAP-h47t is the tasks-server review in_progress. Fix spans crate-jmap-tasks-server/src/memory.rs and crate-jmap-metadata-server/src/memory.rs. /do-beads must verify with cargo check --workspace and cargo test --workspace."
+}

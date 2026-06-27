@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added JmapBackend::account_exists(). handle_mdn_send now returns accountNotFound for unknown accountId. Test mdn_send_unknown_account_returns_account_not_found added. Follow-up JMAP-mz5k tracks applying same fix to all other handlers.",
+  "closed_at": "2026-05-03T13:42:54Z",
+  "compaction_level": 0,
+  "content_hash": "9f6d77e84a56345167713cc009b7c8e0015f1781612bfc216675f1861e531e63",
+  "created_at": "2026-05-03T00:10:03Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mdn_send Step 2 fetches identities via get_objects::<Identity>. If the accountId does not exist, get_objects returns an empty list (indistinguishable from an existing account with no identities). The handler returns Err(JmapError::invalid_arguments(\"identityId not found\")) in both cases. RFC 8620 \u00a73.6.2 requires accountNotFound as the method-level error when the accountId is unknown. A client that passes a valid identity under a wrong account will receive the wrong error type. The code comment acknowledges this (line 133-135) but says 'per the spec for MDN/send' without a spec citation \u2014 draft-ietf-jmap-mdn-17 does not override RFC 8620 \u00a73.6.2 on this point. Fix: add account_exists() or similar to MailBackend, or document this as an accepted design limitation shared by all handlers.",
+  "ephemeral": 0,
+  "id": "JMAP-o68r.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Deferred: this is a systemic design gap (all handlers have same pattern). Fix requires adding account_exists() to MailBackend or accepting the inconsistency as a documented design choice. Needs human decision before acting.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MDN/send returns invalidArguments for unknown accountId (should be accountNotFound)",
+  "updated_at": "2026-05-03T13:42:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:10:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o68r",
+      "id": "b32ef856-28c1-5fe8-a73f-fc1bcbb45a68",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

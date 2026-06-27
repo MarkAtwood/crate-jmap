@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit 08b1919. Added 'Per-op error semantics' table to ChatBackend::apply_space_patch rustdoc covering 6 op + failure-mode combinations: permission-denied (Forbidden + substring contract), hierarchy violations (Forbidden + hierarchy/position substring), last-admin protection (Forbidden + last-admin/manage_members substring), AddMember duplicate userId (InvalidProperties properties:[userId]), AddMember unknown roleId (InvalidProperties properties:[roleIds]), Remove* on unknown id (NotFound). Tests at role_member_apply.rs:977-1006 already assert these; the doc gap is now closed.",
+  "closed_at": "2026-05-14T16:14:09Z",
+  "compaction_level": 0,
+  "content_hash": "f0ab9ca8e1f008653460f3dc8b2285352aa997ec37b461a6fa74b5c84c20836c",
+  "created_at": "2026-05-14T15:42:29Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\n`ChatBackend::apply_space_patch`'s rustdoc\n(`crate-jmap-chat-server/src/backend.rs:441-509`) summarises per-op\nrejections as:\n\n```\n/// Per-op rejections (permission denied, invalid id, role hierarchy\n/// violation, etc.) go in the `outcome` field of the returned\n/// [`OpResult`] vector, not in an error return.\n```\n\nBut the kit's integration tests assert that two distinct AddMember\nfailure modes both return `SetErrorType::InvalidProperties` with\nspecific `properties` arrays \u2014 not the more natural\n`SetErrorType::NotFound` reading of \"invalid id\":\n\n### Test 1: AddMember on already-a-member returns InvalidProperties\n\n`crate-jmap-chat-server/tests/role_member_apply.rs:977-980`:\n\n```rust\nassert_eq!(\n    resp[\"notUpdated\"][SPACE_ID][\"type\"], \"invalidProperties\",\n    \"duplicate userId should be invalidProperties: {resp:?}\"\n);\n```\n\n### Test 2: AddMember with unknown roleId returns InvalidProperties\n\n`crate-jmap-chat-server/tests/role_member_apply.rs:1003-1006`:\n\n```rust\nassert_eq!(\n    resp[\"notUpdated\"][SPACE_ID][\"type\"], \"invalidProperties\",\n    \"unknown roleId should be invalidProperties: {resp:?}\"\n);\n```\n\n### Reference impl behaviour\n\n`MemoryBackend::apply_space_patch` at `memory.rs:2397-2413`\nreturns `InvalidProperties { properties: vec![\"userId\"] }` for\nduplicate-userId, and at `memory.rs:2419+` returns\n`InvalidProperties { properties: vec![\"roleIds\"] }` for unknown\nroleId.\n\n## What goes wrong for a third-party implementer\n\nA third-party backend reading \"invalid id\" in the rustdoc and\nreturning:\n\n- `SetErrorType::NotFound` for unknown roleId (a natural reading;\n  the roleId is a foreign key into a not-found target), OR\n- `SetErrorType::Forbidden` for duplicate-userId (also natural \u2014\n  \"you cannot add this user, they're already there\"), OR\n- A custom `Other(\"already-a-member\")` SetError\n\npasses the rustdoc contract and breaks every client written against\nthe kit's reference shape. Clients that switch UI behaviour on\n`type==\"invalidProperties\"` + `properties=[\"userId\"]` (e.g.\n\"highlight the userId field\") never see the highlight; clients\nthat filter by `type==\"notFound\"` to retry surface the wrong\nrecovery flow.\n\n## Scope: at least two ops, likely more\n\nThe two tests above cover AddMember. The same per-op-rejection\nquestion applies to AddRole, AddChannel, AddCategory, UpdateMember,\nUpdateRole, etc. The rustdoc gives a 4-word example list\n(\"permission denied, invalid id, role hierarchy violation, etc.\")\nbut no per-op enumeration of which SetErrorType variant the\nbackend is expected to return for which failure mode.\n\n## Recommendation\n\nAdd a per-op SetError variant table to `apply_space_patch`'s\nrustdoc. At minimum:\n\n- AddMember(target already a member) \u2192 `InvalidProperties` with\n  `properties: [\"userId\"]`\n- AddMember(roleId not found) \u2192 `InvalidProperties` with\n  `properties: [\"roleIds\"]`\n- AddRole(name conflict) \u2192 `<concrete variant>`\n- AddRole(position invalid) \u2192 `<concrete variant>`\n- AddChannel(name conflict) \u2192 `<concrete variant>`\n- ... (one row per realistic failure mode)\n- Permission denied (any op) \u2192 `Forbidden`\n- Limit exceeded \u2192 handler-side `overQuota` (already documented at\n  backend.rs:470-480)\n\nThis closes both tests above and the analogous unwritten future\ntests for other op kinds. A test that verifies \"the reference\nimpl's SetErrorType choices match the published doc table\" would\npin the contract going forward.\n\n## Engineering basis\n\n- Test assertions: `role_member_apply.rs:977-980` and `:1003-1006`\n  read verbatim.\n- Rustdoc passage: `backend.rs:497-502` read verbatim.\n- Reference impl behaviour: `memory.rs:2397-2413` and `:2419+`\n  inspected for variant choice.\n\nThe contract is encoded in code (tests + reference impl) but not\nin the published doc. Per the workspace's \"tests as implicit\ncontract documentation\" lens, this is a high-leverage doc gap.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.70",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: apply_space_patch rustdoc lacks per-op SetError variant table; tests assert InvalidProperties for AddMember failures the doc characterizes as 'invalid id'",
+  "updated_at": "2026-05-14T16:14:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:42:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "6a47e44d-c3ec-5ac3-919a-c537e004d562",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

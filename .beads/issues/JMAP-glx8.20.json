@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4b0424d326de730a02c072031c7de3491c8e298a49b6b4bdbc190f8606e21aa9",
+  "created_at": "2026-05-15T22:50:36Z",
+  "created_by": "Mark Atwood",
+  "description": "card.rs:161 migrated the localizations field from\n`Option<serde_json::Value>` (which holds a serde_json::Map \u2014 a BTreeMap-\nordered key collection by default, unless the `preserve_order` feature\nof serde_json is enabled) to `Option<HashMap<String, PatchObject>>`.\n\nThe motivation is sound (typed shape enforces the outer object-map\nstructure at the type-system level, as documented in the new rustdoc).\nBut std::collections::HashMap has unspecified iteration order, and\nserde_json serializes a HashMap in iteration order. So the post-diff\nwire format for localizations with N language-tag keys is\nnon-deterministic across runs, across Rust versions, across builds with\ndifferent DefaultHasher seeds.\n\nPre-diff: `{\"localizations\":{\"de\":...,\"en\":...,\"fr\":...}}` always\ndeterministically alphabetical (serde_json::Map's default BTreeMap).\n\nPost-diff: `{\"localizations\":{\"fr\":...,\"de\":...,\"en\":...}}` \u2014\norder varies between calls.\n\nThis bites three places:\n\n1. **Server cache/E-Tag/content-hash schemes** that hash the serialized\n   wire bytes as a freshness marker. Pre-diff hashes were stable across\n   re-serialization; post-diff they vary.\n\n2. **Snapshot tests / golden-file tests** in downstream consumers\n   (jmap-contacts-server, future jmap-contacts-client tests, third-party\n   integration tests). Pre-diff a golden JSON file would match\n   deterministically; post-diff every test run with >1 language tag has\n   a coin-flip chance of mismatch.\n\n3. **HTTP-level diff tooling** comparing JMAP request/response bodies\n   across runs (debugging tools, replay tests). The diff noise from\n   key reordering is real and not what those tools should surface.\n\nThe same regression does not bite the only test that exercises the\nfield (`contact_card_localizations_patch_object_transparent`) because\nthe test uses a single-key map. With one key, HashMap and BTreeMap\nemit the same JSON. Multi-key coverage would expose the issue.\n\nIdiomatic Rust for a wire-format-stable typed map: prefer\n`BTreeMap<String, PatchObject>` (alphabetical, deterministic, zero\ndep), or `indexmap::IndexMap<String, PatchObject>` (preserves\ninsertion order, requires adding the `indexmap` dep). BTreeMap is the\nminimum-change option and matches what serde_json::Map gave you\npre-diff by default.\n\nWhat goes wrong if this stays as-is: callers who depend on stable\nwire output silently get unstable output, and the bug surfaces as\nflaky integration tests or failing content-hash matches in production\ndeployments. Maintainability cost: hard to diagnose because the local\nunit tests pass.\n\nCross-reference: the same key-order question applies to\n`ContactCard.address_book_ids: Option<HashMap<Id, bool>>` and\n`members: Option<HashMap<String, bool>>` (both pre-existing, not in\nthis diff). A workspace-wide policy decision on map ordering is the\ndurable fix; this finding is the minimum-scope fix for the field this\ndiff touched.\n\nSibling-crate impact: jmap-calendars-types uses the same pattern for\nits localizations and PatchObject-valued maps. If this finding lands\nas 'switch to BTreeMap', propagate to that crate. If it lands as\n'enable serde_json/preserve_order at the workspace level', propagate\nthere.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "localizations migrated from ordered serde_json::Value to unordered HashMap, regressing wire-format key stability",
+  "updated_at": "2026-05-15T22:57:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:50:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "07c9c6c7-5c72-528f-b5ac-aa1506344f0b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

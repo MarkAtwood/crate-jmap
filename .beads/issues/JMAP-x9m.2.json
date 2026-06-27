@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-x9m.2",
+  "title": "Add test: queryChanges with TooManyChanges{limit:0} returns cannotCalculateChanges",
+  "description": "Add integration test covering PLAN.md line 440. MemoryBackend needs a way to force query_changes to return BackendChangesError::TooManyChanges { limit: 0 } for a specific type. Assert the handler returns JmapError with type=cannotCalculateChanges.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:28:49Z",
+  "updated_at": "2026-05-01T03:33:54Z",
+  "closed_at": "2026-05-01T03:33:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-x9m",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:28:48"
+    },
+    {
+      "depends_on_id": "JMAP-x9m.1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:28:49"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-06-13T21:32:24Z",
+  "compaction_level": 0,
+  "content_hash": "fceee0446055a35cf205ec748e69cf43ea5a8eff77b81ec4e9c1176eae13a126",
+  "created_at": "2026-06-13T21:12:33Z",
+  "created_by": "Mark Atwood",
+  "description": "In crate-jmap-chat-server/src/message.rs handle_message_set:\n\nCreate path: if the create payload has a non-empty broadcastMentions array, check that the sender has mention_broadcast permission in the target Space. Reject with forbidden if not. For group chats not part of any Space, broadcast mentions are unrestricted (spec \u00a74.4.1).\n\nUpdate path: same check when the update adds or retains a broadcast mention (spec \u00a74.11 update semantics \u2014 'The same mention_broadcast permission check applied at create time applies to updates that add or retain a broadcast mention').\n\nRich-body path: if bodyType is rich and body contains one or more 'broadcast' spans, the same permission check applies.\n\nmention_broadcast already exists in crate-jmap-chat-types/src/vocabulary.rs:48. The permission resolution infrastructure (caller's effective permissions in a Space) already exists from bd:JMAP-g7wu.2.4.3.",
+  "ephemeral": 0,
+  "id": "JMAP-6kxh.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Enforce mention_broadcast permission on Message/set",
+  "updated_at": "2026-06-13T21:32:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:12:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6kxh",
+      "id": "36871534-1c93-5a5a-a546-53b040976872",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-06-13T14:13:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6kxh.2",
+      "id": "372fe53a-f6fa-53fd-905e-f7e0f8f4ae45",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

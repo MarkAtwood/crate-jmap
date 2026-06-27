@@ -1,0 +1,50 @@
+{
+  "acceptance_criteria": "5 named tests pass; clippy clean",
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-04T23:18:58Z",
+  "compaction_level": 0,
+  "content_hash": "eac9dddbce8265ac933c9ebf777c3c9a65ed25a6932e7d7e51b8e8cd7ebc1c34",
+  "created_at": "2026-05-04T15:07:08Z",
+  "created_by": "Mark Atwood",
+  "description": "WHAT: Port format_receipt_timestamp and format_receipt_timestamp_at from the reference implementation.\n\nALGORITHM:\n1. Create crate-jmap-chat-client/src/utils.rs\n2. Port format_receipt_timestamp(dt: &UTCDate) -> String from ~/PROJECT/crate-jmapchat-client/src/utils.rs\n3. Port format_receipt_timestamp_at(dt: &UTCDate, now: DateTime<Utc>) -> String\n4. Key: UTCDate comes from jmap_types::UTCDate; parse via chrono::DateTime::parse_from_rfc3339(dt.as_ref())\n5. Output format: 'HH:MM' for today, 'Yesterday' for yesterday, 'Mon' through 'Sun' for past week, 'DD/MM/YY' for older\n6. Declare in lib.rs: pub mod utils;\n\nDEFENSIVE RULES:\n- On parse error: return dt.as_ref().to_owned() (the raw string) rather than panicking\n- No unwrap() without comment\n\nTESTS (from reference utils.rs test suite \u2014 independent oracle: UTCDate input strings are RFC 3339):\n- format_receipt_timestamp_at_today: input 2h ago \u2192 'HH:MM'\n- format_receipt_timestamp_at_yesterday: 25h ago \u2192 'Yesterday'\n- format_receipt_timestamp_at_this_week: 3 days ago \u2192 weekday name e.g. 'Mon'\n- format_receipt_timestamp_at_old: 8 days ago \u2192 'DD/MM/YY'\n- format_receipt_timestamp_at_parse_error: invalid date string \u2192 returns the input as-is\n\nACCEPTANCE: cargo test -p jmap-chat-client passes; cargo clippy -p jmap-chat-client -- -D warnings passes",
+  "ephemeral": 0,
+  "id": "JMAP-xjmj",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-client: utils.rs \u2014 format_receipt_timestamp",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T11:29:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w",
+      "id": "8ae305c0-ad44-5cc7-86ae-456d18828b9f",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T08:07:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s1ei",
+      "id": "ae43b24d-99a7-5820-9577-a493c2787fe4",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T08:07:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ds04",
+      "id": "aefe709f-6d34-56b9-b30d-a22d93abd75f",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added query_nested_under_not_related_ids_without_related_type_returns_invalid_arguments test covering the NOT operator branch. The rustdoc 'AND/OR/NOT operator nodes recurse' claim now has a fixture per branch. cargo test --all-features clean (45 unit tests now).",
+  "closed_at": "2026-05-15T09:14:47Z",
+  "compaction_level": 0,
+  "content_hash": "d85aa1a68853d05f5aa57c6d8e04d9ee68c0c202458b3f023ff0040a4e4ed878",
+  "created_at": "2026-05-14T17:56:58Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:569: comment says 'AND/OR/NOT operator nodes recurse into their conditions'. There is a test (metadata.rs:1237) that uses OR. There is no test using NOT \u2014 the easy test would be:\n\n  filter: { operator: \"NOT\", conditions: [{ relatedIds: [\"EM1\"] }] }\n\n\u2026and asserting invalidArguments. The NOT path through the recursion is identical to the OR/AND path (it iterates op.conditions), but the absence of test coverage on the NOT branch is a documentation hole \u2014 the comment claims coverage that doesn't exist.\n\nWhat would make it clear: either add a test that covers NOT, or remove 'NOT' from the comment and limit the claim to AND/OR.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "walk_filter_for_related_ids_constraint comment says 'AND/OR/NOT operator nodes recurse' but only AND and OR tested \u2014 NOT branch has no coverage",
+  "updated_at": "2026-05-15T09:14:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:56:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "493fa93a-37fb-516c-90b7-d68da14c301b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

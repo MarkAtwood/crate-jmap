@@ -1,0 +1,33 @@
+{
+  "close_reason": "Resolved 2026-05-10: percent_encode now returns Cow<'_, str>. Common JMAP IDs (alphanumeric + unreserved chars) return Cow::Borrowed with zero allocation. Only inputs needing escape allocate via Cow::Owned. The other half (url_scheme) was already fixed in JMAP-6lsm.10 \u2014 current implementation returns Option<&str> with eq_ignore_ascii_case comparison. 4 new oracle-backed unit tests cover both Cow variants and uppercase-hex encoding (RFC 3986 \u00a72.1). cargo test --workspace clean; cargo clippy --workspace --tests -- -D warnings clean. Commit 2959118.",
+  "closed_at": "2026-05-10T23:39:19Z",
+  "compaction_level": 0,
+  "content_hash": "4ab980638680def96512754d34c75959cd33c26af86b9d6364ace1db39d23752",
+  "created_at": "2026-05-07T20:43:32Z",
+  "created_by": "Mark Atwood",
+  "description": "Two micro-allocation findings in crate-jmap-base-client:\n\n1. `url_scheme` (client.rs:629) calls `to_ascii_lowercase()` allocating a fresh String per call only to compare to literals \"http\"/\"https\". `eq_ignore_ascii_case` on the prefix slice would be allocation-free. Called once per JMAP request.\n\n2. `percent_encode` (blob.rs:129) always allocates even when the input has no chars needing escape. A `Cow<'_, str>` return would let the safe-input path skip allocation.\n\nWhy both opinion: micro-opts. No measured perf impact. Fine as-is.\n\njmap-base-client is the foundation client crate per workspace AGENTS.md. Listed for completeness.\n",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.63",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: percent_encode and url_scheme allocate unnecessarily",
+  "updated_at": "2026-05-10T23:39:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "aaaec8a5-72c5-5715-aa5d-f6bc0aca922b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

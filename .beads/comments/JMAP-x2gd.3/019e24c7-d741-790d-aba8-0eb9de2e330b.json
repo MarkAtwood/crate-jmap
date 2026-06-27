@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T04:38:57Z",
+  "id": "019e24c7-d741-790d-aba8-0eb9de2e330b",
+  "issue_id": "JMAP-x2gd.3",
+  "text": "Escalating to human together with JMAP-x2gd.4 \u2014 same workspace-architectural shape. See JMAP-x2gd.4 most recent comment for the full options-and-recommendation writeup. Briefly: Path A (typed methods on ChatBackend) is my recommendation; Paths B (apply_space_patch variants) and C (may_* hook + generic create_object re-check) are also plausible but have wire-shape / type-erasure drawbacks respectively. Both .3 and .4 should be done together to avoid divergent patterns for the same kind of gate."
+}

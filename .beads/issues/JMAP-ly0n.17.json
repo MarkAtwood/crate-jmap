@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in 35b8a9d (docs only): both metadata fields now document the discriminator-keyed schema, cite the spec's 'Clients MUST ignore unknown keys' contract, and direct consumers to from_value at their boundary. Confirmed against the draft text that the value shape is deliberately left open per type, so the doc-clarification path (not a typed companion module) is the correct resolution.",
+  "closed_at": "2026-05-16T03:17:24Z",
+  "compaction_level": 0,
+  "content_hash": "a66a68a30d9ae9e8d47a460b9733b20699b16ad8fabb2512b3d3e3f973c781b8",
+  "created_at": "2026-05-16T02:48:09Z",
+  "created_by": "Mark Atwood",
+  "description": "SECTION: Contract underspecification\n\nCONTRACT RISK\nTwo public fields carry the Sloppy-Value shape\n(Option<serde_json::Value>) but with significantly weaker contract\nthan the workspace's sanctioned use of that pattern:\n\n  src/message.rs  MessageAction.metadata: Option<serde_json::Value>\n                  /// The `metadata` property (draft-atwood-jmap-chat-00 \u00a74.3).\n\n  src/contact.rs  Endpoint.metadata: Option<serde_json::Value>\n                  /// Arbitrary provider-defined metadata.\n\nWorkspace AGENTS.md authorises Sloppy-Value for \"fields whose value\nshape is defined by an external IETF spec (JSCalendar / RFC 8984,\nJSContact / RFC 9553, etc.) and is large or extensible\", AND\nmandates the hybrid pattern: \"keep the public field as\nserde_json::Value for round-trip fidelity, and add parallel typed\nsub-types in a sibling module (e.g. jscalendar.rs)\".\n\nThe two fields above are NOT covered by the IETF-external-spec\nexception:\n- MessageAction.metadata is defined by draft-atwood-jmap-chat-00 \u00a74.3\n  itself (the same draft this crate implements), not an external\n  spec. No parallel typed module exists.\n- Endpoint.metadata is explicitly \"provider-defined\" \u2014 no spec at\n  all, just per-provider extensions.\n\nWHAT BREAKS FOR CALLERS\n- Cross-implementation interop: a client built against this crate\n  receiving a MessageAction with metadata from a different vendor's\n  server cannot tell from the type whether the JSON value is\n  expected to match any schema. The caller writes its own\n  serde_json::from_value::<AcmeCorpMetadata>(v) on every site.\n- Server-side validation: a server using these types to validate an\n  inbound /set request has no schema to compare against. The crate\n  punts validation entirely.\n- Round-trip is preserved, but semantic correctness is not.\n\nThe mode-prompt review did not flag this. The closest existing\nfinding is JMAP-ly0n.5 (URI-latitude doc on ChatContact.id), which\naddresses doc precision rather than the schema-discovery gap on\nmetadata fields.\n\nWHY THIS IS DIFFERENT FROM CALENDARS/CONTACTS\njmap-calendars-types and jmap-contacts-types receive their\nsloppy-value approval BECAUSE they consume RFC 8984 / RFC 9553 and\nexpose parallel typed sub-types in jscalendar / jscontact modules\n(per crate-jmap-calendars-types/PLAN.md \u00a71-\u00a78,\ncrate-jmap-contacts-types/PLAN.md \u00a710). The workspace pattern is\n\"sloppy-Value field + typed companion module\".\n\nchat-types ships neither end of that pattern for these two fields:\nno spec citation that pins down the value shape (MessageAction) or\nno spec at all (Endpoint), and no typed companion module.\n\nRECOMMENDED RESOLUTION\nFor MessageAction.metadata:\n- If the JMAP Chat draft \u00a74.3 enumerates expected schemas keyed by\n  the `type` field (the existing MessageAction.action_type: \"button\"\n  | \"link\" | \u2026), add a sibling module action_metadata.rs with a typed\n  enum or per-action-type struct. Same pattern as the\n  jscalendar.rs / jscontact.rs companion modules.\n- If \u00a74.3 deliberately leaves the value shape open, add a doc clause\n  saying so explicitly and pointing callers at the action_type field\n  as the discriminant they MUST switch on.\n\nFor Endpoint.metadata:\n- Add a doc clause naming the federation drafts that define\n  per-endpoint-type metadata schemas (XMPP, SIP, email, etc.) or\n  citing where vendors are expected to publish their schemas.\n- Alternatively, demote to Option<serde_json::Map<String, Value>>\n  to align with the workspace `extra` pattern semantics (vendor\n  catch-all rather than typed payload).\n\nORACLE\nWorkspace AGENTS.md \"Sloppy-Value pattern for IETF-defined nested\nobjects\" section; crate-jmap-calendars-types/PLAN.md \u00a71-\u00a78;\ncrate-jmap-contacts-types/PLAN.md \u00a710.",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MessageAction.metadata and Endpoint.metadata are unconstrained sloppy-Value fields without typed companion or schema reference",
+  "updated_at": "2026-05-16T03:17:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:48:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "7712c495-c1b7-52dc-bfce-d760157c5223",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

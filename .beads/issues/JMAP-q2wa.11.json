@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added 'Defense notes (bd:JMAP-q2wa.11)' subsection to validate_header_form's rustdoc enumerating the four arguments from the bead text against collapsing the DATE_HEADERS / ADDR_HEADERS / MSGID_HEADERS / URL_HEADERS const tables into a HashMap, phf table, or single big match arm. Also tagged each const array inline with its specific RFC 8621 \u00a74.1.2.X subsection number so spec-conformance audits can spot-check table contents directly.\n\nBead title named apply_header_form; the tables actually live in the sibling helper validate_header_form. Applied the defense to where the code is.\n\nThe bd:JMAP-q2wa.11 inline citation in the rustdoc makes the defense discoverable from git-blame.\n\nComment-only change. Quality gates: fmt + clippy --all-features --tests + test --all-features + doc --all-features all clean.",
+  "closed_at": "2026-05-17T06:18:12Z",
+  "compaction_level": 0,
+  "content_hash": "f28dbad7d2ea66feecb6ddd59ff6e8fc327d948d0d415e55f898edd84960b17a",
+  "created_at": "2026-05-14T16:22:01Z",
+  "created_by": "Mark Atwood",
+  "description": "src/email.rs:213-241 \u2014 four const arrays enumerate the well-known headers and which header-form selectors are valid for each. RFC 8621 \u00a74.1.2 explicitly enumerates these sets (e.g. \u00a74.1.2.3 lists From, Sender, Reply-To, To, Cc, Bcc, Resent-From, etc. as the only valid hosts for asAddresses).\\n\\nA future contributor might suggest collapsing these into one big match arm or moving them into a HashMap for 'cleanliness'. Defend the current shape:\\n\\n- Const arrays of &str literals are zero runtime overhead and compile-time discoverable; a code search for 'list-help' instantly finds the URL_HEADERS site.\\n- The four-arm matches! check directly maps to the four spec subsections (\u00a74.1.2.3, \u00a74.1.2.4, \u00a74.1.2.5, \u00a74.1.2.7). Reorganizing breaks the spec correspondence.\\n- A HashMap or Phf table adds runtime lookup cost for a list that fits in cache and runs once per request.\\n- The error messages cite the header class (date / address / message-id / URL), which a one-big-match would have to recover via post-hoc dispatch.\\n\\nThis pattern is also what apply_header_form's documentation-first style (one match arm per RFC 8621 \u00a74.1.2.X) implements. Cross-referenced to make sure future cleanup attempts don't accidentally lose the spec-traceability.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Defend: apply_header_form ADDR_HEADERS / DATE_HEADERS / MSGID_HEADERS / URL_HEADERS tables",
+  "updated_at": "2026-05-17T06:18:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:22:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "95cd51fc-181f-565b-ad6c-6dd1994ac808",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

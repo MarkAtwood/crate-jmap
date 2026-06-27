@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "6 sites swept across 5 sibling crates. Workspace lib clippy clean, 2792 tests pass. Pre-existing clippy::needless_borrows_for_generic_args in metadata-types tests is separately tracked at JMAP-79qy.",
+  "closed_at": "2026-05-17T19:50:07Z",
+  "compaction_level": 0,
+  "content_hash": "ab180756bc7c49b901421eef8cdb4ed44a2d6e9d4ff2dd8a26d13955ca60b11d",
+  "created_at": "2026-05-17T08:55:10Z",
+  "created_by": "Mark Atwood",
+  "description": "Split from JMAP-x2gd.89. Canonical mail-server (10 sites) and chat-server (14 sites) have been swept to the let-else / if-let-else idiom under clippy::single_match_else. The pedantic lint also fires in the other 6 sibling extension-server crates:\n\n- jmap-calendars-server: 5 sites\n- jmap-contacts-server: 4 sites\n- jmap-filenode-server: 4 sites\n- jmap-metadata-server: 4 sites\n- jmap-sharing-server: 2 sites\n- jmap-tasks-server: 5 sites\n\nTotal ~24 sites. Pattern is identical to what landed in mail-server and chat-server:\n  match expr { Some(s) => ..., None => { ...continue/return... } }\n\u2192 let Some(s) = expr else { ...continue/return... };\n\nThis is workspace-canonical-template-propagation \u2014 mail-server is already converged so each sibling is independent of the others.\n\nP3 because clippy::pedantic is not enabled workspace-wide; the lint does not break CI. Idiom polish only. Mechanical, ~30 minutes total.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.103",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "single_match_else propagation: 6 remaining sibling extension-server crates (split from JMAP-x2gd.89)",
+  "updated_at": "2026-05-17T19:50:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T01:55:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "2519aff5-88db-509c-8860-3108f6127b6b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

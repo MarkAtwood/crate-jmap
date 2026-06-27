@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T23:57:37Z",
+  "compaction_level": 0,
+  "content_hash": "3b52caaa4b87be311d394a8d59e3980aa840160949db9dcc6b0a8622be56c974",
+  "created_at": "2026-05-14T23:36:23Z",
+  "created_by": "Mark Atwood",
+  "description": "Section A \u2014 Key Material Lifecycle.\n\nBearerAuth and BasicAuth at crate-jmap-base-client/src/auth.rs:151-245 store credentials in a plain String header_string field:\n\n- BearerAuth.header_string = format!(\"Bearer {token}\")\n- BasicAuth.header_string = format!(\"Basic {base64(user:pass)}\")\n\nString::drop deallocates the buffer back to the allocator but does NOT overwrite its contents. The credential bytes remain in process memory until the allocator returns the slab and reuses it. A core dump (panic, OOM kill, attached debugger, /proc/PID/mem) recovered while or shortly after the JmapClient is dropped will yield the literal credential text.\n\nThe workspace AGENTS.md explicitly calls this out (\"Section A \u2014 KEY MATERIAL LIFECYCLE\" in the /review-crypto-security prompt; the workspace-wide rule says 'Secrets are zeroized on drop. In Rust: Zeroize or ZeroizeOnDrop'). The existing tripwire tests (bearer_auth_debug_does_not_leak_token, log_redaction.rs) defend against the in-life-time leak via Debug/tracing. They do not defend against the after-life-time leak via core dump / process memory inspection.\n\n# What goes wrong (key recovery)\n\nA core dump or live-process memory inspection on a long-running JMAP client process recovers the Authorization header bytes. The bytes are well-formed and immediately usable: the attacker copies the 'Bearer xyz...' or 'Basic abc...' string and replays it against the JMAP server. There is no key-derivation chain to walk; the recovered bytes ARE the credential.\n\n# Suggested fix\n\nTwo layers:\n\n1) Add zeroize 1.x as a dependency. Wrap header_string in zeroize::Zeroizing<String> or derive ZeroizeOnDrop on the structs. Both BearerAuth and BasicAuth get the same treatment.\n\n2) For BasicAuth, the intermediate format!(\"{username}:{password}\") String built before base64-encoding ALSO needs zeroizing. Currently at line 224 a fresh String is built, base64-encoded, then dropped \u2014 that String is the most attack-relevant artifact because it carries the plaintext password (the encoded form is recoverable by decoding the base64, but the plaintext form is one less step). Use a Zeroizing<String> for the intermediate.\n\n3) Bonus: the caller-supplied &str token in BearerAuth::new is outside the type's control; document at the AuthProvider trait level that callers SHOULD provide tokens via Zeroizing<String> or equivalent.\n\n# Pushback / why this might be P3 not P2\n\nIn a single-user CLI tool, the credentials are also in argv, environment variables, the shell history file, and possibly a .netrc \u2014 many places more exposed than process heap. For server-side multi-tenant deployments (which is the real consumer base for this kit per the workspace AGENTS.md kit/consumer split), each tenant's credentials are held for the lifetime of the request handler; cross-tenant memory contamination via allocator reuse is the realistic threat. P2 is the conservative read.\n\n# Test discipline\n\nzeroize crate does not provide a runtime tripwire for 'this field was zeroized after drop' \u2014 you'd have to instrument the Drop path or use unsafe with a probe allocator. The defensive value is in the discipline and the derived contract, not in a regression test. Document the constraint in the AuthProvider trait rustdoc.\n\n# References\n\n- zeroize crate documentation\n- secrecy crate (alternative wrapper pattern with stricter access discipline)\n- Workspace AGENTS.md 'Security testing' section (Pattern 1 covers Debug; this finding extends to drop-path discipline)",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.59",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BearerAuth/BasicAuth credentials are not zeroized on drop; reside in freed heap until allocator reuse",
+  "updated_at": "2026-05-14T23:57:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:36:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "5c8951c6-3db9-594d-a6df-5a1680487cc3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

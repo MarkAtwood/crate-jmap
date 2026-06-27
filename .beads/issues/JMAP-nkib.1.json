@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added description\u2192RFC7807-detail invariant comment matching JmapError::limit pattern",
+  "closed_at": "2026-05-02T22:12:52Z",
+  "compaction_level": 0,
+  "content_hash": "27e13b66adca09246bc610c4c92373ce4022490535e7a5b82702d745e8e420da",
+  "created_at": "2026-05-02T22:06:11Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8620 \u00a73.6.1 example puts the failing URI in the RFC 7807 'detail' field of the HTTP problem document body, not in the JMAP error 'description'. The new constructor stores the URI in description and the doc comment claims this is per RFC 8620 \u00a73.6.1, but that section defines the HTTP response layer (problem details object), not the JMAP method-error 'description' field. This creates a semantic contract mismatch: the description field is documented as human-readable text, but this constructor puts a machine URI there. The HTTP response layer reads description to populate RFC 7807 fields (see JmapError::limit doc comment invariant) \u2014 putting a URI in description for unknownCapability is either wrong or needs the same documented invariant as limit().",
+  "ephemeral": 0,
+  "id": "JMAP-nkib.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Update after reading response.rs into_response(): the HTTP layer correctly maps description \u2192 detail for non-limit errors (line 104-108). The URI will appear correctly in the RFC 7807 detail field. The behavior is correct. However: (1) the doc comment on unknown_capability_with_detail does not document this convention (unlike JmapError::limit which has an explicit invariant comment explaining the description\u2192detail mapping), and (2) the undocumented convention is fragile \u2014 a future refactor of into_response that adds a special-case for unknownCapability could silently break it. Downgrading to P1.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "unknownCapability description field: spec cites \u00a73.6.1 but detail field is HTTP-layer not JMAP body",
+  "updated_at": "2026-05-02T22:12:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:06:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-nkib",
+      "id": "21327b51-2bf2-5ecd-a697-e84b355aeabe",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8383666a2a7367efea40c598584109240a56e105a7c31a48903abf933ed284d3",
+  "created_at": "2026-05-17T15:13:38Z",
+  "created_by": "Mark Atwood",
+  "description": "Follow-up to bd:JMAP-zx3s.9. The wire-spec-tightening (option 1) closes the correctness hole today by rejecting non-spec values at deserialize. A type-design improvement (option 2 from the original finding) would replace Option<serde_json::Value> with:\n\n```rust\n#[non_exhaustive]\n#[derive(Debug, Clone, PartialEq, Eq)]\npub enum ParentIdFilter {\n    /// Match only top-level mailboxes (wire: null).\n    TopLevelOnly,\n    /// Match mailboxes whose parent equals this Id.\n    Equals(Id),\n}\n\npub parent_id: Option<ParentIdFilter>,\n```\n\nWith manual Serialize/Deserialize impls (null <-> TopLevelOnly, string <-> Equals(Id), anything else rejects). Wire-compatible with the current format.\n\n**Why deferred:**\n- Breaking API change for any consumer that constructs MailboxFilterCondition by struct literal with Option<serde_json::Value> (struct-literal blocked by non_exhaustive, but downstream test code in mail-server uses Option<Value>).\n- Type-design improvement, not a present-tense correctness bug.\n- Forward-major-version flag \u2014 natural to bundle with other type-design improvements at 1.0 or breaking releases.\n\n**What's locked in now (from .9):**\n- deserialize_parent_id_three_way rejects numbers, booleans, arrays, and nested objects at parse time.\n- Test mailbox_filter_parent_id_rejects_non_spec_shapes asserts the four rejection cases.\n\n**Scope when picked up:**\n- New ParentIdFilter enum in jmap-mail-types::mailbox.\n- Manual Serialize/Deserialize impls.\n- MailboxFilterCondition.parent_id: Option<ParentIdFilter>.\n- Migrate jmap-mail-server::memory::mailbox_matches_condition to match on ParentIdFilter instead of Value.\n- Migrate jmap-mail-server::mailbox.rs filter parsing.\n- Migrate any downstream test fixtures that construct Option<serde_json::Value>.",
+  "ephemeral": 0,
+  "id": "JMAP-zx3s.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Consider typed ParentIdFilter enum for MailboxFilterCondition.parent_id (forward-major-version improvement)",
+  "updated_at": "2026-05-17T15:13:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T08:13:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zx3s",
+      "id": "b42447c1-40fe-530c-8094-413bf5951782",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed: if .is_some() + .unwrap() refactored to if let Some(exclude_ids)",
+  "closed_at": "2026-05-02T21:44:14Z",
+  "compaction_level": 0,
+  "content_hash": "b7ab45f36e3229054018c1b9e11c78dad95772a1d12a316ffb28f2a53a7f6189",
+  "created_at": "2026-05-02T21:40:29Z",
+  "created_by": "Mark Atwood",
+  "description": "In email_matches_condition (tests/common/mod.rs), the None arm of the borrow-dance match calls .unwrap() on cond.in_mailbox_other_than.as_ref(). This is safe only because the enclosing 'if cond.in_mailbox_other_than.is_some()' guard is in scope, but a reader must trace back to verify correctness. Idiomatic Rust would replace the outer 'if .is_some()' guard with 'if let Some(ids) = &cond.in_mailbox_other_than', then build the HashSet from ids directly, eliminating the unwrap entirely and making the binding's validity self-evident. Alternatively, annotate with .expect(\"guard guarantees Some\") to document the invariant at the call site.",
+  "ephemeral": 0,
+  "id": "JMAP-a81m.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "email_matches_condition: use if-let instead of is_some guard + unwrap",
+  "updated_at": "2026-05-02T21:44:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:40:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a81m",
+      "id": "17b8a205-921b-5147-aac0-cfce7732e667",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

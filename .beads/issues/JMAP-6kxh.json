@@ -1,0 +1,23 @@
+{
+  "close_reason": "All 5 children closed. BroadcastMention type + Message field (.1), server structural validation (.2), mention_broadcast permission enforcement (.3), hasMention filter resolution (.4), client MessagePatch plumbing (.5). 2925 workspace tests pass (was 2907), clippy clean. 18 new tests across the 3 crates.",
+  "closed_at": "2026-06-13T21:33:08Z",
+  "compaction_level": 0,
+  "content_hash": "a7c95469030fc94f9cc398560ee2b9385b5dbdc4db0a6638799324efeb03251a",
+  "created_at": "2026-06-13T20:32:34Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec (draft-atwood-jmap-chat-00) added BroadcastMention after the initial crate build. This epic covers the full implementation across types, server, and client crates.\n\nSpec surface:\n- BroadcastMention struct: {scope, offset, length} (\u00a74.4.1)\n- scope is one of 'everyone', 'here', 'admins'; reject unrecognized with invalidArguments\n- offset+length must not exceed body byte length\n- Message.broadcastMentions: BroadcastMention[], empty by default\n- When bodyType is 'application/jmap-chat-rich', broadcastMentions MUST be empty (broadcast info is inline 'broadcast' spans)\n- mention_broadcast permission: Message/set create/update with broadcast mentions requires this permission; reject with forbidden\n- hasMention filter: must resolve broadcast mentions whose recipient set includes the owner\n- Push: broadcast mentions bypass Chat.muted / Chat.muteUntil\n- Federation: Peer/deliver carries broadcast mentions\n- \u00a74.16 server-side validation: reject unknown scope, reject offset+length > body byte length, enforce mention_broadcast permission\n\nmention_broadcast already exists in vocabulary.rs. ChannelPermission already wired.",
+  "ephemeral": 0,
+  "id": "JMAP-6kxh",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add BroadcastMention type and Message.broadcastMentions field",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

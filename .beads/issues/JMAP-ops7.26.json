@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ee5d4dc1f2cec6ff2c1ac327857d47144028f5a8015bb7e99e0c9c9f3313dfbd",
+  "created_at": "2026-05-17T23:32:52Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence**: the workspace expresses 'is this property per-user-scoped?' in two incompatible places across two sibling crates.\n\n- TasksBackend::is_per_user_property (crate-jmap-tasks-server/src/backend.rs:209):\n    /// Default returns true for {keywords, color, freeBusyStatus, useDefaultAlerts, alerts}.\n    fn is_per_user_property(&self, prop: &str) -> bool { ... hardcoded set ... }\n  Seam location: TRAIT METHOD with default impl. Backends CAN override.\n- CalendarsBackend (crate-jmap-calendars-server/src/backend.rs:295-297 rustdoc):\n    Calendars' equivalent is a free function jmap_calendars_types::is_per_user_calendar_event_property\n    referenced from rustdoc; called by the handler before reaching the trait. Seam location: TYPES CRATE FREE FN.\n    Backends CANNOT override.\n\n**Caller-observable effect**: a third-party backend author who needs to alter the per-user property set:\n- In tasks-server: overrides `is_per_user_property` on their backend impl. Works.\n- In calendars-server: cannot. The predicate lives in jmap-calendars-types and is hardcoded into the calendars-server handler call site.\n\n**Reverse caller-observable effect** for a kit-author wanting to evolve the predicate:\n- In tasks-server: bumping the default predicate set is a semver-breaking change to TasksBackend (downstream backends that overrode the default with a fixed string set might silently misalign).\n- In calendars-server: bumping the predicate set in jmap-calendars-types is a semver-breaking change to the types crate.\n\n**Neither sibling is the canonical template here** \u2014 mail-server and chat-server have no per-user property concept, so there's no third sibling to disambiguate. This is a workspace-architecture decision that needs to land before either contacts-server or filenode-server grow per-user-property semantics and have to pick a side.\n\n**Two recommended resolutions**:\n(a) Predicate-on-backend-trait (tasks shape): move calendars's `is_per_user_calendar_event_property` from jmap-calendars-types to a default method on CalendarsBackend with the same signature as TasksBackend::is_per_user_property. Backends become the canonical authority. The types-crate free function becomes a backwards-compat shim that the calendars-server handler stops calling.\n(b) Predicate-in-types-crate (calendars shape): move tasks's `is_per_user_property` from TasksBackend to a free function `jmap_tasks_types::is_per_user_task_property`. Handlers call the free function directly. Backends lose the override seam.\n\nPosition (a) gives backends more control (consistent with workspace 'backends are canonical for permission enforcement' pattern); position (b) gives kit authors more control over evolution. Pick one and propagate.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "tasks-server / calendars-server: per-user property predicate lives on the backend trait vs in the types crate \u2014 two seams, neither canonical",
+  "updated_at": "2026-05-17T23:32:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T16:32:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "46450fd2-f82c-5138-9061-49d7a5380083",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

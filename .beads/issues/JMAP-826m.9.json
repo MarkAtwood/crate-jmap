@@ -1,0 +1,33 @@
+{
+  "close_reason": "Verified: the double-parse is intentional and correct. The generic handler re-parses the filter and surfaces unsupportedFilter on malformed shape. Not a correctness bug; possibly a minor efficiency concern filed separately.",
+  "closed_at": "2026-05-14T17:51:39Z",
+  "compaction_level": 0,
+  "content_hash": "cd5aae12f9fcc7181af13e0aff57eb8228ab325958e273b74dfa1fa0363a197e",
+  "created_at": "2026-05-14T17:51:35Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: client sends { \"filter\": <non-deserializable shape> } to /query or /queryChanges. validate_metadata_filter at metadata.rs:560-563 does:\n\n  match serde_json::from_value(filter_val.clone()) {\n      Ok(f) => f,\n      Err(_) => return Ok(()),  // silent pass-through\n  };\n\nPer the rustdoc at line 549-552, this is intentional: 'fails to deserialize at all (the generic will surface the deserialize failure as unsupportedFilter, which is the spec-correct error for malformed filter shape)'.\n\nThis is correct in the happy case where generic handle_query's optional_arg with JmapError::unsupported_filter (jmap-server/handlers.rs:251-252) does in fact re-parse and report unsupportedFilter. Verified by reading that code: it does.\n\nSo this is NOT a correctness bug. The double-parse is a minor efficiency concern (filed at P2 below if interesting). Closing this as non-finding.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Filter validation runs serde_json::from_value(filter_val.clone()) discarding deserialize error \u2014 error path is silently passed through to generic handler, which re-parses and may return different error than the spec wants",
+  "updated_at": "2026-05-14T17:51:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:51:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "996d8bf8-94ec-52a2-ba96-c1abe376b031",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

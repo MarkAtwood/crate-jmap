@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in 1491170 alongside JMAP-t307.9. Option (a) per bead: README clarification. 'union' \u2192 'concatenation', explicit 'no dedup', plus the note that for plain-only messages where html_body mirrors text_body the same part_id appears twice. Same explanation in message_to_jmap_body rustdoc under a new 'body_value_part_ids shape' heading. PLAN.md item 6 rewritten \u2014 old wording claimed 'assumed disjoint' which was incorrect.",
+  "closed_at": "2026-05-15T06:29:56Z",
+  "compaction_level": 0,
+  "content_hash": "bd58a0cc451f7641a441c6ca10adb7b280c166e83e2b3d698c3af2b15980956a",
+  "created_at": "2026-05-15T06:02:52Z",
+  "created_by": "Mark Atwood",
+  "description": "JmapBodyFields.body_value_part_ids: Vec<String> (src/lib.rs:61) can\ncontain DUPLICATE part IDs. The construction at src/lib.rs:156-158\nis plain concatenation, not union:\n\n    let mut body_value_part_ids = Vec::with_capacity(\n        msg.text_body.len() + msg.html_body.len()\n    );\n    body_value_part_ids.extend(msg.text_body.iter().cloned());\n    body_value_part_ids.extend(msg.html_body.iter().cloned());\n\nNo dedup. For plain-text-only messages \u2014 by far the most common email\nshape \u2014 RFC 8621 \u00a74.1.4 mandates that htmlBody mirrors textBody, so\nthe same part ID appears in both lists, and body_value_part_ids ends\nup with the same id twice. The existing test\nmessage_to_jmap_body_plain_text_body (src/lib.rs:296-309) confirms\nhtml_body.len() == 1 mirrors text_body.len() == 1 for plain-only\nmessages, which implies body_value_part_ids has length 2 with both\nentries being the same string.\n\nThe newly-rewritten README (README.md:43) describes body_value_part_ids\nas \\\"union of textBody and htmlBody part IDs\\\". The word \\\"union\\\"\nimplies set-semantics with dedup, which is NOT what the code does.\nThe accurate word is \\\"concatenation\\\". This is a contract bug in the\nnew doc text, not in the unchanged implementation.\n\nWhat goes wrong for the caller:\n\nThe README's own \\\"How to use\\\" example (README.md:75-83) iterates\nbody_value_part_ids and calls decode_body_value for each entry, then\ninserts into a HashMap:\n\n    for part_id in &fields.body_value_part_ids {\n        if let Some(part) = msg.part_index.find_by_id(part_id) {\n            if let Ok(decoded) = decode_body_value(raw, part, Some(8192)) {\n                body_values.insert(part_id.clone(), body_value_to_jmap(decoded));\n            }\n        }\n    }\n\nThe HashMap insert silently dedups the result, but decode_body_value\nruns TWICE on the duplicate part for plain-text emails. The cost is\nwasted decoding work on the most common email shape \u2014 not a\ncorrectness bug but a 2x CPU overhead in the steady-state path that\nthe maintainer is benchmarking in the new bench file.\n\nA caller who, instead of HashMap, uses Vec<(String, EmailBodyValue)>\nor a JSON-builder pattern that emits each entry directly to the wire,\nwould produce a JMAP bodyValues map with duplicate keys \u2014 at best a\nsize bloat, at worst a malformed response depending on how the JSON\nencoder handles duplicate map keys.\n\nFix options (maintainer's choice):\n\n  (a) README clarification: replace \\\"union\\\" with \\\"concatenation of\\\";\n      add a one-sentence note that duplicates are expected for\n      plain-only messages and the caller is responsible for dedup if\n      their code path is order-sensitive or duplicate-sensitive.\n\n  (b) Implementation change: dedup at construction time. Cheapest is\n      to skip the second extend when text_body == html_body (the\n      common mirror case); more general is to build through a\n      BTreeSet<String> or use Vec::dedup after sorting. The\n      maintainer should weigh whether preserving textBody-before-\n      htmlBody order matters to callers.\n\nWorkspace context: PLAN.md item 6 (lines 174-178) anticipates this\ncase but mis-classifies it as \\\"text_body and html_body are assumed\ndisjoint\\\" \u2014 they are NOT disjoint by RFC 8621 design.",
+  "ephemeral": 0,
+  "id": "JMAP-t307.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "body_value_part_ids can contain duplicates; README calls it 'union'",
+  "updated_at": "2026-05-15T06:29:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T23:02:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-t307",
+      "id": "1d85fd01-c1ea-5173-9c65-1840fa017c5d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added a paragraph to the createdIds accumulation loop in Dispatcher::dispatch documenting the last-write-wins behaviour on duplicate creationIds across batch /set calls. The convention is preserved (matches the kit's longstanding behaviour and is acceptably reproducible) but is no longer implicit. Detecting duplicates would require either a pre-batch HashSet allocation or a second pass over method_responses; the cost was judged to outweigh the rare client bug it would catch.",
+  "closed_at": "2026-05-14T13:53:31Z",
+  "compaction_level": 0,
+  "content_hash": "19b6846dd821f20dd8cc733506b39f66f00f6a62e920e8ca71483962df653941",
+  "created_at": "2026-05-14T12:53:10Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: a JMAP client sends a batch with two /set calls (e.g. Mailbox/set then Email/set) and accidentally reuses the same creationId key in both 'created' maps. crate-jmap-server/src/lib.rs:200-201 does created_ids.insert(Id::from(client_id.as_str()), Id::from(id_val)) for each entry. Insert on HashMap silently overwrites. The second /set's mapping wins; the first is lost.\n\nRFC 8620 \u00a73.3 specifies creationIds as 'a map of creation id to current server-assigned id' across the whole request \u2014 implicitly assumes creation ids are unique across the request. The RFC does not explicitly say the server SHOULD reject duplicates, but a server that silently last-write-wins is harder to debug than one that loudly rejects: the client believes both objects were created and references them both via #-pointer, then gets a notFound for the one whose mapping was overwritten.\n\nThis is pre-existing behaviour \u2014 the createdIds accumulation loop has been here since the dispatcher landed \u2014 but the diff touched the surrounding code and re-documented it in lib.rs:186-205. Two reasonable shapes:\n  (a) keep last-write-wins, add a doc paragraph explicitly calling out the behaviour so the next reader doesn't have to derive it.\n  (b) detect duplicate inserts and produce a serverPartialFail or a per-call error in the second /set response.\n\n(a) is the minimum cost defence \u2014 at least the contract is no longer implicit. (b) is the safer behaviour but requires more dispatcher surgery and might invalidate downstream tests.\n\nMaintenance consequence: low-frequency support issue ('the #-pointer to my created Mailbox doesn't resolve in the next call') that will be hard to repro because most clients generate unique creationIds. When it does fire, you need either the docstring above (to confirm the behaviour is intentional) or the louder error (to make it self-diagnosing).",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "createdIds: silent last-write-wins on duplicate creationId across batch /set calls",
+  "updated_at": "2026-05-14T13:53:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:53:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "fe903f4c-6332-5bc2-bb9d-95fe8d6b7e58",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

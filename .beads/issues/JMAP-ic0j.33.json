@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:17:30Z",
+  "compaction_level": 0,
+  "content_hash": "e3cb147a8a4180fa2b6f56d15af4a5125a069f7999e0800d60baadfcc452687a",
+  "created_at": "2026-05-15T17:13:57Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs:101-112 \u2014 CalendarsBackend::create_object rustdoc is three lines:\n\n    /// Create a new object of type `O`.\n    ///\n    /// Returns `(assigned_id, created_object)` on success. `create_id` is the\n    /// client-side creation id used in the `/set` request.\n\nThe canonical mail-server's MailBackend::create_object at\ncrate-jmap-mail-server/src/backend.rs:59-104 documents two non-obvious\ncaller-side contracts:\n\n    # Sentinel fields the backend MUST replace\n\n    The method handlers in this crate pass partially-constructed objects\n    with sentinel values that the backend MUST replace with real values\n    before storing:\n\n    - `id`: ... always set to `\"placeholder\"`. The backend MUST replace\n      it with a real, unique, account-scoped ID ...\n\n    - (mail-specific: blob_id, size)\n\n    Failing to replace these sentinels will cause the client to receive\n    invalid wire values.\n\n    # Singleton types\n\n    For types where only one instance may exist per account (e.g.,\n    `VacationResponse`), `create_object` MUST be idempotent ... The\n    `vacation.rs` handler relies on this guarantee to avoid a TOCTOU\n    race ...\n\nThe calendars handler at src/event.rs in `handle_calendar_event_set`\npasses the parsed CalendarEvent to create_object \u2014 does the handler set\n`id` to \"placeholder\" before passing? (Per ic0j.10 in this epic, yes \u2014\nthe placeholder hack exists.) The calendars trait doc doesn't say so.\nA backend author reading the calendars trait doc has no way to know:\n\n  - Whether the `id` field arrives populated with a sentinel or empty\n  - Whether the backend MUST overwrite it or MUST preserve it\n  - What happens if the backend keeps the placeholder string\n\nWhat goes wrong for the caller: a calendars backend author looks at the\nCalendarEvent passed in, sees `id: Id::from(\"placeholder\")`, decides\n\"that looks deliberate, the client sent this, I'll preserve it\". The\nbackend then stores an event with id = \"placeholder\". Subsequent\nCalendarEvent/get fetches return the placeholder id verbatim to clients.\nThis is exactly the failure mode the mail-server doc warns about.\n\nFix: mirror the canonical doc structure. Document:\n\n  - What sentinel values (if any) the handler passes in for `id`,\n    `calendarIds`, or other fields.\n  - That the backend MUST replace them and return the real id as\n    the first tuple element.\n  - Whether singleton or idempotency contracts apply (probably not\n    for CalendarEvent, but worth saying so).\n\nNote ic0j.10 in this epic already covers the placeholder-id mechanism\nitself; this finding is about documenting it on the trait so backend\nauthors don't recreate the same footgun.\n\nP3 \u2014 doc-as-contract gap; backend authors who only read create_object's\nrustdoc may misimplement.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "create_object rustdoc lacks 'sentinel fields the backend MUST replace' contract that canonical documents",
+  "updated_at": "2026-05-17T17:17:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:13:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "f956f474-1d24-583e-b224-b65d803518ea",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

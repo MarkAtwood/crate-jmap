@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added metadata_value(&Metadata) -> Value helper to helpers.rs (sibling to set_error_value), and an INFALLIBLE_SERIALIZE_JUSTIFICATION const holding the shared panic-message string. Three call sites in metadata.rs (create-success, update-success Ok(Some(obj))) collapse to metadata_value(&obj). The fourth call site at memory.rs:729 is left as-is because it's a generic O::Filter round-trip with a different argument shape, not a candidate for the same helper. cargo clippy --tests -- -D warnings clean; cargo test --all-features clean (72 tests pass).",
+  "closed_at": "2026-05-15T09:09:52Z",
+  "compaction_level": 0,
+  "content_hash": "61fb2998f0d63cd87359e41acc057101bf8f34bdf5d0b77efad2226058d93d70",
+  "created_at": "2026-05-15T07:37:38Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:372-373 (created), metadata.rs:432-433 (updated), and helpers.rs:107-108 (`set_error_value`) all carry the same `.expect(\"derive(Serialize) on plain data is infallible\")` rationale string. The helper at helpers.rs:107 (already JMAP-826m.29) factored this once for SetError; the two call sites in metadata.rs that serialize the success-path object (`created_obj` and the post-update `obj`) re-inline the same justification \u2014 there is no helpers.rs analogue for them. \u2014 Idiomatic Rust factors the explanation once: `fn jmap_obj_value<O: Serialize>(o: &O) -> serde_json::Value { serde_json::to_value(o).expect(\"\u2026\") }` next to set_error_value, three call sites become `jmap_obj_value(&created_obj)`. The justification string lives in one place; a future contributor refactoring the expect-policy edits one location. \u2014 Engineering impact: low (the .expect is provably unreachable as the comment states). Filed for cookie-cut consistency with set_error_value, not for correctness.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.50",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "serde_json::to_value(...).expect(\"derive(Serialize) on plain data is infallible\") duplicated at three call sites in handle_metadata_set",
+  "updated_at": "2026-05-15T09:09:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T00:37:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "01e1c341-4741-5385-a6a1-c7decdfe065b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

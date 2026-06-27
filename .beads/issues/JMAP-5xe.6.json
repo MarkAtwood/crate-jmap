@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-5xe.6",
+  "title": "decode_utf8_chunk: correct incomplete-sequence handling with regression test",
+  "description": "The split between raw_buf (bytes) and buf (decoded String) in SseStreamState, with decode_utf8_chunk handling the three cases (valid, incomplete, invalid) correctly, is well-designed. The regression test decode_utf8_chunk_incomplete_head_retained specifically guards the bug where valid_up_to.max(1) would discard the incomplete head byte. This test is a correct oracle (known byte vectors) and is worth preserving.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:27:31Z",
+  "updated_at": "2026-04-30T17:31:48Z",
+  "closed_at": "2026-04-30T17:31:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-5xe",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:27:30"
+    }
+  ]
+}

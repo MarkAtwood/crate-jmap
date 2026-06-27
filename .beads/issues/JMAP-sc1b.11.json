@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:26:04Z",
+  "compaction_level": 0,
+  "content_hash": "1273dd30565aa278fd2523ad3f33809548e2334b3db18527b120767dd7a0038f",
+  "created_at": "2026-05-07T20:29:05Z",
+  "created_by": "Mark Atwood",
+  "description": "Every crate-jmap-*-server/README.md ('How it works \u2192 Registration', 'CallerCtx' section, 'Known Limitations' section) says CallerCtx is 'discarded' via `ClosureHandler`. Affected README files:\n\n- crate-jmap-mail-server/README.md\n- crate-jmap-chat-server/README.md\n- crate-jmap-contacts-server/README.md\n- crate-jmap-calendars-server/README.md\n- crate-jmap-sharing-server/README.md\n- crate-jmap-tasks-server/README.md\n- crate-jmap-filenode-server/README.md\n\nCode in all seven uses `ClosureHandlerWithCtx` (introduced in commit 6219522 'feat: CallerCtx forwarding in all register_*_handlers via ClosureHandlerWithCtx'). The inline rustdoc on `register_*_handlers` says: 'CallerCtx IS now forwarded as _ctx'.\n\nSo inside docs.rs / cargo doc, the README and the rustdoc on the registration function literally contradict each other.\n\nFix: rewrite the README sections to describe `ClosureHandlerWithCtx` as the standard path, mention that `ClosureHandler` (no ctx) still exists for cases where the caller doesn't need ctx, and remove the 'CallerCtx is discarded' Known Limitation. Coordinate the wording across all 6 READMEs since the description should be identical.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: ClosureHandler vs ClosureHandlerWithCtx README staleness across 6 server crates",
+  "updated_at": "2026-05-07T21:26:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "fa577a03-db2a-5fb0-b700-f3a3e44ebd70",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

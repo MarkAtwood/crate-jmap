@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in da2e168. Added 'Do not move validation from construction to per-request' section to BearerAuth rustdoc (the rationale covers both BearerAuth and BasicAuth since they share the pattern). Five-reason defense against the 'just validate per-request' refactor.",
+  "closed_at": "2026-05-17T11:25:36Z",
+  "compaction_level": 0,
+  "content_hash": "b1e1a640d27711529b45fdd5e5c773204d2f8f0b4a47a65378e1496e8e52a8bc",
+  "created_at": "2026-05-14T23:11:34Z",
+  "created_by": "Mark Atwood",
+  "description": "auth.rs:152-180 (BearerAuth) and 200-230 (BasicAuth) store a pre-computed header_string String, validated via HeaderValue::from_str at construction time. auth_header() returns borrows from the stored String.\n\nA contributor may suggest 'just store the token + username/password fields and call HeaderValue::from_str in auth_header() on each request'. This is the wrong simplification.\n\nDefense:\n1. Validation at construction means invalid credentials surface at BearerAuth::new() / BasicAuth::new() return value \u2014 the caller fails fast at their auth-setup code. Per-request validation pushes failures to the first JmapClient::call() or fetch_session(), which is far from the bug source and harder to debug.\n2. auth_header() is called on every HTTP request and every WebSocket connection. Per-request HeaderValue::from_str is a non-trivial regex check; pre-validation moves that work out of the hot path.\n3. Pre-validation eliminates the need for auth_header to be fallible (its signature is fn auth_header(&self) -> Option<(&str, &str)>, infallible). Per-request validation would require Result<Option<(&str, &str)>, ClientError>, propagating an extra error layer through every call site.\n4. Storing as String rather than &str + &str lets auth_header return borrows without ownership tricks; the borrow checker stays simple.\n5. The Debug redaction (auth.rs:183-188, 233-238) targets the stored field, so any future contributor adding a Debug derive instead of the manual impl gets immediately surfaced by the existing canary tests (bd:JMAP-sc1b.79 tests bearer_auth_debug_does_not_leak_token and basic_auth_debug_does_not_leak_credentials).\n\nThe pre-validate-at-construction pattern is the same one rustls and reqwest's own type designs use; it is not over-engineering.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Pre-validated header storage in BearerAuth/BasicAuth (errors at construction, not first request): defend against 'just validate per-request'",
+  "updated_at": "2026-05-17T11:25:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:11:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "b19d2730-b19a-58df-b20d-4446a20ae2dc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

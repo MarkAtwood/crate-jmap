@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed option (b) doc-only fix in commit 79a1dfa. Added 'Deserialization is NOT validated' rustdoc section to UTCDate and Date in crate-jmap-types/src/id.rs. Option (a) (custom Deserialize impl) deferred to a workspace-level design bead \u2014 out of scope for this tasks-types review close.",
+  "closed_at": "2026-05-17T15:38:24Z",
+  "compaction_level": 0,
+  "content_hash": "fa2837a38377b6c1887a5b3e46f17c4ba6ae156ae591d2f46dc16766801ca6d2",
+  "created_at": "2026-05-15T05:06:22Z",
+  "created_by": "Mark Atwood",
+  "description": "Commit fb5dbaf migrated nine `Option<String>` fields to `Option<UTCDate>` in this crate (Task.created, .updated, .utc_start, .utc_due, .progress_updated; CheckItem.updated; Comment.created, .updated; TaskNotification.created; TaskFilterCondition.after/.before; TaskNotificationFilterCondition.after/.before).\n\nUTCDate is defined in crate-jmap-types/src/id.rs as a `#[serde(transparent)]` newtype over String. `validate_utcdate` is a fallible constructor only invoked by `UTCDate::new_validated`. Deserialization (via #[serde(transparent)]) bypasses validation completely.\n\nConsequence: a server response like `\"created\": \"not-a-date\"` or `\"updated\": \"2024-01-19T18:00:00\"` (no Z suffix \u2014 missing RFC 8620 \u00a71.4 timezone marker) deserializes successfully. The fields gain typed-newtype labeling but zero validation power at the boundary.\n\nThis is not a regression \u2014 the previous String form was equally permissive \u2014 but the migration's claimed benefit (type safety at the wire boundary) is not delivered. The fields look stricter than they are.\n\nMaintenance consequence: contributors will look at `Option<UTCDate>` and assume the deserializer rejects malformed timestamps. They will write downstream code that assumes the inner string is `YYYY-MM-DDTHH:MM:SSZ` and is surprised when an upstream server's sloppy response slips through.\n\nFix options:\n  (a) Add a custom Deserialize impl on UTCDate that calls validate_utcdate. This is a workspace-level decision \u2014 has to be made in jmap-types, propagates to every UTCDate-typed field everywhere. File against jmap-types if pursued.\n  (b) Leave as-is but add a rustdoc note to UTCDate explicitly stating \"Deserialization does not validate format; use new_validated if you need a checked constructor.\"\n\nThis review files the finding here; the decision belongs to jmap-types maintainership.",
+  "ephemeral": 0,
+  "id": "JMAP-ky8g.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "UTCDate newtype migration provides no deserialize-time validation",
+  "updated_at": "2026-05-17T15:38:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:06:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ky8g",
+      "id": "80558b29-a907-5250-b46d-007067d5d600",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4ab41b07322fc6076251e7953e2bfd7aea81ca3cb504105f995702d4812afe60",
+  "created_at": "2026-05-15T02:03:48Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8620 \u00a75.5 /query defines standard args anchor, anchorOffset, calculateTotal that metadata_query (src/methods/metadata.rs:173) does not expose. RFC 8620 \u00a75.6 /queryChanges defines upToId, calculateTotal, sort, filter (filter/sort are mandatory to thread through the queryChanges side too so the server can deterministically reproduce the query) that metadata_query_changes (src/methods/metadata.rs:206) does not expose. Trigger: client paginating a Metadata listing via anchor-based pagination, or wanting the total count, has to bypass the typed builder. Also: workspace-wide \u2014 mail-client, chat-client, calendars-client all omit these. Fix proposal: rather than ballooning positional args, introduce MetadataQueryParams and MetadataQueryChangesParams (per the bead above) and thread anchor/anchorOffset/calculateTotal/upToId/etc. through those. This is the same shape that PLAN.md's New-type rule contemplates. Workspace-wide propagation needed; canonical mail-client should land the pattern first.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "blocked",
+  "timeout_ns": 0,
+  "title": "metadata_query / metadata_query_changes: missing RFC 8620 \u00a75.5/\u00a75.6 standard args",
+  "updated_at": "2026-05-15T02:26:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:26:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm.5",
+      "id": "693b0d97-d99a-5a3d-b443-0c41975a6b51",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T19:03:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "7e661c88-d0fc-511b-bc11-f90678000021",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

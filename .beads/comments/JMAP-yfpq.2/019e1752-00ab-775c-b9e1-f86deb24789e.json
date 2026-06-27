@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-11T13:55:11Z",
+  "id": "019e1752-00ab-775c-b9e1-f86deb24789e",
+  "issue_id": "JMAP-yfpq.2",
+  "text": "[2026-05-11 scope-lock] Confirmed with Mark in interactive triage session: scope this bead to the 11 actual sloppy-Value fields only (Task: related_to, locations, virtual_locations, links, recurrence_rules, excluded_recurrence_rules, participants, alerts, time_zones; TaskList: default_alerts_with_time, default_alerts_without_time). The 2 PatchObject fields (Task: recurrence_overrides, localizations) round-trip Task \u2192 PatchObject \u2192 Task with a different oracle (JMAP PatchObject semantics, not RFC 8984 example JSON) and are out of scope here. File a separate small bead for PatchObject round-trip coverage if that's wanted later. Removing 'human' label."
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T20:19:04Z",
+  "compaction_level": 0,
+  "content_hash": "54e7cd0dac816fd9dbfa9172a8977404e914da5dd1bddc60a2b514968c4e434a",
+  "created_at": "2026-05-15T18:09:39Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-calendars-server/src/memory.rs:283-295 documents `MemoryBackend::with_account` as a builder-style account registrar:\n\n    pub fn with_account(self, account_id: &str) -> Self {\n        self.register_account(&Id::from(account_id));\n        self\n    }\n\nThe rustdoc says nothing about:\n\n1. **Id validation**: the `&str` is fed through `Id::from(account_id)` with no validation. `Id::from` is infallible and accepts ANY string. Passing `\"not a valid jmap id\"` or `\"  \"` or `\"\"` silently stores a bogus account that will round-trip through every API but violate RFC 8620 \u00a71.2's Id alphabet restriction (existing finding JMAP-6xs8.19 already flags `Id::new_validated` accepting wider chars than the spec, but `Id::from` is unconditionally permissive).\n\n2. **Idempotency**: calling `with_account(\"a\")` twice silently succeeds (the underlying `HashSet::insert` returns `false` on dup) but the rustdoc does not promise idempotency. A future refactor that adds e.g. duplicate-detection panic would be a hidden API break.\n\n3. **Relationship to register_account**: the rustdoc at :297-303 for `register_account(&self, account_id: &Id)` is similarly silent on both points. The argument-type-divergence flagged in JMAP-ic0j.35 (separately filed) is partially explained by the rustdoc, but the consequence \u2014 that passing an invalid Id through `with_account` is harder to detect than through `register_account` \u2014 is not.\n\nWhat callers cannot rely on:\n- That a malformed `account_id` is rejected at any documented boundary.\n- That calling `with_account` twice with the same value is safe.\n- That the reference MemoryBackend's tolerance for invalid input matches what real backends should do (the reference impl is the documentation for what a real backend should look like).\n\nThis is separate from JMAP-ic0j.35 (which flags the API shape divergence) \u2014 this is the doc-contract gap on the same surface.\n\nFix: add a `# Invariants` section:\n\n    # Invariants\n    The `account_id` parameter is fed unchanged through `Id::from`; there\n    is no validation that it satisfies RFC 8620 \u00a71.2's Id alphabet. The\n    `MemoryBackend` accepts bogus account ids silently \u2014 production\n    backends MUST validate caller-supplied ids before invoking this.\n    Calling `with_account` multiple times with the same value is\n    idempotent.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.65",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::with_account &str silently parsed via Id::from with no validation; doc gap",
+  "updated_at": "2026-05-15T20:19:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T11:09:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "9c7abc1c-6961-5900-a142-fcfbf00f2f70",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

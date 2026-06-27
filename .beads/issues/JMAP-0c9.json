@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T06:30:20Z",
+  "compaction_level": 0,
+  "content_hash": "ba54a35bc3e27aa2c3cb98bdff0ba0027158bd2a732f10811a80e946b1770e60",
+  "created_at": "2026-05-02T06:10:32Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nhandle_chat_set deduplicates Direct chats with a pre-create read-check-create pattern.\nTwo concurrent requests for the same contactId can both pass the check and both succeed,\nleaving duplicate Direct chats. Tracked as JMAP-4ii.10.\n\nThe handler also re-fetches all chats inside the per-create loop (O(n*m)).\n\n## Fix\n\nReplace the current pre-check-only pattern with optimistic create-then-validate:\n\n1. Before the create loop, fetch all existing chats once and build a HashSet of existing\n   direct contactIds. Use this for the pre-check (eliminates the O(n*m) issue).\n\n2. For each Direct create that passes the pre-check:\n   a. Call create_object \u2192 get new_id\n   b. Re-fetch all Direct chats for this account\n   c. Find all with matching contactId\n   d. If exactly one: success (no race occurred)\n   e. If more than one (race): canonical = min(all matching IDs, as strings)\n      - If our new_id != canonical: call destroy_object(our new_id), return\n        SetError::AlreadyExists { existing_id: canonical }\n      - If our new_id == canonical: we won, return success\n\n## Why this converges\n\nAll concurrent racers independently compute the same canonical winner (min ID).\nEvery loser destroys itself. One racer succeeds, the rest return alreadyExists.\nEnd state: exactly one Direct chat per contactId, regardless of concurrency.\n\nRequires no backend API changes \u2014 uses only existing create_object, get_objects,\ndestroy_object.\n\nRemaining limitation: if destroy_object fails, the duplicate lingers. A storage-layer\nunique constraint is still the authoritative guard; this fix makes the handler\nself-healing in the common case.\n\n## Acceptance criteria\n\n- A test that calls handle_chat_set twice concurrently with the same Direct contactId\n  results in exactly one chat created (one success, one alreadyExists)\n- The pre-check fetch is hoisted outside the loop (one get_objects call regardless of\n  how many creates are in the request)\n- cargo test --workspace passes",
+  "ephemeral": 0,
+  "id": "JMAP-0c9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Chat/set Direct: post-create dedup to self-heal concurrent race",
+  "updated_at": "2026-05-02T06:30:20Z"
+}

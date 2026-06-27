@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.1",
+  "title": "SSE: invalid-byte drain discards buffered valid UTF-8 data",
+  "description": "client.rs subscribe_events: When raw_buf starts with invalid UTF-8, drain_end = valid_up_to.max(1) removes only ONE byte from the invalid-sequence head. If the invalid bytes span multiple bytes (e.g. a lone 0xC2 followed by 0xFF 0xFE ...), subsequent calls decode the same partial sequence repeatedly before eventually reaching valid data. Each iteration valid_up_to==0 so we drain only 1 byte, burning through invalid bytes one at a time. This is correct for progress, but each loop iteration triggers the cap check on raw_buf without any useful decode \u2014 a carefully crafted stream of invalid bytes interleaved with valid ones can cause the 1 MiB raw_buf cap to fire even when the actual UTF-8 content is small. Result: spurious SseFrameTooLarge error on a stream that has valid content preceded by <1 MiB of garbage bytes. Not a correctness bug per se for the common case; the cap exists for protection. But the drain-one-byte strategy combined with the cap check on the UNDRAINED buffer (before we shrink it) means the actual limit is raw_buf.len() >= 1 MiB, not decoded content >= 1 MiB. A 1 MiB run of single invalid bytes each followed by a delimiter will kill the stream even though no frame exceeds a few hundred bytes.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:33:12Z",
+  "updated_at": "2026-04-30T01:42:42Z",
+  "closed_at": "2026-04-30T01:42:42Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:33:12"
+    }
+  ]
+}

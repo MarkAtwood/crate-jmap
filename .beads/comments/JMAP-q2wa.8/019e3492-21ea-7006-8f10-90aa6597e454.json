@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T06:14:13Z",
+  "id": "019e3492-21ea-7006-8f10-90aa6597e454",
+  "issue_id": "JMAP-q2wa.8",
+  "text": "Deferred during /do-beads JMAP-q2wa pass on 2026-05-16: the bead text itself flags this as 'Low-priority because the alternative would require a substantial backend trait reshape (a check role uniqueness within tx method or similar). Noted for the production-backend handoff.' The reference MemoryBackend is in-memory and not optimised for IMAP-scale (this is the explicit kit-vs-product posture documented in workspace AGENTS.md). The actionable fix lives downstream in real backends (PostgreSQL, IMAP-bridge), which can implement a 'check role uniqueness within tx' method as part of their own backend impl. The kit's handler-side fetch is correct for the reference impl. Re-surface when a production backend consumer files a concrete trait-reshape RFC against this seam."
+}

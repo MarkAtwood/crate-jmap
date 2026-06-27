@@ -1,0 +1,32 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7e6a35daa918ef8a6d11ec41ce9aaacd371fcfc88bf56cc11f0ce785cbde3542",
+  "created_at": "2026-05-14T16:21:35Z",
+  "created_by": "Mark Atwood",
+  "defer_until": "2027-01-01T08:00:00Z",
+  "description": "src/mailbox.rs handle_mailbox_set at line 477-480 calls get_objects::<Mailbox>(caller, &account_id, None, None) to fetch ALL mailboxes for role-uniqueness and name+parentId duplicate checks. A second full fetch at line 914 happens before the destroy phase. \\n\\nFor IMAP-scale accounts (commonly 100s to low 1000s of mailboxes; corporate accounts can exceed 10k), every Mailbox/set request \u2014 including ones that just create a single new mailbox \u2014 pays an O(n) full-mailbox-fetch cost. Two such fetches per request when destroys are present.\\n\\nThe matching JMAP-g7wu.6 work pushed Mailbox/query filter+sort INTO the backend precisely to avoid this kind of full-fetch. Mailbox/set role-uniqueness and name-uniqueness validation belong in the backend for the same reason (and could be enforced via DB unique constraints atomically with the mutation).\\n\\nThe handler comment at lines 466-476 documents the RFC 8620 \u00a75.3 pre-mutation-snapshot reason for the fetch. That reasoning is correct for the same-request swap logic, but the role-uniqueness check itself could be a single targeted query rather than a full fetch.\\n\\nLow-priority because the alternative would require a substantial backend trait reshape (a 'check role uniqueness within tx' method or similar). Noted for the production-backend handoff.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "Mailbox/set fetches full mailbox list per request \u2014 O(n) on IMAP-scale accounts",
+  "updated_at": "2026-05-17T06:14:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:21:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "017ab4a7-03de-5907-8d1d-fc74fb9933b2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

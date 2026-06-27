@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T07:00:26Z",
+  "id": "019e2a6f-bcad-70a2-a587-0e4fd86809a1",
+  "issue_id": "JMAP-q2wa.7",
+  "text": "Sibling-propagation note for q2wa.16: MemoryError in crate-jmap-mail-server was reshaped from pub tuple struct (pub String) to #[non_exhaustive] named-field struct with ::new constructor and ::description accessor. Every sibling extension-server crate (chat-server, calendars-server, contacts-server, tasks-server, filenode-server, metadata-server, sharing-server) has its own MemoryError type with the same antipattern \u2014 sweep needed."
+}

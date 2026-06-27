@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Refactored to let (is_direct_create, direct_contact_id_str) = match &kind { ... } tuple binding, eliminating split uninitialized declarations.",
+  "closed_at": "2026-05-04T15:40:01Z",
+  "compaction_level": 0,
+  "content_hash": "03dd42279e64760bea3943cedee62f9456ebf319bce5f5e1c0a517e999ed578f",
+  "created_at": "2026-05-02T06:45:54Z",
+  "created_by": "Mark Atwood",
+  "description": "File: /home/mark/PROJECT/JMAP/crate-jmap-chat-server/src/chat.rs:313-394\nIssue: Two variables (is_direct_create: bool and direct_contact_id_str: Option<String>) are declared uninitialized before a match block that assigns them in every arm. Rust guarantees definite assignment, but this split declaration pattern is non-idiomatic: it hides the relationship between the variables and the match, and requires the reader to mentally track that both are always set before use.\nFix: Restructure to let (is_direct_create, direct_contact_id_str) = match &kind { ... }; returning a tuple from each arm, or refactor the Direct arm to continue early (as all other validation already does) so the variables are only introduced where they are known to be valid.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat.rs: split uninitialized let-then-match pattern is non-idiomatic",
+  "updated_at": "2026-05-04T15:40:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:45:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "ce3e93c8-cd51-5d99-b382-f3a697ae7958",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

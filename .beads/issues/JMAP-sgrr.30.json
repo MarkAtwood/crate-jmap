@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Aggregated all six cross-field 'at least one of' constraints (Name/Organization/SpeakToAs/OnlineService/Address/Author) into a single rustdoc table in the crate-level docs, and added a corresponding README \u00a7Gotchas bullet. Kit posture preserved \u2014 no validate() helper or breaking type-system change; the aggregation makes the consumer-side validation surface explicit. Commit 650bc95.",
+  "closed_at": "2026-05-15T04:33:35Z",
+  "compaction_level": 0,
+  "content_hash": "2dcd74adae3c227925a062bcd7de2485341abda0034b32d579a8becd59e5271d",
+  "created_at": "2026-05-15T04:22:03Z",
+  "created_by": "Mark Atwood",
+  "description": "Six public structs in lib.rs document a cross-field at-least-one-of\nconstraint in their type-level rustdoc, then leave each component\nfield individually Option (or otherwise unenforceable at the type\nlevel). A caller constructing the struct with all the listed fields\nset to None has no compile-time or runtime signal that the resulting\nvalue is spec-non-conformant.\n\nThe struct list with the documented constraint:\n\n- Name (lib.rs:92-93): \\\"At least one of [components] or [full]\n  must be set per the RFC; this is not enforced at the type level.\\\"\n- Organization (lib.rs:204-205): \\\"At least one of [name] or [units]\n  must be set per the RFC; this is not enforced at the type level.\\\"\n- SpeakToAs (lib.rs:268-269): \\\"At least one of [grammatical_gender]\n  or [pronouns] must be set per the RFC.\\\"\n- OnlineService (lib.rs:397-398): \\\"At least one of [uri] or [user]\n  must be set per the RFC; this is not enforced at the type level.\\\"\n- Address (lib.rs:603-605): \\\"At least one of components, coordinates,\n  country_code, full, or time_zone must be set per the RFC; this\n  is not enforced at the type level.\\\"\n- Author (lib.rs:1145-1146): \\\"At least one property other than @type\n  must be set per the RFC; this is not enforced at the type level.\\\"\n\nThis is the cross-field counterpart of sgrr.17 (which catalogs\nsingle-field mandatory-as-Option cases on Resource-derived types).\nFiled separately because the failure mode differs: sgrr.17 callers\ncan defend with a per-field is_some() check; cross-field callers\nmust implement an or-of-is_some chain per struct, and the chain\ndiffers across the six struct shapes. The defensive code every\nconsumer writes:\n\n    fn ensure_name_valid(n: &Name) -> Result<(), MissingName> {\n        if n.components.is_none() && n.full.is_none() {\n            return Err(MissingName);\n        }\n        Ok(())\n    }\n    fn ensure_org_valid(o: &Organization) -> Result<(), MissingOrg> {\n        if o.name.is_none() && o.units.is_none() {\n            return Err(MissingOrg);\n        }\n        Ok(())\n    }\n    // ... four more, one per struct ...\n\nThree ways to address (callers cannot enforce these constraints\nwithout writing six wrapper functions):\n\n(a) Wrap each affected field group in an enum representing the\n    valid combinations. Example for Name:\n\n        pub enum NameValue {\n            Components(Vec<NameComponent>),\n            Full(String),\n            Both { components: Vec<NameComponent>, full: String },\n        }\n\n    Pushes the invariant into the type system. Breaking change.\n\n(b) Add a fallible validate() method to each affected struct that\n    returns Result<(), TypeError>. Non-breaking but optional \u2014\n    callers can still skip it. The kit currently has no precedent\n    for validate() helpers, so introducing the pattern would be\n    a workspace-wide policy decision.\n\n(c) Document the constraint in lib.rs:16-23 (\\\"Design: optional\n    fields and Option<...>\\\") so a contributor reading the doc-\n    comment on partial-response Option modelling knows the\n    cross-field constraints are a separate axis of unenforced\n    invariants. Pair with a README \u00a7Gotchas note enumerating the\n    six structs and the constraint shape for each.\n\nRecommendation: (c). The kit's posture is \\\"types model the wire\nshape; semantic validity is the consumer's job\\\" (per the kit-vs-jig\nsection in workspace AGENTS.md). Enforcing cross-field constraints\nin the type system would diverge from that posture and force the\npartial-response Option modelling into a corner. The realistic\nmitigation is documentation: tell the caller they MUST validate\nbefore emitting and give them the per-struct constraints to check.\n\nFiled at P3 because the constraints are already documented at the\ntype level \u2014 they're just not enforced. Caller has the information\nneeded; what they lack is a single place to find all of them.\n\nRelated: sgrr.17 (single-field mandatory-as-Option). The fix for\nthis finding does not depend on sgrr.17's outcome \u2014 the failure\nmodes and remediations are independent.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Cross-field 'at least one of X, Y' constraints documented but not enforced on 6 structs",
+  "updated_at": "2026-05-15T04:33:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:22:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "b15a1cdd-572e-592a-9ffa-97b733bfb503",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

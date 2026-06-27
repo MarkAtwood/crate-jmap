@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:55:03Z",
+  "compaction_level": 0,
+  "content_hash": "bc56c2ac26a579d94f69c0c38a1c7a70fdf7e2c64792ce4aa770251219f82276",
+  "created_at": "2026-05-02T00:44:44Z",
+  "created_by": "Mark Atwood",
+  "description": "import_email checks for duplicate Message-IDs under one lock acquisition, releases the lock, then reacquires it for thread assignment and storage. Two concurrent imports of the same message can both pass the duplicate check and both be stored. Even as test infrastructure this pattern is visible to contributors who may copy it into production backends.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend import_email has TOCTOU race on duplicate Message-ID check",
+  "updated_at": "2026-05-02T00:55:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:44:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "084cf525-6b58-5c06-a64f-7be8dfabf433",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "close_reason": "Verified in code \u2014 implementation matches decision exactly.",
+  "closed_at": "2026-05-03T13:34:36Z",
+  "compaction_level": 0,
+  "content_hash": "7b197d055b1ce5a154ae594510326d9fd798bf21cf04b2ad2d117581aa0d9cd3",
+  "created_at": "2026-05-02T23:38:09Z",
+  "created_by": "Mark Atwood",
+  "description": "The handler checks whether the target email already has keywords/$mdnsent: true before delegating to backend.send_mdns. This prevents double-send regardless of which backend is used. The backend does not need to know about the JMAP keyword; the handler owns the guard. Oracle: draft-ietf-jmap-mdn-17 \u00a72.1.",
+  "ephemeral": 0,
+  "id": "JMAP-hz7r",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DECISION:  pre-send guard in handler, not backend",
+  "updated_at": "2026-05-03T13:34:36Z"
+}

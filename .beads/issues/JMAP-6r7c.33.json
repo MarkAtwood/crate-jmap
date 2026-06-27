@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in 6072ed6. Promoted the not-currently-produced note on ClientError::RateLimited from buried mid-rustdoc text to a top-of-variant \u26a0 warning section with a dual-match code example. Also documented forward-compat (variant shape stable; dual-match code written today survives bd:JMAP-6lsm.3 migration).",
+  "closed_at": "2026-05-17T11:33:43Z",
+  "compaction_level": 0,
+  "content_hash": "1728e92da268a4a47ce512629aa0c74d9c96e3abc68305a661074f9437461f27",
+  "created_at": "2026-05-14T23:18:06Z",
+  "created_by": "Mark Atwood",
+  "description": "error.rs:346-372 \u2014 ClientError::RateLimited { retry_after: jmap_types::UTCDate }\n\nThe doc-comment is honest:\n\"Note (bd:JMAP-6lsm.3): this base crate does not currently produce this variant. HTTP 429 responses fall through reqwest's error_for_status() and surface as ClientError::Http instead.\"\n\nThis is a defensive-code-forcing API shape. Every caller who wants to handle rate limiting has to write:\n\n  match err {\n    ClientError::RateLimited { retry_after } => /* handle */,\n    ClientError::Http(http) if http.status() == Some(429) => {\n        // ALSO handle here, because the base crate doesn't produce RateLimited\n        // Parse Retry-After ourselves? Or just sleep a hardcoded duration?\n    },\n    _ => /* other */,\n  }\n\nThe Result type lies to the caller: \"if you match RateLimited, you handle rate-limiting.\" In reality, a caller who matches ONLY on RateLimited misses every actual 429 from the base crate.\n\nThe fix path is documented (JMAP-6lsm.3 will add 429\u2192RateLimited conversion). But until then, every caller is exposed. The variant should arguably have been gated behind a `#[doc(hidden)]` or marked as `#[deprecated(note = \"Not currently produced; match on Http with status() == 429 instead\")]` to surface the situation at compile time.\n\nAlternative recommendation: rename the doc-comment to a `# WARNING` block that's more prominent, with a code example showing the correct dual-match pattern for today. The current rustdoc is buried after the variant's #[error] string and easy to miss.\n\nLower priority because it's documented, and because the right fix is to implement the 429\u2192RateLimited conversion (which is filed as a separate bead).",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClientError::RateLimited variant is publicly documented as not-currently-produced \u2014 defensive code burden on callers",
+  "updated_at": "2026-05-17T11:33:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:18:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "8822b0f0-a767-5bec-ab9f-0c64c3b057c0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

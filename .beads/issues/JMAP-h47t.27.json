@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "memory.rs:706 update_object existing-value match converted to let-else. 4 lines saved, clippy::single_match_else no longer flags it. Secondary sites in task.rs/task_list.rs/task_notification.rs and memory.rs destroy_object intentionally kept in match form per the bead's own scope note ('strict scope of this finding: just memory.rs:664-671').",
+  "closed_at": "2026-05-14T19:06:37Z",
+  "compaction_level": 0,
+  "content_hash": "cd4425b06646b01cd2b2fc52396b2b31d3f3be9e2bce22d4db9eb77c82655ba8",
+  "created_at": "2026-05-14T18:28:22Z",
+  "created_by": "Mark Atwood",
+  "description": "Three sites use the pre-1.65 `match Option { Some(v) => v, None => return Err(...) }` pattern where `let-else` (stable since 1.65, workspace MSRV is 1.88) reads more directly. The crate already uses `let-else` once in `lib.rs:310` so the convention is established.\n\nClearest case \u2014 `memory.rs:664-671` in `update_object`:\n\n    let mut current = match existing {\n        Some(v) => v,\n        None => {\n            return Err(BackendSetError::SetError(SetError::new(\n                SetErrorType::NotFound,\n            )))\n        }\n    };\n\n\u2192 `let-else`:\n\n    let Some(mut current) = existing else {\n        return Err(BackendSetError::SetError(SetError::new(\n            SetErrorType::NotFound,\n        )));\n    };\n\nSaves 4 lines, eliminates a no-op pattern arm, and makes the early-return intent obvious. clippy::single_match_else flags this.\n\nSecondary sites:\n- `task.rs:336-340`, `task_list.rs:236-240`, `task_notification.rs:125-129` \u2014 `let id_str = match id_val.as_str() { Some(s) => s.to_owned(), None => continue }`. These have a 'continue' comment explaining the None arm is unreachable (validated above). The match style preserves the comment placement; let-else still works but loses the comment context unless re-attached. Judgment call.\n- `memory.rs:720-738` in `destroy_object` \u2014 the Some arm has substantial logic (bump_state, change_log_mut, recompute), so the early-return-on-None let-else flip would also work but is a heavier rewrite.\n\nWhat goes wrong if it stays as-is: nothing functionally \u2014 both forms compile to the same code. The argument is reader-experience: a serious Rust practitioner reading the `match` pattern in 2026 expects let-else, especially when one arm is purely an early-return.\n\nStrict scope of this finding: just `memory.rs:664-671` (the cleanest case). The other sites are mentioned for context but I'd defer them to a sweep if the workspace adopts let-else as a canonical convention.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "let-else opportunities \u2014 match Option { Some => v, None => return/continue } pattern",
+  "updated_at": "2026-05-14T19:06:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:28:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "3af95b38-f32c-5e29-ab11-46271f9c25ad",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

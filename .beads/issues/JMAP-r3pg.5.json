@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T04:51:53Z",
+  "compaction_level": 0,
+  "content_hash": "42a830a91712ddf1788669f6f16309d6d29ab43a550b1a26e7b1feceeed785cd",
+  "created_at": "2026-05-08T03:31:01Z",
+  "created_by": "Mark Atwood",
+  "description": "draft-ietf-jmap-calendars-26 \u00a74.4 (the destroy semantics) and PLAN.md \u00a75 (lines 166-181) specify that when onDestroyRemoveEvents is true, the **handler** is responsible for:\n1. Querying all CalendarEvents in the calendar being destroyed\n2. For each event with multiple calendarIds: removing this calendar's id from the event's calendarIds map (an update)\n3. For each event whose only calendar is this one: destroying the event outright\n4. Then destroying the Calendar\n\nsrc/calendar.rs:181-187 currently does only step 4: when on_destroy_remove_events is true, it skips the calendar_has_events check and proceeds straight to destroy_object<Calendar>. Steps 1-3 are entirely missing. There is no query_objects<CalendarEvent> call. There is no event update or destroy.\n\nResult: a real backend that enforces a foreign-key constraint between events and calendars will fail the destroy with a backend error (or silently leave orphaned events). The MockBackend doesn't enforce any such constraint, so the inline test (src/calendar.rs:281-298) passes by accident \u2014 it asserts only that destroyed.len() == 1, not that the events were cleaned up.\n\nTest gap: no test exercises step 1-3. add_object on the MockBackend's CalendarEvent store before the destroy, then assert those events are gone after.\n\nPLAN.md is explicit that this is handler logic, not backend logic: 'This is all handler logic. The backend has no onDestroyRemoveEvents concept.' (PLAN.md line 181). The current implementation contradicts that contract.\n\nFix: implement steps 1-3 in handle_calendar_set's destroy branch when on_destroy_remove_events is true. Use query_objects<CalendarEvent> with a filter by calendarId, then loop and update or destroy each event before destroying the Calendar.\n\nNote: cross-account considerations \u2014 events in shared calendars may be referenced from multiple accounts. The PLAN says events in 'multiple calendars' should have the calendarId removed, not the event destroyed. The test must cover both branches.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Calendar/set onDestroyRemoveEvents:true does not actually remove events \u2014 handler just bypasses the check",
+  "updated_at": "2026-05-08T04:51:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:31:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "4dcd609a-c294-59bd-98c5-841146a6e472",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

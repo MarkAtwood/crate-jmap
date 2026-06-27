@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T21:41:22Z",
+  "id": "019e37e2-f93b-781b-bdef-32b995ac7c4f",
+  "issue_id": "JMAP-sf5h.21",
+  "text": "Recommendation ratified after no pushback in ~41 hours: option (a) \u2014 drop the wrapper, rename Sha256DigestErrorKind \u2192 Sha256DigestError. The wrapper adds no fields over the kind; per-variant #[non_exhaustive] still guards forward-compat. Matches the workspace canonical pattern for crate-internal error enums."
+}

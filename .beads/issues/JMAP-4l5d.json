@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:49:59Z",
+  "compaction_level": 0,
+  "content_hash": "990f58068bb6ac86293a302150a70ab74f766fdd350e5863a188ba60757e59fe",
+  "created_at": "2026-05-02T23:38:58Z",
+  "created_by": "Mark Atwood",
+  "description": "In src/mdn.rs handle_mdn_send (line 128) and handle_mdn_parse (line 430), serde_json::from_value errors are mapped to a fixed string 'failed to parse MDN/send arguments' / 'failed to parse MDN/parse arguments', discarding the actual serde error (field name, expected type, path). If a client sends a malformed request (wrong type, unexpected null, missing required field), the error message gives no indication of which field caused the failure. The serde error should be included in the description, e.g. format\\!(\"failed to parse MDN/send arguments: {e}\").",
+  "ephemeral": 0,
+  "id": "JMAP-4l5d",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mdn handlers discard serde parse errors, making field-level failures undebuggable",
+  "updated_at": "2026-05-02T23:49:59Z"
+}

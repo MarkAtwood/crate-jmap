@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a7090f5c7f2195296d0e719079826b6a0278ee33e7020571a95c6efbf1e6255a",
+  "created_at": "2026-05-14T20:37:09Z",
+  "created_by": "Mark Atwood",
+  "description": "After bd:JMAP-510h.1 landed, handle_filenode_copy supports onExists=replace and onDestroyRemoveChildren=true. When the destination has a colliding node, the handler now destroys it (and cascades to descendants when the flag is true). The destructions are real and observable via Foo/changes \u2014 but RFC 8620 \u00a75.4 does not define a 'destroyed' field on the Foo/copy response, so the client has no in-response signal for what the copy destroyed.\n\nWorkspace decision needed:\n(a) Accept the gap: clients learn about the destruction via Foo/changes between snapshots. RFC-faithful, minimal surface area.\n(b) Extend the response shape with a non-standard 'destroyed' / 'destroyedIds' field on FileNode/copy. Better client UX but introduces a non-RFC-defined field.\n(c) File the gap upstream against draft-ietf-jmap-filenode-13 (a 'with the same behaviour' that destroys nodes ought to make those destructions visible to the client without an extra method round-trip).\n\nCode today follows option (a): handler tracks the destroys internally (mutates state, sets the mutated flag for newState calculation) but does NOT surface them. See note at handle_filenode_copy around 'destroyed_list' in src/filenode.rs.\n\nSuggested first step: file as a draft errata / discussion item with the FileNode draft authors. If accepted, option (b) becomes the right path; otherwise document the limitation in PLAN.md and the README.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.55",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "FileNode/copy onExists=replace silently destroys nodes with no wire signal",
+  "updated_at": "2026-05-14T20:37:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:37:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "c3fda36b-7157-5a89-b326-9512fe59bcc8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

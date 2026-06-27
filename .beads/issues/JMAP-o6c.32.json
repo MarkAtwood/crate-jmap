@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed: recurse into subParts only when props contains 'subParts'. Previous code always recursed into children before apply_body_properties stripped subParts from the parent \u2014 wasted O(n) recursive work for the common case where client does not request subParts.",
+  "closed_at": "2026-05-04T15:45:46Z",
+  "compaction_level": 0,
+  "content_hash": "51040a14e28e62ccdf076b75bc65b99e358e8062041c6c348aa7c69b4c52d106",
+  "created_at": "2026-05-02T03:26:50Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs apply_body_properties_recursive: the function first recurses into subParts children, then calls apply_body_properties on the current node. apply_body_properties only keeps keys that are in body_prop_set. If 'subParts' is not in body_prop_set (which it isn't in DEFAULT_BODY_PROPERTIES), the call to apply_body_properties on the current node removes 'subParts'. The trailing comment says 'nothing extra to do \u2014 apply_body_properties already kept it if props contains subParts', which is correct \u2014 but the recursive call above already processed the children. The sequence is: recurse children \u2192 then strip subParts from parent. The result is that children are recursively processed but then their container key is deleted from the parent. This means the recursive processing of subParts children is always wasted work (they are computed then discarded). The fix is to recurse only if subParts will survive in body_prop_set, or restructure to preserve subParts conditionally.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "apply_body_properties_recursive loses subParts when bodyProperties does not include it",
+  "updated_at": "2026-05-04T15:45:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:26:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "0c3156b5-ecee-5feb-b78d-efc6423b520e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

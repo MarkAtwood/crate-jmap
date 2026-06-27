@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-450.7",
+  "title": "assign_thread loads ALL emails for every Email/set create \u2014 O(n) at scale",
+  "description": "email.rs:652-682 \u2014 assign_thread calls backend.get_objects::<Email>(account_id, None, None) which fetches every email in the account, deserializes each one, and scans message_id fields. Called once per email creation. At 10k emails and 100 simultaneous creates this is 1M object deserializations. Backend needs a message-id index or the handler needs to accept a pre-built map.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:34:54Z",
+  "updated_at": "2026-05-01T00:18:14Z",
+  "closed_at": "2026-05-01T00:18:14Z",
+  "notes": "Would require a new backend API e.g. find_thread_by_message_id(). Acceptable for current scope (MemoryBackend with small datasets).",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-450",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:34:53"
+    }
+  ]
+}

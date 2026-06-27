@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Won't fix: P4-opinion-only stylistic refactor. Per AGENTS.md convergence rule, P4/opinion findings under a converged review epic are bikeshedding-threshold. The current 'pub(crate) mod test_support' is #[cfg(test)], has a clear module-level doc comment explaining the std::sync::Mutex choice, and works correctly. The original '886 LoC' observation is also stale: lib.rs has since grown to 2104 LoC, dominated by non-test code. Defer to a future test-harness refactor if/when integration-test layout (JMAP-sc1b.16-style) gets revisited.",
+  "closed_at": "2026-05-10T23:48:55Z",
+  "compaction_level": 0,
+  "content_hash": "cc86aae6cd83b48e4bd3cccba81e0872f5e219f22f426777493daece1bbe8fb4",
+  "created_at": "2026-05-08T03:34:44Z",
+  "created_by": "Mark Atwood",
+  "description": "src/lib.rs:177 declares 'pub(crate) mod test_support'. Sister files calendar.rs:241, event.rs:689, event_notification.rs:191, participant_identity.rs:213, principal.rs:108 all import via 'use crate::test_support::MockBackend'. This works but lives inside lib.rs, making lib.rs 886 LoC of which ~250 are test infrastructure.\n\nCleaner option (idiomatic for Rust testing): move test_support into its own file at src/test_support.rs and make it a #[cfg(test)] sibling module. Or, more idiomatic still, move it to tests/common/mod.rs as a shared integration-test helper \u2014 but that requires the integration test pattern, which this crate doesn't have (PLAN.md \u00a7Test Strategy describes 'tests/' directory \u2014 see JMAP-sc1b.16 which already flags this).\n\nThe current arrangement is also unusual in that all unit tests are inline in their respective module files but share a test_support module via crate::. Pulling test_support out to its own file would make the structure read more naturally.\n\nP4 / opinion: the current setup compiles and works. The proposed changes are stylistic. May coordinate with future integration-test work tracked in JMAP-sc1b.16.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "test_support::MockBackend exposed as pub(crate) but tests in sibling files import via crate::test_support \u2014 cleaner path exists",
+  "updated_at": "2026-05-10T23:48:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:34:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "c9b3a512-d07b-5844-9ac1-87e3b9e16642",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

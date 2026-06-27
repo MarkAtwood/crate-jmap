@@ -1,0 +1,23 @@
+{
+  "close_reason": "Handler fully implemented and registered: blobIds, properties filtering, bodyProperties, fetchTextBodyValues, fetchHTMLBodyValues, fetchAllBodyValues, maxBodyValueBytes, notFound, notParsable, header: properties. 213 tests pass. Narrow null-metadata gap filed separately.",
+  "closed_at": "2026-05-02T20:35:27Z",
+  "compaction_level": 0,
+  "content_hash": "91a547ed023a24f30bb8a4395f6c288bd2342ba4885dd7207f3c6357467387e4",
+  "created_at": "2026-05-02T17:28:52Z",
+  "created_by": "Mark Atwood",
+  "description": "Email/parse is a major RFC 8621 method not yet implemented. Parses an arbitrary RFC 5322 blob (not stored as Email) and returns an Email-shaped object with null metadata fields (id, blobId, threadId, mailboxIds, keywords, receivedAt) and populated header/body fields. Uses the same property selection as Email/get including bodyStructure, textBody, bodyValues, fetchTextBodyValues etc. This is where jmap-mime comes in: parse_email() in the backend, then convert with message_to_jmap_body(). jmap-test-suite: parse-valid-message, parse-null-metadata, parse-not-found, parse-not-parsable, parse-body-values, parse-response-structure.",
+  "ephemeral": 0,
+  "id": "JMAP-u02e",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-mail-server: Email/parse (RFC 8621 \u00a74.9)",
+  "updated_at": "2026-05-02T20:35:27Z"
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in b091273 as side-effect of JMAP-t307.1. The medium-fixture docstring in tests/common/mod.rs now says 'base64-encoded filler-block attachment' / 'uniform ASCII filler, not a valid PDF' instead of the prior 'shaped after a small PDF' / 'shaped like a small PDF blob' wording. The Content-Type stays application/pdf because the bead noted that drives attachment classification \u2014 the rewrite only fixes the body-content claim. Same correction applies to the bench file's module-level doc comment which now references 'base64 filler-block attachment'.",
+  "closed_at": "2026-05-15T06:33:16Z",
+  "compaction_level": 0,
+  "content_hash": "f8dc2f2e5814558612224178f378d4f6e44c49abbadfbafecd005f560f0240e7",
+  "created_at": "2026-05-15T05:54:26Z",
+  "created_by": "Mark Atwood",
+  "description": "What is awkward: crate-jmap-mime/benches/mime_pipeline.rs:62-73 docstring says 'base64-encoded attachment shaped after a small PDF' and 'shaped like a small PDF blob'. The actual fixture (line 107) emits 76-char runs of the letter 'A'. There is nothing PDF-shaped about it \u2014 no %PDF-1.x header, no xref table, no /Length stream, no octet patterns that would exercise base64 length-quantum behavior differently from any other binary blob.\n\nThe MIME adapter under benchmark does not care about content. mime-tree does not validate attachment content. So the 'PDF' claim adds zero benchmarking fidelity and misleads a future reader who sees the docstring and thinks they need to preserve PDF-like structure when editing the fixture.\n\nSuggested rewrite: replace the docstring with a true description \u2014 'base64-encoded filler block (~12 KB encoded) representing a generic binary attachment. Content is uniform ASCII to keep the fixture deterministic across runs.' Drop the application/pdf Content-Type if you do not want to claim PDF semantics; or keep application/pdf because the MIME type drives attachment classification, but stop calling the body PDF-shaped.\n\nThis is a small clarity fix, not a benchmarking concern.",
+  "ephemeral": 0,
+  "id": "JMAP-t307.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Medium bench fixture comment claims 'PDF-shaped' but writes filler ASCII",
+  "updated_at": "2026-05-15T06:33:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:54:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-t307",
+      "id": "9d5adc43-67a9-56db-8b7f-64c50150e3f4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

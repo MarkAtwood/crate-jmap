@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T04:49:01Z",
+  "compaction_level": 0,
+  "content_hash": "c424add9e126e58ccffa61901eaf0db80907ad2691efb5b9c5b2d6d0199b18a5",
+  "created_at": "2026-05-14T03:41:28Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/backend.rs:312-335\n\n  /// Implementations SHOULD return quickly (in-process struct\n  /// construction, possibly off a cached per-account record) \u2014\n  /// this method is called on the hot Space/set path.\n  fn limits(&self, _caller: &Self::CallerCtx, _account_id: &jmap_types::Id) -> ChatLimits {\n      ChatLimits::default()\n  }\n\nThe (caller, account_id) arguments are documented as intentionally\nplumbed for future per-account variation (Free vs Pro tier,\nmulti-tenant SaaS). The doc names exactly the production case the\nseam exists for. But the method is SYNC, so any production backend\nthat looks up caps from a database or service:\n\n- Must block_on / tokio::task::block_in_place inside, which\n  introduces runtime-pinning hazards in a Send context.\n- Must pre-cache every (account_id, ...) combination in memory at\n  startup, which doesn't scale to multi-tenant SaaS with many\n  accounts.\n- Must accept that the cache might be stale (which is fine for caps,\n  arguably) \u2014 but the contract gives the consumer no way to opt\n  into async refresh.\n\nThree relevant points:\n\n1. The trait's other hooks (slow_mode_check, is_contact_blocked,\n   may_set_custom_emoji, expire_message, apply_space_patch,\n   apply_space_metadata_patch) are all async. limits is the odd\n   one out.\n\n2. Once the trait method ships sync, flipping to async is a\n   major-version-break. Backend implementors who built the sync\n   shape are stuck.\n\n3. The doc disclaims this with 'SHOULD return quickly', but\n   'quickly' is ambiguous: sync-quickly-with-cache vs\n   async-quickly-with-await are wire-incompatible.\n\nFix:\n  fn limits(\n      &self,\n      _caller: &Self::CallerCtx,\n      _account_id: &jmap_types::Id,\n  ) -> impl Future<Output = ChatLimits> + Send {\n      async { ChatLimits::default() }\n  }\n\nThe default impl stays trivial. Backends that want sync return an\nalready-resolved future; backends that need async get the option.\nThe hot-path SHOULD-return-quickly guidance survives unchanged in\nthe rustdoc; it just becomes 'return a ready future quickly' for\nbackends that have local cache.\n\n(Note: jmap-mail-server's older max_<thing> methods predate this\nconvention and are individually sync; workspace AGENTS.md\nexplicitly says NOT to retroactively propagate this struct shape\ninto mail-server. The fix here is local to chat-server.)",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.43",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: ChatBackend::limits is sync, locks out async per-account lookups",
+  "updated_at": "2026-05-17T04:49:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:41:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "f13cbe03-4bbc-5c27-a3f7-e1b859a6cbfb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

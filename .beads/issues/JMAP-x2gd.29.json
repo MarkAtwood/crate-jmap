@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in commit 29a4960. StructuralKey enum + exhaustive match replaces the stringly-typed match and removes the unreachable fallback arm.",
+  "closed_at": "2026-05-17T04:25:01Z",
+  "compaction_level": 0,
+  "content_hash": "a67564f0fb799938fc5e64c27c37de008628ac3614a81cb43a156f73c8b5381e",
+  "created_at": "2026-05-14T03:20:20Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/space.rs:34-89 (parse_structural_entries) + the caller at lines 951-990 (handle_space_set update branch).\n\nThe 12 structural mutation keys are declared as a string constant array (STRUCTURAL_KEYS in space.rs:951-964), then the caller does a linear .iter().find() to test membership (line 977) and threads the matched `canonical: &'static str` into parse_structural_entries, which dispatches via a 12-arm string match with `_ => return Err(format!(\"internal: unhandled structural key {canonical}\"))` as the fallback.\n\nTwo non-idiomatic Rust issues stack here:\n\n1. Stringly-typed dispatch. `canonical` is `&'static str` but it carries the SEMANTIC ROLE of an enum variant. A purpose-built `StructuralKey` enum (with `FromStr` for wire-shape parsing, `Display` for round-trip, and `#[non_exhaustive]` for future-proofing) would replace both the slice membership test and the 12-arm string match with `match key.parse::<StructuralKey>()?`. The compiler then enforces exhaustiveness; the `_` fallback becomes unreachable by construction rather than 'unreachable by invariant'.\n\n2. Unreachable fallback that admits the invariant in a string. The current `_` arm returns an Err whose message starts with \"internal:\" \u2014 the rustdoc on the function explicitly says the caller pre-validates that canonical is one of the 12. Meaning the arm is dead code under correct invocation. Rust's exhaustiveness checker exists to make 'dead by invariant' arms into 'forbidden by type' arms.\n\nWhat goes wrong if left: a future PR adding a 13th structural key (e.g. a spec edit that introduces 'addTags') has to remember THREE sites:\n- extend STRUCTURAL_KEYS,\n- extend the match in parse_structural_entries,\n- extend the order-comment at lines 942-950.\nWith an enum, the new variant is added once; the compiler flags every match site that doesn't handle it. The cost of conversion is moderate (~30 LOC) and the long-term maintenance saving is permanent \u2014 and the conversion is exactly the canonical fix for stringly-typed dispatch from the /review-rusty type-design checklist.\n\nScope: P2 type-design. Not a bug; a real maintainability concern that the workspace's cookie-cutter sibling pattern will amplify if more extensions follow the same shape.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "space.rs parse_structural_entries: stringly-typed match on &'static str with unreachable fallback arm",
+  "updated_at": "2026-05-17T04:25:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:20:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "a5366902-f285-5230-87eb-171b90b6c323",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

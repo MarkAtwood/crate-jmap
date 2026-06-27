@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T21:22:00Z",
+  "compaction_level": 0,
+  "content_hash": "8f4ae93d22ab3d22856334565620f8eebe02c55930303e9dabe9319337ab73e6",
+  "created_at": "2026-05-11T21:13:57Z",
+  "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "description": "Create the empty crate scaffold for jmap-metadata-server, cookie-cut from jmap-sharing-server (closest single-extension-server analog).\n\n## Deliverables\n\n- New directory crate-jmap-metadata-server/\n- Cargo.toml: name=jmap-metadata-server, deps {jmap-types, jmap-metadata-types, jmap-server, serde_json}, dev-deps {tokio, jmap-metadata-server with memory feature}; mirror sharing-server's [features] memory = []\n- src/lib.rs: forbid(unsafe_code), pub mod backend/metadata/helpers, cfg(feature='memory') pub mod memory, pub use re-exports, register_metadata_handlers function, JMAP_METADATA_URI re-export\n- src/backend.rs: trait stub (MetadataBackend: JmapBackend) \u2014 only the method signatures (no body)\n- src/metadata.rs: handler function stubs \u2014 signature only with todo!() body\n- src/helpers.rs: extract_account_id re-export, SetAccumulators struct, finalize_set_response, set_error_value (copied from sharing-server pattern)\n- PLAN.md, README.md mirroring sharing-server (substituting Metadata for Principal/ShareNotification)\n- Workspace Cargo.toml: add 'crate-jmap-metadata-server' to members; jmap-metadata-server path-dep entry\n- Workspace AGENTS.md: update crate map table to add jmap-metadata-server row, dep tree to add the new crate\n\n## Acceptance\n- cargo check -p jmap-metadata-server clean (todos in body OK; trait stub compiles)\n- cargo clippy -p jmap-metadata-server -- -D warnings clean\n- cargo doc -p jmap-metadata-server --no-deps clean\n- Workspace build: cargo check --workspace clean\n\n## Out of scope\n- Real handler bodies (deferred to .3.3)\n- Real backend trait method bodies \u2014 only signatures (.3.2 fleshes out)\n- Memory backend (.3.4)\n- Integration tests (.3.4)",
+  "ephemeral": 0,
+  "id": "JMAP-06zp.3.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Scaffold jmap-metadata-server crate (Cargo.toml, lib.rs shell, register_metadata_handlers, workspace member, README/PLAN.md)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T14:13:56Z",
+      "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+      "depends_on_issue_id": "JMAP-06zp.3",
+      "id": "6aedd470-8d38-54e5-ac9b-7ed380d5b536",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

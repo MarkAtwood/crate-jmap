@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-16T01:28:26Z",
+  "compaction_level": 0,
+  "content_hash": "8af823284d7e446831beb520fd3e18a7a8bb8460bf4de3db59f08f7c0d7f9a0e",
+  "created_at": "2026-05-15T20:01:43Z",
+  "created_by": "Mark Atwood",
+  "description": "After bd:JMAP-ic0j.71 added `UTCDate::to_epoch_seconds()` to `jmap-types` (foundation), `jmap-mail-server` still carries its own private `rfc3339_to_epoch_secs` / `try_rfc3339_to_epoch_secs` parser at `crate-jmap-mail-server/src/memory.rs:2111-2189`. That helper accepts RFC 3339 with offset (`+HH:MM` / `-HH:MM`) AND the `Z` suffix, so it's a SUPERSET of `UTCDate::to_epoch_seconds`, which is strictly RFC 8620 \u00a71.4 (`YYYY-MM-DDTHH:MM:SSZ`).\n\nMigration targets in jmap-mail-server:\n\n- `memory.rs:203`: `.map(rfc3339_to_epoch_secs)` on `Email.received_at` \u2014 `received_at` is a `UTCDate` field (RFC 8621 \u00a74.1), so this is a clean swap.\n- `memory.rs:923-924`: `rfc3339_to_epoch_secs` on `received_at` for sort comparison \u2014 same.\n- `memory.rs:2259, 2267`: `rfc3339_to_epoch_secs(email.received_at.as_ref())` \u2014 same.\n\nNOT a migration target:\n- `memory.rs:2260, 2268`: `try_rfc3339_to_epoch_secs` on filter `before` / `after` which are bare strings that MIGHT carry offsets. Keep the offset-aware helper here, OR add a separate `Date::to_epoch_seconds` to `jmap-types` (RFC 8620 \u00a71.4 Date type allows non-UTC offsets) and migrate to that. Decide as part of this work.\n\nAcceptance:\n- Mail-server uses `received_at.to_epoch_seconds()?` directly where the input is typed as `UTCDate`.\n- Private helper retained only for the cases where the input is genuinely RFC 3339 with offset.\n- `cargo test -p jmap-mail-server` passes.\n- `cargo clippy -p jmap-mail-server -- -D warnings` passes.\n\nOut of scope for bd:JMAP-ic0j.71 (which is calendars-server only). Filed under the same parent epic because the cookie-cutter sibling pattern means whatever shape mail-server settles on becomes the canonical for other extension siblings.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.72",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Migrate jmap-mail-server::memory::rfc3339_to_epoch_secs to jmap-types::UTCDate::to_epoch_seconds where applicable",
+  "updated_at": "2026-05-16T01:28:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:01:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "df396ab2-30af-56ec-b725-b35a71ac9b55",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

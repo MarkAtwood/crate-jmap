@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "10 ShareNotification integration tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/notification_tests.rs (4 tests: get all, destroy, not found, changes after destroy); 23 total pass; clippy clean",
+  "closed_at": "2026-05-05T04:46:50Z",
+  "compaction_level": 0,
+  "content_hash": "ab044d9eb73e588259eb23a32a2456e5809ae1fdf7aa4e4cd857384929da967b",
+  "created_at": "2026-05-05T02:56:32Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-sharing-server/tests/notification_tests.rs with 10 integration tests. Oracle: RFC 9670 \u00a73.1-3.5; RFC 8620 \u00a75.1-5.3.\n\n**Tests:**\n1. notification_get_all_returns_list: pre-seed two; get ids:null; assert both in list.\n2. notification_get_properties_filter: get with properties:[\"id\",\"objectType\"]; assert only those fields.\n3. notification_set_destroy_succeeds: destroy one; assert destroyed contains id; subsequent get returns notFound.\n4. notification_set_destroy_not_found: destroy [\"missing\"]; assert notDestroyed[\"missing\"][\"type\"]==\"notFound\". Oracle: RFC 8620 \u00a75.3.\n5. notification_set_create_forbidden_no_backend_call: assert MemoryBackend objects store unchanged after forbidden create.\n6. notification_set_ifInState_mismatch: assert stateMismatch.\n7. notification_query_filter_by_object_type: filter {\"objectType\":\"Mailbox\"}; assert only Mailbox notification. Oracle: \u00a73.4.1.\n8. notification_query_filter_by_after_before: seed 3 notifications with dates Jan/Jun/Dec 2024; filter after March before September; assert only June matches. Oracle: \u00a73.4.1.\n9. notification_query_sort_by_created_asc_desc: assert ascending and descending order by created date. Oracle: \u00a73.4.2 created MUST.\n10. notification_changes_after_destroy: record state, destroy notification, call changes; assert destroyed contains id. Oracle: RFC 8620 \u00a75.2.\n\n**Acceptance criteria:** All 10 tests pass. Each has spec citation.",
+  "ephemeral": 0,
+  "id": "JMAP-q3ze.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Integration tests: ShareNotification/* happy paths with MemoryBackend",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:56:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze.4",
+      "id": "a58a1ed6-77fa-5462-a2a9-095372bf8949",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:56:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze",
+      "id": "e5932193-5ad1-5011-82c7-7ae189fbe622",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

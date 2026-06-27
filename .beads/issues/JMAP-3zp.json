@@ -1,0 +1,23 @@
+{
+  "close_reason": "properties parsed in handle_get and passed to get_objects",
+  "closed_at": "2026-05-02T06:43:32Z",
+  "compaction_level": 0,
+  "content_hash": "450326d12fc749ca159257a392c2ed115ebed850e134a12d7c963c99b29fafb3",
+  "created_at": "2026-05-02T06:07:42Z",
+  "created_by": "Mark Atwood",
+  "description": "## Why this issue exists\n\nRFC 8620 \u00a75.1 requires /get to honour the client's 'properties' field \u2014 the list of object\nfields requested. handle_get in handlers.rs hardcodes None as the properties argument to\nbackend.get_objects, discarding whatever the client sent. Every /get handler that delegates\nto handle_get (Thread, Email, Mailbox, Chat, Space, Message, etc.) silently ignores property\nselection.\n\nTracked as JMAP-4ii.6. Currently deferred because fixing it requires API work.\n\n## What needs to happen\n\n1. Add a Property associated type to JmapObject (or GetObject) in jmap-server/backend.rs:\n     type Property: for<'de> serde::Deserialize<'de> + Send + Sync;\n   This lets handle_get deserialize [\"id\", \"subject\"] into Vec<O::Property> generically.\n\n2. In handle_get, after parsing ids, also parse the 'properties' field:\n     let props: Option<Vec<O::Property>> = match args.remove(\"properties\").unwrap_or(Null) {\n         Null => None,\n         v => Some(serde_json::from_value(v)\n                   .map_err(|_| JmapError::invalid_arguments(\"properties must be a string array\"))?),\n     };\n   Pass props.as_deref() as the third argument to get_objects.\n\n3. Each concrete object type (Email, Mailbox, Thread, Chat, Space, Message, etc.) must define\n   its Property enum with serde string deserialization matching the RFC wire names.\n\n4. Domain /get handlers that do NOT use generic handle_get (e.g. handle_chat_get, handle_email_get)\n   must be updated to do the same parsing and pass the slice through.\n\n5. The MemoryBackend implementations in tests/common/mod.rs must respect the properties slice\n   (or at minimum accept it without panic \u2014 ignoring it is acceptable for a test backend).\n\n## Acceptance criteria\n\n- cargo test --workspace passes\n- A /get call with properties=[\"id\"] does not cause get_objects to be called with None\n- The backend receives Some(&[...]) when properties is present, None when absent or null\n- Existing tests that do not send 'properties' continue to pass unchanged",
+  "ephemeral": 0,
+  "id": "JMAP-3zp",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_get: parse and pass 'properties' field to backend (RFC 8620 \u00a75.1)",
+  "updated_at": "2026-05-02T06:43:32Z"
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Requires inconsistent backend role normalization to trigger; real backends using typed MailboxRole won't hit this. Close as P3 edge case.",
+  "closed_at": "2026-05-02T03:40:24Z",
+  "compaction_level": 0,
+  "content_hash": "cd987c198ec32936dcccd057a80654ea2d48375ea5352d7d6eeac2c526f629f2",
+  "created_at": "2026-05-02T03:25:25Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs handle_mailbox_set create loop: the role uniqueness check queries all_mailboxes (pre-mutation snapshot) but also checks role_just_created by reading from the 'created' map. The created map stores the serialized backend response from create_object \u2014 including any server-modified fields. If the backend's create_object assigns a different role than what the client sent (e.g., normalizes role casing), the role_just_created check reads the backend-modified role from 'created' rather than the client-requested role. This means if the client requests role='INBOX' and the backend normalizes to 'inbox', the role conflict check in subsequent creates compares against 'inbox' (from created map) but the client-sent role 'INBOX' would not match \u2014 technically allowing two mailboxes to claim 'INBOX' and 'inbox' if the backend normalizes inconsistently. This is a real risk but requires specific backend behavior to trigger.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox destroy child check uses stale snapshot for creates in same request",
+  "updated_at": "2026-05-02T03:40:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:25:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "70ede52c-8d19-5635-bb5c-a9c4f56f62f2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

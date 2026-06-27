@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T15:33:59Z",
+  "id": "019e3692-9c6b-7135-880e-2d25e1846f8b",
+  "issue_id": "JMAP-ky8g.3",
+  "text": "Already done at the workspace-policy layer. The workspace AGENTS.md 'Caller contract \u2014 wire-key collisions' sub-section (added by commit 1bb178f, closing bd:JMAP-zx3s.8) documents exactly the hazard this bead names, lands on **option (c)** (doc / convention), and notes 'Per-type rustdoc need not call this out individually \u2014 every in-scope type's extra field can point to this AGENTS.md section'. A regression test asserting the serde-flatten duplicate-key behavior lives at crate-jmap-mail-types/src/email.rs::extra_collision_with_typed_field_round_trip_fails.\n\nThe contract applies workspace-wide automatically to every `extra` field on every type using the canonical extras-preservation pattern, including the 8 Person/CheckItem/Checklist/Comment/Task/TaskRights/TaskList/TaskNotification sites in tasks-types that this bead enumerated. No tasks-types-specific change is needed.\n\nClosing as superseded by bd:JMAP-zx3s.8 + workspace AGENTS.md 'Caller contract \u2014 wire-key collisions' policy."
+}

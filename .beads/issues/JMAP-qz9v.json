@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "1a3ede19bd54a8864ef6f9058e77ab872df5660bd451370a50aa78265c5bba1f",
+  "created_at": "2026-05-14T19:15:29Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {
+    "dispatcher": "bd-review-loop",
+    "dispatcher_run": "bd-review-loop-20260518T023615Z-106267",
+    "final_failures": 0,
+    "final_iter": 1,
+    "final_verdict": "genuine_convergence",
+    "log_dir": "/home/mark/.local/state/bd-review-loop/crate-jmap/20260518T023615Z",
+    "model": "anthropic/claude-opus-4-7",
+    "scope": "crate-jmap-contacts-server since 9c0d34f",
+    "variant": "max"
+  },
+  "no_history": 0,
+  "notes": "Maintainer risk: HIGH \u2014 the AddressBook/set onDestroyRemoveContents cascade (P0) and the ContactCard/copy missing-\u00a75.4-mandates set (P0) both produce silent data-integrity violations on the wire that look correct in the test suite, and the README documents the cascade as if it works. A consumer integrating this crate will discover the gaps only by reading the RFC in detail, not by reading the code or running the tests.\nConfidence: 12% chance of missed bug.\nLeast confident flags: JMAP-qz9v.13 (placeholder id dance \u2014 might be an established workspace pattern with a doc note I missed) and JMAP-qz9v.17 (register_account empty-string \u2014 borderline pedantic for a demo helper).\nUncertainty driven by: did not run any new probes, only reviewed source + existing tests + RFC; did not cross-check every cookie-cutter sibling line-by-line for the same gaps; did not exercise the realistic-demo-ids feature branch.\nWould raise confidence if: (a) a probe (filed as JMAP-qz9v.20-style follow-up) that fuzz-tests a cycle of create/destroy/create against MemoryBackend to confirm JMAP-qz9v.14 collision; (b) cross-check pass against calendars-server's /copy path to confirm cookie-cutter divergence is contacts-specific vs workspace-wide; (c) cross-check pass against jmap-jscontact-types to confirm addressBookIds is typed as Map<Id, bool> and the empty-map invariant has no type-level enforcement (assumed but not verified).\nAPI contract risk: MEDIUM \u2014 the ContactsBackend trait has two underspecified contracts that a real backend implementor will get wrong (address_book_has_contents bool-not-Result fail-open, JMAP-qz9v.27; and update_object's unspecified patch format, JMAP-qz9v.28), and the README's primary trait-implementation example does not compile (JMAP-qz9v.37, .38). The handler-library surface is otherwise well-shaped \u2014 the trait is generic over O for the common operations, the method names match RFC 9610 exactly, and the CallerCtx threading is clean at the signature level. Pre-1.0 status means the immutability findings (.23-.26) can still be cleaned up cheaply; postpone is the wrong default.\nAPI contract confidence: 18% chance of missed issue. Least confident flags: JMAP-qz9v.28 (update_object patch format \u2014 depends on the precise RFC 8620 \u00a75.3 reading I did not re-verify against the spec text in this pass; if PatchObject is normatively merge-patch rather than JSON-Pointer the finding is weaker, though the workspace-internal disagreement between handler and reference-impl still stands), JMAP-qz9v.34 (copy_contact_card concrete-vs-generic \u2014 the cookie-cutter argument actually points the other way since mail-server has the same shape; the version-coupling concern is theoretical pre-1.0), JMAP-qz9v.31 (realistic-demo-ids no API signal \u2014 might be more deliberately scoped than I credited). Uncertainty driven by: (a) did not run any new probes \u2014 purely static source review; (b) did not verify RFC 8620 \u00a75.3's exact PatchObject normative wording against the spec text at ~/PROJECT/jmap-chat-spec/references/rfc8620.txt; (c) did not cross-check whether jmap-mail-server has a parallel review epic with identical api-contract findings already filed (possible duplicate work); (d) did not enumerate BackendSetError variants to confirm whether the handler's wildcard arm is correctly defensive vs over-defensive; (e) did not run cargo doc to see whether any of these public items already have #[doc(hidden)] markers I missed in source.\nbd-review-loop: iter=1 verdict=question_tool_invoked failures=1 history=; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; ",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "in_progress",
+  "timeout_ns": 0,
+  "title": "Review: crate-jmap-contacts-server since 9c0d34f (my-oss mode)",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

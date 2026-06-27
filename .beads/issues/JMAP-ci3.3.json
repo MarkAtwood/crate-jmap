@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T05:33:23Z",
+  "compaction_level": 0,
+  "content_hash": "524665c6735d0366a155776217be3ce96b38c9de87ea383fb34265ff07e02a73",
+  "created_at": "2026-05-02T05:27:14Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_email_import: after JMAP-4ii.70 fixed args.get() to args.remove() (making emails owned), the loop at line 1721 still iterates by borrow: for (import_id, entry) in &emails. This forces import_id.clone() on every error path (4 sites). Since emails is an owned Map (moved out of args), the loop can consume it: for (import_id, entry) in emails. This gives import_id as an owned String, eliminating all 4 clones. The fix is a one-character change (&emails \u2192 emails).",
+  "ephemeral": 0,
+  "id": "JMAP-ci3.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "email_import: consuming loop iteration to avoid id_str.clone()",
+  "updated_at": "2026-05-02T05:33:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T22:27:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ci3",
+      "id": "99016625-369c-5994-a960-d8209bb27b59",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T18:47:22Z",
+  "id": "019e185d-80ab-7a7f-9185-593acfd371e8",
+  "issue_id": "JMAP-lbdy.10",
+  "text": "Closed. Added workspace AGENTS.md section 'Extras-preservation policy for vendor/site fields' between the existing Sloppy-Value pattern and TLS stack items. Section covers: (1) struct extra field pattern with full code example; (2) result-enum Unknown(String) forward-compat shape with code example; (3) in-scope and out-of-scope lists; (4) test discipline (round-trip preservation, independent oracles per workspace rules); (5) new-type rule that any new in-scope public Deserialize struct or result enum MUST include the mechanism from day one; (6) filter-algebra exclusion sub-section with three reasons (silent-drop foot-gun, untagged Filter<T> shape, control-enum dispatch semantics) and two vendor escape hatches (IETF draft-ietf-jmap-metadata via JMAP-06zp, pre-IETF sloppy-value/forked FilterCondition). Cross-references JMAP-lbdy (parent), JMAP-06zp (metadata draft tracker), JMAP-9wh7 (closed propagation epic for filter-rustdoc). Per-crate AGENTS.md / PLAN.md cross-references will be added in .1-.9 as those migration beads land. cargo test --workspace 1635/0, cargo clippy --workspace -- -D warnings clean."
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7i9.3",
+  "title": "find_immutable_patch_key path-segment check prevents false positives",
+  "description": "The byte-index check in find_immutable_patch_key (email.rs:641-644) distinguishes 'messageId' (blocked) from 'messageId/0' (blocked) from 'messageIdX' (allowed) using starts_with + byte-index guard on '/'. A naive starts_with would incorrectly block the third case. This is correct and should be defended if a future contributor suggests simplifying to starts_with alone.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T04:25:32Z",
+  "updated_at": "2026-05-01T04:30:53Z",
+  "closed_at": "2026-05-01T04:30:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7i9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 21:25:32"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-sev.1",
+  "title": "raw_buf grows unbounded on persistent invalid UTF-8 input",
+  "description": "client.rs SSE loop: when a chunk's bytes are never valid UTF-8 (e.g. 0xFF 0xFF repeated), valid_up_to==0 so raw_buf.drain(..0) drains nothing and text is empty. buf stays empty so the 1 MiB buf guard never fires, but raw_buf grows by every incoming chunk with no cap. A hostile server streaming persistent invalid UTF-8 causes unbounded memory growth and OOM. Fix: add a raw_buf.len() > limit guard alongside the buf guard, or share the same 1 MiB ceiling.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:30:08Z",
+  "updated_at": "2026-04-30T00:32:48Z",
+  "closed_at": "2026-04-30T00:32:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sev",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:30:08"
+    }
+  ]
+}

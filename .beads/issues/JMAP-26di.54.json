@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "41f11b245d8db97d8e9fe564b8098c2060b58f52f1eaaab77b3a070198d07b57",
+  "created_at": "2026-05-15T20:51:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Pattern 'if let Some(x) = patch.field { if !x.is_empty() { ... } }' appears ~12 times in space.rs (lines 270, 291, 299, 327, 353, 361, 400, 424, 432, 462, 486, 494) and chat.rs (lines 320, 336, 344). MSRV is 1.88 \u2014 let-chains stabilized in 1.88. Idiomatic form: 'if let Some(x) = patch.field && !x.is_empty() { ... }'. Reduces indentation by one level and reads as the single conjoined condition it is. Engineering basis: lower indentation depth, fewer braces to track, expresses the actual control-flow intent (a single conjunction) rather than two nested guards. message.rs:190-201 has a triply-nested 'if let Some(not_created) + if let Some(err) + if err.error_type == \"rateLimited\"' that benefits even more. Workspace let-chain adoption should be a workspace-wide sweep \u2014 file as workspace-level if confirmed elsewhere.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.54",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "blocked",
+  "timeout_ns": 0,
+  "title": "Nested 'if let Some + if !.is_empty()' should be let-chains under MSRV 1.88",
+  "updated_at": "2026-05-15T21:35:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:51:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "aab121db-b61c-5ef7-85ab-cc0b6094ca37",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

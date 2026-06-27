@@ -1,0 +1,33 @@
+{
+  "close_reason": "valid P3 RFC 8620 \u00a75.3 inconsistency; deferring to post-publish pass",
+  "closed_at": "2026-05-02T07:05:37Z",
+  "compaction_level": 0,
+  "content_hash": "9b2541f9f3505930da964f012d6e5ccfa2f159c9b8e278579d861a87c8fc00d8",
+  "created_at": "2026-05-02T05:41:53Z",
+  "created_by": "Mark Atwood",
+  "description": "Identity/set (identity.rs) correctly returns invalidArguments for the whole request if any element in the destroy array is not a string, per RFC 8620 \u00a75.3. All other set handlers (ban.rs, message.rs, emoji.rs, position.rs, chat.rs, etc.) silently skip non-string destroy elements with 'continue'. The lenient behavior is not spec-compliant. This is a minor correctness issue \u2014 a real JMAP client should never send non-string IDs, but the inconsistency could mask client bugs. Consistent behavior should be chosen.",
+  "ephemeral": 0,
+  "id": "JMAP-287.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "destroy-array validation inconsistent: RFC 8620 \u00a75.3 non-string element handling",
+  "updated_at": "2026-05-02T07:05:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T22:41:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-287",
+      "id": "3a78a567-a703-5a4a-a204-752cd952bb98",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

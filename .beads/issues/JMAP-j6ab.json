@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1822b15ae46ab517bb7626c617d355a11588d50abe8f8ac1deb2914ed9d9dfd5",
+  "created_at": "2026-05-15T09:32:26Z",
+  "created_by": "Mark Atwood",
+  "description": "Sweep the workspace apply_jmap_patch helpers (mail-server, contacts-server, chat-server message reactions, etc.) to strengthen RFC 8620 \u00a75.3 compliance:\n\n1. Return Result with an invalidPatch error variant when a non-object intermediate is encountered (currently silent no-op or clobber).\n2. Support RFC 6901 array index segments (numeric segments \u2192 Vec indexing) for objects whose JSContact / JMAP type has Array-shaped fields (Calendar.name.components, ContactCard.name.components, etc.).\n3. Reject empty segments (a literal '//' in a path) as invalidPatch.\n4. Decode RFC 6901 escapes (~1 \u2192 /, ~0 \u2192 ~) uniformly across all sibling implementations (contacts has it; mail-server does not).\n\nThis is the canonical-template propagation track. Per workspace AGENTS.md, mail-server is the canonical extension-server. Implement the fix on mail-server first, then propagate verbatim to every sibling that has its own apply_jmap_patch (currently contacts-server; potentially chat-server message reactions and others).\n\nBackground: bd:JMAP-qz9v.4 narrowed its in-scope contacts fix to just stop the silent clobber (aligning contacts with mail-server's silent no-op). This bead is the workspace-wide follow-up to take both implementations from 'silent no-op' to 'invalidPatch error' and to add array-index support.",
+  "ephemeral": 0,
+  "id": "JMAP-j6ab",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace canonical sweep: apply_jmap_patch should return invalidPatch on non-object intermediate, support array indices, reject empty segments",
+  "updated_at": "2026-05-15T09:32:26Z"
+}

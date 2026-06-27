@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Documented the UnsignedInt integer-width policy in PLAN.md per option (b) of the bead's two-way choice. No code change: option (a) widening u32\u2192u64 was rejected because (i) the bead's own practical-impact note says 'nil for pref / very low for year/month/day/list_as', (ii) the workspace canonical template jmap-mail-types picks width by realistic range, not by lifting the RFC floor (uses u32 for sort_order/totals, u64 for byte sizes). The PLAN.md section names the realistic ranges per field, cites RFC 9553 \u00a71.4.2 and \u00a71.5.3, and gives future contributors a documented signal to pick u64 when adding a UnsignedInt field with a u64-range. Tests pass. Commit pending.",
+  "closed_at": "2026-05-15T03:57:33Z",
+  "compaction_level": 0,
+  "content_hash": "bc2618a52219d76b5394ae5a6039d982dcdc7cedb29b170488d8abb7645bef91",
+  "created_at": "2026-05-15T03:35:39Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 9553 \u00a71.4.2 defines UnsignedInt as an integer in 0..=2^53-1 (JSON safe-integer range). The crate uses u32 for all UnsignedInt fields: Nickname.pref:185, Pronouns.pref:308, EmailAddress.pref:368, OnlineService.pref:414, Phone.pref:454, LanguagePref.pref:488, Calendar.pref:533, SchedulingAddress.pref:567, Address.pref:631, CryptoKey.pref:713, Directory.pref:761, Directory.list_as:770, Link.pref:816, Media.pref:864, PartialDate.year/month/day:895/899/903, PersonalInfo.list_as:1110. Trigger: a spec-conformant peer sends a value in 2^32..=2^53-1 (e.g. PartialDate.year = 5_000_000_000 for a far-future date, or a pathological PersonalInfo.list_as in a synthetic test). Behaviour: deserialize fails with an integer-out-of-range error. Practical impact is nil for pref (RFC \u00a71.5.3 bounds it 1..=100) and very low for year/month/day/list_as, but this is a documented spec divergence with no compile-time guard against silent additions of new u32 fields. Either widen to u64 (matches UnsignedInt floor of 2^53-1, with the consumer responsible for the upper bound; note JSON cannot represent integers above 2^53-1 losslessly anyway) or add a 'UnsignedInt = u32 in this crate; values above 2^32-1 will fail to deserialize' note to PLAN.md so the constraint is documented.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "u32 fields will reject spec-conformant UnsignedInt values >= 2^32",
+  "updated_at": "2026-05-15T03:57:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:35:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "71cccb94-63b5-54ef-a2d9-96142f7f02d3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

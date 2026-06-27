@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T04:27:43Z",
+  "compaction_level": 0,
+  "content_hash": "6ab53ccf85d7f6eddc86519d611bab00ebfb66c92264d8315f67b2f82418bc63",
+  "created_at": "2026-05-08T03:29:54Z",
+  "created_by": "Mark Atwood",
+  "description": "src/calendar.rs:184 emits SetErrorType::custom(\"calendarHasEvents\") for the \u00a74.4.1 destroy-with-events rejection. draft-ietf-jmap-calendars-26 \u00a710.7.1 (lines 3297-3302 of references/draft-ietf-jmap-calendars-26.txt) registers the wire error name as **calendarHasEvent** (singular). \u00a74.3 of the draft (line 1094) shows the SetError name in the body text as *calendarHasEvent*.\n\nWire-protocol mismatch: any RFC-compliant client matching on `type == \"calendarHasEvent\"` will fail to recognize this server's response. The error degrades into an unrecognized-SetError, which clients typically surface as a generic 'serverFail' or unknown-error.\n\nAffected sites in this crate (all need correction together):\n- src/calendar.rs:184 (the wire emission \u2014 actual bug)\n- src/calendar.rs:5, src/calendar.rs:47 (doc comments)\n- src/calendar.rs:255, src/calendar.rs:274, src/calendar.rs:275 (test assertion uses wrong string \u2014 when fixed, the test will catch the wire bug)\n- src/backend.rs:147 (doc comment on calendar_has_events)\n- src/lib.rs:618, src/lib.rs:640, src/lib.rs:641 (dispatcher integration test that asserts the wrong string)\n\nFix: replace 'calendarHasEvents' with 'calendarHasEvent' in the wire emission AND in every test assertion that locks down the wrong value. The test currently passes because it asserts the bug; once the production string is fixed, the test must be updated in the same commit.\n\nTest integrity: the inline tests are not bug-detecting here \u2014 they're bug-confirming. Adding a hand-written JSON oracle from the spec (or just asserting against the singular form per \u00a710.7.1) would have caught this. The /review-rusty test-integrity rule applies.\n\nNo other JMAP-Calendars-defined SetError type is misspelled in this crate (`forbidden` is a base RFC 8620 type and is spelled correctly; `noSupportedScheduleMethods` is not implemented at all \u2014 see separate finding).",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Calendar/set destroy emits 'calendarHasEvents' (plural); RFC \u00a710.7.1 registers 'calendarHasEvent' (singular)",
+  "updated_at": "2026-05-08T04:27:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:29:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "d22896b6-7cab-5b2b-af59-3a9a61b57b00",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

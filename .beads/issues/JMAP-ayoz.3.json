@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit de4f8e6. Replaced raw json!({...}) SetError construction in handle_metadata_set's create branch (invalidProperties on whole-struct serde failure) and update branch (invalidPatch on non-object patch) with the typed SetError::new().with_description() builder via set_error_value. Did NOT populate 'properties' for whole-struct serde failures because the serde error embeds Rust type names rather than stable wire property names \u2014 fabricating a list would be inaccurate, and RFC 8620 \u00a75.3 specifies SHOULD not MUST for the properties field. Strengthened both regression tests to assert description shape and deliberate absence of the properties field. All 31 tests pass; clippy clean.",
+  "closed_at": "2026-05-14T14:46:17Z",
+  "compaction_level": 0,
+  "content_hash": "e3127cac5270fb88195f0f319a1899e24c777c27df9dd17776805981ecb777be",
+  "created_at": "2026-05-14T14:18:36Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:309-318 \u2014 when serde_json::from_value::<Metadata>(obj_val) fails (e.g. missing required relatedType field, unknown @type discriminator), the handler constructs the SetError directly as a JSON object:\n\n    json!({ \"type\": \"invalidProperties\", \"description\": e.to_string() })\n\nThis omits the 'properties' array that RFC 8620 \u00a75.3 specifies for invalidProperties (the list of property names that were invalid) AND that draft-ietf-jmap-metadata-01 \u00a73.1 explicitly mandates for related-object validation failures: \"the server SHOULD reject the operation with an 'invalidProperties' SetError, with the 'properties' field including 'relatedType' and/or 'relatedId' as appropriate\".\n\nCompare canonical jmap-mail-server handle_mailbox_set at mailbox.rs:528-534:\n    SetError::new(SetErrorType::InvalidProperties).with_properties([\"name\"])\n\n\u2026which uses the typed builder and emits 'properties'. Test set_create_missing_required_field_returns_invalid_properties at metadata.rs:633-652 only checks  and would not catch the missing properties array \u2014 strengthen the test to also assert resp[\"notCreated\"][\"c1\"][\"properties\"] is a non-empty array.\n\nTrigger: any failing create \u2014 a missing relatedType, an unknown @type, or any other serde-deserialize failure on a wire object.\n\nBad behavior: client receives invalidProperties without the 'properties' field. Per RFC 8620 \u00a75.3 a JMAP-conformant client may rely on the field to highlight which form field to correct; without it the client can only display the raw serde error string, which leaks internal Rust type names through the JMAP wire.\n\nSame issue applies to the update loop at metadata.rs:364-373 \u2014 invalidPatch from a non-object patch_val is constructed via json!({...}) instead of SetError::new(SetErrorType::InvalidPatch).\n\nFix: construct SetError via the typed builder for every per-entry error in /set. Where the serde error gives no actionable property name (unknown @type, malformed JSON), use the empty-properties or no-properties form via SetError::new(SetErrorType::InvalidProperties) without with_properties \u2014 but go through the typed path so set_error_value(&err) is used uniformly. Then strengthen both tests to check the 'properties' (or absence thereof) and the description shape.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Metadata/set invalidProperties errors omit the spec-mandated 'properties' array",
+  "updated_at": "2026-05-14T14:46:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:18:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "db0944d9-d889-5177-978e-d193f041a926",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

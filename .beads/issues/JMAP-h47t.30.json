@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Workspace sweep complete: handle_* wire-shape rustdoc propagated to canonical jmap-mail-server (.30.7) and all 6 extension-server siblings (.30.1 chat, .30.2 calendars, .30.3 contacts, .30.4 filenode, .30.5 metadata, .30.6 sharing). Total ~120 handle_* fns + 30 module-level '# Wire-shape contract' paragraphs across 31 .rs files. Pure docs, zero behavioral effect, workspace tests pass. Bonus: pre-existing canonical drift fixed in mail-server (Email/get \u00a75.1\u2192\u00a74.2, Email/set \u00a75.5\u2192\u00a74.6, Email/import \u00a75.7\u2192\u00a74.8, Email/parse \u00a75.8\u2192\u00a74.9, Email/copy \u00a76.1\u2192\u00a74.7, SearchSnippet/get \u00a75.9 (does not exist) \u2192\u00a75.1; _changes trailers added consistently). Pre-existing rustdoc breakage in crate-jmap-sharing-server/src/principal.rs BackendChangesError intra-doc link (tracked at bd:JMAP-m1yd) NOT addressed by this sweep.",
+  "closed_at": "2026-05-17T10:03:49Z",
+  "compaction_level": 0,
+  "content_hash": "89fde977e86a5d567ae4b99eb94daaf5bd2223d4a525e7c0637ce620efd17577",
+  "created_at": "2026-05-17T06:57:09Z",
+  "created_by": "Mark Atwood",
+  "description": "JMAP-h47t.17 added per-handler '`args` is the RFC 8620 \u00a75.x ... request shape ... returned `Value` is the \u00a75.x response shape' rustdoc to all 14 `handle_*` fns in jmap-tasks-server, plus a module-level 'Wire-shape contract' section in each of task.rs, task_list.rs, task_notification.rs. These docs close the contract gap that the bead flagged: a consumer reading docs.rs no longer needs to read RFC 8620 prose to know what to pass to `handle_task_get(args)`.\n\nThis is a divergence from the canonical sibling jmap-mail-server, which today carries only the short 'Returns (response_args, extra_invocations). The extra list is always empty.' trailer on most (not all) handlers and no module-level wire-shape contract section. Per the workspace canonical-template propagation rule, the same docstring shape MUST be propagated to:\n\n1. jmap-mail-server (canonical) \u2014 every `handle_*` fn in src/email.rs, src/mailbox.rs, src/identity.rs, src/email_submission.rs, src/vacation.rs, src/search_snippet.rs, src/thread.rs, etc. Plus module-level Wire-shape contract sections.\n2. jmap-chat-server \u2014 every `handle_*` fn in src/chat.rs, src/message.rs, src/space.rs, src/read_position.rs.\n3. jmap-calendars-server \u2014 every `handle_*` fn (Calendar, CalendarEvent, ParticipantIdentity).\n4. jmap-contacts-server \u2014 every `handle_*` fn.\n5. jmap-filenode-server, jmap-metadata-server, jmap-sharing-server \u2014 similarly.\n\nPattern to follow (extracted from this commit):\n\n  /// Handle an `Email/get` method call (RFC 8621 \u00a75.1).\n  ///\n  /// `args` is the RFC 8620 \u00a75.1 `/get` request shape (`accountId`, optional\n  /// `ids`, optional `properties`); the returned `Value` is the \u00a75.1\n  /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).\n  ///\n  /// (optional: type-specific notes, e.g. utcStart/utcDue augmentation on Task/get)\n  ///\n  /// Returns `(response_args, extra_invocations)`. The extra list is always empty.\n\nPlus a module-level paragraph in each .rs file:\n\n  //! # Wire-shape contract\n  //!\n  //! Every `handle_*` function in this module conforms to the canonical JMAP\n  //! method shape. The `args: serde_json::Value` parameter MUST be a JSON\n  //! Object whose fields match the corresponding RFC 8620 \u00a75 method shape\n  //! ... (cite the spec sections relevant to the module)\n  //!\n  //! Returns `(Value, Vec<Invocation>)`. Extra invocations are populated ...\n  //! Each handler returns `Err(JmapError)` for method-level failures ...\n  //! Per-target failures inside `/set` surface in `notCreated`/`notUpdated`/`notDestroyed`.\n\nThe mail-server _changes handlers (handle_email_changes, handle_mailbox_changes, etc.) are MISSING the 'Returns ...' trailer that the other handlers have \u2014 this is pre-existing canonical drift that the sweep should fix.\n\nRationale: docs.rs is the contract surface for downstream consumers; a minimal one-line spec citation is not enough to know what to pass. The bead-author's specific concern was 'callers must read RFC 8620 prose to know what to pass'; per-handler wire-shape rustdoc is the lowest-cost workspace-canonical fix.\n\nNo API break. Pure docs. Can land as one large mechanical pass.\n\nCross-reference: JMAP-h47t.17 (closed in this commit) is the tasks-server-local instance of this sweep. Was originally human-labeled, ratified after 72h stale recommendation per workspace AGENTS.md 'When NOT to file human' anti-pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Workspace sweep: propagate handle_* wire-shape docstrings from tasks-server to all extension-server siblings + canonical mail-server",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T23:57:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "3bf70f70-679a-54b7-89ac-d904c1faae5b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

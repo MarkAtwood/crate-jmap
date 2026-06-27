@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.31",
+  "title": "ClientError::Parse(String) loses structured parse error",
+  "description": "ClientError::Parse(String) converts serde_json::Error to String at the call site (e.g. .map_err(|e| ClientError::Parse(e.to_string()))). Callers cannot inspect line/column information or distinguish missing-field errors from type-mismatch errors. The serde_json::Error already implements Display+Debug+Error; wrapping it in a Box<dyn Error> or storing the raw error type would preserve structure. Idiomatic alternative: ClientError::Parse(#[from] serde_json::Error) with a distinct variant, or ClientError::Parse(Box<dyn std::error::Error + Send + Sync>).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:47:11Z",
+  "updated_at": "2026-04-30T00:52:57Z",
+  "closed_at": "2026-04-30T00:52:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:47:10"
+    }
+  ]
+}

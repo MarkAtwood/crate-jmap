@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in 8d12c8e. Every bench b.iter(|| { ... }) invocation in the six remaining bench functions now ends with a semicolon \u2014 three already-removed pipeline_* sites no longer exist, the three parse_* and three convert_* now read 'b.iter(|| { ... });'. Statement-vs-expression intent is explicit; clippy pedantic semicolon_if_nothing_returned is satisfied.",
+  "closed_at": "2026-05-15T06:35:48Z",
+  "compaction_level": 0,
+  "content_hash": "69f6e869ded78470837033214b565109b2998b177b5257bbbcae30e1983659dd",
+  "created_at": "2026-05-15T06:07:18Z",
+  "created_by": "Mark Atwood",
+  "description": "What the code does: every `bench_*` function in `crate-jmap-mime/benches/mime_pipeline.rs` ends with a bare `c.bench_function(\"name\", |b| { b.iter(|| { ... }) })` (no trailing semicolon on the `b.iter(...)` call, and no trailing semicolon on the `c.bench_function(...)` call). Both the closure and the outer fn return `()`. Clippy pedantic `semicolon_if_nothing_returned` flags 9 of the closures at lines 261, 272, 283, 296, 309, 322, 338, 351, 364.\n\nWhat idiomatic Rust would do: terminate the `b.iter(|| { ... });` call with a semicolon to make it explicit that the bench closure returns `()` as a statement, not as the closure's tail expression. The current shape compiles only because `b.iter` returns `()` and the bench function's tail expression is also `()`; a Rust practitioner reading it has to verify the type chain to confirm there is no accidental `Result` dropped on the floor.\n\nWhy it matters: this is a small but real signal. In a function that explicitly returns `()`, the trailing-expression form is acceptable for one-line bodies (`fn foo() { do_thing() }`) but reads as careless when the body is a multi-line `b.iter(|| { ... })` with side-effecting work inside. The clippy lint exists because (a) a future change that makes the inner work fallible would silently shadow a returned `Result` and the test would still 'pass' from clippy's perspective, (b) it signals statement-vs-expression intent at every closure-returning-unit call site, and (c) consistency with the bench fns' `fn bench_parse_small(c: &mut Criterion) { ... }` shape (no `-> ()` return type) is preserved by terminating with `;`.\n\nConcrete fix: add `;` after the closing `)` of each `b.iter(...)` invocation. Nine sites in one file. Mechanical.",
+  "ephemeral": 0,
+  "id": "JMAP-t307.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Bench fns close `b.iter(...)` as tail expression \u2014 should be `b.iter(...);`",
+  "updated_at": "2026-05-15T06:35:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T23:07:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-t307",
+      "id": "b41a2c1c-664b-59be-9dc3-e4b716171576",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

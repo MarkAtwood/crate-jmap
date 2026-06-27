@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T13:10:20Z",
+  "compaction_level": 0,
+  "content_hash": "0e6b52e66bfb58664544f3eb3ebb57fa236888d5706a27fc1448f6d5b7493765",
+  "created_at": "2026-05-15T03:20:22Z",
+  "created_by": "Mark Atwood",
+  "description": "Canonical mail-client analog of JMAP-wzq9.33 (metadata-client) and sibling-side counterpart to JMAP-1j9k.20 (calendars-client).\n\n## Sites\n\n- `crate-jmap-mail-client/src/methods/email.rs:46`\n- `crate-jmap-mail-client/src/methods/identity.rs:36`\n- `crate-jmap-mail-client/src/methods/mailbox.rs:39`\n- `crate-jmap-mail-client/src/methods/submission.rs:47`\n- `crate-jmap-mail-client/src/methods/thread.rs:34`\n\nEach contains:\n\n    if let Some(props) = properties {\n        args[\"properties\"] = serde_json::Value::Array(\n            props.iter().copied().map(serde_json::Value::from).collect(),\n        );\n    }\n\n## What idiomatic Rust would do\n\n`serde_json::to_value` on `&[&str]` invokes the `str` Serialize impl on each element and produces `Value::Array(Vec<Value::String>)` \u2014 byte-identical wire output to the hand-rolled version:\n\n    if let Some(props) = properties {\n        args[\"properties\"] = serde_json::to_value(props)\n            .expect(\"&[&str] Serialize is infallible\");\n    }\n\n\u2026matches the idiom used 1-3 lines above for the `ids` slice in every one of these files (e.g. email.rs:42):\n\n    if let Some(id_slice) = ids {\n        args[\"ids\"] = serde_json::to_value(id_slice).expect(\"Id slice Serialize is infallible\");\n    }\n\n## What goes wrong if it stays\n\nNothing at runtime \u2014 both forms produce the same wire JSON. The cost is *clarity and internal consistency*: each `_get` method performs the same slice-to-JSON-array operation two different ways, three lines apart.\n\n## Workspace propagation\n\nPer workspace AGENTS.md \"Canonical Templates\", fix here first, then propagate to all 7 extension-client siblings:\n\n- metadata-client side: JMAP-wzq9.33 (1 site)\n- calendars-client side: JMAP-1j9k.20 (6 sites)\n- chat-client, contacts-client, tasks-client, filenode-client, sharing-client: not yet tracked; this canonical-side fix's propagation pass should sweep all 7 siblings in one commit.\n\n## Cross-refs\n\n- JMAP-wzq9.33 \u2014 metadata-client side\n- JMAP-1j9k.20 \u2014 calendars-client side",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Hand-rolled props.iter().copied().map(Value::from).collect() at 5 sites (email/identity/mailbox/submission/thread .rs)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:20:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "a6b5e31e-2c00-5b10-bd55-931f2564c9f3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

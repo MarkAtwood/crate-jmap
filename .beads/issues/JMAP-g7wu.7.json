@@ -1,0 +1,33 @@
+{
+  "close_reason": "Dedup landed previously (Cargo.toml already declares jmap-base-client; auth.rs/blob.rs/client.rs/error.rs/ws/ no longer present in src/). The remaining sse.rs/ws.rs/session.rs are chat-specific extension wrappers over base-client types, not duplicates. Updated PLAN.md sections (Crate Family Position, Source Material, Dependencies, Key Design Decisions, Module Layout, Extension Trait Pattern) to reflect post-extraction reality. cargo fmt/clippy/test -p jmap-chat-client all green.",
+  "closed_at": "2026-05-11T00:59:34Z",
+  "compaction_level": 0,
+  "content_hash": "faaaef11af9e19ad024ca2619a7c87829f21ea1160eb6e5901788f91b4094e06",
+  "created_at": "2026-05-11T00:06:12Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-client/PLAN.md:148\n\nPLAN currently says jmap-chat-client interim-duplicates auth.rs, blob.rs, client.rs, error.rs, sse.rs, and ws/ from the original jmapchat-client. The refactor to remove duplicates and add jmap-base-client as a dep was framed as 'planned as follow-up'.\n\njmap-base-client now exists in the workspace (crate-jmap-base-client). The refactor is no longer 'future' \u2014 it's an active task.\n\nSteps:\n1. Add jmap-base-client as a path dep in jmap-chat-client/Cargo.toml.\n2. Delete the duplicated modules.\n3. Update imports across jmap-chat-client to reference jmap_base_client::*.\n4. Verify cargo test -p jmap-chat-client still passes.\n5. Update PLAN.md to drop the 'duplicated' description.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Drop duplicated auth/blob/client/error/sse/ws modules in jmap-chat-client (consume jmap-base-client)",
+  "updated_at": "2026-05-11T00:59:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:06:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu",
+      "id": "b3a3f4f3-82ec-526f-9a0b-54cb0fd26c9f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

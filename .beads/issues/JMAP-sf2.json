@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-sf2",
+  "title": "Review: jmap-mail-server crate",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:23:36Z",
+  "updated_at": "2026-05-01T02:52:22Z",
+  "closed_at": "2026-05-01T02:52:22Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 onSuccessUpdateEmail is completely broken (silent no-op on updates). collapseThreads is an OOM vector. These are the two highest-risk items. Other findings are edge cases or cosmetic.\nConfidence: 15% chance of missed bug. Least confident flags: the onSuccessUpdateEmail extra-invocation format question depends on how jmap-server's Dispatcher handles extra invocations \u2014 I haven't read that crate. If the dispatcher appends extra invocations verbatim (not re-executing them), submission.rs is right and email.rs/copy is wrong. Would raise confidence if: read jmap-server dispatcher source. Uncertainty driven by: Invocation type dual-use (request and response have same shape), dispatcher behavior not visible from this crate.\nIdiom rating: ACCEPTABLE \u2014 The code is mostly idiomatic Rust. Ownership is handled correctly throughout; no gratuitous Arc or Rc usage. Error handling uses the ? operator appropriately. The three clippy-level findings (redundant clone, unwrap_or instead of continue, SetError non_exhaustive) are all fixable without architectural changes. The SetErrorType::Display via serde roundtrip is the worst idiom issue and is already filed.\nRust idiom confidence: 10% chance of missed issue. Least confident flags: I may have missed iterator-vs-loop patterns in longer match arms in submission.rs. Uncertainty driven by: focused primarily on semantic bugs in the first pass and may have glossed over small idiom issues in submission.rs's longer functions."
+}

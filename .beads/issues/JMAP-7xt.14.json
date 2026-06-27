@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.14",
+  "title": "raw_buf + incremental UTF-8 decode in subscribe_events: handles codepoints split across HTTP chunks",
+  "description": "subscribe_events accumulates raw bytes into raw_buf before UTF-8 decoding. When std::str::from_utf8 fails, it uses Utf8Error::valid_up_to() to extract the valid prefix and leave the incomplete multi-byte tail in raw_buf for the next chunk. Without this, a 3-byte UTF-8 codepoint that arrives as [0xE2, 0x82] then [0xAC] would cause a spurious parse error or stream termination. A contributor might suggest calling String::from_utf8_lossy (which replaces the tail with U+FFFD) or decoding per-chunk directly. Either alternative would corrupt event data containing non-ASCII characters at chunk boundaries. The two-buffer approach is required for correctness.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:25Z",
+  "updated_at": "2026-04-30T01:01:42Z",
+  "closed_at": "2026-04-30T01:01:42Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:25"
+    }
+  ]
+}

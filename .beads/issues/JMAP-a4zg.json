@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "c18fbe53a5692b31626f722eb528e4a18590d6de02c5f0bbe91601a8bd2a3829",
+  "created_at": "2026-05-18T03:04:36Z",
+  "created_by": "Mark Atwood",
+  "description": "Currently each extension-server defines a concrete-typed copy_X method:\n- MailBackend::copy_email(card: Email)\n- ContactsBackend::copy_contact_card(card: ContactCard)\n\nThe other write methods on the same traits (create_object, update_object, destroy_object) are generic over O: SetObject. The /copy method's concrete type ties the trait to the specific extension type crate (jmap-mail-types, jmap-contacts-types) and prevents the workspace from later splitting wire-type vs domain-type, cutting a types-crate major version, or unifying /copy across extensions.\n\nRecommended shape (from JMAP-qz9v.34):\n\n  fn copy_object<O: SetObject + Send + Sync>(\n      &self,\n      caller: &Self::CallerCtx,\n      from_account_id: &Id,\n      to_account_id: &Id,\n      obj: O,\n  ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;\n\nThe canonical-template propagation rule applies: change canonical mail-server first, then propagate to contacts-server (and any future /copy extension siblings like calendars-server, tasks-server).\n\nOpen questions:\n- Does generalizing break any backend-side type-specific logic (e.g. mail-server's blob handling on Email/copy)? Should /copy stay type-specific because the conversion logic IS type-specific?\n- Is the foundation JmapBackend supertrait the right home for copy_object, or should each extension trait carry its own?\n- Pre-1.0 (workspace is 0.1.x), so breaking the trait surface is acceptable; post-1.0 this would require a major bump.\n\nWorkspace-design call. P3 because the current shape is internally cookie-cutter-consistent across extension-servers and the version-skew failure is hypothetical pre-1.0.",
+  "ephemeral": 0,
+  "id": "JMAP-a4zg",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace design: generalize ContactsBackend::copy_contact_card / MailBackend::copy_email to JmapBackend::copy_object<O: SetObject>",
+  "updated_at": "2026-05-18T03:04:36Z"
+}

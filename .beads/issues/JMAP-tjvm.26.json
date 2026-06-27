@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Extended the 'extra' field doc-comment boilerplate with the explicit constraint warning across all 23 sites in the 8 extension-client crates (mail/chat/calendars/contacts/filenode/metadata; tasks and sharing have no Params/response structs with extras in their methods/* files). New boilerplate adds:\n\n  **Constraint**: keys in 'extra' MUST NOT collide with the typed-field wire names above (the camelCase spelling \u2014 e.g. 'accountId', 'ids', 'properties', 'blobIds', 'fromAccountId', etc.). On collision the typed-field value wins on the wire and the 'extra' value is silently dropped at serialization. Place vendor extensions under vendor-prefixed keys (e.g. 'acmeCorpFoo') to avoid the collision class.\n\nThe constraint applies to both Serialize input-param structs (where it directly governs wire output) and Deserialize response structs (where it documents server-side behavior that round-trips identically). Both directions benefit from the explicit note; the wording does not need to differ.\n\nBead scope was input-param Serialize structs in client crates; types crates (jmap-mail-types, jmap-chat-types, etc.) were not in scope and were not touched. The collision-clobbering bug on the actual serialization path was fixed earlier by JMAP-tjvm.1 and JMAP-tjvm.2; this commit completes the documentation contract clean-up.",
+  "closed_at": "2026-05-17T14:09:14Z",
+  "compaction_level": 0,
+  "content_hash": "933cf399ef47af0ccb4ad9d35156d1d60701e2efae2afd2c173830728c0da109",
+  "created_at": "2026-05-15T01:54:44Z",
+  "created_by": "Mark Atwood",
+  "description": "Every Serialize input-param struct with the extras pattern carries the same boilerplate docstring on its `extra` field:\n\n  mod.rs:58-61, 78-81, 94-97, 131-134, 167-170, 276-279\n\n  \"Catch-all for vendor / site / private extension fields not covered\n   by the typed fields above. Preserves unknown fields across\n   deserialize/serialize round-trip per workspace extras-preservation\n   policy (see workspace AGENTS.md).\"\n\nWhat the docstring does NOT say: if a caller inserts a key into `extra` that matches one of the typed field names (\"accountId\", \"ids\", \"properties\", \"blobIds\", etc.), the typed value is silently overridden \u2014 the wire payload will carry the `extra` value, not the typed-field value.\n\nThis is the root cause of JMAP-tjvm.1 (email_get extra overrides accountId/ids/properties) and JMAP-tjvm.2 (email_parse extra overrides accountId/blobIds). The bug findings cover the runtime fix. THIS finding covers the documentation contract: even after the bugs are fixed, the docstring should explicitly warn callers about the constraint.\n\nFor input-Serialize structs: the order of merge in the current implementation (e.g. email.rs:55-59) is:\n\n  let mut args = json!({\"accountId\": ..., \"ids\": ..., ...});\n  if let Some(p) = params {\n      if let serde_json::Value::Object(map) = serde_json::to_value(p) {\n          for (k, v) in map { args[k] = v; }   // \u2190 override\n      }\n  }\n\nThe fix (per the P0 bugs) likely changes the merge order so typed fields win. But callers should KNOW that key conflicts are forbidden, or that the wire payload will carry their typed value, not their extra value.\n\nRecommendation: rewrite the docstring boilerplate to include the constraint:\n\n  \"Catch-all for vendor / site / private extension fields not covered\n   by the typed fields above. Preserves unknown fields across\n   deserialize/serialize round-trip per workspace extras-preservation\n   policy (see workspace AGENTS.md).\n   \n   Constraint: keys in `extra` must NOT collide with the typed field\n   names above (e.g. 'accountId', 'ids', 'properties', 'blobIds', ...).\n   When a collision occurs, the typed-field value wins on the wire; the\n   `extra` value is silently dropped during serialization. Callers MUST\n   place vendor-extension fields under vendor-prefixed keys (e.g.\n   'acmeCorpFoo').\"\n\nSame propagation across the six sibling extension-client crates.\n\nPriority P3 because the runtime fix is already covered by the P0 bugs. This is the post-fix documentation contract clean-up.\n\nMark says NO HUMAN \u2014 Recommendation is clear; this is a docstring rewrite that should land alongside the P0 bug fixes.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extra field docstring does not warn that vendor keys colliding with typed fields silently override them",
+  "updated_at": "2026-05-17T14:09:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:54:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "171ebf50-87a6-5af5-a22d-152b3bb7910b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T05:33:59Z",
+  "id": "019e3993-a89a-73ef-a684-47f896737e8c",
+  "issue_id": "JMAP-ops7.45",
+  "text": "Fix scope depends on resolution direction:\n- Option (a) workspace-wide adopt: 7 Cargo.toml additions + 7 AGENTS.md edits + rewrite of jmap-server BackendSetError/BackendChangesError + chat-server SlowModeError to use thiserror.\n- Option (b) calendars-server removes: 1 Cargo.toml + 1 AGENTS.md + 2 hand-roll-Display rewrites in calendars-server/src/backend.rs.\nEither direction: /do-beads must verify with `cargo check --workspace` and `cargo test --workspace`."
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Documented-rejection: clippy::significant_drop_tightening fires on demonstration-quality MemoryBackend where lock-contention is not a realistic concern. Per bead's own framing.",
+  "closed_at": "2026-05-18T02:24:42Z",
+  "compaction_level": 0,
+  "content_hash": "56a4563de9bd51e5efc2e27232f3efd8bfcea2b3d4b04eeae3cf0a2268b29bc3",
+  "created_at": "2026-05-14T15:54:41Z",
+  "created_by": "Mark Atwood",
+  "description": "clippy::nursery flags 12 sites in crate-jmap-chat-server/src/memory.rs where `let inner = self.inner.lock().unwrap()` holds the MutexGuard for the entire function body, including post-read return-value computation:\n\nSites: memory.rs:387, 417, 458, 507, 519, 585, 641, 688, 723, 776, 996, 1067\n\nPattern at each site:\n\n    async fn foo(&self, ..., account_id: &Id) -> Result<..., Self::Error> {\n        let inner = self.inner.lock().unwrap();\n        let data = inner.objects_ref::<...>(account_id);\n        // ... 10-30 lines of computation using data ...\n        // ... convert / clone results ...\n        Ok(result)\n    }\n\nClippy wants the guard released earlier \u2014 either drop(inner) before the conversion or extract the inner-touching part into a smaller block.\n\nIdiomatic Rust: in a production lock-contended path this would be a real concern. Here MemoryBackend is the documented reference in-memory backend, explicitly demonstration-quality and single-user (per crate-jmap-chat-server/AGENTS.md and the prior epic note structure). Lock contention is not a realistic concern for the reference impl.\n\nFiled as P4 opinion because:\n(a) the engineering basis (lock contention) is hypothetical for this code,\n(b) the fix changes 12 functions for no measurable benefit in the only deployment shape MemoryBackend was designed for,\n(c) restructuring to release the guard earlier in some sites would require copying owned data out which would defeat the original perf intent.\n\nWorth filing only as documentation that nursery has been swept and this lint family was deliberately rejected. If MemoryBackend ever becomes a production-shaped impl (which would itself be a workspace-policy violation per AGENTS.md), revisit.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.85",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend: 12 clippy::significant_drop_tightening sites holding Mutex guard for full function body",
+  "updated_at": "2026-05-18T02:24:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:54:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "6a67fb4d-e7b8-52d2-986d-88951cbfdbc9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

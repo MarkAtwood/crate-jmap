@@ -1,0 +1,33 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:48:14Z",
+  "compaction_level": 0,
+  "content_hash": "d25cb6944d1f397bb6aa34c4f64e63e0e25de1b562a7e0823ba6a8ec9e801cac",
+  "created_at": "2026-05-05T01:44:33Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-d0sf.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Rewrite src/lib.rs with JmapContactsExt trait and re-exports",
+  "updated_at": "2026-05-05T01:48:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:44:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-d0sf",
+      "id": "f6fda271-2253-51e0-9da6-574a0e8869f8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

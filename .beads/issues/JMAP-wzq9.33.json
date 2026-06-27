@@ -1,0 +1,41 @@
+{
+  "close_reason": "Fixed in same commit as JMAP-tjvm.36 (workspace sweep of 21 sites across 7 extension-client crates). metadata-client's metadata_get site at crate-jmap-metadata-client/src/methods/metadata.rs:70 is included.",
+  "closed_at": "2026-05-17T13:10:21Z",
+  "compaction_level": 0,
+  "content_hash": "3d6fb12842ab125a455be66501bfc24c7533a430d33078d25de417af1a7efae2",
+  "created_at": "2026-05-15T02:50:19Z",
+  "created_by": "Mark Atwood",
+  "description": "## What the code does\n\n`crate-jmap-metadata-client/src/methods/metadata.rs:68-72` serialises the `properties: Option<&[&str]>` argument to a JSON array via a hand-rolled iterator chain:\n\n```rust\nif let Some(props) = properties {\n    args[\"properties\"] = serde_json::Value::Array(\n        props.iter().copied().map(serde_json::Value::from).collect(),\n    );\n}\n```\n\n## What idiomatic Rust would do\n\n`serde_json::to_value` on `&[&str]` invokes the `str` Serialize impl on each element and produces `Value::Array(Vec<Value::String>)` \u2014 byte-identical wire output to the hand-rolled version:\n\n```rust\nif let Some(props) = properties {\n    args[\"properties\"] = serde_json::to_value(props)\n        .expect(\"&[&str] Serialize is infallible\");\n}\n```\n\n\u2026matches the idiom the SAME function uses three lines above for the `ids` slice (metadata.rs:65-67):\n\n```rust\nif let Some(id_slice) = ids {\n    args[\"ids\"] = serde_json::to_value(id_slice).expect(\"Id slice Serialize is infallible\");\n}\n```\n\n## What goes wrong if it stays\n\nNothing at runtime \u2014 both forms produce the same wire JSON. The cost is *clarity and internal consistency*: the same function performs the same kind of operation (slice-to-JSON-array) two different ways, three lines apart. A reader has to parse the iterator chain and convince themselves it produces the same shape as a one-line `to_value` would.\n\n## Workspace propagation footprint\n\nThis is **NOT a metadata-client divergence from canonical mail-client** \u2014 `crate-jmap-mail-client/src/methods/email.rs:44-48` has the IDENTICAL hand-rolled pattern. Both the canonical and metadata-client cookie-cut sibling share the regression. JMAP-1j9k.20 (open) already tracks the same pattern across all 6 sites in calendars-client. The right fix path is workspace-wide:\n\n1. Fix canonical `jmap-mail-client/src/methods/email.rs:44-48` first.\n2. Propagate to every extension-client sibling (calendars, contacts, chat, tasks, filenode, sharing, metadata) in the same pass.\n3. Per workspace AGENTS.md \"Canonical Templates\" rule.\n\nCross-reference: JMAP-1j9k.20 (calendars-client, same pattern, open).\n\n## Scope\n\n`crate-jmap-metadata-client/src/methods/metadata.rs:68-72` (one site).",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "metadata_get: hand-rolled props.iter().copied().map(Value::from).collect() \u2014 serde_json::to_value(props) is one line",
+  "updated_at": "2026-05-17T13:10:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:20:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm.36",
+      "id": "bcd4639e-36c0-58b4-9415-178d877adf97",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T19:50:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "d9404147-18d7-5637-9a6a-b08d56db486f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

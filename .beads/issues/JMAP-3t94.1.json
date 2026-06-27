@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:13:56Z",
+  "compaction_level": 0,
+  "content_hash": "6e1f7798431ccb95c0228705dcd81c59627a4599bc8b9768bb9d3ba5c3f2335f",
+  "created_at": "2026-05-14T21:50:30Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/principal.rs:62-67 and crate-jmap-sharing-server/src/notification.rs:57-62 extract accountId then immediately call backend.get_state::<O>(caller, &account_id) without first calling backend.account_exists(caller, &account_id). The canonical jmap-mail-server pattern (crate-jmap-mail-server/src/mailbox.rs:441-447) gates every /set on account_exists and returns JmapError::account_not_found() when false. The sharing handlers do not.\n\nTrigger: dispatch Principal/set or ShareNotification/set with an accountId that is not registered with the backend. Per RFC 8620 \u00a73.6.2 the server MUST return accountNotFound. The sharing handlers instead:\n  1. Call get_state \u2014 MemoryBackend returns 'oldState: \"0\"' silently (see memory.rs:309-317: it returns State::from('0') for unknown accounts).\n  2. Forward create/update/destroy calls to the backend with the bogus accountId.\n  3. Build a normal /set response envelope with the fabricated oldState/newState pair.\n\nExisting inline test crate-jmap-sharing-server/src/principal.rs:316-335 (get_unknown_account_returns_account_not_found) PROVES the contract is supposed to apply \u2014 it works because jmap_server::handlers::handle_get does the check internally. The /set handlers do not get this for free because they are hand-rolled.\n\nSibling-scope check: jmap-chat-server, jmap-filenode-server, and jmap-metadata-server have the same missing-check pattern in their /set handlers. jmap-calendars-server, jmap-tasks-server, jmap-contacts-server, and jmap-mail-server have the check. This is a workspace-wide cookie-cutter divergence on a security-relevant handler.\n\nFix: add the same account_exists guard at the top of each /set handler, mirroring mailbox.rs:441-447 exactly. Propagation to the three other affected sibling crates should land in the same sweep.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Fixed in src/principal.rs and src/notification.rs: added account_exists check at the top of both /set handlers, mirroring the canonical jmap-mail-server/src/mailbox.rs:441-447 pattern. Returns JmapError::account_not_found() per RFC 8620 \u00a73.6.2. Sibling propagation to jmap-chat-server, jmap-filenode-server, jmap-metadata-server tracked separately (see JMAP-3t94 epic note 'workspace-wide-shaped').",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Principal/set and ShareNotification/set skip account_exists check \u2014 unknown accountId silently proceeds",
+  "updated_at": "2026-05-14T22:13:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:50:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "dff072d0-993e-5cdc-91db-c8dea01a954b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

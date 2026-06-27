@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-sq1.5",
+  "title": "AuthProvider::auth_header returns String, not HeaderValue",
+  "description": "auth_header() returns Option<(&'static str, String)> rather than Option<(HeaderName, HeaderValue)>. This is intentional pre-1.0: avoids locking the API to reqwest or http crate types. The WS path performs explicit validation via http::HeaderValue::from_str, and the HTTP path relies on reqwest's handling. The asymmetry is documented in the trait's contract comment. Changing to HeaderValue would be a breaking API change.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:49:04Z",
+  "updated_at": "2026-04-30T02:49:14Z",
+  "closed_at": "2026-04-30T02:49:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sq1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:49:04"
+    }
+  ]
+}

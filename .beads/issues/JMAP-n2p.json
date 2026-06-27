@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-n2p",
+  "title": "jmap-client: port sse.rs and blob.rs",
+  "description": "Port SSE parser and blob response type from crate-jmapchat-client into crate-jmap-client/src/sse.rs and src/blob.rs. Neither is a verbatim copy \u2014 both require removal of Chat-specific items.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-29T23:30:50Z",
+  "updated_at": "2026-04-29T23:59:59Z",
+  "closed_at": "2026-04-29T23:59:59Z",
+  "design": "For src/sse.rs: copy SseEvent, SseFrame, parse_sse_block BUT remove the SseEvent::Typing and SseEvent::Presence variants \u2014 these are JMAP Chat push events, not base JMAP SSE events. Keep only variants defined in RFC 8620 \u00a77.3 (StateChange, RequestTooLarge, and any base-protocol push variants). For src/blob.rs: copy BlobUploadResponse but it is NOT verbatim \u2014 any reference to JmapChatClient must be renamed to JmapClient, and if it imports jmapchat_types::Id replace with jmap_types::Id.",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3g1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:37"
+    }
+  ]
+}

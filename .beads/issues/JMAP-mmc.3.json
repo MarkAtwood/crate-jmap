@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T12:32:00Z",
+  "compaction_level": 0,
+  "content_hash": "c006e11385d422de050aba9df6f34b7cc0d312145383f3b841028e6893cc87ae",
+  "created_at": "2026-05-01T12:30:07Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs line 599 comment says 'Call-id is #<parent-call-id>' but RFC 8621 \u00a77.5 and the example at RFC 8621 p.85 both show the implicit Email/set uses the SAME call-id as the parent (no # prefix). The actual code at line 611 correctly uses call_id.to_owned(). Only the comment is wrong.",
+  "ephemeral": 0,
+  "id": "JMAP-mmc.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "submission.rs: wrong call-id comment on implicit Email/set",
+  "updated_at": "2026-05-01T12:32:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T05:30:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mmc",
+      "id": "47e3edee-d8ae-562f-8d54-2de5fb2b43c1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

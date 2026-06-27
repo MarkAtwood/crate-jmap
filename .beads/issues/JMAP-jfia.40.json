@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced ClosureHandler::new's Box<BackendCallFn<B,C>> parameter with a generic F: Fn(...) + Send + Sync + 'static bound. Callers can drop Box::new wrapping; the closure is boxed once internally at construction. Backward-compat verified: existing Box::new(...) callers compile unchanged because Box<dyn Fn(...)+ Send+Sync+'static> itself implements Fn(...) via blanket impl. Propagated the boilerplate drop to all 10 reg! macro sites across the 8 extension-server siblings (3 in mail-server, 1 each in chat/calendars/tasks/contacts/filenode/sharing/metadata) per the canonical-template rule. Updated the doc example in jmap-server and the two unit tests. Workspace clippy + 142 test suites green. Commit b0d97b4.",
+  "closed_at": "2026-05-15T07:30:12Z",
+  "compaction_level": 0,
+  "content_hash": "93b8052d698faac94722629f633fff6b3a3a3a5ced6fd8317b0ef0ef47b4c374",
+  "created_at": "2026-05-14T17:37:32Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/lib.rs:533 \u2014 ClosureHandler::new signature:\n\n  pub fn new(backend: Arc<B>, call_fn: Box<BackendCallFn<B, C>>) -> Self\n\nforces every caller to write:\n\n  ClosureHandler::new(\n      Arc::new(my_backend),\n      Box::new(|b, call_id, args, ctx| {\n          Box::pin(async move { ... })\n      }),\n  )\n\nThe Box::new wrapping is mechanical boilerplate. Both the example file (examples/dispatcher_minimal.rs) and the doc comment example (lines 484-500) show this friction explicitly.\n\nThe additive shape is a generic constructor:\n\n  impl<B: Send + Sync + 'static, C: Clone + Send + 'static> ClosureHandler<B, C> {\n      pub fn new<F>(backend: Arc<B>, call_fn: F) -> Self\n      where\n          F: Fn(Arc<B>, String, Value, C) -> HandlerFuture + Send + Sync + 'static,\n      {\n          Self {\n              backend,\n              call_fn: Box::new(call_fn),\n          }\n      }\n  }\n\nThis:\n1. Lets callers drop the Box::new entirely.\n2. Preserves the internal Box storage (call_fn field stays Box<BackendCallFn<B, C>>).\n3. Is backward-incompatible if there's existing code that passes a Box<BackendCallFn> by value \u2014 but the generic F: Fn(...) signature accepts the same closure shapes plus Box<dyn Fn(...)> (because Box<F: Fn(...)> implements Fn(...) too).\n\nVerification: a Box<BackendCallFn<B, C>> can be passed to a `F: Fn(...) + Send + Sync + 'static` parameter because Box<dyn Fn(...) + Send + Sync + 'static> implements Fn(...). The deref-coercion path makes existing callers compile unchanged.\n\nDefensive-code-forcing category: every single ClosureHandler instantiation in the workspace will repeat Box::new. Eight extension *-server crates \u00d7 N handlers each = O(80) sites where the Box::new must be threaded.\n\nCounter-argument: a consumer that builds the closure dynamically (e.g. by selecting one of two impls at runtime) needs an explicit Box. The generic version supports that fine \u2014 they pass Box::new(... as Box<dyn ...>) or use a sealed enum.\n\nPriority P3 because it's ergonomics, not correctness. But the new() function was added in commit 85ca4fb specifically to lock the construction path; the generic version is the natural extension to land in the same pass.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.40",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClosureHandler::new requires Box<BackendCallFn<B, C>> \u2014 forces every caller to write Box::new(...)",
+  "updated_at": "2026-05-15T07:30:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:37:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "fc3bf3a6-85a5-5d18-8f7b-6b0d2c1cbf13",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

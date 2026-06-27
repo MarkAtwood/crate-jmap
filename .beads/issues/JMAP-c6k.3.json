@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-c6k.3",
+  "title": "VacationResponse::new takes impl Into<Id> inconsistently",
+  "description": "VacationResponse::new(id: impl Into<Id>, ...) is the only constructor in the crate that accepts impl Into<Id> for the id field. All other constructors (Email::new, Mailbox::new, Thread::new, etc.) take Id directly. This creates an inconsistent ergonomic pattern \u2014 code that works for VacationResponse won't work for Email without .into(). Pick one convention and apply it everywhere. Since Id::from is cheap, preferring impl Into<Id> uniformly is more ergonomic.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:24:41Z",
+  "updated_at": "2026-04-30T05:29:10Z",
+  "closed_at": "2026-04-30T05:29:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-c6k",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:24:41"
+    }
+  ]
+}

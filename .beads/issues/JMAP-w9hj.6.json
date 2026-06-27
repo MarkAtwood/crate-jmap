@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:28:27Z",
+  "compaction_level": 0,
+  "content_hash": "b21ec5da553e1868e7a5a1098374c17f0bd8e3a3fc8236ed200916f0ba6e5785",
+  "created_at": "2026-05-04T19:23:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec \u00a72.4: alreadyExists with existingId applies to both create AND update. Update path passes name patches directly to backend without uniqueness check. Fix: if patch contains name key, scan existing scripts excluding the one being updated, return alreadyExists+existingId if collision found.",
+  "ephemeral": 0,
+  "id": "JMAP-w9hj.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve_set: name uniqueness + existingId not checked on update",
+  "updated_at": "2026-05-04T19:28:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T12:23:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w9hj",
+      "id": "87915108-ca18-5178-bcff-958509b05018",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

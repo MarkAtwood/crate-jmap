@@ -1,0 +1,33 @@
+{
+  "close_reason": "Declined \u2014 workspace bikeshedding signal per AGENTS.md convergence rule. The block comments inside the test modules are local oracle/rationale notes; their content duplicates the workspace AGENTS.md text by design (so the test reader doesn't need to navigate elsewhere to understand the test's reason for existing). Per AGENTS.md 'Bikeshedding': only flag findings with engineering basis that would survive a code review comment thread; consolidating these into a module-level doc would harm test readability for marginal DRY benefit.",
+  "closed_at": "2026-05-17T16:57:58Z",
+  "compaction_level": 0,
+  "content_hash": "4a35cc3b23fd46feb8c5cdfe23dfbc6936cb9cb0280591288670cd345b6d9f5f",
+  "created_at": "2026-05-15T05:35:28Z",
+  "created_by": "Mark Atwood",
+  "description": "methods.rs:777-783, wire.rs:197-203 each carry a 7-line comment block re-stating the workspace extras-preservation policy. The content is verbatim duplication of the workspace AGENTS.md section. Readability cost: any policy text drift would require updating N places. Suggested rewrite: replace each block with a single line `// See workspace AGENTS.md \\\"Extras-preservation policy for vendor/site fields\\\" + bd JMAP-lbdy.1.` Tests' purpose is clear from their names already.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extras-preservation policy block comments inside test modules duplicate workspace doc",
+  "updated_at": "2026-05-17T16:57:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:35:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "dd682c55-d032-52bc-b6f0-ec377239e5bf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

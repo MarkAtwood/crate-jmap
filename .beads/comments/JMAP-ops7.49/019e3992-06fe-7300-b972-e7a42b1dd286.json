@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T05:32:12Z",
+  "id": "019e3992-06fe-7300-b972-e7a42b1dd286",
+  "issue_id": "JMAP-ops7.49",
+  "text": "Cross-crate: foundation-client (jmap-base-client) and foundation-server (jmap-server). Decision direction needs workspace-level agreement before fix can land. The internal blob.rs request-vs-response asymmetry (request &str, response Id) is the obvious minimum fix even before the wider policy is decided."
+}

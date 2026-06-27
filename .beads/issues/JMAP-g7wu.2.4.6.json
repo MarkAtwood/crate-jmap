@@ -1,0 +1,66 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T161839Z-2683045",
+  "close_reason": "Landed in commit dfbedc1. New test file tests/space_set_kitchen_sink.rs with two tests: (1) space_set_all_twelve_ops_in_one_call exercises every semantic-mutation key (12 total) in one Space/set call against one Space with an admin IdentityBackend caller; (2) space_set_all_twelve_ops_single_user_mode runs the same patch against MemoryBackend (CallerCtx=()) as a regression bound. Per-op semantics and per-permission gates are covered by the other test files; this test exercises the orchestration layer (dispatch, parsing, atomicity, change-log emission).",
+  "closed_at": "2026-05-13T16:37:52Z",
+  "compaction_level": 0,
+  "content_hash": "afc3ba215e18c84c7a58e1e72d5c12abe71315aaf320f708c4ef7fd62d41ce66",
+  "created_at": "2026-05-11T13:58:33Z",
+  "created_by": "Mark Atwood",
+  "description": "Rescoped 2026-05-13 per Mark's Option-A decision after the do-beads triage.\n\n## Background\n\nThis bead originally specified a comprehensive integration test matrix for all 12 Space/set semantic mutation sub-ops, plus permission checks for all 4 permission tags (manage_space, manage_roles, manage_members, manage_channels), plus ULID assignment validation, plus role-hierarchy and cascade tests.\n\nWhen JMAP-g7wu.2.4.3 / .4 / .5 landed, the implementing agent's triage (see prior comment) found that much of the matrix is already covered by tests landed in those impl beads, but the residual items have scope mismatches with the current implementation:\n\n- **manage_space gate doesn't exist** \u2014 top-level Space metadata goes through `update_object`, not `apply_space_patch`. Adding tests for it requires landing the gate first. Split to JMAP-g7wu.2.4.13.\n- **manage_channels gate is missing on Channel/Category ops** \u2014 `validate_role_member_ops` explicitly skips them. Split to JMAP-g7wu.2.4.14.\n- **ULID assignment doesn't match impl** \u2014 `MemoryBackend::next_id` returns sequential strings (`\"role1\"`, `\"chat3\"`). Split to JMAP-g7wu.2.4.15 (design decision).\n\n## What remains in scope here\n\nA single multi-variant smoke test (\"kitchen sink\") that exercises all 12 semantic mutation keys in one `/set` call against a single Space, with an admin caller. The goal is to verify the 12 variants don't interfere with each other on the existing code paths and that the dispatch / parsing / atomicity handling holds up under a mixed-op load.\n\n## Acceptance\n\n- New test in `crate-jmap-chat-server/tests/role_member_apply.rs` (or a new `tests/all_ops_kitchen_sink.rs` if cleaner) exercises a single `Space/set` call carrying all 12 semantic-mutation keys: addRoles, removeRoles, updateRoles, addMembers, removeMembers, updateMembers, addChannels, removeChannels, updateChannels, addCategories, removeCategories, updateCategories.\n- Caller is an admin holding all permissions; this test verifies dispatch correctness, NOT permission gating (that's covered by the per-op tests in .4.3/.4.13/.4.14).\n- Assertion: response is success with the expected mutations reflected on the Space. No SetError. The 12 ops apply in a single atomic transaction per RFC 8620 /set atomicity-at-the-target-level.\n- Estimated ~80 LOC.\n\n## Out of scope\n\n- manage_space permission gate (JMAP-g7wu.2.4.13)\n- manage_channels permission gate (JMAP-g7wu.2.4.14)\n- ULID format assertion (JMAP-g7wu.2.4.15 \u2014 design decision pending)\n- Re-deriving per-variant permission tests (already covered by .4.3 et al.)\n- Per-variant cascade tests (already covered by .4.3 / .4.4 / .4.5 et al.)\n\n## Cross-references\n\n- JMAP-g7wu.2.4.13 \u2014 manage_space gate (autonomous)\n- JMAP-g7wu.2.4.14 \u2014 manage_channels gate (autonomous)\n- JMAP-g7wu.2.4.15 \u2014 ULID design decision (human)\n- JMAP-g7wu.2.4.3 \u2014 Role/Member apply_space_patch + tests (canonical pattern this kitchen-sink extends)\n",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.2.4.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Kitchen-sink integration test: 12 Space/set semantic-mutation ops in one call",
+  "updated_at": "2026-05-13T16:37:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T06:58:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4.5",
+      "id": "34a38747-bb65-5717-af8a-9ec8e7385127",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T06:58:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4.4",
+      "id": "625a8cc2-8c26-501b-af68-d4076c50df9d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T06:58:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4.2",
+      "id": "705de6f1-204b-5368-807e-04fa567d5a7a",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T06:58:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4.3",
+      "id": "da8ecc3b-4cfe-541b-a0ad-b52612e30750",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T06:58:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4",
+      "id": "e4f1e7dd-af2b-5786-a3cd-ed409e6ad2cc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

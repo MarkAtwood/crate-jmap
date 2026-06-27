@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-55n.4",
+  "title": "blob.rs: uses full crate paths for ClientError instead of imports",
+  "description": "blob.rs uses full-qualified paths throughout: crate::error::ClientError::Http, crate::error::ClientError::InvalidHeaderValue, crate::client::JmapClient::check_auth_status, etc. client.rs imports these at the top (use crate::error::ClientError). The inconsistency makes blob.rs harder to read. Add 'use crate::error::ClientError' and 'use crate::client::JmapClient' (or 'use super::...' as appropriate) to blob.rs and rewrite the method bodies to use the short names. Suggested rewrite: add use statements at the top of blob.rs.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:59:40Z",
+  "updated_at": "2026-04-30T07:05:36Z",
+  "closed_at": "2026-04-30T07:05:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-55n",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:59:40"
+    }
+  ]
+}

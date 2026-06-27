@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed commit ae61b54. metadata-server's backend.rs module-level rustdoc now carries the explicit 'one import' rationale for the MetadataProperty / foundation-trait re-exports plus a version-pinning paragraph naming the SemVer cascade contract. Wording mirrors the richest sibling (jmap-sharing-server's 'About the re-exports' section). The MetadataProperty re-export was kept (not dropped) because the canonical jmap-mail-server's pattern (and 5 other sibling extension-server crates) re-exports every *Property type from its types crate \u2014 dropping it would diverge from the cookie-cutter convention. The bead's 'drop OR document' recommendation is satisfied by 'document'. Workspace-wide alignment of this rustdoc richness across the 8 extension-server backend.rs files (mail-server canonical currently has only terse 'for convenience' phrasing \u2014 backwards from the canonical-template intent since two siblings are richer than the canonical) tracked separately as bd:JMAP-r75s (P4 doc-only sweep). Quality gates: clippy -D warnings, doc -D warnings green.",
+  "closed_at": "2026-05-17T05:52:51Z",
+  "compaction_level": 0,
+  "content_hash": "98a4e71a870467e2ef776b0311461e425da72664a38bb43fa1bdc0d4f6473ca8",
+  "created_at": "2026-05-14T14:27:01Z",
+  "created_by": "Mark Atwood",
+  "description": "backend.rs:15:\n    pub use jmap_metadata_types::backend::MetadataProperty;\n\nWhat callers cannot depend on:\n- MetadataProperty is owned by jmap-metadata-types. Re-exporting it from jmap-metadata-server means a future shape change in jmap-metadata-types (variant addition, rename, conversion to a struct) is a breaking change for jmap-metadata-server too, even though this crate uses MetadataProperty in zero internal call sites.\n- A grep for 'MetadataProperty' in this crate's source returns only the re-export line. No handler, no MetadataBackend method, no helper, no test references it. The re-export exists for caller convenience but the caller can just 'use jmap_metadata_types::backend::MetadataProperty;' directly.\n\nRecommendation:\n- Drop the re-export OR document why it must live here. If the rationale is 'pair MetadataProperty with the MetadataBackend trait so consumers find both via one use statement', say so in the rustdoc \u2014 otherwise the re-export drift between crates becomes a maintenance liability.\n\nSame pattern at lib.rs:57 (pub use jmap_metadata_types::JMAP_METADATA_URI) is more defensible \u2014 JMAP_METADATA_URI is a primary capability identifier consumers will need to wire into their session capability map, and grouping it under jmap_metadata_server matches the canonical sibling's JMAP_MAIL_URI pattern (jmap-mail-server/src/lib.rs:45). That re-export earns its keep; MetadataProperty does not.\n\nWhat goes wrong if this stays:\n- Tiny: extra public-API surface for the maintainer to coordinate across crate boundaries on every release.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API: backend.rs:15 pub use jmap_metadata_types::backend::MetadataProperty has no internal consumer",
+  "updated_at": "2026-05-17T05:52:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:27:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "051fb0e5-162d-57f0-a609-ed874a1e95e7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

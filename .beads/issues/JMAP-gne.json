@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-gne",
+  "title": "Review pass 2: jmap-mail-types changes",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:13:06Z",
+  "updated_at": "2026-04-30T05:14:31Z",
+  "closed_at": "2026-04-30T05:14:31Z",
+  "notes": "Second pass \u2014 all changes clean. No new findings. Tests: 86 pass. Doc build: clean. Clippy: clean.\nConfidence: 5% chance of missed issue. Uncertainty driven by: not testing from an actual external crate that the non_exhaustive construction limitation is fully resolved. Would raise confidence if: jmap-mail-client is written and the EmailComparator::new + EmailFilterCondition mutation pattern is exercised.\nIdiom rating: CLEAN \u2014 EmailComparator::new is idiomatic (single required field constructor, optional fields mutated afterward). Keyword(String) with trait impls is idiomatic newtype."
+}

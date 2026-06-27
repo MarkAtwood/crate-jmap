@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-fpp.10",
+  "title": "download_blob doc: empty accept_type URL shape example is incomplete",
+  "description": "blob.rs download_blob doc comment: 'pass None when no preference is needed \u2014 {type} expands to an empty string per RFC 6570 Level-1, so templates that include ?accept={type} produce ?accept= when accept_type is None.' A caller reading this knows the output URL shape but not whether ?accept= is safe for servers (some servers may reject an empty accept param). The comment should add: 'If the server does not tolerate empty query parameters, omit {type} from the template instead.' This is a documentation gap that will cause user confusion.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:15:59Z",
+  "updated_at": "2026-04-30T01:23:31Z",
+  "closed_at": "2026-04-30T01:23:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-fpp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:15:59"
+    }
+  ]
+}

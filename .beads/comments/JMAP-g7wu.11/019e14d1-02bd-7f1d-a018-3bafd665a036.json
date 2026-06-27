@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-11T02:15:03Z",
+  "id": "019e14d1-02bd-7f1d-a018-3bafd665a036",
+  "issue_id": "JMAP-g7wu.11",
+  "text": "Resolved: option (b) \u2014 extend mime-tree to expose typed header values, then jmap-mail-server consumes mime-tree's new API. jmap-mail-server does NOT take a direct dep on mail-parser; mime-tree remains the single workspace gateway to RFC 5322 parsing.\n\nRationale: mime-tree (at ~/PROJECT/MIME) is the in-house RFC 5322 parser. It already uses mail-parser internally but currently flattens parsed headers to ParsedHeader{name, value} strings before exposing them. The fix is to add a typed-header API to mime-tree (additive \u2014 no break), then consume it from jmap-mail-server. Single source of truth for header parsing in the workspace family; no new top-level dep.\n\nCross-repo work tracked at: MIME-vy5 (in ~/PROJECT/MIME bd database).\n\nSequence:\n1. MIME-vy5 lands in mime-tree (typed header API + tests against independent RFC 5322 example vectors).\n2. mime-tree minor version bumped.\n3. JMAP-g7wu.5 unblocked; jmap-mail-server consumes the new API to implement the 5 As* header forms."
+}

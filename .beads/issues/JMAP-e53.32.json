@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:55:05Z",
+  "compaction_level": 0,
+  "content_hash": "d5691267a3290dbc7a9f4d3682a55e95146903c12fd044e405f91ee7cbef1e97",
+  "created_at": "2026-05-02T00:44:18Z",
+  "created_by": "Mark Atwood",
+  "description": "common/mod.rs submission_matches_condition (~lines 1637-1649): identity_ids, email_ids, and thread_ids are all Option<Vec<Id>> (from EmailSubmissionFilterCondition in jmap-mail-types/src/submission.rs). The .contains() call on a Vec is O(list_len). For a query scanning M submissions where each filter check calls contains() on three lists of size N, the filter pass is O(M*N). Since these are membership tests, the type should be Option<HashSet<Id>> or the caller should convert Vec to HashSet once before iterating. At production scale (thousands of submissions, filter lists of tens of IDs) this matters.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "submission_matches_condition: Vec::contains on id filter lists",
+  "updated_at": "2026-05-02T00:55:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:44:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "e0d0b5ef-5804-5efe-ba1b-3e35bf082baf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "80b0ecf4af8b17b863498a1e793251682165d3ac62c6766fa11ff39bb2966bb5",
+  "created_at": "2026-05-16T03:04:41Z",
+  "created_by": "Mark Atwood",
+  "description": "Found while resolving bd:JMAP-ly0n.14 (jmap-chat-types property enums). The canonical jmap-mail-types/src/backend.rs has the SAME defect: all 8 property selector enums (MailboxProperty, ThreadProperty, EmailProperty, IdentityProperty, EmailSubmissionProperty, VacationResponseProperty, SearchSnippetProperty, SieveScriptProperty) lack #[non_exhaustive].\n\nThis is the workspace canonical for the extension-types family per workspace AGENTS.md 'Canonical Templates' table. The 6 newer siblings (calendars-types, tasks-types, contacts-types, filenode-types, sharing-types, metadata-types) all have #[non_exhaustive] on their property enums. The two oldest (jmap-mail-types canonical, jmap-chat-types) predate the convention.\n\nWorkspace AGENTS.md propagation rule: 'When you change the canonical, propagate the change to every sibling in the same pass'. Since chat-types was fixed in bd:JMAP-ly0n.14 ahead of the canonical, this bead fills the propagation gap.\n\nScope: add #[non_exhaustive] above each of the 8 pub enum declarations in crate-jmap-mail-types/src/backend.rs. One-line per enum. No behavior change, no wire-format change, attribute-order rule (#[non_exhaustive] -> #[derive] -> #[serde]) is satisfied.\n\nWorkspace AGENTS.md 'Canonical Templates' table calls jmap-mail-types the canonical for the extension-types family. Compliance with #[non_exhaustive] on public enums is a workspace-wide rule (workspace AGENTS.md 'Conventions and Patterns', 'Extras-preservation policy', the per-crate 'Settled Design Constraints' tables). The canonical violating its own rule is a maintenance hazard.",
+  "ephemeral": 0,
+  "id": "JMAP-nuf5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add #[non_exhaustive] to property selector enums in canonical jmap-mail-types::backend",
+  "updated_at": "2026-05-16T03:04:41Z"
+}

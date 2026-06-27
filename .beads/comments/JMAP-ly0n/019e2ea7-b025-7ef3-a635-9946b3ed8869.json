@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T02:40:02Z",
+  "id": "019e2ea7-b025-7ef3-a635-9946b3ed8869",
+  "issue_id": "JMAP-ly0n",
+  "text": "Confidence: ~75% chance of missed bug. Least confident flags: (a) #[serde(tag = \"@type\")] + #[serde(flatten)] interaction for ChatMessagePush \u2014 flagged as JMAP-ly0n.6 \u2014 I could not verify behavior without running a probe, which the read-only review rules forbid. (b) Clearable null-clears for nested Vec types (permission_overrides: Option<Clearable<Vec<ChannelPermission>>>) \u2014 the serde path is plausible but only tested via 'matches!(Set(_))' rather than a verbatim Vec equality assertion. Uncertainty driven by: serde's flatten + tag interaction has historical quirks I could not exercise here. Would raise confidence if: (1) the read-only review allowed running cargo test to confirm all current tests still pass at HEAD, (2) JMAP-ly0n.6's added negative assertions were folded into the existing tests, and (3) a probe for ChatContact.id with the literal value 'self' confirmed the SenderId collision."
+}

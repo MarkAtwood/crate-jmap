@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Path (a) implemented: canonical IdFate algorithm propagated from jmap-mail-server to jmap-metadata-server. Default get_changes (lines 681-748 post-edit) and get_metadata_changes override (lines 1234-1316 post-edit) now use HashMap<Id, IdFate> for RFC 8620 \u00a75.2 SHOULD-conformant omit-both dedup. Two integration tests adjusted to use sinceState past the seeds, isolating destroyed-array-filter intent from create-then-destroy precedence. Sibling-audit follow-up filed as JMAP-cqy7 for the 5 other extension-server crates.",
+  "closed_at": "2026-05-17T06:36:04Z",
+  "compaction_level": 0,
+  "content_hash": "bfbe9d7be995f23fba5804e20ce54d3500b32a08f73c32f846a4ab70949b63c7",
+  "created_at": "2026-05-14T17:51:15Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: client calls /changes from state \"0\" where an Annotation was created and then destroyed before the next /changes call. Mail-server's IdFate algorithm (memory.rs:577-613) omits the id from BOTH created and destroyed arrays per RFC 8620 \u00a75.2 ('SHOULD remove the id from the response entirely'). Metadata-server's algorithm (memory.rs:530-555, repeated in 962-1000 for get_metadata_changes) unconditionally pushes to destroyed after retain-removing from created.\n\nRFC 8620 \u00a75.2 (rfc8620.txt:1756-1759): 'If a record has been created AND destroyed since the old state, the server SHOULD remove the id from the response entirely. However, it MAY include it in just the destroyed list or in both the destroyed and created lists.'\n\nSo metadata-server's behavior (include in destroyed only) is one of the MAY-permitted variants. Not a bug per spec, but it is a cookie-cutter divergence from the canonical mail-server. Mail-server picked the SHOULD path; metadata-server picked a MAY path. Workspace AGENTS.md propagation rule says siblings mirror canonical.\n\nTwo paths:\n(a) Propagate mail-server's IdFate algorithm to metadata-server (cleaner SHOULD-conformance, matches canonical).\n(b) Add a doc comment to memory.rs explaining the deliberate choice of the MAY variant \u2014 and either propagate this stance back up to mail-server or accept that the canonical and sibling diverge here.\n\nThe integration test at tests/metadata_tests.rs:584 'changes_filter_combined_related_type_and_metadata_type' specifically encodes the metadata-server behavior in its assertions ('created.is_empty()' + 'destroyed.len() == 1' for created-then-destroyed). Flipping to mail-server's algorithm would require updating this test's oracle.\n\nFiling as P0 because it's a documented cookie-cutter divergence on a spec-relevant behavior; the propagation direction needs a decision. Downgrade if Mark chooses (b).",
+  "ephemeral": 0,
+  "id": "JMAP-826m.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Re-classified to P1 maintainer-burden: spec says SHOULD/MAY so current behavior is technically conforming, but the cookie-cutter divergence from canonical mail-server is a maintenance hazard. Two siblings implementing the same dedup rule two different ways will eventually cause confusion.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.get_changes dedup algorithm does NOT honor RFC 8620 \u00a75.2 'omit-both' on created+destroyed-in-window \u2014 but spec says SHOULD/MAY, not MUST",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:51:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "39e16efe-2c49-5504-8db5-beb0191be02d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

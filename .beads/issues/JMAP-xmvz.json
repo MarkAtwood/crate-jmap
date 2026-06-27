@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "3d16b5010b8d9933a7f4bb3d1685bd0f9bbcc1903e22f9069634862753df2aff",
+  "created_at": "2026-05-15T09:06:41Z",
+  "created_by": "Mark Atwood",
+  "description": "Defense-in-depth gap: extension-server crates that walk attacker-controlled Filter<T> trees do so without an internal recursion cap. Worst-case depth is bounded by serde_json's default 128-level deserializer cap + jmap-server's documented ~32-level integrator contract (parse.rs:42-47), but a consumer who skips the contract on a small tokio worker stack can theoretically hit stack-overflow.\n\nPer-walker site survey (2026-05-15):\n- jmap-metadata-server: metadata.rs:656 walk_filter_for_unknown_keys (Value tree), metadata.rs:704 walk_filter_for_related_ids_constraint (typed Filter tree). Currently unguarded.\n- jmap-mail-server: no analog filter-walker pattern in src/ (the RFC 8621 spec has no analog of draft-ietf-jmap-metadata-01 \u00a73.4.1's cross-field constraint). So the gap is metadata-server-specific TODAY, but every future extension that needs cross-field filter validation will inherit the same shape.\n- Other 6 extension-server siblings: unaudited for cross-field filter validation.\n\nRight architectural fix: add a foundation-level helper to jmap-server, e.g.\n\n  /// Walk a typed Filter<T> tree depth-first, calling  on\n  /// every leaf condition. Caps recursion depth at MAX_FILTER_DEPTH\n  /// (32) to match parse::MAX_NESTING_DEPTH; returns\n  /// unsupportedFilter on overflow.\n  pub fn walk_filter<T, F>(\n      filter: &Filter<T>,\n      predicate: F,\n  ) -> Result<(), JmapError>\n  where F: FnMut(&T) -> Result<(), JmapError>;\n\nPlus a Value-tree analog for the raw JSON walker pattern.\n\nPropagation plan:\n1. Implement helpers + tests in jmap-server.\n2. Re-implement validate_metadata_filter / walk_filter_for_unknown_keys / walk_filter_for_related_ids_constraint on top of the helpers; assert overflow returns unsupportedFilter.\n3. Audit chat/calendars/tasks/contacts/filenode/sharing for similar walkers and migrate them.\n4. Update each extension's filter rustdoc to cite the helper-provided cap.\n\nDiscovered while triaging bd:JMAP-826m.52 (which carries a documentation-only fix in the metadata-server crate as a stopgap). The proper fix lives at the foundation layer.",
+  "ephemeral": 0,
+  "id": "JMAP-xmvz",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Foundation-level helper: depth-capped filter walker in jmap-server (then propagate to all extension-server filter walkers)",
+  "updated_at": "2026-05-15T09:06:41Z"
+}

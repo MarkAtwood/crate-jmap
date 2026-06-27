@@ -1,0 +1,33 @@
+{
+  "close_reason": "Won't fix: opinion-tagged. Reviewer concludes 'modern Rust APIs lean toward bool + builder-with-defaults, not three-variant Tristate enums.' Option<bool> matches the wire (None=key absent, Some(true)=true, Some(false)=false) and is widely understood. Reopen if a concrete user reports confusion.",
+  "closed_at": "2026-05-10T05:30:11Z",
+  "compaction_level": 0,
+  "content_hash": "2e370bcb2b753c2cbca18717103d78bd841ac7c82cba56a6b1a18830322ecc88",
+  "created_at": "2026-05-08T03:23:14Z",
+  "created_by": "Mark Atwood",
+  "description": "Public method signatures use `Option<bool>` for nearly every flag:\n- calendar_set: on_destroy_remove_events: Option<bool> (calendar.rs:79)\n- calendar_event_query: expand_recurrences: Option<bool> (event.rs:132)\n- principal_get_availability: show_details: Option<bool> (principal_availability.rs:19)\n- CalendarEventGetParams.{expand_recurrences, reduced_participants, fetch_calendars}: Option<bool> (mod.rs:165-173)\n\nThe /review-rusty rules call this out specifically: 'Option<bool> in a public API. This is almost always a three-variant enum (Yes, No, Unknown / Inherited / NotSet) with meaningful names.'\n\nThree states the wire really has:\n- key absent \u2192 server uses spec default (typically false)\n- \"someFlag\": true\n- \"someFlag\": false\n\nThese are NOT semantically equivalent to None/Some(true)/Some(false). Wire-absent means 'server uses default'; the spec defaults differ per flag (e.g. expandRecurrences defaults to false; showDetails defaults to false). For a caller saying 'I want the spec default,' Option<bool>::None is more cryptic than a named variant.\n\nLower priority because the cost is paper-cutty: callers writing `expand_recurrences: Some(true)` is verbose, and the asymmetry between `Some(true)` and `None` (which both reach the server as 'true' for some flags depending on default) is confusing only if you read the spec carefully.\n\nProbably an opinion-tier flag \u2014 modern Rust APIs lean toward bool + builder-with-defaults, not three-variant Tristate enums. But the type-design rule is clear, so noting it.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "expand_recurrences/show_details/etc accept Option<bool> with no third state",
+  "updated_at": "2026-05-10T05:30:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:23:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "56b37ae8-29a3-5f6f-ac6f-2090b95f5a8d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

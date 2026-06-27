@@ -1,0 +1,33 @@
+{
+  "close_reason": "Filed as standalone issue JMAP-yecd.4; same scope as JMAP-wgbh which tracks full jmap-mime wiring",
+  "closed_at": "2026-05-02T19:23:30Z",
+  "compaction_level": 0,
+  "content_hash": "8d2877e3775ec3088b2a3b9a39750d3fdca8d579bc492afba809e5f8dfae7390",
+  "created_at": "2026-05-02T19:19:03Z",
+  "created_by": "Mark Atwood",
+  "description": "common/mod.rs parse_rfc5322_headers is a custom minimal parser used by MemoryBackend for import_email and parse_email. It diverges from the jmap-mime crate's proper MIME parsing in at least these ways: (1) raw_headers construction uses .lines() which splits on LF only, losing CRLF continuation fidelity; (2) preview is first 256 chars of raw body text, not a MIME-decoded text/plain part; (3) no Content-Type parsing, so all bodies are treated as opaque text. Integration tests run against this parser, not against jmap-mime. If there is a bug in jmap-mime's conversion but not in the home-grown parser, the tests will pass. A contributor who writes new tests using import_email is testing a different code path from production.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "parse_rfc5322_headers in test backend is home-grown and not used in production path",
+  "updated_at": "2026-05-02T19:23:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:19:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "fd118817-51a6-5619-a739-fca9939c7089",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

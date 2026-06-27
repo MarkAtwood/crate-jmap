@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-boe",
+  "title": "Review: jmap-mail-server pass 3",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:33:44Z",
+  "updated_at": "2026-05-01T00:43:31Z",
+  "closed_at": "2026-05-01T00:43:31Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 Six P0 correctness bugs found, all pre-existing (not introduced by prior fix passes). Three are silent error-swallowing patterns, three are missing ifInState/ifFromInState checks. The onSuccessUpdateOriginal extension is dead code with no RFC basis.\nConfidence: 15% chance of missed bug. Least confident: Email/copy onSuccessUpdateOriginal key semantics (verified non-RFC, but the intended lookup key wasn't filed separately \u2014 folded into the non-RFC finding). Uncertainty driven by: not reading tests/common/mod.rs in full this pass; EmailSubmission delivery_status simulation not traced against RFC. Would raise confidence if: tests cover ifInState rejection for Email/import and EmailSubmission/set."
+}

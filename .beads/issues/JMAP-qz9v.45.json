@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Duplicate of JMAP-ayoz.36 (workspace-canonical, P1, deferred). The same gap exists in jmap-mail-server canonical and cookie-cuts across all 7 extension-server siblings; the workspace tracker is the right home for the canonical-first propagation. Per workspace AGENTS.md propagation rule, the fix lands in mail-server canonical and sweeps the 7 siblings in lockstep. Closing here to avoid driving the workspace-wide sweep from a per-crate review epic.",
+  "closed_at": "2026-05-17T10:23:11Z",
+  "compaction_level": 0,
+  "content_hash": "a5ca844c016bfb03e9244dbd5f09a6bcad1804fb10665321fd5f07364bf0156f",
+  "created_at": "2026-05-14T19:43:02Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:149-158 (objects_mut) and 178-181 (aux_mut). Both helpers exist to \"return a &mut to the storage HashMap for (type_name, account_id)\" \u2014 but as a side effect they also call self.known_accounts.insert(account_id.to_owned()), registering the account.\n\nReading from the call site:\n\n    let map = inner.objects_mut(\"ContactCard\", account_id.as_ref());  // also registers account!\n\nA reader who knows the helper name does not see the registration. account_exists later observes the registration as a fact about the world \u2014 which means create_object on a brand-new account quietly creates the account too. That is probably the intent, but the intent is encoded in the side effect of a \"mutable accessor\".\n\nThis is idiomatically wrong for two reasons:\n1. The principle of least astonishment: an _mut accessor in idiomatic Rust returns a borrow; it does not perform unrelated state mutations on a separate field of the same struct.\n2. The side effect is invisible at call sites. A future refactor that switches from objects_mut to objects_ref (or vice versa) silently changes account-registration semantics.\n\nIdiomatic restructure: separate the two operations.\n\n    pub fn ensure_account(&mut self, account_id: &str) { ... }\n    pub fn objects_mut(...) -> &mut HashMap<...> { ... } // pure accessor\n\nCall sites then read:\n\n    inner.ensure_account(account_id);\n    let map = inner.objects_mut(\"ContactCard\", account_id);\n\n\u2026which is honest about what is being mutated.\n\nSame pattern in canonical jmap-mail-server/src/memory.rs:147-151 \u2014 propagation needed.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.45",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Inner::objects_mut and aux_mut silently mutate known_accounts as a side effect",
+  "updated_at": "2026-05-17T10:23:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:43:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "9b42de91-e75c-5d76-9e15-302663a40e34",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

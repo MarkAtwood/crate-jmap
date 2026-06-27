@@ -1,0 +1,33 @@
+{
+  "close_reason": "Structural constraint: per-item errors require individual calls per mailbox.",
+  "closed_at": "2026-05-02T03:40:12Z",
+  "compaction_level": 0,
+  "content_hash": "a1fee3095f73bafb002fb857afb20346352e3614d24f9d97a21fd78d9e45fbeb",
+  "created_at": "2026-05-02T03:26:21Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs handle_mailbox_set destroy: when onDestroyRemoveEmails=true, each email in the mailbox triggers one destroy_object or update_object call. Plus a query_objects + get_objects pair per mailbox. For a mailbox with N emails, this is N+2 backend roundtrips per destroyed mailbox. The code already has a comment noting this and suggesting batch_destroy_objects. The issue is filed as a tracked gap. For large mailboxes (Inbox with 100K messages), this would be catastrophically slow. The fix requires adding batch operations to MailBackend, which is a breaking API change \u2014 must happen before 1.0.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox destroy cascade is O(n) individual backend calls per mailbox",
+  "updated_at": "2026-05-02T03:40:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:26:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "4758a228-55e9-5e68-83e7-0fe72721cb22",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

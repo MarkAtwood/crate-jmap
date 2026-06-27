@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "4 ShareNotification/query and queryChanges wiremock tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/notification_query_tests.rs (2 tests: query filter, queryChanges round-trip); clippy clean",
+  "closed_at": "2026-05-05T14:34:47Z",
+  "compaction_level": 0,
+  "content_hash": "11c4f50cf4bda3ee818e420f984f8ab47977a9d76da3d2fd7b3866fd1f3c0d6f",
+  "created_at": "2026-05-05T02:53:43Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create tests/share_notification_query.rs with 4 async wiremock tests. Oracle: RFC 9670 \u00a73.4.1 filter fields (after, before, objectType, objectAccountId); \u00a73.4.2 (created sort MUST be supported); \u00a73.5 queryChanges.\n\n**Tests:**\n1. share_notification_query_no_filter: assert resp.ids.len() == 2; assert no filter key in request.\n2. share_notification_query_with_filter_and_sort: pass objectType \"Mailbox\" and sort [{\"property\":\"created\"}]; assert filter.objectType == \"Mailbox\" and sort[0].property == \"created\" in request (oracle: \u00a73.4.2 created MUST be supported).\n3. share_notification_query_with_after_filter: pass {\"after\":\"2024-01-01T00:00:00Z\"}; assert filter.after in request.\n4. share_notification_query_changes_round_trip: assert old/new queryState, removed, added.\n\n**Acceptance criteria:** All 4 tests pass.",
+  "ephemeral": 0,
+  "id": "JMAP-wwvy.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: ShareNotification/query and /queryChanges",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:53:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wwvy.1",
+      "id": "01d184c9-efab-573d-8476-f8a43260cdbe",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:53:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wwvy",
+      "id": "ab0b947e-acdd-50c8-b435-6ed9e1319903",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

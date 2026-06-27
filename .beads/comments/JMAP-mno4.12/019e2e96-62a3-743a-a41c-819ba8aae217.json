@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T02:21:08Z",
+  "id": "019e2e96-62a3-743a-a41c-819ba8aae217",
+  "issue_id": "JMAP-mno4.12",
+  "text": "Blocked on workspace-architectural decision JMAP-o7v4. The fix is workspace-wide (all type crates use HashMap; canonical-template consistency means doing it crate-by-crate is wrong). Filed the question with a recommended option (BTreeMap) so the human can ratify quickly. Will resume this bead once the workspace posture is decided."
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T08:23:27Z",
+  "compaction_level": 0,
+  "content_hash": "bde9edec8b134cc057aa99e236ce04b0d313e6952c5ed1d61790941b29536a56",
+  "created_at": "2026-05-14T17:54:49Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: handle_metadata_changes runs against a default-impl backend (the override case is fine). filter_changes_array at metadata.rs:214-276 builds ids_for_fetch by collecting every id in the response array, then calls backend.get_objects::<Metadata>(caller, account_id, Some(&ids_for_fetch), None) in a single call.\n\nFor a healthy default-impl backend, this means a single batch fetch of every changed id. For a database-backed default-impl backend, this is potentially:\n(a) An IN-clause with thousands of items, blowing past common DB query argument limits (postgres ~32k, SQLite default 999).\n(b) A network round-trip pulling thousands of objects' full payload over the wire \u2014 expensive when /changes was supposed to be lightweight.\n(c) Memory pressure: lookup HashMap (metadata.rs:245) holds every returned object plus their cloned Metadata representations.\n\nThere is no max-batch chunking, no cap, no get_objects size guard. Mail-server's own /changes path (the canonical) is implemented differently \u2014 the override pattern exists precisely because the default-impl path is known to be expensive. But that's a workspace concern hidden behind one phrase in the rustdoc ('per-Id re-fetch cost').\n\nMaintenance consequence: a downstream contributor writes the simplest possible default-impl backend (no override of get_metadata_changes), then their first production load hits /changes with a large window and the backend pulls thousands of objects per request. The contributor profiles, sees the get_objects call, doesn't understand why it's the entire change-window worth of data, files an issue.\n\nFix direction: either:\n(i) Add a max-batch cap (configurable via MetadataBackend method or a constant) and chunk get_objects calls.\n(ii) Document loudly that the default-impl path is O(window_size) per /changes call, recommend backends override get_metadata_changes for any production deployment.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "filter_changes_array post-fetches via get_objects with no max-batch guard \u2014 pathological 10k-id /changes window triggers single 10k get_objects call",
+  "updated_at": "2026-05-15T08:23:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:54:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "357b4870-38c6-575d-a32e-dc9a30350419",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

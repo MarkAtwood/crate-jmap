@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-jxj.3",
+  "title": "subscribe_events does not validate Content-Type: text/event-stream",
+  "description": "subscribe_events sends Accept: text/event-stream but does not verify the response Content-Type header. A misconfigured server returning 200 application/json causes the client to silently yield no frames (no delimiter found) or Unknown frames for embedded newlines. Caller has no way to distinguish a silent misconfiguration from a stream with no events. Fix: check resp.headers() for text/event-stream before starting the stream; return ClientError::InvalidSession on mismatch.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:40:26Z",
+  "updated_at": "2026-04-30T15:46:32Z",
+  "closed_at": "2026-04-30T15:46:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-jxj",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:40:25"
+    }
+  ]
+}

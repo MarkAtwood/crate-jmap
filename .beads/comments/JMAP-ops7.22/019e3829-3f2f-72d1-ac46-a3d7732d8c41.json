@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T22:58:08Z",
+  "id": "019e3829-3f2f-72d1-ac46-a3d7732d8c41",
+  "issue_id": "JMAP-ops7.22",
+  "text": "Coupled with JMAP-ops7.20 (chat _query Input struct vs positional everywhere else). Resolving either with Option-A (chat conforms) or Option-B (workspace adopts chat's pattern) should resolve both."
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1a1bf46544a4f42258f3ed08f519ac21d7128dd603fed9a0ca8de3078dc7bd8f",
+  "created_at": "2026-05-15T10:08:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Sweep the extension-server siblings' MemoryBackend demo_next_id helpers for the len()-based id collision bug fixed in bd:JMAP-qz9v.14 (jmap-contacts-server).\n\nCurrently affected (verified via grep):\n- crate-jmap-calendars-server/src/memory.rs:340 (m.len() at :370, debug_assert at :376)\n- crate-jmap-chat-server/src/memory.rs:200 (m.len() at :230, debug_assert at :236)\n\nMail-server already uses the timestamp+atomic counter pattern (its 'realistic-demo-ids' mode equivalent) and is not affected. Other extension-server siblings (tasks/filenode/sharing/metadata) need a grep to confirm.\n\nFix: mirror the contacts-server approach \u2014 add a per-(type, account) monotonic counter to Inner (feature-gated to non-realistic-demo-ids mode) and increment it on every mint, never decrementing on delete. Add 3 tests (id_not_recycled_after_destroy, id_namespace_is_per_type_and_account, ids_are_monotonic_within_namespace) mirroring contacts-server's demo_id_tests module.\n\nCross-reference contacts implementation: commit landing bd:JMAP-qz9v.14.",
+  "ephemeral": 0,
+  "id": "JMAP-h7jp",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace sweep: extension-server demo_next_id len()-based collision after delete in chat-server and calendars-server",
+  "updated_at": "2026-05-15T10:08:13Z"
+}

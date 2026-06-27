@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:27:21Z",
+  "compaction_level": 0,
+  "content_hash": "cffd9a9d83b99b00c75c9795d50db81757423472ad64c4e9ecaf47ad97431f30",
+  "created_at": "2026-05-02T04:19:39Z",
+  "created_by": "Mark Atwood",
+  "description": "chat.rs and identity.rs update loops use args.get(\"update\").and_then(|v| v.as_object()) which borrows args, requiring patch_val.clone() on every update call (chat.rs:454, identity.rs:250). mailbox.rs correctly uses args.remove(\"update\") to take ownership and then into_iter() to consume without cloning. The chat.rs and identity.rs update paths missed this fix from JMAP-4ii.26. Fix: use the same args.remove(\"update\") pattern so patches can be passed by value without cloning.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.53",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat.rs/identity.rs update loop: args.get borrows update map, forces patch_val.clone()",
+  "updated_at": "2026-05-02T04:27:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:19:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "257394ee-a65d-5269-8308-050442ede9cf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:36:32Z",
+  "compaction_level": 0,
+  "content_hash": "353bd0407aa0ec6c15733563feb2c2212f9b2d3a8442fe2c8432444256b0df02",
+  "created_at": "2026-05-02T19:18:53Z",
+  "created_by": "Mark Atwood",
+  "description": "Two tests use a 'test_' prefix (test_mailbox_set_destroy_with_children at line 6183, test_mailbox_set_create_duplicate_name at line 6262) while all adjacent tests do not. This inconsistency means a contributor searching for all mailbox_set tests will miss these two when grepping for 'mailbox_set_'. The test_ prefix should be removed to match the surrounding naming convention.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "integration.rs: test_mailbox_set_destroy_with_children has test_ prefix unlike peers",
+  "updated_at": "2026-05-02T22:36:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "b2d1dad3-0b7b-5600-be70-4d7e379b65c4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8fa32daae9bd8eae448da78e6ac5887afaad062bbc8445518bd01fd338371b5f",
+  "created_at": "2026-05-14T13:37:33Z",
+  "created_by": "Mark Atwood",
+  "description": "Background: bd:JMAP-wlip.23 closed the documentation half \u2014 the doc now correctly states that per-request cancellation is unsupported and points consumers at backend-layer timeouts as the interim mitigation. The actual fix is a workspace-architectural decision that requires explicit human judgment.\n\nOptions (from bd:JMAP-wlip.23):\n\n1. **Add tokio_util::sync::CancellationToken plumbing.** Add tokio_util to the dep allowlist in crate-jmap-server/AGENTS.md (currently restricts to serde / serde_json / tokio / http / thiserror). Add a 'cancel: CancellationToken' parameter to Dispatcher::dispatch (or a CallerCtx-carried token with the carrier pattern documented). Thread the token through every backend trait method. On dispatch-future drop, signal the token; handlers race each .await against cancel.cancelled().\n   - Pros: explicit, idiomatic, composable with caller's existing shutdown machinery.\n   - Cons: API surface expansion across 8 *Backend traits; mandatory token-threading by every consumer; tokio_util is a new transitive dep.\n\n2. **Skip task::spawn, use std::panic::catch_unwind.** The dispatch future would own the handler future directly; future-drop drops every running handler with it. Panic isolation via catch_unwind instead of tokio's spawn-and-await-the-JoinHandle.\n   - Pros: no new dep; no API surface change; cancellation is automatic.\n   - Cons: catch_unwind requires UnwindSafe; not all async futures are UnwindSafe; loses the clean JoinHandle.is_cancelled() vs is_panic() distinction the current code uses for error description ('task cancelled' vs 'internal error').\n\n3. **Leave it as-is.** Documented gap. Consumers bound their backends at the storage layer. The DoS-amplification concern is real but well-known.\n\nRecommendation: defer until a real consumer (kith, stoa, or third-party) reports the resource-leak as a production issue. The doc fix at bd:JMAP-wlip.23 acknowledges the gap without committing to a specific shape. Option 1 is the most likely path but the API churn cost is real and should be paired with a tagged minor-version bump.\n\nDecision needed from Mark: which option, and if option 1, when (next minor / next major / on demand).",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Architectural decision: per-request cancellation for Dispatcher (CancellationToken plumbing)",
+  "updated_at": "2026-05-14T13:37:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:37:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "bd0e617a-2700-5e39-b61f-b654ead282a2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

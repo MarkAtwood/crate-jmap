@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed by JMAP-63k.22 (handle_chat_query_changes now delegates to generic)",
+  "closed_at": "2026-05-02T06:54:03Z",
+  "compaction_level": 0,
+  "content_hash": "bac8f9167367cbed1d368e2c99052604a322d308ec8bcae8c1219443409b2305",
+  "created_at": "2026-05-02T06:45:48Z",
+  "created_by": "Mark Atwood",
+  "description": "File: /home/mark/PROJECT/JMAP/crate-jmap-chat-server/src/chat.rs:161-233\nIssue: handle_chat_query_changes is a ~70-line near-verbatim copy of the generic jmap_server::handlers::handle_query_changes, with the only behavioral difference being that filter and sort are hardcoded to None instead of parsed from args. This structural duplication means bug fixes or wire-format changes to the generic handler will not propagate here.\nFix: Either delegate to the generic handler (handle_query_changes::<Chat, B>(backend, args).await) once Chat implements QueryObject with its own Filter/Comparator, or document and isolate the intentional deviation (no filter/sort parsing) as a thin wrapper rather than a full copy.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_chat_query_changes duplicates generic handle_query_changes",
+  "updated_at": "2026-05-02T06:54:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:45:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "50bf0469-b059-59db-8833-937cf4ed784a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

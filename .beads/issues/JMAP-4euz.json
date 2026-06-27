@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "6 named tests pass; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:48:11Z",
+  "compaction_level": 0,
+  "content_hash": "8ca5f43209b18ed3784533a1aa925e979c6cb64fc7ab4aa4ca1e67377ae54753",
+  "created_at": "2026-05-04T15:06:58Z",
+  "created_by": "Mark Atwood",
+  "description": "WHAT: Chat-specific SSE event parsing on top of jmap-base-client SSE layer (after GAP-02 adds raw data field to SseEvent::Unknown).\n\nALGORITHM:\n1. Create crate-jmap-chat-client/src/sse.rs\n2. Define ChatSseEvent enum:\n   pub enum ChatSseEvent {\n     StateChange(jmap_base_client::push::StateChange),\n     Typing { chat_id: Id, sender_id: Id, typing: bool },\n     Presence { contact_id: Id, presence: jmap_chat_types::Presence, last_active_at: Option<String>, status_text: Option<String>, status_emoji: Option<String> },\n     Unknown { event_type: String },\n   }\n3. Define ChatSseFrame { pub event: ChatSseEvent, pub id: Option<String> }\n4. Define fn parse_chat_sse_block(block: &str) -> ChatSseFrame:\n   - Call jmap_base_client::parse_sse_block(block) to get SseFrame\n   - Match on SseFrame.event:\n     * StateChange(sc) \u2192 ChatSseEvent::StateChange(sc)\n     * Unknown { event_type, data } where event_type == \"typing\" \u2192 parse data as JSON for Typing\n     * Unknown { event_type, data } where event_type == \"presence\" \u2192 parse data as JSON for Presence\n     * Unknown { event_type, .. } \u2192 ChatSseEvent::Unknown { event_type }\n   - Return ChatSseFrame { event, id: frame.id }\n5. Declare in lib.rs: pub mod sse; pub use sse::{ChatSseEvent, ChatSseFrame, parse_chat_sse_block};\n\nSource: ~/PROJECT/crate-jmapchat-client/src/sse.rs \u2014 port the Typing and Presence parsing logic.\n\nDEFENSIVE RULES:\n- On JSON parse failure for Typing/Presence data: return Unknown (never panic)\n- Presence enum maps: 'online' \u2192 Online, 'away' \u2192 Away, etc. Unknown presence string \u2192 Unknown variant\n\nTESTS (oracles from spec):\n- parse_state_change_block: valid state change SSE \u2192 ChatSseEvent::StateChange with correct changed map\n- parse_typing_block: typing event with chatId/senderId/typing \u2192 ChatSseEvent::Typing\n- parse_presence_block: presence event \u2192 ChatSseEvent::Presence\n- parse_unknown_block: 'event: newtype' \u2192 ChatSseEvent::Unknown\n- parse_typing_malformed: bad JSON in data \u2192 ChatSseEvent::Unknown (no panic)\n- parse_frame_id: SSE id: line preserved in ChatSseFrame.id\n\nACCEPTANCE: 6 named tests pass; cargo test -p jmap-chat-client passes; clippy clean",
+  "ephemeral": 0,
+  "id": "JMAP-4euz",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-client: sse.rs \u2014 ChatSseEvent enum and parse wrapper",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T08:07:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s1ei",
+      "id": "6209da48-61f1-5e2c-9410-402d043afde4",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T11:29:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w",
+      "id": "7edf9f13-c338-532c-8b16-6b4f64ed24c9",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T08:07:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ds04",
+      "id": "8a9fa29d-6593-57e2-9e44-4b4644008a23",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

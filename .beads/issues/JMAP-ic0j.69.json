@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T20:17:55Z",
+  "compaction_level": 0,
+  "content_hash": "116e835bf12a2f7e85ab9916d651b96bbe72dcc0f269ebaa67321c099fc0355c",
+  "created_at": "2026-05-15T19:01:08Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-calendars-server has TWO `seed_object` methods with logically identical contracts but divergent signatures:\n\n- memory.rs:356-404 \u2014 `MemoryBackend::seed_object(&self, account_id: &str, type_name: &'static str, id: &str, value: serde_json::Value)`\n- lib.rs:341-382 \u2014 `test_support::MockBackend::seed_object(&self, account_id: &str, type_name: &str, id: &str, value: serde_json::Value)`\n\nBoth run the same runtime assertion against the same hard-coded `KNOWN_TYPES = [\"Calendar\", \"CalendarEvent\", \"CalendarEventNotification\", \"ParticipantIdentity\"]` list to catch typos. The `&'static str` bound on MemoryBackend adds no safety the assert does not already provide; it just forbids callers from passing computed type names.\n\nConcretely:\n\n```rust\n// Works on MockBackend, fails to compile on MemoryBackend:\nlet prefix = \"Calendar\";\nlet kind = format!(\"{prefix}Event\");\nbackend.seed_object(\"acc1\", &kind, \"id1\", json!({\"id\": \"id1\"}));\n//                          ^^^^ &String does not coerce to &'static str\n```\n\nA test author writing a parameterised fixture across all four type names must either hard-code each call site or restrict themselves to the `MockBackend` form. The constraint surfaces as a paper cut at the moment a test author tries to factor out their setup code.\n\nThe fix is a one-line change on MemoryBackend: `type_name: &'static str` \u2192 `type_name: &str`. The function body already handles `&str` correctly (the KNOWN_TYPES slice is `&[&'static str]` so `KNOWN_TYPES.contains(&type_name)` works for any `&str`). The runtime assertion is unchanged. The signature change is non-breaking for any caller currently passing literals.\n\n`#[non_exhaustive]` is not relevant here \u2014 this is a free-function signature concern, not a struct field. Once the crate ships its first 0.x.0, relaxing `&'static str` to `&str` remains non-breaking (every existing caller with a literal compiles unchanged) so this isn't a SemVer-lock concern. Labeled `opinion` because the engineering basis is \"consistency with the sibling-within-same-crate method\" rather than \"a caller cannot do their job\"; reasonable people may consider the `'static` bound a deliberate \"literal-only\" cue and prefer leaving it.\n\nPer workspace AGENTS.md \"Canonical Templates\" rule, the canonical jmap-mail-server is the template. If `jmap-mail-server::MemoryBackend::seed_object` exists and uses `&str` (likely \u2014 would need verification), this crate's `&'static str` is the divergence. If it does not exist, this is a calendars-only choice that the workspace pattern hasn't yet decided.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.69",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::seed_object takes &'static str while sibling MockBackend::seed_object takes &str \u2014 within-crate signature divergence",
+  "updated_at": "2026-05-15T20:17:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T12:01:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "0b1299aa-f886-5375-86a9-882ec1a604ad",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

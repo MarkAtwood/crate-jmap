@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T23:41:29Z",
+  "compaction_level": 0,
+  "content_hash": "8c9605f42b0030edec48817ece3458a07b0a48f1a336a0e3911738d4291c23d4",
+  "created_at": "2026-05-17T23:34:11Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence**: every extension-server sibling has a tests/max_objects_in_set.rs integration test except calendars-server.\n\n| Crate | tests/max_objects_in_set.rs |\n|---|---|\n| mail-server (canonical) | YES |\n| chat-server | YES |\n| tasks-server | YES |\n| contacts-server | YES |\n| filenode-server | YES |\n| metadata-server | YES |\n| sharing-server | YES |\n| **calendars-server** | **NO** |\n\n**Caller-observable / maintainer effect**: the canonical mail-server test (and its 6 mirrors) exercises the JmapBackend::max_objects_in_set default and the dispatcher's enforcement of it. Calendars-server has no equivalent test \u2014 a future regression where calendars-server's dispatch skips the max-objects-in-set check, or where a custom backend's override is silently ignored, has no in-workspace tripwire.\n\nLikely an accidental sweep gap when the canonical pattern was propagated; this is exactly the kind of asymmetric coverage gap the canonical-template rule is supposed to prevent.\n\n**Fix**: copy crate-jmap-tasks-server/tests/max_objects_in_set.rs (smallest sibling at ~140 lines, mostly cookie-cuttable) into crate-jmap-calendars-server/tests/max_objects_in_set.rs, adjusting per-method to use Calendar/set, CalendarEvent/set, etc. instead of Task/set.\n\n**Cross-references**: bd:JMAP-ops7.3 (calendars-server handler-fn naming outlier, closed). Calendars-server has accumulated cookie-cutter drift in two distinct axes \u2014 handler naming and test coverage. Worth a calendars-server-only sweep epic if a third axis surfaces.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "calendars-server missing tests/max_objects_in_set.rs that the other 7 extension-server crates carry",
+  "updated_at": "2026-05-17T23:41:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T16:34:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "ab7209ce-64ef-5c84-8c26-b1e7df2ba069",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

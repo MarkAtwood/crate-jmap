@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "MemoryBackend::query_objects now honors all 19 ContactCardFilterCondition fields (RFC 9610 \u00a73.3.1) and all comparators (\u00a73.3.2). Adopts the canonical mail-server Pattern G (.expect() type-identity roundtrip \u2014 silent .ok() fallback would re-introduce the match-all bug). 39 new unit tests cover every filter field; 2 new integration tests exercise the end-to-end query path. Implementation in commit 872b4ee.",
+  "closed_at": "2026-05-15T09:46:29Z",
+  "compaction_level": 0,
+  "content_hash": "39900e3bb2e427a02821497b89fe6c97de7d0a16d895814f27c597c2b4fe8569",
+  "created_at": "2026-05-14T19:19:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: any ContactCard/query call with a filter other than {inAddressBook: <id>}, or any AddressBook/query call (latter is degenerate since RFC 9610 does not define it, so not exposed via dispatcher). Also any call with a non-empty sort array.\n\nBad behavior: memory.rs:467-541 reads the filter ONLY to extract the inAddressBook string field (and only when O::TYPE_NAME == 'ContactCard'); every other RFC 9610 \u00a73.3.1 filter condition (text, name, email, kind, uid, hasMember, etc.) is silently dropped and the query returns ALL objects. The _sort parameter is prefixed-underscore and never consulted, so the order returned is HashMap iteration order, not the spec-required RFC 9610 \u00a73.3.2 deterministic sort.\n\nThis is the SAME defect class as JMAP-826m.4 (metadata-server MemoryBackend.query_objects ignores filter and sort) and JMAP-q2wa.3 (mail-server filter dispatch regression). The cookie-cutter sibling template established that silent-match-all on query is a bug, not a documented limitation.\n\nImpact:\n - The cascade-cleanup loop documented in README (which uses 'ContactCard/query with inAddressBook filter as cleanup path before destroy') has the same vulnerability shape: a future feature that adds a stricter filter will see ALL cards selected, not just the ones in the target book, and the cleanup will over-delete.\n - Integration tests that query for specific subsets silently pass with the right contents because the empty-store check, the test data, and the silently-dropped filter all happen to make total == expected. The defect is invisible until production.\n\nFix: either implement the filter algebra (the FilterOperator / FilterCondition shape is already available via O::Filter) and stable sort, OR fail loudly with serverFail / a panic in debug for any non-trivial filter. Silent match-all is the worst outcome.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.query_objects silently ignores all filters except ContactCard.inAddressBook, and all sort comparators",
+  "updated_at": "2026-05-15T09:46:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:19:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "164d7257-df73-5767-866f-8be585423d68",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

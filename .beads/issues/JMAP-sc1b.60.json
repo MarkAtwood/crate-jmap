@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:48:56Z",
+  "compaction_level": 0,
+  "content_hash": "6e49288b5731b1dd457e7f9f9668548246c81938d390ea8a1773fa43f7f432f2",
+  "created_at": "2026-05-07T20:43:30Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/Cargo.toml:24 declares `uuid = { version = \"1\", features = [\"v4\"] }`. uuid 1.x default features include rng / fast-rng / serde \u2014 none required for dev-time tests.\n\nTightening to `{ version = \"1\", default-features = false, features = [\"v4\", \"std\"] }` would drop transitive deps and slim test build.\n\nMarked opinion. Tiny dev-only change. LOCKED crate (mail-server) \u2014 needs approval.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.60",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: workspace inconsistency \u2014 uuid dev-dep does not disable defaults",
+  "updated_at": "2026-05-07T21:48:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "01ecb37b-4b0a-5363-be33-b63a3603ff84",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

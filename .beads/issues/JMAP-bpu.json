@@ -1,0 +1,44 @@
+{
+  "id": "JMAP-bpu",
+  "title": "email.rs special: Email/copy,import,parse",
+  "description": "Implement Email/copy, Email/import, and Email/parse in src/email.rs (same file as core).\n\n## Methods to implement\n\n### Email/copy (RFC 8621 \u00a75.6)\n- Copy emails from fromAccountId to the current account\n- onSuccessDestroyOriginal: if true, destroy source emails after copy\n- onSuccessUpdateOriginal: patch source emails (e.g. add \\Deleted keyword)\n- Returns: created map of old-id \u2192 new Email object\n\n### Email/import (RFC 8621 \u00a75.7)\n- Import raw RFC 5322 email blobs already uploaded via JMAP blob upload\n- Each import entry: blobId, mailboxIds, keywords, receivedAt\n- Parse raw bytes to extract headers (subject, from, date, message-id, references)\n- Assign threadId based on In-Reply-To/References matching\n- Returns: created map of client-assigned id \u2192 Email object, or notCreated map for failures\n\n### Email/parse (RFC 8621 \u00a75.8)\n- Parse a blob as if it were an email; return Email object WITHOUT storing it\n- Used for parsing attached emails (message/rfc822 parts)\n- Honor same properties/bodyProperties/fetchBodyValues flags as Email/get\n- Returns the parsed Email or an error per blobId\n\n## Key notes\n- Email/import and Email/copy both call backend.import_email / backend.copy_email\n- Email/parse calls backend.parse_email\n- Thread assignment for import: same header-inspection logic as Email/set create\n\n## Source references\n- Stalwart (AGPL \u2014 read, do not copy):\n  - ~/GIT/stalwart-jmap-server/main/crates/jmap/src/email/copy.rs\n  - ~/GIT/stalwart-jmap-server/main/crates/jmap/src/email/import.rs\n  - ~/GIT/stalwart-jmap-server/main/crates/jmap/src/email/parse.rs\n- RFC 8621 \u00a75.6, \u00a75.7, \u00a75.8\n\n## Test vectors\n- Upload blob \u2192 Email/import \u2192 Email/get returns parsed subject\n- Email/copy to self (same account, different mailbox) \u2192 two copies exist\n- Email/parse raw RFC 5322 bytes \u2192 returns Email with correct from/subject\n\nDepends on: JMAP-8ph, JMAP-5c0, JMAP-tf6, JMAP-0u6\nParent: JMAP-445",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:02:47Z",
+  "updated_at": "2026-04-30T21:21:11Z",
+  "closed_at": "2026-04-30T21:21:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-0u6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:13"
+    },
+    {
+      "depends_on_id": "JMAP-2n8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:39:41"
+    },
+    {
+      "depends_on_id": "JMAP-5c0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:12"
+    },
+    {
+      "depends_on_id": "JMAP-8ph",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:11"
+    },
+    {
+      "depends_on_id": "JMAP-tf6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:12"
+    }
+  ]
+}

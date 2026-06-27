@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T11:04:07Z",
+  "compaction_level": 0,
+  "content_hash": "e04c3d28d5fecfd5c83811a3e1562212a59b1102e7e90f42d2feed038fca433d",
+  "created_at": "2026-05-14T20:02:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/memory.rs:84-92\n\n```rust\n/// Type of a change recorded in the in-memory change log.\n#[derive(Clone, Debug)]\npub enum ChangeType {\n    /// Object was created.\n    Created,\n    /// Object was updated.\n    Updated,\n    /// Object was destroyed.\n    Destroyed,\n}\n```\n\nThis type is re-exported through `tests/common/mod.rs:15` and\ndocumented in the test helper module as part of the consumer-facing\nsurface. Two contract problems:\n\n1. **Missing `#[non_exhaustive]`.** A future variant \u2014 e.g. `Moved`\n   if JMAP FileNode ever grows a stable-id move-with-rename operation,\n   or `SoftDeleted` for trash-with-undo \u2014 would be a SemVer-breaking\n   change. The fix is one annotation now; deferring it costs every\n   downstream `match ChangeType` site at the next minor bump.\n\n2. **Canonical-template divergence.** `jmap-mail-server` (the canonical\n   extension-server template per workspace AGENTS.md) does NOT export\n   a `ChangeType` enum:\n   `grep -n \"pub.*enum\" crate-jmap-mail-server/src/memory.rs` returns\n   nothing. The canonical sibling tracks changes via a private internal\n   enum (or equivalent) and never exposes it.\n\n   Per the propagation rule in `crate-jmap-filenode-server/AGENTS.md`:\n   \"if you reshape this crate in a way that diverges from\n   jmap-mail-server, change jmap-mail-server first, then propagate.\"\n   This crate added a public type that the canonical does not have.\n   Either the canonical needs it (and the change starts there) or\n   filenode-server should make it `pub(crate)`.\n\nThe simplest fix is to make `ChangeType` `pub(crate)` (it is only\nused internally for the BFS in the change log and externally only by\nthe integration tests' `common` module, which can be re-routed\nthrough another seam). This eliminates both problems and removes\none tile of cookie-cutter divergence.\n\nIf the type genuinely needs to be public \u2014 e.g. so downstream\nbackend authors building their own change log can mirror the\nreference impl \u2014 then it MUST be `#[non_exhaustive]`. The current\nstate is the worst of both: public with no protection against\nadditive evolution.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "pub enum ChangeType lacks #[non_exhaustive] AND has no equivalent in canonical jmap-mail-server",
+  "updated_at": "2026-05-15T11:04:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:02:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "00f62c4c-36a0-50d5-8869-a2a6743a73bb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

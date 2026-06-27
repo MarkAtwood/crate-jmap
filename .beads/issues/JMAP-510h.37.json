@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "5470bae28a9d412dcd31e025094ce26ffde01d9974506221e9b6c8546ea015e2",
+  "created_at": "2026-05-14T20:02:45Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/memory.rs:71-75\n\n```rust\nimpl std::fmt::Display for MemoryError {\n    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {\n        write!(f, \"memory backend error: {}\", self.0)\n    }\n}\n```\n\nThe `JmapBackend::Error` associated type carries an explicit\nsecurity contract (crate-jmap-server/src/backend.rs:902-942):\n\n> Implementations MUST NOT include any of the following in this\n> type's `Display` output:\n> - Credential material\n> - Blob content \u2014 email bodies, sieve scripts, file contents\n> - PII shaped like an email address\n\nMemoryError's construction sites (memory.rs:248, 261, 263, 461, 479,\n522, 532, 538, 540, etc.) wrap `serde_json::Error` via\n`MemoryError(e.to_string())`. `serde_json::Error::Display` for parse\nerrors includes a snippet of the offending JSON. If a FileNode's\nserialized form contains private data (filenames with PII,\nshareWith principal addresses, vendor-private fields preserved by\nthe extras pattern), and the parse fails for any reason, that data\nlands verbatim in operator logs.\n\nSpecifically, an attacker who can cause a parse failure (malformed\ninput that survives initial routing but breaks downstream\nserialization, or a forced version-skew between sender and recipient\nnodes) gets a log-side data-leak channel.\n\nThis is documented as a contract violation but the contract is\nmachine-unchecked \u2014 no compile-time enforcement. Two paths to fix:\n\n1. **Sanitize at construction.** Every `MemoryError::from(e)` call\n   site truncates and type-summarizes the inner error: e.g.\n   `MemoryError(\"serde error at offset N\".to_string())` instead of\n   `MemoryError(e.to_string())`. This is the cheap fix and matches\n   the section in the `JmapBackend::Error` doc.\n\n2. **Audit at the type-derive level.** Add a unit test that\n   constructs `MemoryError` with a canary literal (e.g. a UUID),\n   formats it via `{}`, and asserts the canary does not appear.\n   Pattern matches bd:JMAP-sc1b.79's per-type Debug-redaction\n   canary applied to Display.\n\nPropagation note: canonical sibling\n`crate-jmap-mail-server/src/memory.rs:454-460` has the same Display\npattern. Both crates need the same audit; do mail-server first per\nthe canonical-template propagation rule.\n\nThis is api-contract,docs because the contract is declared in\nprose but the implementation fails to honor it. The error type\nitself is part of the public API; downstream impls will copy the\npattern.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "MemoryError Display interpolates the raw inner string \u2014 violates JmapBackend::Error security contract",
+  "updated_at": "2026-05-15T10:59:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:02:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "6eea1392-613d-5e4e-b130-b84c49dd0810",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

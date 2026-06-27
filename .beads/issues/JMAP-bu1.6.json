@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-bu1.6",
+  "title": "BlobUploadResponse::sha256 doc says lowercase hex; validator accepts uppercase",
+  "description": "BlobUploadResponse::sha256 doc says 'SHA-256 hex digest of the uploaded blob as 64 lowercase hex characters'. A server returning uppercase hex (non-conformant but real) will pass validate_sha256_format because is_ascii_hexdigit() accepts A-F. The doc should say 'hex characters (lowercase per JMAP-CID; uppercase accepted)' to match the actual behavior and prevent a caller from assuming the field is always lowercase.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:26:08Z",
+  "updated_at": "2026-04-30T01:31:30Z",
+  "closed_at": "2026-04-30T01:31:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-bu1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:26:08"
+    }
+  ]
+}

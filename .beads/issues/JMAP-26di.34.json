@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added #[non_exhaustive] above #[derive(...)] line, matching the canonical sibling pattern (BlobLookupEntry et al.). cargo test -p jmap-chat-client green, clippy clean, fmt clean. Committed as 67a30f1 (batched with sibling #[non_exhaustive] beads).",
+  "closed_at": "2026-05-15T21:11:18Z",
+  "compaction_level": 0,
+  "content_hash": "1ed4d2752329e77f1e0da3254043ed9fb1a0895406f6bc467cf84c489ba9c9ba",
+  "created_at": "2026-05-15T20:39:47Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-client/src/methods/quota.rs:21-53.\n\n`Quota` is a `pub struct` deserialized from the wire (`urn:ietf:params:jmap:quota`) but lacks `#[non_exhaustive]`. Other deserialized response structs in the crate consistently carry it. The struct already opts into the workspace extras-preservation policy with a `pub extra: serde_json::Map<...>` field \u2014 the `#[non_exhaustive]` attribute is the matching half of that policy (workspace AGENTS.md \"Extras-preservation policy for vendor/site fields\").\n\nCaller impact: any future RFC clarification adding a typed field (e.g. a `period: String` or `hardLimit: bool`) becomes a major-version bump here. RFC 9425 is published but follow-on documents (jmap-quotas extensions, vendor extensions) routinely add fields.\n\nFix: add `#[non_exhaustive]` above the struct declaration.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Quota struct missing #[non_exhaustive]",
+  "updated_at": "2026-05-15T21:11:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:39:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "bfab5efd-bc19-5fca-b306-e3de9f80f0d6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

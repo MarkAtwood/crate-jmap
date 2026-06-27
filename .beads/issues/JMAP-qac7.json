@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a9947bfea8c1ca23afb73ff8d3b63dc216d15db572cc07f5dbb3b26bd52a1b1d",
+  "created_at": "2026-05-18T01:38:27Z",
+  "created_by": "Mark Atwood",
+  "description": "Follow-up to JMAP-x2gd.81 (which hoisted ACCOUNT_ID/ACCOUNT_ID_B into common). The original .81 bead also suggested hoisting placeholder ids `\"s0\"|\"c0\"|\"c1\"|\"e0\"|\"m0\"|\"b0\"|\"i0\"|\"s1\"` as consts (CHAT_ID_C0, etc.), but that was scoped out of .81 because:\n\n1. The placeholder ids `\"s0\"|\"c0\"|\"e0\"|\"m0\"|\"b0\"|\"i0\"` are RFC 8620 \u00a75.3 create-record ephemeral client-chosen ids \u2014 they refer to objects WITHIN a single /set request and are arbitrary. They do not name stable identifiers. A const `CHAT_ID_C0 = \"c0\"` would imply more semantic stability than the wire shape carries.\n\n2. The sibling test files (role_member_apply.rs, channel_category_apply.rs, etc.) use ONLY `ACCOUNT_ID` and `SPACE_ID` consts. They do NOT use `CHAT_ID_C0`-style consts. .81's primary engineering-basis was 'consistency with sibling files'; that consistency is now achieved.\n\n3. `\"s1\"` in integration.rs appears 16 times as a magic-string `spaceId` field value in invite/ban/emoji subtests that do NOT seed any Space with id `\"s1\"`. The common module's `SPACE_ID = \"s1\"` const is used by sibling apply-test files where `\"s1\"` IS a seeded fixture's id. Importing `SPACE_ID` into integration.rs would conflate these two semantics \u2014 'arbitrary placeholder' vs 'seeded fixture id'.\n\nIf this finding has value, the right shape is:\n- New consts `SPACEID_PLACEHOLDER` (the magic-string used in subtests where no real Space is seeded) \u2014 different name from `SPACE_ID` to avoid the seeded-vs-placeholder ambiguity.\n- Possibly: `CHAT_ID_C0`, `EMOJI_ID_E0`, `MSG_ID_M0`, `BAN_ID_B0`, `INVITE_ID_I0` for the per-target ephemeral placeholders (low confidence on value).\n\nEngineering basis: cosmetic only. The variables already-named are clear in context (a `json!({\"create\": { \"c0\": ... }})` literal IS the create-record id). Filed at P4 to track whether downstream contributors find the longer-named consts more or less readable than the bare string literals.",
+  "ephemeral": 0,
+  "id": "JMAP-qac7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "tests: optional follow-up to JMAP-x2gd.81 \u2014 consider hoisting placeholder ids (s0/c0/e0/m0/b0/i0/s1) into named consts",
+  "updated_at": "2026-05-18T01:38:27Z"
+}

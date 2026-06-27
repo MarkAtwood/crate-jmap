@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T00:02:32Z",
+  "id": "019e28f1-2335-7bf8-ae80-1fcbdc159673",
+  "issue_id": "JMAP-6r7c.31",
+  "text": "Escalating to human: WsSession concurrency-contract reshape is a public-API breaking change (split() method exposing sink + stream halves, or alternative shape). Same scope-of-decision family as JMAP-6r7c.36 \u2014 defer to the 0.2.0 epic if/when opened.\n\nSee JMAP-6r7c.36 comment for the umbrella-bundling recommendation."
+}

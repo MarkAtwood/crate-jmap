@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in next commit. SeedData now #[non_exhaustive] + #[derive(Default)] with SeedData::new(mailbox, email, thread) constructor. Outside-crate consumers construct via new/default; field reads unchanged. cargo test, clippy, fmt all clean. Sibling-propagation note left on bd:JMAP-q2wa.7.",
+  "closed_at": "2026-05-15T07:01:39Z",
+  "compaction_level": 0,
+  "content_hash": "a7613d6cca8861931d5663d179d839daa208b113c5eff32c534b0df5025e9379",
+  "created_at": "2026-05-14T16:29:43Z",
+  "created_by": "Mark Atwood",
+  "description": "src/memory/seed.rs:27 declares:\n\n```\npub struct SeedData {\n    pub mailbox: HashMap<&'static str, Id>,\n    pub email: HashMap<&'static str, Id>,\n    pub thread: HashMap<&'static str, Id>,\n}\n```\n\nNo `#[non_exhaustive]`. All fields are `pub`. Constructor would be struct-literal `SeedData { mailbox, email, thread }` which downstream consumers can construct.\n\nThis is a public type, even though gated behind `feature = \"memory\"`. The memory feature is documented as \"reference implementation, integration-test harness, and documentation example\" \u2014 implying consumers WILL use it. Adding a new fixture category (e.g. `submission`, `identity`, `vacation_response`) becomes a SemVer-breaking change.\n\nThe crate-level docs on the memory module explicitly say: \"API stability is opt-in via this feature and may break across minor versions while the crate is pre-1.0.\" That's the workaround, but `#[non_exhaustive]` here would let new fixture categories be added without bumping minor pre-1.0 OR breaking when the crate ships 1.0.\n\nFix: add `#[non_exhaustive]` and a `SeedData::new(mailbox, email, thread)` constructor (or `Default`). Field access via `seed.mailbox[...]` continues to work.\n\nThis also affects the cookie-cutter family: any sibling extension-server crate that has copied the seed pattern likely has the same issue. Suggested cross-check.\n\nNote: the workspace extras-preservation policy in workspace AGENTS.md mandates `#[non_exhaustive]` on every public Deserialize struct on the JMAP wire. SeedData is not a wire type, so that policy does not apply directly, but the same forward-compat reasoning does.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SeedData missing #[non_exhaustive] \u2014 adding fixture categories is breaking",
+  "updated_at": "2026-05-15T07:01:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:29:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "f1a40da8-e994-5526-a0b7-a8f9b88d3e13",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

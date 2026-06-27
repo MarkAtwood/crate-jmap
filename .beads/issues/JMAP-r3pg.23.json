@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "PLAN.md aligned with shipped reality. Updated Capability URI, Method Coverage (19 methods, added Principal/getAvailability), \u00a77 (three Args structs), \u00a711 (no parse feature flag), Public API sketch (matched shipped names with drift markers), Module Layout (correct file names + helpers.rs), Test Strategy (inline tests, no tests/ dir, 66 tests), Dependencies (workspace inheritance, no [features]). Added 'Open Review Findings' section listing 13 still-open JMAP-r3pg children. Commit 968ffdd.",
+  "closed_at": "2026-05-09T02:55:37Z",
+  "compaction_level": 0,
+  "content_hash": "90b37d4f6b4e0fd59f4a03049a3ceb5f06fab79769fb12337b51a8a458a467b1",
+  "created_at": "2026-05-08T03:35:32Z",
+  "created_by": "Mark Atwood",
+  "description": "PLAN.md describes design choices that are not present in the code:\n\n1. PLAN.md \u00a77 (lines 195-204): CalendarEventGetArgs struct receives the four \u00a75.7 extra args. Not in src/. See JMAP-r3pg.2.\n\n2. PLAN.md lines 369-372: ParseEventResult struct named, with parsed:HashMap, not_found:Vec, not_parsable:Vec. Code has 'ParseResult' (different name, src/backend.rs:225).\n\n3. PLAN.md line 332-338: parse_event backend method gated by 'parse' Cargo feature flag. Code has parse_calendar_event_blobs (different name) at src/backend.rs:186, and there is no 'parse' feature in Cargo.toml. CalendarEvent/parse is registered unconditionally at src/lib.rs:131-133.\n\n4. PLAN.md line 408-411: error.rs module containing CalendarSetError (calendarHasEvent, noSupportedScheduleMethods, expandDurationTooLarge, cannotCalculateOccurrences). No error.rs exists. Three of the four error names are not produced anywhere in this crate (see JMAP-r3pg.1, .3, .8).\n\n5. PLAN.md line 396-411 module layout: PLAN names files event_parse.rs, notification.rs, participant.rs. Code has event.rs (containing parse), event_notification.rs, participant_identity.rs. Naming drift.\n\n6. PLAN.md \u00a7Capability URI (lines 73-79): three URIs called out \u2014 urn:ietf:params:jmap:calendars (registered) plus urn:ietf:params:jmap:principals:availability and urn:ietf:params:jmap:calendars:parse (handled at consumer level). Only the first is exposed (re-exported from jmap-calendars-types). See JMAP-r3pg.21.\n\nEither the code is the source of truth and PLAN.md should be updated to match, or PLAN.md is the design contract and the code has gaps to fill (correlates with JMAP-r3pg.2, .3, .7, .8). The /review-rusty rule prefers updating PLAN.md to reflect current shipped reality, then filing separate issues for the design gaps the PLAN identified.\n\nRecommended action: edit PLAN.md to describe the current code with TODO markers next to design gaps, link the TODOs to the corresponding bd issues filed in this review epic.\n\nJMAP-231o.4 noted the same pattern for jmap-calendars-client. Same hygiene applies here.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "PLAN.md drift \u2014 described API differs from shipped (CalendarEventGetArgs struct, parse feature flag, error.rs module, etc.)",
+  "updated_at": "2026-05-09T02:55:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:35:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "b0dd5095-7a4a-57c0-9b35-825e2f3b6d9b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

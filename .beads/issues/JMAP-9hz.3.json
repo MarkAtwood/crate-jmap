@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-9hz.3",
+  "title": "ClientError::Parse and ::Serialize asymmetry is undocumented",
+  "description": "ClientError has two variants wrapping serde_json::Error: Parse (no #[from]) and Serialize (#[from]). The asymmetry is necessary \u2014 Rust cannot derive two From<serde_json::Error> impls \u2014 but it is not documented. Callers who try to use ? on a serde_json::from_* call inside a function returning Result<_, ClientError> get a confusing compile error about missing From impl. The doc comments on both variants should explain: Serialize has From, Parse does not; use .map_err(ClientError::Parse) for deserialization.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:21:17Z",
+  "updated_at": "2026-04-30T06:33:06Z",
+  "closed_at": "2026-04-30T06:33:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9hz",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:21:16"
+    }
+  ]
+}

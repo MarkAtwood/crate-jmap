@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Resolved together with JMAP-826m.30. The new helper unhandled_backend_set_error(&e) at helpers.rs uses format!('unhandled backend error variant: {e:?}') so the variant name surfaces in the serverFail description. BackendSetError derives Debug (workspace foundation convention) so this is greppable in operator logs without source-code spelunking.",
+  "closed_at": "2026-05-15T09:12:16Z",
+  "compaction_level": 0,
+  "content_hash": "d2ea581ddf8e37631c42fd3582e82ba8f5f2dfaeeb873246335c5cf3ea24f9f7",
+  "created_at": "2026-05-14T17:57:37Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:389-393, 453-457, 505-509: when BackendSetError gains a new variant the metadata-server doesn't know about, the response is:\n\n  { \"type\": \"serverFail\", \"description\": \"unhandled backend error variant\" }\n\nA client/operator sees this and has no information about which variant fired, what to do, or where to report it. The right thing is at least include the discriminant name (BackendSetError::CustomVariant or similar). Rust's Debug impl on BackendSetError can be invoked: format!(\"unhandled backend error variant: {e:?}\") would surface the variant name.\n\nAudience: operator triaging a serverFail in production. Currently they get the same string regardless of which variant fired.\n\nWhat would make it clear: include the Debug repr of the error in the description. Per RFC 8620 \u00a75.3 the description is non-localised and is debugging-grade \u2014 exactly the right channel for this info.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Error description 'unhandled backend error variant' for catch-all is not actionable \u2014 caller sees serverFail with no clue what variant fired",
+  "updated_at": "2026-05-15T09:12:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:57:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "bc87097d-ad97-5b12-b4c6-4471cba9820a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

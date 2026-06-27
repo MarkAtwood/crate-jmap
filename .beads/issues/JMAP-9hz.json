@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-9hz",
+  "title": "Review: jmap-client (RFC 8620 base client)",
+  "description": "Review pass on jmap-client: session fetch, JMAP request/response, blob, SSE, WebSocket. Correctness, elegance, Rust idioms.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:18:15Z",
+  "updated_at": "2026-04-30T06:34:33Z",
+  "closed_at": "2026-04-30T06:34:33Z",
+  "notes": "Idiom rating: CLEAN \u2014 no ownership, lifetime, or unsafe issues. Code is well-structured and idiomatic. Findings are correctness bugs (wrong error variants P1/P3), API design gaps (missing #[non_exhaustive], wrong type for state), and minor style (drain vs split_off). No rewrite needed.\nRust idiom confidence: 90% chance of no missed issue. Least confident: SSE UTF-8 split handling edge cases \u2014 complex but looks correct. Uncertainty driven by: async stream lifetimes not statically verifiable without running."
+}

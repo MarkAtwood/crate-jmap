@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.32",
+  "title": "expand_url_template missing UTF-8 encoding note",
+  "description": "blob.rs expand_url_template (lines 26-41): doc explains RFC 3986 unreserved characters pass through and others are percent-encoded, but does not say what happens with multi-byte UTF-8 values. Each byte is independently percent-encoded per RFC 3986 section 2.5 \u2014 this is correct but non-obvious to callers. Suggested fix: add one sentence to the doc comment noting this behavior.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:47:13Z",
+  "updated_at": "2026-04-30T01:03:11Z",
+  "closed_at": "2026-04-30T01:03:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:47:12"
+    }
+  ]
+}

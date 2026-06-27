@@ -1,0 +1,36 @@
+{
+  "acceptance_criteria": "cargo build --features sieve succeeds; cargo test --features sieve passes all integration tests including RFC examples from draft \u00a72.3.1 and \u00a72.4.1; cargo build (no features) still compiles cleanly",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:19:36Z",
+  "compaction_level": 0,
+  "content_hash": "94b142e7eb706f3492e1aae59f13e2c33ce48ae3b6fcf3543e03c2e9d3d745e7",
+  "created_at": "2026-05-02T15:22:44Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement the JMAP Sieve Scripts extension (draft-ietf-jmap-sieve-22) as a `sieve` feature flag in jmap-mail-server and jmap-mail-types. Gives JMAP clients ManageSieve-equivalent functionality (RFC 5804) over the standard JMAP API: create, read, activate/deactivate, validate, query, and destroy Sieve filter scripts stored server-side.",
+  "design": "Types behind sieve feature in jmap-mail-types; handlers in src/sieve.rs behind sieve feature in jmap-mail-server. SieveBackend is a separate trait (not a supertrait of MailBackend) so consumers opt in independently. register_sieve_handlers<B: MailBackend + SieveBackend> is the entry point. VacationResponse compatibility (draft \u00a74): backend returns forbidden SetError on destroy/content-update of VR-backed script.",
+  "ephemeral": 0,
+  "id": "JMAP-yh7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-sieve: JMAP Sieve Scripts in jmap-mail-server",
+  "updated_at": "2026-05-04T19:19:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T11:29:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-82ty",
+      "id": "36edd2ad-c049-5078-9872-e8e0e63433f3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

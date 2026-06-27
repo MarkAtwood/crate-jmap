@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed per workspace policy. The Sloppy-Value pattern (workspace AGENTS.md) explicitly endorses the serde_json::from_value boilerplate as the consumer-side cost of round-trip fidelity and decoupling. Adding typed accessor methods on the type crate would (a) double the API surface, (b) force the type crate to depend on every typed sub-type concretely (breaking the decoupling rationale), (c) diverge from the workspace pattern on jmap-calendars-types::CalendarEvent / jmap-tasks-types::Task which have identical shape. The README already documents the per-field typed-access pattern in the 'JSContact sub-objects' section. No code change needed.",
+  "closed_at": "2026-05-15T23:05:20Z",
+  "compaction_level": 0,
+  "content_hash": "7ae51fe0e3339f55a2ed7463b9bfb7e7a1b35ff5ffe42b9387308c73a0a6b618",
+  "created_at": "2026-05-15T22:44:58Z",
+  "created_by": "Mark Atwood",
+  "description": "ContactCard exposes 22 fields typed as `Option<serde_json::Value>` for\nthe RFC 9553 JSContact sub-objects (name, nicknames, organizations,\nspeak_to_as, titles, emails, online_services, phones, preferred_languages,\ncalendars, scheduling_addresses, addresses, crypto_keys, directories,\nlinks, media, anniversaries, keywords, notes, personal_info, related_to \u2014\n22 total).\n\nThe \"sloppy Value\" pattern is workspace policy (AGENTS.md \u00a7Sloppy-Value)\nand is justified for round-trip preservation when the schema is still\nevolving. But every downstream caller wanting typed access writes the\nsame conversion:\n\n```rust\nlet name: Name = serde_json::from_value(card.name.clone().ok_or(...)?)?;\nlet emails: HashMap<String, EmailAddress> =\n    serde_json::from_value(card.emails.clone().ok_or(...)?)?;\nlet phones: HashMap<String, Phone> =\n    serde_json::from_value(card.phones.clone().ok_or(...)?)?;\n// ... 19 more\n```\n\n\u202622 times. The crate's own test suite already writes 21 of these\nconversions (see lib.rs lines 686\u20131099). Every server crate, every client\ncrate, every third-party consumer pays the same boilerplate tax.\n\nMissing safeguards:\n1. No typed accessor methods (`fn name(&self) -> Option<Result<Name, _>>`)\n2. No batched typed-view conversion (`fn try_typed_view(&self) -> Result<TypedView, _>`)\n3. No helper module with `from_value_clone(field) -> Result<T, _>` sugar\n4. No documented commitment to add accessors when the schema stabilizes\n\nThe hybrid pattern documented in crate-jmap-calendars-types/PLAN.md\n(sloppy Value + opt-in typed sub-types) is in place via the jscontact\nre-exports, but the ergonomic gap remains.\n\nTwo acceptable resolutions:\n1. Add typed accessor methods on ContactCard (sugar; doesn't change the\n   wire model). Each accessor does\n   `self.field.as_ref().map(|v| serde_json::from_value(v.clone()))`.\n2. Document the conversion pattern as a top-level lib.rs example\n   (already partially done; expand it) AND file a follow-up to add a\n   `to_typed()` accessor once the schema stabilizes.\n\nEither way, the contract decision should be explicit in PLAN.md or a\nrustdoc clause on ContactCard.\n\nCross-reference: workspace AGENTS.md \u00a7\"Sloppy-Value pattern for\nIETF-defined nested objects\" \u2014 does not currently mandate accessors but\ndoes not forbid them either.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactCard's 22 Option<serde_json::Value> fields force serde_json::from_value boilerplate in every caller",
+  "updated_at": "2026-05-15T23:05:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:44:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "82dd152d-7c0c-503b-bbd7-7d839c3c6f75",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T17:02:51Z",
+  "id": "019e36e3-f8d4-70d8-bf52-638fe39ad534",
+  "issue_id": "JMAP-ic0j.49",
+  "text": "Fixed. Both set_default_calendar and set_default_participant_identity now use SetDefaultResult::new(new_default, previous_default) (added in .60) for the success path, with SetDefaultResult::default() preserved for the spec-mandated silent-ignore branch. This is better than the bead's struct-literal recommendation because the constructor predates the bead body but was added 2026-05-16: the .60 rustdoc documents new() as the canonical idiom and future fields are intended to be added via with_* builders, so new(a, b) stays stable across the crate's pre-1.0 lifetime. Mirrors the canonical workspace pattern used by jmap_chat_server::ChatLimits. Verified: cargo fmt clean, clippy --all-features -D warnings clean, cargo test --all-features 117+13+1 passed."
+}

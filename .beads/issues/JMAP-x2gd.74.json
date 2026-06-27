@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T01:51:10Z",
+  "compaction_level": 0,
+  "content_hash": "ef02092583ed17abd38a484996f2178e5a12e7732ea5695a3ec1785d9620429a",
+  "created_at": "2026-05-14T15:43:55Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\n`ChatBackend::apply_space_patch`'s rustdoc\n(`crate-jmap-chat-server/src/backend.rs:441-509`) does not state\nthe post-mutation invariant on `Space.memberCount`.\n\nThe space.rs handler at `src/space.rs:766` documents the\n*inbound* rejection rule:\n\n```\n/// - `id`, `createdAt`, `memberCount` are server-set and rejected in updates.\n```\n\nThat covers \"client cannot write memberCount\". It does NOT cover\n\"backend must recompute memberCount after every AddMember /\nRemoveMember op so the served Space.memberCount equals the\npost-mutation `members.len()`\".\n\nThe integration test asserts the post-mutation invariant:\n\n`crate-jmap-chat-server/tests/role_member_apply.rs:951-954`:\n\n```rust\nassert_eq!(\n    get_resp[\"list\"][0][\"memberCount\"], 1,\n    \"memberCount tracks members.len()\"\n);\n```\n\n## What goes wrong for a third-party implementer\n\nA backend that:\n1. Persists `Space.memberCount` as a stored field at create time, AND\n2. Persists the members list as a separate aggregate, AND\n3. Updates the members list on AddMember / RemoveMember but\n   forgets to recompute and rewrite the stored `memberCount`,\n\nships a working `Space/get` (returns the stored value), a working\n`Space/set` AddMember (members aggregate updates), and a quietly\ninconsistent wire output where `memberCount: 5` is served while\n`members` has 8 entries \u2014 drift silently grows with every\nmutation.\n\nThe natural minimal implementation is to store memberCount once\nand trust it. The natural correct implementation is to compute\nmemberCount from members at every read OR recompute and rewrite\nit after every mutation. The doc does not say which.\n\n## Recommendation\n\nAdd one sentence to `apply_space_patch`'s rustdoc:\n\n> Server-set fields on the target Space (`memberCount`,\n> `updatedAt`, etc.) MUST be kept consistent with the post-\n> mutation state. Backends MAY store these as cached values\n> that they recompute on every mutation, or MAY compute them\n> lazily at read time; either is acceptable as long as\n> `Space/get` returns values consistent with `Space/get`'s\n> `members` array.\n\n## Engineering basis\n\n- Test assertion at `role_member_apply.rs:951-954` verbatim.\n- Handler doc at `src/space.rs:766` documents only the inbound\n  side.\n- Rustdoc at `backend.rs:441-509` end-to-end: no mention of\n  `memberCount`.\n\n## Priority justification\n\nP3 because:\n- The invariant is \"obvious in retrospect\" for any implementer\n  who thinks carefully about cached-vs-derived fields.\n- The kit's tests catch the divergence if a third-party backend\n  plugs into them.\n- Failure mode is wire-level inconsistency that monitoring\n  clients (count-based UI badges) will surface visually\n  quickly.\n\nNot P2 because the bug shape is recoverable (a fresh `Space/get`\n+ recompute fixes the drift) and the contract is widely\nunderstood as \"cached aggregates need refresh\".\n\nNot opinion because a third-party implementer can and will get\nthis wrong on a first pass \u2014 the natural-minimal-implementation\ntrap is real.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.74",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: apply_space_patch rustdoc does not state Space.memberCount must track members.len() post-mutation",
+  "updated_at": "2026-05-18T01:51:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:43:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "0db3fbbc-bc3c-5dfc-a3fc-537df962a577",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

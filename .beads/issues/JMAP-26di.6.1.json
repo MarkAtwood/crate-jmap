@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added tests/contact_smoke_tests.rs with 7 smoke tests covering: chat_contact_get (omit ids/properties + USING_CHAT assertion for ChatContact/* family + populated-ChatContact decode), chat_contact_changes (passthrough + empty since_state guard), chat_contact_update (blocked=Some(true) patch, display_name Patch::Clear emits null), chat_contact_query (filter_blocked + filter_presence + sort_property + sort_ascending serialisation), chat_contact_query_changes (passthrough + empty since_query_state guard). All 7 pass; cargo clippy -D warnings clean. Tests use the shared helpers from JMAP-26di.11.",
+  "closed_at": "2026-05-16T01:52:18Z",
+  "compaction_level": 0,
+  "content_hash": "379384961df943b2b2650155ffcc6a5fa4d343f00d6e9017c4295c964f3c4634",
+  "created_at": "2026-05-16T01:48:24Z",
+  "created_by": "Mark Atwood",
+  "description": "Create tests/contact_smoke_tests.rs covering: chat_contact_get (omit ids/properties when None), chat_contact_changes (passthrough + empty since_state guard), chat_contact_update (blocked Some(true) patch, display_name Patch::Clear emits null), chat_contact_query (filter_blocked + filter_presence + sort_property serialization), chat_contact_query_changes (passthrough + empty guard). Use helpers from crate-jmap-chat-client/tests/helpers.rs. Spec: draft-atwood-jmap-chat-00 \u00a75.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.6.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChatContact/* smoke tests: 5 methods, no coverage",
+  "updated_at": "2026-05-16T01:52:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T18:50:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "f8c6e12c-1891-5229-b13f-54bdc07f7717",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

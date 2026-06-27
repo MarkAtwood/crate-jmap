@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T15:59:29Z",
+  "compaction_level": 0,
+  "content_hash": "c4d389b8df07e76746200666d3c4cd890ffaffab320ae520a3da8ed0f72f5375",
+  "created_at": "2026-05-01T15:43:35Z",
+  "created_by": "Mark Atwood",
+  "description": "backend.rs: MailboxProperty, ThreadProperty, EmailProperty, IdentityProperty, EmailSubmissionProperty, VacationResponseProperty, SearchSnippetProperty all derive Debug, Clone, PartialEq but not Hash or Eq. Properties are used as selectors (essentially enum-keyed sets), and callers who want to check 'does this property set include X?' or put them in a HashSet must use Vec::contains() (O(n)) rather than HashSet::contains() (O(1)). Adding #[derive(Eq, Hash)] alongside PartialEq is zero-cost and unlocks idiomatic usage.",
+  "ephemeral": 0,
+  "id": "JMAP-ptl.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Property selector enums (MailboxProperty, EmailProperty, etc.) missing Hash derive",
+  "updated_at": "2026-05-01T15:59:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:43:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ptl",
+      "id": "530b502f-89e7-5886-960b-5fbc5cc8b714",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

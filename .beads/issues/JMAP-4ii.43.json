@@ -1,0 +1,33 @@
+{
+  "close_reason": "no-action: P3/P4 observation, not prioritized for JMAP-39s scope",
+  "closed_at": "2026-05-02T07:05:10Z",
+  "compaction_level": 0,
+  "content_hash": "8705e3dd57ed7f24c87f9f9a429ce3d12c2c77c3d7fa67658c2a98f4300c7bbe",
+  "created_at": "2026-05-02T03:57:59Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs handle_mailbox_set update loop runs in two passes: pass 1 handles role-null (vacating) patches, pass 2 handles role-claiming patches. This correctly handles the common IMAP role-swap pattern (detach inbox, attach to new mailbox in one request) regardless of map iteration order \u2014 which is unspecified for serde_json::Map. A contributor might suggest a single pass; this should be defended on the grounds that map iteration order is not guaranteed and a single pass would make role-swap order-dependent, which would be a user-visible correctness bug.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.43",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Two-pass update loop for Mailbox role vacate/claim is correct",
+  "updated_at": "2026-05-02T07:05:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:57:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "413a6d6e-11cf-57c9-810f-c47d6d498a6e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

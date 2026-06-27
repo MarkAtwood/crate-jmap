@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T17:26:20Z",
+  "id": "019e2cac-c158-7f10-a05a-008dac620e4a",
+  "issue_id": "JMAP-ic0j",
+  "text": "Idiom rating: ACCEPTABLE \u2014 code reads naturally on a first pass; idiom concerns are concentrated in MemoryBackend (clone-to-escape-borrow, Vec-as-set, tuple-key allocation, TYPE_NAME string dispatch) and in cross-handler duplication (.expect(serialize-infallible) and bool-arg parsing both repeated 8-13x in this crate and 30+x workspace-wide). Half the findings are workspace-wide patterns inherited from the canonical jmap-mail-server (.40, .41, .42, .44, .50) \u2014 fixing them requires changing the canonical first per the propagation rule."
+}

@@ -1,0 +1,23 @@
+{
+  "close_reason": "Out of scope for this repo. This bead is a policy decision about `/do-beads` slash-command behavior; the fix lives in `~/.config/opencode/commands/do-beads.md` (Mark's global opencode config), not in any JMAP code or config. The bead landed here because the agent that filed it (bd-spin/bd-spin-20260512T045359Z-1929490) was running in the JMAP repo when it hit the sc1b epic-delegation symptom and filed where it stood. Closing without a decision; if/when Mark sits down with the opencode config to revisit /do-beads policy, the four-option analysis here can be referenced from his closed-bead history. The related nested-permissions deadlock concern (bd-review-loop hitting a permission ask inside a /do-beads-spawned session) is also opencode/bd-spin tooling work, not JMAP work.",
+  "closed_at": "2026-05-13T03:47:27Z",
+  "compaction_level": 0,
+  "content_hash": "33371b3769b0a30c3c132ee7cfad787baebfaaa495036fc3edbdb04af5c01bf9",
+  "created_at": "2026-05-12T04:57:53Z",
+  "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "description": "JMAP-sc1b is a review-shaped epic (type=epic, label=review) that appears in the /do-beads ready frontier despite Mark's 2026-05-12T02:49Z note: 'the autonomous /do-beads loop should not be picking this up as actionable \u2014 it filters epics from ready anyway. Removing human to clean the human-label list.'\n\nThe literal /do-beads rule (file: ~/.config/opencode/commands/do-beads.md, last updated 2026-05-10) says delegate review-shaped epics to bd-review-loop. But:\n\n1. Mark's mental model was that /do-beads filters epics from ready. The rule does NOT filter epics \u2014 it only filters human-labeled beads.\n\n2. The prior bd-review-loop run at 2026-05-11T17:08Z hit a permission ask (RUSTDOCFLAGS cargo doc --workspace --no-deps) and stalled, because the spawned opencode subprocess was not invoked with --dangerously-skip-permissions. Re-running risks the same deadlock from inside a /do-beads session.\n\n3. All P0/P1/P2 children of JMAP-sc1b from the prior 3 bd-review-loop runs are already closed; only 4 P2/P3 cleanup beads remain (.17, .109, .110, .111). Re-triggering the review loop now would either re-find the same residual P3s or, more likely, find nothing new.\n\nResolution options:\n(a) Update /do-beads rule to also filter type=epic from the ready frontier, leaving review epics for explicit operator action.\n(b) Re-add the 'human' label to JMAP-sc1b indefinitely until the next manually-triggered review pass.\n(c) Accept the literal rule \u2014 autonomous /do-beads sessions will run bd-review-loop on every ready review epic, with the deadlock risk above as the cost.\n(d) Update the rule to delegate ONLY when no recent run-bd-review-loop-* labels exist within the last N hours (suggests this epic is already mid-cycle).\n\nThis session followed option (a)-equivalent behavior: skip JMAP-sc1b, work the next ready bead, file this meta-bead for the policy decision.",
+  "ephemeral": 0,
+  "id": "JMAP-dibr",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Policy: should /do-beads delegate review-shaped epics or skip them?",
+  "updated_at": "2026-05-13T03:47:27Z"
+}

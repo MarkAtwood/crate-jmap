@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T11:00:03Z",
+  "compaction_level": 0,
+  "content_hash": "9cda35a56f1336ca77ada9510456ae8a04ee64b9d207e3e036dd0d7d1cda6662",
+  "created_at": "2026-05-14T19:52:51Z",
+  "created_by": "Mark Atwood",
+  "description": "src/filenode.rs:1455-1476 (unit test): asserts 'resp[\"created\"].is_object()' and 'resp[\"notCreated\"].is_null()'. MockBackend's create_object (src/lib.rs:366-374) returns 'Ok((Id::from(\"mock-id-1\"), obj))' regardless of input. So the test is asserting:\n\n1. The handler did not fail validation.\n2. The handler did call backend.create_object.\n3. The handler propagated the backend's Ok response into the created map.\n\nWhat the test does NOT assert: the inferred nodeType actually reaches the backend. The MockBackend echoes the supplied obj back, so the response will contain nodeType='directory' regardless of whether the handler set it or whether serde's default behavior did.\n\nA stronger test would peek at the obj passed to create_object via a recording MockBackend (capture the argument), then assert capture.last().node_type == NodeType::Directory. As written, the test passes if any branch (handler, serde default, MockBackend) sets nodeType='directory'.\n\nThis is a test-quality issue: the test's name suggests it covers handler inference, but the assertion does not isolate the handler from the rest of the pipeline.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "set_create_directory_without_blobid_infers_directory_type asserts on MockBackend that does not actually create anything",
+  "updated_at": "2026-05-17T11:00:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:52:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "362e72a0-b470-5f71-9e59-c2ad7cb955d6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

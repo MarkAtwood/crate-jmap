@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-u2e.7",
+  "title": "VacationResponse correctly omits Default (required fields present)",
+  "description": "VacationResponse in vacation.rs has required fields id: Id and is_enabled: bool, so Default is correctly NOT derived. This is intentional and correct \u2014 a default VacationResponse with an empty id and is_enabled=false would not match the RFC's singleton semantics. The #[non_exhaustive] attribute is present and correct. No action needed; this finding confirms the design is sound.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:27:38Z",
+  "updated_at": "2026-04-30T04:35:44Z",
+  "closed_at": "2026-04-30T04:35:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-u2e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:27:37"
+    }
+  ]
+}

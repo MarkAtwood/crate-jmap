@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Already done in commit 6e5d1b9 (2026-05-16) 'docs(servers): correct AGENTS.md dep lists & async claims', which postdates the bead's filing (2026-05-14). The current AGENTS.md Restrictions line (line 142) reads: 'Do not add dependencies beyond: jmap-types, jmap-mail-types, jmap-server, serde, serde_json, mime-tree (runtime), plus uuid + jmap-mime when the memory feature is enabled. tokio is dev-only.' \u2014 which matches the actual Cargo.toml exactly and matches the bead's recommended fix.\n\nVerified by cross-checking Cargo.toml: runtime deps are exactly jmap-types, jmap-mail-types, jmap-server, serde, serde_json, mime-tree; optional deps under feature=memory are uuid and jmap-mime; tokio is in [dev-dependencies] only.\n\nPer the workspace 'When NOT to file human' anti-pattern 4 ('might already be done'), but applied symmetrically to autonomous closure: spent 60s verifying via git log + grep that the work happened, and closing without code change.",
+  "closed_at": "2026-05-17T06:18:54Z",
+  "compaction_level": 0,
+  "content_hash": "2f97cc049b39491537955c4bc69bb437854f135a25437cbe65be9d7699b12e85",
+  "created_at": "2026-05-14T16:21:53Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/AGENTS.md still says 'Do not add dependencies beyond: jmap-types, jmap-mail-types, jmap-server, tokio, thiserror'. Current Cargo.toml has hard deps on serde, serde_json, mime-tree, and the workspace AGENTS.md explicitly notes mime-tree is 'the workspace's single gateway to RFC 5322 parsing'. The 'memory' feature also adds uuid and jmap-mime.\\n\\nA contributor reading the crate AGENTS.md is told the dep set is more constrained than it is. This is confusing but not dangerous; the workspace AGENTS.md is authoritative and the build will fail-loud if a wrong dep is added.\\n\\nFix: update the dependency restriction line in crate AGENTS.md to reflect the actual policy: serde / serde_json / mime-tree are allowed, optional deps under feature gates are allowed when justified, and anything else still needs workspace-level approval.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AGENTS.md crate-level dependency restriction list is stale",
+  "updated_at": "2026-05-17T06:18:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:21:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "fb1eb01e-332e-5357-a552-6fc8b44d1ad8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Bad-premise. Verified: canonical jmap-mail-client uses the exact same tests/helpers.rs + #[path = \"helpers.rs\"] mod helpers; idiom (mail-client/tests/mailbox_smoke_tests.rs:14, search_snippet_smoke_tests.rs:16, submission_*.rs, etc., across 7 integration test files all sharing one helpers.rs). All 6 other extension-client siblings (chat, calendars, tasks, contacts, filenode, mail) use the same shape; only sharing-client uses tests/common/. So metadata-client's tests/helpers.rs is canonical-correct, not divergent. The bead's premise that 'canonical sibling jmap-mail-client has tests/common/' is factually wrong. The defensive concern (future contributor forgets the #[path] line) is real-ish, but converting metadata-client alone to tests/common/ would create a fresh divergence from canonical \u2014 which is the inverse of the propagation rule. If the workspace decides tests/common/ is preferable, that should land canonical-first via a workspace-wide propagation bead. Closing as no-op for this crate.",
+  "closed_at": "2026-05-15T02:26:37Z",
+  "compaction_level": 0,
+  "content_hash": "89ca20abd58bb10ac78f9984f0b4ebd474fde82383a917a7960252a9ec9a11f5",
+  "created_at": "2026-05-15T02:04:02Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/helpers.rs declares two pub fns (make_session, make_client) but is included into only one integration test file (tests/metadata_tests.rs) via '#[path = \"helpers.rs\"] mod helpers;'. The canonical sibling jmap-mail-client has tests/common/ with multiple integration files using the same harness \u2014 that's the shape the cookie-cutter assumes. Today this works, but the moment a second tests/*_tests.rs file lands and forgets the #[path = \u2026] line, the second file silently has no harness; rustc cannot warn because tests/helpers.rs is a separate top-level integration target (running '0 tests'). Trigger: future contributor adds tests/metadata_set_tests.rs without copying the #[path] declaration; CI passes; the new tests do not in fact use the shared harness. Fix: convert to the canonical 'tests/common/mod.rs' layout used by mail-client (it forces the same #[path] = \"common/mod.rs\" idiom that's easier to spot). Low cost; gets it right before there's a second integration file.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "tests/helpers.rs: only-used-from-one-file path hack tolerates dead_code only by accident",
+  "updated_at": "2026-05-15T02:26:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:04:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "f3ff75db-00bd-5efd-b673-9697d1b1cdb6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

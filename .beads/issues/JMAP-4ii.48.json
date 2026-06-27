@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:41:29Z",
+  "compaction_level": 0,
+  "content_hash": "97582b17fbc411dd0b48ff0c502bb82b27b1cc911999f5759cd9ddb8c2a6d041",
+  "created_at": "2026-05-02T04:18:09Z",
+  "created_by": "Mark Atwood",
+  "description": "handlers.rs handle_query and handle_query_changes use args[\"filter\"].take() and args[\"sort\"].take() where args: Value (not validated as Object). serde_json::Value::index_or_insert for str keys panics on any non-Null non-Object value (e.g. Value::Bool, Value::Array, Value::Number). It silently promotes Value::Null to an empty Object. This means a request that passes a non-object args (e.g. a boolean) causes a panic \u2014 the tokio::task::spawn isolation in the dispatcher catches it, but the calling client gets a serverFail response with no diagnostic. The same pattern appears in Space/get, Message/get, Chat/get, Thread/get. The mailbox.rs handlers correctly use let Value::Object(mut args) = args else { return Err(...) } instead.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.48",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_query in handlers.rs uses args[\"filter\"].take() which panics on non-object args",
+  "updated_at": "2026-05-02T04:41:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:18:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "604488e5-355f-5756-aca9-dbfefbe99322",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

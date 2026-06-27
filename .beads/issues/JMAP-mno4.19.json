@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added a 'Deserialization behaviour on malformed input' rustdoc section to AlertTrigger documenting that all malformed-shape inputs (top-level non-objects, missing/non-string/wrong-string @type) land in Unknown(Value) with the input preserved, citing the RFC 8984 \u00a74.5.2 preserve-mandate as rationale. The behavior is now discoverable from rendered docs; consumers needing stricter checks can pattern-match on the variant and inspect the carried Value. Pairs with the probe test added under .4.",
+  "closed_at": "2026-05-16T02:15:33Z",
+  "compaction_level": 0,
+  "content_hash": "78541e3003d5e98ca7455e9d8da63fae03fc79a3754f5c5456741b9dace103d7",
+  "created_at": "2026-05-15T22:17:36Z",
+  "created_by": "Mark Atwood",
+  "description": "**Contract risk**: `AlertTrigger`'s manual `Deserialize` impl reads:\n\n    let v = serde_json::Value::deserialize(d)?;\n    let tag = v\n        .get(\\\"@type\\\")\n        .and_then(|t| t.as_str())\n        .unwrap_or(\\\"\\\")\n        .to_owned();\n    match tag.as_str() {\n        \\\"OffsetTrigger\\\" => { ... }\n        \\\"AbsoluteTrigger\\\" => { ... }\n        _ => Ok(AlertTrigger::Unknown(v)),\n    }\n\nThis accepts any JSON value, not just objects. In particular:\n\n    let null_trigger: AlertTrigger = serde_json::from_value(json!(null)).unwrap();\n    // Ok(AlertTrigger::Unknown(Value::Null))\n\n    let array_trigger: AlertTrigger = serde_json::from_value(json!([1, 2])).unwrap();\n    // Ok(AlertTrigger::Unknown(Value::Array(...)))\n\n    let int_trigger: AlertTrigger = serde_json::from_value(json!(42)).unwrap();\n    // Ok(AlertTrigger::Unknown(Value::Number(42)))\n\n    let obj_with_nonstring_at_type: AlertTrigger = serde_json::from_value(json!({\n        \\\"@type\\\": 42\n    })).unwrap();\n    // Ok(AlertTrigger::Unknown({\\\"@type\\\":42}))  \u2014 non-string @type silently dispatched to Unknown\n\nThe public docstring on `AlertTrigger` (lib.rs lines 557\u2013567) talks\nabout \\\"@type field on the wire selects the variant\\\" and \\\"The\n`Unknown` variant preserves any unrecognised trigger type for\nround-trip fidelity\\\" but says nothing about non-object inputs,\nnor about non-string `@type` values.\n\n**What goes wrong for callers**:\n- A consumer that expects `AlertTrigger` deserialization to fail on\n  obviously malformed input (a bare integer where a trigger object\n  is expected) will be surprised. The Deserialize impl is silently\n  permissive.\n- The RFC 8984 \u00a74.5.2 \\\"MUST preserve them\\\" requirement applies to\n  unknown trigger TYPES (i.e. unknown `@type` strings on otherwise\n  well-formed objects), NOT to arbitrary JSON garbage. The current\n  impl conflates those two cases.\n- The existing finding JMAP-mno4.4 covers the TEST gap (no tests\n  for these edge cases). This bead is the DOCS gap: a caller\n  reading rustdoc has no way to know that `AlertTrigger::Unknown`\n  is also the dumping ground for non-object input.\n\n**Fix shape** (additive, non-breaking \u2014 docs only):\nUpdate the docstring on `AlertTrigger` and on the `Unknown`\nvariant to say explicitly:\n\n  \\\"Any input whose `@type` is not `\\\\\\\"OffsetTrigger\\\\\\\"` or\n  `\\\\\\\"AbsoluteTrigger\\\\\\\"` is preserved as `Unknown(Value)`,\n  including inputs that are not JSON objects at all (e.g. `null`,\n  arrays, numbers) and inputs where `@type` exists but is not a\n  string. Consumers requiring strict shape validation should\n  call `serde_json::from_value::<serde_json::Map<...>>` on the\n  inner value before pattern-matching.\\\"\n\nOptional follow-up: tighten the Deserialize to reject non-object\ninputs with an error. That is a breaking change for callers\nrelying on the current permissive behaviour and should be its own\nbead.",
+  "ephemeral": 0,
+  "id": "JMAP-mno4.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AlertTrigger custom Deserialize behaviour on non-object inputs (null, [], 42, \"string\") is undocumented in the public docstring \u2014 accepts all of them as Unknown(Value) silently",
+  "updated_at": "2026-05-16T02:15:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:17:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mno4",
+      "id": "2893d471-2bec-5c48-a69e-fbc0ef89dd99",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

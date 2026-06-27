@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in commit 6cf54bc. Option (a) ratified: dropped JsContactId transparent newtype; Title.organization_id is now Option<String>; all RFC 9553 \u00a71.4.1 Id references in the crate are bare String throughout (consistent with the consumer jmap-contacts-types Sloppy-Value pattern). Tests + clippy + rustdoc green on workspace. Closes sgrr.13, sgrr.23, sgrr.25 as moot (see those beads for individual close).",
+  "closed_at": "2026-05-17T14:49:31Z",
+  "compaction_level": 0,
+  "content_hash": "c1a3d28ea605b5eb1ebe54a1feb408223619a4de174c955a8497706a18764696",
+  "created_at": "2026-05-15T03:35:29Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-jscontact-types/src/lib.rs:63 defines JsContactId as a transparent newtype around String. It is referenced in exactly ONE wire field: Title.organization_id at lib.rs:338. SpeakToAs.pronouns is typed Option<HashMap<String, Pronouns>> at lib.rs:280, but its doc comment at lib.rs:278 says 'Map of pronoun Id(JsContactId) \u2192 Pronouns object' \u2014 i.e. semantically it IS an Id-keyed map per RFC 9553 \u00a72.2.4, but the Rust type uses bare String. This is either (a) a missed application of the newtype, or (b) a deliberate choice that the newtype only applies to scalar Id references, not to map keys. Either way it is inconsistent and not documented. Once published, changing SpeakToAs.pronouns to HashMap<JsContactId, Pronouns> is a breaking change. Decide now: either drop JsContactId entirely (it earns its keep nowhere meaningful at one usage site), or apply it consistently to SpeakToAs.pronouns keys (and document the policy for future Id-typed map keys).",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JsContactId newtype used inconsistently \u2014 only Title.organization_id, not SpeakToAs.pronouns keys",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:35:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "b7ce1e4b-a2f1-5415-9c19-3a9d8be8362d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

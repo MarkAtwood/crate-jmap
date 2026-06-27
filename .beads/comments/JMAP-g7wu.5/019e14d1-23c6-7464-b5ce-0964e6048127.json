@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-11T02:15:11Z",
+  "id": "019e14d1-23c6-7464-b5ce-0964e6048127",
+  "issue_id": "JMAP-g7wu.5",
+  "text": "BLOCKED waiting on cross-repo work in mime-tree.\n\nStrategy chosen (per closed JMAP-g7wu.11): extend mime-tree to expose typed header values for the 5 RFC 8621 As* forms, then jmap-mail-server consumes mime-tree's new API. Do NOT add mail-parser as a direct dep \u2014 mime-tree is the workspace's single gateway to RFC 5322 parsing.\n\nCross-repo bead: MIME-vy5 in ~/PROJECT/MIME (project prefix MIME). That bead must land (+ a mime-tree minor version bump) before this one can proceed.\n\nTo unblock: when MIME-vy5 is closed, run 'bd update JMAP-g7wu.5 --status open' and the autonomous loop will pick it back up."
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in bae6239. README Gotchas adds a 'Blob ID construction is the consumer's responsibility \u2014 and must be unguessable' bullet positioned between 'No S/MIME or PGP/MIME signature verification' and the new (from JMAP-t307.15) recursion-bound entries. Bullet names three production-grade options per the bead recommendation: (a) content-addressed SHA-256 via urn:ietf:params:jmap:cid / jmap-cid-types, (b) random opaque tokens bound to (account, part) pair, or (c) access control on (caller, blobId) not blobId alone. Confidentiality finding: cross-user blob enumeration on consumers whose access control treats blobId existence as authorization.",
+  "closed_at": "2026-05-15T06:36:21Z",
+  "compaction_level": 0,
+  "content_hash": "9f1f2877302edde6112ba3ed2fafe9f03bf8783c5bf41df0235f129dac19dff2",
+  "created_at": "2026-05-15T06:17:42Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: a consumer reads either the new `crate-jmap-mime/examples/parse_eml.rs:36` or `crate-jmap-mime/README.md:71-73` and copies the closure form\n\n    `message_to_jmap_body(&msg, |part| Id::from(format!(\\\"blob-{}\\\", part.part_id)))`\n\nverbatim into their backend, then chooses an access-control strategy that treats blobId existence as authorization ('the caller can fetch `/Blob/{id}` if a blob with that id is in our store'). The same pattern appears unchanged in `crate-jmap-mime/benches/mime_pipeline.rs` six times (lines 299, 312, 325, 340, 353, 366) and in `crate-jmap-mime/src/lib.rs:21` rustdoc.\n\nConsequence: `part.part_id` is a deterministic IMAP-style dotted path computed by `mime_tree::parse::build_part` (mime-tree-0.3.0/src/parse.rs:190-194): `\\\"1\\\"`, `\\\"2\\\"`, `\\\"2.1\\\"`, `\\\"3.4.7\\\"`, etc. Combined with the literal prefix `blob-`, the resulting blobIds for any user's email are drawn from a small, **enumerable** namespace. An attacker with valid credentials for *any* user on the JMAP server can iterate `/Blob/blob-1`, `/Blob/blob-2`, `/Blob/blob-2.1`, \u2026, `/Blob/blob-N` and read attachments and bodies from arbitrary other users' mailboxes, provided the access-control layer is the 'blobId existence' shape rather than a 'blobId-belongs-to-caller's-account' check.\n\nThe README at line 22 explicitly hands blob-ID construction to the consumer: 'the storage layer decides how to construct these IDs.' That sentence is *necessary* but not *sufficient* \u2014 it does not flag that the chosen ID scheme must be unguessable if the consumer's access control depends on ID secrecy. The example/bench code shows a guessable scheme without flagging the implication, and a hurried consumer ships the pattern as-is.\n\nRelated workspace context: `jmap-cid-types` (`urn:ietf:params:jmap:cid`, draft-atwood-jmap-cid-00) landed in this workspace recently and defines a SHA-256 attestation for blob integrity (see `crate-jmap-cid-types/`). The canonical robust pattern is content-addressing: `blobId = SHA-256(part_bytes)`, which is both unguessable (256-bit search space) and integrity-bound. The example does not mention this option.\n\nWhat goes wrong if this stays as-is: **confidentiality** \u2014 cross-user blob enumeration on consumers whose access control treats blobId existence as authorization. Lower severity than t307.15 (no SMTP-attacker primitive; requires a credentialed but otherwise unprivileged user), so P3 hygiene rather than P1, but the fix is a documentation update and the cost is low.\n\nFix: add a Gotchas bullet to crate-jmap-mime/README.md (between the existing 'No multipart/alternative part selection.' and 'No S/MIME or PGP/MIME signature verification.' entries \u2014 both of which are 'this crate doesn't do X; the consumer must' bullets in the same shape) saying approximately:\n\n> **Blob ID construction is the consumer's responsibility \u2014 and must be unguessable\n> if access control depends on it.** The closure passed to `message_to_jmap_body` /\n> `part_to_jmap` receives a `&ParsedPart` whose `part_id` is a deterministic dotted\n> IMAP path (`\\\"1\\\"`, `\\\"2.1\\\"`, `\\\"3.4.7\\\"`). The illustrative `format!(\\\"blob-{}\\\", part.part_id)`\n> form used throughout the examples is **for demonstration only** \u2014 its output is\n> enumerable across all mailboxes, so a consumer that treats blobId existence as\n> authorization will leak blobs across users. Production backends should either\n> (a) make `blobId` content-addressed (`SHA-256(part_bytes)`, optionally surfaced\n> via `urn:ietf:params:jmap:cid` per draft-atwood-jmap-cid-00 / `jmap-cid-types`),\n> (b) make `blobId` a random opaque token bound to the (account, part) pair in\n> the storage layer, or (c) enforce access control on `(caller, blobId)` rather\n> than on `blobId` alone.\n\nOptionally add a one-line comment to `examples/parse_eml.rs:35-36` and to the README example block pointing at the Gotchas entry, so a consumer who copies just the closure gets a signal at the copy site.\n\nOut of scope: changing the example's *actual* construction. The example exists to demonstrate the closure shape, not to prescribe production blob-ID design; the closure form remains correct demonstration code as long as the gotcha is documented adjacent.",
+  "ephemeral": 0,
+  "id": "JMAP-t307.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Example/README demonstrate guessable 'blob-{part_id}' blob-ID construction without a Gotchas note on unguessability",
+  "updated_at": "2026-05-15T06:36:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T23:17:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-t307",
+      "id": "6bc5f59a-2ebe-553e-bb51-905e1f625cc8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

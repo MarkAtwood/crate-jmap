@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:50:00Z",
+  "compaction_level": 0,
+  "content_hash": "5baa0233b68e914cab3c079ff565e65a0663d402cd483022f5fdbced39cc06b9",
+  "created_at": "2026-05-02T23:38:30Z",
+  "created_by": "Mark Atwood",
+  "description": "draft-ietf-jmap-mdn-17 \u00a72.1 states: 'When calling this method the using property of the Request object MUST contain the capabilities urn:ietf:params:jmap:mdn and urn:ietf:params:jmap:mail'. handle_mdn_send (crate-jmap-mail-server/src/mdn.rs) never inspects the 'using' array passed in the request. The dispatcher infrastructure (check_known_capabilities) only validates that URIs are known, not that required URIs are present. No code path enforces the MUST. Fix: handle_mdn_send must receive the JmapRequest::using slice and reject with invalidArguments if either URI is absent.",
+  "ephemeral": 0,
+  "id": "JMAP-91zr",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MDN/send: missing using-contains-both check",
+  "updated_at": "2026-05-02T23:50:00Z"
+}

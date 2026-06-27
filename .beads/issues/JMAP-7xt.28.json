@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-7xt.28",
+  "title": "SseFrame is non_exhaustive but not Clone; callers cannot store frames",
+  "description": "SseFrame is #[non_exhaustive] and #[derive(Debug)] but not Clone. SseEvent is Clone. A caller who receives an SseFrame from subscribe_events and wants to store it for later processing (e.g. a buffer, a channel, a select! arm) cannot clone it. They must either destructure it immediately or use Arc<SseFrame>. This is an ergonomic trap: SseEvent is Clone so callers might expect SseFrame to be too. The missing Clone derive is a source of confusing compiler errors for downstream users. Since SseFrame is #[non_exhaustive], adding Clone later is not a breaking change, but omitting it now causes friction. Add Clone to SseFrame.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:59Z",
+  "updated_at": "2026-04-30T00:54:37Z",
+  "closed_at": "2026-04-30T00:54:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:59"
+    }
+  ]
+}

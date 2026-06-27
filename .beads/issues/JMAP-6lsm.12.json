@@ -1,0 +1,33 @@
+{
+  "close_reason": "Removing the call_id clone from JmapRequestBuilder::add_call requires either Rc<String> (adds runtime cost), restructuring to push-then-check-then-pop (uglier), or hashing into HashSet<u64> (loses exact-string error message). For typical short call_ids (~5-10 bytes), the clone is cheap. Trade-off doesn't justify the API/code churn. Won't fix in 0.1.x; revisit if a future profile flags this as a hot spot.",
+  "closed_at": "2026-05-09T07:35:28Z",
+  "compaction_level": 0,
+  "content_hash": "4b14bd0f41ee9eacbf231a5b3a4661d9a0fd7e2c7149074dfcc764bdc4bc4e98",
+  "created_at": "2026-05-08T03:05:32Z",
+  "created_by": "Mark Atwood",
+  "description": "src/request.rs:67-73 \u2014 `if !self.call_ids.insert(call_id.clone()) { return Err(...with call_id) } self.method_calls.push((..., call_id))`. Clones the call_id String into the HashSet, then pushes the original into method_calls. Idiomatic alternative: use HashSet::contains first to check, then insert/push without clone (one extra hash but no allocation). Or use Entry API. Or: insert into HashSet first (taking ownership), and if it returns false (was already present), reconstruct the call_id for the error message from the original args. The current implementation prefers correctness over micro-efficiency, but the pattern is the textbook 'clone to escape borrow' that idiomatic Rust readers flag. Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JmapRequestBuilder::add_call clones call_id to insert into HashSet",
+  "updated_at": "2026-05-09T07:35:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:05:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "0712727d-4074-5c26-929e-dcc619455481",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

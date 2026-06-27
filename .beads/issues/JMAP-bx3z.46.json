@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:34:07Z",
+  "compaction_level": 0,
+  "content_hash": "78a948e809bb81ca0bb7954aef92df33fe8ec4755e842531715dbff96381d899",
+  "created_at": "2026-05-02T19:19:26Z",
+  "created_by": "Mark Atwood",
+  "description": "In MemoryBackend.import_email, the comment explicitly notes: 'Acquire a single lock that covers the duplicate check, thread assignment, and the actual insert \u2014 eliminating the TOCTOU race window.' A contributor might split this into separate lock acquisitions for clarity. But that would reintroduce a time-of-check/time-of-use race: two concurrent imports of the same Message-ID could both pass the duplicate check, then both insert, resulting in a duplicate. The single lock is the correct design for a Mutex-guarded in-memory store.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.46",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "import_email acquires a single lock covering duplicate check + thread assignment + insert to eliminate TOCTOU race",
+  "updated_at": "2026-05-02T22:34:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:19:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "27b63aaf-3078-57d9-a16a-ffff6617277e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

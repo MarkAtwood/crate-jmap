@@ -1,0 +1,33 @@
+{
+  "close_reason": "Bikeshed signal: P4 + explicit 'opinion' label. The bead itself says 'Labeled opinion because some teams prefer the explicit match for searchability.' Per /do-beads convergence rule, P3+/opinion-labeled beads are not actionable in the review loop. The existing to_wire_str pattern is defensible (explicit, grep-able, compile-error if a variant is added without updating the match) and the proposed serde_json::to_string alternative is also defensible. Neither is wrong; consistency with the sibling TaskProgress could go either way. Closing without code action \u2014 the choice belongs to whoever next touches TaskListRole semantics.",
+  "closed_at": "2026-05-17T15:41:27Z",
+  "compaction_level": 0,
+  "content_hash": "89eab601fa79f3b79fd2a640ede6ef17f877475442c9b4cd9933d3d44c72e625",
+  "created_at": "2026-05-15T05:07:16Z",
+  "created_by": "Mark Atwood",
+  "description": "In crate-jmap-tasks-types/src/task_list.rs:36-43, `TaskListRole::to_wire_str` manually maps variants to wire strings:\n\n    pub fn to_wire_str(&self) -> &str {\n        match self {\n            Self::Inbox => \"inbox\",\n            Self::Trash => \"trash\",\n            Self::Other(s) => s.as_str(),\n        }\n    }\n\nThis duplicates the string mapping declared in the `impl_string_enum!` macro invocation directly above (lines 29-32). A future contributor adding a new variant (say `Archive`) must remember to update two places: the macro invocation AND the to_wire_str manual match. The compiler does not enforce this \u2014 the macro would happily compile with a new variant the manual match doesn't cover (because of the `Self::Other(_)` arm acting as a catch-all... wait, no \u2014 `Other` is a specific variant, so a new `Archive` variant would be a compile-time error in the manual match, which is fortunate).\n\nThe redundancy is mild because the compile error guards against forgetting. But it is still redundancy: the macro already implements Serialize, which can be invoked via `serde_json::to_value(self)` (or to_string) to get the wire string. A one-liner wrapper that delegates to the Serialize impl would be sufficient.\n\nThe sister type `TaskProgress` (task.rs:19) does NOT have an analogous `to_wire_str`. Either both should have one, or neither should \u2014 consistency drives the choice.\n\nFix: drop `to_wire_str` and let callers do `serde_json::to_string(&role).unwrap_or_default()`. If a non-allocating wire-str view is needed in a hot path, add the helper to the `impl_string_enum!` macro itself so it covers every consumer uniformly. Labeled `opinion` because some teams prefer the explicit match for searchability.",
+  "ephemeral": 0,
+  "id": "JMAP-ky8g.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "TaskListRole::to_wire_str duplicates the impl_string_enum macro\\'s Serialize impl",
+  "updated_at": "2026-05-17T15:41:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:07:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ky8g",
+      "id": "b806d67f-ca32-5dca-b983-a0bb0a5848fd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

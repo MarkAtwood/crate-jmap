@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "716284208e4304b58c19dfbe7046e75d11eff86c1eed155528ff07fd1466a08c",
+  "created_at": "2026-05-15T23:49:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Decision needed: should the workspace propagate the jmap-base-client Debug-redaction precedent (manual impl Debug that prints type name + field count, hiding contents) from credential-bearing types to PII-bearing types across all sibling type crates?\n\n## Background\n\njmap-base-client implements manual redacting Debug on credential-bearing types:\n- BearerAuth (request.rs, line ~244)\n- BasicAuth (request.rs, line ~244)\n- Session (request.rs, line ~244)\n- AccountInfo (request.rs, line ~340)\n\nThe workspace 'Security testing' section in AGENTS.md formalizes the per-type Debug redaction canary pattern (a unit test that constructs the type with a canary literal and asserts the canary does not appear in format!(\"{value:?}\") output).\n\nThis precedent is **NOT** applied to:\n- jmap-mail-types (Email, EmailAddress, EmailHeader, ...)\n- jmap-contacts-types (ContactCard, AddressBook, ...)\n- jmap-jscontact-types (Name, EmailAddress, Phone, Address, Note, Anniversary, PersonalInfo, CryptoKey, ...)\n- jmap-calendars-types (CalendarEvent, ...)\n- jmap-jscalendar-types (...)\n- jmap-chat-types (Message, Chat, Space, ...)\n- jmap-tasks-types (Task, ...)\n- jmap-metadata-types (Metadata, Annotation, ...)\n\nThese all derive plain Debug. A downstream consumer writing\n```rust\ntracing::debug!(card = ?contact_card, \"fetched contact\");\n```\nemits every name, phone, email, postal address, note, and CryptoKey URI to the log sink. This is PII (GDPR Article 5, CCPA \u00a71798.100) but not credential-grade.\n\n## Trigger\n\nbd:JMAP-glx8.26 \u2014 the per-crate docs-only finding on jmap-contacts-types that surfaced the workspace-wide gap.\n\n## Options\n\n(a) Status quo: derive plain Debug everywhere. Document the leak in each crate's '# Logging safety' rustdoc section (already landed for jmap-contacts-types in JMAP-glx8.26). Tell consumers to wrap PII in a redacting newtype.\n\n(b) Propagate manual-redacting-Debug + redaction-canary test to every PII-bearing type in every sibling type crate. Single workspace-wide policy. ~40 types across 8 crates. Each type's Debug prints \"TypeName { ... }\" without contents.\n\n(c) Two-tier policy: credential-bearing types keep the existing manual-redacting impl (jmap-base-client only); PII-bearing types in type crates get a feature-gated redacting impl behind a 'redact' feature, off by default. Consumers opt in.\n\n## Recommendation\n\nOption (a) is what landed in JMAP-glx8.26 (docs-only, deferred to this bead for the workspace decision). Mark to confirm the workspace posture before any sibling-type-crate work happens. Option (b) is the symmetric high-confidence choice but is the most invasive \u2014 ~40 manual impl blocks and ~40 canary tests across 8 crates. Option (c) splits the difference but adds a feature flag to every type crate, which the workspace has so far avoided.\n\n## Scope\n\nEach option ships as a separate sweep epic if chosen:\n- (a) \u2014 close this bead, no further action.\n- (b) \u2014 sweep epic per type crate (8 crates), each child file the manual impl + canary test for every PII-bearing type.\n- (c) \u2014 workspace-level Cargo.toml change + same per-crate sweep but feature-gated.\n\nCross-reference:\n- workspace AGENTS.md 'Security testing' section\n- jmap-base-client/src/request.rs (redacting Debug precedent)\n- jmap-base-client/tests/log_redaction.rs (canary test pattern)\n- bd:JMAP-glx8.26 (per-crate trigger)",
+  "ephemeral": 0,
+  "id": "JMAP-5rmi",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace policy: Debug redaction for PII-bearing types in type crates",
+  "updated_at": "2026-05-15T23:49:51Z"
+}

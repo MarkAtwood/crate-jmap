@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T06:59:21Z",
+  "id": "019e34bb-751e-7d8f-ba18-decac3c23f89",
+  "issue_id": "JMAP-h47t.29",
+  "text": "Filing human-grade. The work itself is mechanical (remove the trait method, drop the handler short-circuit, simplify the reference impl), but the scope is a workspace-coordinated API break that should be authorized in the same way JMAP-h47t.14's option (b) deferral framed it: 'a separate workspace-coordinated trait sweep'. Need owner sign-off on (a) timing (do it now vs roll into the next pre-1.0 trait-shape sweep, e.g. JMAP-h47t.30) and (b) parent epic (this is a workspace-wide concern incidentally filed under JMAP-h47t.14's deferral; should probably be re-parented as top-level like JMAP-k9va).\n\nRecommendation: defer until a larger pre-1.0 trait-shape consolidation pass; this single flag is not urgent in isolation and the docs reframing on JMAP-h47t.14 already closes the foot-gun for consumers reading the rustdoc."
+}

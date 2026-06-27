@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "Fields moved to Participant. cargo test --workspace exits 0.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Removed schedule_sequence/schedule_updated from CalendarEvent and backend.rs CalendarEventProperty; added both to Participant in jscalendar.rs per RFC 8984 \u00a75.2 Context:Participant; added two round-trip tests",
+  "closed_at": "2026-05-05T03:10:09Z",
+  "compaction_level": 0,
+  "content_hash": "799c6d1e84744760e91e7df1e695a2426ea4df70027c48f6c6e320c2daf89d18",
+  "created_at": "2026-05-05T02:52:43Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Correct a spec conformance error. RFC 8984 \u00a75.2.1 (scheduleSequence) and \u00a75.2.2 (scheduleUpdated) define these properties with Context: Participant, not CalendarEvent. Currently they are top-level fields on CalendarEvent in event.rs; they must be moved to the Participant struct in jscalendar.rs.\n\n**Algorithm:**\n1. Verify with grep that no downstream crate in the workspace accesses schedule_sequence or schedule_updated on CalendarEvent directly.\n2. Remove schedule_sequence and schedule_updated from CalendarEvent in event.rs.\n3. Remove ScheduleSequence and ScheduleUpdated variants from CalendarEventProperty in backend.rs.\n4. Add to Participant in jscalendar.rs:\n   #[serde(skip_serializing_if = \"Option::is_none\")]\n   pub schedule_sequence: Option<u64>,    // RFC 8984 \u00a75.2.1; wire: scheduleSequence\n   #[serde(skip_serializing_if = \"Option::is_none\")]\n   pub schedule_updated: Option<String>,  // RFC 8984 \u00a75.2.2; wire: scheduleUpdated; UTCDateTime\n5. Add round-trip serde test for Participant with both fields set.\n6. Run cargo test --workspace.\n\n**Acceptance criteria:**\n- Participant has schedule_sequence and schedule_updated.\n- CalendarEvent does NOT have these fields.\n- CalendarEventProperty does NOT have ScheduleSequence or ScheduleUpdated.\n- Wire names on Participant: scheduleSequence, scheduleUpdated.\n- cargo test --workspace exits 0. Clippy clean.",
+  "ephemeral": 0,
+  "id": "JMAP-z2cy.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix scheduleSequence/scheduleUpdated: move from CalendarEvent to Participant",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:52:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-z2cy",
+      "id": "deef5d40-3533-56f3-a751-009553fd9543",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

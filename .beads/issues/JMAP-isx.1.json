@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-isx.1",
+  "title": "Thread/Identity/Submission changes responses missing required updatedProperties field",
+  "description": "RFC 8620 \u00a75.2 requires 'updatedProperties' in ALL /changes responses. thread.rs, identity.rs, and submission.rs omit it. email.rs and mailbox.rs include it correctly. A client that reads updatedProperties from Thread/changes or Identity/changes will get undefined behavior (missing key). Fix: add 'updatedProperties': Value::Null to the json\\! in handle_thread_changes, handle_identity_changes, handle_submission_changes.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:19:23Z",
+  "updated_at": "2026-04-30T23:25:54Z",
+  "closed_at": "2026-04-30T23:25:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-isx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:19:23"
+    }
+  ]
+}

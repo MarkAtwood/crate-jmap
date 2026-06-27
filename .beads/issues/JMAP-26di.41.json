@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added 'Concurrency' rustdoc section to SessionClient covering all four contract points from the bead:\n- Send + Sync (callers can use from any tokio task)\n- Clones share underlying reqwest::Client connection pool (clone freely, don't construct independent SessionClients)\n- Concurrent calls are safe but UNORDERED \u2014 for inter-call ordering use JMAP batch + ResultReference\n- Calls are cancel-safe at .await points; at-most-once delivery requires caller-side idempotency\n\nAlso added a const _: fn() = || { ... } compile-time assertion in the tests module locking SessionClient: Send + Sync. If JmapClient or Session loses Send/Sync upstream, this halts the build immediately instead of silently breaking the contract at consumer build time.\n\ncargo build --tests, cargo test, cargo clippy --all-targets -- -D warnings, RUSTDOCFLAGS='-D warnings' cargo doc all green. Committed as 1fdb359.",
+  "closed_at": "2026-05-15T21:43:09Z",
+  "compaction_level": 0,
+  "content_hash": "a77ee16da9d90bbc77bdad10ef4a868921f71883515b34036a5f3c5cae398d04",
+  "created_at": "2026-05-15T20:41:20Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-client/src/methods/mod.rs:260-294 (`SessionClient` doc + definition).\n\n`SessionClient` derives `Clone` and the rustdoc says (line 268-271):\n```\n/// `Clone` is derived because `JmapClient` is itself cheap-to-clone (it\n/// already implements `Clone` and `with_chat_session` clones one\n/// internally), enabling parallel-task fan-out with one bound session.\n```\n\nWhat the contract does NOT say:\n\n1. **Send / Sync**: not declared explicitly. Both auto-derive (`JmapClient` is Send+Sync because it holds reqwest::Client through Arc, `Session` is Send+Sync because all fields are owned String/HashMap), but the contract is silent. A caller reading the doc to decide \"can I move this into a `tokio::spawn`?\" has to guess or read the impl. Workspace policy is verbose elsewhere about Debug-redaction and Clone semantics \u2014 Send/Sync deserves the same treatment.\n\n2. **Concurrent-call semantics**: \"parallel-task fan-out\" implies concurrent calls are OK, but what they actually do is unstated:\n   - Do two clones share a connection pool? (Yes \u2014 `JmapClient` wraps `reqwest::Client` which has an internal connection pool, so clones share.)\n   - Do clones share session state? (Each clone has its own `Session` value, but the inner `JmapClient` is reference-counted to the same HTTP layer.)\n   - Are concurrent `.call()` operations on the same `SessionClient` safe? (Yes, but never said.)\n   - Is the order of concurrent requests preserved? (No \u2014 JMAP allows pipelining but reqwest doesn't guarantee response ordering across concurrent calls. Spec-relevant for ResultReference-bearing batches.)\n\n3. **Cancel-safety at await points**: every public async method does an `await` on `call_internal`. If a caller wraps the call in a `tokio::select!` and drops it, is the underlying HTTP state coherent? (reqwest is cancel-safe; the contract should say so.)\n\nCaller impact: a caller wanting to write a multi-tab chat UI with a worker-per-tab cannot tell from the contract whether one shared `JmapClient` cloned per worker is safe (it is), or whether they should construct independent ones (they shouldn't \u2014 that defeats connection pooling). They'll guess wrong half the time.\n\nFix: add three sentences to the `SessionClient` doc:\n- \"`SessionClient` is `Send + Sync` and may be used from any task.\"\n- \"Cloning is cheap; the underlying `JmapClient` is reference-counted and clones share the HTTP connection pool.\"\n- \"Concurrent calls on a single `SessionClient` (or on clones) are safe but unordered; for ordered multi-method calls use a single JMAP request with `ResultReference`s.\"",
+  "ephemeral": 0,
+  "id": "JMAP-26di.41",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SessionClient concurrency contract undocumented (Clone, parallel-task fan-out)",
+  "updated_at": "2026-05-15T21:43:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:41:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "18e88407-1a56-5dc1-b9cd-a2811f22fc6d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "4 named tests pass; cargo test -p jmap-chat-client passes",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:25:00Z",
+  "compaction_level": 0,
+  "content_hash": "6eec7376939fc7eef5ac5d2badcb3e42ae335784dd437081b29be9dc09857bfd",
+  "created_at": "2026-05-04T15:06:04Z",
+  "created_by": "Mark Atwood",
+  "description": "WHAT: Extension trait on jmap-base-client::Session providing chat-specific capability accessors.\n\nALGORITHM:\n1. Create crate-jmap-chat-client/src/session.rs\n2. Define structs:\n   - pub struct ChatCapability { pub max_size_message_body: u64, pub supported_body_types: Vec<String>, ... } \u2014 parse from account_capabilities[\"urn:ietf:params:jmap:chat\"]\n   - pub struct ChatPushCapability { pub max_snippet_bytes: Option<u64>, ... } \u2014 from account_capabilities[\"urn:ietf:params:jmap:chat:push\"]\n3. Define pub trait ChatSessionExt:\n   fn chat_account_id(&self) -> Option<&str>   \u2192 self.primary_account_id(\"urn:ietf:params:jmap:chat\")\n   fn chat_capability(&self, account_id: &str) -> Result<Option<ChatCapability>, ClientError>   \u2192 deserialize from account_capabilities\n   fn chat_push_capability(&self, account_id: &str) -> Result<Option<ChatPushCapability>, ClientError>\n   fn supports_chat_websocket(&self) -> bool   \u2192 capabilities.contains_key(\"urn:ietf:params:jmap:chat:websocket\")\n   fn vapid_public_key(&self) -> Option<&str>   \u2192 capabilities[\"urn:ietf:params:jmap:webpush-vapid\"][\"vapidPublicKey\"].as_str()\n   fn supports_refplus(&self) -> bool   \u2192 capabilities.contains_key(\"urn:ietf:params:jmap:refplus\")\n   fn supports_quotas(&self) -> bool   \u2192 capabilities.contains_key(\"urn:ietf:params:jmap:quotas\")\n4. impl ChatSessionExt for jmap_base_client::Session { ... }\n5. Declare in lib.rs: pub mod session; pub use session::ChatSessionExt;\n\nSource: ~/PROJECT/crate-jmapchat-client/src/jmap.rs Session impl \u2014 port the methods.\n\nDEFENSIVE RULES:\n- All capability lookups return Ok(None) on missing key, Err(ClientError::Parse) on malformed JSON\n- No unwrap()\n\nTESTS:\n- chat_account_id_present: session with primaryAccounts chat entry \u2192 returns Some\n- chat_account_id_absent: empty primaryAccounts \u2192 returns None\n- chat_capability_parses: valid ChatCapability JSON \u2192 Ok(Some(cap))\n- supports_chat_websocket: capabilities has the key \u2192 true; absent \u2192 false\n\nACCEPTANCE: 4 named tests pass; clippy clean",
+  "ephemeral": 0,
+  "id": "JMAP-lqtf",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-client: session.rs \u2014 ChatSessionExt trait",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T08:07:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s1ei",
+      "id": "b5b266b4-ef91-5203-94fc-cafb1b5511b3",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T08:07:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ds04",
+      "id": "b635d546-27e5-50da-80df-ca47385b6b1b",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T11:29:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w",
+      "id": "e8188b1c-5cf0-51fd-8284-81e64a16dcce",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

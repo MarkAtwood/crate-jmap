@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T19:31:25Z",
+  "compaction_level": 0,
+  "content_hash": "c54d54c227f372c9e567b5008c692513db4fc672fd6aaa499030768e77cdf8b1",
+  "created_at": "2026-05-15T17:13:15Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs:626-646 \u2014 QueryCalendarEventsError::ExpandDurationTooLarge has\nthis doc:\n\n    /// `expandRecurrences` was requested but `before - after` exceeds the\n    /// account's `maxExpandedQueryDuration` capability (\u00a75.11, \u00a710.7.3).\n\nBut the trait has no method that exposes `maxExpandedQueryDuration` itself.\nBackends cannot communicate the value to handlers, handlers cannot\ncommunicate it to clients, and there's no place to put it in the JMAP\nsession capability response. The error variant exists to signal \"you\nexceeded a cap\" but the cap value is invisible to everyone except the\nbackend's private state.\n\nWorkspace AGENTS.md \"Backend caps and limits\" section is explicit about the\ncanonical pattern for this:\n\n    \"Shape: fn limits(&self, caller: &Self::CallerCtx, account_id: &Id) -> XxxLimits \u2014\n     a sync default method on the extension's backend trait returning a\n     struct of all related caps as a group. Each extension defines its\n     own XxxLimits struct (e.g. ChatLimits, future CalendarsLimits).\"\n\nThe same section explicitly anticipates this gap:\n\n    \"Precedent: ChatBackend::limits(&self, caller, account_id) -> ChatLimits\n     (bd:JMAP-g7wu.2.4.8).\"\n\nThe canonical mail-server still uses the older per-method shape\n(max_collapse_threads_emails, max_body_value_bytes, max_delayed_send_seconds\nat crate-jmap-mail-server/src/backend.rs:296-347). That shape is documented\nas the pre-standardisation pattern. Calendars has BOTH: no per-method\nmax_* methods and no limits() struct.\n\nWhat goes wrong for the caller:\n\n  1. A backend author writing a calendars impl with a real DB cannot tell\n     handlers what their cap is; the only path to refuse a request is to\n     return ExpandDurationTooLarge after attempting the query (or\n     introspecting the filter range and short-circuiting based on the\n     backend's PRIVATE state). There's no way for handlers to pre-check\n     and reject without a backend round-trip.\n\n  2. A consumer wanting to surface the cap to clients via JMAP session\n     capability has nowhere to read it from. The server consumer has to\n     duplicate the cap value into its session-capability builder out-of-band.\n\n  3. The trait is forward-incompatible: when the canonical pattern propagates\n     to mail-server (per workspace AGENTS.md), calendars will need to\n     migrate too. Adopting it now (with sensible Default impls per the\n     workspace's `XxxLimits` pattern) is non-breaking; bolting it on\n     after a 0.x consumer base exists requires coordination.\n\nFix: add a CalendarsLimits struct (#[non_exhaustive], Default, conservative\nreference defaults), and a default-method on CalendarsBackend:\n\n    fn limits(\n        &self,\n        caller: &Self::CallerCtx,\n        account_id: &jmap_types::Id,\n    ) -> CalendarsLimits {\n        let _ = (caller, account_id);\n        CalendarsLimits::default()\n    }\n\nInitial CalendarsLimits.max_expanded_query_duration backed by a sensible\ndefault. Handler-side pre-check in query_calendar_events compares\n`before - after` against the value before invoking the backend.\n\nP2 \u2014 substantive design gap with a known-canonical fix; not a present-day bug.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CalendarsBackend lacks limits()/cap-advertising surface; maxExpandedQueryDuration referenced but unreachable",
+  "updated_at": "2026-05-15T19:31:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:13:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "1ad1d4f9-4a74-5c1c-9c3e-482b30fd7ff9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

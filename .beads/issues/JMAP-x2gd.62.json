@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Restated protect_last_admin rustdoc as an invariant-by-outcome contract: any apply_space_patch whose post-application projection has zero manage_members/manage_space holders MUST be rejected when protect_last_admin returns true. Enumerated the non-exhaustive op set (RemoveMember, UpdateMember role-strip, UpdateRole permission-strip, RemoveRole, and combinations). Also broadened the apply_space_patch error table at line 582 to match. Documented the reference MemoryBackend's intentional narrowness (RemoveMember-only projection per memory.rs:2838-2845) so readers aren't surprised. Commit cc85ca1. Verified by reading memory.rs which already documents 'production backends with stricter requirements can override apply_space_patch'.",
+  "closed_at": "2026-05-16T18:01:03Z",
+  "compaction_level": 0,
+  "content_hash": "ca9a905e0410046c8f3e1532d4437d8d12ed4b2be7f1e92802ec715a30c8d9ba",
+  "created_at": "2026-05-14T12:29:05Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\n\\`ChatBackend::protect_last_admin\\` at backend.rs:583-624 documents\nthe protection contract narrowly:\n\n> Whether the backend should reject \\`RemoveMember\\` ops that would\n> leave the target Space with zero members holding either\n> \\`manage_members\\` or \\`manage_space\\` permission.\n\nAnd later:\n\n> The check fires inside [\\`Self::apply_space_patch\\`] atomically\n> with the candidate \\`RemoveMember\\` mutation: the backend\n> snapshots the Space's member/role state, projects the post-\n> removal admin count, and rejects the whole update target with\n> a \\`forbidden\\` SetError if zero admins would remain.\n\n## What's missing\n\nThe protection contract is documented as **\\`RemoveMember\\`-only**.\nBut the same \\\"zero admins left\\\" failure mode is reachable via\n\\`UpdateMember\\` that strips a role granting \\`manage_members\\` or\n\\`manage_space\\` from the last admin. The doc says nothing about\nthis second path.\n\nA third-party backend implementer who reads this doc and wires\nthe protection check only into the \\`RemoveMember\\` branch of\ntheir \\`apply_space_patch\\` impl ships a backend where the last\nadmin can be silently downgraded \u2014 leaving the Space in an\nunrecoverable state, exactly the failure the protection is\ndesigned to prevent.\n\n## Why this is a spec-correctness gap not a polish gap\n\nPermissions in JMAP Chat are role-based (per draft-atwood-jmap-\nchat-00). A user's effective permissions are the union of their\nroles' permissions. The \\\"zero admins left\\\" invariant is invariant\non the *outcome* of any mutation that affects role/member graph \u2014\nnot on the syntactic op type. The trait method's promise is to\nprotect that invariant, but its doc scopes it to one op.\n\nThe reference \\`MemoryBackend\\` impl may or may not extend the\ncheck to \\`UpdateMember\\` (I did not verify). Either way the\ncontract gap stands: a third-party backend implementer cannot\nreliably infer the broader semantics from the published rustdoc.\n\n## Recommendation\n\nExtend the doc at backend.rs:583-624 to enumerate the FULL set\nof ops that can transition the Space toward zero-admin state:\n\n- \\`RemoveMember\\` (the documented case)\n- \\`UpdateMember\\` that strips a role granting \\`manage_members\\`\n  or \\`manage_space\\` from a member who has no other such role\n- \\`UpdateRole\\` that removes \\`manage_members\\` or \\`manage_space\\`\n  permission from a role currently held by the last admin\n- \\`RemoveRole\\` (or \\`Destroy\\` of a Role object) that drops a\n  permission from the graph\n- Any other op that mutates the (member, role, permission) triple\n\nOr, more economically: state the invariant by *outcome* rather\nthan by op type. \\\"The backend MUST reject any \\`apply_space_patch\\`\nthat would result in zero members of the target Space holding\neither \\`manage_members\\` or \\`manage_space\\` permission, computed\nvia the role-permission graph after the patch.\\\"\n\n## Engineering basis\n\nDirect read of backend.rs:583-624. The doc names \\`RemoveMember\\`\nin two places (the one-line summary and the atomicity section)\nand never mentions any other op path. \\`UpdateMember\\` is named\nin the trait elsewhere (it's a real \\`SpacePatchOp\\` variant) so\nthe omission is asymmetric, not a categorical \\\"ops aren't\ndescribed.\\\"",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.62",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: protect_last_admin doc covers RemoveMember but is silent on UpdateMember role-strip path to zero-admin state",
+  "updated_at": "2026-05-16T18:01:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:29:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "a3460de7-ac38-5a32-8507-71d059f9adc1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

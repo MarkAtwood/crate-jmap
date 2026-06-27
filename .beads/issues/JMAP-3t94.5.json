@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "d5dc6a83cc983963edf34f14217ee405c8c416c7747d753d97af4561968c7196",
+  "created_at": "2026-05-14T21:51:11Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/memory.rs:193-235 implements MemoryBackend::demo_next_id with a two-mode helper (deterministic len()-based default, or realistic-demo-ids feature for a process-global timestamp+counter). The canonical mail-server (crate-jmap-mail-server/src/memory.rs:961-979) does NOT use demo_next_id; it uses uuid::Uuid::new_v4() directly inside create_object. The canonical's pattern is collision-free and persistent-across-restarts ish; the sharing sibling's default mode has documented collision-on-delete (per the inline comment at memory.rs:215-220 and the workspace-tracked bead bd:JMAP-qz9v.14).\n\nPer workspace AGENTS.md 'Canonical Templates': if a sibling reshapes its impl in a way that diverges from the canonical, the canonical changes first then the sibling propagates. The reverse is a regression of cookie-cutter intent.\n\nThe 920fb0d commit landed demo_next_id in 6 siblings (chat, calendars, contacts, metadata, sharing, tasks) but explicitly excluded mail-server. The commit message acknowledges the workspace-wide drift as a deliberate mitigation against cargo-culting the worse mail-server pattern \u2014 but that reverses the canonical-template precedence rule.\n\nTwo resolutions:\n  (a) Propagate demo_next_id to mail-server's create_object as the new canonical (drop uuid::Uuid::new_v4()).\n  (b) Revert the 6 siblings to use uuid::Uuid::new_v4() matching the canonical (then revisit the cargo-cult concern that motivated 920fb0d).\n\nNeither is a one-line fix. This is the meta-finding the cookie-cutter rule says review should catch. Cross-references: bd:JMAP-qz9v.14, bd:JMAP-826m.18, bd:JMAP-qz9v.47, bd:JMAP-qz9v.46, bd:JMAP-ayoz.20, bd:JMAP-x2gd.63.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::demo_next_id diverges from canonical mail-server's uuid-based create_object",
+  "updated_at": "2026-05-14T22:15:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:51:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "e65067b1-9d51-512f-9a42-7a58719e58a8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

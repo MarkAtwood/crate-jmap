@@ -1,0 +1,33 @@
+{
+  "close_reason": "Positive observation, no action required. The 40-line module-level rustdoc 'Single-user limitation' section at memory.rs:43-83 is the right shape for a reference impl. Closing as 'noted, what good looks like'.",
+  "closed_at": "2026-05-15T09:02:09Z",
+  "compaction_level": 0,
+  "content_hash": "cb18e5c5f6f96983a9eeb469353eb3be9a24106a4c5093a40f25901fa51550b0",
+  "created_at": "2026-05-14T17:58:23Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this is good: The 40-line module-level rustdoc 'Single-user limitation (per-caller scoping is NOT implemented)' section explicitly:\n- Names the limitation (per-user uniqueness, isPrivate visibility scoping).\n- Names the spec sections that require correction (\u00a73.1 per-user uniqueness, \u00a71.2.1 isPrivate scoping).\n- Lists THREE concrete things a real backend MUST do, with code-level specificity (scope find_uniqueness_conflict, filter Metadata/get by principal, reject /set updates against non-authored private records).\n- Acknowledges that the reference impl's JmapBackend::principal_id returns None, and explains WHY wiring it would not change behavior in the single-user case.\n\nA future contributor might suggest 'simplifying' this by trimming to one sentence ('Single-user only; production backends must do their own scoping'). That would lose the call-site-level specificity that makes the disclosure actionable. Defend against simplification: the SECTIONS_LIKE_THIS_ARE_THE_WHOLE_POINT of a 'reference implementation' \u2014 the explicit list of which call sites need adapting is more valuable than the code itself.\n\nCross-reference: workspace AGENTS.md 'Caller identity (foundation seam)' section. Metadata-server's memory.rs is the only crate so far that operationalizes the rule into specific call-site guidance. Mail-server lacks the same disclosure (filed as JMAP-826m.something \u2014 wait, that's outside this review's scope).",
+  "ephemeral": 0,
+  "id": "JMAP-826m.40",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Single-user limitation disclosure in memory.rs:43-83 is exactly the right amount of disclosure for a reference impl",
+  "updated_at": "2026-05-15T09:02:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:58:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "074b18d6-27e5-5b41-9509-ee1b79c28f46",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T08:50:53Z",
+  "id": "019e2ad4-d842-743a-9358-c877a09977ac",
+  "issue_id": "JMAP-826m.45",
+  "text": "Re-classifying as 'won't fix here' per workspace canonical-template propagation rule. The lossy-as-cast pattern in query_objects is workspace-wide:\n\n- jmap-mail-server (CANONICAL): 11 sites across 5 files (src/memory.rs:365/368/936; src/submission.rs:188; src/sieve.rs:1132/1135/1144; src/mailbox.rs:293/311; src/email.rs:834/837).\n- jmap-metadata-server: 4 sites in src/memory.rs (this bead's scope).\n- 6 other extension-server siblings: unaudited; expected ~4-10 sites each.\n\nA metadata-server-only fix would diverge from the canonical and create exactly the cookie-cutter regression the propagation rule guards against. Worse, the right architectural answer is helpers on jmap-server (the foundation) so consumer-implemented backends \u2014 the kit's actual audience \u2014 get correct 32-bit-target behavior without copying the pattern.\n\nFiled canonical-first sweep epic: JMAP-pgj7 (jmap-server helpers + jmap-mail-server canonical + 7 sibling propagation). Closing this sibling-scoped bead in favor of that one."
+}

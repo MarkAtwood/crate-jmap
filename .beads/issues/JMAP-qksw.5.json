@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "Principal/getAvailability handler implemented. 20-method smoke test passes.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added AvailabilityError enum, get_availability default trait method; created principal.rs with handle_principal_get_availability; registered as Principal/getAvailability; smoke test updated to 20 methods; 3+2=5 new tests; 26 pass; clippy clean",
+  "closed_at": "2026-05-05T15:25:13Z",
+  "compaction_level": 0,
+  "content_hash": "ad8a1d9a7d6ded79fddbc246fbdcbe2623608eb4c190afbf317748ac63763639",
+  "created_at": "2026-05-05T03:02:10Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Principal/getAvailability handler is entirely missing. Depends on BusyPeriod being added to jmap-calendars-types (JMAP-z2cy B1).\n\n**Algorithm:**\n1. Add AvailabilityError enum to backend.rs: NotFound, Forbidden, TooLarge, RateLimit, Other(E).\n2. Add to CalendarsBackend:\n   fn get_availability(&self, account_id: &Id, principal_id: &Id, utc_start: &str, utc_end: &str, show_details: bool, event_properties: Option<&[String]>) -> impl Future<Output = Result<Vec<BusyPeriod>, AvailabilityError<Self::Error>>> + Send;\n   Default impl: returns empty vec.\n3. Create src/principal.rs with handle_principal_get_availability:\n   - Parse all \u00a72.2 args (id, utcStart, utcEnd, showDetails default false, eventProperties).\n   - Map AvailabilityError \u2192 JMAP errors: NotFound\u2192notFound, Forbidden\u2192forbidden, TooLarge\u2192tooLarge.\n   - Build response {\"list\": [...]}.\n4. Register Principal/getAvailability in register_calendars_handlers.\n5. Export from lib.rs.\n6. Update smoke test to 20 methods.\n\n**Tests:**\n- Valid request \u2192 list with BusyPeriod objects. Oracle: \u00a72.2.\n- Unknown principal \u2192 notFound.\n- Forbidden \u2192 forbidden.\n- showDetails:false \u2192 event field null in BusyPeriods.\n\n**Acceptance criteria:**\n- Principal/getAvailability registered.\n- cargo test -p jmap-calendars-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-qksw.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement Principal/getAvailability handler + BusyPeriod (\u00a72.2)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:02:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw",
+      "id": "19913823-3a59-5d15-be02-c23ad36719ed",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

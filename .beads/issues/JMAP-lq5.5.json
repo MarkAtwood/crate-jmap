@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-lq5.5",
+  "title": "collapseThreads cap (COLLAPSE_THREADS_MAX_EMAILS=65536) is well-justified",
+  "description": "Without a cap, a hostile client can trigger OOM by querying a large account with collapseThreads=true. 65536 \u00d7 ~32 bytes \u2248 2 MiB is a reasonable ceiling. The comment explains the reasoning. A contributor might suggest removing it; do not.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:39:27Z",
+  "updated_at": "2026-05-01T03:43:26Z",
+  "closed_at": "2026-05-01T03:43:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-lq5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:39:27"
+    }
+  ]
+}

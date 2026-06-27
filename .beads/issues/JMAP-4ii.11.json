@@ -1,0 +1,33 @@
+{
+  "close_reason": "SetError base moved to jmap-server",
+  "closed_at": "2026-05-02T06:34:55Z",
+  "compaction_level": 0,
+  "content_hash": "97a99bc1083d3be2833ec4c7754208d3f7cc5243ca63248acc3fc01018b51d42",
+  "created_at": "2026-05-02T03:55:53Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src/backend.rs and crate-jmap-chat-server/src/backend.rs both define SetError and BackendSetError<E> with identical structure and semantics. The only difference is that the mail-server SetErrorType has more variants (RFC 8621-specific ones). This is a type-design smell: shared types should live in a shared crate (e.g. jmap-types or a new jmap-server-types crate) rather than being duplicated. Duplication means future fixes to Display, From, or serde impls must be applied in two places and can drift. The idiomatic approach is a single parameterized or trait-based type.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetError/SetErrorType duplicated verbatim across mail-server and chat-server",
+  "updated_at": "2026-05-02T06:34:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:55:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "f55b0dae-6cfa-5a2a-94b7-24dc5d5862ae",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

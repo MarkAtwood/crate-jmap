@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T01:13:09Z",
+  "id": "019e2931-c6de-7aff-8b00-ece498e6e4e5",
+  "issue_id": "JMAP-1j9k",
+  "text": "API contract risk: HIGH \u2014 two P1 spec-mandated callability gaps surface (JMAP-1j9k.12 ifInState absent from all three /set methods; JMAP-1j9k.13 calendar_event_copy missing four standard RFC 8620 \u00a75.4 args), plus four P2 canonical-template divergences from jmap-mail-client (create/destroy shapes, sort lockout, non_exhaustive on params, missing 'extra' flatten field) and two P3 polish items. A caller depending on this API in 0.x.y will need optimistic-concurrency primitives and atomic copy semantics; they have no way to express either through the current surface."
+}

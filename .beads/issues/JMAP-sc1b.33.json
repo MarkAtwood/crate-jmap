@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:36:08Z",
+  "compaction_level": 0,
+  "content_hash": "486a803f19cdf72f504f0246f1f9e4b1e4dcd4f08ee3098e3054abee1cfe573e",
+  "created_at": "2026-05-07T20:29:19Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace Cargo.toml `[workspace.dependencies]` declares only 7 of the 25 internal crates: jmap-types, jmap-mail-types, jmap-chat-types, jmap-server, jmap-base-client, jmap-chat-server, jmap-mail-client.\n\nMissing: jmap-mime, jmap-mail-server, jmap-contacts-types, jmap-contacts-server, jmap-contacts-client, jmap-calendars-types, jmap-calendars-server, jmap-calendars-client, jmap-tasks-types, jmap-tasks-server, jmap-tasks-client, jmap-filenode-types, jmap-filenode-server, jmap-filenode-client, jmap-sharing-types, jmap-sharing-server, jmap-sharing-client (17 crates).\n\nEach of those is referenced by direct `path = \"../X\", version = \"0.1.X\"` in dependents' Cargo.tomls. Coordination of internal version bumps requires editing N files instead of 1.\n\nThe recent 'bump all crate versions' commit (0a0dc73) likely had to touch every crate's Cargo.toml because of this.\n\nFix: add the 17 missing entries to `[workspace.dependencies]` and switch consumers to `{ workspace = true }` references. Tied to JMAP-sc1b.3 (workspace inheritance generally).",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: 17 of 25 internal crates not in workspace.dependencies table",
+  "updated_at": "2026-05-07T21:36:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "3102c4fb-457a-5fe2-b004-d40a748b8fff",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

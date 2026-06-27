@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "All 9 catchall sites in tasks-server (task.rs, task_list.rs, task_notification.rs) updated to bind the BackendSetError value and use other.to_string() in the json! description, matching the existing Other(e) arm shape. Follow-up sweep bead JMAP-kg3d filed for the remaining 87 sites across the 7 extension-server siblings (jmap-mail-server canonical-first). cargo fmt + clippy + workspace test green.",
+  "closed_at": "2026-05-14T18:46:28Z",
+  "compaction_level": 0,
+  "content_hash": "5501298620fe68af82ed118065a77f7b2886d7106d807ec5edd929f6ba19578c",
+  "created_at": "2026-05-14T18:27:43Z",
+  "created_by": "Mark Atwood",
+  "description": "Eight call sites match `BackendSetError` exhaustively on the two known variants (`SetError`, `Other`) then catch all future variants with `Err(_) => json!({\"type\": \"serverFail\", \"description\": \"unhandled backend error variant\"})`. Sites: `task.rs:190-198, 311-319, 360-368, 473-481`, `task_list.rs:152-160, 211-219, 268-276`, `task_notification.rs:149-157`.\n\n`BackendSetError` is `#[non_exhaustive]` (deliberately \u2014 see JMAP-h47t parent epic context), so the catchall is forced by the compiler. But the current shape discards the new variant's Display content entirely, returning the literal string \"unhandled backend error variant\". When a future variant is added (e.g. `BackendSetError::QuotaExceeded(q)` or `BackendSetError::Conflict { ... }`), every `/set` response will silently swallow the actual error info and emit the placeholder string.\n\nWhat idiomatic Rust would do: bind the value in the catchall and use its `Display` impl, the same way the `Other` arm already does:\n\n    Err(other) => {\n        not_created.insert(\n            create_id,\n            json!({ \"type\": \"serverFail\", \"description\": other.to_string() }),\n        );\n    }\n\n`BackendSetError` already implements `std::error::Error` + `Display` (it has to, to be `#[non_exhaustive]` and useful), so `other.to_string()` would Just Work for any future variant. The explicit `Other(e)` arm above the catchall could even be merged \u2014 it does the same thing.\n\nWhat goes wrong if it stays as-is: future BackendSetError variants will be silently translated to the meaningless string \"unhandled backend error variant\" in every `/set` response. Operators debugging a quota or conflict error in production will see only the placeholder, not the actual cause. `#[non_exhaustive]` is supposed to mean 'unknown variants are still meaningful'; the current pattern defeats that.\n\nWorkspace-wide implication: same pattern appears in mail-server, chat-server, calendars-server, contacts-server, filenode-server, metadata-server, sharing-server \u2014 `rg 'unhandled backend error variant' crate-jmap-` returns hits across 13 source files. Fixing here is the right local action but a canonical-template propagation sweep would address the whole family. Suggest the canonical jmap-mail-server change first per workspace AGENTS.md propagation rule, then this crate inherits.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Catchall `Err(_) => \"unhandled backend error variant\"` discards Display content of future variants",
+  "updated_at": "2026-05-14T18:46:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:27:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "71b81488-ef41-5e57-8552-8e39c42841bb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

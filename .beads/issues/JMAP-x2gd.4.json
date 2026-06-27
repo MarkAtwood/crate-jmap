@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "35077d004723c2de7b33637de6146933aba65b2512df6d33e8ee58274ff8c962",
+  "created_at": "2026-05-14T03:12:37Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/ban.rs:85-364 (handle_ban_set). MemoryBackend generic create_object<SpaceBan>/update_object<SpaceBan>/destroy_object<SpaceBan> in src/memory.rs all perform zero permission check.\n\ndraft-atwood-jmap-chat-00 \u00a7SpaceBan/set (lines 1310-1318):\n- 'create accepts: spaceId (String, required), userId (String, required), reason (String, optional), expiresAt (UTCDate, optional). **Requires `\"ban\"` permission in the Space.**'\n- 'destroy lifts the ban. Requires `\"ban\"` permission in the Space.'\n\nThe kit has no `\"ban\"` permission string analogous to MANAGE_SPACE/MANAGE_ROLES/MANAGE_MEMBERS/MANAGE_CHANNELS in src/permissions.rs. No required_permissions_for_op analog for SpaceBan ops. The handler does no defense-in-depth pre-check.\n\nTrigger: any non-privileged member of a Space can ban any other member (or even non-members) by issuing SpaceBan/set create. This is a privilege-escalation vector that lets a single compromised low-privilege account remove arbitrary members.\n\nFix sketch:\n1. Add BAN permission constant to src/permissions.rs.\n2. Add ChatBackend::create_space_ban/destroy_space_ban methods (or reuse the apply_space_patch pattern with new variants) that gate atomically.\n3. Reference MemoryBackend implements the gate via member_effective_permissions inside the new method, mirroring the apply_space_patch_impl pre-validation pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "SpaceBan/set has no 'ban' permission enforcement",
+  "updated_at": "2026-05-14T03:12:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:12:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "a4e34f75-4336-5928-b366-ad611801172c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

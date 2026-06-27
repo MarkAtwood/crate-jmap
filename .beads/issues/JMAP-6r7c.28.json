@@ -1,0 +1,33 @@
+{
+  "close_reason": "Done. Added '# Charset' rustdoc section to both JmapClient::fetch_session (client.rs:417) and JmapClient::call (client.rs:467) documenting the UTF-8 contract: 'The response body MUST be UTF-8-encoded JSON (RFC 8259 \u00a78.1). A server that sends UTF-16 or UTF-32 JSON \u2014 even with a matching charset=utf-16 Content-Type parameter \u2014 will fail to parse as ClientError::Parse; the error does not specifically call out the charset mismatch.' Pre-commit gate green.",
+  "closed_at": "2026-05-17T21:01:42Z",
+  "compaction_level": 0,
+  "content_hash": "e7b281a47e4ebc37e38177cc54184b72d3e0c64a18500e77a986d03cec49e0c8",
+  "created_at": "2026-05-14T23:16:54Z",
+  "created_by": "Mark Atwood",
+  "description": "client.rs:254-292 \u2014 fetch_session\nclient.rs:304-345 \u2014 call\n\nBoth methods read the body via resp.bytes().await then call serde_json::from_slice. serde_json::from_slice accepts UTF-8 input only. RFC 8620 \u00a71.5 states JSON wire format; RFC 7159 \u00a78.1 says JSON text exchanged between systems must be encoded in UTF-8, UTF-16, or UTF-32 (with implementations free to require UTF-8).\n\nThis crate effectively requires the server to send UTF-8 JSON. That's the spec-compliant case for any modern JMAP server (RFC 8259 obsoletes RFC 7159 and mandates UTF-8 for network exchange).\n\nThe contract gap: a server sending a Content-Type with `charset=utf-8` or `charset=UTF-16` is silently treated as UTF-8 bytes. If the bytes are actually UTF-16, serde_json::from_slice fails with a Parse error that doesn't mention the charset issue. A caller debugging an integration with a non-conformant JMAP server cannot tell from the error why it failed.\n\nLow priority because (a) RFC 8259 makes UTF-8 mandatory, and (b) every shipped JMAP server uses UTF-8. But the doc-comment on fetch_session and call should at least say \"Response body MUST be UTF-8-encoded JSON (RFC 8259 \u00a78.1)\". Today the contract is just \"JSON\" without the charset commitment.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "fetch_session and call do not document body charset handling \u2014 what if server sends UTF-16 JSON?",
+  "updated_at": "2026-05-17T21:01:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:16:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "28854f3d-5ae8-5cef-a0e2-86df5257a48b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-55n",
+  "title": "Review: jmap-client crate",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:58:47Z",
+  "updated_at": "2026-04-30T07:05:48Z",
+  "closed_at": "2026-04-30T07:05:48Z",
+  "notes": "Maintainer risk: LOW \u2014 no security surface or API lock-in bugs; one API ergonomics issue (AuthProvider String return) should be fixed pre-1.0; one documentation gap in subscribe_events about initial timeout\nConfidence: 10% chance of missed bug. Least confident flags: subscribe_events initial-response-headers hang (is it really user-visible in practice?). Uncertainty driven by: cannot run against a real server; rely on unit tests + code inspection only. Would raise confidence if: integration test with a simulated stalling server; fuzz test for the SSE parser.\nIdiom rating: ACCEPTABLE \u2014 one pre-1.0 API ergonomics issue (auth_header String return type); no unsafe, no gratuitous clones beyond the String return, no iterator antipatterns, error handling is correct throughout.\nRust idiom confidence: 5% chance of missed issue. Least confident flags: none \u2014 the code is clean. Uncertainty driven by: not running against tungstenite internal behaviors for ws scheme handling edge cases."
+}

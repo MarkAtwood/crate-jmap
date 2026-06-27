@@ -1,0 +1,33 @@
+{
+  "close_reason": "resolved by JMAP-3zp",
+  "closed_at": "2026-05-02T06:43:32Z",
+  "compaction_level": 0,
+  "content_hash": "780e25aa33b597f29e724ac9873fdd6ca0886fee84ef1d67d9535edd31f43ee6",
+  "created_at": "2026-05-02T03:55:39Z",
+  "created_by": "Mark Atwood",
+  "description": "jmap-server/handlers.rs handle_get calls backend.get_objects::<O>(&account_id, ids_slice, None) \u2014 properties argument is hardcoded None regardless of the 'properties' field in the client request. RFC 8620 \u00a75.1 requires the server to honour property selection to avoid returning unwanted data and to allow backends to skip expensive field computation. Every /get handler that delegates to handle_get (thread, email, submission, space, chat, etc.) silently ignores the client's properties argument.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_get always passes None properties to backend",
+  "updated_at": "2026-05-02T06:43:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:55:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "a55e3bf2-6db9-5f81-b6a0-bcba2fa0a007",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

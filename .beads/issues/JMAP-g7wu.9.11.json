@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Added UTCDate::new_validated() validation for all 3 sites in jmap-chat-server that accept client-supplied wire date strings: message.rs senderExpiresAt, invite.rs expiresAt, ban.rs expiresAt. Malformed values now emit invalidProperties rather than silently flowing into downstream string compares with undefined ordering. Added 3 new integration tests asserting rejection of malformed values. Sibling sites that produce server-side timestamps via now_utc_string() (space.rs, presence.rs, emoji.rs) remain unchanged as they generate well-formed values. All 96 chat-server tests pass. cargo clippy -p jmap-chat-server --all-targets -- -D warnings clean.",
+  "closed_at": "2026-05-11T06:44:44Z",
+  "compaction_level": 0,
+  "content_hash": "01ecb413d8ea6091993fcff805165dc0d5c8ee01a2c84c06825ecc745d0c9cf8",
+  "created_at": "2026-05-11T06:27:15Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Audit follow-up from JMAP-g7wu.9.5 \u2014 minor quality improvement, not a public API break.\n\nSite: crate-jmap-chat-server/src/message.rs:375-391\n\nCurrent code extracts senderExpiresAt as Option<String> from the JSON request value, then string-compares it to the current time via iso8601_before(). The string is never validated for RFC 3339 / UTCDate shape \u2014 a malformed value would silently pass the precondition check (iso8601_before would compare strings lexically, which works for some malformed forms and not others).\n\nImprovement: parse the value via UTCDate::new_validated() and emit invalidProperties when the string is not a valid UTCDate. Internal-only refactor; no wire format change; no public API break.\n\nSibling sites (also use now_utc_string() then UTCDate::from() pattern) that may benefit from the same validation discipline if they parse incoming wire date strings:\n- crate-jmap-chat-server/src/invite.rs (now_utc_string usage)\n- crate-jmap-chat-server/src/space.rs (now_utc_string usage at lines 307, 608, 681)\n- crate-jmap-chat-server/src/presence.rs (line 188)\n- crate-jmap-chat-server/src/emoji.rs (line 360)\n- crate-jmap-chat-server/src/ban.rs (line 149)\n\nAudit each: those that produce a server-side timestamp (UTCDate::from(now_utc_string().as_str())) are fine as-is. Only sites that accept a client-supplied date string need UTCDate::new_validated() validation.\n\nThis is P4 because the practical impact is small \u2014 clients producing malformed RFC 3339 strings are already broken in other ways \u2014 but it's the kind of input hygiene worth tidying up before publish.\n\nAcceptance:\n- All sites consuming client-supplied wire date strings parse via UTCDate::new_validated().\n- Tests added for each: malformed senderExpiresAt etc. produces invalidProperties.\n- cargo test -p jmap-chat-server passes.\n- cargo clippy -p jmap-chat-server -- -D warnings clean.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.9.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Quality: validate sender_expires_at as UTCDate in jmap-chat-server message handler",
+  "updated_at": "2026-05-11T06:44:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T23:27:15Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-g7wu.9",
+      "id": "21641b42-7824-5dcb-808a-f3a8c417dc24",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

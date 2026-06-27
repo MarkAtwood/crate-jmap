@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.24",
+  "title": "validate_sha256_format rejects uppercase hex \u2014 JMAP-CID requires lowercase",
+  "description": "In blob.rs, validate_sha256_format() accepts only lowercase hex digits (b'0'..=b'9' | b'a'..=b'f'). The hex_digit() function also produces lowercase for SHA-256 output and uppercase only for percent-encoding. A contributor might 'loosen' this to accept both cases with to_ascii_lowercase(), arguing it is 'more permissive'. But the JMAP-CID spec requires lowercase, and the comparison in upload_blob() and download_blob() is a direct string equality check. Accepting uppercase from the server and comparing it against the locally-computed lowercase digest would produce BlobIntegrityMismatch false alarms on a server that sends correct-but-uppercase hashes. The correct fix if a server sends uppercase is to reject the sha256 field as malformed, not to silently normalize it. The strict lowercase check is the right behavior. Do not relax it to accept uppercase.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:13:18Z",
+  "updated_at": "2026-04-30T01:02:44Z",
+  "closed_at": "2026-04-30T01:02:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:13:17"
+    }
+  ]
+}

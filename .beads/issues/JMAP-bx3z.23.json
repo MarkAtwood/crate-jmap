@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: create role check excludes roles vacated in same request's update pass",
+  "closed_at": "2026-05-02T19:27:31Z",
+  "compaction_level": 0,
+  "content_hash": "6a1f0ad09ff2b29b904a446828f34aa582a899d537fab3006afdd20461ad2b46",
+  "created_at": "2026-05-02T19:18:46Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mailbox_set (mailbox.rs): the create loop role uniqueness check (L461-463) does not subtract roles_actually_vacated. If pass-1 vacates a role (e.g., folderA sets role=null freeing 'inbox'), the create loop still sees the pre-mutation snapshot showing 'inbox' as taken, and incorrectly rejects a create with role='inbox' with invalidProperties. Trigger: Mailbox/set request with update={X: role:null} + create={name:'Y', role:'inbox'} where X previously held role 'inbox' \u2192 create is wrongly rejected even though the role was freed in the same request.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/set: create+update in same request can claim identical role",
+  "updated_at": "2026-05-02T19:27:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "dc36f273-70fc-5a8b-997f-314dbb29a14b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

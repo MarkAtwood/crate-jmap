@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Created jmap-jscontact-types crate with 24 RFC 9553 typed sub-types (Name family, Org family, Contact family, Calendaring family, Address family, Resource family x5, Anniversary family, Note family, PersonalInfo, Relation) plus AnniversaryDate sum-type and JsContactId newtype. 31 round-trip tests against RFC 9553 worked examples (Figures 13, 16, 19, 21-32, 34, 36-38, 41, 43, 44). cargo test --workspace clean, cargo clippy --workspace -- -D warnings clean, RUSTDOCFLAGS=-D warnings cargo doc --no-deps clean. PLAN.md documents why Localization and Keyword are not included (not RFC object types). Committed as a234050.",
+  "closed_at": "2026-05-11T06:11:30Z",
+  "compaction_level": 0,
+  "content_hash": "27684a5341beda714b4a0de33b3d8416e366831e94cee998d943baa289e00b99",
+  "created_at": "2026-05-11T00:26:40Z",
+  "created_by": "Mark Atwood",
+  "description": "Create directory crate-jmap-jscontact-types/ with the standard foundation-shaped type-crate scaffolding (Cargo.toml, lib.rs with #![forbid(unsafe_code)], AGENTS.md, PLAN.md, README.md). Mirror jmap-jscalendar-types' layout (see JMAP-x59i.1).\n\nDefine 22 typed sub-types covering the ContactCard sloppy fields:\n- Name, Nickname, Organization, Title, SpeakToAs\n- EmailAddress, OnlineService, Phone, LanguagePref, Address\n- CryptoKey, Directory, Link, Media\n- Anniversary, PersonalInfo, Localization, RelatedTo\n- Calendar, SchedulingAddress, Note, Keyword\n\nEach type:\n- Serialize + Deserialize + Debug + Clone + PartialEq\n- #[non_exhaustive]\n- Doc-comment citing the relevant RFC 9553 section\n- #[serde(rename_all = 'camelCase')]\n\nRound-trip tests for each type using hand-written RFC 9553 example JSON fixtures (oracle-independent \u2014 DO NOT derive expected values from code under test).\n\nAdd to workspace Cargo.toml as a workspace member.\n\nDeps: serde, serde_json only. No async. No JMAP dep. Cookie-cutter shape: foundation type-crate (model on jmap-types / jmap-jscalendar-types).",
+  "ephemeral": 0,
+  "id": "JMAP-sehw.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Create new jmap-jscontact-types crate (scaffolding + 22 RFC 9553 typed sub-types)",
+  "updated_at": "2026-05-11T06:11:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:26:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sehw",
+      "id": "06f796da-d135-55e8-9f58-67cd6a81b01c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

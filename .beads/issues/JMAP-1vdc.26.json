@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: limit=0 without calculateTotal skips collapseThreads fetch entirely",
+  "closed_at": "2026-05-02T19:42:55Z",
+  "compaction_level": 0,
+  "content_hash": "30ca088b7dcd9712019c4b660b60eacaebf20a19b118f61deaad8feda9251fdf",
+  "created_at": "2026-05-02T19:34:53Z",
+  "created_by": "Mark Atwood",
+  "description": "When collapseThreads=true and the client sends limit=0 (meaning 'return no results'), Email/query still fetches up to COLLAPSE_THREADS_MAX_EMAILS+1 (65537) email IDs from the backend before applying the limit (email.rs lines 665-725). The 'page' slice is then .take(0), returning an empty array \u2014 correct result, but the backend fetch was wasteful and unnecessary. More importantly, if limit=0 is an intentional client pattern (e.g. to get just the total count with calculateTotal=true), the total is computed correctly from the collapsed IDs. However, the large backend fetch can cause performance issues. RFC 8620 \u00a75.5 permits limit=0 as a valid request. This is a performance/correctness boundary issue: total is correct, but the over-fetch is unexpected for a limit=0 request.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/query: limit=0 in collapseThreads path fetches COLLAPSE_THREADS_MAX_EMAILS+1 items unnecessarily",
+  "updated_at": "2026-05-02T19:42:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "719bfed0-3503-576c-a67c-843b1c44417f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

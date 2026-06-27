@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in de2b2df. Added #[non_exhaustive] to SlowModeError plus SlowModeError::new(retry_after) constructor. External consumers MUST use the constructor; field-init is forbidden outside the defining crate. The TrackingBackend in tests/common/mod.rs (separate crate root for each test binary) migrated to the constructor; the rustdoc reference to the old shape was also updated. Pre-1.0 / pre-publish; additive #[non_exhaustive] is free.",
+  "closed_at": "2026-05-14T04:51:16Z",
+  "compaction_level": 0,
+  "content_hash": "b75e8ba18130d488e65b3421a080997bafaae67939647e87c84b23ec652ad7ac",
+  "created_at": "2026-05-14T03:38:32Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/backend.rs:222-226\n\n  #[derive(Debug, Clone)]\n  pub struct SlowModeError {\n      pub retry_after: jmap_types::UTCDate,\n  }\n\nSlowModeError is part of the public ChatBackend trait surface\n(returned by Err of slow_mode_check). Consumers implementing\nproduction rate-limiters construct this type, so it is in their\nbuild-time surface.\n\nThe struct has one public field and is NOT #[non_exhaustive].\nAdding any field later \u2014 a retry hint string, a sender-facing\nerror code, a backoff multiplier, a \"this is your N-th throttle\nin M minutes\" counter \u2014 is a major-version-breaking change.\n\nCompare with ChatLimits (backend.rs:89-110) and EmojiSetOp\n(backend.rs:194-204), both correctly #[non_exhaustive]. The\nomission here is asymmetric, not principled.\n\nWorkaround for consumers: none \u2014 they have to construct the type\npositionally.\n\nFix:\n  #[non_exhaustive]\n  #[derive(Debug, Clone)]\n  pub struct SlowModeError {\n      pub retry_after: jmap_types::UTCDate,\n  }\n\nPlus a `pub fn new(retry_after: UTCDate) -> Self` constructor and\n(optionally) a `with_*` builder if more fields land later. Same\npattern as ChatLimits::new + with_max_*.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: SlowModeError missing #[non_exhaustive]",
+  "updated_at": "2026-05-14T04:51:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:38:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "afca20f2-c588-5770-9ad4-f35b41d35b73",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

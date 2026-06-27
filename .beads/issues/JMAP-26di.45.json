@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Converted all 29 production-code .expect() sites in methods/*.rs (17 Id slice + 7 &[&str] properties slice + 5 single Id/upToId) to .map_err(ClientError::Parse)?. Scope expansion noted in commit message: the bead named 17 Id-slice sites but the recommendation (Path 1) applies identically to the 12 sibling sites.",
+  "closed_at": "2026-05-17T17:51:11Z",
+  "compaction_level": 0,
+  "content_hash": "c88e70c886400cb8db2dd18bbef8a58b407e6f3d97063e3801fb77b7873bd2aa",
+  "created_at": "2026-05-15T20:42:29Z",
+  "created_by": "Mark Atwood",
+  "description": "Files (17 sites total):\n- crate-jmap-chat-client/src/methods/chat.rs:37, 294, 340\n- crate-jmap-chat-client/src/methods/space.rs:36, 282, 295, 311, 357, 428, 478, 490, 508\n- crate-jmap-chat-client/src/methods/space_ban.rs:24\n- crate-jmap-chat-client/src/methods/space_invite.rs:24\n- crate-jmap-chat-client/src/methods/contact.rs:26\n- crate-jmap-chat-client/src/methods/custom_emoji.rs:28\n- crate-jmap-chat-client/src/methods/misc.rs:28\n\nEvery site uses the idiom:\n```rust\nargs[\"ids\"] = serde_json::to_value(id_slice).expect(\"Id slice Serialize is infallible\");\n```\n\nThe expectation is correct *today*: `jmap_types::Id` is a `String` newtype, and `Vec<Id>::Serialize` cannot fail in practice. But this is an **implementation contract** with `jmap-types`, not a language guarantee. If `jmap-types` ever switches `Id`'s `Serialize` impl to something fallible \u2014 e.g. validates the inner string against a regex during serialization, or adopts a typed-format like UUID with a `try_into` \u2014 every one of these 17 panic sites becomes a public-method panic.\n\nWorkspace AGENTS.md \"Key Rules\" includes: \"No `.unwrap()` or `.expect()` in library code \u2014 propagate errors with `?`.\" These sites are technically a violation of that rule. The current justification (the message text \"Id slice Serialize is infallible\") relies on an upstream invariant.\n\nTwo fixes:\n1. **Propagate via `?`**: use `.map_err(ClientError::Parse)?` instead of `.expect(...)`. Adds one variant to the documented errors per method but eliminates the panic. Doc impact: the related `# Errors` section needs to list `Parse` (which it should anyway \u2014 see the systemic Errors-doc bead).\n2. **Lock the invariant upstream**: add a `// SAFETY:` comment on each site (this is still an `.expect` in library code, but the workspace rule could be amended to \"no `.expect()` except where the inner type's contract guarantees infallibility\"; document this exception in jmap-types' Id docstring).\n\nOption 1 is the safer and rule-compliant choice. Option 2 requires an explicit workspace policy carve-out.\n\nCaller impact today: zero (Id's `Serialize` is infallible). Caller impact in 12 months if Id's `Serialize` changes: every list-shaped method call can panic, with the panic origin in a private helper rather than user code.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.45",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "17 .expect() panic sites in public method bodies for Id slice serialization",
+  "updated_at": "2026-05-17T17:51:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:42:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "7942d9a2-d654-5179-bbea-d393e67cfd9a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

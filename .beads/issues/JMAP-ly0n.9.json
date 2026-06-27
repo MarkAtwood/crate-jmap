@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in 044b4f2 (docs only): ChannelCreate gains a 'Maintenance contract - manual sync with Chat' section. The compiler-cannot-enforce reality is now documented inline.",
+  "closed_at": "2026-05-16T03:33:28Z",
+  "compaction_level": 0,
+  "content_hash": "6ff2f962b983502529bd089f2f4f680ca2f63cd777aaf6a5b724e90937d9d208",
+  "created_at": "2026-05-16T02:38:44Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: a contributor adds a new required field to Chat (or to the channel-flavored subset of Chat \u2014 e.g. a future spec edit adds a default slow_mode_seconds, a default permission set, or a category-required flag). They update Chat and the canonical Space/get tests but forget to update ChannelCreate.\n\nBad behavior: ChannelCreate (space_set.rs:43-64) carries 4 client-supplied fields (name, optional categoryId / position / topic). The doc says 'The server creates a [Chat] record of kind: \"channel\" with the new id and spaceId set to the host Space\\'s id. This struct carries only the client-supplied subset.' But there is no compile-time link between ChannelCreate and Chat \u2014 if Chat gains a new required field that should be client-supplied, ChannelCreate silently goes stale. If Chat gains a new server-supplied field, no harm. The asymmetry is: ChannelCreate is the client API contract for create, Chat is the storage shape, and the code carries no machinery to keep them aligned.\n\nTwo practical risks:\n1. Spec drift: the chat draft is unstable and the client-supplied subset of channel-create fields is exactly where it changes most. Each draft revision needs a manual diff of the two structs.\n2. Test coverage gap: the only ChannelCreate test (channel_create_roundtrip, lines 422-432) constructs ChannelCreate, round-trips, asserts equality. It does NOT assert that a downstream consumer can take a fully-populated ChannelCreate and produce a Chat. So if the project ever wires up the server-side create handler in jmap-chat-server and it diverges from this shape, this test catches nothing.\n\nFix options:\n- Add a unit test in this crate (or in jmap-chat-server) that takes a ChannelCreate, fills in server-supplied fields with placeholder values, and asserts the result deserializes as Chat with kind: Channel. That is a single-direction tripwire \u2014 better than nothing.\n- Rename ChannelCreate doc to clarify the contract: 'When Chat gains a new required field that is client-supplied at channel create time, you MUST add it to ChannelCreate too; the compiler does not enforce this.'\n\nPriority P2 because the fix is mechanical and the failure mode is 'server creates Chat with wrong defaults', which is fixable in any downstream PR \u2014 but the absence of a tripwire is exactly the maintenance burden that AGENTS.md Section 1 calls out.",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChannelCreate diverges from Chat shape \u2014 no enforcement that it can produce a valid Chat",
+  "updated_at": "2026-05-16T03:33:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:38:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "28b3be37-ede9-584b-87c6-0bdc41d42f3c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

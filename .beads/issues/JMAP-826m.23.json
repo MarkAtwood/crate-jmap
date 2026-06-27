@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Won't fix \u2014 engineering impact is per-bead-description 'small (filter values usually shallow)'; both available fix paths (raw JSON walk OR add serde direct dep) cost more than the savings warrant. See close comment for the cost-benefit analysis.",
+  "closed_at": "2026-05-15T08:57:35Z",
+  "compaction_level": 0,
+  "content_hash": "2d6ae6484129f3c256c235d87ed00f0640bba0e580e631e36f3be25731772515",
+  "created_at": "2026-05-14T17:55:07Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:560: let filter: Filter<...> = match serde_json::from_value(filter_val.clone()) { ... }. The clone is necessary because args is borrowed immutably and serde_json::from_value consumes its argument. The cost is one Value tree clone per /query and /queryChanges call.\n\nImpact at scale: every /query call pays the cost of cloning a JSON tree just to inspect it for the relatedIds-without-relatedType constraint. The generic handler then re-parses the filter from the original args (which is moved into it), so it's a second from_value over essentially the same data.\n\nThis is small (filter values are usually shallow), but compounds across the workspace if the same pattern propagates to other extension-server crates. Solution: walk the JSON value directly without going through serde \u2014 write a function that takes &Value and checks for the constraint at JSON level. Tradeoff: less type-safe but no clone.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "validate_metadata_filter clones the entire filter JSON value (filter_val.clone()) just to feed it to from_value, when from_value(filter_val.clone()) is the entry condition",
+  "updated_at": "2026-05-15T08:57:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:55:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "98e66301-f1a1-5017-8582-585cbd6ca2fa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

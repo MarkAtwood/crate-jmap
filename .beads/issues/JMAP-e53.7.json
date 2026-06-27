@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:55:06Z",
+  "compaction_level": 0,
+  "content_hash": "46f405a4995b659a9c1998db177077ef11c37b22ce55c66333c50577e231dd14",
+  "created_at": "2026-05-02T00:43:36Z",
+  "created_by": "Mark Atwood",
+  "description": "When a backend implementor does not override blob_exists, all parse_email failures are classified as notParsable instead of notFound \u2014 violating RFC 8621 \u00a75.8. The default silently ships incorrect RFC conformance with no compile-time signal, no test covering the wrong path, and only a doc comment as the guard.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "blob_exists default always returns true",
+  "updated_at": "2026-05-02T00:55:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "b87e3b26-a8cb-5429-b3aa-a69406e51a67",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "42914346dad00a608e740da122750a303dbd1e5ef1ed68202c3b74d006f89bff",
+  "created_at": "2026-05-15T08:05:33Z",
+  "created_by": "Mark Atwood",
+  "description": "**Pattern source**: bd:JMAP-826m.12 fixed metadata-server's supports_type docstring which said 'Returns true if this account supports the given JMAP object type' \u2014 but the trait signature is fn supports_type<O: JmapObject>(&self) -> bool with no caller and no account_id. The docstring lied about per-account scoping.\n\n**Canonical state**: jmap-mail-server (the workspace canonical extension-server template) and jmap-sharing-server both have the correct docstring. Mail-server's wording: 'global, stateless backend-capability check \u2014 it asks did this implementation wire up the methods needed for type O, not does this user's account have this type enabled? That is why the method is synchronous and takes no caller or account_id arguments. Per-account capability variation belongs in the consumer's session-capability builder ... NOT here.'\n\n**Vulnerable siblings**: each of these crates has the lying docstring at the listed location:\n- crate-jmap-calendars-server/src/backend.rs (around line 140) \u2014 'Returns `true` if this account supports the given JMAP object type.'\n- crate-jmap-chat-server/src/backend.rs (around line 334) \u2014 'Returns true if this account supports the given JMAP object type.'\n- crate-jmap-contacts-server/src/backend.rs (around line 80) \u2014 'Returns true if this account supports the given JMAP object type.'\n- crate-jmap-filenode-server/src/backend.rs (around line 110) \u2014 'Returns `true` if this account supports the given JMAP object type.'\n- crate-jmap-tasks-server/src/backend.rs (around line 178) \u2014 'Returns true if this account supports the given JMAP object type.'\n\n**Fix shape**: per the workspace AGENTS.md canonical-template propagation rule (mail-server canonical, siblings mirror), copy mail-server's docstring shape into each of the 5 siblings, adapting the 'Types in scope' bullet to the spec the crate implements (RFC 8984 for calendars, JMAP Chat draft for chat, RFC 9553 for contacts, JMAP FileNode draft for filenode, JMAP Tasks draft for tasks).\n\n**Out of scope**: changing the trait signature itself to take caller + account_id. That is a workspace-architectural decision (the entire 'per-backend vs per-account capability' design). The current shape (per-backend) is consistent with the workspace library-kit posture: 'transport/multi-tenancy/auth/storage is the consumer's responsibility'. If a future decision moves capability gating into the backend, file that as a separate workspace-architectural bead.\n\n**Acceptance**: 'grep -rn \"if this account supports\" crate-jmap-*-server/src/backend.rs' returns zero matches.",
+  "ephemeral": 0,
+  "id": "JMAP-emeh",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Sibling sweep: supports_type doc lies about per-account scoping in 5 extension-server crates",
+  "updated_at": "2026-05-15T08:05:33Z"
+}

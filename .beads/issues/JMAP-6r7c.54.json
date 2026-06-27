@@ -1,0 +1,33 @@
+{
+  "close_reason": "Done. Expanded the SAFETY-style comment on decode_utf8_chunk's std::str::from_utf8(&raw[..valid_up_to]).expect() call to explicitly tie the .expect() choice to the crate's #![forbid(unsafe_code)] policy. New comment explains: (a) valid_up_to is the documented prefix length that IS valid UTF-8 by the std::str::Utf8Error contract, (b) the crate-root forbid(unsafe_code) rules out the canonical zero-cost path std::str::from_utf8_unchecked, (c) with unsafe forbidden, .expect() is the cheapest legal alternative, (d) a future reviewer should not 'fix' this with unwrap_or_default() because that would silently drop valid UTF-8 prefix bytes on a hypothetical impossible failure path. Pre-commit gate green.",
+  "closed_at": "2026-05-17T21:01:48Z",
+  "compaction_level": 0,
+  "content_hash": "7bb9eec1473f7d992e645a8145752b0fce647a013143b8769bbcc02b9a02b149",
+  "created_at": "2026-05-14T23:27:10Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-base-client/src/client.rs:673-676 uses 'std::str::from_utf8(&raw[..valid_up_to]).expect(\"valid_up_to is a valid UTF-8 boundary\")'. The crate enforces #![forbid(unsafe_code)] (lib.rs:23) so the safer alternative \u2014 std::str::from_utf8_unchecked, which IS the legitimate use of unsafe here \u2014 is unavailable. That leaves expect() as the cheapest path. The expect message DOES carry the soundness argument ('valid_up_to is the documented prefix length that IS valid UTF-8 by construction'), so this passes the workspace rule that every expect() in production code must have a comment explaining why it cannot fail. Flagging for visibility because: (1) the unsafe-forbidden + expect-with-comment combination is the right call given the crate's policy and IS the idiomatic Rust answer to 'I have a slice I know is valid UTF-8 but the type system doesn't', (2) a future reviewer who notices the expect() without seeing the forbid(unsafe_code) ceiling may try to 'fix' it by reaching for unwrap_or_default() \u2014 which would silently drop valid UTF-8 prefix bytes on a hypothetical impossible failure path. Recommendation: no code change. Add one extra line to the SAFETY-style comment explicitly tying it to forbid(unsafe_code) so the policy connection is visible to future readers.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.54",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "decode_utf8_chunk expect() on valid_up_to slice \u2014 acceptable but flag for visibility",
+  "updated_at": "2026-05-17T21:01:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:27:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "ac0a568c-06d0-5b69-8216-9e6d8d6a42e3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

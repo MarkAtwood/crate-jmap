@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "README.md updated:\n- TasksBackend trait code block: caller: &Self::CallerCtx parameter added to create_object, update_object, destroy_object, task_list_has_tasks, update_task_per_user signatures.\n- update_task_per_user patch type fixed from serde_json::Value to PatchObject.\n- compute_task_utc_times draft citation: 'lines 739-772' \u2192 '\u00a74 (utcStart/utcDue paragraphs)'.\n- enforce_is_draft_atomically: added to trait block, with a 'How it works' subsection note that MemoryBackend now self-enforces (per JMAP-h47t.4).\n- New 'Cargo features' section documents 'memory' and 'realistic-demo-ids'.\n- Workspace-canonical 'Caller identity' contract referenced after the trait block.\n- Gotchas entries tightened.\nBead item 4 (taskListHasTasks plural\u2192singular sweep) was already covered by JMAP-h47t.1 in commit 51354c8.",
+  "closed_at": "2026-05-14T19:05:09Z",
+  "compaction_level": 0,
+  "content_hash": "5637525be94ea2453b77f98f8f00b224f96a9f747c8d21560adc1df46e71aa94",
+  "created_at": "2026-05-14T18:08:14Z",
+  "created_by": "Mark Atwood",
+  "description": "Three specific issues in crate-jmap-tasks-server/README.md:\n\n1. Six-section convention divergence: workspace AGENTS.md ('README convention') mandates exactly six top-level sections in this order: 'What it is', 'What it's for', 'How to use', 'How it works', 'Gotchas', 'References'. This README intersperses extra sections ('Registered methods', 'TasksBackend trait', 'CallerCtx', 'Capability URIs', 'Crate family') in positions that are valid per the convention ('between the six required sections'), but the 'TasksBackend trait' section is placed BEFORE 'How it works' even though it is a how-it-works artefact. Suggested reordering: Required \u2192 Required \u2192 'How to use' \u2192 'Registered methods' (extra) \u2192 'How it works' (with TasksBackend trait + CallerCtx + Capability URIs as subsections of How it works, or kept inline) \u2192 'Gotchas' \u2192 'References'.\n\n2. Trait signature in code-block is OUT OF DATE: lines 67-100 show the trait with arguments like '&self, account_id: &Id, ...' but the actual src/backend.rs:34-94 trait takes '&self, caller: &Self::CallerCtx, account_id: &Id, ...' (CallerCtx threaded through). After bd:JMAP-sc1b's CallerCtx propagation, README was not updated. A new contributor copying the README's pseudo-trait will type-mismatch immediately.\n\n3. Missing public-API doc: 'enforce_is_draft_atomically()' (src/backend.rs:128-139) is a public trait method \u2014 siblings' README should describe what flipping it on changes about handler behaviour. The 'memory' and 'realistic-demo-ids' cargo features are also not mentioned anywhere in README; a downstream user discovers them only by reading Cargo.toml.\n\n4. Wire-protocol literal 'taskListHasTasks' appears at lines 97, 143, 184 \u2014 when JMAP-h47t.1 is fixed, sweep these to 'taskListHasTask' as well.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README diverges from workspace six-section convention and shows wrong trait signature",
+  "updated_at": "2026-05-14T19:05:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:08:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "0d6bcbcf-9537-5828-bb2c-c18391abd7be",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T23:53:52Z",
+  "compaction_level": 0,
+  "content_hash": "8652dd33787e06eb333ab8ff4d90ac1e880f3c5580962499c8450ce2805315cc",
+  "created_at": "2026-05-14T23:08:45Z",
+  "created_by": "Mark Atwood",
+  "description": "ws/mod.rs:67-88 defines WsFrame::Unknown { type_name, raw: serde_json::Value }. The doc-comment at lines 75-86 explicitly warns 'DO NOT log this field verbatim. Future or extension JMAP WebSocket message types may carry credential-grade material \u2014 push verification codes (RFC 8887 \u00a77.2), federation handshake tokens, session-rotation challenges, etc. \u2014 and a malformed Response to a method like PushSubscription/get can echo a verificationCode back into this field. The enum derives Debug, so a {:?}-format of any WsFrame::Unknown writes this Value to the output stream.'\n\nBut the enum still derives Debug (line 53: #[derive(Debug, Clone, PartialEq)]), and there is no manual redacting impl. A contributor doing the natural Rust thing \u2014 derive Debug, use {:?} for diagnostics \u2014 leaks credential-grade data per the WARNING IN THE CRATE'S OWN DOC.\n\nThis is the workspace's 'Security testing' pattern #1 territory (per-type Debug redaction canary, per the workspace AGENTS.md): the type carries a credential under some failure mode, so Debug must redact OR the type must not derive Debug.\n\nOptions:\n1. Manual redacting Debug on WsFrame::Unknown that prints  for the raw field. Keeps {:?} useful for debugging while eliminating the leak class.\n2. Remove the raw field entirely; require callers who want it to call a separate fallible accessor that surfaces the credential warning at the type level.\n3. Wrap raw in a newtype with redacting Debug.\n\nThe doc-only guard is fragile: a future contributor adding tracing instrumentation will write tracing::warn!('unknown ws frame: {frame:?}') and leak the field, exactly the kind of #1 pattern that JMAP-sc1b.79/.98 set up regression tests for in other types but NOT for this one.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "WsFrame::Unknown.raw derives Debug despite credential-leak warning in doc \u2014 no manual redacting Debug",
+  "updated_at": "2026-05-14T23:53:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:08:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "5c9dac79-e35c-597f-b04f-b1e1720b8aa4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

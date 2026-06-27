@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.21",
+  "title": "ClientConfig public fields allow zero-body-size without constructor validation",
+  "description": "ClientConfig is #[non_exhaustive] with all public fields. The constructor (JmapClient::new) validates that each size field is >0 and request_timeout >0. However, because the fields are pub, a caller can construct a valid JmapClient, then clone it and mutate config fields to zero (e.g. config.max_call_body = 0) on the clone. The clone path bypasses all validation. The invariant 'all size fields >0' is enforced at construction but not maintained across clone. Additionally, request_timeout can be set to Duration::ZERO on a cloned config. A caller who does this will hit a panic or silent failure at the next call(). Fix: make fields pub(crate) and expose builder methods, or validate at use-site rather than only at construction.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:43Z",
+  "updated_at": "2026-04-30T00:52:51Z",
+  "closed_at": "2026-04-30T00:52:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:42"
+    }
+  ]
+}

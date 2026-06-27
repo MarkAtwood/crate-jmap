@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "2 Principal/set wiremock tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/principal_set_tests.rs (2 tests: destroy round-trip, create returns forbidden); clippy clean",
+  "closed_at": "2026-05-05T14:34:44Z",
+  "compaction_level": 0,
+  "content_hash": "0fbb7a985bd5067976f7dd9669fa2d6dfcaf51f38cc0443d5cc2fb8cd02d9e75",
+  "created_at": "2026-05-05T02:53:18Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create tests/principal_set.rs with 2 async wiremock tests. Oracle: RFC 9670 \u00a72.3, RFC 8620 \u00a75.3.\n\n**Tests:**\n1. principal_set_update_own_principal: mock returns SetResponse with updated[\"P105aga511jaa\"]; assert resp.new_state == \"s11\"; assert request body has update key and no create or destroy key.\n2. principal_set_destroy: mock returns destroyed [\"P999\"]; assert resp.destroyed == [\"P999\"]; assert request body has destroy [\"P999\"] and no create or update key.\n\n**Acceptance criteria:**\n- Both tests pass. Absence of create/update/destroy keys explicitly asserted.",
+  "ephemeral": 0,
+  "id": "JMAP-wwvy.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: Principal/set",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:53:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wwvy",
+      "id": "15a3f4ca-e48d-5ede-bc5b-da49305a2cfe",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:53:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wwvy.1",
+      "id": "ace96b21-74dd-55ae-8c6f-114bb803eef4",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

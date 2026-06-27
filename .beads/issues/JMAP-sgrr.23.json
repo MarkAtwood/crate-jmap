@@ -1,0 +1,41 @@
+{
+  "close_reason": "Moot after sgrr.4 dropped the JsContactId newtype (commit 6cf54bc). No type exists to add a validate() helper to. The 'character-set validation is the caller's responsibility' contract is now documented as a property of the bare-String approach in README.md Gotchas and on the per-field doc-comments.",
+  "closed_at": "2026-05-17T14:49:42Z",
+  "compaction_level": 0,
+  "content_hash": "d59a2400f61a9eeee31e7943ccb7acfb883b85547a0ab073a13ad89010ae64bc",
+  "created_at": "2026-05-15T03:42:40Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs:51-63 defines JsContactId with the doc-comment:\n\n  'A string of 1\u2013255 octets containing only base64url-safe characters\n   (A-Z, a-z, 0-9, -, _). JSContact Id values are NOT JMAP Id values:\n   validation of the character set is left to the caller because this\n   crate has no JMAP dependency.'\n\nThe contract is documented but the crate ships zero help for honouring it. A\ncaller building a JsContactId from untrusted input (e.g. a deserialized\nContactCard) must implement the regex / character-class check themselves to\ncatch values that exceed 255 octets or contain disallowed characters. Every\nconsumer ends up writing the same 10-line check.\n\nThe 'no JMAP dependency' rationale is sound for not importing jmap_types::Id \u2014\nbut a local fn validate(s: &str) -> Result<(), JsContactIdError> on this\ncrate is pure-Rust and adds no dependency. Likewise a TryFrom<String> /\nTryFrom<&str> impl that runs the check.\n\nCurrent From<String> and From<&str> impls accept any string silently, so a\ncaller cannot rely on JsContactId carrying a valid value at the type level.\nThe newtype is decorative.\n\nFix: add either a validate() inherent method or TryFrom impls (or both \u2014 TryFrom\nfor strict construction, From for unchecked, with a clear naming convention).\n\nThis makes the validation 'left to the caller' line in the doc-comment a\ngenuine contract instead of a hand-wave.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JsContactId character-set validation deferred to caller but no validate() helper provided",
+  "updated_at": "2026-05-17T14:49:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:42:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "01f71c0f-3165-5119-a0bb-f2a4f2c15a54",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-14T20:56:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr.4",
+      "id": "2e381a7c-9a80-532e-854b-f824ef73133a",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

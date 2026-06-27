@@ -1,0 +1,33 @@
+{
+  "close_reason": "Destroy re-fetch comment replaced with RFC 8620 \u00a75.3 sequential-operation rationale as specified",
+  "closed_at": "2026-05-02T22:33:26Z",
+  "compaction_level": 0,
+  "content_hash": "601d3e361738ca47c3724c2e7dba0c650708d98c7ac0aeb5ab5372ea7d516224",
+  "created_at": "2026-05-02T19:18:59Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_mailbox_set, the destroy loop uses a second get_objects call (mailboxes_after_mutations) rather than the pre-mutation all_mailboxes snapshot for the child-mailbox check. A contributor might 'optimize' this to use the existing snapshot. But RFC 8620 \u00a75.3 requires create/update/destroy to operate in sequence, so a mailbox created earlier in the same request could be a child of the mailbox being destroyed. Using the pre-mutation snapshot would miss that child and allow destroying a non-empty parent, corrupting the hierarchy. The second fetch is correct and intentional.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/set destroy re-fetches mailboxes after create/update to catch same-request newly-created children",
+  "updated_at": "2026-05-02T22:33:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "96211eb3-19ba-5123-8f3a-230ecbc41a64",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

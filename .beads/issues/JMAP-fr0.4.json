@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Already fixed: comment at email.rs:745 already says 'saturating_neg() avoids i64::MIN overflow'.",
+  "closed_at": "2026-05-04T15:42:23Z",
+  "compaction_level": 0,
+  "content_hash": "f4b940e71181f0b65cb515970c9566b17904b6567ec9d998983f225738c4a194",
+  "created_at": "2026-05-02T05:11:44Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_email_query (email.rs:687), negative position is handled as: let neg = position.saturating_neg() as usize. Using saturating_neg() prevents overflow on position == i64::MIN (the only value that overflows neg()), which would produce an incorrect large usize without the saturation. A future contributor might simplify to (-position) as usize, which would overflow silently in release builds. The saturating approach is correct and should be preserved.",
+  "ephemeral": 0,
+  "id": "JMAP-fr0.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/query negative position uses saturating_neg() to avoid i64::MIN overflow",
+  "updated_at": "2026-05-04T15:42:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T22:11:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-fr0",
+      "id": "b192da81-da4c-55b5-9efd-6483327edc77",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

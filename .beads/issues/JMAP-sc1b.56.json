@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260510T225341Z-3738080",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T23:23:29Z",
+  "compaction_level": 0,
+  "content_hash": "696f5a33402280871f7863fd995e3e07df0e5084890a371bbefee44ab308671a",
+  "created_at": "2026-05-07T20:43:28Z",
+  "created_by": "Mark Atwood",
+  "description": "Public error types missing #[non_exhaustive]:\n\nDONE in commit (above):\n- KeywordError (jmap-mail-types)\n- ValidationError (jmap-types)  \n- RequestError (jmap-server)\n\nDEFERRED \u2014 needs non-mechanical work:\n- BackendSetError (jmap-server) \u2014 adding #[non_exhaustive] caused 83 E0004 errors at exhaustive match sites across all 7 server crates. Each site needs an _ wildcard arm with appropriate fallback behavior (typically 'unhandled error variant; map to JmapError::server_fail'). Doable but requires per-site judgment.\n\nReduce priority to P3 since the most critical greenfield ones are fixed and only foundation-crate (jmap-server) non-exhaustiveness remains. Cookie-cutter coordination applies: BackendSetError flows through every extension-server sibling, so adding #[non_exhaustive] should land in one sweep across all 7 server crates.\n",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.56",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Audit 2026-05-10: status of the 5 listed error types verified.\n\n- AvailabilityError (jmap-calendars-server/src/backend.rs:541): HAS #[non_exhaustive] \u2713\n- BackendSetError (jmap-server/src/backend.rs:274): missing \u2014 see below\n- KeywordError (jmap-mail-types/src/keyword.rs:26): HAS #[non_exhaustive] \u2713\n- ValidationError (jmap-types/src/id.rs:9): HAS #[non_exhaustive] \u2713\n- RequestError (jmap-server/src/response.rs:86): HAS #[non_exhaustive] \u2713\n\nOnly BackendSetError remains. The bead body already documents that this one needs 83 exhaustive-match call sites updated across all 7 server crates with per-site judgment on the fallback arm, and that the cookie-cutter rule requires landing it in one sweep.\n\nThis bead is the right place to track that sweep, so leaving it open. The other 4 error types are done.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: AvailabilityError, BackendSetError, KeywordError, ValidationError, RequestError lack #[non_exhaustive]",
+  "updated_at": "2026-05-10T23:23:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "7bb993d8-9f9f-52f2-90d7-6acaa3b71da3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

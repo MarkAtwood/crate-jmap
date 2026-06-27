@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Foundation landed: enforce_max_objects_in_set helper (helpers.rs) + JmapBackend::max_objects_in_set default-impl method (backend.rs), re-exported at lib.rs surface. 7 new tests pass (6 helper + 1 trait default). cargo test/clippy/doc all clean for jmap-server. Workspace cargo test --workspace also clean; no extension regression from the added default-impl method. Pre-existing unrelated rustdoc errors in jmap-sharing-server filed as bd:JMAP-ha4n. Committed in f502c89.",
+  "closed_at": "2026-05-16T19:21:36Z",
+  "compaction_level": 0,
+  "content_hash": "1996a898059a83c7b1df7ab1af134c2c596b1610f6748f4aa1a7672ff217a653",
+  "created_at": "2026-05-16T19:13:37Z",
+  "created_by": "Mark Atwood",
+  "description": "Foundation half of bd:JMAP-ayoz.41's workspace cookie-cut for RFC 8620 \u00a75.3 maxObjectsInSet enforcement.\n\n## Scope\n\nTwo additions to crate-jmap-server:\n\n### 1. JmapBackend::max_objects_in_set default method\n\nAdd a default-impl method to the JmapBackend supertrait (crate-jmap-server/src/backend.rs):\n\n```rust\n/// Maximum number of objects the server will accept in a single `/set` call\n/// (RFC 8620 \u00a75.3 `maxObjectsInSet`). Counts create + update + destroy entries.\n///\n/// Handlers MUST enforce this at the top of `handle_*_set` (typically via\n/// [`crate::helpers::enforce_max_objects_in_set`]) so a single batched call\n/// cannot drive O(M\u00b7N) work against an indexed store.\n///\n/// The default value `500` mirrors the testjig Session JSON advertised cap\n/// and matches the common Fastmail / Cyrus IMAP server defaults. Backends\n/// MAY override per account (Free vs Pro tier, multi-tenant SaaS, etc.);\n/// the `caller`/`account_id` args are passed even though the default impl\n/// ignores them so production backends can vary without an API break.\nfn max_objects_in_set(\n    &self,\n    caller: &Self::CallerCtx,\n    account_id: &jmap_types::Id,\n) -> u64 {\n    let _ = (caller, account_id);\n    500\n}\n```\n\nWhy on the foundation trait rather than per-extension XxxLimits struct: every extension *Backend supertraits JmapBackend, so one default impl covers all 8 extensions without per-crate boilerplate. Workspace AGENTS.md \"Backend caps and limits\" struct pattern is preferred for new extensions but introducing 7 new XxxLimits structs (sharing/tasks/contacts/filenode/metadata don't have one) is a separate workspace-architectural decision out of scope here.\n\n### 2. enforce_max_objects_in_set helper in helpers.rs\n\nAdd to crate-jmap-server/src/helpers.rs:\n\n```rust\n/// Enforce RFC 8620 \u00a75.3 `maxObjectsInSet` cap at the top of a `/set` handler.\n///\n/// Counts entries in the wire `create` (object), `update` (object), and\n/// `destroy` (array) arguments and returns `JmapError::limit(\"maxObjectsInSet\")`\n/// (which maps to HTTP 400 + wire `type: \"limit\"` per RFC 8620 \u00a73.6.1) if\n/// the total exceeds `max`.\n///\n/// Call at the top of every `handle_*_set` after `account_exists` but before\n/// any per-entry processing, so a request carrying a megabyte of `/set` ops\n/// is rejected before the handler touches the storage layer.\n///\n/// Non-object `create` / `update` and non-array `destroy` are tolerated (they\n/// count as 0) \u2014 wire shape validation belongs to the per-handler argument\n/// parsing.\npub fn enforce_max_objects_in_set(\n    args: &serde_json::Map<String, serde_json::Value>,\n    max: u64,\n) -> Result<(), JmapError> {\n    let count = args\n        .get(\"create\")\n        .and_then(|v| v.as_object())\n        .map_or(0u64, |m| m.len() as u64)\n        + args\n            .get(\"update\")\n            .and_then(|v| v.as_object())\n            .map_or(0u64, |m| m.len() as u64)\n        + args\n            .get(\"destroy\")\n            .and_then(|v| v.as_array())\n            .map_or(0u64, |a| a.len() as u64);\n    if count > max {\n        return Err(JmapError::limit(\"maxObjectsInSet\"));\n    }\n    Ok(())\n}\n```\n\nCasting `usize` to `u64` via `as` is fine here because both values are bounded by serde_json's body parse and JMAP `maxSizeRequest`; on 32-bit targets `usize` fits in `u64` losslessly.\n\n## Tests\n\nIn crate-jmap-server/src/helpers.rs `#[cfg(test)] mod tests`:\n\n1. `enforce_max_objects_in_set_zero_args_is_ok` \u2014 empty args returns Ok.\n2. `enforce_max_objects_in_set_at_limit_is_ok` \u2014 exact boundary (5 + 5 + 5 = 15 with max=15) returns Ok.\n3. `enforce_max_objects_in_set_over_limit_returns_limit_error` \u2014 (5 + 5 + 6 = 16 with max=15) returns Err matching `JmapError::limit(\"maxObjectsInSet\")`. Independent oracle: hand-built JmapError with error_type=\"limit\" + description=\"maxObjectsInSet\".\n4. `enforce_max_objects_in_set_ignores_non_object_create` \u2014 `create: null` is tolerated (counts as 0).\n5. `enforce_max_objects_in_set_ignores_non_array_destroy` \u2014 `destroy: \"not-an-array\"` is tolerated (counts as 0).\n6. `enforce_max_objects_in_set_sums_all_three` \u2014 verifies the addition includes all three sources.\n\nIn crate-jmap-server/src/backend.rs `#[cfg(test)] mod tests`:\n\n7. `jmap_backend_max_objects_in_set_default_is_500` \u2014 construct a minimal test impl of JmapBackend and assert default returns 500.\n\n## Acceptance\n\n- `cargo fmt --all` clean.\n- `cargo clippy -p jmap-server -- -D warnings` clean.\n- `cargo test -p jmap-server` passes including the 7 new tests.\n- `RUSTDOCFLAGS=\"-D warnings\" cargo doc -p jmap-server --no-deps` clean.\n- `cargo test --workspace` still passes \u2014 every extension server inherits the default-500 cap. Existing tests that batch >500 /set entries (if any) need investigation; current tests are small-batch.\n\n## Downstream\n\nThis bead unblocks .41.2 through .41.9 (per-extension wire-up). All blocked-on this bead.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.41.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Foundation: enforce_max_objects_in_set helper in jmap-server + max_objects_in_set method on JmapBackend trait",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T12:13:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.41",
+      "id": "94414a04-4d79-5ade-8c7d-0f67430db0a0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-isx.6",
+  "title": "Email/query collapseThreads=true: negative position clamped to 0, not treated as relative-to-end",
+  "description": "email.rs:187: let start = position.max(0) as usize; \u2014 negative positions are silently converted to 0. RFC 8620 \u00a75.5 says negative position means 'count from the end of the result set'. The non-collapseThreads path delegates the raw position value to the backend (line 202), so the two paths behave differently for negative positions. A client using negative position with collapseThreads=true gets position 0 instead of the intended tail position. Fix: apply the same RFC 8620 negative-position semantics as Mailbox/query does (mailbox.rs:213-218).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:20:07Z",
+  "updated_at": "2026-04-30T23:26:54Z",
+  "closed_at": "2026-04-30T23:26:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-isx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:20:07"
+    }
+  ]
+}

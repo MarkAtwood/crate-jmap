@@ -1,0 +1,33 @@
+{
+  "close_reason": "Reshaped MdnSendResult and MdnParseResult to follow the canonical workspace pattern for #[non_exhaustive] types: derive Default; keep new(current_fields) stable; add with_<field>() builder setters per field; rustdoc 'Field-addition policy' section documents the non-breaking-evolution contract (future fields default via Default and use with_* setters, never extend new). Added 6 unit tests (default-is-empty + new-populates + with_setters per type). Quality gates: fmt + clippy --all-features + test --all-features + doc --all-features all clean.\n\nDid NOT 'drop new' as the bead text suggested. The workspace canonical pattern (jmap-chat-server::ChatLimits) keeps new(positional_required_fields) stable and grows new fields via with_* setters; this avoids breaking existing internal call sites and matches the precedent. Mdn doc cites the ChatLimits precedent.\n\nCookie-cutter propagation: filed JMAP-q2wa.25 for the sibling extension-server Result types (CalendarEventParseResult / SetDefaultResult / OpResult) \u2014 they have the same shape and the same fragility; the canonical-template propagation rule requires the same fix there.",
+  "closed_at": "2026-05-17T06:03:23Z",
+  "compaction_level": 0,
+  "content_hash": "8c3aa232e7c37db9bdb2186f5f619b195b95ce7f1b612a9b82d556d9e5fa82d0",
+  "created_at": "2026-05-14T16:31:33Z",
+  "created_by": "Mark Atwood",
+  "description": "src/mdn.rs:21-39 and 42-65 declare:\n\n```\n#[non_exhaustive]\n#[derive(Debug)]\npub struct MdnSendResult {\n    pub sent: HashMap<String, Mdn>,\n    pub not_sent: HashMap<String, SetError>,\n}\n\nimpl MdnSendResult {\n    pub fn new(sent: HashMap<String, Mdn>, not_sent: HashMap<String, SetError>) -> Self {\n        Self { sent, not_sent }\n    }\n}\n```\n\n(Same pattern for `MdnParseResult` with three fields.)\n\nThe `#[non_exhaustive]` attribute is intended to make adding a new field a non-breaking change. The `new` constructor doc explicitly cites this: \"Required because the struct is `#[non_exhaustive]` \u2014 external crates cannot use struct-literal syntax.\"\n\nBut the `new(sent, not_sent)` signature takes every current field positionally. Adding a new field `pub forwarded: HashMap<...>` requires either:\n- Adding it as a fourth positional arg to `new`, **breaking every existing caller** \u2014 defeating the `#[non_exhaustive]` forward-compat goal.\n- Adding a separate `new_with_forwarded(...)` or builder method \u2014 leaving `new(sent, not_sent)` to implicitly default the new field, which is fine if `HashMap::default()` is acceptable.\n\nWorkspace policy (AGENTS.md \"Extras-preservation policy\") mandates `#[non_exhaustive]` for forward-compat on wire types, but does not address constructor shape. The general Rust idiom for non_exhaustive-with-constructor is one of:\n\n1. **`Default` + struct-update syntax via a method:**\n```\nimpl MdnSendResult {\n    pub fn empty() -> Self { Self::default() }\n    pub fn with_sent(mut self, sent: HashMap<String, Mdn>) -> Self { self.sent = sent; self }\n}\n```\n\n2. **Builder:**\n```\nimpl MdnSendResult {\n    pub fn builder() -> MdnSendResultBuilder { ... }\n}\n```\n\n3. **`new(required_field)` only:** if there is a single required field plus all-default extras.\n\nThe current shape (`new` taking all current fields) is the least flexible: every field addition is a breaking change to `new`. The internal mail-server caller (memory.rs:2492 `MdnSendResult::new(sent, not_sent)`) can be updated in lockstep, but third-party `MdnBackend` impls cannot.\n\nPriority P2 because: this is a 1.0-era issue. Pre-1.0 the crate already has `version = \"0.1.2\"` and minor breaks are tolerated. But the workspace canonical-template posture means this pattern will get copied to siblings if not corrected here first.\n\nSame critique applies to MdnParseResult::new(parsed, not_parsable, not_found). Suggested fix: derive `Default`, drop `new`, add builder-style with-methods (`with_sent`, `with_not_sent`).",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MdnSendResult::new / MdnParseResult::new defeat #[non_exhaustive] forward-compat",
+  "updated_at": "2026-05-17T06:03:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:31:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "50436e57-f365-5621-997e-01f448b2f4d0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

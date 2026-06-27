@@ -1,0 +1,33 @@
+{
+  "close_reason": "This pattern (get_state before/after update loop) is used identically in handle_submission_set and handle_email_set. It is a general JMAP server limitation, not a new defect introduced by MDN.",
+  "closed_at": "2026-05-03T13:02:45Z",
+  "compaction_level": 0,
+  "content_hash": "39e04f0030f18ae24cdbfe638246adb4ace591863631f273d5f4e8b9a84c0375",
+  "created_at": "2026-05-03T12:59:57Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_mdn_send step 7, email_old_state is fetched, then emails are updated one at a time in a loop, then email_new_state is fetched. In a concurrent server, another request modifying emails between get_state and the first update will produce a stale oldState in the Email/set response (it will include changes from the concurrent request). The JMAP state machine requires oldState to be the state before the MDN-triggered updates began. Trigger: two concurrent JMAP requests for the same account, one is MDN/send, the other updates any email. Bad behavior: Email/set companion response has wrong oldState, breaking client sync.",
+  "ephemeral": 0,
+  "id": "JMAP-7a8b.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_mdn_send step 7 races on Email state \u2014 two get_state calls bracket per-entry updates",
+  "updated_at": "2026-05-03T13:02:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T05:59:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7a8b",
+      "id": "0c70032b-350b-5ee4-90ed-d826f840350b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

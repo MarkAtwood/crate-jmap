@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1c9147d2a691aa356af08b28bfe07a6cedcd4734b5c7218e2697e5091f0dc9fe",
+  "created_at": "2026-05-15T02:10:13Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/metadata.rs \u2014 all five 'async fn' methods (metadata_get, metadata_changes, metadata_set, metadata_query, metadata_query_changes) return futures whose Send/Sync bounds depend on the inner JmapClient. Neither the method doc-comments nor the SessionClient doc-comment state the contract:\n\n- Are the returned futures Send? A caller using tokio::spawn / smol::spawn needs Send.\n- Is SessionClient itself Send + Sync? If the inner JmapClient holds a non-Send field (e.g. an Rc, a !Send transport), then SessionClient is not Send either.\n\nThe current implementation appears to be Send + Sync (HTTP clients are typically Arc-based), but the contract is not promised by the public API. A future jmap-base-client revision that adds a !Send field (debug counters, single-threaded transport) would silently break every multi-threaded caller \u2014 and the contract did not preclude it.\n\nThis is a concurrency-contract gap per the api-contract,underspecified checklist. Two fixes:\n\n1. Document in the SessionClient doc-comment that SessionClient is Send + Sync (and assert via 'fn assert_send_sync<T: Send + Sync>() {} assert_send_sync::<SessionClient>();' in a #[test]).\n2. Document on each async fn that the returned future is Send when \u2026\n\nRecommendation: (1). Pin the contract via a static assertion test, AND state it in the doc-comment. The static assertion makes a future regression (someone makes JmapClient !Send) a compile error in this crate instead of a silent contract violation that only manifests for downstream multi-task callers.\n\nWorkspace-wide: same gap exists on canonical mail-client SessionClient. Propagate.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "blocked",
+  "timeout_ns": 0,
+  "title": "Async method Send/Sync contract not documented",
+  "updated_at": "2026-05-15T02:37:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:10:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "8d4c3119-731f-5205-92a5-cd2c0023dee0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

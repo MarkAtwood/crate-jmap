@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T23:55:14Z",
+  "compaction_level": 0,
+  "content_hash": "ffb370e2210aa043bfc63cb293bc12a75445b8c3c2717aa7d4b9eb21771eabb1",
+  "created_at": "2026-05-14T23:08:23Z",
+  "created_by": "Mark Atwood",
+  "description": "README.md lines 548-563 documents the ClientError variants payload types as:\n- Http(reqwest::Error)\n- WebSocket(tungstenite::Error)\n- InvalidHeaderValue (description: 'Non-printable-ASCII bytes in a credential string')\n\nActual source (error.rs:230, 334, 236) is:\n- Http(HttpError)\n- WebSocket(WebSocketError)\n- InvalidHeaderValue(InvalidHeaderValueError)\n\nThe README is documenting the pre-JMAP-6lsm.22 shape that was explicitly removed when the wrapper-types abstraction landed. This contradicts:\n1. The crate AGENTS.md lines 28-32: 'reqwest and tokio-tungstenite are private dependencies after the SemVer-isolation work in JMAP-6lsm.22 \u2014 HttpError, WebSocketError, and InvalidHeaderValueError wrap them so the transport is replaceable without breaking downstream.'\n2. The error.rs:7-13 SemVer policy: 'reqwest and tokio-tungstenite are private dependencies of this crate. Their types do not appear in any public function signature, variant payload, or From impl.'\n\nA downstream consumer reading the README and writing 'match err { ClientError::Http(reqwest_err) => reqwest_err.is_timeout(), ... }' will not compile. The README is teaching the wrong API shape \u2014 and the SemVer-isolation work is fragile against this kind of doc drift (a future reader may 'fix' the wrapper types thinking they're a doc bug rather than an intentional abstraction).\n\nFix: update the README error table to show the wrapper-type payloads and rephrase the InvalidHeaderValue description to match the actual generic-header-value scope (not credential-string-only).",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README error variants table contradicts SemVer-isolation: documents Http(reqwest::Error) instead of Http(HttpError)",
+  "updated_at": "2026-05-14T23:55:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:08:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "fe4c11a8-149c-533a-a039-91b5f1bbe2d5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "78ccd5995ef46e2cb0ea9c26a9922356b9f3a672f6042ed5e198ff73afb63b6a",
+  "created_at": "2026-05-17T22:02:18Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**:\n- crate-jmap-calendars-types/src/capability.rs:49 \u2014 \\`pub min_date_time: UTCDate\\`\n- crate-jmap-calendars-types/src/capability.rs:53 \u2014 \\`pub max_date_time: UTCDate\\`\n- crate-jmap-tasks-types/src/capability.rs:52 \u2014 \\`pub min_date_time: String\\`\n- crate-jmap-tasks-types/src/capability.rs:55 \u2014 \\`pub max_date_time: String\\`\n\n**Divergence**: \\`CalendarsAccountCapability\\` and \\`TasksAccountCapability\\` both expose \\`minDateTime\\` and \\`maxDateTime\\` on the wire (per draft-ietf-jmap-calendars and draft-ietf-jmap-tasks). The two sibling type crates model the same wire shape with different Rust types:\n- calendars uses the workspace newtype \\`jmap_types::UTCDate\\` (presumably wrapping a parsed/validated ISO 8601 datetime)\n- tasks uses bare \\`String\\`\n\n**What goes wrong**:\n1. A consumer porting code between tasks and calendars must convert between \\`String\\` and \\`UTCDate\\` \u2014 \\`UTCDate::parse(&task_cap.min_date_time)?\\` on one side and \\`cal_cap.min_date_time.to_string()\\` on the other. No semantic reason for the asymmetry.\n2. tasks loses the type-safety the workspace already paid for: \\`UTCDate\\` validates on parse; \\`String\\` accepts \\`\"not a date\"\\`.\n3. Future extensions modelling datetime caps (e.g. a future scheduling extension) don't know which precedent to copy.\n\n**Fix**: tasks-types should change \\`min_date_time\\` and \\`max_date_time\\` from \\`String\\` to \\`UTCDate\\`. This is a breaking change for any direct consumer of \\`TasksAccountCapability\\` (likely zero today \u2014 the crate is at v0.1.1 pre-release). The serde wire format is unchanged if \\`UTCDate\\` serializes as a string per workspace convention.\n\n**Related**: tasks-types also exposes \\`TasksRecurrencesAccountCapability.max_expanded_query_duration: String\\` \u2014 this one is RFC 3339 duration (e.g. \\`PT5M\\`), not a datetime, so \\`String\\` is correct (no workspace newtype for ISO 8601 durations exists). Calendars-types uses the same \\`String\\` for its analogous \\`max_expanded_query_duration\\` \u2014 that one is consistent.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "tasks-types `min_date_time`/`max_date_time` are `String` while calendars-types siblings are `UTCDate` \u2014 same RFC field, different Rust type",
+  "updated_at": "2026-05-17T22:09:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:02:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "bdb207d9-3007-5c23-bcce-92de96e5220e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

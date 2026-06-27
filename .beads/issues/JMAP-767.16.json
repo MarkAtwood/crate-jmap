@@ -1,0 +1,33 @@
+{
+  "close_reason": "reviewed pass 23: loop converged; no P0/P1/P2 found in current code",
+  "closed_at": "2026-05-01T12:39:55Z",
+  "compaction_level": 0,
+  "content_hash": "b8d7375af3544982ce90dc3fee7ada85a1e6488edd006ca9258b3d402df8f345",
+  "created_at": "2026-05-01T11:50:15Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_mailbox_set (mailbox.rs:456-458 and 560-562), the role-uniqueness check searches 'created' (a serde_json::Map<String, Value>) for any entry whose 'role' field matches. This traverses the serialized mailbox objects with Value::get(\"role\") string comparison. If the MailboxRole serialization form changes (e.g. becomes a tagged enum), this check will silently break. A more robust approach is a separate HashSet<String> tracking roles assigned so far in this request (analogous to roles_updated_this_request which already exists for updates). The discrepancy between the two approaches in the same function is a future maintenance footgun.",
+  "ephemeral": 0,
+  "id": "JMAP-767.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/set role uniqueness: searching 'created' JSON map for role is fragile",
+  "updated_at": "2026-05-01T12:39:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:50:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "f3b6fae3-bb84-52c3-9be7-e551ee32156f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

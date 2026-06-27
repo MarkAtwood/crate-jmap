@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-16T01:22:36Z",
+  "compaction_level": 0,
+  "content_hash": "f1449de0c79536e2f64e3fec8f257549a00ce053d2dc8f848fadcec81d57cdc0",
+  "created_at": "2026-05-15T20:14:20Z",
+  "created_by": "Mark Atwood",
+  "description": "Companion to bd:JMAP-ic0j.8, applied to contacts-server.\n\n\\`crate-jmap-contacts-server/src/memory.rs\\` carries the exact same full-rescan pattern that JMAP-ic0j.8 just removed from calendars-server:\n\n- Line 201: \\`fn recompute_address_books_with_contents(&mut self, account_id: &str)\\` \u2014 scans all ContactCard objects per mutation.\n- Callers (full-rescan after every relevant mutation):\n  - Line 274: seed_object\n  - Line 755: create_object\n  - Line 848: update_object\n  - Line 878: destroy_object\n  - Line 939: copy_object (the copy_email-analog for ContactCard)\n\nFive call sites; same O(N) per mutation, O(N\u00b2) ingest cost as calendars-server had.\n\nFix: mirror JMAP-ic0j.8's reverse-index counter approach:\n- Replace \\`address_books_with_contents: HashSet<Id>\\` with \\`address_book_card_counts: HashMap<Id, u32>\\`.\n- Add \\`apply_contact_card_index_delta(&mut self, account_id, old, new)\\` that diffs the \\`addressBookIds\\` sets.\n- For seed_object: keep full rescan (no old state).\n- For create / update / destroy / copy: extract old + new from the function-local JSON and call the delta helper.\n\nPer workspace AGENTS.md \"Canonical Templates\", the canonical jmap-mail-server doesn't have this pattern at all (different domain \u2014 no per-mailbox reverse index). Calendars and contacts share the structure because Calendar/Event and AddressBook/ContactCard have the same containment shape. Calendars-server now has the canonical fix for this contained-object-counter pattern in the extension-server family; contacts-server should follow.\n\nTasks-server's memory.rs line 139 references \"the previous full-scan recompute was O(N)\" \u2014 it already has the fix. Verify by inspection (not in scope here) that tasks-server's approach matches calendars-server's; if it doesn't, a third bead handles the alignment.\n\nP3 \u2014 same efficiency concern as JMAP-ic0j.8, not present-day correctness. Filed promptly so the workspace doesn't drift further.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.74",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mirror JMAP-ic0j.8 in contacts-server: recompute_address_books_with_contents is O(N) per mutation",
+  "updated_at": "2026-05-16T01:22:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:14:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "58b543ec-5d88-54da-96f1-9f8c5415108f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

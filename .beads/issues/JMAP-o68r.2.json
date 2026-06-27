@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T00:17:26Z",
+  "compaction_level": 0,
+  "content_hash": "533bcc608a6ad787ffcce41c93c96eecead8ee6c825fddb0adc08c1371993eb1",
+  "created_at": "2026-05-03T00:09:55Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mdn_send does not CRLF-check the items in mdn.error (Option<Vec<String>>). RFC 8098 defines an Error: header field that backends would populate from Mdn.error. A client supplying CR or LF in any error string bypasses the handler's injection guard. Same vulnerability class as the original_recipient omission (JMAP-o68r.1). The fix is to add a loop over mdn.error items similar to the extension_fields loop: if let Some(ref errors) = mdn.error { for e in errors { if \\!check_no_crlf(e) { crlf_bad = true; break; } } }. Trigger: MDN/send with error item containing \\r\\n passed to a backend that builds Error: headers.",
+  "ephemeral": 0,
+  "id": "JMAP-o68r.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Missing CRLF check on error Vec<String> items in handle_mdn_send",
+  "updated_at": "2026-05-03T00:17:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:09:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o68r",
+      "id": "69ef1980-8ceb-5ef3-84e8-7d2e621c1b28",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T01:49:02Z",
+  "id": "019e2e78-fce5-78b0-a1fc-5b58c614edfb",
+  "issue_id": "JMAP-26di.6",
+  "text": "Decomposed into 10 per-method-family children (.6.1 ChatContact, .6.2 CustomEmoji, .6.3 Quota, .6.4 Blob, .6.5 SpaceBan, .6.6 SpaceInvite, .6.7 ReadPosition, .6.8 PresenceStatus, .6.9 PushSubscription, .6.10 grab-bag for smaller gaps in existing files). Helpers from bd:JMAP-26di.11 (closed) are available for all children \u2014 see crate-jmap-chat-client/tests/helpers.rs. Each child claimable independently; epic closes when all 10 children close. Releasing parent claim now so children surface on the ready frontier."
+}

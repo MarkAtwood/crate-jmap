@@ -1,0 +1,33 @@
+{
+  "close_reason": "Won't fix as filed \u2014 the text blocks in tasks-types and calendars-types are intentional crate-family ASCII tree diagrams, not failed doctests. Adding actual rust example doctests is a separate concern, partially overlapping with JMAP-sc1b.22 (client crates with no lib.rs doctest).",
+  "closed_at": "2026-05-07T21:49:00Z",
+  "compaction_level": 0,
+  "content_hash": "8a172e74b4bc1d1db40d817e6649010c85d44b2f96a6430565079ba7063d610d",
+  "created_at": "2026-05-07T20:29:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Type-crate doc-test inconsistency:\n\n| Crate | lib.rs example fence |\n|---|---|\n| jmap-types | rust |\n| jmap-mail-types | rust |\n| jmap-chat-types | rust |\n| jmap-contacts-types | rust |\n| jmap-sharing-types | rust |\n| jmap-tasks-types | text |\n| jmap-calendars-types | text |\n| jmap-filenode-types | (no example) |\n\n`text` blocks are prose; they're not compiled or run. Either upgrade tasks-types and calendars-types to runnable rust examples, or align the others down to text. Inconsistency is the issue.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: tasks-types and calendars-types use `text` blocks in lib.rs instead of `rust`",
+  "updated_at": "2026-05-07T21:49:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "30dd9863-2439-51af-95eb-a5eb95679013",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

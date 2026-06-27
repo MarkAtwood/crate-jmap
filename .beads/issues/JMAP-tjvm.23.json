@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Rewrote the misleading 'server returns all' /get docstring across 16 sites in 7 extension-client crates: mail (5: email/mailbox/identity/submission/thread), chat (2: chat/space), tasks (3: task_list/task/task_notification), contacts (2: addressbook/card), filenode (1: filenode), sharing (2: notification/principal), metadata (1: metadata, with the wrapped-line case handled separately). Calendars-client also has /get methods but its existing docstrings already use different wording ('Pass ids: None to fetch all calendars.') that didn't match the pattern; left untouched (not the same gap).\n\nNew docstring: 'If `ids` is `None`, the server returns all <type> for the account, SUBJECT TO the server's `maxObjectsInGet` cap (RFC 8620 \u00a75.1). For production use, scope the result set via the corresponding /query method first and pass explicit ids here to avoid `requestTooLarge` errors when the account holds more objects than the cap.'\n\nWorkspace canonical-template propagation rule followed: change applied to all extension-client crates in the same pass. Bead body did not explicitly request mail-client first, but the change is symmetric across all crates so order doesn't matter. Doc-only, no behavior change.",
+  "closed_at": "2026-05-17T14:14:44Z",
+  "compaction_level": 0,
+  "content_hash": "0b2d381423856b949f7b2fd02d9e2cd32d831b15561c6275dd7ed2aaeba4041d",
+  "created_at": "2026-05-15T01:53:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Six /get methods document the same misleading \"fetch all\" contract:\n\n  email.rs:23      \"If \\`ids\\` is \\`None\\`, the server returns all Emails for the account.\"\n  mailbox.rs:22    \"If \\`ids\\` is \\`None\\`, the server returns all Mailboxes for the account.\"\n  thread.rs:18     \"If \\`ids\\` is \\`None\\`, the server returns all Threads for the account.\"\n  identity.rs:20   \"If \\`ids\\` is \\`None\\`, the server returns all Identities for the account.\"\n  submission.rs:31 \"If \\`ids\\` is \\`None\\`, the server returns all submissions for the account.\"\n\nRFC 8620 \u00a75.1 (rfc8620.txt around line 1750-1760) defines the semantics:\n\n  \"ids: Id[]|null\n      The ids of the Foo objects to return. If null, then ALL records of\n      the data type are returned, if this is supported for that data type\n      AND THE NUMBER OF RECORDS DOES NOT EXCEED THE maxObjectsInGet LIMIT\"\n\nTwo contract gaps in the documentation:\n\n  1. The server MAY refuse the fetch-all request. RFC 8620 \u00a75.1 reserves this as a server-supportability question. The method may return an error response with code \"requestTooLarge\" or similar.\n\n  2. The maxObjectsInGet cap is real and varies per server. A small/dev server may have maxObjectsInGet=100; a production server may have it at 1000 or 10000. Asking for \"all Emails\" on a mailbox with 50k messages WILL fail on most spec-conformant servers.\n\nThe docstrings as written suggest \"fetch all\" is a feature callers can rely on. In practice it is a server-discretion fallback that callers should treat as a probe at best.\n\nRecommendation: rewrite each docstring to read:\n\n  \"If `ids` is `None`, the server returns all Foo objects for the account,\n   SUBJECT TO the server's maxObjectsInGet cap (RFC 8620 \u00a75.1). For\n   production use, scope via /query first and pass the result ids\n   explicitly to avoid 'requestTooLarge' errors.\"\n\nApply across all six methods in this crate plus the six sibling extension-client crates (canonical-template propagation, ~30+ methods total).\n\nPriority: P3 because it's purely doc, not behaviour. But still a real contract gap \u2014 a caller writing `email_get(None, None, None)` against a real-world server will probably hit it in their first integration test.\n\nMark says NO HUMAN \u2014 Recommendation is clear; this is a docstring rewrite, no design decision required.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "/get methods with ids=None document 'returns all' but RFC 8620 \u00a75.1 allows server to refuse",
+  "updated_at": "2026-05-17T14:14:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:53:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "77c6d9b0-96b2-52d5-8ca7-38e27bb00a21",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

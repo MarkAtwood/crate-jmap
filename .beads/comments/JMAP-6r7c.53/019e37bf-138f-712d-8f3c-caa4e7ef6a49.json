@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T21:02:10Z",
+  "id": "019e37bf-138f-712d-8f3c-caa4e7ef6a49",
+  "issue_id": "JMAP-6r7c.53",
+  "text": "Reparented under JMAP-prpm (jmap-base-client 0.2.0 coordinated minor bump umbrella). The dep on JMAP-6r7c.48 already links this to the typed-Sha256 reshape; reparenting makes the umbrella-grouping explicit. This follow-up cleanup (delete is_valid_sha256_hex helper, remove to_ascii_lowercase normalize step, drop InvalidArgument('expected_sha256 is not 64-char hex') branch) lands in the same 0.2.0 release as .48."
+}

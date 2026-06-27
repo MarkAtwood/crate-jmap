@@ -1,0 +1,33 @@
+{
+  "close_reason": "Removed redundant id re-injection after create_object in identity.rs; create_object contract guarantees id is set",
+  "closed_at": "2026-05-01T16:13:31Z",
+  "compaction_level": 0,
+  "content_hash": "75f068d3f60188bfe2a4412e5097f9999a8f963b9f80746b6bb524bc14d41749",
+  "created_at": "2026-05-01T15:42:08Z",
+  "created_by": "Mark Atwood",
+  "description": "identity.rs:216-227: the handler serializes the full created_obj (which already has the correct server-assigned id from the backend), then unconditionally mutates the JSON to insert the id again. The second insertion is redundant \u2014 the id is already present and correct. This looks like a bug workaround that was never removed. If it IS needed (e.g. if the backend could return an object with a placeholder id), that constraint should be documented. Otherwise delete the injection block and add a test that verifies the id is correct in the response.",
+  "ephemeral": 0,
+  "id": "JMAP-ptl.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Identity/set create: redundant id injection after full-object serialization",
+  "updated_at": "2026-05-01T16:13:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:42:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ptl",
+      "id": "ba03ed92-c858-5b5c-a26e-4c73731fc243",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

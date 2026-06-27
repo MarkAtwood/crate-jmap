@@ -1,0 +1,33 @@
+{
+  "close_reason": "Duplicate of JMAP-qz9v.56 (closed 0a1e31c). Both beads point at the same test (tests/contacts_tests.rs:228-232) with the same recommendation. JMAP-qz9v.56 was filed later in the same review and got picked up first; the err_str.contains(...) Debug-substring pattern was replaced with err.error_type.as_str() == 'accountNotFound'. Verified: no err_str or format!(\"{err:?}\") pattern remains in tests/contacts_tests.rs.",
+  "closed_at": "2026-05-18T03:02:17Z",
+  "compaction_level": 0,
+  "content_hash": "308b3c5553766f9e664ceb9e30be46e5e60e87afe0b679acb51c7b0a8d5abe98",
+  "created_at": "2026-05-14T19:22:41Z",
+  "created_by": "Mark Atwood",
+  "description": "What is unclear and for whom: at tests/contacts_tests.rs:228-232, the test does:\n\n  let err_str = format!('{err:?}');\n  assert!(\n      err_str.contains('accountNotFound') || err_str.contains('AccountNotFound'),\n      'must be accountNotFound: {err_str}'\n  );\n\nThis is matching against the Debug representation of JmapError, which is an implementation detail of the type. Both casing forms are accepted as a hedge against future Debug impl changes. That hedge itself is the smell: a Debug-format-based assertion has no contract guarantee, and the next time JmapError's Debug impl evolves (e.g. adds context wrapping), this test silently breaks or silently keeps passing for the wrong reason.\n\nThe correct assertion is what the inline tests in src/addressbook.rs already use (line 482): err.error_type.as_str() == 'accountNotFound'. That's a typed access against the JmapError struct, contract-stable across Debug impl changes, and locks in the wire-format value the client actually sees.\n\nSuggested rewrite: replace the format!-then-contains pattern with err.error_type.as_str() == 'accountNotFound'. Then drop the OR-with-PascalCase clause \u2014 the wire format is fixed in jmap-types and the duplicate is unnecessary.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Test address_book_set_unknown_account_returns_account_not_found matches error via Debug format string \u2014 fragile",
+  "updated_at": "2026-05-18T03:02:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:22:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "4f41177f-e413-5574-8d65-d4ec645e12e8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

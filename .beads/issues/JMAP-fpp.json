@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-fpp",
+  "title": "Review: jmap-client iteration 2",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:14:35Z",
+  "updated_at": "2026-04-30T01:23:51Z",
+  "closed_at": "2026-04-30T01:23:51Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 Three real correctness issues (SSE id tri-state, sha256 case sensitivity, BearerAuth spaces), two deferred-panic surfaces (AuthProvider contract, WS scheme mismatch). None are likely to cause data loss but each generates a class of user-reported issues that are hard to debug without source.\nConfidence: 15% chance of missed bug. Least confident flags: JMAP-fpp.2 (sha256 uppercase \u2014 depends on whether the draft spec is actually enforced on wire; may be working-as-designed), JMAP-fpp.3 (BearerAuth spaces \u2014 depends on how strict real JMAP servers are about RFC 6750 token format). Uncertainty driven by: no live server to test against; SSE streaming logic has complex state machine that I traced but did not execute against adversarial input. Would raise confidence if: there were fuzz tests against expand_url_template and the SSE streaming loop."
+}

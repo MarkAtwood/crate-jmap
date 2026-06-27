@@ -1,0 +1,23 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-02T05:12:18Z",
+  "compaction_level": 0,
+  "content_hash": "09f871edce0b6bda8e05ef1c32908054115aa5ca9168f0800b02dd96b028dab6",
+  "created_at": "2026-05-02T05:04:12Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-fr0",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Idiom rating: 9.5/10. Round 8 finds the codebase in near-convergence state. Only 1 new P2 finding in the entire pass (email.rs:290 trim_start().to_string() \u2192 .to_owned()). No P0/P1 issues found. All prior fix categories confirmed clean: no .unwrap() in library code, no .expect() without invariant comments, no gratuitous clones, no bare return-last-expr statements, no format!(\"{}\") anti-patterns, no .len()==0 tests, no push-loops that should be collect(). The serde_json::from_value(v.clone()) pattern throughout is necessary (from_value takes Value by ownership; args.get() yields &Value). inline std::collections:: paths are P3 style only. ClosureHandler duplication (JMAP-4ii.32) remains an open P1 but is a design issue, not caught-here.\nRust idiom confidence: Converged. Both pass 1 and pass 2 produce only findings at P2+ (the one P2 is a 1-line clippy lint) and P3/P4 (inline std::collections paths, style). No structural idiomatic concerns remain. Codebase can proceed to semantic review.\nMaintainer risk: MEDIUM \u2014 blob_exists() default-false is a documented footgun but has no compile-time guard; will generate confusing Email/parse behavior in backends that implement parse_email but forget blob_exists. The args panic pattern is pervasive (16 handlers) and panic-isolation via tokio::task::spawn saves data but not user experience.\nConfidence: 90% chance of no missed P0 bugs. Least confident flags: blob_exists default behavior (depends on how backends are structured), the args panic pattern (covered by panic isolation). Uncertainty driven by: did not read all test files, did not trace all backend call paths. Would raise confidence if: read tests/memory_backend.rs to verify blob_exists is overridden there.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Review: round 8 \u2014 jmap-server + jmap-chat-server + jmap-mail-server",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

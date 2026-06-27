@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Made the source invariant (at least one of href or blob_id MUST be set, both MAY be) explicit in struct-level rustdoc and added Link::validate_source() returning Result<(), LinkSourceError> as an opt-in check. Chose not to encode the invariant via enum LinkSource because (a) it would be breaking for a pre-1.0 sub-type crate, (b) it would block partial-construction patterns for in-flight updates, (c) draft \u00a75.3 wording leans-exclusive but is not explicitly exclusive so the 'both set' case is permitted. The opt-in helper plus discoverable rustdoc is the minimal-blast-radius fix. Added link_validate_source_enforces_invariant test with 4 cases (href-only, blob-only, both, neither) all using independent JSON oracle. cargo test + cargo clippy -D warnings clean.",
+  "closed_at": "2026-05-16T02:13:47Z",
+  "compaction_level": 0,
+  "content_hash": "94b4deb6652258c055f895333b4f49dddfcad5093da75bf9e64e39521a5c686e",
+  "created_at": "2026-05-15T22:17:00Z",
+  "created_by": "Mark Atwood",
+  "description": "**Contract risk**: `Link` has two URI-providing fields:\n\n    #[serde(skip_serializing_if = \\\"Option::is_none\\\")]\n    pub href: Option<String>,\n\n    #[serde(skip_serializing_if = \\\"Option::is_none\\\")]\n    pub blob_id: Option<Id>,\n\nRFC 8984 \u00a71.4.11 says `href` is mandatory; the existing finding\nJMAP-mno4.2 flags this as a spec deviation. The\ndraft-ietf-jmap-calendars \u00a75.3 / \u00a710.9.14 amendment makes\n`blob_id` an acceptable substitute when stored as a JMAP blob.\nThe combined contract is therefore \\\"at least one of `href` and\n`blob_id` MUST be present\\\".\n\nThe type system encodes neither side of this:\n\n    let bad = Link {\n        at_type: \\\"Link\\\".into(),\n        href: None,\n        blob_id: None,\n        // ... all other Options None ...\n        extra: serde_json::Map::new(),\n    };\n    // (this construction is only possible inside the crate due to\n    // #[non_exhaustive], but the wire-deserialize path is open:)\n    let bad2: Link = serde_json::from_value(json!({\n        \\\"@type\\\": \\\"Link\\\"\n    })).unwrap();\n    // bad2.href.is_none() && bad2.blob_id.is_none()  \u2014 and the\n    // type accepts it.\n\n**What goes wrong for callers**:\n- Every consumer that reads a `Link` must defensively write\n  `link.href.as_ref().or(link.blob_id.as_ref().map(...))` or\n  equivalent. The compiler offers no help; missing the check\n  produces a value-less Link silently.\n- Code that builds a `Link` to send out can ship a no-source Link\n  by mistake. Server-side validation might catch it, or might not.\n- This is the canonical case of a defensive-code-forcing API:\n  100% of correct consumers will write the same is-it-set check\n  forever.\n\n**Fix shape** (breaking change):\nOption A: sum type for the source field:\n\n    #[non_exhaustive]\n    pub enum LinkSource {\n        Href(String),\n        BlobId(Id),\n        // future-extensible\n    }\n\n    pub struct Link {\n        pub source: LinkSource,\n        // ... rest of fields ...\n    }\n\nWire-format mapping done via a custom serde flatten: serialize\n`Href(s)` as `{\\\"href\\\": s}`, `BlobId(id)` as `{\\\"blobId\\\": id}`.\nThis encodes the invariant and lets callers `match link.source`.\n\nOption B: keep the current shape but ship a helper:\n\n    impl Link {\n        pub fn uri(&self) -> Option<LinkSource<'_>> { ... }\n    }\n\n\u2026where `LinkSource<'_>` is a borrowed view. Non-breaking; partially\naddresses the defensive-code burden but does not prevent\nconstruction of source-less Links.\n\nOption C: leave as-is, document the contract in the doc-comment\n\\\"a well-formed Link MUST have exactly one of `href` and `blob_id`;\nthis type permits the absent case for round-trip preservation.\\\"\nCheapest; still leaves the burden on consumers.\n\nThis bead is filed at P1 because it is the strongest defensive-code-\nforcing instance in this crate's API and will be repeated across\nevery consumer.",
+  "ephemeral": 0,
+  "id": "JMAP-mno4.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Link.href: Option<String> and Link.blob_id: Option<Id> are both Optional but RFC 8984 \u00a71.4.11 requires one of them to be present \u2014 every consumer must defensively check",
+  "updated_at": "2026-05-16T02:13:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:16:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mno4",
+      "id": "8abecee7-f510-5c8f-b3d1-927feb8d9fca",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

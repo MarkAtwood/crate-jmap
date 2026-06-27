@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: before/after filter uses rfc3339_to_epoch_secs for epoch comparison",
+  "closed_at": "2026-05-02T19:41:05Z",
+  "compaction_level": 0,
+  "content_hash": "79e2ab02d4570a10daee7f6276cceccd6dae007c0c5d6f61c87c94b8f7e23844",
+  "created_at": "2026-05-02T19:34:22Z",
+  "created_by": "Mark Atwood",
+  "description": "now_utc_string() emits .mmmZ format (e.g. 2025-12-31T00:00:00.123Z) for receivedAt on Email/set create. The before/after filter in email_matches_condition (tests/common/mod.rs lines 1884-1895) uses lexicographic string comparison. Because '.' (0x2E) < 'Z' (0x5A), a receivedAt of '2025-12-31T00:00:00.123Z' compares LESS THAN a filter boundary of '2025-12-31T00:00:00Z'. Result: (1) 'before: T' incorrectly includes emails timestamped at T+123ms; (2) 'after: T' incorrectly excludes emails timestamped at T+123ms. Any test that creates emails via Email/set (which uses now_utc_string()) and then queries with before/after boundaries will produce wrong results. The fix is to either normalize all receivedAt to the same format before comparison, or use rfc3339_to_epoch_secs for before/after comparisons.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "before/after filter breaks with mixed .mmmZ vs Z receivedAt formats",
+  "updated_at": "2026-05-02T19:41:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "3517bd5c-51ab-5f92-ad2b-a30e9c40d9ab",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

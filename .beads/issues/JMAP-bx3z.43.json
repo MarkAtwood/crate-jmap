@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: now_utc_string includes sub-second (millisecond) precision via subsec_millis(); pre-epoch case handled by negating the duration rather than returning 0",
+  "closed_at": "2026-05-02T19:30:27Z",
+  "compaction_level": 0,
+  "content_hash": "b481f64e998a25a88776313107c402b84cac9b715d1cb81de0eff4020c771721",
+  "created_at": "2026-05-02T19:19:18Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/helpers.rs now_utc_string() uses a hand-rolled Gregorian calendar algorithm (Howard Hinnant) and returns seconds-resolution RFC 3339. RFC 8621 \u00a74.1.6 specifies UTCDate as an RFC 3339 string with at least second precision. While the format is valid, (1) any platform where SystemTime::now() predates UNIX_EPOCH (container drift) silently returns 1970-01-01T00:00:00Z, as noted in the comment; (2) two emails created within the same second will have identical receivedAt, which breaks stable sort ordering in tests and can confuse thread ordering. This is particularly risky because sort-by-receivedAt is a comparator the test backend depends on for correctness.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.43",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "now_utc_string uses hand-rolled date algorithm; no sub-second precision for receivedAt",
+  "updated_at": "2026-05-02T19:30:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:19:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "a7d9bd3f-736f-58f0-8dc7-c01e1764dbe4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

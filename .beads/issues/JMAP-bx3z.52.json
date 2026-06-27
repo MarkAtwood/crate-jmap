@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:34:07Z",
+  "compaction_level": 0,
+  "content_hash": "a202ef3b58b8f6d26d00430a25a5a4b68ce9058bad962a78c5da9447e7a376fb",
+  "created_at": "2026-05-02T19:19:45Z",
+  "created_by": "Mark Atwood",
+  "description": "The search snippet highlight() function lowercases both haystack and needle for case-insensitive matching, but builds parallel char-index tables (lower_chars, orig_chars) to map match positions in the lowercased string back to the original. A contributor might simplify to byte-offset arithmetic (abs_lower_idx used directly on the original). But Unicode lowercasing can change a character's byte length (some characters expand or change byte width), so a byte offset into lower_haystack is not a valid byte offset into the original haystack. The char-index table approach is the only correct general-purpose solution.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.52",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "highlight() in MemoryBackend builds char-index tables to correctly map lowercased match positions back to original string",
+  "updated_at": "2026-05-02T22:34:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:19:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "d4e57902-fb9b-5b3a-ae25-2ae6e5dcbab9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

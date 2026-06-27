@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "851f932c72cf33dfc2b34a909b5fd125fc458302b4c643e265180715e90367cc",
+  "created_at": "2026-05-15T01:10:50Z",
+  "created_by": "Mark Atwood",
+  "description": "## Contract risk\n\ncalendars-client `calendar_event_query` takes:\n\n```rust\nsort: Option<&[CalendarEventComparator]>,\n```\n\nat crate-jmap-calendars-client/src/methods/event.rs:155.\n\nCanonical mail-client `email_query` takes:\n\n```rust\nsort: Option<serde_json::Value>,\n```\n\nat crate-jmap-mail-client/src/methods/email.rs:144.\n\nJMAP-1j9k.2 already names the lockout angle for the `filter` param. This bead\ncovers the same angle for the `sort` param, which the existing finding does\nnot call out explicitly. The two divergences are linked: both pin the wire\nshape to a specific Rust type owned by jmap-calendars-types.\n\n## Why this matters for a caller\n\nA caller who wants to sort by a comparator type the spec adds in a future\ndraft revision is locked out until jmap-calendars-types catches up and a new\ncalendars-client release ships. With the untyped canonical shape, a caller can\nconstruct any spec-defined comparator JSON inline:\n\n```rust\nlet sort = json!([{\"property\": \"newProperty\", \"isAscending\": false}]);\nsc.email_query(filter, Some(sort), None, None, None).await?;\n```\n\nThe typed `&[CalendarEventComparator]` shape requires the calendars-types\ncrate to ship a Rust variant for every comparator the spec defines. Until\nthen, the caller's only path is to fork.\n\nAlso note `calendar_event_notification_query` is asymmetric: filter is typed\n(`Option<&NotificationFilterCondition>` at event_notification.rs:138) but sort\nis `Option<&[serde_json::Value]>` at event_notification.rs:139. The doc\ncomment at event_notification.rs:132-135 explicitly explains: 'CalendarEventNotification's\nComparator type in jmap-calendars-types is serde_json::Value because the\nspec's sort properties for notifications are minimal (just `created`); the\nslice is forwarded as-is.' That rationale applies equally to the regular\n`calendar_event_query` sort \u2014 the typed wrapping is doing no work the caller\ncan use.\n\n## What goes wrong if this stays\n\nSame lock-in mechanism as JMAP-1j9k.2 \u2014 once shipped in 0.x.y, the typed\nshapes are public API; relaxing them to untyped JSON is a breaking change.\n\n## Fix shape\n\nMatch the canonical: `Option<serde_json::Value>` for both filter and sort.\nOr, define a single `_query` params struct (one positional arg, like\n`MailboxSetParams`) that accepts the typed types where useful AND lets\ncallers escape-hatch to a raw `serde_json::Value` for the untyped path.\n\n## Source citations\n\n- crate-jmap-calendars-client/src/methods/event.rs:152-159\n- crate-jmap-calendars-client/src/methods/event_notification.rs:136-142\n- crate-jmap-mail-client/src/methods/email.rs:141-148",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "calendar_event_query and calendar_event_notification_query sort param locks out untyped JSON (complementary to JMAP-1j9k.2)",
+  "updated_at": "2026-05-15T01:10:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:10:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "47fdda6d-8c6e-597d-bca9-1d1ca92c6f67",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

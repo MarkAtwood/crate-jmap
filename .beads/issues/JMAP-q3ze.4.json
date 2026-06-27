@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "MemoryBackend implemented. Round-trip and changes tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/common/mod.rs (MemoryBackend: full HashMap impl with state tracking, change log, query filter, JSON merge-patch); 1 roundtrip integration test; clippy clean",
+  "closed_at": "2026-05-05T04:43:44Z",
+  "compaction_level": 0,
+  "content_hash": "172641f6a0af81fa70ce672dedf0027452c7ba30f4342c7b604487c16200dceb",
+  "created_at": "2026-05-05T02:56:11Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-sharing-server/tests/common/mod.rs with a full MemoryBackend implementing SharingBackend. Backed by HashMaps. Actually stores and retrieves objects, tracks state, records change log.\n\n**Internal structure:**\n- objects: HashMap<(&'static str, String), HashMap<Id, serde_json::Value>> keyed by (type_name, account_id)\n- states: HashMap<(&'static str, String), u64>\n- change_log: per (type_name, account_id): Vec<ChangeEntry { new_state, created, updated, destroyed }>\n- known_accounts: HashSet<String>\n- pub fn new_with_accounts(ids: &[&str]) -> Self\n\n**JmapBackend impl:**\n- account_exists: checks known_accounts\n- get_objects: fetch by ids (or all), deserialize Value \u2192 O\n- get_state: returns state counter as string\n- get_changes: walks change log from since_state; returns CannotCalculateChanges if not in log\n- query_objects: fetch all, apply filter; implement Principal filter (RFC 9670 \u00a72.4.1: accountIds, email, name, text, type, timeZone) and ShareNotification filter (\u00a73.4.1: after, before, objectType, objectAccountId); sort ShareNotification by created\n- query_changes: from change log\n\n**SharingBackend impl:**\n- create_object: assign new Id, set id field in stored JSON to new Id, store, bump state, log\n- update_object: JSON merge-patch, reserialize, store, bump state\n- destroy_object: remove, bump state, log\n- supports_type: true for all\n\n**Acceptance criteria:**\n- Round-trip test: create Principal via create_object, then get_objects with returned id \u2192 same object.\n- get_changes from state \"0\" after one create \u2192 created: [new_id].\n- cargo test -p jmap-sharing-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-q3ze.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add MemoryBackend for integration tests",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:56:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze",
+      "id": "7bd765ad-b161-55e5-91f1-2a4caf14bbc4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

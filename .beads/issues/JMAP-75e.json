@@ -1,0 +1,52 @@
+{
+  "id": "JMAP-75e",
+  "title": "jmap-client: wire lib.rs and audit transitive deps",
+  "description": "Wire up public re-exports in lib.rs. Audit whether chrono, base64, sha2, ulid are still needed once jmapchat-client type redefinitions are removed.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-29T23:31:10Z",
+  "updated_at": "2026-04-30T00:06:56Z",
+  "closed_at": "2026-04-30T00:06:56Z",
+  "design": "jmapchat-client pulls chrono (for UTCDate), base64 (for blob?), sha2, ulid. With jmap-types providing Id/UTCDate and jmap-chat-types providing domain types, several of these may be unnecessary. Remove any that are not directly used by jmap-client code. Document which were dropped and why in a commit message.",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-0ke",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:45"
+    },
+    {
+      "depends_on_id": "JMAP-3g1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:38"
+    },
+    {
+      "depends_on_id": "JMAP-aax",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:47"
+    },
+    {
+      "depends_on_id": "JMAP-bfg",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:46"
+    },
+    {
+      "depends_on_id": "JMAP-n2p",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:46"
+    },
+    {
+      "depends_on_id": "JMAP-y4j",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:47"
+    }
+  ]
+}

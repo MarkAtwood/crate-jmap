@@ -1,0 +1,33 @@
+{
+  "close_reason": "GOOD observation acknowledged. The hybrid sloppy-Value + opt-in typed sub-types pattern is the deliberate workspace approach (workspace AGENTS.md 'Sloppy-Value pattern' section, JMAP-lbdy filter-algebra-exclusion section). Rationale is preserved in (a) workspace AGENTS.md, (b) crate-jmap-contacts-types/PLAN.md key-design \u00a72, (c) the per-field sloppy_field_* test sweep that calls out RFC 9553 figure numbers. No code change needed.",
+  "closed_at": "2026-05-15T22:55:30Z",
+  "compaction_level": 0,
+  "content_hash": "01f8cc56f9db28b520d707bba0f9135dc64b962c615f94c174bd5698b5506321",
+  "created_at": "2026-05-15T22:36:56Z",
+  "created_by": "Mark Atwood",
+  "description": "ContactCard keeps all 22 RFC 9553 sub-object fields as Option<serde_json::Value> on the wire, then re-exports jmap-jscontact-types::* at the top level (and as the 'jscontact' module alias) so callers can opt into typed deserialization via serde_json::from_value. This is the right shape for a draft-evolving spec where the wire-format object owns the schema:\\n\\n- Round-trip fidelity: any new RFC 9553 sub-object field added in a future RFC revision deserializes losslessly without code changes here.\\n- Forward-compat: vendors who extend a sub-object value (within the spec's permitted extension points) round-trip cleanly.\\n- Opt-in typing: callers who want compile-time typed access get it via jmap_contacts_types::Name (or ::jscontact::Name).\\n- Decoupled release cadence: jmap-jscontact-types can update its typed sub-types without forcing a contacts-types breaking change.\\n\\nA future contributor will be tempted to 'simplify' by promoting these 22 fields to concrete typed structs. Do not accept that simplification without a workspace-architectural bead \u2014 the hybrid is the deliberate workspace pattern, also used by jmap-calendars-types/jscalendar.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "GOOD: hybrid sloppy-Value + opt-in typed sub-types via jscontact re-exports",
+  "updated_at": "2026-05-15T22:55:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:36:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "735b1137-6eb3-5c03-9f69-5a694368525a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

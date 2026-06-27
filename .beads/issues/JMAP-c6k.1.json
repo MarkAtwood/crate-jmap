@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-c6k.1",
+  "title": "Email partial deserialization claim in doc is false",
+  "description": "Email::doc says 'all optional fields are represented as Option so a partial response can still deserialize'. This is false for the required metadata fields (blob_id, thread_id, mailbox_ids, size, received_at). An Email/get response with properties:[from,subject] omits these fields; serde_json::from_str::<Email> returns 'missing field blob_id'. The claim in the doc is misleading and will generate user issues when anyone tries partial Email/get. Fix: either (a) correct the doc to say this type requires all metadata properties to be present, or (b) make the metadata fields Option (API-breaking but more correct). Preferred: fix the doc + add a dedicated section explaining the limitation.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:24:38Z",
+  "updated_at": "2026-04-30T05:29:06Z",
+  "closed_at": "2026-04-30T05:29:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-c6k",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:24:37"
+    }
+  ]
+}

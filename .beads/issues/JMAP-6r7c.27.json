@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in 8f9e117. Added JmapClient::new_with_shared_auth(transport, Arc<dyn AuthProvider>, base_url, config) constructor. Additive \u2014 existing new() / new_plain() unchanged. Test asserts Arc strong-count grows from 1 to 3 across two client constructions, documenting the sharing contract. Per crate AGENTS.md additive-shape rule (new methods on JmapClient), no propagation to sibling *-client crates needed.",
+  "closed_at": "2026-05-17T11:39:06Z",
+  "compaction_level": 0,
+  "content_hash": "80d502294a9b1fac88aceb907a0ec42074b10b07b7ae7f9109aee231adc381e2",
+  "created_at": "2026-05-14T23:16:43Z",
+  "created_by": "Mark Atwood",
+  "description": "client.rs:182-201 \u2014 JmapClient::new\nclient.rs:208-214 \u2014 JmapClient::new_plain\n\nSignature: `new(transport: impl TransportConfig, auth: impl AuthProvider + 'static, ...)`\n\nThe constructor takes `auth` by value. Then internally wraps it in `Arc::new(auth)` at line 197.\n\nThis means a caller cannot:\n\n1. Construct an Arc<BearerAuth> once, then pass clones to multiple JmapClients. Today, each JmapClient gets its OWN Arc wrapping the auth \u2014 sharing requires constructing the AuthProvider once and using `Arc::new` outside (which yields `Arc<dyn AuthProvider>`, not the concrete type). For example, a deployment with two JmapClient instances pointing at different shards but using the same OAuth token holder cannot share refresh logic \u2014 each JmapClient holds its own Arc<dyn AuthProvider>, so a refresh in one is invisible to the other.\n\n2. The `impl AuthProvider + 'static` bound is stricter than necessary. The actual stored type is Arc<dyn AuthProvider>, so the constructor really only needs `auth: Arc<dyn AuthProvider>` \u2014 or alternatively, an `Into<Arc<dyn AuthProvider>>` bound that accepts either a bare impl or a pre-existing Arc.\n\nThis is a defensive-code-forcing pattern: every caller who wants shared auth has to first construct their own Arc<MyAuthProvider> and then pass it to new(). The `Arc<dyn AuthProvider>` blanket impl (auth.rs:288-292) exists to support this pattern but the foundation constructor doesn't expose it cleanly.\n\nRecommendation: in the next minor release, add a constructor variant `JmapClient::new_with_shared_auth(transport, auth: Arc<dyn AuthProvider>, base_url, config)` that takes the Arc by value. Existing new() stays as the ergonomic case for callers with a fresh auth provider.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JmapClient::new and new_plain take owned auth/transport \u2014 no way to clone or share auth across clients",
+  "updated_at": "2026-05-17T11:39:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:16:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "43b65648-6b1d-5345-891b-894a4c6439ad",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

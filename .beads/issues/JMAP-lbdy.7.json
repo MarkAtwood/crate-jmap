@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Adopted extras policy across 2 types (FilesRights, FileNode). Commit 1d17e5a.",
+  "closed_at": "2026-05-11T19:26:27Z",
+  "compaction_level": 0,
+  "content_hash": "8b6ea49c300736d65673c50164ab7dc9b5eafe14842866f78de10d09767c1641",
+  "created_at": "2026-05-09T00:52:00Z",
+  "created_by": "Mark Atwood",
+  "description": "Apply the workspace extras-preservation policy (JMAP-lbdy) to crate-jmap-filenode-types.\n\nIn scope (estimate ~3 public wire-shaped Deserialize structs):\n- FileNode, MyRights\n- (FileNodeFilterCondition is filter algebra \u2014 out of scope)\n- (NodeType is a string enum \u2014 out of scope)\n\nAcceptance: every in-scope struct has `pub extra: Map<String, Value>` with the documented attributes; one round-trip preservation test per type; PLAN.md updated; cargo test/clippy/fmt clean.",
+  "ephemeral": 0,
+  "id": "JMAP-lbdy.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Adopt extras policy in jmap-filenode-types",
+  "updated_at": "2026-05-11T19:26:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-08T17:52:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-lbdy",
+      "id": "26012c66-a888-5619-b719-24952a67c1f4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

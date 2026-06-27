@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "577bec99a871026f111bab7dc18a8f97b4c6d5e56851350f8dc4cfd69c370133",
+  "created_at": "2026-05-14T04:40:43Z",
+  "created_by": "Mark Atwood",
+  "description": "The 8 extension-server Backend traits (MailBackend, ChatBackend, CalendarsBackend, TasksBackend, ContactsBackend, FileNodeBackend, SharingBackend, MetadataBackend) all declare `supports_type<O: JmapObject>(&self) -> bool` without caller/account_id args. Their doc-comments explicitly promise per-account semantics (\"Returns true if this account supports the given JMAP object type\") but the signatures cannot honor that promise \u2014 they have no account_id in scope.\n\nRoot finding: JMAP-x2gd.46 (filed against chat-server). The defect is workspace-wide because jmap-mail-server is the canonical extension-server template per workspace AGENTS.md \"Canonical Templates\" and every sibling mirrors its method shapes. Fixing this in chat-server alone would create canonical-template divergence; the sweep must be coordinated.\n\nScope:\n- 8 backend.rs trait declarations (1 line each + doc-comment update)\n- 8 memory.rs reference-impl signatures\n- ~16 in-crate test-stub backends in lib.rs/event.rs/tests/common\n- ~3 external test consumers (sharing-server query_changes_tests.rs, mail-server integration.rs, mail-server/chat-server tests/common/mod.rs)\n- 8 PLAN.md / README.md doc strings that mention the old signature\n- testjig wiring (jmap-testjig consumes all 8 backends)\n\nCoordination order per chat-server AGENTS.md \"\ud83e\uddec Sibling of the canonical jmap-mail-server \u2014 mirror its shape\":\n\n1. Land canonical first: jmap-mail-server backend.rs + memory.rs + lib.rs test stubs + tests/common/mod.rs + tests/integration.rs.\n2. Then propagate same-pass to: chat-server, calendars-server, tasks-server, contacts-server, filenode-server, sharing-server, metadata-server. Each crate gets backend.rs + memory.rs + (lib.rs|event.rs) + tests/common/mod.rs (if present) updated together.\n3. Update jmap-testjig (consumes all 8) to compile against the new shape.\n4. Update each crate's PLAN.md and README.md prose to match.\n5. Run cargo check --workspace, cargo test --workspace, cargo clippy --workspace -- -D warnings, RUSTDOCFLAGS=\"-D warnings\" cargo doc.\n\nBackward-compat note: this is a public-API breaking signature change for every downstream consumer that implements a Backend trait. Default impl in trait declaration accepts the new args (`fn supports_type<O>(&self, _caller, _account_id) -> bool { true }`-style trivial default could be added in the same change). With a default impl, the breaking change becomes \"consumer impls that previously matched the signature exactly now no longer match (signature differs by arity)\". The override case is the breaking case \u2014 there are downstream consumers that override this method today, and they will fail to compile until they add the new args.\n\nDefault-impl proposal: keep default impl returning `true` (cheap default for the trivial case). Override case requires adding the two new params. Default-impl arity drift IS the breaking change; cannot be hidden via deprecated alias.\n\nDecomposition: file 9 child beads \u2014 1 per crate (8) + 1 for jmap-testjig wiring. Each child is independently mergeable on top of the canonical-first commit. The canonical (mail-server) is the first commit; the 8 propagation commits can follow in parallel.\n\nWorkspace-wide MSRV / SemVer impact: this needs a pre-1.0 minor bump on each crate. The kit is currently in the pre-publish phase per workspace.toml; the breaking change does NOT cross a published 1.0 boundary.\n\nSibling beads under the same family (deferred \u2014 these need similar architectural sign-off):\n- JMAP-x2gd.43 (limits() is sync but per-account semantics promised by doc \u2014 limits() shape is the model THIS bead wants supports_type to copy; .43 is about a DIFFERENT angle on the same method, async-ness, and is opinion-coloured)\n- JMAP-x2gd.47 (may_set_custom_emoji bool\u2192reason loss \u2014 different gate hook, different issue)\n- JMAP-x2gd.50 (5-method sync-vs-async pattern \u2014 supports_type is one of the 5, but generate_invite_code / protect_last_admin / retains_edit_history are also sync; this bead deals with the args, not the async-ness)\n\nRecommend doing this BEFORE the kit publishes 1.0 to any of the 8 crates. Pre-publish is the cheapest moment to land a coordinated breaking signature change.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.46.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace-wide canonical-template sweep: supports_type<O>(&self) \u2192 supports_type<O>(&self, caller, account_id)",
+  "updated_at": "2026-05-14T04:40:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T21:40:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd.46",
+      "id": "377e5aa0-49a7-5d27-9827-9965fa0cc54f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

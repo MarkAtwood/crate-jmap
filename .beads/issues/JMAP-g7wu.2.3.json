@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T005608Z-3899568",
+  "close_reason": "Implemented quota_changes(&self, since_state: &State, max_changes: Option<u64>) -> Result<ChangesResponse, ClientError> in crate-jmap-chat-client/src/methods/quota.rs:71-119. Follows the canonical /changes pattern used by chat_changes/chat_contact_changes: empty-state defence-in-depth guard, accountId+sinceState wire args, optional maxChanges, USING_QUOTA capability. Updated quota_get doc comment to cross-reference the new method. RFC 9425 \u00a74.3 updatedProperties field is not surfaced \u2014 this matches the existing cookie-cutter pattern (mail-client also drops updatedProperties from Email/Mailbox/Thread changes). Filed JMAP-9i53 to track surfacing it consistently across the workspace as a future P4. cargo test/clippy --workspace all green.",
+  "closed_at": "2026-05-11T01:02:45Z",
+  "compaction_level": 0,
+  "content_hash": "13dde6fbb61ed61c062e52078a3fda2d67d2edf7f3d98f523e9a2785233bd12a",
+  "created_at": "2026-05-11T00:06:45Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-client/src/methods/quota.rs:57\n\nQuota/changes is described as 'not yet implemented'. Add typed method wrapper matching the standard JMAP /changes pattern (sinceState, maxChanges, return created/updated/destroyed).",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.2.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement Quota/changes delta-sync in jmap-chat-client",
+  "updated_at": "2026-05-11T01:02:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:06:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2",
+      "id": "72cb519f-e420-5e48-b250-5385c1f25bfe",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

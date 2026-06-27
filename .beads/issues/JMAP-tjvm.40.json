@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8b08c5c6438f95088a4bffa9e96ff21025601033b707bcef8a7ce0264a4139d9",
+  "created_at": "2026-05-17T14:18:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Follow-up to JMAP-tjvm.32 (closed): explore option (c) \u2014 typed constant-style property-name selectors for body_properties / properties parameters across all 7 sibling extension-client crates.\n\nCurrent state: properties: Option<&[&str]> on every *_get method, body_properties: Option<Vec<String>> on EmailGetParams/EmailParseParams. Callers can typo property names with no compile-time signal; behavior depends on server leniency.\n\nProposed shape (per JMAP-tjvm.32 bead body):\n\n  pub struct EmailProperty(pub Cow<'static, str>);\n  impl EmailProperty {\n      pub const ID: Self = Self(Cow::Borrowed(\"id\"));\n      pub const BLOB_ID: Self = Self(Cow::Borrowed(\"blobId\"));\n      // ... per RFC 8621 \u00a74.1 ...\n  }\n\nOpen design questions:\n\n1. RFC 8621 \u00a74.1.2 'header:*' selector pattern needs a constructor (e.g. EmailProperty::header(\"X-Custom-Field\")) \u2014 raises complexity beyond plain constants.\n\n2. Vendor extensions: workspace AGENTS.md policy excludes the Unknown(String) pattern for property-selector enums, but option (c)'s tuple constructor admits them. Is that acceptable?\n\n3. Sweep scope: at minimum Email, EmailBodyPart, Mailbox, Thread, Identity, EmailSubmission for mail-client. Then propagation to the 7 sibling crates' equivalent types \u2014 likely 20+ typed property structs total, each with 5-25 constants.\n\n4. Migration story: do existing &[&str] APIs deprecate alongside introducing &[EmailProperty]? Or break?\n\n5. Breaking-change scope: this is a 0.2.0 or 1.0 candidate. Affects every /get method in the workspace.\n\nRecommendation per the closed bead: defer to a 0.2.0 or 1.0-prep design pass. For 0.1.x the current Vec<String>/&[&str] surface is acceptable. Filing this bead to keep the design discussion tracked without blocking 0.1.x churn.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.40",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "0.2.0/1.0-prep design epic: typed property-name selectors across extension-client /get methods",
+  "updated_at": "2026-05-17T14:18:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T07:18:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "b5cd41d7-e5e7-5a3c-90f4-0593c81f740a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

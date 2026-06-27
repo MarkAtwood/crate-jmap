@@ -1,0 +1,23 @@
+{
+  "close_reason": "Verified in code \u2014 implementation matches decision exactly.",
+  "closed_at": "2026-05-03T13:34:35Z",
+  "compaction_level": 0,
+  "content_hash": "71b024d7b42a2f73227cd95d4cfe26d002edcedb8c8c953df7edd56e47ca763f",
+  "created_at": "2026-05-02T23:38:28Z",
+  "created_by": "Mark Atwood",
+  "description": "MdnSendResponse::not_sent (and notParsable in MdnParseResponse) uses serde_json::Value rather than a concrete SetError type. This avoids an upward dependency from jmap-mail-types onto jmap-server, which would create a dependency cycle (jmap-server depends on jmap-mail-types). The design preserves the no-async-in-types-crate rule and the crate hierarchy; the doc comment on MdnSendResponse records this reasoning explicitly.",
+  "ephemeral": 0,
+  "id": "JMAP-zpnk",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DECISION: notSent typed as Value in types crate to avoid upward dep",
+  "updated_at": "2026-05-03T13:34:35Z"
+}

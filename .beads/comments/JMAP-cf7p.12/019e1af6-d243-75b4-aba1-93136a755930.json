@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "created_at": "2026-05-12T06:54:04Z",
+  "id": "019e1af6-d243-75b4-aba1-93136a755930",
+  "issue_id": "JMAP-cf7p.12",
+  "text": "Labeling human for /do-beads filter. Bead body says \"Design likely couples to JMAP-cf7p.10 (SSE Last-Event-ID) and JMAP-cf7p.9 (signal-driven push); these three could land as a coordinated cluster.\"\n\nSpecific decision needed from Mark \u2014 coupling/sequencing:\n\n1. Land as cluster after .9 + .10 designs are picked.\n2. Thin standalone WS-only slice that mirrors whatever scheme .10 lands with.\n3. Drop pushState honor entirely as out-of-scope-for-testjig (the testjig is NOT FOR PRODUCTION; clients reconnecting can use Foo/changes).\n\nRecommendation: option (2) \u2014 pair with .10 in one PR, sharing the same event-id scheme. RFC 8887 \u00a74.3.5.2 is a SHOULD not MUST, and option (3) would leave a noticeable behavioral gap from the SSE path if .10 lands but .12 doesn't.\n\nFiled per AGENTS.md \"Turn questions into beads\" rule.\n"
+}

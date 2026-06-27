@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed: mod ts doc now says DAYS_AGO_1_MINUS_1H instead of hours_ago_from_days_ago_1",
+  "closed_at": "2026-05-02T21:44:16Z",
+  "compaction_level": 0,
+  "content_hash": "1ff3de764cda70d4e7818d5fdc060310cf575be6a08833dc5a99c157403efa7a",
+  "created_at": "2026-05-02T21:40:54Z",
+  "created_by": "Mark Atwood",
+  "description": "The doc comment above 'mod ts' reads: '\"hours_ago_from_days_ago_1\" = days_ago(1) minus 1 hour.' The actual constant is named DAYS_AGO_1_MINUS_1H. The name in the doc does not match the name in the code. A reader trying to find 'hours_ago_from_days_ago_1' will not find it. Fix the doc to reference the actual constant name: 'DAYS_AGO_1_MINUS_1H = days_ago(1) minus 1 hour'.",
+  "ephemeral": 0,
+  "id": "JMAP-a81m.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ts module doc uses wrong constant name (hours_ago_from_days_ago_1)",
+  "updated_at": "2026-05-02T21:44:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:40:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a81m",
+      "id": "990cedac-e297-5a86-8593-a962c8569469",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

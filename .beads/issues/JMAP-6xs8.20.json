@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T16:55:41Z",
+  "compaction_level": 0,
+  "content_hash": "116c5abfca2f2d6e998582fc905230a9a58cad1e0bff5f659c2ac2d1fa4f9b88",
+  "created_at": "2026-05-15T05:44:06Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-types/src/id.rs:165-197 implements `validate_utcdate`. The\nvalidator checks:\n- length is exactly 20 octets\n- structural separators are at positions 4,7,10,13,16,19 (dashes, T, colons, Z)\n- positions 0-3,5-6,8-9,11-12,14-15,17-18 are ASCII digits\n\nIt does NOT check:\n- month is in 01..=12\n- day is consistent with month\n- hour is in 00..=23\n- minute is in 00..=59\n- second is in 00..=60 (RFC 3339 \u00a75.6 allows 60 for leap second)\n\nSo `UTCDate::new_validated(\\\"9999-99-99T99:99:99Z\\\")` succeeds. So does\n`UTCDate::new_validated(\\\"0000-13-32T25:99:99Z\\\")`. So does\n`UTCDate::new_validated(\\\"2014-02-30T06:12:00Z\\\")` (Feb 30 doesn't exist).\n\nThe rustdoc on `UTCDate::new_validated` (id.rs:227-238) says:\n\n    /// Construct a [`UTCDate`] with RFC 8620 \u00a71.4 format validation.\n    /// Requires exactly the format `YYYY-MM-DDTHH:MM:SSZ` (20 characters,\n    /// `Z` suffix, all numeric fields are ASCII digits).\n\nThe doc-comment IS specific about \\\"format validation\\\" (= shape, not\nsemantics), so a careful reader knows what they're getting. A less\ncareful reader assumes \\\"RFC 8620 \u00a71.4 validation\\\" means \\\"the value is\na real UTC date\\\". The doc invites the wrong assumption because RFC 8620\n\u00a71.4 cites RFC 3339, which constrains values *and* shape.\n\nWhat a caller depending on this API in production accepts:\n\n1. `new_validated` is not a real-date check. A caller wanting that has\n   to bring `chrono`/`time`/`jiff` or write their own validator.\n2. A server that constructs a UTCDate via `new_validated` from\n   untrusted input (e.g. user-supplied query parameter) may emit a\n   syntactically-valid but semantically-invalid timestamp to JMAP\n   clients. The client deserializes it (also via `new_validated`-equivalent\n   serde path), gets a UTCDate value, and then a real date library\n   parse fails or returns garbage downstream.\n3. The `# Errors` contract is documented narrowly (\\\"wrong length /\n   non-digit position\\\") but the type signature returns the same\n   `ValidationError` regardless of which case fired.\n\nFix candidates:\n- Tighten `validate_utcdate` to check value ranges. Adds no dependency\n  (the validator is already byte-position checks). Test with\n  `2014-02-30T06:12:00Z` and `2014-02-29T06:12:00Z` (non-leap year).\n- Or: rename the constructor to something more accurate\n  (`new_format_validated`) and add `new_strict` that does semantic\n  validation. Breaking change.\n- Or: keep behavior, sharpen the rustdoc to say \\\"this constructor\n  validates shape only, not value ranges\\\".\n\nThe other validators (`validate_id`, `validate_state`) have analogous\nholes \u2014 id's character set is too loose vs spec (filed separately as\nJMAP-6xs8.19); state's non-empty check is correct vs spec.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "UTCDate::new_validated is shape-only; accepts invalid date/time values like 9999-99-99T99:99:99Z",
+  "updated_at": "2026-05-17T16:55:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:44:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "31cd7227-fc8d-54f6-ac7e-6c83f17c396e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

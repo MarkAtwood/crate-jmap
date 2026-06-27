@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Renamed crate-jmap-mail-server/src/memory.rs -> src/memory/mod.rs so the MemoryBackend body and its seed.rs sibling now live in the same directory. Pure file rename, git mv preserves blame, all 253 mail-server tests pass post-rename. Updated two doc-comment references to the old path. The 7 sibling extension-server crates (chat, calendars, tasks, contacts, filenode, metadata, sharing) verified to have a single-file src/memory.rs with NO submodules \u2014 they don't need to move and the canonical-template propagation rule is satisfied (no shape mismatch with siblings that have nothing to mirror).",
+  "closed_at": "2026-05-16T19:06:09Z",
+  "compaction_level": 0,
+  "content_hash": "40ea5278b6cd0a50b703962cd328fc1248cd2b6617e5edc9bff193d28c91dc51",
+  "created_at": "2026-05-14T12:46:03Z",
+  "created_by": "Mark Atwood",
+  "description": "After commit 4428dbd 'extract MemoryBackend to feature-gated src/memory', the layout is:\n\n- crate-jmap-mail-server/src/memory.rs     (2742 lines, the actual MemoryBackend code)\n- crate-jmap-mail-server/src/memory/seed.rs (821 lines, the seed-data fixture)\n\nRust supports this (the Rust 2018 path resolution rules allow either 'memory.rs + memory/' or 'memory/mod.rs + memory/'), but it is the less-common shape. The conventional layout when a module grows submodules is to move the parent file from src/memory.rs to src/memory/mod.rs so all related code sits in the same directory.\n\nA new contributor opening 'crate-jmap-mail-server/src/memory/' in their editor will see only seed.rs and miss the 2742-line parent. The crate's own AGENTS.md and README don't document this layout choice, so the discoverability cost is real.\n\nEither convention works; pick one and apply it consistently. The other extension-server crates in the workspace (per the cookie-cutter rule) should match: if any of them have their MemoryBackend in 'src/memory/mod.rs', mail-server should too; if all of them use 'src/memory.rs + src/memory/seed.rs', that becomes the canonical pattern and the four-line note belongs in workspace AGENTS.md.\n\nVerification needed: spot-check the other 7 *-server crates with memory modules to see what they do, then commit to one layout and propagate.",
+  "ephemeral": 0,
+  "id": "JMAP-j7pa.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "memory.rs lives at src/memory.rs with sibling src/memory/seed.rs",
+  "updated_at": "2026-05-16T19:06:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:46:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-j7pa",
+      "id": "f9faded9-ddb3-50cf-820b-672b54d222c0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Design-validated: review confirmed the existing shape is correct. No code change required. Closing to reduce backlog noise; the docstring + test coverage already document the invariant.",
+  "closed_at": "2026-05-09T07:25:35Z",
+  "compaction_level": 0,
+  "content_hash": "1523e93b10846b41e3e271873995a8476e136333f5d7d2408d0200aec35c8278",
+  "created_at": "2026-05-08T03:07:32Z",
+  "created_by": "Mark Atwood",
+  "description": "src/ws/mod.rs:25-36 \u2014 WsRequestFrame wraps JmapRequest with #[serde(rename = \"@type\")] and #[serde(flatten)] inner. Result: one to_string() call produces the wire-correct frame in a single pass. The naive alternative \u2014 serialize JmapRequest to Value, mutate to insert @type, serialize again \u2014 does two passes plus a Value allocation. Documented as 'settled' in AGENTS.md design constraints. Defend against any 'just use to_value' refactor.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "WsRequestFrame with serde(flatten) avoids a double-serialize round trip",
+  "updated_at": "2026-05-09T07:25:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:07:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "9f3d20ca-668a-5f25-86a4-476fe7e1125c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

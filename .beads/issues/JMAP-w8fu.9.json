@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b3a3fd0dd4666a219ac9a9121b909d388d92885387e05c8786697998a5498d11",
+  "created_at": "2026-06-13T21:49:09Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/src/invite.rs has 99/162 lines covered (61.1%). Uncovered: handle_invite_set create arm (createdBy resolution, Space lookup, invite code generation), update arm, destroy arm, and permission/error branches.",
+  "ephemeral": 0,
+  "id": "JMAP-w8fu.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Test coverage: chat-server invite.rs (61.1%)",
+  "updated_at": "2026-06-13T21:49:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:49:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w8fu",
+      "id": "0a4a6559-dab6-52c4-b5c6-c6a00254c9af",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

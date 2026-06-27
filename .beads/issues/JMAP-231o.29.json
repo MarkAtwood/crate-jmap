@@ -1,0 +1,33 @@
+{
+  "close_reason": "Added #[derive(Clone)] + manual Debug impl on SessionClient. Manual Debug redacts the inner JmapClient (which is intentionally non-Debug in locked jmap-base-client) and shows the Session. Callers can now embed SessionClient in their own #[derive(Debug)] wrappers. Workspace tests green. Commit 3d3ea6c.",
+  "closed_at": "2026-05-09T03:06:00Z",
+  "compaction_level": 0,
+  "content_hash": "2304c2d30a36c23edfb9bf697ffc83680dbc0894b6a5d9bba630e455b6885dff",
+  "created_at": "2026-05-08T03:22:40Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:232-235:\n```\npub struct SessionClient {\n    pub(crate) client: jmap_base_client::JmapClient,\n    pub(crate) session: jmap_base_client::Session,\n}\n```\n\nNo derives at all. Both fields are likely to be Debug+Clone (JmapClient definitely is \u2014 `with_calendars_session` does `self.clone()` at lib.rs:36; Session is a serde-derived struct). User cannot:\n- `#[derive(Debug)] struct MyApp { calendars: SessionClient }` (or has to manual Debug)\n- Log a `SessionClient` for diagnostics\n- Clone for parallel-tasks fan-out\n\nAdd `#[derive(Debug, Clone)]` if base types support it. Verify Clone is wanted (it is \u2014 lib.rs:36 already clones JmapClient inside with_calendars_session, so the pattern of cheap-clones is established).\n\nSection: traits \u2014 missing-derives idiom. Audience: anyone integrating SessionClient into a larger application.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SessionClient missing Debug, Clone derives",
+  "updated_at": "2026-05-09T03:06:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:22:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "ffeec0eb-880d-59fd-bc9c-f11748488f98",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

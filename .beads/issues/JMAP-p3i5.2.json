@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "All spec-audit tests pass. cargo test -p jmap-filenode-types exits 0.",
+  "assignee": "Mark Atwood",
+  "close_reason": "29 comprehensive spec-grounded serde tests already present; verified all types covered (NodeType, NodeRole, FilesRights, FileNode, FileNodeCapability, FileNodeFilterCondition); all pass; clippy clean",
+  "closed_at": "2026-05-05T04:02:09Z",
+  "compaction_level": 0,
+  "content_hash": "b9857819426bb80746c6cc598ab9f9f20ba874a5d0a707fa565bffe94dc67f21",
+  "created_at": "2026-05-05T02:51:02Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Add comprehensive spec-grounded serde tests for FileNode, FilesRights, NodeType, NodeRole, FileNodeFilterCondition, and FileNodeCapability using hand-written JSON fixtures derived from draft-ietf-jmap-filenode-13. Independent oracles \u2014 no test derives expected values from the code under test.\n\n**Algorithm:**\n1. For FileNodeCapability: write a JSON literal from spec \u00a72.1.1 example (lines 285-305). Assert deserialization and that all 10 nullable fields (maxFileNodeDepth, forbiddenNameChars, etc.) serialize as null not absent when None.\n2. For FileNode: write fixtures for a file node (parentId:null, blobId set, size set, type set, shareWith:null, role:null), a directory node (blobId:null, size:null, type:null), and a symlink node (target non-null). Assert round-trips. After B1 fix, role:None must produce \"role\":null.\n3. For FilesRights: serialize an all-true instance and verify all 6 camelCase keys (mayRead, mayAddChildren, mayRename, mayDelete, mayModifyContent, mayShare) are present. Assert Default produces all-false.\n4. For NodeType: assert \"file\"\u2192File, \"directory\"\u2192Directory, \"symlink\"\u2192Symlink, \"customvendor\"\u2192Other(\"customvendor\"). All round-trip.\n5. For NodeRole: assert all 9 IANA values round-trip; unknown string \u2192 Other(s) re-serializes identically.\n6. For FileNodeFilterCondition: construct JSON with all 23 filter fields populated (from spec \u00a73.2.5). Assert full round-trip. Assert \"type\" wire key (not \"mediaType\") serializes correctly. Assert Default serializes to {}.\n7. Run cargo test -p jmap-filenode-types.\n\n**Acceptance criteria:**\n- All new tests pass.\n- No test derives expected value from the code under test \u2014 all assertions are against literal strings or values copied from spec text.\n- cargo test -p jmap-filenode-types exits 0. Clippy clean.",
+  "ephemeral": 0,
+  "id": "JMAP-p3i5.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add spec-audit serde tests for all filenode wire types",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:51:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-p3i5.1",
+      "id": "29030f7d-716d-5334-9459-157e0233ef27",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:51:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-p3i5",
+      "id": "7add8d90-eae0-5c01-a149-f52b68a83b71",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

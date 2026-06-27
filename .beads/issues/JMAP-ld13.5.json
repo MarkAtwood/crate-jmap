@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Implemented in crate-jmap-jscontact; 27 tests pass; clippy clean",
+  "closed_at": "2026-05-05T18:57:14Z",
+  "compaction_level": 0,
+  "content_hash": "ab5fa6a93eb3cec0cead2676fa264af3b39b713a1179bb5aad4a54284a0a6b9e",
+  "created_at": "2026-05-05T18:48:14Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement RFC 9553 \u00a72.7-2.8 and \u00a72.1.8 types in src/anniversary.rs and src/note.rs. AnniversaryDate as enum: PartialDate | Timestamp (discriminated by @type). AnniversaryKind (birth/death/wedding + Other). PersonalInfoKind (expertise/hobby/interest + Other). PersonalInfoLevel (high/medium/low + Other). Relation with relation: HashMap<String, bool>.",
+  "ephemeral": 0,
+  "id": "JMAP-ld13.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-jscontact: Anniversary (PartialDate, Timestamp), Note (Author), PersonalInfo, Relation",
+  "updated_at": "2026-05-05T18:57:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T11:48:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ld13",
+      "id": "466723cc-e023-53dd-af9f-8288d9ceb3f8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T18:09:34Z",
+  "id": "019e27ad-fac9-7387-8145-f1eeb89579da",
+  "issue_id": "JMAP-h47t.5",
+  "text": "Same shortcoming applies to query_changes (memory.rs:546-597): filter/sort are ignored, so 'removed' never includes ids that were-in-result-now-excluded, and 'added' indexes are computed against the unfiltered id list. RFC 8620 \u00a75.6 explicitly requires both behaviours when filter/sort uses mutable properties. The remediation in JMAP-h47t.5 should extend to query_changes as well \u2014 same rustdoc warning, same recommendation to fail loud when filter/sort is non-trivial."
+}

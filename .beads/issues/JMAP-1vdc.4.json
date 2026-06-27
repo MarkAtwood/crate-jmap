@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: MailBackend::create_object doc comment documents placeholder sentinel contract",
+  "closed_at": "2026-05-02T19:41:27Z",
+  "compaction_level": 0,
+  "content_hash": "2b96d060c34b21f7f78fa979cb0c89c104b8ff36076c5fd10f8642c4e96d3c9e",
+  "created_at": "2026-05-02T19:34:02Z",
+  "created_by": "Mark Atwood",
+  "description": "MemoryBackend.create_object replaces id=='placeholder' and blobId=='placeholder-blob' string sentinels with UUIDs. This contract is implicit: only the MemoryBackend source documents it. The MailBackend trait doc says 'backend replaces blobId' but does not specify the sentinel value. A backend implementor copying MemoryBackend as a template must infer the convention; a backend that uses 'placeholder' for legitimate reasons has silent data corruption. Maintenance consequence: any change to the sentinel strings in email.rs or identity.rs requires a matching change in MemoryBackend and any other backend \u2014 no compile-time link.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend 'placeholder'/'placeholder-blob' sentinel coupling",
+  "updated_at": "2026-05-02T19:41:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "4cd669ae-21b1-59ca-b866-9d85501fac26",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

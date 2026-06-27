@@ -1,0 +1,33 @@
+{
+  "close_reason": "Documented RateLimited as reserved for extension crates (Option B from the bead). Zero behaviour change; the variant remains in the public API for extension crates that detect 429 themselves. Caller diagnostic path (match on Http + HttpError::status()) is now explicit in the docstring. Rustdoc + clippy + fmt + tests clean.",
+  "closed_at": "2026-05-09T07:17:09Z",
+  "compaction_level": 0,
+  "content_hash": "ea3ef78abf4575792f6fa4886d5991a55e9d118532d973fbf55988fdf8debb98",
+  "created_at": "2026-05-08T03:04:32Z",
+  "created_by": "Mark Atwood",
+  "description": "src/error.rs:111 \u2014 `RateLimited { retry_after: jmap_types::UTCDate }` is defined and exhaustively matched in the test, but no code path in the crate produces it. HTTP 429 responses fall through `error_for_status()` and surface as `ClientError::Http`. The variant exists in the public API contract \u2014 callers may match on it \u2014 but the crate never emits it, so the contract is unobservable. Either: (a) add HTTP 429 detection that parses Retry-After and produces this variant, (b) document explicitly that this variant is reserved for extension crates, or (c) remove. Note: this crate is locked, so any actual change requires user approval. Filing for visibility.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClientError::RateLimited variant is unreachable from this crate",
+  "updated_at": "2026-05-09T07:17:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:04:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "a85da4dc-3f2b-5f7c-8fc5-964cb4e9902d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

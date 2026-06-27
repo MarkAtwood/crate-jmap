@@ -1,0 +1,75 @@
+{
+  "acceptance_criteria": "All five checks pass. Epic JMAP-dcgj is closed.",
+  "assignee": "Mark Atwood",
+  "close_reason": "All acceptance criteria met: PLAN.md exists with all six sections; 16+1 tests pass; clippy clean; three gap issues documented in PLAN.md and tracked as dcgj.3/.4/.5",
+  "closed_at": "2026-05-05T01:05:43Z",
+  "compaction_level": 0,
+  "content_hash": "563538b686c2dc7b3f83f4c748e3ce3ceb4e22368bb722c6e6cafa85454a4038",
+  "created_at": "2026-05-05T01:00:40Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Verify the jmap-mime epic is complete: PLAN.md exists,\nall quality gates pass, and all identified gap issues have been filed.\n\n**Algorithm:**\n1. Verify crate-jmap-mime/PLAN.md exists and contains the six required sections.\n2. Run cargo test -p jmap-mime \u2014 must show 16+1 tests passing.\n3. Run cargo clippy -p jmap-mime -- -D warnings \u2014 must be clean.\n4. Confirm three gap Beads issues exist:\n   - 'jmap-mime: size field reports encoded byte length instead of decoded'\n   - 'jmap-mime: mime-tree dep should use path = not version = during development'\n   - 'jmap-mime: part_to_jmap cannot populate headers/language/location'\n5. If all checks pass, close the epic JMAP-dcgj.\n\n**Defensive programming rules:**\n- Verify, do not assume. Check each item explicitly.\n- Do not close the epic if any item is missing.\n\n**Subagent instructions:**\nSingle subagent: run checks sequentially, report each result.\n\n**Tests:** N/A \u2014 this bead IS the acceptance check.\n\n**Acceptance criteria:**\n- PLAN.md exists with all six sections.\n- 16 unit + 1 doc test pass.\n- Clippy clean.\n- All three gap issues exist in Beads.\n- Epic JMAP-dcgj closed.",
+  "ephemeral": 0,
+  "id": "JMAP-dcgj.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-mime: epic done signal",
+  "updated_at": "2026-05-05T01:05:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:00:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-dcgj.1",
+      "id": "2d7a15df-3643-50b1-a523-1e50a2600da8",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T18:00:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-dcgj",
+      "id": "51417d12-f7ad-5b8f-a6b8-2f85ee1b2f48",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T18:00:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-dcgj.2",
+      "id": "5a20613a-343a-5aab-b75c-2231199d4ac4",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T18:00:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-dcgj.5",
+      "id": "5f0f58fb-ea3b-5d3c-bea5-20064f2606f4",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T18:00:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-dcgj.3",
+      "id": "607d5aa5-f131-53e2-8593-e4eec54be415",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T18:00:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-dcgj.4",
+      "id": "cec5bf35-1ee0-5506-92d1-fe1056eb2220",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

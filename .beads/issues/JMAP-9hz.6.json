@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-9hz.6",
+  "title": "Session.state field uses String instead of jmap_types::State",
+  "description": "In crate-jmap-client/src/request.rs, Session.state is typed as String. jmap-types already exports State (an opaque newtype over String) specifically for this field. Using the newtype makes the type system enforce that state tokens are not accidentally mixed with arbitrary strings and matches the wire type used in JmapResponse.state.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:23:39Z",
+  "updated_at": "2026-04-30T06:33:11Z",
+  "closed_at": "2026-04-30T06:33:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9hz",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:23:39"
+    }
+  ]
+}

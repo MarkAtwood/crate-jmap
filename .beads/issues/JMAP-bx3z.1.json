@@ -1,0 +1,33 @@
+{
+  "close_reason": "Filed as standalone issue JMAP-yecd.1 for future work; architectural trait change beyond scope of this review cycle",
+  "closed_at": "2026-05-02T19:23:27Z",
+  "compaction_level": 0,
+  "content_hash": "308456f7c998ae54b9aa9a75b68760fb257e2f0436e342007363b1c52f6359c0",
+  "created_at": "2026-05-02T19:17:59Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs handle_mailbox_set destroy loop calls destroy_object once per email when onDestroyRemoveEmails=true; for a mailbox with M emails that produces M+2 backend calls. The trait comment acknowledges this gap but there is no filed issue and no batch API. Any backend implementor copying this pattern inherits O(n) round-trips. Maintenance consequence: when a real backend is wired in, destroy of a large mailbox will be catastrophically slow and the author will not know why until profiling.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MailBackend trait has no batchDestroy; cascade is O(n) backend calls",
+  "updated_at": "2026-05-02T19:23:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:17:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "0bade1bc-8eee-546e-af4c-c3c0f1940c4a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

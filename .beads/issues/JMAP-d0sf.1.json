@@ -1,0 +1,33 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:45:39Z",
+  "compaction_level": 0,
+  "content_hash": "908be277279431f126546ee591fd661eee12e49a25c73b188c8a5bf7e12b529b",
+  "created_at": "2026-05-05T01:44:31Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-d0sf.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Write src/methods/mod.rs with SessionClient, response types, constants, build_request",
+  "updated_at": "2026-05-05T01:45:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:44:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-d0sf",
+      "id": "6c84dd4b-76b0-5ba1-8c8b-b3b08beb7b4a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

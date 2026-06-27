@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "created_at": "2026-05-11T07:50:37Z",
+  "id": "019e1604-3b11-7424-9827-014af8131ca6",
+  "issue_id": "JMAP-n22t",
+  "text": "Closed by commit cab0a38. obj_val.get('id').is_some() check added to /set create loops in handle_task_list_set and handle_task_set. /copy intentionally unaffected (it carries source-account id). Test coverage: task_list_set_create_with_client_id_rejects, task_set_create_with_client_id_rejects (newly passing). Mirrors JMAP-r3pg.6 precedent."
+}

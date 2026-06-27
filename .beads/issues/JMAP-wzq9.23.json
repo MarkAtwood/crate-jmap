@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit d0a0bd4. metadata_set's doc-comment now explicitly describes the create-map shape: caller-chosen creation id keys (RFC 8620 \u00a73.7 #-prefixed result reference syntax) and partial Metadata values per draft \u00a73.1, with the three @type variant citations (\u00a72.1.1 Annotation, \u00a72.1.2 ImapMetadata, \u00a72.1.3 WebDavMetadata). Also notes that wire-shape mismatches are caught server-side as invalidArguments.",
+  "closed_at": "2026-05-15T02:36:19Z",
+  "compaction_level": 0,
+  "content_hash": "f05bb5fb0cf5ec26961fcf87e8824f8906d51824017e88374bc4b8c832cd006e",
+  "created_at": "2026-05-15T02:11:23Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/metadata.rs:130-156 \u2014 metadata_set's 'create: Option<serde_json::Value>' parameter is documented as:\n\n    Pass create, update, and/or destroy as needed. All three are\n    optional; pass None to omit any operation from the request.\n\nThe doc-comment does not tell the caller:\n- What JSON shape 'create' must take. The wire shape per RFC 8620 \u00a75.3 is { creation_key \u2192 Metadata_create_object }, but the signature shows serde_json::Value \u2014 a caller could pass an array, a primitive, anything. The server will return invalidArguments, but only after a network round-trip.\n- Which spec section defines the create-record schema (draft-ietf-jmap-metadata-01 \u00a73.1, specifically the @type variants Annotation, ImapMetadata, WebDavMetadata).\n- That the creation_key string is referenced from later result references (RFC 8620 \u00a73.7 \u2014 '#creation_key' syntax).\n- That the @type field is mandatory on each create-record (since Metadata is an #[serde(tag = '@type')] enum in jmap-metadata-types).\n\nCompare to the doc-comment on 'update' in the same function (line 119-123) which DOES document the PatchObject contract.\n\nA caller reading the function signature alone cannot construct a valid 'create' value without going to the spec. The doc-comment is duty-bound to either:\n(a) Type the parameter as Option<HashMap<String, MetadataCreate>> (this is wzq9.6's territory).\n(b) If (a) is intentionally deferred, document the wire shape and cite the spec section.\n\nRecommendation: (b) as a stopgap now (cheap doc fix, additive), and pursue (a) under wzq9.6. The combination gives callers a path to construct a valid request without contract surprises.\n\nWorkspace-wide: canonical email_set in mail-client has the same docs gap. Propagate.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "metadata_set: 'create' arg has no schema hint in doc-comment",
+  "updated_at": "2026-05-15T02:36:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:11:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "b1d6a496-4d6b-5f9c-89af-70df487fa865",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

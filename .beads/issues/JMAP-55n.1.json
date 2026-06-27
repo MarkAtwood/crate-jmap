@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-55n.1",
+  "title": "AuthProvider::auth_header() should return &str, not String",
+  "description": "auth_header() returns Option<(&'static str, String)> \u2014 the String clone happens on every request. BearerAuth and BasicAuth pre-compute the value at construction, so returning &str borrowed from &self avoids the per-request allocation. Signature change: fn auth_header(&self) -> Option<(&'static str, &str)>. Pre-1.0 is the window to fix this; after 1.0 it requires a major version bump and will force every AuthProvider implementor to change. Impact: every HTTP and WS call site clones an unnecessary String today.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:59:08Z",
+  "updated_at": "2026-04-30T07:05:31Z",
+  "closed_at": "2026-04-30T07:05:31Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-55n",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:59:08"
+    }
+  ]
+}

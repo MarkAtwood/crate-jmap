@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T22:58:06Z",
+  "id": "019e3829-390b-736c-8308-c59afc283a01",
+  "issue_id": "JMAP-ops7.20",
+  "text": "Tightly coupled to JMAP-ops7.7 (chat-types lacks Filter/FilterCondition/Comparator) and JMAP-ops7.22 (chat-client pub fn new vs Default). All three reflect a chat-specific input-struct + new()-constructor + serde_json::Value-filter pattern that may be deliberate or may be cleanup-needed. Decide all three together for the same workspace direction."
+}

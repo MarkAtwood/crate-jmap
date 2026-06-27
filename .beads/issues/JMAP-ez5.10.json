@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-ez5.10",
+  "title": "Keyword filter fields (has_keyword, not_keyword, etc.) are String \u2014 no type distinguishing keyword from arbitrary string",
+  "description": "EmailFilterCondition has has_keyword, not_keyword, all_in_thread_have_keyword, some_in_thread_have_keyword, none_in_thread_have_keyword \u2014 all Option<String>. The keyword constants in keyword.rs are &str constants, but passing an arbitrary String where a keyword is expected is not caught. A newtype Keyword(String) with validation (must match keyword syntax per RFC 8621 \u00a74.1.1) would make invalid states unrepresentable and allow the keyword constants to be typed. Minimal change: the newtype can round-trip as a plain JSON string (same wire format). Callers using the constants would write Keyword::from(keyword::SEEN) rather than keyword::SEEN.to_owned().",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:45:23Z",
+  "updated_at": "2026-04-30T04:59:14Z",
+  "closed_at": "2026-04-30T04:59:14Z",
+  "notes": "API-breaking change: adds Keyword newtype, changes filter fields from Option<String> to Option<Keyword>. Deferred to next semver bump (0.2.0).",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-ez5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:45:23"
+    }
+  ]
+}

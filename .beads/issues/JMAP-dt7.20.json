@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.20",
+  "title": "Malformed WebSocket Response frame yields Unknown, not a transport error",
+  "description": "In ws/mod.rs parse_ws_frame(), when the @type is 'Response' but the JSON cannot be deserialized as JmapResponse, the function returns Ok(WsFrame::Unknown) rather than Err(ClientError::Parse). The code comment states the reason: 'A malformed Response frame must not kill the entire WebSocket connection; only tungstenite transport errors warrant a reconnect.' A contributor might argue that returning an error is 'stricter' or 'more visible'. But a strict error here would force the caller to reconnect and re-subscribe, losing buffered events, over what might be a single server-side bug in one response frame. RFC 8887 \u00a74.3.1 instructs clients to ignore unknown message types. The same principle applies to malformed known types: degrade gracefully. Do not change this to return Err.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:13:03Z",
+  "updated_at": "2026-04-30T01:02:41Z",
+  "closed_at": "2026-04-30T01:02:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:13:03"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.30",
+  "title": "ClientError exposes reqwest::Error in public API",
+  "description": "ClientError::Http(#[from] reqwest::Error) and ClientError::WebSocket(#[from] tokio_tungstenite::tungstenite::Error) embed third-party error types directly in the public enum variants. Callers who inspect these variants are now semver-locked to the same reqwest and tokio-tungstenite versions as this crate. A major-version bump of either dep would be a breaking API change. Idiomatic approach: box the inner error as a dyn std::error::Error + Send + Sync, or use an opaque newtype. Compare: the jmap-types JmapError does not expose any third-party types in its public interface.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:47:04Z",
+  "updated_at": "2026-04-30T01:08:40Z",
+  "closed_at": "2026-04-30T01:08:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:47:04"
+    }
+  ]
+}

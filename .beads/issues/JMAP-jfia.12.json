@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decision record landed at parse::resolve_args doc \u2014 explicit cross-reference to resolve_args_atomic_on_partial_failure test, plus rationale defending two-phase shape against future 'simplification' suggestions.",
+  "closed_at": "2026-05-14T17:21:23Z",
+  "compaction_level": 0,
+  "content_hash": "62c570298698b46521131772c092687f812865cca65400eb2c533443320e6aff",
+  "created_at": "2026-05-14T16:38:04Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/parse.rs:131-195 \u2014 resolve_args is implemented as two phases:\n\n  Phase 1: Walk every #-prefixed key, resolve each ResultReference WITHOUT mutating args. Collect (ref_key, plain_key, resolved_value) into a Vec.\n  Phase 2: If and only if all resolutions succeeded, apply the mutations atomically (remove #key, insert plain_key).\n\nA future contributor will reasonably suggest \"this is one extra pass over the keys \u2014 just resolve-and-mutate inline, that's simpler\". That suggestion is WRONG and the current shape should be defended.\n\nWhy two-phase is correct:\n  - RFC 8620 \u00a73.7 semantics are atomic: if ANY ResultReference fails to resolve, the entire method call gets invalidResultReference. A partial-mutation would leave a malformed args object that handlers could observe.\n  - Even though resolve_args returns an Err and the dispatcher converts that to error_invocation, the caller's `args` Value is still observable by reference (the function takes &mut Value). A test that checks args contents on error path would see a partial state under inline-mutation.\n  - Test resolve_args_atomic_on_partial_failure (parse.rs:406) directly encodes this contract: \"args must be completely unchanged on error\".\n\nA future reviewer asking \"why the extra Vec allocation\" should be pointed at the atomicity test as the rationale. Without two-phase, that test would fail. Document with a brief comment block linking the two-phase structure to the atomicity contract.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Two-phase atomic resolve_args is the right shape",
+  "updated_at": "2026-05-14T17:21:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:38:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "49dc7996-45af-5e11-a4eb-6006ff0a844f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

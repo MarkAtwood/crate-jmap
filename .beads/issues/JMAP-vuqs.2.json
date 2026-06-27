@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:58:57Z",
+  "compaction_level": 0,
+  "content_hash": "0bdd0a20362dea3238962547b0600a7a5e75dfcc46f0186dcfd4e2ab4b8a082a",
+  "created_at": "2026-05-04T23:55:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Quota.data_types serializes as 'dataTypes' but spec says 'types'. Also missing pub resource_type: String field. Both cause silent data loss on deserialization.",
+  "ephemeral": 0,
+  "id": "JMAP-vuqs.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "quota: Quota struct missing resourceType field and wrong 'types' wire name",
+  "updated_at": "2026-05-04T23:58:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T16:55:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-vuqs",
+      "id": "012edf44-914d-5178-8919-156a6f022887",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

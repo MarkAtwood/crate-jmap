@@ -1,0 +1,33 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T22:05:51Z",
+  "compaction_level": 0,
+  "content_hash": "478064eb180b42f51ac0b8da94c2c433227d17c78722ffe894d5581191ad11c4",
+  "created_at": "2026-05-11T19:33:07Z",
+  "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "description": "Four public Deserialize structs in jmap-jscontact-types derive Hash:\n- NameComponent (RFC 9553 \u00a72.2.1.2)\n- AddressComponent (RFC 9553 \u00a72.3.1)\n- PartialDate (RFC 9553 \u00a72.4.1)\n- Timestamp (RFC 9553 \u00a71.4.4)\n\nAdding a `pub extra: serde_json::Map<String, serde_json::Value>` field\nto any of these breaks the derive(Hash) macro because serde_json::Map\ndoes not implement Hash. (It implements PartialEq+Eq via inner BTreeMap,\nbut BTreeMap+Value does not implement Hash.)\n\nThree resolutions:\n\nA. **Drop Hash on all four.** Smallest code change. Technically API\n   breaking \u2014 downstream may rely on `NameComponent: Hash`. None of\n   the current workspace code uses these as HashMap/HashSet keys\n   (verified: only Vec<NameComponent>, Vec<AddressComponent>, and\n   field-level usage exists). Pre-1.0 crate; non_exhaustive struct\n   already constrains API surface.\n\nB. **Implement Hash manually, skipping the extra field.** Preserves\n   the existing Hash derive's intent. Conflicts with auto-derived\n   PartialEq+Eq if those include extras (Hash/Eq invariant:\n   a == b \u21d2 hash(a) == hash(b)). To preserve the invariant we'd\n   ALSO need to manually impl PartialEq+Eq to skip extras, which\n   means two NameComponents differing only in vendor extras compare\n   equal \u2014 surprising for a preservation policy.\n\nC. **Exclude these four types from the extras policy.** Deviation\n   from the workspace canonical. Vendor extras on a NameComponent\n   would silently drop on these four types only. Inconsistent with\n   the broader policy goal.\n\nRecommendation: A. The Hash derive on these types appears to be\ngratuitous (no callsite needs it) and the Map-cannot-Hash limitation\nis well-known. Dropping Hash is the cleanest.\n\nBlocker for: completing JMAP-lbdy.5 cleanly. Current workaround in\nJMAP-lbdy.5 commit excludes these four types pending this decision.\n\nAcceptance: chosen resolution applied; PLAN.md updated to record\nthe policy refinement; if A chosen, downstream consumers\n(jmap-contacts-types, etc.) compile cleanly without Hash-of-these\ntypes.",
+  "ephemeral": 0,
+  "id": "JMAP-lbdy.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Resolve Hash-vs-extras tension on Hash-derived JSContact sub-types",
+  "updated_at": "2026-05-11T22:05:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T12:33:07Z",
+      "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+      "depends_on_issue_id": "JMAP-lbdy",
+      "id": "47799557-9565-5ddf-8781-12551966b565",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

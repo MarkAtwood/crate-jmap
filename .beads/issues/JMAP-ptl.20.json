@@ -1,0 +1,33 @@
+{
+  "close_reason": "JMAP-ptl.20: fixed via clippy --fix. JMAP-ptl.21: labeled opinion, existing iterator chains are already good. JMAP-ptl.7: documented architectural choice \u2014 in-process filter chosen over query_objects delegation due to tree-mode complexity",
+  "closed_at": "2026-05-01T16:07:31Z",
+  "compaction_level": 0,
+  "content_hash": "3a7c64d9b514ece42b844bc27b738038385041f56b59c19e48c3c39e1f5db7a0",
+  "created_at": "2026-05-01T15:43:50Z",
+  "created_by": "Mark Atwood",
+  "description": "Throughout the handlers (mailbox.rs:57, thread.rs:51, identity.rs:52, etc.), Id values are converted to JSON strings via id.as_ref().to_string(). Since id.as_ref() returns &str, calling .to_string() on a &str is equivalent to .to_owned(). Clippy lint clippy::str_to_string warns against .to_string() on &str and suggests .to_owned() for clarity (to_string() is for types implementing Display; to_owned() is for converting a borrowed str to an owned String). This is minor but noisy if clippy is run with -D warnings on a future Rust edition.",
+  "ephemeral": 0,
+  "id": "JMAP-ptl.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Multiple .map(|id| Value::String(id.as_ref().to_string())) calls: .to_owned() vs .to_string()",
+  "updated_at": "2026-05-01T16:07:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:43:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ptl",
+      "id": "ebe46e8f-92af-5f96-b983-84506f29f37b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

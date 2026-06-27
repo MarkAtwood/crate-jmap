@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T03:22:11Z",
+  "id": "019e2481-9083-7f23-9193-675f8054945e",
+  "issue_id": "JMAP-x2gd",
+  "text": "Idiom rating: ACCEPTABLE \u2014 the code is structurally idiomatic Rust (every .expect() is documented infallible, no unwrap()s in handler paths, no unsafe, no Box<dyn Error> in public API, error variants are structured via SetError, all .clone()s I sampled are necessary for ownership transfer to async storage). The 6 idiom findings filed here are local readability/maintainability concerns, not soundness or correctness issues. Three of them (.29, .31, .32) point at the same underlying instinct \u2014 defaulting to string-slice scans and positional-argument constructors where match-on-enum and struct-update would be Rust-shaped \u2014 which suggests one consolidating refactor would resolve them together rather than three independent edits. The reaction-pointer-validation loop (.28, P1) is the only finding here that a senior Rust reviewer would actively push back on; the other five are 'cleaner if you touch it' P2/P3 polish."
+}

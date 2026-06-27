@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "37e324849e459576ad36361f13d4597a3c542e83e36deeecbcd80e42b6991fb8",
+  "created_at": "2026-05-18T02:55:43Z",
+  "created_by": "Mark Atwood",
+  "description": "Pattern observed at:\n- crate-jmap-mail-server/src/mailbox.rs:982-984\n- crate-jmap-mail-server/src/email.rs:1335-1337\n- crate-jmap-mail-server/src/identity.rs:423-425\n- crate-jmap-mail-server/src/submission.rs:574-576\n- (and probably sieve.rs, vacation.rs)\n- crate-jmap-contacts-server/src/card.rs:281-283 (post JMAP-qz9v.52)\n- crate-jmap-contacts-server/src/addressbook.rs:361-363 (post JMAP-qz9v.52)\n- likely chat-server, calendars-server, tasks-server, filenode-server siblings\n\nJMAP-qz9v.52 originally recommended replacing the silent 'continue' on an\nunreachable-validated path with .expect(\"validated above as string\") so the\nunreachable case panics audibly rather than skipping silently. That change\nwas deferred for the bead's contacts-server-specific scope because every\ncanonical sibling currently uses the let-else-continue pattern; applying\n.expect() to contacts-server alone would create cross-crate divergence.\n\nThe right scope is a workspace-canonical sweep: change mail-server's\nsites first (it's the canonical extension-server template), then propagate\nto every extension-server sibling in the same pass.\n\nMechanical work \u2014 find each 'let Some(...) = ... else { continue; // unreachable: validated above };'\npattern and convert to '.expect(\"validated above as ...\")' so the\ninvariant break panics with a useful message instead of skipping the entry\nand producing a misleading /set response.\n\nEngineering case for the change: the comment 'unreachable: validated above'\nadmits the path is dead. A skip on a dead-path means a future refactor that\nmoves or removes the validator would silently lose data; an .expect() would\nfail loudly at the regression point. The let-else pattern is one of the\nworkspace AGENTS.md 'silent-truncation/silent-drop in any function that\nmutates state is a data-integrity bug class' family (bd:JMAP-wlip.1).",
+  "ephemeral": 0,
+  "id": "JMAP-45ss",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace sweep: replace 'let Some(s) = ... else { continue; // unreachable: validated above }' with .expect() audibility",
+  "updated_at": "2026-05-18T02:55:43Z"
+}

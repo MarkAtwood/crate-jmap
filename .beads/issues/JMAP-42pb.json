@@ -1,0 +1,23 @@
+{
+  "close_reason": "Verified in code \u2014 implementation matches decision exactly.",
+  "closed_at": "2026-05-03T13:34:35Z",
+  "compaction_level": 0,
+  "content_hash": "32e744a93b727b789075a49ec7bb1a88af82e816b4662b4a8b801eccff11cbc8",
+  "created_at": "2026-05-02T23:38:23Z",
+  "created_by": "Mark Atwood",
+  "description": "All public MDN structs and enums (Mdn, Disposition, MdnSendRequest, etc.) carry #[non_exhaustive]. This prevents downstream code from constructing them via struct literals, making JSON deserialization the only way to build instances. As a result, any new required field added by a future spec revision causes a compile error in downstream code rather than silently producing a zero-value. In the test backend, this also enforces the JSON-round-trip construction pattern for modified Mdn copies.",
+  "ephemeral": 0,
+  "id": "JMAP-42pb",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DECISION: #[non_exhaustive] on all MDN public types",
+  "updated_at": "2026-05-03T13:34:35Z"
+}

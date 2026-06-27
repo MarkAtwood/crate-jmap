@@ -1,0 +1,28 @@
+{
+  "id": "JMAP-7sr",
+  "title": "jmap-client: response body size caps (security)",
+  "description": "Standalone tracking for the HIGH security finding from Phase 1 GAP analysis: jmap-client has no response body size limits on fetch_session, call, or download_blob. A malicious or misconfigured server can send an unbounded response, causing OOM. This is tracked separately from JMAP-aax for auditability \u2014 the fix is implemented in JMAP-aax but this bead records the security decision and links to it.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-29T23:53:38Z",
+  "updated_at": "2026-04-30T00:07:10Z",
+  "closed_at": "2026-04-30T00:07:10Z",
+  "design": "Implementation is in JMAP-aax. Limits: fetch_session <= 1 MiB, call <= 8 MiB, download_blob <= 64 MiB. Mechanism: use reqwest response.bytes_stream() with a manual byte count, or wrap the body with tokio::io::AsyncReadExt::take(). Add ClientError::ResponseTooLarge(u64 /* actual_size */, u64 /* limit */) so callers can distinguish size rejections from other errors. These limits should be configurable via a field on JmapClient or via TransportConfig.",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3g1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:53:51"
+    },
+    {
+      "depends_on_id": "JMAP-aax",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:53:55"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T04:58:33Z",
+  "id": "019e2a00-234c-7b0c-9569-e5645bfc7e77",
+  "issue_id": "JMAP-zx3s",
+  "text": "API contract risk: MEDIUM \u2014 the wire format is forward-compatible (extras additive, on_success_update_email wire-byte-identical), but the diff locks in at least four forever-decisions a caller cannot work around without a SemVer break of this crate: (1) pub serde_json::Map<String,Value> field type ties this crate's SemVer surface to serde_json upstream; (2) parent_id: Option<serde_json::Value> silently accepts non-spec values; (3) on_success_update_email: HashMap<Id, PatchObject> uses Id to hold #creationId references that violate Id's own contract; (4) MdnSendResponse.not_sent retained as HashMap<String, Value> creates an inconsistency within the same diff where on_success_update_email was typed-up but the parallel error map was not. The flatten-extras pattern also has a concrete footgun (.8): a caller inserting a key whose name matches a typed field produces JSON the crate's own Deserialize impl rejects with 'duplicate field' \u2014 verified with a minimal repro."
+}

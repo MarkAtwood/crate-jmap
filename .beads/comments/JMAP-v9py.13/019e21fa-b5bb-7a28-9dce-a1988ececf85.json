@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-13T15:35:39Z",
+  "id": "019e21fa-b5bb-7a28-9dce-a1988ececf85",
+  "issue_id": "JMAP-v9py.13",
+  "text": "Naming decision resolved 2026-05-13 (Mark, PATH 1): the public typename is **`Sha256`**, not `Sha256Digest`. This matches:\n\n  - Workspace AGENTS.md crate-map entry (already cites `Sha256`)\n  - The implemented code in jmap-cid-types (digest.rs defines `pub struct Sha256`; lib.rs re-exports it)\n  - Rust idiom: crate name is the qualifier (`jmap_cid_types::Sha256` reads cleanly; `Sha256Digest` is redundant when the crate is already 'cid-types')\n\nThe error type stays `Sha256DigestError` \u2014 the 'Digest' middle word clarifies what failed to parse, matching the `Url`/`UrlParseError` idiom common in the Rust ecosystem.\n\nBead acceptance criteria updated in this same edit. The open question on field placement (jmap-base-client vs jmap-chat-client) is NOT a human-decision blocker \u2014 the bead's own recommendation is (a) jmap-base-client and that's correct (spec text is chat-agnostic; jmap-base-client is the natural home per the workspace dependency tree). Implementing agent should proceed with (a) without escalating.\n\nRemoving 'human' label."
+}

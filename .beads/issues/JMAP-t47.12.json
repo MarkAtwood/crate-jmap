@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.12",
+  "title": "JmapRequestBuilder: call_ids HashSet is redundant with method_calls Vec",
+  "description": "request.rs JmapRequestBuilder: The struct carries both method_calls: Vec<Invocation> and call_ids: HashSet<String>. The call_id is already stored as the third element of each Invocation tuple in method_calls. The HashSet exists solely for O(1) duplicate detection. With typical request sizes (2-10 calls) a linear scan of method_calls would have identical performance and eliminate the secondary data structure. Suggested rewrite: remove call_ids field, replace insert check with 'if self.method_calls.iter().any(|inv| inv.2 == call_id)'. This is not purely a style preference \u2014 the parallel structure means every add_call clones the call_id string twice (once into the HashSet, once into the Invocation). The Vec-scan approach clones it once.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:35:12Z",
+  "updated_at": "2026-04-30T01:43:05Z",
+  "closed_at": "2026-04-30T01:43:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:35:12"
+    }
+  ]
+}

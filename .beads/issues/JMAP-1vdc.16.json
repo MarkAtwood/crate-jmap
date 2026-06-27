@@ -1,0 +1,33 @@
+{
+  "close_reason": "MemoryBackend ignores properties hint by design (it's a test backend); document in trait comment",
+  "closed_at": "2026-05-02T19:38:29Z",
+  "compaction_level": 0,
+  "content_hash": "1372ab0e7bd358257c5d6c7618e63f54d0bd7789311f8835c15db934f29721c9",
+  "created_at": "2026-05-02T19:34:28Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs:1595-1598 \u2014 collapse_by_thread passes properties=[id,threadId] to get_objects to avoid fetching body data. MemoryBackend (mod.rs:217) ignores _properties entirely, so all up to 65536 Email objects are fully deserialized from JSON. A thread-collapsed query on a large account deserializes the full email graph including body parts. Fix: MemoryBackend.get_objects should honour the properties hint by deserializing only requested fields, or the backend contract should be documented as advisory only and the cap lowered.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "collapse_by_thread: MemoryBackend ignores properties hint, deserializes full Email objects",
+  "updated_at": "2026-05-02T19:38:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "a9c98ccc-dd07-54fc-a176-667fc96063f9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

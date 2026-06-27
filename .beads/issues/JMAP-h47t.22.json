@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Five auth-contract rustdoc sections added to TasksBackend trait (backend.rs): create_object (full canonical rationale with workspace-rule citation), update_object + destroy_object (short form), update_task_per_user (notes read-access-sufficient because per-user state is user-scoped), task_list_has_tasks (read-probe scope + existence-leak warning). cargo doc -D warnings green, cargo test green. Workspace canonical-template propagation across the 7 sibling *-server crates is tracked by JMAP-8zcl (would normally have been done canonical-first per AGENTS.md but was deferred to keep this bead in scope; inversion documented in the commit message and the sweep bead).",
+  "closed_at": "2026-05-14T18:50:45Z",
+  "compaction_level": 0,
+  "content_hash": "ad17eb3dff0716b83740f404fb794bb5b86c578c4af6b825d5145bc9d00a8830",
+  "created_at": "2026-05-14T18:18:45Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace AGENTS.md \\\"Caller identity (foundation seam)\\\" establishes the workspace-wide rule:\n\n    Backends are canonical for permission enforcement. Handlers in this crate\n    do NO permission checking. Defense-in-depth handler-side pre-checks are\n    allowed but the backend MUST re-verify atomically with the mutation. A\n    handler that \\\"trusts\\\" a handler-side check and skips the backend re-check\n    is a bug.\n\nPer-crate AGENTS.md (crate-jmap-tasks-server/AGENTS.md \\\"Permission enforcement: backend canonical\\\") repeats this. But none of the docstrings on the TasksBackend trait methods say it:\n\n  crate-jmap-tasks-server/src/backend.rs:33-91 \u2014 create_object, update_object, destroy_object, supports_type, copy_task, task_list_has_tasks: zero mention of \\\"MUST authorise against caller\\\".\n\nA consumer landing on docs.rs/jmap-tasks-server/struct.TasksBackend.html sees only:\n\n    /// Create a new object (TaskList or Task).\n    fn create_object<O: SetObject + Send + Sync>(...) -> impl Future<Output = ...>;\n\n    /// Apply a partial update (patch) to an existing object.\n    fn update_object<O: SetObject + Send + Sync>(...) -> impl Future<Output = ...>;\n\n    /// Destroy an object by id.\n    fn destroy_object<O: SetObject + Send + Sync>(...) -> impl Future<Output = ...>;\n\nNo mention of the caller-context responsibility. A consumer can implement TasksBackend as a simple wrapper around their storage layer, register the handlers, and ship \u2014 with NO authorisation check anywhere in their JMAP path. The handler does not check (per workspace rule), and the backend does not check (because the consumer didn't know they had to). Result: anyone with a valid HTTP path through the dispatcher can mutate any tasklist in any account.\n\nThis is the highest-stakes gap in the trait's contract: the failure mode is \\\"silent privilege escalation\\\". The docstrings do not even mention that caller is the authorisation principal. They name the parameter \\`caller: &Self::CallerCtx\\` but say nothing about what to do with it.\n\nMinimum-cost contract fix: every method on the TasksBackend trait that performs a mutation gets a Safety section equivalent in its rustdoc:\n\n    /// # Authorisation contract\n    ///\n    /// This method is the canonical enforcement point for caller authorisation\n    /// (per workspace AGENTS.md \\\"Caller identity\\\"). The implementor MUST verify\n    /// that the principal identified by [\\`JmapBackend::principal_id(caller)\\`]\n    /// has write access to the target account / TaskList / Task before applying\n    /// the mutation, and MUST return [\\`BackendSetError::SetError\\`] with\n    /// [\\`SetErrorType::Forbidden\\`] otherwise. Handler-layer pre-checks are\n    /// defense-in-depth only; the backend re-verifies atomically with the\n    /// mutation.\n\nThis is workspace-wide propagation. Every extension-server crate has the same docstring gap on its Backend trait methods. Canonical-template sweep candidate.\n\nThe fix is rote (no signature change, no behaviour change, no compile-time guarantee) but it is the difference between a consumer who is taught the contract and one who silently violates it. The contract IS in AGENTS.md; the issue is that AGENTS.md is not what consumers read.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "TasksBackend trait method rustdocs do not state the workspace-canonical permission-enforcement contract \u2014 implementor reading just docs.rs would not know they MUST authorise against caller before mutating",
+  "updated_at": "2026-05-14T18:50:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:18:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "c84df9de-7fea-55e8-951e-b9acb3e51920",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

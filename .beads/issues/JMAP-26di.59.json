@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed alongside two sibling idiom beads in commit 3cc7eab (.59, .62, .60 batched into one commit because each is 1-3 lines and each is in a file already touched in this review pass). cargo test, clippy --all-targets -- -D warnings, rustdoc all green.",
+  "closed_at": "2026-05-15T21:50:51Z",
+  "compaction_level": 0,
+  "content_hash": "ebbfa30ce969cb592da40edadd3b4b22b9759134f3fa7451c66428925631d555",
+  "created_at": "2026-05-15T20:52:06Z",
+  "created_by": "Mark Atwood",
+  "description": "utils.rs:72 has '_ => \"Dec\"' as the catch-all arm of a match on chrono parsed.month() (u32). chrono::Datelike::month() returns values in 1..=12 by API contract \u2014 the catch-all is unreachable. The current form silently returns 'Dec' (December) for any unexpected input, which is wrong on its face: 'if we don't know the month, claim it's December' is misleading rather than safe. Idiomatic fixes (any of): (a) use 'unreachable!(\"chrono::Datelike::month() returns 1..=12\")' \u2014 flags refactor regressions explicitly; (b) restructure to use 'chrono::Month::try_from(parsed.month() as u8).ok().map(|m| m.name()).unwrap_or(\"\")' \u2014 handles the impossible case explicitly; (c) eliminate the match entirely via parsed.format(\"%b\") (see sibling finding). Engineering basis: future refactor that swaps chrono for another date lib could silently produce wrong output (everything becomes December) instead of a panic or compile error.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.59",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "utils.rs month match uses '_ => \"Dec\"' catch-all that is misleading dead code",
+  "updated_at": "2026-05-15T21:50:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:52:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "8163d5a5-5f7d-548e-bfd1-c6a4c9311114",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

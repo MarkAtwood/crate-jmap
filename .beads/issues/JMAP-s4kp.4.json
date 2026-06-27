@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "61f9a83031a4cb796a54cc8cd6fc861396d7bca668b9b307898bb8eaec17e0d2",
+  "created_at": "2026-06-05T03:57:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Propagate canonical mail-server metadata-02 integration (JMAP-s4kp.1) to jmap-tasks-server MemoryBackend. Same 3 integration points: query_objects filter matching for 6 metadata conditions, get_changes ignoreMetadataOnlyChanges, /set patch validation. Adapt to tasks-server's type set (Task, TaskList). See JMAP-s4kp.1 for canonical pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-s4kp.4",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "tasks-server: wire metadata-02 helpers into MemoryBackend",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-04T20:57:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s4kp.1",
+      "id": "89d2ed08-b1f6-59b0-9301-cb99c40b6ac1",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-06-04T20:57:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s4kp",
+      "id": "ac3df5a9-c915-5f73-a6e5-90238894fccd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

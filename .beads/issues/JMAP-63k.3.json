@@ -1,0 +1,33 @@
+{
+  "close_reason": "positive finding, no action needed",
+  "closed_at": "2026-05-02T06:53:37Z",
+  "compaction_level": 0,
+  "content_hash": "2232c006c79824658e183e78f8a4f6b94ced148c7d24a407b0201f9fe88e19e0",
+  "created_at": "2026-05-02T06:45:39Z",
+  "created_by": "Mark Atwood",
+  "description": "File:crate-jmap-server/src/backend.rs:9\nDecision: SetError, SetErrorType, and BackendSetError were moved from jmap-chat-server to jmap-server (the protocol-layer crate), re-exported through jmap-chat-server for backwards compatibility.\nWhy good: These types are defined by RFC 8620 \u00a75.3, which applies to every JMAP object type, not just Chat. Placing them in the protocol-layer crate (jmap-server) means jmap-mail-server, future jmap-calendar-server, etc. all share one canonical definition with no duplication. Keeping them in a domain-specific crate would have forced every other server crate to either copy the definition or take an unnatural dependency on jmap-chat-server.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "GOOD: SetError/SetErrorType base type in jmap-server not jmap-chat-server",
+  "updated_at": "2026-05-02T06:53:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:45:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "1d2c704a-959c-588b-8b01-dedba5b3f099",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

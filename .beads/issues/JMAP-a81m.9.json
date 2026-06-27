@@ -1,0 +1,33 @@
+{
+  "close_reason": "Deferred: commit already made; noted for future commits to use plain-English rationale",
+  "closed_at": "2026-05-02T21:44:17Z",
+  "compaction_level": 0,
+  "content_hash": "45d5fa4220e2f8cacff6f3fe214af5b9961c728ea61229b614e4711a45c438ce",
+  "created_at": "2026-05-02T21:40:31Z",
+  "created_by": "Mark Atwood",
+  "description": "Commit message body lists '(1vdc.13)', '(1vdc.20)' etc. but does not explain why each change was made. A reader with no access to the beads tracker cannot understand the intent. The subject 'JMAP-1vdc.* cleanup' also says nothing about what was cleaned up or why. A first-time contributor reading git log will have no idea what problem these renames solved. Each bullet should include a one-clause why, e.g. 'sort_thread_email_ids: skip sort for single-element threads (no-op was allocating a Vec needlessly)'.",
+  "ephemeral": 0,
+  "id": "JMAP-a81m.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "commit message uses opaque issue IDs without rationale",
+  "updated_at": "2026-05-02T21:44:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:40:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a81m",
+      "id": "967ee49e-111b-5d1c-9c01-989b105d7a43",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

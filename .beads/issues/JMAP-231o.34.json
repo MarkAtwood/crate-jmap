@@ -1,0 +1,33 @@
+{
+  "close_reason": "Won't fix in this scope: canonical jmap-mail-client has 0 '# Errors' rustdoc sections across all method files. Adding ~17 '# Errors' sections to calendars-client alone would diverge from canonical. The two outliers in calendars-client (event_parse.rs, principal_availability.rs) are the inconsistent cases; flipping them workspace-wide is out of scope. Defer to a workspace-wide '# Errors rustdoc sweep' PLAN that touches all 7 extension-client crates uniformly.",
+  "closed_at": "2026-05-10T05:32:37Z",
+  "compaction_level": 0,
+  "content_hash": "520b2b446b9a7422e443d707ddab5b74872f7d6a3b549dd4514f20f8b765138b",
+  "created_at": "2026-05-08T03:24:14Z",
+  "created_by": "Mark Atwood",
+  "description": "All public `async fn ... -> Result<..., ClientError>` methods on SessionClient lack a `# Errors` rustdoc section. clippy::pedantic lints this (`missing_errors_doc`).\n\nAffected methods (~17):\n- src/methods/calendar.rs:18 (calendar_get), :45 (calendar_changes), :74 (calendar_set)\n- src/methods/event.rs:18 (calendar_event_get), :58, :83, :126, :160\n- src/methods/event_copy.rs:16 (calendar_event_copy)\n- src/methods/event_notification.rs:12, :46, :80, :117, :151\n- src/methods/participant_identity.rs:8, :36, :61\n\n(event_parse.rs:13 and principal_availability.rs:14 already have # Errors sections \u2014 be consistent.)\n\nEach method has slightly different error preconditions (empty id, empty since_state, empty token, missing primary account, malformed server response). Documenting each per method gives users:\n- A grep target when they hit a ClientError variant they didn't expect\n- A contract surface for future-self review\n\nPattern to copy from event_parse.rs:11-12:\n```\n/// # Errors\n/// Returns `ClientError::InvalidArgument` if [field] is empty.\n```\n\nPlus one universal `Returns ClientError::InvalidSession` line for all of them (because session_parts() can fail for everyone). Plus the I/O error chain (Http, Parse, MethodError, etc.).",
+  "ephemeral": 0,
+  "id": "JMAP-231o.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Public fallible methods missing # Errors rustdoc sections",
+  "updated_at": "2026-05-10T05:32:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:24:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "2661f2ba-4d6b-5869-890d-cb2c882e6b56",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

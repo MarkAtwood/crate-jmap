@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-9gp.7",
+  "title": "build_email_from_create accepts client-supplied blobId (should be server-set)",
+  "description": "email.rs build_email_from_create:661-665 reads blobId from the client-provided create object. RFC 8621 \u00a75.5: blobId is a server-set property, not settable by the client on Email/set create. Accepting it is an IDOR vector (client references a blob from another account), misleads backends that check blob ownership, and produces inconsistency when the backend ignores it and assigns its own blobId. Fix: remove the blobId field extraction; always use a server-assigned placeholder that the backend overwrites.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:44:57Z",
+  "updated_at": "2026-05-01T01:51:19Z",
+  "closed_at": "2026-05-01T01:51:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9gp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:44:57"
+    }
+  ]
+}

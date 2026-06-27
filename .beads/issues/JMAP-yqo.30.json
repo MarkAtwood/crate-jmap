@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:32Z",
+  "compaction_level": 0,
+  "content_hash": "c883e7a25770c09bb8fd85b852f4d9ea890827d3dae28e84600db8af02dfc94a",
+  "created_at": "2026-05-02T02:59:16Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs filter_properties (line 1232) and apply_body_properties (line 1199) iterate the source map with .iter() and call .clone() on every surviving key and value. Because these functions consume their input by reference (part: &Value, obj: &Value), a move is impossible \u2014 the clone is forced. However the call sites in apply_body_value_args own the values in the list (parts.iter_mut()), so the idiomatic design would be to take the body part by value (part: Value) and use into_iter() to move surviving entries without allocating. For email responses that include large HTML bodies this is a measurable allocation saving (every surviving key string and every value is deep-cloned). The apply_body_properties_recursive function already takes &mut Value, making the transition straightforward. The same pattern applies to filter_properties called from handle_email_get.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "filter_properties and apply_body_properties clone every key and value \u2014 avoids move",
+  "updated_at": "2026-05-02T03:22:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:59:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "35ec3e20-5cb6-529a-ab4e-a7ffefe69cdf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

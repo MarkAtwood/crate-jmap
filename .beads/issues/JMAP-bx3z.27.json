@@ -1,0 +1,33 @@
+{
+  "close_reason": "Two-pass role-swap comment verified and strengthened: added explicit mention of HashMap iteration order undefined and RFC 8621 \u00a72.5 reference",
+  "closed_at": "2026-05-02T22:33:20Z",
+  "compaction_level": 0,
+  "content_hash": "5425d21f0c282dee9d4c86cfd4ab1dae983f0cbd43a5d33a7b7d938b9d724e77",
+  "created_at": "2026-05-02T19:18:52Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mailbox_set splits the update map into (vacating, non_vacating) and runs vacating patches (role: null) in pass 1 before role-claiming patches in pass 2. It also tracks roles_actually_vacated only from successful vacates, so a failed vacate does not release the role. A contributor might simplify to a single iteration, but that would make it impossible to swap roles in a single request \u2014 the order of iteration over a HashMap is undefined, so either the vacate or the claim might run first, and if the claim runs first it would be rejected. The two-pass approach is the only correct way to implement atomic role swaps per RFC 8621 \u00a72.5.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/set update uses two-pass loop to allow role swaps in a single request",
+  "updated_at": "2026-05-02T22:33:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "dbd2fdcd-a54a-5470-9588-4bbbc93aab64",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

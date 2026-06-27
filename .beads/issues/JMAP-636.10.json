@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-636.10",
+  "title": "extract_response: args.clone() \u2014 use &Value as Deserializer instead",
+  "description": "client.rs:544: serde_json::from_value(args.clone()) \u2014 args is &serde_json::Value but from_value takes ownership, forcing a deep clone. serde_json implements Deserializer<'de> for &'de Value, so T::deserialize(args).map_err(ClientError::Parse) works for T: DeserializeOwned without any allocation. This clone is gratuitous \u2014 it exists because from_value was reached for first, not because independent ownership is required.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:54:51Z",
+  "updated_at": "2026-04-30T16:00:36Z",
+  "closed_at": "2026-04-30T16:00:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-636",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:54:50"
+    }
+  ]
+}

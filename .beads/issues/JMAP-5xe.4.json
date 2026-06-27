@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-5xe.4",
+  "title": "WsSession: no close() method; must drop to send Close frame",
+  "description": "WsSession exposes next_frame and send_request but no close() method. Callers who want to gracefully close the connection must drop the WsSession, which sends a tungstenite Close frame on drop. This is not discoverable \u2014 a caller who wants to send a Close frame before dropping (e.g. in a reconnect loop) has no API surface for it. Could mislead callers into not realizing the connection is properly closed on drop.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:27:28Z",
+  "updated_at": "2026-04-30T17:31:46Z",
+  "closed_at": "2026-04-30T17:31:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-5xe",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:27:27"
+    }
+  ]
+}

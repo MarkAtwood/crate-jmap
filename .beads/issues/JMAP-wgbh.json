@@ -1,0 +1,23 @@
+{
+  "close_reason": "Fixed in JMAP-yecd.4: jmap-mime wired into import_email and parse_email in MemoryBackend",
+  "closed_at": "2026-05-02T20:22:53Z",
+  "compaction_level": 0,
+  "content_hash": "0320b18952dc39abe1c14237b988fede8f9cb9f7b64a4bd4b3e0d1270f51be60",
+  "created_at": "2026-05-02T18:06:53Z",
+  "created_by": "Mark Atwood",
+  "description": "MemoryBackend::import_email uses parse_rfc5322_headers (header-only parser) but never calls jmap-mime to parse the body. As a result, textBody/htmlBody/attachments/bodyStructure are empty on every stored Email. RFC 8621 \u00a74.1.4 requires these to be populated from MIME parsing. The jmap-mime crate in the workspace already does this. Fix: after storing the email bytes in import_email, call jmap_mime::message_to_jmap_body() with a blob_id_for closure that maps parts to their blob IDs, and populate those fields on the email. Oracle: RFC 8621 \u00a74.1.4, jmap-test-suite email-get-body.test.ts conformance_email_body_* tests.",
+  "ephemeral": 0,
+  "id": "JMAP-wgbh",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-mail-server: import_email doesn't populate textBody/htmlBody/attachments/bodyStructure",
+  "updated_at": "2026-05-02T20:22:53Z"
+}

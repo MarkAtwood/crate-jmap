@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in a4c90d8. Added #[non_exhaustive] on both WrongLength and NonHexLowercase variants of Sha256DigestErrorKind with docstring rationale citing the related finding (.15) on adding the offending byte value. Internal tests unaffected (per-variant non_exhaustive only restricts external consumers). Workspace fmt/clippy/test all clean.",
+  "closed_at": "2026-05-16T04:07:11Z",
+  "compaction_level": 0,
+  "content_hash": "3d724be5c4d3c65d8d7db48430e4c1ade5c45dae4ff703c324e0baa77b86093c",
+  "created_at": "2026-05-16T03:48:11Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-cid-types/src/digest.rs:28-48 declares:\n\n    #[non_exhaustive]\n    pub enum Sha256DigestErrorKind {\n        WrongLength { got: usize },\n        NonHexLowercase { at: usize },\n    }\n\nThe #[non_exhaustive] attribute on the ENUM allows adding new variants without a breaking change, but does NOT propagate to the inline struct-like fields of existing variants. A downstream consumer can write:\n\n    match err.kind {\n        Sha256DigestErrorKind::WrongLength { got } => ...,\n        Sha256DigestErrorKind::NonHexLowercase { at } => ...,\n    }\n\n\u2026without a `..` wildcard, and the compiler will allow it. The day the maintainer wants to add a diagnostic-enrichment field \u2014 e.g. `expected_length` to `WrongLength`, or `byte: u8` to `NonHexLowercase` (see related finding on missing offending-byte value) \u2014 every match arm without `..` becomes a breaking change.\n\nThe fix is to add #[non_exhaustive] on each variant:\n\n    #[non_exhaustive]\n    pub enum Sha256DigestErrorKind {\n        #[non_exhaustive]\n        WrongLength { got: usize },\n        #[non_exhaustive]\n        NonHexLowercase { at: usize },\n    }\n\nNow external callers cannot match without `..`, and future field additions stay non-breaking. The cost is one extra `..` per match arm in caller code, which is a small upfront ergonomic cost for permanent semver-additive freedom on a diagnostic enum that is highly likely to grow fields.\n\nError enums are the canonical case for per-variant #[non_exhaustive] because they are precisely the types maintainers most often want to enrich post-1.0. Workspace-wide this is an under-applied pattern (grep for ^\\s*#\\[non_exhaustive\\]\\s*$ shows ~360 matches but none on variant-level for inline struct fields). Worth fixing here before v0.1.0 ships and consumers fossilize their match patterns; can be propagated as a workspace-canonical-templates sweep afterward.",
+  "ephemeral": 0,
+  "id": "JMAP-sf5h.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sha256DigestErrorKind variants missing per-variant #[non_exhaustive] \u2014 adding diagnostic fields is a breaking change",
+  "updated_at": "2026-05-16T04:07:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T20:48:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sf5h",
+      "id": "60e3efe8-0e91-5105-bcee-c7111727ac62",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

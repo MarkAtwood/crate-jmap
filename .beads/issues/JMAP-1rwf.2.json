@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T16:04:15Z",
+  "compaction_level": 0,
+  "content_hash": "8c98fc577f53149c95bf96c679999db55da467601a1d7525865639991ba2e763",
+  "created_at": "2026-05-15T05:18:53Z",
+  "created_by": "Mark Atwood",
+  "description": "src/lib.rs:51 does 'pub use jmap_jscalendar_types as jscalendar;', exporting the ENTIRE public API of jmap-jscalendar-types under jmap_calendars_types::jscalendar::*. Today that crate is shared between calendars and tasks and contains only general JSCalendar sub-types \u2014 fine. But jmap-jscalendar-types is positioned as a shared foundation that other extensions may grow into; any new public item added there will silently appear in jmap_calendars_types::jscalendar without a corresponding decision in this crate.\n\nConcrete risk:\n  1. jmap-tasks-types-specific JSCalendar values land in jmap-jscalendar-types.\n  2. Those values appear in jmap_calendars_types::jscalendar::* by transitive pub use.\n  3. Consumers depending on jmap_calendars_types end up with task-y types in their namespace they cannot remove.\n  4. Removing them later is a breaking change to jmap-calendars-types' public surface.\n\nThis is in tension with the workspace policy of cookie-cutter type crates where the difference between siblings should be 'the specific JMAP capability the crate covers, nothing else'.\n\nFix options:\n  - Replace the alias with an explicit re-export list (already done at lib.rs:64-68 for the top-level names \u2014 just delete the alias).\n  - Keep the alias but document it as deprecated and stable-but-no-new-exports.\n  - Or: confirm that aliasing the whole crate is the intent and accept the coupling.\n\nThe docstring at lib.rs:46-51 already says 'New code should prefer the top-level re-exports'. The next step is to consider whether the alias should be removed (and the back-compat replaced by an explicit alias module containing only the same names as the top-level re-exports).\n\nFile path: crate-jmap-calendars-types/src/lib.rs:44-51",
+  "ephemeral": 0,
+  "id": "JMAP-1rwf.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "calendars-types: pub use jmap_jscalendar_types as jscalendar widens public surface uncontrolled",
+  "updated_at": "2026-05-17T16:04:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:18:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1rwf",
+      "id": "2056e28b-8c5d-5b9e-91c4-3101aaa3fbcb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T17:29:23Z",
+  "id": "019e2789-307a-7b75-8a06-2a2fd98577b8",
+  "issue_id": "JMAP-jfia.26",
+  "text": "Filing as human alongside JMAP-jfia.19 \u2014 direct parallel: JmapBackend::query_objects has 8 positional args, query_changes has 9. Every new RFC param (anchor, anchorOffset, sortAsTree, filterAsTree) forces a breaking change at every call site. Bead recommends a Params struct.\n\nSame shape as .19: replace positional args with a #[non_exhaustive] struct so additions are non-breaking. Same propagation cost: every *-server backend's query / query_changes impl changes. Defer to the same major-bump decision."
+}

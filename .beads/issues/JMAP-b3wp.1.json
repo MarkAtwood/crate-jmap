@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "6964734ffbcc37f56917df24392d467028c0b4e308c556e705644d230d6393b2",
+  "created_at": "2026-05-17T14:43:29Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-metadata-types/tests/metadata_types.rs:195 triggers clippy::needless_borrows_for_generic_args under cargo clippy --workspace --all-targets -- -D warnings:\n\n    let round_trip = serde_json::to_value(&Metadata::Annotation(ann)).unwrap();\n                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nFix is mechanical: drop the leading & to pass by value.\n\nIntroduced 2026-05-16 by ad2a6e0 (fix(metadata-types): model relatedType as Option<String> for \u00a74.1 partial responses). It does NOT trip the standard workspace pre-commit gate (`cargo clippy --workspace -- -D warnings`) because that gate omits --all-targets; the warning is in a test file.\n\nThis finding surfaced incidentally while completing /do-beads JMAP-wzq9 (metadata-CLIENT review); the issue is in metadata-TYPES, not metadata-client, so it belongs under the metadata-types review epic JMAP-b3wp.\n\nP3 (clippy-level, test-only, mechanical fix). Engineering basis: a future contributor running --all-targets locally or in CI will hit a hard error from -D warnings; the workspace gate's lack of --all-targets is a separate concern (deciding whether to widen the gate is a workspace-policy bead, not this one).",
+  "ephemeral": 0,
+  "id": "JMAP-b3wp.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "test: needless borrow on Metadata::Annotation under --all-targets clippy",
+  "updated_at": "2026-05-17T14:43:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T07:43:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-b3wp",
+      "id": "7a54fc91-36e8-5e7a-a5bd-9eb6632bc1d9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

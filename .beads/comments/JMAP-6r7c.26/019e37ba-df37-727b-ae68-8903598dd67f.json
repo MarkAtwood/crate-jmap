@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T20:57:34Z",
+  "id": "019e37ba-df37-727b-ae68-8903598dd67f",
+  "issue_id": "JMAP-6r7c.26",
+  "text": "Reparented under JMAP-prpm (jmap-base-client 0.2.0 coordinated minor bump umbrella). Recommendation in original filing comment is ratified: this finding is bundled with all other public-API-breaking findings from JMAP-6r7c to land in a single coordinated 0.2.0 minor bump on jmap-base-client, timed to ride the workspace-wide 0.2 cut (workspace Cargo.toml lines 55-59) whose four prereq beads (JMAP-g7wu.1, .3, .9, JMAP-r3pg.14) all closed in early May 2026. Per AGENTS.md 'do-beads' workflow 'Stale committed recommendation' rule: 24h+ committed recommendation with no human pushback is treated as ratified."
+}

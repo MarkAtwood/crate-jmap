@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Duplicate of JMAP-grs0.5 (Propagate: jmap-contacts-server Inner-state nested HashMap restructure). The workspace epic JMAP-grs0 already plans option (a) \u2014 nested HashMap \u2014 which is exactly the recommendation in this finding. Per the workspace AGENTS.md canonical-template rule, the fix lands in jmap-mail-server canonical first (JMAP-grs0.1), then propagates to contacts-server via JMAP-grs0.5. Closing here to avoid the workspace-wide canonical sweep being driven from a per-crate review epic.",
+  "closed_at": "2026-05-17T10:06:16Z",
+  "compaction_level": 0,
+  "content_hash": "e8947a071551f5a7fcf297db76e3b021d0ba3a1e89ecdda7a72a46433177060f",
+  "created_at": "2026-05-14T19:42:34Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:121-130 declares Inner.objects/states/change_log as HashMap<(&'static str, String), ...>. Every accessor (current_state line 134, bump_state 140, objects_mut 149, objects_ref 160, change_log_mut 168) takes the account_id as &str and then calls .to_owned() to build the tuple key for HashMap::get/entry. This allocates a new String on every read of an existing entry \u2014 including every get_state / get_changes / get_objects call.\n\nIdiomatic Rust avoids this in one of three ways:\n  1. Nested map: HashMap<&'static str, HashMap<Id, HashMap<Id, Value>>> \u2014 outer key borrows as &str, no allocation.\n  2. Use Id (which is the right key type) instead of String \u2014 Id is a newtype over a small string; .get with &(type_name, id) avoids the .to_owned() if you implement Borrow.\n  3. HashMap::raw_entry_mut (nightly) or a (&str, &str) key with hashbrown's Borrow-tuple equivalent.\n\nEngineering cost: every read-path JMAP method does at least one allocation per typed accessor, plus another inside bump_state on every mutation, none of which is observable in tests but shows up under load. The pattern propagates: same shape in canonical jmap-mail-server/src/memory.rs:111-115, so the fix needs to land on the canonical first per workspace propagation rule.\n\nWhy this matters when it stays as-is: silent allocation in every hot-path lookup is the textbook example of a non-idiomatic map shape. A reader writing a real production backend cannot copy this pattern without inheriting the same waste.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.42",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Inner's (&'static str, String) map keys force allocation on every read",
+  "updated_at": "2026-05-17T10:06:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:42:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "1de61029-5d71-5c61-86c8-31e61e1ec23a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Done. README restructure landed: (1) ## Cargo.toml section folded into ## How to use as a 'Add to Cargo.toml:' subsection; (2) ## Examples section renamed ### Runnable example, folded under ## How to use; (3) ## Crate family section deleted as duplicate of ## What it's for content; ## What it's for prose enriched with the dep-flow rule that was unique to the deleted section. Final structure: 6 required (What it is, What it's for, How to use, How it works, Gotchas, References) + 3 extras (API reference, Extension trait pattern, Error types), all in narrative-position. Pre-commit gate green (cargo fmt clean, cargo test -p jmap-base-client all 151 tests pass, cargo doc -D warnings clean).",
+  "closed_at": "2026-05-17T21:01:39Z",
+  "compaction_level": 0,
+  "content_hash": "6bc0ccd6c51792021c9b69f3d0b288da5182d84620d9b7efdb2941de0eaae1d1",
+  "created_at": "2026-05-14T23:10:19Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace AGENTS.md README convention mandates exactly six top-level sections in order: What it is, What it's for, How to use, How it works, Gotchas, References. Section-name policy: 'A crate-specific extra section MAY appear, but it goes between the six required sections in a position that makes narrative sense \u2014 not in place of one of them.'\n\nCrate README has FIVE extra top-level (##) sections:\n1. ## Cargo.toml (line 37) \u2014 should be inline in 'How to use' per the convention text ('Cargo.toml snippet if non-obvious')\n2. ## Examples (line 241) \u2014 could be inline in 'How to use'\n3. ## API reference (line 256) \u2014 substantial section, could remain as one extra\n4. ## Error types (line 544) \u2014 could be a subsection inside 'How it works' or 'API reference'\n5. ## Crate family (line 567) \u2014 DUPLICATES content already in 'What it's for' (lines 26-34) \u2014 the dependency tree appears twice\n\nAll six required sections are present and in the correct order; no required section is empty; the convention allows occasional extras. But five extras is past 'occasional', and the Crate family duplication is a genuine drift signal.\n\nFix:\n1. Delete the 'Crate family' section (its content lives in 'What it's for' already).\n2. Fold 'Cargo.toml' into 'How to use' as a snippet at the top of that section.\n3. Consider merging 'Examples' and 'API reference' into 'How to use' as subsections.\n4. Either fold 'Error types' into 'How it works' as a subsection, or keep as one allowed extra.\n\nAfter these changes the README would have at most 1-2 extras between sections 3 and 4 of the convention, which is the spirit of 'occasional'.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README has 5 extra top-level sections beyond the workspace six-section convention; Crate family duplicates What it's for",
+  "updated_at": "2026-05-17T21:01:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:10:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "8ad2502f-4929-53c6-a0d7-ca7fb2bff518",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

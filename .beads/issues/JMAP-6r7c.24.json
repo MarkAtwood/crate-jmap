@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in 606b98d. Added 'Stream drop and cancellation' section to subscribe_events rustdoc and 'Drop and cancellation' section to WsSession struct rustdoc. Both pin the three contracts (partial buffer discarded, connection released, resumption is caller's job). No behavior change; contracts hold today by Rust ownership + reqwest pool policy.",
+  "closed_at": "2026-05-17T11:31:43Z",
+  "compaction_level": 0,
+  "content_hash": "f28189c601545f7b05b0dfcd297705f54f6cddc3dda4df0c73fe672a27897e44",
+  "created_at": "2026-05-14T23:15:54Z",
+  "created_by": "Mark Atwood",
+  "description": "client.rs:382-549 \u2014 pub async fn subscribe_events\n\nThe returned BoxStream<'static, Result<SseFrame, ClientError>> has undocumented behavior on caller drop:\n\n1. **Drop mid-frame:** What happens if the caller drops the BoxStream while raw_buf has accumulated 800 KiB of an incomplete frame? The stream's owned state (SseStreamState) is dropped by Rust ownership rules, which drops raw_buf and buf. But the documentation doesn't say so \u2014 a caller reading the docs cannot tell whether dropping the stream is safe at any time or whether they need to drain it.\n\n2. **Drop with pending HTTP body:** The underlying resp.bytes_stream() is held inside state.stream. When the caller drops the BoxStream, reqwest's connection should be returned to the pool (or closed). Whether that actually happens cleanly depends on reqwest's internal behavior \u2014 undocumented in this crate's API.\n\n3. **Cancel safety:** The unfold loop holds .await across stream.next() and parse_sse_block. If the caller's surrounding code cancels the future (tokio::select!, dropping the join handle), the partial work in raw_buf is lost. The doc-comment doesn't mention cancellation behavior.\n\nFor a v0.x crate this is acceptable, but the doc-comment on subscribe_events should add a paragraph: \"The returned stream may be dropped at any time. Any partially-accumulated frame data is discarded; the next subscribe_events call will resume from last_event_id if provided.\" That commits the contract and tells callers what to expect.\n\nSame gap exists for WsSession::next_frame. The struct's drop behavior on a half-received frame is implicit, not explicit.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "subscribe_events SseStreamState async drop semantics undocumented",
+  "updated_at": "2026-05-17T11:31:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:15:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "fb124e10-4366-530a-a00b-b82cdaa85433",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T14:45:13Z",
+  "id": "019e3665-f925-7da3-b5e3-140f3fead658",
+  "issue_id": "JMAP-sgrr.17",
+  "text": "Recommendation ratified after no human pushback in ~58 hours (committed 2026-05-15T03:55Z, ratified 2026-05-17T13Z): option (c) \u2014 doc-only hardening. Add a Gotchas section to README and a doc-comment block on each affected struct (Calendar, CryptoKey, Directory, Link, Media, plus the 'at-least-one' invariants on Name, Organization, SpeakToAs, OnlineService, Address, Author) cross-referencing the lib.rs:16-23 design statement. De-labeling for the autonomous frontier."
+}

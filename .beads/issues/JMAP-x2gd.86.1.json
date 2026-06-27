@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b1506db4265cb34e0e75b44ffcc72f8107a6e844e07d0b8fb09617025c32850f",
+  "created_at": "2026-05-14T16:11:40Z",
+  "created_by": "Mark Atwood",
+  "description": "## Scope\n\nWrite the canonical 5-contract doc block on mail-server's\n`create_object`, `update_object`, `destroy_object` foundation\nmethods (`crate-jmap-mail-server/src/backend.rs:59-134`). The\nexisting rustdoc already covers placeholder sentinels (create) and\nSome/None semantics (update). Adds the remaining 4 contracts per\nJMAP-x2gd.59:\n\n1. **SetErrorType selection rules.** Which BackendSetError variant\n   maps to which spec-mandated wire SetErrorType:\n   - create_object: alreadyExists (for singleton TOCTOU),\n     invalidProperties (for ill-shaped object), accountNotFound\n     (when account_id is unknown).\n   - update_object: notFound (id unknown), invalidProperties\n     (server-set fields touched, immutable fields touched).\n   - destroy_object: notFound (id unknown), forbidden (cascade-blocked,\n     e.g. cannot destroy Mailbox containing emails when isPolicyDefault).\n   - All three: BackendSetError::Other for storage-layer\n     failures (mapped to wire `serverFail` by the handler).\n\n2. **State-bump contract.** Every successful create/update/destroy\n   call MUST bump the affected JmapObject type's state token so\n   `Type/changes` subscribers see the mutation. The state bump and\n   the storage mutation MUST be atomic with respect to other backend\n   callers (reference impl uses one mutex acquisition; a database\n   backend uses a single transaction).\n\n3. **Cascade rules for destroy_object.** Define cross-type\n   referential-integrity contract: when an Email is destroyed, what\n   happens to the Mailboxes that referenced it via mailboxIds? When\n   a Mailbox is destroyed, what happens to Emails whose mailboxIds\n   contained it? Spec text (RFC 8621 \u00a72 Mailbox/destroy) requires\n   the backend to either reject (mailbox not empty) or cascade.\n\n4. **Atomicity within multi-property updates.** A single update_object\n   call MUST apply the patch all-or-nothing. A backend that\n   partially-applies a patch and returns an error leaves the object\n   in an undefined state; this is an implementation defect.\n\n## Approach\n\nFor each of the three methods, add a sub-section with a heading\nfollowed by the contract text. Use mail-specific examples\n(Email/Mailbox/Identity/Submission) so the doc reads concretely.\n\nCross-references between methods are encouraged \u2014 the SetErrorType\ntable can live on create_object and be referenced from update/destroy.\n\n## Verification\n\n- `cargo doc -p jmap-mail-server` renders clean with -D warnings.\n- `cargo test -p jmap-mail-server` passes (no behavior change).\n- Read the existing reference impl in src/memory.rs once to confirm\n  the contracts match actual behavior. Where they diverge, the\n  doc states the contract and the impl is the bug (file a follow-up).\n\n## Out of scope\n\nSibling propagation. Each sibling (chat, calendars, tasks, contacts,\nfilenode, metadata, sharing) has its own child bead under JMAP-x2gd.86\nthat picks up after this canonical doc lands.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.86.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Foundation methods doc sweep: write 5-contract block on mail-server canonical",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:11:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd.86",
+      "id": "3b3d9865-d12b-512b-a2f3-dcf533168dfa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

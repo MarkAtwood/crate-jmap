@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T10:56:50Z",
+  "id": "019e3594-e0e9-7a94-980c-abcd0767e496",
+  "issue_id": "JMAP-510h.38",
+  "text": "Workspace-wide audit: pub struct MemoryBackend lacks #[non_exhaustive] in all 8 extension-server crates (mail/chat/calendars/tasks/contacts/sharing/metadata/filenode). One-line mechanical addition per crate; zero behavioral risk (single field is already private so external struct-literal construction is already blocked); pure convention-compliance per workspace AGENTS.md 'Conventions & Patterns'.\n\nThis is a workspace-wide canonical-template sweep \u2014 mail-server canonical first per the propagation rule, then propagate to the 7 siblings in lockstep. Could fold into JMAP-xbeb (workspace propagation epic for trait + handler + re-export contract sweep) as a fifth concern alongside .39/.40/.44 re-export/doc-contract issues; OR file as its own narrower workspace propagation epic.\n\nRecommendation: fold into JMAP-xbeb. The class of work \u2014 workspace-canonical hygiene on the extension-server family \u2014 is the same; opening another epic would just create more bookkeeping. When JMAP-xbeb decomposes into per-crate children, this becomes a one-line addition under each sibling's child.\n\nFiling deferred (not human) per workspace AGENTS.md 'When NOT to file human' rule 2 \u2014 this is parked-backlog awaiting JMAP-xbeb decomposition. The human-decision step (commit to workspace propagation) was already taken when JMAP-xbeb was filed."
+}

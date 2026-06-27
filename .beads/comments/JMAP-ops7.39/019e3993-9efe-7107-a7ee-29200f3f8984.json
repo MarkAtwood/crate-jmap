@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T05:33:56Z",
+  "id": "019e3993-9efe-7107-a7ee-29200f3f8984",
+  "issue_id": "JMAP-ops7.39",
+  "text": "Fix spans 7 server-sibling AGENTS.md files. Pure docs sweep \u2014 no code change, but a contributor verifying the result should still run `cargo check --workspace` to catch accidental Cargo.toml edits."
+}

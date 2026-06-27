@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-7xt.1",
+  "title": "validate_session_urls accepts schemeless URLs",
+  "description": "validate_session_urls splits on '://' and takes .next(). A URL like '//host/path' (protocol-relative) has no '://', so split yields ['//host/path'] and .next() returns '//host/path', which is neither 'http' nor 'https', causing a false-positive rejection. More critically, a URL like 'javascript:alert(1)' splits on '://' as ['javascript', ...] and passes the check \u2014 but the real danger is a URL such as 'https' (bare word with no '://' at all) which yields scheme='https' and passes even though it is not a real URL. The validator should use url::Url::parse to extract the scheme rather than string splitting.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:45:18Z",
+  "updated_at": "2026-04-30T00:56:30Z",
+  "closed_at": "2026-04-30T00:56:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:45:18"
+    }
+  ]
+}

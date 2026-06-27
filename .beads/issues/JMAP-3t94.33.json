@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Expanded SharingBackend::create_object rustdoc with Error contract (Forbidden/InvalidProperties/OverQuota/Singleton/serverFail with RFC 8620 \u00a75.3 anchors), State-mutation contract (state counter + change-log atomicity), Atomicity ordering note (deserialize-before-commit, with reference to memory.rs ordering), and permission-canonical backend reminder. Preserves existing create_id passthrough and id-invariant sections from .17/.18. clippy clean, fmt clean, tests green. Doc warnings unchanged (only 2 pre-existing JMAP-23su intra-doc-link warnings, not introduced by this change).",
+  "closed_at": "2026-05-14T22:46:38Z",
+  "compaction_level": 0,
+  "content_hash": "07472938901d6663d612dd03eef079bbdaeb511124156530839ad57286cc5ac9",
+  "created_at": "2026-05-14T22:35:00Z",
+  "created_by": "Mark Atwood",
+  "description": "**Location**: `crate-jmap-sharing-server/src/backend.rs:62-131`.\n\n**The gap**: `create_object`'s rustdoc has substantial content \u2014 but\nall of it is about `create_id` (covered by bd:JMAP-3t94.18) and the\n\"id invariant\" (covered by bd:JMAP-3t94.17). There is no\ndocumentation of:\n\n1. **Error contract**: which `SetErrorType`s the handler accepts here\n   and how each maps to a wire-protocol failure. The handler at\n   `principal.rs:126-156` accepts:\n   - `Ok((id, obj))` \u2192 `created[create_id] = obj`\n   - `Err(BackendSetError::SetError(set_err))` \u2192 `notCreated[create_id] = set_err`\n   - `Err(BackendSetError::Other(e))` \u2192 `notCreated[create_id] = {type: serverFail, ...}`\n   - `Err(_)` (unhandled variant) \u2192 `notCreated[create_id] = {type: serverFail, \"unhandled\"}`\n\n   So a downstream backend has wide latitude on `SetErrorType`. RFC\n   8620 \u00a75.3 admits `forbidden`, `overQuota`, `invalidProperties`,\n   `tooManyKeywords`, `tooLarge`, `singleton`, plus the\n   `notFound`/`willDestroy`/etc. set. A backend implementor with no\n   contract anchor will pick one variant, often the wrong one (e.g.\n   `serverFail` for what should be `invalidProperties`, or\n   `notFound` for what should be `forbidden`). By contrast,\n   `destroy_object` (lines 145-198) enumerates `NotFound` and\n   `Forbidden` with explicit RFC 8620 \u00a75.3 anchors.\n\n2. **State-mutation contract**: must `get_state::<O>` advance only on\n   successful commit? Must `get_changes::<O>` record a `created`\n   entry atomically with the state advance? The `destroy_object` doc\n   mandates both; the `create_object` doc is silent. The reference\n   impl (`memory.rs:602-641`) bumps state and pushes a `ChangeEntry`\n   after `objects_mut(...).insert(...)`, but a downstream implementor\n   has no normative source for the ordering.\n\n3. **Atomicity on the round-trip-deserialize failure path**: the\n   reference impl serializes `obj` to JSON, mutates `val[\"id\"]`, then\n   deserializes back to `O`. If the deserialize fails (e.g. a\n   downstream `SetObject` impl with custom logic rejects the\n   server-assigned id format), the impl returns\n   `BackendSetError::Other(...)` and the side effects\n   (`known_accounts.insert`, `bump_state`, `objects_mut.insert`,\n   `change_log.push`) have already committed in `memory.rs:626-638`.\n   Wait \u2014 re-reading the code, the serialize/deserialize round-trip\n   at lines 619-624 happens BEFORE the state mutations at lines\n   626-638, so a deserialize failure does not leak state. But the\n   trait doc does not document the required ordering; a downstream\n   impl that commits storage first and then deserializes will leak\n   silent state advances on failure. Pinning this in the doc\n   protects implementors from a subtle correctness bug.\n\n4. **Permission enforcement**: the backend-canonical rule\n   (AGENTS.md \"Permission enforcement: backend canonical\") requires\n   that creates check permission atomically. The `destroy_object` doc\n   restates this; the `create_object` doc does not.\n\n**Relationship to .17**: bd:JMAP-3t94.17 covers the id-on-O invariant\nspecifically \u2014 what the returned `O.id` must equal. This finding is\northogonal: it covers the error contract, state-mutation contract,\natomicity, and permission contract \u2014 none of which .17 addresses.\nBoth can ship as one combined doc expansion or as two passes.\n\n**Cookie-cutter propagation**: same as bd:JMAP-3t94.32 \u2014 likely\npresent in every extension-server's `Backend` trait. The canonical\nmail-server is the authoritative shape.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SharingBackend::create_object error contract and state-mutation contract underspecified (orthogonal to .17)",
+  "updated_at": "2026-05-14T22:46:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T15:34:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "aa602db8-ff3c-5289-a8e6-9c08d7fba102",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed. JmapUrl and JmapUrlTemplate typed wrappers distinguish plain JMAP URLs from RFC 6570 Level-1 templates at the type level. Session.api_url is JmapUrl; download_url, upload_url, event_source_url are JmapUrlTemplate. DownloadBlobParams and UploadBlobParams take &JmapUrlTemplate (compiler refuses mis-applied calls). No Deref<Target=str> \u2014 auto-coercion would defeat the type distinction. Existing extension-client call sites that use session.api_url.as_str() are unchanged because the typed wrapper exposes the same .as_str() method. 4 new unit tests cover the type distinction (compile-time witness), serde round-trip, and PartialEq<&str> ergonomics.",
+  "closed_at": "2026-05-18T04:34:33Z",
+  "compaction_level": 0,
+  "content_hash": "447d189725af88439c879c7836203cdf295c566f58bac53e17f0a705ae11b856",
+  "created_at": "2026-05-14T23:19:45Z",
+  "created_by": "Mark Atwood",
+  "description": "request.rs:119, 125, 130, 136 \u2014 pub api_url, download_url, upload_url, event_source_url\n\nOf these four:\n  - api_url: plain URL (no template variables)\n  - download_url: RFC 6570 Level-1 URI template with {accountId}, {blobId}, {type}, {name}\n  - upload_url: template with {accountId}\n  - event_source_url: template with {types}, {closeafter}, {ping}\n\nAll four are `pub String`. A caller cannot tell from the type which need expansion. The doc-comments on each field do say \"URI Template (level 1)\" or not, but that's text-only \u2014 the compiler doesn't enforce it.\n\nA consumer who writes:\n  client.call(&session.upload_url, &req).await?\n\n\u2026passes a template (containing literal `{accountId}` characters) to a function that expects a plain URL. The function passes it to reqwest::Client::post, which percent-encodes the braces, sends a request to \"https://server/upload/%7BaccountId%7D/\", and the server returns 404 or similar. The caller debugs forever.\n\nThis is the inverse of the api_url/upload_url confusion in JMAP-6r7c.39: same root cause, complementary symptom.\n\nThe right shape is two typed wrappers:\n  pub struct JmapUrl(String);          // plain\n  pub struct JmapUrlTemplate(String);   // requires expansion\n\nWith session.api_url: JmapUrl and session.upload_url: JmapUrlTemplate. The compiler then refuses to mix them up. expand_url_template takes JmapUrlTemplate and returns JmapUrl.\n\nCost: every existing caller that touches these fields needs to update. Even &session.api_url becomes &session.api_url.as_str() or impl Deref<Target=str>. Pre-1.0 this is fine; post-1.0 the change requires a major bump.\n\nLow priority because (a) it's text-documented, (b) discoverable through testing, (c) workaround is \"always pass the right one\". But it's a real defensive-code-forcing gap that a typed wrapper would close. Flagging now so the next major bump can land it.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.40",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Session URLs do not have a typed wrapper distinguishing template URLs from plain URLs",
+  "updated_at": "2026-05-18T04:34:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T13:57:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-prpm",
+      "id": "14c5f0b9-b00e-569f-a7df-4e74122aa5db",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

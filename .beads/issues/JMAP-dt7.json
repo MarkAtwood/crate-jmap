@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-dt7",
+  "title": "Review round 1: Implement jmap-client crate",
+  "description": "Parallel review of jmap-client crate implementation (JMAP-3g1). Sections 0-7 of review-myoss.md.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:11:02Z",
+  "updated_at": "2026-04-30T00:20:16Z",
+  "closed_at": "2026-04-30T00:20:16Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 five concrete recurring-issue patterns identified: AuthProvider panic asymmetry between HTTP and WebSocket paths, WsFrame::StateChange left as raw Value creating a breaking-change trap, no configurable timeouts on SSE/WebSocket paths, add_call panic on runtime-generated duplicate call_ids, and hardcoded 64 MiB download cap with no override. None are security-critical. All will generate user issue reports or require breaking API changes to fix.\nConfidence: 80% chance of missed bug. Least confident flags: JMAP-dt7.1 (AuthProvider panic only in WS path, not HTTP \u2014 hard to see without tracing both paths), JMAP-dt7.20 (malformed WS Response yielding Unknown \u2014 the graceful-degrade rationale is sound but the RFC cite for this specific case is soft), JMAP-dt7.27 (upload_blob no size cap \u2014 highest-confidence real bug). Uncertainty driven by: did not run the code or fuzz it; SSE framing edge cases around chunk boundaries are hard to reason about statically; the WS path is hard to test without a live server. Would raise confidence if: integration tests against a real JMAP server existed; fuzz tests on SSE framing and WS frame parsing existed; the WS auth-header panic were covered by a unit test."
+}

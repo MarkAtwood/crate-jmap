@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T10:48:06Z",
+  "compaction_level": 0,
+  "content_hash": "761e2406cbfbe8e3cbce9d3401736a7ddc9144f174cab76e15e032fa77fb9af8",
+  "created_at": "2026-05-14T20:15:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: src/filenode.rs:108-117.\n\n    /// Collision-handling policy for FileNode/set create operations.\n    #[derive(Debug)]\n    enum OnExists {\n        /// null / absent (default) \u2014 return alreadyExists.\n        Reject,\n        /// 'replace' \u2014 destroy the existing node and create the new one.\n        Replace,\n        /// 'rename' \u2014 find a non-colliding name by appending a counter suffix.\n        Rename,\n    }\n\nWhat idiomatic Rust would do for a unit-variant control enum:\n\n    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]\n    enum OnExists { Reject, Replace, Rename }\n\nFor unit-variant enums (no payload), Copy is free (the variant is a single discriminant byte). Clone follows from Copy. PartialEq + Eq are free-derive and document 'this is a value type'. Hash unlocks use in HashSet/HashMap if a future caller wants it.\n\nWhat goes wrong as-is \u2014 three things, none catastrophic but real:\n\n1. **Move-out-of-shared analysis fragility.** The current code does 'match on_exists { OnExists::Reject => ..., OnExists::Replace => ..., OnExists::Rename => ... }' INSIDE a 'for (create_id, obj_val) in create_map' loop (filenode.rs:237). This works today because the unit-variant discriminant read does not move the value, but the shape is non-obvious. If a future contributor changes any arm to bind a future payload (e.g. OnExists::Rename(usize) for the suffix-max), the for-loop body stops compiling on the second iteration. Deriving Copy makes the value semantics explicit and the move analysis trivial.\n\n2. **Testability.** Without PartialEq, the enum cannot be asserted on in tests (assert_eq!(on_exists, OnExists::Reject) fails to compile). Today no test does this, but the absence of PartialEq is a signal that the author treated the enum as opaque rather than as data.\n\n3. **Documentation by derive.** The standard derive set documents the type's role. A unit-variant enum with only Debug reads as 'placeholder, may change'. The standard derives say 'this is a value type with the obvious semantics'. Self-documenting code matters at the public-vs-private API boundary, but it also matters for crate-internal types when contributors are cycling through unfamiliar files.\n\nThe current code happens to work, so this is a maintainability / clarity finding, not a correctness one. Filed at P2 (clippy-ish) under idiomatic-rust,type-design.\n\nCanonical comparison: jmap-mail-server does not have an analogous OnExists enum (FileNode-specific feature). The mail-server's similar local control enums (e.g. AllowedAttributes type in submission.rs) derive the standard set.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.50",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "enum OnExists derives only Debug \u2014 unit-variant control enums conventionally derive Copy, Clone, PartialEq, Eq",
+  "updated_at": "2026-05-15T10:48:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:15:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "d26edd92-6a08-54bd-9fa7-e37fa8abb8bf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

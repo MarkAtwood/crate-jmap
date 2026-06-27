@@ -1,0 +1,33 @@
+{
+  "close_reason": "Confirmed: role-swap pre-scan correctly handles A\u2192B, B\u2192A in same request; no change needed",
+  "closed_at": "2026-05-01T16:13:45Z",
+  "compaction_level": 0,
+  "content_hash": "aad119bc9c7d2f5947b8a8bfe4bb754481aacbe4cd60e1b459a0ae3d6f944c25",
+  "created_at": "2026-05-01T15:42:37Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs:536-557. Before the update loop, the handler pre-computes roles_vacated_this_request by scanning ALL updates in the request for patches that null out a role. This means the uniqueness check for any update that claims a role correctly accounts for other updates in the same request that vacate that role, regardless of iteration order. A contributor might suggest simplifying this by removing the pre-scan and only checking the pre-request state; that would break the case where one update vacates a role and another claims it in the same request. The pre-scan is necessary and correct.",
+  "ephemeral": 0,
+  "id": "JMAP-ptl.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Role-swap pre-scan in Mailbox/set update: correctly handles same-request A\u2192B, B\u2192A",
+  "updated_at": "2026-05-01T16:13:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:42:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ptl",
+      "id": "44ed92a0-acc1-5ed0-b14c-c26d93a0fc7b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

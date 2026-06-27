@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.5",
+  "title": "SSE and WebSocket have no timeout; hardcoded 30s on HTTP calls is not configurable",
+  "description": "subscribe_events and connect_ws have no idle or connect timeout. fetch_session and call hardcode 30 seconds. Neither is configurable by the caller. A hung SSE connection silently stalls the stream with no error \u2014 callers get no signal to reconnect. The 30s HTTP timeout is appropriate for most cases but embedding servers (embedded devices, high-latency links) will need to change it. Adding a timeout parameter later requires a breaking API change. This will generate recurring 'client hangs forever' issue reports.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:19Z",
+  "updated_at": "2026-04-30T00:19:28Z",
+  "closed_at": "2026-04-30T00:19:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:19"
+    }
+  ]
+}

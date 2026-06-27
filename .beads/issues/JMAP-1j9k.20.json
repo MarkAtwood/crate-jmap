@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T12:20:13Z",
+  "compaction_level": 0,
+  "content_hash": "1a0306c7e859952b67615055f999f9dcb44d24765e36fe653654b5ff69f7884b",
+  "created_at": "2026-05-15T01:26:14Z",
+  "created_by": "Mark Atwood",
+  "description": "## What the code does\n\nAcross calendars-client, every `properties: Option<&[&str]>` argument is serialised to a JSON array via a hand-rolled iterator chain:\n\n```rust\n// crate-jmap-calendars-client/src/methods/calendar.rs:38-41\nif let Some(props) = properties {\n    args[\"properties\"] = serde_json::Value::Array(\n        props.iter().copied().map(serde_json::Value::from).collect(),\n    );\n}\n```\n\nThe same six-line pattern is repeated **six times**:\n\n- crate-jmap-calendars-client/src/methods/calendar.rs:38-41\n- crate-jmap-calendars-client/src/methods/event.rs:37-40\n- crate-jmap-calendars-client/src/methods/event_notification.rs:30-33\n- crate-jmap-calendars-client/src/methods/event_parse.rs:30-33\n- crate-jmap-calendars-client/src/methods/participant_identity.rs:25-28\n- crate-jmap-calendars-client/src/methods/principal_availability.rs:36-39\n\n## What idiomatic Rust would do\n\n`serde_json::to_value` on `&[&str]` invokes the `str` Serialize impl on each element and produces `Value::Array(Vec<Value::String>)` \u2014 byte-identical wire output to the hand-rolled version. The two-line replacement:\n\n```rust\nif let Some(props) = properties {\n    args[\"properties\"] = serde_json::to_value(props)\n        .expect(\"&[&str] Serialize is infallible\");\n}\n```\n\n\u2026matches the idiom the SAME function uses two lines above for the `ids` slice:\n\n```rust\n// calendar.rs:35-36 \u2014 already in the idiomatic shape\nif let Some(id_slice) = ids {\n    args[\"ids\"] = serde_json::to_value(id_slice).expect(\"Id slice Serialize is infallible\");\n}\n```\n\n## Why it matters\n\n1. **Local consistency.** The function asks the reader to recognise two different idioms for the same operation (slice \u2192 JSON array) two lines apart in the same function. Picking one and using it throughout is what a serious Rust practitioner would do without thinking.\n\n2. **Maintainability.** Six copies of the same hand-rolled chain means six opportunities for one of them to drift (e.g. someone adds `.filter()` to one site, the others diverge). One canonical idiom = zero divergence.\n\n3. **Composability.** `serde_json::to_value` is the workspace's standard \"value of T into wire-Value\" helper; using it consistently keeps a future refactor (e.g. converting `properties: Option<&[&str]>` to a typed `Option<&[CalendarProperty]>`) trivial \u2014 the same call site works because `CalendarProperty: Serialize`.\n\n4. **Canonical-template alignment.** The canonical mail-client `email_get` at email.rs:44-48 has the same hand-rolled pattern (likely because the workspace's earliest version had it and the cookie-cut propagated it). Per workspace AGENTS.md canonical-template rule, fixing it here means fixing the canonical first; that's a separate (and welcome) propagation sweep. The finding here is calendars-specific because that's the scope of this review epic.\n\n## Fix shape\n\nSix mechanical two-line replacements. Wire output unchanged. Cookie-cutter consistency improves.\n\n## Source citations\n\n- crate-jmap-calendars-client/src/methods/calendar.rs:38-41 (and matching :35-36 for the canonical idiom in the same function)\n- crate-jmap-calendars-client/src/methods/event.rs:37-40\n- crate-jmap-calendars-client/src/methods/event_notification.rs:30-33\n- crate-jmap-calendars-client/src/methods/event_parse.rs:30-33\n- crate-jmap-calendars-client/src/methods/participant_identity.rs:25-28\n- crate-jmap-calendars-client/src/methods/principal_availability.rs:36-39\n- crate-jmap-mail-client/src/methods/email.rs:44-48 (canonical \u2014 same hand-rolled pattern; canonical-template propagation candidate)",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Hand-rolled props.iter().copied().map(Value::from).collect() \u2014 serde_json::to_value(props) is one line",
+  "updated_at": "2026-05-17T12:20:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:26:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "78383776-b2a5-5c4c-b867-1d0d67539639",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

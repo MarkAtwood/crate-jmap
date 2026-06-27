@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "66a39e9f8fa55879122dc7b46ba51f58dfc8b153c72c8d325e639f158504cdf6",
+  "created_at": "2026-05-14T12:28:09Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\nThe three foundation methods on `ChatBackend` \u2014 `create_object`,\n`update_object`, `destroy_object` (backend.rs:296-328) \u2014 have\ndocs of 2/3/1 sentences respectively, contrasting sharply with the\n60-line specialized methods later in the same trait\n(`apply_space_patch` at 503-571, `expire_message` at 830-892,\n`generate_invite_code` at 336-414, etc., all exemplary).\n\n```\n/// Create a new object.\n///\n/// Returns `(assigned_id, created_object)` on success. `create_id` is the\n/// client-side creation id used in the `/set` request.\nfn create_object<O: SetObject + Send + Sync>(...) -> ...;\n\n/// Apply a partial update (patch) to an existing object.\n///\n/// Returns `Some(updated_object)` if the backend modified any properties\n/// beyond what the client requested (RFC 8620 \u00a75.3 server-set field echo),\n/// or `None` if the patch was applied verbatim.\nfn update_object<O: SetObject + Send + Sync>(...) -> ...;\n\n/// Destroy an existing object by id.\nfn destroy_object<O: SetObject + Send + Sync>(...) -> ...;\n```\n\n## What goes wrong for a third-party implementer\n\nA 50-line custom backend implemented from these docs alone would\nsilently mis-implement at least five contracts. None compile-fail,\nnone are caught by the kit's own MemoryBackend smoke tests, but\nall manifest as spec-incorrect wire behaviour at runtime:\n\n1. **SetErrorType selection for unknown account / unknown id /\n   create_id collision is unstated.** `BackendSetError::Other(E)`\n   vs `BackendSetError::SetError(SetError::with_type(AccountNotFound))`\n   vs NotFound \u2014 the implementer has to read RFC 8620 \u00a75.3 directly\n   to choose. Wrong choice \u2192 wrong wire-level error \u2192 client cannot\n   distinguish failure modes.\n\n2. **Verbatim vs echo semantics for `update_object` return.** The\n   doc says \\\"Some if backend modified beyond what client requested.\\\"\n   But any backend that bumps `updatedAt` / `lastSeenAt` /\n   membership counters on every successful update never hits the\n   `None` branch. So either the `None` branch is dead, or\n   \\\"beyond what client requested\\\" excludes server-bookkeeping\n   timestamps \u2014 the implementer guesses inconsistently.\n\n3. **State-bump contract for /changes is implicit.** Every successful\n   create/update/destroy MUST bump the type's state token so\n   `Type/changes` sees the mutation. The doc is silent. A backend\n   that forgets ships `/changes` calls that miss writes.\n\n4. **Cascade rules for `destroy_object` are unstated.** Destroying\n   a `Space` \u2014 does the backend cascade to child `Messages`,\n   `Roles`, `ReadPositions`? Destroying a `Role` referenced by\n   `Member.role_ids` \u2014 `Err(SetError(InUse))` or successful with\n   a hidden side effect? Contrast with `expire_message` at line\n   885 which spends 60 lines explicitly documenting cascade.\n\n5. **Atomicity within a single `update_object` call with\n   multi-field patch is unstated.** All-or-nothing? Or\n   field-by-field? The implementer cannot tell.\n\n## Why this matters more than other doc gaps\n\n`create_object` / `update_object` / `destroy_object` are the\nmost-used methods in `ChatBackend` \u2014 every `/set` call routes\nthrough one of them. Spec-incorrect implementations here drop\nstraight to wire output. The asymmetry between these and\n`apply_space_patch`'s 60-line doc is by itself a contract\ndefect: implementers expect doc weight to track method\nimportance, and here it's inverted.\n\n## Recommendation\n\nAdd a 40-60 line doc block to each of the three methods covering\nthe five contracts above. Cross-reference RFC 8620 \u00a75.3 explicitly\nfor SetErrorType selection. The single highest-leverage doc\nchange suggested by the 3rd-pass consumer-perspective exercise.\n\n## Engineering basis\n\nVerified by reading the rustdoc text on each of the three methods\n(backend.rs:296-328) and noting what a third-party implementer\nwould have to either guess or read elsewhere. This is the\n\\\"50-line custom backend exercise\\\" the 1st-pass and 2nd-pass\napi-contract confidence notes both called out as the highest-\nleverage missing exercise.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.59",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "API contract: ChatBackend foundation methods (create/update/destroy_object) have skeletal docs missing 5 critical implementer contracts",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:28:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "4c825003-2da6-5433-9480-63c22e702e63",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-14T09:00:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd.86",
+      "id": "dae8ecae-aed4-5f08-97ef-b9ffb0b5539e",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

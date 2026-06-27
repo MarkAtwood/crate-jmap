@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Propagated server_fail_from_backend across all 8 extension *-server crates. Bulk rewrite of ~197 .map_err(|e| JmapError::server_fail(e.to_string())) call sites to .map_err(|e| server_fail_from_backend(&e)) via regex. Three .map_err(|e| JmapError::server_fail(format!(...))) sites that interpolated {e}: two replaced with server_fail_from_backend(&e); one kept (only contained static text plus a JMAP Id, no leak risk). Imports added to 40 files via a smart-merge into existing 'use jmap_server::{...};' patterns. Workspace builds clean with cargo build/test/clippy/fmt --all-features.",
+  "closed_at": "2026-05-14T13:31:59Z",
+  "compaction_level": 0,
+  "content_hash": "a86fb3785e9cee025254224e3428dbf2a0e62eeecec9c790893745cf71f67bea",
+  "created_at": "2026-05-14T13:28:58Z",
+  "created_by": "Mark Atwood",
+  "description": "Propagation of bd:JMAP-wlip.2 to the 8 extension *-server crates per the canonical-template rule.\n\nAfter JMAP-wlip.2 introduced jmap_server::server_fail_from_backend and fixed the 7 leak sites in the foundation crate-jmap-server/src/handlers.rs, ~203 analogous '.map_err(|e| JmapError::server_fail(e.to_string()))' call sites remain in the extension *-server crates (counts approximate, from rg at JMAP-wlip.2 commit):\n\n  crate-jmap-mail-server/      most sites (email.rs, mailbox.rs, sieve.rs, submission.rs, mdn.rs, etc.)\n  crate-jmap-chat-server/      multiple per file across ban/contact/presence/emoji/space/message/chat/invite/position\n  crate-jmap-calendars-server/ calendar.rs, event.rs, event_notification.rs, principal.rs, participant_identity.rs, helpers.rs\n  crate-jmap-tasks-server/\n  crate-jmap-contacts-server/\n  crate-jmap-sharing-server/\n  crate-jmap-metadata-server/\n  crate-jmap-filenode-server/\n\nSweep strategy:\n1. Per crate, replace every '.map_err(|e| JmapError::server_fail(e.to_string()))' with '.map_err(|e| server_fail_from_backend(\\&e))' (the helper accepts any Display via 'Display + ?Sized' bound, so it works for BackendSetError, BackendChangesError, and any trait-method error envelope).\n2. Add 'use jmap_server::server_fail_from_backend;' to each module that has at least one such call site (most already 'use jmap_server::...' something else).\n3. Also handle the variant '.map_err(|e| JmapError::server_fail(format!(...)))' \u2014 these need case-by-case judgment: format strings that already contain only static text (e.g. 'unhandled backend error variant') are fine to keep; format strings that interpolate the backend error (format!(\"event serialize failed: {e}\")) are the same leak class and should become server_fail_from_backend(\\&e).\n\nTest coverage: rely on the existing 'serverFail' assertion tests in each crate's integration suite. Those check error_type only, not description. After the sweep, optionally add a per-crate test analogous to handlers::tests::server_fail_from_backend_drops_display_text that exercises a leaky backend error through the crate's own handler stack.\n\nOut of scope: JmapError construction sites where the description is caller-meaningful (limit, invalidArguments, invalidResultReference, stateMismatch with state values). Those carry information the client needs.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sweep: propagate server_fail_from_backend helper to all *-server extension crates",
+  "updated_at": "2026-05-14T13:31:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:28:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "b54ebcf0-0f07-5b51-9dde-23d5727ed6a7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

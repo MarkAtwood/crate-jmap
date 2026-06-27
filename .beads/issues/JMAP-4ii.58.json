@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:35:07Z",
+  "compaction_level": 0,
+  "content_hash": "8559395cc29550b0dd963963486df02ba2432ee26146044d5b8f7d12aea572fc",
+  "created_at": "2026-05-02T04:29:52Z",
+  "created_by": "Mark Atwood",
+  "description": "The round-2 fix eliminated patch_val.clone() in chat.rs, contact.rs, message.rs, position.rs, and presence.rs by switching to args.as_object_mut().and_then(|m| m.remove(\"update\")). ban.rs, emoji.rs, and invite.rs were not updated and still use args.get(\"update\").and_then(|v| v.as_object()), borrowing the map and forcing id_str.clone() on every successful/failed operation in the loop body. This creates inconsistency within the same crate: five handlers own their loop variable, three borrow it. The fix in those three files requires the same ownership change: switch to remove or as_object_mut().and_then(|m| m.remove(\"update\")), then drop the id_str.clone() calls throughout the loop. ban.rs is particularly verbose: every branch in the Ok(Some)/Ok(None)/Err match clones id_str.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.58",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ban.rs/emoji.rs/invite.rs: update loop still uses borrow pattern, forcing id_str.clone()",
+  "updated_at": "2026-05-02T04:35:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:29:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "4bde520c-fa52-5da9-9718-d92bcc16a918",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

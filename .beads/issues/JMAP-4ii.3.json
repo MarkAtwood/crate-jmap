@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:12:30Z",
+  "compaction_level": 0,
+  "content_hash": "d5025c2e5dfff7c7aee81dfb536bcf6608c6ac76de5aa18296be87651ac2c948",
+  "created_at": "2026-05-02T03:55:26Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs handle_submission_changes builds its response without the updatedProperties field. RFC 8620 \u00a75.2 requires updatedProperties in every /changes response. handle_mailbox_changes, handle_chat_changes, handle_space_changes, handle_thread_changes, handle_message_changes all include 'updatedProperties': Value::Null. The omission in handle_submission_changes means clients cannot distinguish 'no properties changed' from 'field absent due to server bug'.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "EmailSubmission/changes missing updatedProperties field",
+  "updated_at": "2026-05-02T04:12:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:55:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "8faad45c-535a-5c49-b436-7553d5541848",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

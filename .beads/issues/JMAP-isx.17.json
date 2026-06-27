@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-isx.17",
+  "title": "blob_exists default=true documented default preserves backward compatibility",
+  "description": "backend.rs:373-380: blob_exists has a provided default implementation returning true, with documentation explaining this routes all parse failures to notParsable. The comment makes clear why the default exists (backward compatibility), what the correct behavior is, and that backends should override for RFC conformance. This is the right design: safe default with an obvious opt-in path. A contributor might be tempted to change the default to false ('more correct'); that would break existing backends that don't implement blob_exists.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:21:41Z",
+  "updated_at": "2026-04-30T23:41:07Z",
+  "closed_at": "2026-04-30T23:41:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-isx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:21:40"
+    }
+  ]
+}

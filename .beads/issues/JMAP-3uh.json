@@ -1,0 +1,44 @@
+{
+  "acceptance_criteria": "cargo check -p jmap-mail-server --features sieve passes; SieveBackend trait compiles; cargo clippy -p jmap-mail-server --features sieve -- -D warnings passes",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:07:18Z",
+  "compaction_level": 0,
+  "content_hash": "440240d87239320f947cea591e39aa0fb2dcabdd89ef2f8cf61a8c9973089836",
+  "created_at": "2026-05-02T15:23:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Define the SieveBackend trait in crate-jmap-mail-server/src/sieve.rs.\n\nWHAT: SieveBackend is the opt-in trait storage backends implement to support the sieve feature. Separate from MailBackend.\n\nALGORITHM:\n1. Create crate-jmap-mail-server/src/sieve.rs (no cfg attributes in the file itself \u2014 gates are in lib.rs).\n2. Define:\n   pub trait SieveBackend: Send + Sync {\n     type Error: std::error::Error + Send + Sync + 'static;\n\n     // Fetch raw bytes for a blob (used by validate handler to read script content)\n     fn get_sieve_blob(&self, account_id: &Id, blob_id: &Id)\n       -> impl Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send;\n\n     // Validate Sieve script content. Returns Ok(None) if valid; Ok(Some(description)) if invalid\n     // (description SHOULD include line number per spec \u00a72.6). Returns Err for storage failures.\n     fn validate_sieve_script(&self, account_id: &Id, blob_id: &Id)\n       -> impl Future<Output = Result<Option<String>, Self::Error>> + Send;\n   }\n\n3. Define result structs used by the set handler:\n   - No bespoke result structs needed: the set handler uses MailBackend::create_object/update_object/\n     destroy_object (all via the generic trait) and assembles created/updated/notCreated/etc. maps itself.\n\nDEFENSIVE RULES:\n- Trait must be Send + Sync\n- Associated type Error: std::error::Error + Send + Sync + 'static (same pattern as MdnBackend)\n- All futures must be + Send\n- No .unwrap() in library code\n- Return Ok(None) from get_sieve_blob for missing blob (not an error); Err only for storage failures\n\nAGENT TEAM: Single implementer\n\nTESTS: cargo check -p jmap-mail-server --features sieve passes; this bead is structural \u2014 full tests come in integration test bead",
+  "design": "Trait definition (behind cfg(feature=sieve)):\n\npub trait SieveBackend: Send + Sync {\n    async fn get_sieve_scripts(&self, account_id: &Id, ids: Option<&[Id]>) -> Result<GetResult<SieveScript>, BackendChangesError>;\n    async fn set_sieve_scripts(&self, account_id: &Id, req: SieveSetRequest) -> Result<SetResult<SieveScript>, BackendSetError>;\n    async fn query_sieve_scripts(&self, account_id: &Id, filter: Option<SieveScriptFilter>, sort: Option<Vec<Comparator<SieveScriptSortProperty>>>, position: i64, limit: Option<u64>, anchor: Option<&Id>, anchor_offset: i64) -> Result<QueryResult, BackendChangesError>;\n    async fn validate_sieve_script(&self, account_id: &Id, blob_id: &Id) -> Result<Option<SieveSetError>, BackendChangesError>;\n}\n\nNote on set_sieve_scripts: the backend is responsible for the activation state machine (at-most-one-active invariant). on_success_activate_script and on_success_deactivate_script are forwarded to the backend; the handler applies them only after all creates/updates/destroys succeed. The backend returns updated isActive entries in SetResult.\n\nNote on validate: backend retrieves blob content, parses Sieve grammar, returns None if valid or SieveSetError { type: InvalidSieve, description: Some(line_number_message) } if invalid.",
+  "ephemeral": 0,
+  "id": "JMAP-3uh",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve: SieveBackend trait",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T11:29:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-82ty",
+      "id": "331ef144-a824-55d3-99a7-44ada28468ef",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T08:24:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wx3",
+      "id": "d061a807-8d86-5f8d-a07e-0c5b7c3ed547",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

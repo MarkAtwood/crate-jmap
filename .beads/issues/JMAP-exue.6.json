@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Updated reg! macro in jmap-sharing-server to use ClosureHandlerWithCtx; clippy clean",
+  "closed_at": "2026-05-05T18:34:33Z",
+  "compaction_level": 0,
+  "content_hash": "8a1cd17001637107f8eaacb8075fc3decd689db67e16e4b6f7381e12fb42f0de",
+  "created_at": "2026-05-05T17:28:58Z",
+  "created_by": "Mark Atwood",
+  "description": "Update register_sharing_handlers to forward CallerCtx using ClosureHandlerWithCtx<B, C> (from JMAP-exue.1).\\n\\nAll Principal/* and ShareNotification/* handler closures receive ctx: C. Critical for sharing servers where permission enforcement (currently delegated entirely to the backend) needs to know the authenticated principal making the request.\\n\\nAcceptance criteria:\\n- register_sharing_handlers closures receive CallerCtx\\n- cargo test -p jmap-sharing-server exits 0\\n- Clippy clean\\n\\nDepends on JMAP-exue.1.",
+  "ephemeral": 0,
+  "id": "JMAP-exue.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-sharing-server: Forward CallerCtx in register_sharing_handlers",
+  "updated_at": "2026-05-05T18:34:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T10:29:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-exue.1",
+      "id": "26be707a-d4df-585d-be87-58003eff5ffe",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-05T10:28:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-exue",
+      "id": "387fd210-36e6-5cd1-b0c1-406b3116f88e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

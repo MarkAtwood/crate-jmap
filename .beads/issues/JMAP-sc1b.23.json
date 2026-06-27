@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260510T180814Z-3657541",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T18:22:55Z",
+  "compaction_level": 0,
+  "content_hash": "c2af8eb07ee4ce9dceef487dba6f8fa2428e401d48ce98b13d2b3037f9bed0ce",
+  "created_at": "2026-05-07T20:29:12Z",
+  "created_by": "Mark Atwood",
+  "description": "Sweep result: 1 PASS (jmap-types) / 24 FAIL. All 24 failures share one shape: `failed to select a version for the requirement <dep> = ^X.Y.Z \u2014 candidate versions found which didn't match: <older>`.\n\nThis is NOT a defect in any Cargo.toml. It's the chicken-and-egg of a multi-crate workspace bumping shared types ahead of publishing. Once each layer is published in topological order, the next layer's dry-run will succeed.\n\nRecommended publish ordering (verified against actual dep graph):\n\n1. jmap-types 0.1.1 (already passes dry-run)\n2. (parallel) jmap-mail-types 0.1.1, jmap-chat-types 0.1.1, jmap-contacts-types 0.1.1, jmap-calendars-types 0.1.1, jmap-tasks-types 0.1.1, jmap-filenode-types 0.1.1, jmap-sharing-types 0.1.1\n3. jmap-mime 0.1.1\n4. jmap-server 0.1.2\n5. jmap-base-client 0.1.1\n6. (parallel) all 7 *-server and 7 *-client crates\n\nEach step requires registry indexing of the previous step (a few seconds typically).\n\nAction: document this ordering in a top-level RELEASING.md or in CONTRIBUTING.md so the next person to do a release doesn't have to rediscover it.\n\nP3 because not a code defect \u2014 it's documentation of process. Convergence eligible.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Documented in RELEASING.md (commit 8f5014e). Covers:\n- Why ordering matters (cargo strips path on publish)\n- Dependency graph as a 7-layer topological order\n- Per-layer publish procedure (parallelism within a layer is safe)\n- Pre-publish checklist (fmt/clippy/test/doc)\n- Version bump conventions (workspace 0.1.X line, propagation rule reminder)\n- Tracking (when to update this file)\n\nVerified the bead's stated layer ordering against actual Cargo.toml dep edges:\n- jmap-types: no jmap deps (layer 1)\n- jmap-{ext}-types: depend on jmap-types only (layer 2, parallel)\n- jmap-mime: depends on jmap-types + jmap-mail-types (layer 3)\n- jmap-server: depends on jmap-types only (layer 4, parallel with layer 5)\n- jmap-base-client: depends on jmap-types only (layer 5, parallel with layer 4)\n- jmap-mail-server: depends on jmap-types + jmap-mail-types + jmap-server + jmap-mime (layer 6)\n- jmap-{ext}-server (\u00d76): depends on jmap-types + jmap-{ext}-types + jmap-server (layer 6, parallel)\n- jmap-{ext}-client (\u00d77): depends on jmap-types + jmap-{ext}-types + jmap-base-client (layer 7, parallel)\n\nDiffers slightly from bead text \u2014 bead said jmap-mime in step 3 with jmap-mail-types as prereq, which is correct. Bead also clusters server+client into layer 6, but they actually split (server depends on jmap-mime+jmap-server, client depends on jmap-base-client). Documented as layers 6 (server) and 7 (client) for clarity.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: cargo publish --dry-run fails for 24 of 25 crates due to unpublished bumped versions",
+  "updated_at": "2026-05-10T18:22:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "049023a8-0fbf-5653-9144-30612e8e5da7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

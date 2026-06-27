@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in 5e18f72: README 'What it's for' now cites RFC 9610 instead of the stale 'RFC 6889 / draft-ietf-jmap-contacts' string.",
+  "closed_at": "2026-05-15T22:55:08Z",
+  "compaction_level": 0,
+  "content_hash": "c2825126a08e90555cee2a5dcbed24104df0436412fb1dda61d1958737f446be",
+  "created_at": "2026-05-15T22:35:25Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-contacts-types/README.md line 33 reads: 'RFC 6889 / draft-ietf-jmap-contacts data types'. RFC 6889 is 'Analysis of Stateful 64 Translation' (NAT64). This crate covers RFC 9610 (JMAP Contacts). The 'draft-ietf-jmap-contacts' label is also stale \u2014 RFC 9610 superseded that draft. Trigger: any reader skimming the 'What it's for' section. Bad behavior: confusion / loss of confidence in the rest of the crate's documentation; could generate an issue report. Pre-existing in the prior README (the convention sweep at ff48ff1 reshaped sections but kept this string verbatim). Trivial fix in a single docs commit.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README mis-cites RFC 6889 (NAT64) instead of RFC 9610 (JMAP Contacts)",
+  "updated_at": "2026-05-15T22:55:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:35:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "e7a30f43-9733-5b66-93ce-d0d539292399",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

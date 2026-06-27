@@ -1,0 +1,32 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:20:16Z",
+  "compaction_level": 0,
+  "content_hash": "fb2ef6b546c5a6ea65847bab98525e7a67c72525307a807b571256f50866afe1",
+  "created_at": "2026-05-05T01:16:48Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-3a4e.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Tests and quality gates",
+  "updated_at": "2026-05-05T01:20:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:16:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3a4e",
+      "id": "f8257ed8-0964-5d2d-a94d-bfea4a5b782c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

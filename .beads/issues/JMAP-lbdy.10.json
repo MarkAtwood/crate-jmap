@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T18:47:21Z",
+  "compaction_level": 0,
+  "content_hash": "7a0e2631bf0858ebf638855ff4edc68cc97f62a47c8d0c0458eaf80bea43df51",
+  "created_at": "2026-05-09T00:52:20Z",
+  "created_by": "Mark Atwood",
+  "description": "Add a section to the workspace AGENTS.md documenting the extras-preservation policy after JMAP-lbdy lands.\n\nSuggested location: between the existing 'Sloppy-Value pattern for IETF-defined nested objects' section and the 'TLS stack' section. The new section's relationship to Sloppy-Value: Sloppy-Value is for IETF-spec'd nested objects (JSCalendar/JSContact/etc.) where the value SHAPE is owned by an external spec; extras is for vendor/site-private FIELDS that are not declared by any spec and just need to round-trip.\n\nRequired content (extras policy):\n- Pattern: `pub extra: serde_json::Map<String, Value>` with `#[serde(flatten, default, skip_serializing_if = \"serde_json::Map::is_empty\")]`.\n- Why: vendor/site fields in production JMAP deployments add data without waiting for IETF process. Silent-drop is the spec floor (RFC 8620 \u00a71.6); workspace policy is preservation.\n- Scope: every public Deserialize struct that appears on the JMAP wire. NOT internal Rust API types (backend trait results, mock backends, parsing helpers, test fixtures).\n- Test discipline: every in-scope type has at least one round-trip preservation test asserting unknown fields survive serialize.\n- Field shape and visibility (pub field, lowercase `extra`).\n- New types added to any in-scope crate MUST include extras from day one.\n\nRequired content (filter-algebra exclusion \u2014 added 2026-05-10):\nA sub-section explaining that **filter and comparator algebra types and control string enums are explicitly OUT of the extras policy**. This must cover:\n\n- The three exclusions: (a) Filter<T> / FilterOperator<T> and per-crate FilterCondition types; (b) Comparator types (EmailComparator, CalendarEventComparator, etc.); (c) control string enums (Operator, ComparatorProperty).\n- Rationale (cross-reference JMAP-lbdy \"Decision: filter algebra excluded\"):\n  1. Silent-drop foot-gun at server \u2014 an unknown filter clause silently round-tripping through the client creates query-correctness bugs (wrong result sets returned with no compile-time or runtime signal).\n  2. `Filter<T>` is `#[serde(untagged)]` over a fixed variant set \u2014 extras on the condition struct cannot introduce new variant shapes.\n  3. Control enums must dispatch on known variants \u2014 `Unknown(String)` is meaningless for `Operator` (AND/OR/NOT) and `ComparatorProperty`; backends cannot honor unrecognised values. `#[non_exhaustive]` already gives spec-level forward-compat.\n- **Future hook \u2014 IETF-track path**: vendors needing capability-declared, filterable extras should use `draft-ietf-jmap-metadata` (currently draft-01, capability URI `urn:ietf:params:jmap:metadata`). It defines a companion Annotation object keyed by `(relatedType, relatedId)`, with schema discovery via the capability's `dataTypes` / `metadataTypes` / `maxDepth` properties and a `Metadata/query` filter (currently `textMatch` over vendor string properties \u2014 coarse but standardised). The workspace tracker for implementation is JMAP-06zp.\n- **Future hook \u2014 pre-IETF escape**: vendors who need typed filter construction against custom server fields RIGHT NOW (before the metadata draft stabilises) can use the sloppy-value escape (`serde_json::Value` for the filter tree) or fork the per-crate `FilterCondition` type. The hybrid pattern documented in `crate-jmap-calendars-types/PLAN.md` is the model.\n- Cross-reference: per-crate rustdoc on each in-scope filter/comparator/control-enum type carries the same exclusion + dual-future-hook notice (see JMAP-9wh7 for the propagation epic).\n\nAcceptance: AGENTS.md updated with both sections (extras policy AND filter-algebra exclusion with dual future-hook guidance); cross-reference from each migrated crate's AGENTS.md (where applicable) and PLAN.md.\n",
+  "ephemeral": 0,
+  "id": "JMAP-lbdy.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Document extras policy in workspace AGENTS.md",
+  "updated_at": "2026-05-11T18:47:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-08T17:52:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-lbdy",
+      "id": "a20bb466-1269-5b41-83ae-23df8ef6715c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

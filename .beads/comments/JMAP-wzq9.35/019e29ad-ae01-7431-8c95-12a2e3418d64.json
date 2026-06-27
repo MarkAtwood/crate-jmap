@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T03:28:29Z",
+  "id": "019e29ad-ae01-7431-8c95-12a2e3418d64",
+  "issue_id": "JMAP-wzq9.35",
+  "text": "De-labeling human per AGENTS.md 'When NOT to file human' anti-pattern #3 (stale committed recommendation): bead body has a clear single recommended fix path (a), parent-epic comment dated 2026-05-15 03:21 UTC explicitly says 'recommended fix (path a: one-word doc-comment change)' and 'left the human label intact' was admitted as overcautious conservatism. None of the high-stakes qualifiers apply: not destructive, not a public API break (doc-comment only), not a security boundary. Two equally-plausible options NOT presented \u2014 (b) and (c) are explicitly expansion paths, not alternatives. Claiming and fixing path (a)."
+}

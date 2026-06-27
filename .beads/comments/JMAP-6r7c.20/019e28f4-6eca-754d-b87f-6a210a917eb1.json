@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T00:06:08Z",
+  "id": "019e28f4-6eca-754d-b87f-6a210a917eb1",
+  "issue_id": "JMAP-6r7c.20",
+  "text": "Escalating to human: same 0.2.0 epic family as JMAP-6r7c.36 / .50 / .48 / .26 / .31 / .59-followups. AuthProvider::auth_header signature reshape is a SemVer-breaking trait change that ripples to every implementor (in-workspace: BearerAuth, BasicAuth, NoneAuth, plus a Box/Arc blanket impl; out-of-workspace: any consumer that has implemented their own AuthProvider).\n\nSee JMAP-6r7c.36 comment for the umbrella-bundling recommendation."
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T23:45:13Z",
+  "id": "019e3854-5c5f-717f-8270-0b7174943bbf",
+  "issue_id": "JMAP-ops7.33",
+  "text": "Probe executed. Outcome: no propagation needed.\n\n**Audit procedure** (per bead body): for each of the 7 extension-server crates (mail, chat, contacts, calendars, tasks, filenode, sharing), ran:\n\n  rg 'tracing::(trace|debug|info|warn|error)' crate-jmap-<crate>/src/\n\n**Result**: zero matches in any of the 7 crates. None of them emits any tracing::* event today.\n\n**Cross-check**: also confirmed metadata-server's own src/ has zero tracing::* calls \u2014 its tests/common/log_capture.rs + tests/log_redaction.rs is a forward-compat tripwire installed pre-emptively (the test file's own rustdoc cites this verbatim: 'The crate currently emits zero tracing::* events (verified by ...).').\n\n**Conclusion**: the workspace's current extension-server crates do not need log_capture.rs canaries. The two crates that do have them (jmap-base-client and jmap-metadata-server) are sufficient \u2014 base-client is the canonical credentials boundary and metadata-server's canary is the forward-compat installation that the bead's expected outcome correctly anticipated.\n\n**Follow-up**: when any extension-server crate adds its first tracing::* event that interpolates a Debug-bearing argument, the contributor MUST add the matching canary in the same commit per the workspace AGENTS.md 'Security testing' rule. No sweep bead needed today.\n\nClosing as probe-complete, no propagation."
+}

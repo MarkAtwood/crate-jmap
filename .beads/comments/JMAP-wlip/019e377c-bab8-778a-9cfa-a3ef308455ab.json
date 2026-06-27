@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T19:49:42Z",
+  "id": "019e377c-bab8-778a-9cfa-a3ef308455ab",
+  "issue_id": "JMAP-wlip",
+  "text": "do-beads session 20260517T194941Z: ready frontier under this epic returned 5 beads (.24, .30, .34, .35, .36), all labeled `deferred`. Reviewed each \u2014 every one is an architectural-decision bead with explicit \"Decision needed from Mark\" text in the body, deferred until either a workspace major bump or a downstream consumer reports a production issue. Per workspace AGENTS.md, `deferred` is the signal for parked backlog and these are not autonomous-frontier work. Not claiming, not re-labeling `human` (the docs explicitly say deferred and human do not stack \u2014 anti-pattern #2 in 'When NOT to file human'). Epic is effectively complete pending architectural decisions; the remaining 5 children are correctly parked."
+}

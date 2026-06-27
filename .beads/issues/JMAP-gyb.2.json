@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-gyb.2",
+  "title": "args-to-Map guard repeated in 6 handlers",
+  "description": "let Value::Object(mut args) = args else { return Err(...) } appears in handle_email_get, handle_email_query, handle_email_query_changes, handle_email_parse, handle_mailbox_get, handle_submission_get \u2014 candidate for a helpers::into_args_map helper, but 6 repetitions may not justify the abstraction cost; note for next contributor",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:18:42Z",
+  "updated_at": "2026-05-01T02:19:38Z",
+  "closed_at": "2026-05-01T02:19:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-gyb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:18:41"
+    }
+  ]
+}

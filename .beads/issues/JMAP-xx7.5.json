@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-xx7.5",
+  "title": "SseEvent::Unknown carries no diagnostic info \u2014 inconsistent with WsFrame::Unknown { type_name }",
+  "description": "SseEvent::Unknown has no fields: callers cannot distinguish a keepalive, an unrecognized event type, and a JSON parse failure. WsFrame::Unknown { type_name: String } carries the @type value so callers can log server misbehavior. Extension crates that want to debug an SSE 'state' parse failure cannot tell whether the issue was an unrecognized event type or malformed JSON. Suggested fix: SseEvent::Unknown { reason: UnknownReason } where reason is an enum (Keepalive, UnrecognizedEventType(String), ParseError). Or at minimum add a type_name field analogous to WsFrame. This is not urgent but the asymmetry will be confusing when both paths are used together.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T14:49:49Z",
+  "updated_at": "2026-04-30T14:59:00Z",
+  "closed_at": "2026-04-30T14:59:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-xx7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 07:49:49"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260510T180814Z-3657541",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T18:19:34Z",
+  "compaction_level": 0,
+  "content_hash": "83cae3cb0ebf28fe0ebd4dd21badd69a7febd1ec89bde76d80e43b5246a32fe4",
+  "created_at": "2026-05-10T18:14:18Z",
+  "created_by": "bd-spin/bd-spin-20260510T180814Z-3657541",
+  "description": "Test-only siblings of JMAP-sc1b.53. Same anti-pattern (clones JSON subtree before from_value), but inside #[cfg(test)] mod test_support (in-memory mock backend used by inline tests).\n\nSites:\n- crate-jmap-calendars-server/src/lib.rs:372\n- crate-jmap-calendars-server/src/lib.rs:383\n\nFix: serde_json::from_value::<O>(v.clone()) \u2192 O::deserialize(v) (need 'use serde::Deserialize' inside that test_support module, or qualified path).\n\nWhy P4: test-only code path; correctness unaffected; allocation cost is paid only by inline tests.\n\nBead split out of JMAP-sc1b.53 to keep that production-scope bead clean. Likely also worth checking if other extension-server test_support modules have the same pattern (chat, tasks, etc.).",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.66",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Fixed in commit 9430e3a.\n\nSites swept (13 total in tests/test_support):\n- jmap-calendars-server/src/lib.rs (cfg(test) test_support): 2 sites (372, 383)\n- jmap-chat-server/tests/common/mod.rs: 3 sites (159, 172, 374)\n- jmap-mail-server/tests/common/mod.rs: 5 sites (271, 281, 465, 497, 732)\n- jmap-sharing-server/tests/common/mod.rs: 3 sites (163, 176, 375)\n\nPattern: serde_json::from_value::<O>(val.clone()) \u2192 O::deserialize(val) (or O::deserialize(&val) when val is owned). For generic O bound by JmapObject, the trait method resolves through the trait bound; no 'use serde::Deserialize' import is needed.\n\nOther clone-subtree sites discovered during this sweep but NOT touched (out of scope for this bead):\n1. crate-jmap-base-client/src/request.rs:161 \u2014 production\n2. crate-jmap-chat-client/src/session.rs:163, 181 \u2014 production\n3. crate-jmap-chat-client/src/methods/mod.rs:943 \u2014 production\n4. crate-jmap-types/src/methods.rs: 4 cfg(test) sites\n5. crate-jmap-sharing-types/src/notification.rs: 2 cfg(test) sites\n6. crate-jmap-sharing-types/src/principal.rs: 2 cfg(test) sites\n7. crate-jmap-sharing-types/src/capability.rs: 2 cfg(test) sites\n\nFiled as JMAP-sc1b.67 (production sites in client crates) and JMAP-sc1b.68 (type-crate test fixtures). Both lower priority than this bead.\n\nGate: cargo build --workspace --tests, cargo clippy --workspace --tests -- -D warnings, cargo test --workspace all green.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P4: 2 from_value(v.clone()) sites in calendars-server cfg(test) test_support",
+  "updated_at": "2026-05-10T18:19:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T11:14:17Z",
+      "created_by": "bd-spin/bd-spin-20260510T180814Z-3657541",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "860d7578-88d1-5168-89d2-d5172c21c235",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

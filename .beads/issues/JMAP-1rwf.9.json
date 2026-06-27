@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "c1ff6b214fdc007c71c9f0c9ae439c5074256c10611b017abaaa71aaf5fe37f2",
+  "created_at": "2026-05-17T16:01:34Z",
+  "created_by": "Mark Atwood",
+  "description": "Confirmed by probe in bd:JMAP-1rwf.3 (commit pending). A peer that emits the naive camelCase 'icalComponent' (lowercase i) instead of the spec spelling 'iCalComponent' (capital I, capital C) deserializes silently:\n\n  - typed CalendarEvent.ical_component = None\n  - CalendarEvent.extra['icalComponent'] = the raw value\n  - re-serialize preserves the lowercase spelling\n\nApplication code reading .ical_component will see None and conclude no iCalendar data was provided, even though the bytes are present in extras. Pinned in regression test calendar_event_naive_icalcomponent_lands_in_extras_not_typed_field (so any future change is visible).\n\nThe hazard is also documented in:\n  - src/event.rs ical_component rustdoc\n  - README.md Gotchas section\n\nThis bead is the mitigation-decision follow-up. Two options:\n\n(a) Add #[serde(alias = \"icalComponent\")] to the ical_component field. On deserialize, both spellings populate the typed field. On serialize, the canonical 'iCalComponent' is emitted (a normalization side-effect \u2014 the non-conformant peer never learns). The regression test would need updating to assert the new typed-field destination. Public-API impact: a name that was previously bouncing into 'extra' now lands in the typed field; this CAN break a consumer who was reading extras directly (none in-tree).\n\n(b) Do nothing further. The probe + regression test + Gotchas documentation are the deliverable; non-conformant peers stay broken; consumers who interop with such peers explicitly check extras.\n\nRecommendation: option (a). Arguments:\n  - The non-conformant spelling is already preserved by extras; option (a) just routes it into the typed field where it semantically belongs.\n  - Serde aliases are exactly the mechanism for accepting wire-format variants while emitting one canonical form.\n  - The 'silent normalization' downside is real but limited: the non-conformant peer never sees its bug on a round-trip, but the bug also doesn't cause silent data loss for downstream consumers. Net-better.\n  - No in-tree consumer reads .extra['icalComponent'] directly, so the API break is theoretical.\n\nArguments against option (a):\n  - The workspace AGENTS.md 'Caller contract' section is strict about typed-field/extras separation. Adding aliases changes which fields get diverted out of extras and could surprise a future contributor inserting into extras manually.\n  - 'Silent acceptance' of a malformed wire form is a category of bug that has bit other implementations (e.g. HTTP header capitalization tolerance).\n\nThis decision is human-owned because it is a public-API + wire-format-compat call. Either option is defensible. If (a) is chosen, also: update the regression test, and decide whether to apply the same pattern to other brand-spelled fields in the workspace (none currently known).",
+  "ephemeral": 0,
+  "id": "JMAP-1rwf.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "calendars-types: decide mitigation for iCalComponent brand-mismatch hazard (confirmed)",
+  "updated_at": "2026-05-17T16:01:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T09:01:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1rwf",
+      "id": "8298691f-60e5-50de-89a1-a0f4d08ac3ad",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

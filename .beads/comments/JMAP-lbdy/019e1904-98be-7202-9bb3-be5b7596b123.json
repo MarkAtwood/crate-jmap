@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T21:49:52Z",
+  "id": "019e1904-98be-7202-9bb3-be5b7596b123",
+  "issue_id": "JMAP-lbdy",
+  "text": "All 13 autonomous children (.1-.11, .13) are closed. Only .12 remains open \u2014 it is human-labeled because resolving the Hash-vs-extras tension on four JSContact sub-types (NameComponent, AddressComponent, PartialDate, Timestamp) is a design decision with three options (A: drop Hash, B: manual Hash skipping extras, C: exclude four types from policy). Labelling the epic 'human' too so the do-beads loop skips it instead of re-evaluating each session. Re-open by removing the 'human' label once .12 is resolved."
+}

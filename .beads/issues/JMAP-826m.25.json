@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in lockstep with JMAP-826m.8: IdFate HashMap dedup replaces Vec::contains + retain in default get_changes and get_metadata_changes override at crate-jmap-metadata-server/src/memory.rs.",
+  "closed_at": "2026-05-17T06:36:10Z",
+  "compaction_level": 0,
+  "content_hash": "22428442e918231baf9607400e6a92b5cb5c5d502e7d2be147bd1ab81d0226c2",
+  "created_at": "2026-05-14T17:55:27Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:534-555 (and the same shape at memory.rs:967-1000 for the override) uses Vec::contains for every push:\n\n  for rec in &entry.created {\n      if !destroyed.contains(&rec.id) && !created.contains(&rec.id) {\n          created.push(rec.id.clone());\n      }\n  }\n\ncontains is O(n) on Vec; nested in an outer iteration over entries this is O(window\u00b2 \u00d7 records_per_entry). For a 1000-entry change window with a few records each, the dedup is O(1M) Id comparisons (each requiring a String compare on Id's inner repr).\n\nThis is the kind of O(n\u00b2) that 'survives into production because test data is small' (Section 2 of the review prompt). The integration tests cover at most ~4 ids per /changes call \u2014 they never exercise the quadratic part.\n\nFix: replace the Vec::contains pattern with HashSet<&Id> or HashMap<&Id, fate_tag> to track which ids have been seen and what their fate is. Mail-server's IdFate approach (memory.rs:577-613) uses a HashMap and avoids the quadratic \u2014 propagating that algorithm here (per JMAP-826m.8) would fix this too.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.get_changes uses Vec::contains for created/updated/destroyed dedup \u2014 O(n\u00b2) at large change windows",
+  "updated_at": "2026-05-17T06:36:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T01:55:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m.8",
+      "id": "58d64b4c-bff9-5bbf-a0ba-ba6c780e6351",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T10:55:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "af62506b-2a05-563b-a5bb-8ea0bc5e975d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

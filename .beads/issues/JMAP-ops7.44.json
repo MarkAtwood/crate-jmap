@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4c46d2fd1e5c0e06f69f498081768076ac9716a6ac2624f3123c520aa14b0969",
+  "created_at": "2026-05-18T05:31:24Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence** \u2014 production [dependencies] in 2 of 8 extension-server crates:\n- mail-server, chat-server, tasks-server declare `serde = { workspace = true }` as a runtime dep.\n- calendars-server and metadata-server use `#[derive(Serialize, Deserialize)]` and `use serde::...` in src/ (calendars-server: src/event.rs, helpers.rs, calendar.rs, participant_identity.rs, event_notification.rs; metadata-server: src/helpers.rs, src/memory.rs) but declare serde only as a dev-dep (metadata-server, with a comment saying so) or not at all (calendars-server). They compile only because serde is transitively reachable through jmap-server and jmap-*-types.\n\n**Caller-observable / maintainer cost**:\n- Brittle build: if jmap-server ever drops its public serde re-export, or stops pulling serde transitively into a profile, both crates break with a confusing macro-expansion error.\n- Fails `cargo +nightly check -Z direct-minimal-versions` and `cargo deny`'s unused-deps-style lints would flag the asymmetry.\n- Canonical-template propagation regression: mail-server declared it explicitly for a reason; the two outliers lost that.\n\n**Note on contacts-server / filenode-server / sharing-server / sharing-client**: these crates do NOT use serde derives or `use serde::` paths \u2014 they only use `serde_json`. Their omission of a direct serde dep is correct. Only calendars-server and metadata-server are the divergence.\n\n**Fix**: add `serde = { workspace = true }` to crate-jmap-calendars-server/Cargo.toml and crate-jmap-metadata-server/Cargo.toml [dependencies]. Two-line change. No runtime impact (build artifacts byte-identical under Cargo unification).",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.44",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "calendars-server and metadata-server use #[derive(Serialize/Deserialize)] without declaring serde as a direct dep \u2014 implicit transitive reachability, brittle build",
+  "updated_at": "2026-05-18T05:31:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:31:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "88117454-c27b-5deb-bea7-83276dcdd040",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

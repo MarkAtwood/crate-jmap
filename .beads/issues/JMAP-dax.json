@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-dax",
+  "title": "parse.rs, response.rs: missing //\\! module-level doc comments",
+  "description": "jmap-server/src/parse.rs and jmap-server/src/response.rs have no //\\! module documentation. Every other module in the crate family has a one-line //\\! doc. Add them for consistency.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:04:08Z",
+  "updated_at": "2026-04-30T06:14:03Z",
+  "closed_at": "2026-04-30T06:14:03Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-e39",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:04:19"
+    }
+  ]
+}

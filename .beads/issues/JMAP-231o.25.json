@@ -1,0 +1,33 @@
+{
+  "close_reason": "Won't fix: author's own description says 'Probably don't act on this' \u2014 the Vec<String> alloc is forced by jmap-types::JmapRequest::new signature, not actionable in this crate. Section-2 efficiency note for posterity.",
+  "closed_at": "2026-05-10T05:30:09Z",
+  "compaction_level": 0,
+  "content_hash": "7ad1d8a3a8a51e8dfb3a9da38cb7f8fae013a8615635ec2f7db3de1866844b5c",
+  "created_at": "2026-05-08T03:21:54Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:213-221:\n```\npub(crate) fn build_request(\n    method: &str,\n    args: serde_json::Value,\n    using: &[&str],\n) -> jmap_types::JmapRequest {\n    let using_vec: Vec<String> = using.iter().map(|&s| s.to_owned()).collect();\n    let invocation: jmap_types::Invocation = (method.to_owned(), args, CALL_ID.to_owned());\n    jmap_types::JmapRequest::new(using_vec, vec![invocation], None)\n}\n```\n\nTwo heap allocs per request that look avoidable:\n- `using_vec`: copies the static USING_CALENDARS `&[&str]` into a fresh Vec<String> on every call. The capability URI strings are 'static.\n- `CALL_ID.to_owned()`: \"r1\" allocated freshly each call.\n\nIf JmapRequest::new accepts `Vec<String>` and `Invocation = (String, Value, String)` (which it does \u2014 checked jmap-types/src/wire.rs:10), the allocations are forced by jmap-types' API. So this is partially a downstream API constraint, not a code-quality issue here.\n\nWorth noting in case future-self looks at the hot path. NOT independently actionable in this crate without changing the foundation type crate jmap-types. Filing as a Section 2 efficiency note for future reference. Probably don't act on this.\n",
+  "ephemeral": 0,
+  "id": "JMAP-231o.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "build_request: using_vec allocates a Vec<String> per call",
+  "updated_at": "2026-05-10T05:30:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:21:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "4dc0643a-8e89-5008-8e20-7da223273e4a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

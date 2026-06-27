@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Documented divergence in crate-jmap-chat-server/AGENTS.md (commit 4706ce0). Section 'Documented divergence from canonical: tests/common backend wrappers' explains: (1) chat-server defines FaultyBackend + TrackingBackend + IdentityBackend; mail-server defines only FaultyBackend; (2) chat's two extra wrappers exist because the chat spec has identity-sensitive surface (role-hierarchy permissions, manage_members/ban/manage_space/manage_channels) plus per-method policy hooks (slow_mode_check, may_set_custom_emoji, is_contact_blocked) that RFC 8621 does not yet have on MailBackend; (3) when identity-sensitive surface lands in mail-server via the sharing extension, the matching wrappers should be added there at that time, not pre-positioned speculatively now. Chose path (b) over path (a) per AGENTS.md 'do not over-engineer' / 'no while-I'm-here changes' rules. The ~210-line passthrough verbosity inside both wrappers is deliberate: adding a delegate proc-macro would shrink it but introduce a dev-dependency the workspace has not committed to.",
+  "closed_at": "2026-05-16T17:42:33Z",
+  "compaction_level": 0,
+  "content_hash": "64f049b66683ba6b2a201d1f46f0abd3c45132dd55605835aca4e124398e5e4e",
+  "created_at": "2026-05-16T17:22:17Z",
+  "created_by": "Mark Atwood",
+  "description": "Sites:\n- crate-jmap-chat-server/tests/common/mod.rs:265-473 (TrackingBackend \u2014 ~210 lines forwarding ChatBackend + JmapBackend to inner MemoryBackend, only slow_mode_check / may_set_custom_emoji / is_contact_blocked customized)\n- crate-jmap-chat-server/tests/common/mod.rs:523-733 (IdentityBackend \u2014 ~210 lines forwarding the same surface with CallerCtx=Id, only principal_id + apply_space_patch + apply_space_metadata_patch customized)\n\nCanonical mail-server (crate-jmap-mail-server/tests/common/mod.rs, 365 lines total) has NO TrackingBackend, NO IdentityBackend. The only wrapper is FaultyBackend.\n\nWhat chat-server gets right: the two wrappers enable two real test capabilities mail-server's harness cannot exercise \u2014 (a) call-count introspection for hook-call assertions (TrackingBackend) and (b) per-test-principal identity for apply_space_patch enforcement (IdentityBackend). Both are necessary for the chat-spec's identity-sensitive surface (caller principal_id, manage_members / ban / manage_space / manage_channels gates).\n\nWhat goes wrong as-is: per AGENTS.md canonical-template propagation rule, a divergent sibling without a matching change on the canonical is a regression of cookie-cutter intent. Either:\n\n(a) mail-server grows analogous wrappers. Mail-server has identity-sensitive surface too (RFC 8621 $seen on shared mailboxes per JMAP-46 sharing extension) that the kit's mail handlers do not yet exercise but will. Pre-positioning the wrappers gives both crates the same harness shape and makes future identity work in mail-server cheaper.\n\n(b) chat-server's wrappers are justified divergence and a documented exception. PLAN.md or AGENTS.md would call out 'chat-server's tests/common is the first sibling to wire identity into the test harness; mail-server will follow when sharing lands'.\n\nEither path is fine; the current state (silent divergence) is not.\n\nSecondary Rust-idiom finding inside both wrappers: ~210 lines of pure-passthrough forwarding (every method except 3-4 customizations) is exactly the case the ambassador / portrait / delegate proc-macro crates solve in one line per method. Workspace 'no extra deps in src' rule does NOT bind tests/ \u2014 dev-dependencies are unconstrained. A 1-line delegation per method would reduce both wrappers to ~30 lines each. Skipped on AGENTS.md 'no extra deps without explicit approval' if interpreted strictly; raised as an option not a recommendation.\n\nCross-references JMAP-x2gd.80 (seed_space duplicated across 4 test files \u2014 same workspace-canonical-template-divergence shape, smaller scope).\n\nRe-classify alongside JMAP-x2gd.67 / .69 / .84 / .86 / .87 as workspace-canonical-template findings.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.88",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "tests/common/ TrackingBackend + IdentityBackend forwarding diverges from canonical mail-server, which has neither wrapper",
+  "updated_at": "2026-05-16T17:42:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T10:22:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "5563fda2-e778-50bd-82cd-8ddb199280e2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.17",
+  "title": "NoneAuth, DefaultTransport, CustomCaTransport missing Clone derive",
+  "description": "NoneAuth, DefaultTransport, and CustomCaTransport all implement AuthProvider or TransportConfig but do not derive Clone. NoneAuth and DefaultTransport are unit structs \u2014 Clone costs nothing. CustomCaTransport holds Vec<u8> \u2014 Clone is meaningful. Without Clone, a caller who wants to construct two JmapClients from the same transport/auth config (e.g. a primary client and a retry client) must reconstruct the value from scratch or wrap it in an Arc before passing to JmapClient::new. The prompt rule: 'Clone on types callers will want to copy'. TransportConfig is consumed at JmapClient::new, so Clone is the natural way to reuse a configured transport.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:01:43Z",
+  "updated_at": "2026-04-30T02:09:02Z",
+  "closed_at": "2026-04-30T02:09:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:01:43"
+    }
+  ]
+}

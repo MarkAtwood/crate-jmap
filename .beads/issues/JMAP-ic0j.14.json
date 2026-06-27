@@ -1,0 +1,33 @@
+{
+  "close_reason": "Resolved by JMAP-ic0j.1: MemoryError reshaped from pub struct MemoryError(pub String) to #[non_exhaustive] named-field with pub fn new()/description(). The SemVer-lock-in concern this bead flags is now closed \u2014 the new shape can grow fields without a break.",
+  "closed_at": "2026-05-15T17:55:37Z",
+  "compaction_level": 0,
+  "content_hash": "a8e4698cfe319a96ad7c864790f1b36334a30bc86d7bf882bef3106984285b50",
+  "created_at": "2026-05-15T16:58:12Z",
+  "created_by": "Mark Atwood",
+  "description": "Related to but distinct from JMAP-ic0j.1: memory.rs:80 declares 'pub struct MemoryError(pub String)'. Once this crate is published to crates.io with this shape, any third-party consumer who does\n\n  if let BackendSetError::Other(MemoryError(msg)) = err { ... }\n\nwill depend on the tuple-struct shape. Adding a field, switching to a named-field struct, or making the field private becomes a SemVer break.\n\nThe canonical mail-server shape (#[non_exhaustive], named-field, pub fn new()/description()) was specifically designed to avoid this exact lock-in (mail-server commit 2941c50).\n\nThis compounds JMAP-ic0j.1 (canonical-template divergence) with concrete consumer-API risk: the same change is also future-proofing.\n\nAction: fix together with JMAP-ic0j.1, but worth tracking separately because the maintenance consequence (SemVer break) is the larger concern even if the canonical-template rule did not exist.\n\nP2 \u2014 published-API design concern, not a present-day bug.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend: pub-field MemoryError exposes internals as part of public API",
+  "updated_at": "2026-05-15T17:55:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T09:58:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "4cfdcf2a-18a4-59a2-8520-c5ed5b2dc48b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

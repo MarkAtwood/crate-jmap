@@ -1,0 +1,33 @@
+{
+  "close_reason": "Opinion-tagged P4 by the bead author. The 'pass by value' signature reads as 'this transport is yours to consume; we're done with it' even though TransportConfig::build_client takes &self internally. Changing to &impl TransportConfig is a breaking change with no behavioural benefit. Won't fix; the existing shape is defensible.",
+  "closed_at": "2026-05-09T07:32:57Z",
+  "compaction_level": 0,
+  "content_hash": "fcb4bd5d603283f5b8ee8a3c8923bc25db18557213a00b724d83883fe1798ff6",
+  "created_at": "2026-05-08T03:06:08Z",
+  "created_by": "Mark Atwood",
+  "description": "src/client.rs:152 \u2014 `pub fn new(transport: impl TransportConfig, ...)`. clippy::pedantic flags 'this argument is passed by value, but not consumed in the function body' because TransportConfig::build_client takes &self. The current signature forces callers to pass an owned transport even though only a borrow is needed. Idiomatic alternative: `transport: &impl TransportConfig`. However: this is the documented public API, every caller already passes by value (`DefaultTransport`, `CustomCaTransport::new(der)`), and changing the signature is a breaking change. The transport is conceptually a one-shot factory consumed at construction even though the trait method takes &self \u2014 by-value reads as \"this is yours to consume; we're done with it\". Filing as opinion-tagged. Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JmapClient::new takes transport: impl TransportConfig but never moves out of it",
+  "updated_at": "2026-05-09T07:32:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:06:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "1cd736c9-31df-517b-ac60-c55eb52855b4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

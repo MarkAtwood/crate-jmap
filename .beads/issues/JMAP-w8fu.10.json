@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "9ab02a87fcb31628e4fc8176393bf7e0ffb625ec3858462220cae9967423fe77",
+  "created_at": "2026-06-13T21:49:11Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-types/src/message.rs has 28/38 lines covered (73.7%). Uncovered: BodyType::as_str for Other variant, some SenderId impl paths, and the BodyType Serialize/Deserialize impls for the Rich variant path. The new BroadcastMention code is well-covered but the older BodyType and SenderId code has gaps.",
+  "ephemeral": 0,
+  "id": "JMAP-w8fu.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Test coverage: chat-types message.rs (73.7%)",
+  "updated_at": "2026-06-13T21:49:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:49:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w8fu",
+      "id": "03792ec7-3bbe-5397-845b-aa5813ddcd29",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

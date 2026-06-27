@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.16",
+  "title": "sse.rs parse_state_data: cite the RFC section for the @type acceptance",
+  "description": "In sse.rs, parse_state_data's doc comment says it accepts both the bare {\"changed\":{...}} shape and the shape with @type:StateChange 'as the spec example includes it', but does not cite which spec or section. A contributor validating this behavior against the spec cannot find the example without guessing. The relevant citation is RFC 8620 \u00a77.3 (StateChange object definition). Replace 'as the spec example includes it' with 'per RFC 8620 \u00a77.3 StateChange object definition' (or equivalent).",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:43Z",
+  "updated_at": "2026-04-30T01:12:50Z",
+  "closed_at": "2026-04-30T01:12:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:43"
+    }
+  ]
+}

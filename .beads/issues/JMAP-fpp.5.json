@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-fpp.5",
+  "title": "connect_ws scheme check uses lowercased copy but passes original URL",
+  "description": "connect_ws lowercases ws_url for the scheme guard check but passes the original ws_url to into_client_request(). A URL like 'WS://host/path' passes the guard but into_client_request may or may not handle uppercase schemes depending on the tungstenite version. If tungstenite rejects it, the caller gets ClientError::WebSocket instead of InvalidArgument. The guard should either normalize the URL before passing to tungstenite, or accept only strictly lowercase schemes so the mismatch cannot occur.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:15:13Z",
+  "updated_at": "2026-04-30T01:23:23Z",
+  "closed_at": "2026-04-30T01:23:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-fpp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:15:12"
+    }
+  ]
+}

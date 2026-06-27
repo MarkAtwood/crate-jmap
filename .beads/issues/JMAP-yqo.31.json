@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:32Z",
+  "compaction_level": 0,
+  "content_hash": "6685d6493d093af1ec331e44a8cfed5e5e49e7e6f306bb15b013841e74d9ba4c",
+  "created_at": "2026-05-02T02:59:25Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/common/mod.rs: Inner.objects, Inner.states, and Inner.change_log are all HashMap<(String, String), ...> keyed by (type_name, account_id). These are stringly-typed keys \u2014 swapping the order silently compiles. The idiomatic Rust approach is a newtype or a small struct: struct StoreKey { type_name: &'static str, account_id: String } or an enum for type_name. More importantly, current_state(), bump_state(), objects_mut(), and objects_ref() all construct (type_name.to_owned(), account_id.to_owned()) inline \u2014 allocating a new String for type_name on every call even though TYPE_NAME is &'static str. Using (&'static str, &str) as the lookup key with Borrow<(&'static str, str)> or using a two-level HashMap<&'static str, HashMap<String, ...>> would eliminate these allocations. This is test code but it is also the canonical MailBackend example \u2014 implementors copy these patterns.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend inner state uses (String, String) tuple keys \u2014 should be typed",
+  "updated_at": "2026-05-02T03:22:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:59:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "ccb44bba-d793-57cc-81e5-9725406f0e46",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

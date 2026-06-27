@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a29059b2444dee6f2119eebeb5f6a85c15eb7e23c117972e61811377a3f53a6e",
+  "created_at": "2026-05-15T05:45:17Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-types/src/methods.rs documents several fields as having\n\\\"null on the wire is equivalent to empty\\\" semantics yet exposes them\nas `Option<...>`, forcing every caller to write the same null check:\n\n- `GetResponse.not_found: Option<Vec<Id>>` (methods.rs:55):\n  doc-comment says \\\"`null` on the wire is treated as an empty list per\n  RFC 8620 \u00a75.1\\\". But the typed shape forces:\n      if let Some(nf) = &resp.not_found { for id in nf { ... } }\n  rather than the simpler:\n      for id in &resp.not_found { ... }\n\n- `SetResponse.created: Option<HashMap<String, T>>` (methods.rs:274),\n  `SetResponse.updated: Option<HashMap<Id, Option<T>>>` (methods.rs:278),\n  `SetResponse.destroyed: Option<Vec<Id>>` (methods.rs:280),\n  `SetResponse.not_created/not_updated/not_destroyed: Option<HashMap<_, SetError>>`\n  (methods.rs:282-286): every one of these is documented as describing\n  \\\"successful X / failed X\\\" \u2014 `None` and `Some(empty_map)` are\n  semantically identical (no successes / no failures). The doc-comments\n  don't say it explicitly, but RFC 8620 \u00a75.3 mandates the equivalence.\n\nWhat a caller depending on this API in production accepts:\n\n1. Six fields require the same `Option`-flattening idiom. A typical\n   `/set` handler that wants to enumerate every result for logging\n   writes the same 4 `if let Some` blocks every time.\n2. Test code that builds a `SetResponse` for assertions writes\n   `Some(HashMap::new())` or `Some(vec![])` constantly. Default\n   constructors of the type would emit `None`; tests then have to\n   wrap or unwrap.\n3. The `null` wire-form contract is documented in prose; the type\n   shape doesn't enforce that the caller treats `None` and `Some(empty)`\n   as identical. A caller distinguishing them in a `match` produces a\n   bug invisible to the type system.\n\nFix candidates:\n- Change to `#[serde(default)] pub not_found: Vec<Id>` (and same for\n  the SetResponse maps). Deserialize from `null` and from missing both\n  yield empty. Serializing `Vec::new()` emits `[]` on the wire (or\n  with `skip_serializing_if = \\\"Vec::is_empty\\\"`, omits the field). The\n  wire shape changes (`[]` instead of `null`) but downstream\n  servers/clients that follow RFC 8620 \\\"treat null as empty\\\" don't\n  care.\n- Or: keep `Option<Vec>` and provide accessor helpers like\n  `pub fn not_found(&self) -> &[Id]` that auto-flatten. Cheaper to add,\n  but still leaves the `pub` field as the trapdoor for callers who\n  ignore the helper.\n\nThis applies to *every* `Option<Vec<T>>` / `Option<HashMap<...>>`\nfield in the methods.rs response types where RFC 8620 documents the\nnull-equiv-empty equivalence.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Option-wrapping of fields documented as null-equiv-empty forces every caller to write the same null-check",
+  "updated_at": "2026-05-17T16:48:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:45:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "06d0ddc1-c857-5576-aecb-aa9844d4f309",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

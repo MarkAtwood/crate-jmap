@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-7i9.2",
+  "title": "search_snippets contract is undocumented: notFound semantics",
+  "description": "The search_snippets trait method says 'Return search snippets for the given Email ids' but does not state what to do with IDs that do not exist in the account. handle_search_snippet_get treats any ID not present in the backend response as notFound. If a backend implementor omits snippets for emails that don't match the filter (rather than returning a SearchSnippet with null fields), those emails are incorrectly placed in notFound. The fix is to add a doc comment specifying: 'For every ID in email_ids that exists in the account, return a SearchSnippet (subject and preview may be null if the email does not match the filter). Omit only IDs that do not exist in the account.'",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T04:24:41Z",
+  "updated_at": "2026-05-01T04:30:00Z",
+  "closed_at": "2026-05-01T04:30:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7i9",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 21:24:41"
+    }
+  ]
+}

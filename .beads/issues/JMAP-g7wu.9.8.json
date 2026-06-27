@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Migrated 6 Card metadata and filter UTCDate fields from Option<String> to Option<UTCDate>. Wire format unchanged (transparent newtype). Fixed test in lib.rs:560-563 to use .as_ref().map(AsRef::as_ref) since UTCDate doesn't impl Deref. Downstream jmap-contacts-server and jmap-contacts-client compile and tests pass. cargo clippy -p jmap-contacts-types -- -D warnings clean. RUSTDOCFLAGS='-D warnings' cargo doc clean.",
+  "closed_at": "2026-05-11T06:32:07Z",
+  "compaction_level": 0,
+  "content_hash": "d9e36d7f7b331ae8a437f6b27307c6af43bdc42ab46cfafe04ba1515643a27d9",
+  "created_at": "2026-05-11T06:26:41Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Audit follow-up from JMAP-g7wu.9.5. Migrate 6 public String fields documented as UTCDate/UTCDateTime to jmap_types::UTCDate.\n\nSites (all in crate-jmap-contacts-types/src/card.rs):\n\n1. line 52  \u2014 Card::created: Option<String>  (doc says 'Date and time when the Card was created (UTCDateTime)')\n2. line 81  \u2014 Card::updated: Option<String>  (doc says 'last modified (UTCDateTime; server-set)')\n3. line 235 \u2014 CardFilterCondition::created_before: Option<String>  (doc says 'must be before this UTCDateTime')\n4. line 239 \u2014 CardFilterCondition::created_after: Option<String>  (doc says 'must be equal to or after this UTCDateTime')\n5. line 243 \u2014 CardFilterCondition::updated_before: Option<String>  (doc says 'must be before this UTCDateTime')\n6. line 247 \u2014 CardFilterCondition::updated_after: Option<String>  (doc says 'must be equal to or after this UTCDateTime')\n\nChange:\n  Option<String> -> Option<UTCDate>\n\nAPI break \u2014 0.2.0 class. Coordinate with sibling beads (calendars-types, tasks-types, filenode-types) per workspace cookie-cutter rule. Canonical extension-types crate is jmap-mail-types (already fully migrated).\n\nTest approach: update any RFC-example fixture tests to construct UTCDate via UTCDate::new_validated() or UTCDate::from() \u2014 wire JSON unchanged because UTCDate is a transparent newtype around String.\n\nAcceptance:\n- cargo test -p jmap-contacts-types passes.\n- cargo clippy -p jmap-contacts-types -- -D warnings clean.\n- All 6 fields use Option<UTCDate>.\n- Downstream jmap-contacts-server and jmap-contacts-client still compile.\n- RUSTDOCFLAGS='-D warnings' cargo doc -p jmap-contacts-types --no-deps clean.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.9.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "UTCDate migration in jmap-contacts-types (Card metadata and filter bounds)",
+  "updated_at": "2026-05-11T06:32:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T23:26:40Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-g7wu.9",
+      "id": "3a281c50-5ba0-5ae8-a2bf-5e6c1dc4bb21",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

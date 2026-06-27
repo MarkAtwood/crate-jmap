@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Already fixed. The bead refers to recompute_address_books_with_contents and address_books_with_contents HashSet \u2014 those identifiers no longer exist in the codebase. Per bd:JMAP-ic0j.74 (mentioned in the kb note 'memorybackend-objects-mut-silently-auto-registers-accounts-via-known_accounts-insert'), the design was replaced with an incremental address_book_card_counts: HashMap<Id, u32> reverse-index counter maintained by apply_contact_card_index_delta on every per-mutation create/update/destroy/copy. The remaining full-rescan helper is now recompute_address_book_card_counts at memory.rs:261, and it explicitly takes an immutable borrow of self.objects, builds the new HashMap in a local, then takes the mutable borrow via self.aux_mut \u2014 exactly the idiomatic two-phase pattern the bead recommended. Doc comment at memory.rs:255-258 says verbatim 'Avoids cloning the ContactCard map.' Only called from seed_object, not from every mutation.",
+  "closed_at": "2026-05-17T10:27:49Z",
+  "compaction_level": 0,
+  "content_hash": "f4a109707faa28d68a89b2e0db0a07ecd97245b9a7944192c9e62e832166d268",
+  "created_at": "2026-05-14T19:43:41Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:191-207:\n\n    fn recompute_address_books_with_contents(&mut self, account_id: &str) {\n        let cards = self\n            .objects\n            .get(&(\"ContactCard\", account_id.to_owned()))\n            .cloned()\n            .unwrap_or_default();\n\n        let mut set: HashSet<Id> = HashSet::new();\n        for value in cards.values() {\n            if let Some(map) = value.get(\"addressBookIds\").and_then(|v| v.as_object()) {\n                for k in map.keys() {\n                    set.insert(Id::from(k.as_str()));\n                }\n            }\n        }\n        self.aux_mut(account_id).address_books_with_contents = set;\n    }\n\nThe `.cloned()` deep-clones the entire HashMap<Id, serde_json::Value> for the account \u2014 every Value is a tree of Maps and Vecs, every clone is O(total card payload). This runs on every ContactCard create/update/destroy (see lines 639-641, 697-699, 727-729, 789).\n\nThe clone is there because the function takes &mut self and the borrow checker would otherwise complain about reading self.objects while later writing self.aux. Idiomatic fixes:\n\n1. Two-phase: compute the new HashSet into a local in one borrow, then move it into self.aux in a second borrow. The HashSet contains owned Ids, so the second borrow is free of the first:\n\n    let new_set = self.objects.get(&(\"ContactCard\", account_id.to_owned()))\n        .map(|cards| {\n            let mut set = HashSet::new();\n            for value in cards.values() { ... }\n            set\n        })\n        .unwrap_or_default();\n    self.aux.entry(account_id.to_owned()).or_default().address_books_with_contents = new_set;\n\n2. NLL split borrow on the same struct: extract the read into a local that borrows self.objects, drop the borrow before touching self.aux.\n\nThe current shape is the textbook \".clone() to escape the borrow checker rather than rethinking the design\". The fix is mechanical and removes one O(card-payload) clone from every contacts mutation.\n\nSame pattern likely exists in canonical jmap-mail-server (analogous derived index recompute) \u2014 verify and propagate.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.49",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "recompute_address_books_with_contents clones the entire ContactCard map on every mutation",
+  "updated_at": "2026-05-17T10:27:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:43:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "666a1d5b-0f60-5912-a349-1336b4349a72",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

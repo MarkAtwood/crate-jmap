@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T06:50:02Z",
+  "compaction_level": 0,
+  "content_hash": "9d0b7cd468722a7dce5b9b0d171f014dfa5f347b14c1a7594f0aaba4edb47140",
+  "created_at": "2026-05-02T06:46:17Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/chat.rs:472-474\nIssue: When the post-create optimistic dedup detects a race (duplicates.len() > 1) and this request lost (new_id != canonical_id), the code calls backend.destroy_object and silently discards the result with 'let _ = ...'. If destroy_object fails, the duplicate Direct chat remains in storage. The client receives an alreadyExists error (correct from the client's view), but the server now has two Direct chats with the same contactId, permanently violating the uniqueness invariant. No log, no error propagation, no retry.\nImpact: Silent data corruption. Two Direct chats for the same contactId coexist. Future /changes or /get calls will return both. The invariant is silently broken with no way for the caller to detect it.\nFix: Return an error (serverFail) if destroy_object fails, or at minimum log + return serverFail to the client for this create entry. Do not continue as if cleanup succeeded.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Silent destroy swallow leaves duplicate Direct chat on race-lost path",
+  "updated_at": "2026-05-02T06:50:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:46:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "fd7de363-5fa8-5091-903d-df838191a4d2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

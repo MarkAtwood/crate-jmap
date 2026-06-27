@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T04:34:48Z",
+  "compaction_level": 0,
+  "content_hash": "c5d04b89cb045f7036feea538c6c9b2efbef26f8b047513a9183888c13b884f2",
+  "created_at": "2026-05-10T21:46:22Z",
+  "created_by": "Mark Atwood",
+  "description": "Migrate `jmap-calendars-types` to consume the new `jmap-jscalendar-types` crate (created in child .1): add path-dep, re-export the 14 types so the public API stays byte-stable, and remove the now-redundant local `src/jscalendar.rs`.\n\n## Mechanical steps\n\n1. Add `jmap-jscalendar-types = { path = \"../crate-jmap-jscalendar-types\" }` to `crate-jmap-calendars-types/Cargo.toml` `[dependencies]`.\n\n2. Remove `src/jscalendar.rs` from `crate-jmap-calendars-types/src/`. (Its content now lives in the new crate per child .1.)\n\n3. Update `crate-jmap-calendars-types/src/lib.rs`:\n   - Remove `pub mod jscalendar;` declaration.\n   - Replace `pub use jscalendar::{ ... };` with `pub use jmap_jscalendar_types::{ ... };` \u2014 same imported names, new source.\n   - If `lib.rs` previously had `pub use jscalendar` glob form, prefer the explicit list for clarity. Match the existing style if specific names were listed.\n\n4. Update any other internal usage of `crate::jscalendar::*` paths within jmap-calendars-types (e.g. inside `calendar.rs`, `event.rs`, `notification.rs`) to use `jmap_jscalendar_types::*` or the re-exports from `crate::*` \u2014 whichever the existing style prefers.\n\n5. Update `crate-jmap-calendars-types/PLAN.md`:\n   - Remove or replace \u00a71-\u00a78 with a pointer: \"JSCalendar typed sub-types live in `jmap-jscalendar-types`. See `crate-jmap-jscalendar-types/PLAN.md` for the hybrid-design rationale. This crate's `CalendarEvent` keeps its sloppy `Option<serde_json::Value>` fields as the wire-format anchor; consumers obtain typed views via `serde_json::from_value::<jmap_calendars_types::Location>(event.locations.unwrap())` (the re-export) or the equivalent `jmap_jscalendar_types::Location` direct path.\"\n\n## Public API stability\n\nThe 14 type names previously imported as `jmap_calendars_types::Location` (etc.) MUST remain importable at that path after this child lands. This is enforced by the `pub use jmap_jscalendar_types::*;` (or explicit-list equivalent) in lib.rs.\n\nThe 14 type names should also be importable via `jmap_calendars_types::jscalendar::Location` if any consumer used that nested path \u2014 verify with a grep over downstream usage in this workspace before deciding whether to add `pub use jmap_jscalendar_types as jscalendar;` or just drop the nested path.\n\nGrep target: `jscalendar::` references inside the workspace outside of `crate-jmap-calendars-types/` and `crate-jmap-jscalendar-types/`.\n\n## Acceptance\n\n- `cargo check -p jmap-calendars-types --all-features` clean.\n- `cargo test -p jmap-calendars-types --all-features` clean.\n- `cargo clippy -p jmap-calendars-types --all-features -- -D warnings` clean.\n- `cargo doc -p jmap-calendars-types --all-features --no-deps` clean.\n- `cargo test --workspace` clean \u2014 downstream crates (jmap-calendars-server, jmap-calendars-client, jmap-server, etc.) compile and pass without changes.\n- `cargo tree -p jmap-calendars-types | grep jmap-jscalendar-types` shows the new dep.\n- `crate-jmap-calendars-types/src/jscalendar.rs` is gone.\n- `git diff --stat` shows net negative LOC (file removed, deps line added, lib.rs edited).\n\n## Risk: implicit consumers\n\nIf any code outside calendars-types referenced `jmap_calendars_types::jscalendar::*` directly (rather than the top-level re-exports), they break unless we add `pub use jmap_jscalendar_types as jscalendar;` to lib.rs. Grep workspace-wide for `jscalendar::` before merging and either:\n- Add the module alias re-export (preserves the nested path), OR\n- Update those consumers to use the top-level re-export.\n\nRecommendation: add the module alias for safety; it costs nothing.\n",
+  "ephemeral": 0,
+  "id": "JMAP-x59i.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Migrate jmap-calendars-types to consume jmap-jscalendar-types (path-dep + re-export)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T14:46:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x59i",
+      "id": "49d1e25f-4f50-54c9-8bed-23674b08f3b7",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-10T14:46:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x59i.1",
+      "id": "c6e7ef24-11fe-5dd2-9b42-92fe2ba89680",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

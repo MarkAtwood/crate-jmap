@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:36:32Z",
+  "compaction_level": 0,
+  "content_hash": "aa69ae5d5797c9fe609973163a2f4edee561e8b57d866d15193e7598a8d7d6d1",
+  "created_at": "2026-05-02T19:19:31Z",
+  "created_by": "Mark Atwood",
+  "description": "The seed fixture (tests/common/seed.rs) uses pre-computed hardcoded timestamp strings (e.g. '2025-12-22T00:00:00Z') with a fixed baseline of 2026-01-01T00:00:00Z. A contributor might 'simplify' these to be relative to the actual system clock (e.g. 'N days ago from now'). But doing so would make tests non-deterministic: sort-by-date tests, filter-by-date tests, and before/after range tests would all produce different results depending on when the tests run. Fixed absolute timestamps are the correct oracle for a deterministic test suite.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.48",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "seed.rs uses fixed hardcoded timestamps relative to a fixed baseline, not relative to system time",
+  "updated_at": "2026-05-02T22:36:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:19:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "aaec8eaf-8233-5e22-be2f-0c17d2db7558",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

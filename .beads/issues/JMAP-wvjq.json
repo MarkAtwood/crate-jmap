@@ -1,0 +1,48 @@
+{
+  "closed_at": "2026-05-04T23:25:10Z",
+  "compaction_level": 0,
+  "content_hash": "37dbe3e10360c5c49dca4f6dde51b65fa38d873a3b549a47ab5432cd3b7caff9",
+  "created_at": "2026-05-04T15:06:52Z",
+  "created_by": "Mark Atwood",
+  "description": "Port methods/blob.rs from crate-jmapchat-client (~156 lines). Covers BlobLookupEntry struct, BlobLookupResponse struct, and blob_lookup method. Uses urn:ietf:params:jmap:blob2 capability URI (not USING_CHAT). Validates non-empty blob_ids slice and non-empty elements. Per draft-ietf-jmap-blobext \u00a76, inaccessible/nonexistent blobs return empty matchedIds arrays rather than an error to avoid information leakage.",
+  "ephemeral": 0,
+  "id": "JMAP-wvjq",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-client: Blob/lookup method implementation",
+  "updated_at": "2026-05-04T23:25:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T08:07:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s1ei",
+      "id": "8fd27265-a1d7-59bc-8697-1b124f97bb17",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T11:29:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w",
+      "id": "e356c7ce-3aec-5b59-b128-5ff061aa37fb",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T08:07:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ds04",
+      "id": "fe5b239a-100f-5c6e-ab07-102cee5c00d6",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

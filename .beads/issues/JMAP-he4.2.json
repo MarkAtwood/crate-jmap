@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-he4.2",
+  "title": "validate_sha256_format accepts uppercase hex despite claiming lowercase-only",
+  "description": "blob.rs:273-281: the doc comment says 'Validate that s is exactly 64 lowercase hex characters' but the predicate uses s.bytes().all(|b| b.is_ascii_hexdigit()), which accepts uppercase A-F. The comment implies uppercase should be rejected at the validation gate, but the code normalizes to lowercase after this call (lines 174, 259). Either the comment is wrong (predicate is intentionally permissive) or the validation is incomplete \u2014 the invariant is not coherently stated. A serious reviewer will flag the contract mismatch. If uppercase is intentionally accepted here, say so in the doc; if it should be rejected, use |b| matches!(b, b'0'..=b'9' | b'a'..=b'f').",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:25:10Z",
+  "updated_at": "2026-04-30T01:31:26Z",
+  "closed_at": "2026-04-30T01:31:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-he4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:25:09"
+    }
+  ]
+}

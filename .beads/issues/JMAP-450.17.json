@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-450.17",
+  "title": "handle_* functions take Value by value; callers must move or clone",
+  "description": "All pub handle_* functions take 'args: Value' by owned value. Callers from the dispatcher already own the args, so this is correct. No issue \u2014 flagging explicitly as reviewed and OK.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:36:14Z",
+  "updated_at": "2026-04-30T23:41:14Z",
+  "closed_at": "2026-04-30T23:41:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-450",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:36:14"
+    }
+  ]
+}

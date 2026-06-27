@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T12:07:18Z",
+  "compaction_level": 0,
+  "content_hash": "da5438b50d4a4e2b463fec7ac67c21191fc63dd7ffb0af48c96a14c8e4862c8c",
+  "created_at": "2026-05-01T12:04:14Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8621 \u00a74.7: 'only mailboxIds, keywords, and receivedAt may be set during copy.' The handler extracts mailboxIds and keywords from the copy entry but never reads receivedAt. The backend copy_email() signature also has no receivedAt parameter (backend.rs line 523-532). A client that sets receivedAt in an Email/copy create entry will have the value silently discarded, resulting in the backend choosing a default received time instead.",
+  "ephemeral": 0,
+  "id": "JMAP-epj.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/copy silently drops client-supplied receivedAt",
+  "updated_at": "2026-05-01T12:07:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T05:04:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-epj",
+      "id": "719771a2-628e-5061-9b54-ba432b659c9a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

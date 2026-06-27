@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed. CustomTransportBuilder is a chainable builder with add_root_der/add_root_pem/add_roots_pem_bundle for multi-root trust chains and with_client_cert for mTLS. build() returns BuilderTransport, a Clone TransportConfig impl. Pure-additive \u2014 CustomCaTransport keeps its existing API. parse_all_pem_certs helper added alongside parse_first_pem_cert for the multi-cert bundle path. Seven new unit tests cover parser-level multi-bundle handling, happy-path multi-root and single-root build, error paths (bogus PEM, empty bundle, invalid client cert), and a Debug-redaction tripwire matching the CustomCaTransport pattern.",
+  "closed_at": "2026-05-18T04:48:11Z",
+  "compaction_level": 0,
+  "content_hash": "b9bf2b628d6df7fb65f87fcfdbc98eaa32e728646f6016ede62000ce25377f4e",
+  "created_at": "2026-05-17T11:53:29Z",
+  "created_by": "Mark Atwood",
+  "description": "Followup to bd:JMAP-6r7c.37. The .37 close added CustomCaTransport::from_pem_bytes for the most common operator-friction case (a single PEM file). The other two recommendations from .37 remain open:\n\n1. **Multi-cert chains** \u2014 A private PKI typically has root + intermediate. CustomCaTransport stores one DER cert. A caller wanting to trust an intermediate has to construct their own TransportConfig impl from scratch.\n\n2. **mTLS / client certs** \u2014 Mutual TLS requires the client to present a cert. CustomCaTransport only configures the trust root. A caller wanting mTLS rolls their own TransportConfig.\n\nProposed shape (from .37):\n\n  pub struct CustomTransportBuilder {\n      roots: Vec<Vec<u8>>,        // accept multiple DER roots\n      client_certs: Option<Vec<u8>>,  // PEM bundle (chain)\n      client_key: Option<Vec<u8>>,    // PEM-encoded PKCS8/PKCS1 private key\n      timeouts: ...,\n  }\n\n  impl CustomTransportBuilder {\n      pub fn new() -> Self;\n      pub fn add_root_der(self, der: Vec<u8>) -> Self;\n      pub fn add_root_pem(self, pem: &[u8]) -> Result<Self, ClientError>;\n      pub fn add_roots_pem_bundle(self, pem_bundle: &[u8]) -> Result<Self, ClientError>;\n      pub fn with_client_cert(self, cert_pem: Vec<u8>, key_pem: Vec<u8>) -> Self;\n      pub fn build(self) -> impl TransportConfig;\n  }\n\nImplementation notes:\n- reqwest::Certificate::from_pem_bundle already exists for the multi-cert PEM case.\n- reqwest::Identity::from_pem (rustls feature) handles the client-cert + key pair.\n- The 'rustls' feature is already enabled on reqwest in this workspace (see workspace TLS-stack policy).\n- The existing CustomCaTransport stays for backward compat; new code uses CustomTransportBuilder.\n\nAffects: crate-jmap-base-client/src/auth.rs.\nTests: extend tests/fixtures/tls/ with a chain fixture (root + intermediate) generated via openssl; mTLS test would need a client-cert fixture and a wiremock server configured to require a client cert (wiremock-rs may not support this; could use a static rustls server fixture).\n\nOut of scope for bd:JMAP-6r7c.37 since the PEM-only convenience already lands the highest-frequency consumer benefit; the builder is a bigger API surface that should ride its own dedicated bead.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.65",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Builder API for CustomCaTransport: multi-root, intermediates, mTLS",
+  "updated_at": "2026-05-18T04:48:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T13:57:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-prpm",
+      "id": "55aa1dcd-9996-5d07-8845-b9e5eddeca71",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "FileNodeBackend reshape propagated: 8 trait methods (excl. supports_type), 6 handlers, 4 extract_account_id sites (including the fully-qualified crate::helpers one at line 884), register_filenode_handlers macro, MemoryBackend + MockBackend impls, doctest fix. 35 tests pass clean.",
+  "closed_at": "2026-05-11T16:24:22Z",
+  "compaction_level": 0,
+  "content_hash": "da4c7f7159f97f7d256db704ff2299381fa7dc1573388ece24f85425533f887e",
+  "created_at": "2026-05-11T13:53:42Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-filenode-server/README.md:184-194 (CallerCtx section needs rewrite) + register_filenode_handlers macro in src/lib.rs + FileNodeBackend trait at src/backend.rs:34.\n\nMirror change from JMAP-g7wu.1.1 MailBackend canonical. Same shape, propagated per workspace AGENTS.md cookie-cutter rule.\n\nDesign locked under JMAP-g7wu.1.1 [2026-05-11 design-lock] comment:\n- FileNodeBackend inherits 'type CallerCtx' from JmapBackend (no redeclaration)\n- Every FileNodeBackend method gains 'caller: &Self::CallerCtx' as first parameter after &self\n- register_filenode_handlers signature: register_filenode_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>) where B: FileNodeBackend + 'static\n- Every reg!() invocation gains a 4th identifier slot for ctx\n- README CallerCtx section rewrites to describe caller-aware Backend methods\n- MemoryBackend reference impl: type CallerCtx = ();\n\nRides on the JMAP-g7wu.1 mega-PR. Mechanical propagation once .1.1 lands its canonical shape.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.1.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CallerCtx forwarding through FileNodeBackend trait (jmap-filenode-server)",
+  "updated_at": "2026-05-11T16:24:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T06:53:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.1",
+      "id": "4652e666-1b4f-5b6b-ad14-c98986b76fef",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

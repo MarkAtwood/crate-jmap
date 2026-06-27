@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in 3b8f1b7. Doc-only fix per the bead's recommended option (3): variant emitted from both upload and download paths, the role of 'expected' (pre-stated) and 'actual' (freshly-observed) is constant across paths, only the SOURCE varies. New rustdoc carries a per-call-site table making the source explicit. No SemVer break \u2014 field names, variant shape, error message unchanged. Options (1) rename fields and (2) split into two variants both grow public-API surface for a doc-fixable readability issue; rejected.",
+  "closed_at": "2026-05-17T11:16:18Z",
+  "compaction_level": 0,
+  "content_hash": "f319ca23676505507120ebe756e9a29da67e20b60c4a50ab5257a3bcbfe4f71f",
+  "created_at": "2026-05-14T23:09:48Z",
+  "created_by": "Mark Atwood",
+  "description": "ClientError::BlobIntegrityMismatch { expected: String, actual: String } is constructed in two places with OPPOSITE semantic conventions for 'expected' vs 'actual':\n\nupload_blob (blob.rs:302-305):\n    return Err(ClientError::BlobIntegrityMismatch {\n        expected: local_sha256,             // what WE computed locally\n        actual: server_sha256.as_str().to_owned(),  // what the SERVER reported\n    });\n\ndownload_blob (blob.rs:397-401):\n    return Err(ClientError::BlobIntegrityMismatch {\n        expected: expected_lower,           // what the CALLER passed in\n        actual,                             // what WE computed from received bytes\n    });\n\nIn upload: expected = local-client computation, actual = remote-server claim.\nIn download: expected = caller's external claim, actual = local-client computation.\n\nA reader debugging a mismatch error has to remember which code path produced it to know what 'expected' and 'actual' mean. The same field name carries different referents.\n\nThe conventional reading of 'expected'/'actual' in error variants is 'the value that should have been observed vs the value that was observed'. Under that convention:\n\n- upload: server's actual response should match our local computation \u2192 expected = local, actual = server's response. (Current upload is right.)\n- download: actual bytes received should match caller's expected digest \u2192 expected = caller's claim, actual = our digest of bytes. (Current download is right.)\n\nSo each path is locally correct by its own reading \u2014 but the field meanings differ because the 'oracle' differs. This is genuinely confusing API.\n\nFix options:\n1. Rename fields to remove the directional ambiguity: BlobIntegrityMismatch { computed_locally: String, claimed: String } \u2014 semantically explicit, slightly more verbose.\n2. Add two variants: BlobUploadIntegrityMismatch and BlobDownloadIntegrityMismatch with clearly-named fields (e.g. server_reported vs client_computed for upload, caller_expected vs received_actual for download).\n3. Document the per-path convention in the variant rustdoc and in error.rs:255-261.\n\nOption (3) is the minimum-disruption fix; (1) and (2) are SemVer breaks. The variant is #[non_exhaustive] payload-wise (struct variant on a #[non_exhaustive] enum), so option (2) is additive. Option (1) renames public field names which IS a SemVer break.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BlobIntegrityMismatch expected/actual fields have inverted semantics between upload and download paths",
+  "updated_at": "2026-05-17T11:16:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:09:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "b95db89b-5f42-583b-b4e2-3642ca7d075b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

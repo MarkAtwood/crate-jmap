@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:54:59Z",
+  "compaction_level": 0,
+  "content_hash": "4aee00e0581dc014b9bf0ee72a892943f1bd09e43a073b38f97e2c3a677d8e6d",
+  "created_at": "2026-05-02T00:43:41Z",
+  "created_by": "Mark Atwood",
+  "description": "apply_header_form returns Value::Null for AsAddresses, AsGroupedAddresses, AsDate, AsMessageIds, AsURLs without any comment or error. Clients already relying on null results will silently break when real parsing is added in a future PR. The public API surface for header: property results is effectively locked to null for five of seven forms.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "apply_header_form stubs return null, locking in silent null behavior",
+  "updated_at": "2026-05-02T00:54:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "3b93ac90-512f-5e3b-bf03-1e8e76d8ada7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T02:37:52Z",
+  "compaction_level": 0,
+  "content_hash": "9b1d987834c2b7abb04b2bb39f9ae9aa52368d0bece694750ca050c29960d86f",
+  "created_at": "2026-05-11T00:06:58Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.3.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "helpers.rs builder-struct refactor in jmap-filenode-server (propagate from canonical)",
+  "updated_at": "2026-05-11T02:37:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:06:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.3",
+      "id": "b0d9e6d5-0115-5b6b-85ba-439548ba479c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

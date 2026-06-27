@@ -1,0 +1,33 @@
+{
+  "close_reason": "resolved: all *changes handlers delegate to generic handle_changes (JMAP-63k)",
+  "closed_at": "2026-05-02T07:05:05Z",
+  "compaction_level": 0,
+  "content_hash": "4c55e62a3d605874d4560ba5f91c795e1769688b5d4601c60388e8a4635f2d2d",
+  "created_at": "2026-05-02T03:57:13Z",
+  "created_by": "Mark Atwood",
+  "description": "jmap-server/handlers.rs exports handle_changes<O,B>. chat.rs, space.rs, message.rs, mailbox.rs, thread.rs, identity.rs, submission.rs each re-implement the identical 25-line changes pattern. Only Mailbox/changes and Chat/changes include updatedProperties (the ones that copy the generic), the others omit it (the P0 bugs JMAP-4ii.3/4/5). The root cause is that domain handlers do not delegate to handle_changes. If they did, the RFC requirement would be met automatically. All /changes handlers with no domain-specific logic should call handle_changes<O,B>(backend, args).await.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Cross-crate divergence: /changes handlers not reusing generic handle_changes",
+  "updated_at": "2026-05-02T07:05:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:57:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "3102ab1b-d367-5cd9-b78f-1f20ee1c5ad3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

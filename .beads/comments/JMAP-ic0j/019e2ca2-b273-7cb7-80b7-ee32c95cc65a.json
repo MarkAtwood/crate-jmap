@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T17:15:21Z",
+  "id": "019e2ca2-b273-7cb7-80b7-ee32c95cc65a",
+  "issue_id": "JMAP-ic0j",
+  "text": "API contract risk: MEDIUM \u2014 calendars-server diverges from the canonical jmap-mail-server template on a half-dozen contract-shaping axes (rustdoc depth on supports_type/update_object/create_object, default-impl philosophy on spec methods, *_for_test methods in published API, crate-root re-export depth, upstream-major-version locks, and absent caps surface). Each individual divergence is fixable without a SemVer break TODAY because the crate is 0.1.1 with no public 0.x.0 release; defer past first stable release and most become SemVer-breaking. The single most consequential finding is JMAP-ic0j.26 (silently-no-oping default impls on spec methods like get_availability and parse_calendar_event_blobs) \u2014 a backend author can pass compile + tests while shipping a server that violates draft-ietf-jmap-calendars-26 \u00a72.2 / \u00a75.13 by design."
+}

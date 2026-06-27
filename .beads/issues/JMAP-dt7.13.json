@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.13",
+  "title": "Debug impls for BearerAuth and BasicAuth redact credentials \u2014 do not derive Debug",
+  "description": "BearerAuth and BasicAuth have hand-written Debug impls that emit [REDACTED] for the credential field, instead of the actual token or encoded password. A contributor might suggest removing these and using #[derive(Debug)] for simplicity. That would expose raw Bearer tokens and base64-encoded Basic credentials in logs, panic output, and test failure messages. These types explicitly carry secrets; redaction is the security-correct choice. The doc comment on AuthProvider also states implementations must not log the return value of auth_header(). Do not replace with derived Debug.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:34Z",
+  "updated_at": "2026-04-30T01:02:39Z",
+  "closed_at": "2026-04-30T01:02:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:33"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in 9d78ad7. Added 'SemVer coupling with jmap-cid-types' section to BlobUploadResponse rustdoc. Documents that the coupling is deliberate (workspace siblings on coordinated release cadence, not third-party deps that need isolation) and shows third-party consumers the matching-majors pinning pattern.",
+  "closed_at": "2026-05-17T11:32:48Z",
+  "compaction_level": 0,
+  "content_hash": "2c61c734c1daa8a9da210bcadaaa501a6e34f46fb2b009e9c85546ea7324d108",
+  "created_at": "2026-05-14T23:17:21Z",
+  "created_by": "Mark Atwood",
+  "description": "blob.rs:84 \u2014 pub sha256: Option<jmap_cid_types::Sha256>\n\nThe recent change (bd:JMAP-v9py.13) promoted the sha256 field from `Option<String>` to `Option<jmap_cid_types::Sha256>`. The typed shape is good for strictness, but it introduces a SemVer-coupling that wasn't there before:\n\n1. Every consumer of jmap-base-client that touches `BlobUploadResponse.sha256` now also depends on jmap-cid-types' major version. If jmap-cid-types eventually goes to 1.0 or 2.0 with breaking changes to the Sha256 type (e.g., changing the constructor signature, adding generic parameters, changing the AsRef impl), every consumer must bump jmap-base-client AND jmap-cid-types in lockstep.\n\n2. The SemVer-isolation philosophy applied to reqwest/tungstenite (wrapped in HttpError/WebSocketError) does NOT apply here. A workspace policy decision: jmap-cid-types is itself a workspace crate, and the workspace bumps majors together. That's true today but only enforced by maintenance discipline, not by the type system.\n\n3. The doc-comment correctly explains the wire-format contract (64-char lowercase hex per draft-atwood-jmap-cid-00 \u00a72 ABNF). The typed Sha256 enforces that on deserialize. But it also commits the public API to whatever jmap-cid-types decides to put on the Sha256 type \u2014 adding methods, changing AsRef<str> to AsRef<[u8]>, etc., all become part of jmap-base-client's surface.\n\nFor workspace-internal crates this is the documented intent. The finding is to make it EXPLICIT in the BlobUploadResponse doc: \"This struct re-exports jmap_cid_types::Sha256 as a wire-format-enforcing type. The jmap-cid-types crate is a workspace sibling and tracks the same major-version cadence; pin both at the same major in your Cargo.toml.\"\n\nLower priority because the workspace policy is documented and the consumer crates all sit in the same workspace. But a third-party consumer outside the workspace who picks up jmap-base-client from crates.io needs to know about the implicit jmap-cid-types dependency.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BlobUploadResponse re-exports jmap_cid_types::Sha256 \u2014 locks consumers to that crate's major version",
+  "updated_at": "2026-05-17T11:32:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:17:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "3646994d-ff73-5843-a7dd-210688c4e1cc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-amk.1",
+  "title": "Test oracle comment claims RFC wire format but uses snake_case",
+  "description": "In crate-jmap-types/src/query.rs, filter_operator_or_roundtrip comments 'Wire format taken verbatim from RFC 8620 \u00a75.5 (the Todo/query example).' But the JSON uses snake_case 'has_keyword' not camelCase 'hasKeyword'. RFC 8620 \u00a75.5 uses {\"hasKeyword\":\"music\"}. The Cond struct lacks rename_all=camelCase so both struct and JSON are internally consistent \u2014 but the oracle claim is false. filter_condition_deserialization has the same issue. Fix: either add rename_all=camelCase to Cond and fix JSON, or correct the comment.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:28:16Z",
+  "updated_at": "2026-04-30T04:34:26Z",
+  "closed_at": "2026-04-30T04:34:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-amk",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:28:19"
+    }
+  ]
+}

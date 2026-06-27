@@ -1,0 +1,33 @@
+{
+  "close_reason": "positive observation, no action needed",
+  "closed_at": "2026-05-02T07:05:15Z",
+  "compaction_level": 0,
+  "content_hash": "b5338a262b0d7663d6bb032601d00ed4589262b1b7dd929a5111d0a154a82e1b",
+  "created_at": "2026-05-02T05:28:08Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs handle_email_parse and handle_email_get both build body_prop_set (HashSet<&str> from bodyProperties) once before the per-blob/per-email loop. This is the correct pattern \u2014 building it inside the loop would be O(n*m) where n=emails and m=body properties. Explicitly noted with a comment referencing the issue (P2 e53.30).",
+  "ephemeral": 0,
+  "id": "JMAP-ci3.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "body_prop_set built once before per-blob/per-email loop",
+  "updated_at": "2026-05-02T07:05:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T22:28:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ci3",
+      "id": "bb7c1065-e822-580b-b48c-8e3f1444e158",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

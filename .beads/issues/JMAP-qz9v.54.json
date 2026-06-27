@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced both unwrap_or escapes in handle_contact_card_copy with proper error handling: the to_value() call uses .expect() matching the existing precedent (derive(Serialize) on plain data is infallible), and the from_value() failure now surfaces as invalidProperties in notCopied so the client sees the patch failure rather than a silently-swallowed error. New unit test covers the deserialize-failure path. Implementation in commit ab8f41e.",
+  "closed_at": "2026-05-15T09:59:13Z",
+  "compaction_level": 0,
+  "content_hash": "a450a9ab54e9c609ea8ecb3630ce39806433341231ea4d5bb9706a17bbe5fded",
+  "created_at": "2026-05-14T19:44:35Z",
+  "created_by": "Mark Atwood",
+  "description": "card.rs:428 and 437 in handle_contact_card_copy:\n\n    let mut card_val = serde_json::to_value(&card).unwrap_or_default();\n    if let Value::Object(ref mut merged_map) = card_val {\n        for (k, v) in spec_obj {\n            if k == \"id\" { continue; }\n            apply_jmap_patch(merged_map, k, v.clone());\n        }\n    }\n    card = serde_json::from_value(card_val).unwrap_or(card);\n\nTwo unwrap_or calls that silently swallow errors:\n\n1. Line 428: `serde_json::to_value(&card).unwrap_or_default()` \u2014 if serialization fails, we get Value::Null, the `if let Value::Object` block is skipped, and `card` is then re-parsed from Value::Null at line 437 (which fails) \u2014 so card stays the original. Net effect: silent patch failure. The unwrap_or_default() looks innocuous but produces wrong semantics.\n\n2. Line 437: `serde_json::from_value(card_val).unwrap_or(card)` \u2014 if deserialization of the patched JSON fails (e.g. patch produced a structurally-invalid ContactCard), the unmodified `card` is silently used. The copy proceeds with the un-patched card, but the response to the client claims success on the patch.\n\nThis is the textbook \"unwrap_or to escape a Result\" anti-pattern. The idiomatic Rust answer is to propagate the error as a notCopied SetError so the client sees the failure:\n\n    let mut card_val = serde_json::to_value(&card).map_err(|e| server_fail_from_backend(...))?;\n    ...\n    card = serde_json::from_value(card_val).map_err(|e| {\n        not_copied.insert(create_id, json!({ \"type\": \"invalidProperties\", \"description\": e.to_string() }));\n        continue; // not actually valid in a closure; needs labeled break or restructuring\n    });\n\nNote this overlaps with finding .4 (which deletes apply_jmap_patch entirely in favor of json_merge_patch). If .4's fix lands, the unwrap_or surfaces in the form `let card_val = json_merge_patch(...).map_err(...)?`. The error-handling shape stays as a finding because the current per-create-id error reporting needs to surface patch failures as notCopied entries, not silently swallow them.\n\nThis is a correctness adjacent issue distinct from .4: .4 covers what apply_jmap_patch does incorrectly with the data, this finding covers what happens when serialization itself fails. Both produce wrong responses.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.54",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "card.rs:428,437 unwrap_or(Value::Null) and unwrap_or(card) silently swallow serialize/deserialize errors mid-copy",
+  "updated_at": "2026-05-15T09:59:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:44:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "bfb68f92-1c50-5446-992b-5c82200c52f6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

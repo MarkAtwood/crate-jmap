@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decision record noted",
+  "closed_at": "2026-05-02T21:44:30Z",
+  "compaction_level": 0,
+  "content_hash": "6eb9f78e4149803bef0243707195347bf196d033c470ce672206a66ebe5183f1",
+  "created_at": "2026-05-02T21:40:34Z",
+  "created_by": "Mark Atwood",
+  "description": "The correctness of cross-operation role uniqueness in a single Mailbox/set request depends on maintaining two semantically distinct sets: (1) what this request intends to free (scanned from update patches before execution), and (2) what actually freed (built only from updates that succeeded). A failed vacate must not release the role, so a subsequent create claiming that role in the same request must be rejected. The old names (roles_vacated_by_updates / roles_actually_vacated) blurred this intent-vs-outcome distinction \u2014 'actually_vacated' reads as a synonym for 'vacated_by_updates' rather than as the post-execution ground truth. The new names make the two-phase protocol explicit. A contributor might suggest merging them into one set or shortening to roles_freed / roles_vacated, which would silently lose the distinction and re-introduce the bug the two-set design prevents.",
+  "ephemeral": 0,
+  "id": "JMAP-a81m.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "roles_intended_to_vacate vs roles_successfully_vacated names encode load-bearing semantic distinction",
+  "updated_at": "2026-05-02T21:44:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:40:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a81m",
+      "id": "965ae23d-4032-5a03-9f1f-57f7ad23c082",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

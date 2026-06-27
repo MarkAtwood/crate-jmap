@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4ea5233fe4b143a9ca50f24f0473ac9bd8ad1d7f34ddda4e255b319d7304e438",
+  "created_at": "2026-05-14T18:16:17Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-tasks-server/src/backend.rs:106-126:\n\n    fn update_task_per_user(\n        &self,\n        caller: &Self::CallerCtx,\n        account_id: &jmap_types::Id,\n        id: &jmap_types::Id,\n        patch: PatchObject,\n    ) -> impl std::future::Future<\n        Output = Result<Option<jmap_tasks_types::Task>, BackendSetError<Self::Error>>,\n    > + Send {\n        // Task::Patch = PatchObject (see jmap_tasks_types backend.rs).\n        self.update_object::<jmap_tasks_types::Task>(caller, account_id, id, patch)\n    }\n\ndraft-tasks-06 \u00a74.5.1 lines 978-981 are normative: when a patch contains only per-user properties (keywords, color, freeBusyStatus, useDefaultAlerts, alerts), the shared \\\"updated\\\" timestamp on the Task object MUST NOT change. The default implementation delegates to update_object, which (per the same trait) updates the shared object \u2014 bumping the shared timestamp. This is a spec violation in every multi-user backend that uses the default.\n\nThe docstring is half-honest:\n\n    The default implementation delegates to [\\`Self::update_object\\`], which is correct\n    for single-user scenarios but backends serving multiple users SHOULD override this\n    method to route to a user-scoped patch path.\n\nTwo problems:\n\n  1. \\\"SHOULD override\\\" is too weak. The cost of not overriding in a multi-user backend is a spec-violating side effect that the client may not even notice (the timestamp bump is correct for shared mutations and the per-user-only routing is the only case it matters). A consumer who tests against a single-user fixture will never hit this, and only discover the bug when a real second user shows up.\n\n  2. \\\"Single-user scenarios\\\" is a slippery framing. A single-user reference backend (MockBackend, MemoryBackend) is permitted to delegate. But the JMAP server kit's reason for existing is multi-user JMAP. Treating multi-user as the special case that requires opt-in is backwards.\n\nThree plausible contract strengthenings:\n\n  - Make the method required (no default). Single-user backends explicitly opt-in to the no-op-delegate pattern by writing the one-liner. Cost: minor boilerplate. Benefit: type system catches the silent-spec-violation case.\n\n  - Add a tracking sibling fn that the handler can use to enforce \\\"either you implement update_task_per_user properly, or you assert that you're a single-user backend\\\". E.g. fn is_single_user(&self) -> bool { false } with the default impl delegating only when is_single_user() is true and otherwise returning a runtime error from update_task_per_user's default.\n\n  - Rename the default delegation to update_task_per_user_single_user_only as the default impl, with a doc comment that is unambiguous: \\\"WARNING: delegates to update_object, which violates draft-tasks-06 \u00a74.5.1 for multi-user backends. Override or assert single-user.\\\"\n\nThe current shape ships in 0.1.x; the contract is locked at the moment a multi-user consumer ships with the default. Workspace test-integrity violation potential is high: no integration test in this crate verifies that update_task_per_user does NOT bump the shared timestamp (only that it is *called* \u2014 see lib.rs:786-815 per_user_patch_split test which counts call count, not timestamp effect).\n\nRelated: JMAP-h47t.5 (MemoryBackend.query_objects silently ignores sort/filter) is a parallel case of the same anti-pattern \u2014 the reference impl teaches consumers an incorrect default. Same architectural defect at the trait-default layer here.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "TasksBackend::update_task_per_user default delegates to update_object \u2014 multi-user backends that forget to override silently violate draft-tasks-06 \u00a74.5.1 shared-timestamp invariant",
+  "updated_at": "2026-05-14T18:52:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:16:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "973f85fe-5c31-53fa-93ff-616015c8d73a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

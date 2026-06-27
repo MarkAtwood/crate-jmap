@@ -1,0 +1,33 @@
+{
+  "close_reason": "Deferred to workspace-design bead JMAP-mfny [TBD]. The contacts-server-local cookie-cutter is consistent with the canonical mail-server (both have concrete copy_X methods); generalizing only contacts-server would create a within-workspace divergence. The bead's recommended generalization is a workspace-level reshape that the bead itself flags as 'workspace-level decision; file a workspace bead before sweeping if accepted.' Filed as the parent design discussion; reopen if/when that design call resolves toward generalization and this crate becomes the canonical to-be-swept-from.",
+  "closed_at": "2026-05-18T03:04:40Z",
+  "compaction_level": 0,
+  "content_hash": "a0d987b66b6d22c9920620ff63ee7ed6d507bef832964a7ea6939d32ceaae6e9",
+  "created_at": "2026-05-14T19:34:22Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/src/backend.rs:82-98\n\nSIGNATURE:\n    fn copy_contact_card(\n        &self,\n        caller: &Self::CallerCtx,\n        from_account_id: &jmap_types::Id,\n        to_account_id: &jmap_types::Id,\n        card: jmap_contacts_types::ContactCard,\n    ) -> impl Future<\n        Output = Result<\n            (jmap_types::Id, jmap_contacts_types::ContactCard),\n            BackendSetError<Self::Error>,\n        >,\n    > + Send;\n\nPROBLEM:\nThe `card: jmap_contacts_types::ContactCard` parameter (by value) ties\nthis trait method to the specific `ContactCard` type defined in the\nsibling `jmap-contacts-types` crate. If a future workspace revision:\n\n1. Splits ContactCard into a wire type (in jmap-contacts-types) and a\n   domain type (e.g. ContactCardDomain in a new crate), or\n2. Cuts a major version of jmap-contacts-types that changes\n   ContactCard's public field set, or\n3. Generalises copy across more types (e.g. for the metadata extension),\n\n\u2026this signature cannot move without breaking every ContactsBackend\nimplementor. Backend impls cannot use their own internal Card\nrepresentation through the trait either; they must accept the workspace\nContactCard shape.\n\nCompared with the trait's other write methods (create_object,\nupdate_object, destroy_object), which are generic over `O: SetObject +\nSend + Sync`, this method is concrete. The shape inconsistency forces\ncallers into a mixed mode: use generic dispatch for /set,\nconcrete-typed dispatch for /copy. The workspace has chosen the\ngeneric-over-O approach as canonical (matches RFC 8620 \u00a76.3, where\n/copy is a per-type method but the wire format is symmetric); copy is\nthe outlier.\n\nWHAT CALLERS CANNOT DEPEND ON:\n- That a future ContactCard schema change in jmap-contacts-types will\n  not force a matching breaking change in this trait.\n- That a backend can store cards in its own internal representation\n  without first materializing them as `jmap_contacts_types::ContactCard`.\n\nASSESSMENT (P3, not higher):\nThe trait is workspace-internal and the types crate is a sibling that\nwill rev in lockstep with this crate. The version-skew failure mode\nis hypothetical pre-1.0. The cookie-cutter inconsistency with the\ngeneric-over-O write methods is the real engineering basis for the\nflag.\n\nRECOMMENDED:\nGeneralize the method:\n    fn copy_object<O: SetObject + Send + Sync>(\n        &self,\n        caller: &Self::CallerCtx,\n        from_account_id: &Id,\n        to_account_id: &Id,\n        obj: O,\n    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;\n\nThe handler at card.rs:440-441 already deserializes to ContactCard,\napplies the patch, then passes it through. The generic shape lets the\nmail-server `/copy` (RFC 8621 \u00a75.4 Email/copy) share the same trait\nmethod via the canonical-template propagation rule.\n\nPROPAGATION: jmap-mail-server has a concrete `copy_email` with the\nsame shape (`card: ContactCard` \u2194 `email: Email`). The cookie-cutter\nis internally consistent \u2014 both extensions have a concrete-typed\ncopy. Unifying both into a generic `copy_object` is a workspace-level\ndecision; file a workspace bead before sweeping if accepted.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactsBackend::copy_contact_card takes ContactCard by value, locking trait to the concrete jmap-contacts-types crate version",
+  "updated_at": "2026-05-18T03:04:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:34:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "54acdf24-61bc-5417-9fcd-a16fef9002af",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

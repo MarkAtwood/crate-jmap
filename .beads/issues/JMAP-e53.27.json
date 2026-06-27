@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Stale: sendAt is now entirely server-set (RFC 8621 \u00a77.2); no client-supplied value is read. No double-fetch exists.",
+  "closed_at": "2026-05-04T15:51:05Z",
+  "compaction_level": 0,
+  "content_hash": "8915c452db1d8119f8cae2681bb296a92a178c6f4bcf9c8678acbeb1c382dba1",
+  "created_at": "2026-05-02T00:44:06Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs L790-800: create_args.get(\"sendAt\") is called twice in succession \u2014 once to compute the bool client_supplied_send_at and again to parse send_at. Fix: unify into a single match that simultaneously captures the presence flag and parses the value, e.g. match create_args.get(\"sendAt\") { None | Some(Value::Null) => (UTCDate::from(now_utc_string().as_str()), false), Some(v) => (parse\u2026?, true) }.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "send_at double-fetch in process_create",
+  "updated_at": "2026-05-04T15:51:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:44:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "eaa56bc8-7d88-5e62-82a8-daf1c6bacf06",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-isx.15",
+  "title": "VacationResponse singleton enforcement at handler level is correct design",
+  "description": "vacation.rs: create/destroy are rejected with SetErrorType::Singleton at the handler, not at the backend. This is correct: the singleton invariant is a protocol rule that the backend should not have to enforce. The upsert logic (update singleton that doesn't exist yet \u2192 create then re-apply patch) handles the initialization case cleanly. A contributor might suggest moving singleton enforcement to the backend trait; that would be wrong because it would require every backend implementation to duplicate the protocol rule.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:21:27Z",
+  "updated_at": "2026-04-30T23:40:58Z",
+  "closed_at": "2026-04-30T23:40:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-isx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:21:26"
+    }
+  ]
+}

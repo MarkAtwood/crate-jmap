@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T05:58:17Z",
+  "compaction_level": 0,
+  "content_hash": "49416832a3ea7782d05c39910eaca2e2f499b1f5fea9c08d61be6c2dc66ea7f2",
+  "created_at": "2026-05-08T03:11:43Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:74-78 \u2014 `updated`, `not_updated`, and `not_destroyed` are `HashMap<String, \u2026>`. RFC 8620 \u00a75.3 specifies these are maps keyed by Id (server-assigned object identifier). `created` and `not_created` are correctly String-keyed because they use caller-supplied creation keys, but the other three should be `HashMap<Id, \u2026>`.\n\nWire-format consequence today: harmless because `Id` is `#[serde(transparent)]` over `String`, so deserialization succeeds. API consequence: callers who pull a key out of `set_response.updated` get a `String` and cannot use it interchangeably with the `Id` they get from `destroyed` or from any `/get` response. Forces `Id::from(s)` round-trip at every consumer.\n\nCross-crate note: identical shape in jmap-mail-client/src/methods/mod.rs:77,80,82. Both crates were written together. Filing here for the calendars crate; mail-client should be matched.\n\nCaveat: jmap-mail-client and jmap-base-client are LOCKED. Coordinating this would require a session-bound API change. Possibly worth deferring but worth recording.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetResponse keys typed as String, RFC 8620 says they are Ids",
+  "updated_at": "2026-05-08T05:58:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:11:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "d0b53d61-4ea9-5af7-bd1d-ad0cac056ecd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

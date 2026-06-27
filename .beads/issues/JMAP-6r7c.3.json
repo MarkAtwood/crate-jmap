@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T23:54:35Z",
+  "compaction_level": 0,
+  "content_hash": "72c55d87670eb21a89981b3fcb3c4e730a08bde6b39dec991b1bf7c2ec88bff7",
+  "created_at": "2026-05-14T23:08:29Z",
+  "created_by": "Mark Atwood",
+  "description": "README.md lines 343-353 documents the ClientConfig field set:\n  request_timeout, max_session_body, max_call_body, max_download_body,\n  max_upload_response_body, max_sse_frame\n\nSource (client.rs:38-81) has a seventh field, max_ws_message (default 1 MiB, bd:JMAP-6lsm.5), used by JmapClient::connect_ws_session and exposed publicly. README's later prose at line 498 mentions 'Incoming messages are capped at 1 MiB' but does not say the cap is configurable, and the field is absent from the ClientConfig reference block.\n\nTrigger: a user who wants to tune the WebSocket message cap reads the README and concludes it's hardcoded; they either ignore it or open an issue asking for the feature that already exists.\n\nFix: add max_ws_message to the README's ClientConfig field listing and to the default-values prose.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README ClientConfig section missing max_ws_message field",
+  "updated_at": "2026-05-14T23:54:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:08:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "e06e13d2-299c-50fa-ac66-8dc31f9f320c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

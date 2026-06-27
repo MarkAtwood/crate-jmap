@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-13T17:34:36Z",
+  "id": "019e2267-9aa1-7f30-9fd7-008d97936fe5",
+  "issue_id": "JMAP-cf7p.9",
+  "text": "Recommendation accepted (Mark, 2026-05-13): option (1c) testjig-internal mpsc plumbing + option (2) single bead scoped to testjig. Keeps workspace *-server traits transport-less per kit-vs-jig posture in workspace AGENTS.md. Signal payload: bare wake notification, consumer re-reads state. De-labeling human; bead is now claimable by /do-beads."
+}

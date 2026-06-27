@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already-defended. task.rs:99-101 (and the sibling sites in task_list.rs / task_notification.rs) already carry the rationale: '// error). Without this, a /set against an unknown accountId would silently \"succeed\" with a fake oldState/newState envelope. Fixed in JMAP-gpt1.' The bead's defense ask \u2014 anchor the account_exists pre-check against future 'optimizing' contributors \u2014 is satisfied by the existing comment which both states the failure mode and cites the originating bead. No code change needed.",
+  "closed_at": "2026-05-14T19:03:36Z",
+  "compaction_level": 0,
+  "content_hash": "ce403fe70d9828b48b69e9325c50eca60fa4e8510b0858f501e36fb26950571f",
+  "created_at": "2026-05-14T18:07:56Z",
+  "created_by": "Mark Atwood",
+  "description": "Each of task.rs:104-110, task_list.rs:62-68, task_notification.rs:62-68 calls backend.account_exists(caller, &account_id) immediately after extracting accountId and returns accountNotFound (RFC 8620 \u00a73.6.2) before reading old_state or doing anything else. Without this, a /set call against an unknown accountId would proceed: get_state returns State::from('0') by default, the handler would produce a synthesized {oldState: '0', newState: '0', created: null, ...} envelope, and the caller would believe their request succeeded. A future contributor 'optimizing' this away ('account_exists is redundant if get_state checks the account') is wrong \u2014 get_state in the MemoryBackend has no such check (returns 0 for unknown accounts as a convenience for first-touch state). The check is structural, not optional. Same justification for the corresponding handler in jmap-mail-server/sibling extensions.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Defend: accountId-not-found early rejection (JMAP-gpt1) on all three /set handlers",
+  "updated_at": "2026-05-14T19:03:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:07:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "373351b1-6e57-5b58-b6b3-19768df1935e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

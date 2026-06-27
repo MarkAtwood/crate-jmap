@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added debug_assert! to SetError::with_extra that panics on reserved wire-name keys, plus pub const RESERVED_SET_ERROR_WIRE_NAMES exposing the 8 typed-field wire names. Three tests: panic-on-each-reserved-name iterates the full constant; positive-control proves a non-reserved key still works; serialize-time invariant proves the constant covers every typed wire-name field on the SetError surface, so adding a typed field without extending the constant is caught at next test run. jmap-types::SetError has no with_extra builder (extras assigned to pub field directly) so this fix is scoped to jmap-server::backend::SetError only.",
+  "closed_at": "2026-05-14T13:24:47Z",
+  "compaction_level": 0,
+  "content_hash": "b874c065d913ba3d4d1461034164b15961c462865612faa47afce31becf81521",
+  "created_at": "2026-05-14T12:52:10Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: a future contributor (or you, in 12 months) writes SetError::new(SetErrorType::Forbidden).with_extra(\"type\", json!(\"customType\")) intending to override the wire 'type' field. Because SetError.extra uses #[serde(flatten)] (crate-jmap-server/src/backend.rs:69), and SetError.error_type also serializes as the \"type\" wire field (#[serde(rename = \"type\")] at backend.rs:23), the resulting JSON has two \"type\" keys at the same level. serde_json will emit both \u2014 which is technically malformed JSON per RFC 8259 \u00a74 ('an implementation \u2026 may report differing values for the various names'). The serializer happily produces this output; the consumer's JMAP client may pick either value depending on its JSON parser.\n\nThe doc comment at with_extra (backend.rs:151-157) warns: 'Calling with_extra(\"type\", ...), with_extra(\"properties\", ...), or any other reserved wire-name will produce a malformed SetError on the wire \u2014 callers are responsible for choosing extension-namespace keys that do not collide with the typed-field wire names.'\n\nThe warning is correct but the API silently accepts the unsafe call. A debug_assert! at the with_extra body checking against the known reserved wire-names (\"type\", \"description\", \"properties\", \"existingId\", \"maxRecipients\", \"invalidRecipients\", \"notFound\", \"maxSize\") would catch the bug at the first test run. Production builds would not pay any cost (debug_assert! is no-op in release).\n\nMaintenance consequence: a quietly-malformed wire response, surfaced only via a downstream client filing a bug ('SetError fields out of order' or 'why is description missing'). The reproducer is invisible to the server team because the server-side tests don't exercise reserved-name collisions and the API permits them at compile time. This bead also covers the parallel jmap-types SetError type referenced in the doc comment, if it has the same shape.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetError.with_extra silently accepts reserved wire-name keys, producing malformed JSON",
+  "updated_at": "2026-05-14T13:24:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:52:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "8b456364-4537-57fe-9fd6-e502481ec51c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

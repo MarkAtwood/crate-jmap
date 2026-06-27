@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added precondition assertions to BOTH seed_object methods (MemoryBackend::seed_object at memory.rs:338 and MockBackend::seed_object at lib.rs:333). Validations: type_name must be one of the four known TYPE_NAME values (Calendar, CalendarEvent, CalendarEventNotification, ParticipantIdentity); value must be a JSON object whose id field matches the id argument. Five new regression tests at memory::seed_object_validation_tests cover all four failure paths plus a positive control. Updated one event::copy_successful_with_overrides test that was passing json!({}) as a placeholder \u2014 now passes json!({\"id\": \"_placeholder_\"}). Took option (b) from the bead (runtime validation); option (a) (generic over O: JmapObject) would change the API signature at ~13 test call sites and is a bigger reshape that could go on a future SemVer break.",
+  "closed_at": "2026-05-15T18:52:38Z",
+  "compaction_level": 0,
+  "content_hash": "a22fa08e29832c1cd95ef0ac19cf8f71fca5be3400166fbf1256e3186508bf15",
+  "created_at": "2026-05-15T17:13:39Z",
+  "created_by": "Mark Atwood",
+  "description": "src/memory.rs:261-285 \u2014 seed_object signature:\n\n    pub fn seed_object(\n        &self,\n        account_id: &str,\n        type_name: &'static str,\n        id: &str,\n        value: serde_json::Value,\n    )\n\nwith rustdoc:\n\n    /// The `type_name` must match `O::TYPE_NAME` of the type being seeded\n    /// (e.g. `\"Calendar\"`, `\"CalendarEvent\"`, `\"CalendarEventNotification\"`,\n    /// `\"ParticipantIdentity\"`). The `value` must be a JSON object with at\n    /// least an `id` field matching `id`.\n\nTwo distinct contract problems:\n\n1. STRINGLY-TYPED KEY. `type_name: &'static str` requires the caller to\n   know the exact wire-format string (\"CalendarEvent\", not \"calendar_event\",\n   not \"calendarevent\"). The compiler accepts any &'static str. A typo\n   like seed_object(..., \"calendarevent\", ...) compiles, runs, and\n   silently inserts the object into a non-existent (lowercase) type-store\n   that no method will ever read from. A misnamed type_name does NOT\n   error \u2014 it succeeds and corrupts the test fixture.\n\n   The four valid strings are exactly the JmapObject::TYPE_NAME values\n   for Calendar / CalendarEvent / CalendarEventNotification /\n   ParticipantIdentity. They could be a generic parameter\n   `seed_object::<O: JmapObject>(&self, account_id, id, value)` that\n   pulls O::TYPE_NAME at compile time, eliminating the typo class.\n   Compare the canonical mail-server's seed::setup_seed_data at\n   crate-jmap-mail-server/src/memory/seed.rs:228 \u2014 uses a typed\n   SeedData struct, not stringly-typed keys.\n\n2. UNCHECKED VALUE. The doc says \"value must be a JSON object with at\n   least an `id` field matching `id`\" but line 280 just does\n\n       inner.objects_mut(type_name, account_id).insert(Id::from(id), value);\n\n   with no validation. A caller passing serde_json::json!(42) (not an\n   object) or serde_json::json!({\"id\": \"wrong-id\"}) (mismatched id) gets\n   no error. The value gets stored. Subsequent get_objects() reads the\n   value back, calls O::deserialize on it, gets an error, and surfaces\n   it as MemoryError(\"deserialize Calendar: ...\") via memory.rs:417-421\n   far from the original seed_object call. Stack trace points at the\n   handler's get_objects path, not at the seed call that introduced\n   the bad fixture.\n\nWhat goes wrong for the caller: a test author writes seed_object(\"acc1\",\n\"CalenderEvent\", \"ev1\", json!({})) (typo in CalendarEvent, missing id\nfield). Test runs. Nothing happens \u2014 because the lookup never finds\nthe typo'd type-store, the value is silently dead in memory. A\nparallel test that ALSO writes \"CalendarEvent\" sees no conflict.\nDebugging is opaque.\n\nFix options:\n\n  (a) Make seed_object generic: `pub fn seed_object<O: JmapObject>(&self,\n      account_id: &str, id: &str, value: serde_json::Value)` \u2014 pulls\n      O::TYPE_NAME via generic. Eliminates the stringly-typed footgun.\n\n  (b) Validate the value is a JSON object and contains the expected\n      `id` field. Return Result, or panic with a clear message\n      (\"seed_object: value must be a JSON object with `id` field\n      matching `id` arg\"). Either approach is better than silent\n      storage of broken state.\n\n  (c) Replace seed_object with a SeedData struct + setup_seed_data\n      free function, matching the canonical mail-server seed::SeedData\n      pattern.\n\nP2 \u2014 fixture-construction footgun. Affects test ergonomics directly and\nany downstream test or example that uses MemoryBackend through `memory`\nfeature.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::seed_object takes stringly-typed type_name and unchecked serde_json::Value; doc preconditions never enforced",
+  "updated_at": "2026-05-15T18:52:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:13:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "59f61f92-aa4e-5b4e-bf40-fee3b6f32bb3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

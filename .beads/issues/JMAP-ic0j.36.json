@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:04:13Z",
+  "compaction_level": 0,
+  "content_hash": "382a08d325bbedd1f528fdf3b7300bdfce9459f868c327587290fa9b11794719",
+  "created_at": "2026-05-15T17:14:50Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs:510-526 \u2014 ParseResult::new signature:\n\n    pub fn new(\n        parsed: std::collections::HashMap<jmap_types::Id, Vec<jmap_calendars_types::CalendarEvent>>,\n        not_found: Vec<jmap_types::Id>,\n        not_parsable: Vec<jmap_types::Id>,\n    ) -> Self\n\nThe last two args are the same type. A backend author writing:\n\n    Ok(ParseResult::new(parsed, not_parsable, not_found))   // swapped\n\n\u2026has no compile-time signal. Wire response sends \"I found these blobs in\nnotFound\" and \"these blobs are notParsable\" reversed \u2014 clients see\nunparseable blobs as \"not in your blob store\" and missing blobs as\n\"present but not parseable as iCalendar\". Both error classifications\nare spec-defined but semantically opposite (\u00a75.13: notFound triggers\n\"upload first, retry\"; notParsable triggers \"this blob is not iCalendar\ndata and never will be\"). Client UI may treat them differently.\n\nThe struct is #[non_exhaustive] and has #[derive(Default)] is NOT applied\n(it's not Default \u2014 parsed is required). External callers must use the\n`new` constructor, which makes the swap risk fixed in the only-construction\npath.\n\nFix options:\n\n  (a) Builder pattern:\n        ParseResult::new(parsed)\n          .with_not_found(vec![...])\n          .with_not_parsable(vec![...])\n      Each method takes a single-purpose arg; can't swap.\n\n  (b) Named fields via public-with-helper-constructor:\n      Make the fields `pub` (already are at lines 502-507) and document\n      that callers should use struct-literal syntax with #[non_exhaustive]\n      bypass via Default... wait, ParseResult isn't Default. So this\n      doesn't work; the #[non_exhaustive] + non-Default combination\n      forces external callers through `new`. The current shape\n      is locked.\n\n  (c) Take a Vec<(Id, ParseResultStatus)> where ParseResultStatus is\n      an enum { Parsed(Vec<CalendarEvent>), NotFound, NotParsable }.\n      Constructor pivots internally. More verbose at call site, no\n      swap risk.\n\n  (d) Take `parsed` only as positional, then two `with_*` setter\n      methods that mutate &mut self in-place. Compatible with\n      #[non_exhaustive].\n\n(d) is the minimum-disruption fix. (a) is the most fluent. P3 because\nthe swap is a one-time per-impl error caught by integration tests if\nthe test author thinks to write one \u2014 but a backend author who only\nwrites the `parsed` case ships the rest blind.\n\nCompare the canonical mail-server's MdnParseResult precedent\n(crate-jmap-mail-server/src/mdn.rs, referenced from backend.rs:498): same\nshape today (3-positional new), suggesting the convention is consistent\nacross the workspace and a sweep into mail-server is needed if this is\nfixed here.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ParseResult::new takes two same-type Vec<Id> positional args (not_found, not_parsable) \u2014 easy to swap",
+  "updated_at": "2026-05-17T17:04:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:14:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "47c3a001-8742-5426-a4f7-16d91459c863",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

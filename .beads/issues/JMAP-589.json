@@ -1,0 +1,52 @@
+{
+  "acceptance_criteria": "cargo check -p jmap-mail-server --features sieve passes; cargo build -p jmap-mail-server (no features) passes; register_sieve_handlers is callable by consumers",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:08:46Z",
+  "compaction_level": 0,
+  "content_hash": "0f4378c2137422ed836f94715a165f2c9f282610366e7a775d0838c4c26171ad",
+  "created_at": "2026-05-02T15:23:47Z",
+  "created_by": "Mark Atwood",
+  "description": "Wire the sieve feature flag in both Cargo.toml files and lib.rs files.\n\nWHAT: Feature flag plumbing so sieve types and handlers are compiled when --features sieve is passed.\n\nALGORITHM:\n1. crate-jmap-mail-types/Cargo.toml: add sieve = [] to [features] (done as part of JMAP-wx3, verify it is present)\n2. crate-jmap-mail-server/Cargo.toml: add sieve = [\"jmap-mail-types/sieve\"] to [features]\n3. crate-jmap-mail-server/src/lib.rs: add (each item gated individually):\n   #[cfg(feature = \"sieve\")] pub mod sieve;\n   #[cfg(feature = \"sieve\")] pub use jmap_mail_types::sieve::JMAP_SIEVE_SCRIPTS_URI;\n   #[cfg(feature = \"sieve\")] pub use sieve::SieveBackend;\n   #[cfg(feature = \"sieve\")] pub use sieve::{handle_sieve_get, handle_sieve_set, handle_sieve_query, handle_sieve_validate};\n4. crate-jmap-mail-server/src/lib.rs: add register_sieve_handlers function (gated):\n   #[cfg(feature = \"sieve\")]\n   pub fn register_sieve_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)\n   where B: MailBackend + sieve::SieveBackend + 'static, C: Clone + Send + 'static {\n     reg!(\"SieveScript/get\", backend, |b, _ci, a| sieve::handle_sieve_get(&*b, a).await);\n     reg!(\"SieveScript/set\", backend, |b, _ci, a| sieve::handle_sieve_set(&*b, a).await);\n     reg!(\"SieveScript/query\", backend, |b, _ci, a| sieve::handle_sieve_query(&*b, a).await);\n     reg!(\"SieveScript/validate\", backend, |b, _ci, a| sieve::handle_sieve_validate(&*b, a).await);\n   }\n   (Note: reg! is a private macro in lib.rs \u2014 copy its exact pattern from the mdn section)\n\nDEFENSIVE RULES:\n- Each cfg item independent \u2014 no single cfg block wrapping multiple items\n- sieve.rs itself has NO cfg attributes \u2014 gates are exclusively in lib.rs\n- cargo build (no features) MUST still compile cleanly after this change\n\nAGENT TEAM: Single implementer\n\nTESTS: cargo check -p jmap-mail-server --features sieve passes; cargo build -p jmap-mail-server (no features) passes",
+  "design": "jmap-mail-types/Cargo.toml: add [features] sieve = []\n\njmap-mail-server/Cargo.toml: add [features] sieve = [jmap-mail-types/sieve]\n\njmap-mail-server/src/lib.rs additions (behind cfg(feature=sieve)):\n- pub mod sieve;\n- pub const JMAP_SIEVE_URI: &str = urtietf:params:jmap:sieve;\n- pub use sieve::{SieveBackend, handle_sieve_get, handle_sieve_query, handle_sieve_set, handle_sieve_validate};\n- pub fn register_sieve_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>) where B: MailBackend + SieveBackend + 'static, C: Clone + Send + 'static\n\nThe register function adds 4 method names:\n  SieveScript/get, SieveScript/set, SieveScript/query, SieveScript/validate\n\nNote: no /changes or /queryChanges \u2014 draft does not define them.\n\nCapability constant re-export: consumers need JMAP_SIEVE_URI to advertise the capability in their Session object.\n\nAddendum: update crate-level doc comment in lib.rs to mention the sieve feature and the 4 method names it adds.",
+  "ephemeral": 0,
+  "id": "JMAP-589",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve: feature flag wiring + register_sieve_handlers",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T11:29:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-82ty",
+      "id": "7f630c82-7d52-5158-94a1-301e250fe6a4",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T12:00:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3uh",
+      "id": "a69e45a4-90b6-5a96-927e-b7a5cdac413d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T12:00:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wx3",
+      "id": "c2a9802b-e4ec-5d8f-a0b3-a116ea7b6b10",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

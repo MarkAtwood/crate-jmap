@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already fixed by JMAP-yqo.15: doc comment for build_email_from_create is now directly above the function; validate_and_normalize_keywords has its own separate doc block.",
+  "closed_at": "2026-05-04T15:52:42Z",
+  "compaction_level": 0,
+  "content_hash": "248a928f541956f9a846361012ebcf4282b1070e02f519c6bc384f9ce10a5e9e",
+  "created_at": "2026-05-02T00:43:48Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs L1235-1252: the /// doc block for build_email_from_create runs directly into the doc content for validate_and_normalize_keywords without a closing separator. Rustdoc attaches the keyword-validation rules (L1242-1252) to build_email_from_create and leaves validate_and_normalize_keywords with no doc comment. Fix: end the build_email_from_create doc block after L1241 and open a new /// block above validate_and_normalize_keywords.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "fused doc comment on build_email_from_create",
+  "updated_at": "2026-05-04T15:52:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "37738b92-b293-595a-8a64-d31d5bbb6674",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

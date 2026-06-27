@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-drv.3",
+  "title": "subscribe_events accepts unexpanded URI template; no helper to expand it",
+  "description": "Session.event_source_url is a URI Template (RFC 6570 Level 1) with variables types, closeafter, and ping. subscribe_events(event_source_url, last_event_id) accepts the raw string and passes it to reqwest. A caller who writes client.subscribe_events(&session.event_source_url, None) will send a literal {types} in the URL path, which the server will 404 or 400. The error surfaces as ClientError::Http, giving no hint that URL expansion is required. The expand_url_template helper exists in blob.rs but is pub(crate) \u2014 callers cannot use it. Callers must either do string replacement manually or use an external template library; neither is documented. Fix: either make expand_url_template pub, or add a expand_event_source_url helper, or document prominently in subscribe_events that the caller must expand the template first.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:36:26Z",
+  "updated_at": "2026-04-30T16:40:41Z",
+  "closed_at": "2026-04-30T16:40:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-drv",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:36:25"
+    }
+  ]
+}

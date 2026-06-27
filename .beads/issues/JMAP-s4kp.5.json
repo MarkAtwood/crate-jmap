@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "cfdf0308fdbf31afbdd742df35394ccd5e8f544cfe8702334f38ca3d05634542",
+  "created_at": "2026-06-05T03:57:04Z",
+  "created_by": "Mark Atwood",
+  "description": "Propagate canonical mail-server metadata-02 integration (JMAP-s4kp.1) to jmap-contacts-server MemoryBackend. Same 3 integration points: query_objects filter matching for 6 metadata conditions, get_changes ignoreMetadataOnlyChanges, /set patch validation. Adapt to contacts-server's type set (ContactCard, AddressBook). See JMAP-s4kp.1 for canonical pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-s4kp.5",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "contacts-server: wire metadata-02 helpers into MemoryBackend",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-04T20:57:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s4kp",
+      "id": "43a74bdf-8e75-5d5c-a4cc-ce7f6b0ec53e",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-06-04T20:57:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s4kp.1",
+      "id": "670e45e5-f1f3-52d5-bb33-ab65f96b6f4a",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

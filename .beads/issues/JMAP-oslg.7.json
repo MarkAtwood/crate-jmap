@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed: MAINTENANCE comments added; Message/get now respects RFC 8620 \u00a75.1 properties parameter",
+  "closed_at": "2026-05-02T21:07:22Z",
+  "compaction_level": 0,
+  "content_hash": "c04307b1e2254b46d3b2663882df8f1095233d394eeee4b948f3509d88a3f1a2",
+  "created_at": "2026-05-02T21:03:42Z",
+  "created_by": "Mark Atwood",
+  "description": "The ReadDisposition enum (crate-jmap-chat-types/src/message.rs:32-53) lacks a MAINTENANCE comment documenting where to add new variants when the spec evolves.\n\nPattern to follow: crate-jmap-mail-server/src/mailbox.rs lines 214-218.\n\nWithout this comment, future maintainers may:\n- Add a variant to the enum but forget impl_string_enum! mappings\n- Not realize this affects serialize/deserialize round-tripping\n- Leave the code in a compiling but broken state\n\nIssue: JMAP ChatMessage spec allows servers to receive unknown readDisposition values (\u00a71029: 'unrecognized values are stored as-is'). When new official values are added, maintainers need clear guidance on where to update both the enum AND its serialization macro.",
+  "ephemeral": 0,
+  "id": "JMAP-oslg.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ReadDisposition enum needs MAINTENANCE comment for variant extensibility",
+  "updated_at": "2026-05-02T21:07:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:03:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-oslg",
+      "id": "507bc5ec-5d5d-5013-8210-0d4c0a3d5690",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

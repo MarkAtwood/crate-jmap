@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decision record \u2014 captures a settled architectural choice already implemented in the crate. No code action required. The bead description preserves the rationale for future readers searching by topic; closing keeps the autonomous frontier focused on actionable findings.",
+  "closed_at": "2026-05-15T21:48:13Z",
+  "compaction_level": 0,
+  "content_hash": "fbc544d22bcff15b22a01de888c59010fda2adaf010dcd3f3303d2cd41939fd1",
+  "created_at": "2026-05-15T20:30:32Z",
+  "created_by": "Mark Atwood",
+  "description": "examples/sse_listen.rs and examples/ws_loop.rs are deliberately minimal. Header comments scope each out of production use ('single-shot, no retry, no auth, no TLS', 'single connection, no retry'). Both use NoneAuth and ws://, intentionally not modelling production auth/TLS. The SSE example actually defends against the JMAP-6lsm.2-class wire-bug by using a proper SSE response framing including Content-Type: text/event-stream. A future contributor might propose 'make the examples production-grade with reconnect logic' \u2014 DO NOT accept that scope change; the examples are docs.rs surface, not a reference client. The right place to demonstrate production reconnect is a separate crate (or PLAN.md prose), not by growing the examples.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DECISION: examples scoped narrowly with explicit production caveats",
+  "updated_at": "2026-05-15T21:48:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:30:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "5c2bacfe-2b4e-553e-8705-29dbd6453fbd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

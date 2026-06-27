@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "c0d250604e54d412b7d3132293c374372ba4596ddd126e025c2699f479b2edb7",
+  "created_at": "2026-05-15T02:10:43Z",
+  "created_by": "Mark Atwood",
+  "description": "src/lib.rs:29-33 and src/methods/mod.rs:18-21 \u2014 public re-exports lock this crate's API to the major versions of two upstream crates:\n\n    pub use jmap_base_client::ClientError;\n    pub use jmap_types::{AddedItem, ChangesResponse, GetResponse, QueryChangesResponse,\n                         QueryResponse, SetError, SetResponse};\n\nAlso in the public signature of JmapMetadataExt::with_metadata_session at lib.rs:47:\n\n    fn with_metadata_session(&self, session: jmap_base_client::Session) -> methods::SessionClient;\n\n\u2026the parameter type 'jmap_base_client::Session' is also pulled through the public API.\n\nOnce 0.1.0 ships:\n- A major version bump of jmap-types (incompatible change to GetResponse, SetError, etc.) is a major-version bump of this crate.\n- Same for jmap-base-client (Session, ClientError, JmapClient).\n- Worse: a downstream consumer that uses 'jmap_metadata_client::ClientError' and 'jmap_base_client::ClientError' may now find both types but in TWO copies in the crate graph (different majors), with no compile-time guarantee they unify.\n\nThis is the standard 'pub use foo::Bar' versioning footgun called out in /review-library-supplement \u00a7versioning. Workspace AGENTS.md does NOT explicitly say all crates must hard-bump major versions together \u2014 though in practice all 30 crates are at 0.1.0 today and the workspace ships coordinated.\n\nPossible mitigations:\n(a) Document the major-version pin policy in README under 'Gotchas': 'this crate's major version is bumped in lockstep with jmap-types and jmap-base-client; do not depend on independent upgradability'.\n(b) Add a 'cargo deny' or workspace check that pins all jmap-* to identical major versions.\n(c) Replace re-exports with local newtypes for the smallest surface (ClientError) \u2014 but the larger types (GetResponse<T>, SetResponse<T>) would be hostile to newtype.\n\nRecommendation: (a). Cheapest. Make the coupling explicit and document it. Lockstep-bump is already how the workspace operates; just say so in README.\n\nNote: this is workspace-wide; canonical mail-client and every other extension client has the same exposure. Propagate the README convention.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "blocked",
+  "timeout_ns": 0,
+  "title": "Public API re-exports lock jmap-types and jmap-base-client major versions",
+  "updated_at": "2026-05-15T02:37:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:10:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "25672924-18a3-5b5c-a74b-56e79cc97ea9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

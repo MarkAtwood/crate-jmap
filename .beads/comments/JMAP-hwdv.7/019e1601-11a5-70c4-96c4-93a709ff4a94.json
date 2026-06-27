@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "created_at": "2026-05-11T07:47:09Z",
+  "id": "019e1601-11a5-70c4-96c4-93a709ff4a94",
+  "issue_id": "JMAP-hwdv.7",
+  "text": "Closed by commit 633d44f. 1161 LoC: src/memory.rs + tests/tasks_tests.rs + tests/common/mod.rs + Cargo.toml feature gate + lib.rs gated pub mod. Acceptance: 9 active integration tests pass, 3 ignored with bead refs to JMAP-gpt1 and JMAP-n22t (pre-existing tasks-server handler bugs out of scope for this greenfield bead), workspace gate clean (112 test groups, 0 failures). Cookie-cutter alignment with canonical .1 and sibling .5. Calendars-style derived-index pattern (task_lists_with_tasks recomputed on every Task mutation). Defaults inherited (intentionally unimplemented): compute_task_utc_times, update_task_per_user."
+}

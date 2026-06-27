@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit d0a0bd4. metadata_query's doc-comment now includes runnable filter examples (typed condition shape and FilterOperator OR algebra shape) and a sort example (comparator-array with explicit isAscending). All examples are tagged ```ignore so they do not run as doctests but render in cargo doc output.",
+  "closed_at": "2026-05-15T02:36:20Z",
+  "compaction_level": 0,
+  "content_hash": "0a7bf055ce8015b05150c98d3572c01a07045c7a1c3cace5d2b79550a925c6ee",
+  "created_at": "2026-05-15T02:11:36Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/metadata.rs:158-199 \u2014 metadata_query's doc-comment names the canonical filter type:\n\n    The filter value is typed by the caller; the canonical type is\n    jmap_metadata_types::MetadataFilterCondition (\u00a73.4.1) wrapped in\n    jmap_types::query::Filter. This builder accepts a serde_json::Value\n    so callers can mix filter conditions with FilterOperator algebra\n    without forcing a single type through the API.\n\n\u2026and names the valid sort properties:\n\n    Sort comparators MUST set property to one of id, @type,\n    relatedType, relatedId, or isPrivate per \u00a73.4.2; id MUST be\n    supported by every server, the others SHOULD be supported.\n\nBut provides no construction example. A caller cannot tell from the doc:\n- How to wrap a MetadataFilterCondition in a Filter<T> for the serde_json::Value parameter.\n- How to construct a valid sort comparator (the JSON shape is { property: String, isAscending?: bool, collation?: String } per RFC 8620 \u00a75.5 \u2014 not stated here, just spec-cross-referenced).\n- Whether to pass jmap_types::query::Comparator or build the shape by hand.\n\nA no_run doc-example showing:\n\n    let filter = serde_json::to_value(MetadataFilterCondition::RelatedType(\\\"Email\\\".into()))?;\n    let sort = json!([{ \\\"property\\\": \\\"id\\\", \\\"isAscending\\\": true }]);\n    let resp = sc.metadata_query(Some(filter), Some(sort), None, Some(50)).await?;\n\n\u2026would close the contract gap. Underspecified per /review-library-supplement \u00a7underspecified.\n\nWorkspace-wide: same gap on email_query, mailbox_query, thread_query in mail-client. Propagate.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "metadata_query: filter/sort doc-comments give type names but no construction example",
+  "updated_at": "2026-05-15T02:36:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:11:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "8105e119-a8c1-5b73-a264-e197cb42f12e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

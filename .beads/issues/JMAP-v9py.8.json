@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T000911Z-2258131",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-13T00:34:13Z",
+  "compaction_level": 0,
+  "content_hash": "931555dea75e24f1284d1350128a6f3ea7f5c9a14652452233bb240a5e6e5417",
+  "created_at": "2026-05-12T23:35:37Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec: draft-atwood-jmap-chat-00 \u00a7Chat.slowModeSeconds + commit de60acb (\"soften slow-mode exemption to SHOULD with rationale\").\n\nSpec text: \"slowModeSeconds is a per-Chat throttle on message rate. SHOULD exempt members holding manage_channels permission. Servers MAY define additional exempt principals. When throttled, server returns rateLimited SetError with serverRetryAfter (RFC 8620 \u00a75.3 + the convention from this draft) indicating when the sender may retry.\"\n\nCurrent state: Chat.slow_mode_seconds is a stored field. handle_message_set in chat-server/src/message.rs does NOT consult it on send. No rate-tracking state exists in MemoryBackend.\n\n## Acceptance\n\n- New ChatBackend method:\n  ```rust\n  fn slow_mode_check(\n      &self,\n      _caller: &Self::CallerCtx,\n      _account_id: &Id,\n      _chat_id: &Id,\n  ) -> impl Future<Output = Result<(), SlowModeError>> + Send {\n      async { Ok(()) }\n  }\n  ```\n  where SlowModeError is a tiny struct/enum in chat-server::backend:\n  ```rust\n  pub struct SlowModeError {\n      pub retry_after: jmap_types::UTCDate,\n  }\n  ```\n- handle_message_set on create path: invokes slow_mode_check(caller, account_id, chat_id). On Err: SetError of type `rateLimited` with `serverRetryAfter` extra-field set to the returned UTCDate. (Existing chat-client crate already has a server_retry_after(&SetError) helper that reads this back.)\n- MemoryBackend implements slow_mode_check as ALWAYS Ok(()). Rustdoc explicitly says \"demonstration-only MemoryBackend has no rate-tracker; production backends plug in their own. The kit defines the hook; the consumer enforces.\"\n- Test: MemoryBackend + send \u2192 always succeeds (verifies no-op default)\n- Test (uses test-only TrackingBackend that returns SlowModeError with retry_after = now + 30s): Message/set create returns SetError type rateLimited with serverRetryAfter set correctly\n\n## Out of scope\n\n- Implementing an actual rate tracker in MemoryBackend (consumer's job, explicitly per workspace AGENTS.md)\n- Per-permission SHOULD-exempt behavior in MemoryBackend (consumer's policy)\n- Modifying Chat.slow_mode_seconds storage (already exists)",
+  "ephemeral": 0,
+  "id": "JMAP-v9py.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Layer B: ChatBackend::slow_mode_check + Message/set handler integration",
+  "updated_at": "2026-05-13T00:34:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-12T16:35:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py",
+      "id": "f8e563ea-988d-5acc-87cd-767a24babfca",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

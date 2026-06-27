@@ -1,0 +1,32 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:20:13Z",
+  "compaction_level": 0,
+  "content_hash": "e1235494aa5667cae82ea8b7baa234bbcee5f00022fbeb3385abb4422d6c5fc4",
+  "created_at": "2026-05-05T01:16:45Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-3a4e.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "src/addressbook.rs \u2014 AddressBook, AddressBookRights, AddressBookFilterCondition",
+  "updated_at": "2026-05-05T01:20:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:16:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3a4e",
+      "id": "93dff7e5-4d83-50a7-b2fb-40ca031357d8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

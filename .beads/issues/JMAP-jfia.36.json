@@ -1,0 +1,40 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "21af7b16d04cdf5de5bdd33be5316124bf1bfb32c633ac3aa29d38938f6a1749",
+  "created_at": "2026-05-14T17:36:15Z",
+  "created_by": "Mark Atwood",
+  "description": "Filed under api-contract,immutability because the fix is additive on a #[non_exhaustive] enum but the asymmetric contract is the immutability concern: once consumers ship handlers built around hand-rolled BackendSetError-to-JmapError conversions, every later attempt to add the defence-in-depth From impl risks behavioural change in their handlers.\n\nContext: bd:JMAP-jfia.1 / bd:JMAP-wlip.2 closed the wire-leak in BackendChangesError via:\n\n  impl<E: std::error::Error> From<BackendChangesError<E>> for jmap_types::JmapError {\n      fn from(e: BackendChangesError<E>) -> Self {\n          match e {\n              BackendChangesError::Other(_inner) => {\n                  jmap_types::JmapError::server_fail(SERVER_FAIL_INTERNAL_DESC)\n              }\n              ...\n          }\n      }\n  }\n\nand the matching ergonomic helper:\n\n  impl<E> From<E> for BackendChangesError<E> { fn from(e: E) -> Self { Self::Other(e) } }\n\nThese two impls let consumers write:\n\n  let result = backend.get_changes(...).await.map_err(JmapError::from)?;\n\nwhich automatically routes through the redacted-Other arm without the consumer ever touching the inner error.\n\nBackendSetError has NEITHER impl. Looking at crate-jmap-server/src/backend.rs:535-568, the only impl is From<SetError> for BackendSetError<E>. Consumers writing a handler that emits set errors must hand-roll the conversion at every call site:\n\n  let result = backend.set_objects(...).await.map_err(|e| match e {\n      BackendSetError::SetError(se) => /* embed as wire SetError */,\n      BackendSetError::Other(inner) => /* THIS is where consumers leak */,\n  })?;\n\nThe 'Other(inner)' arm is where a tired consumer writes:\n\n  BackendSetError::Other(e) => JmapError::server_fail(e.to_string())\n\nreintroducing exactly the wire leak that bd:JMAP-jfia.1 closed for BackendChangesError. The Display impl on BackendSetError already interpolates `{e}` for the inner \u2014 so a consumer that even calls `set_err.to_string()` to derive the wire description gets the full backend display string.\n\nThe class of risk:\n\n1. Maintainer pressure: every consumer (jmap-mail-server, jmap-chat-server, jmap-calendars-server, ...) needs the same conversion. Each one will hand-roll it. Each hand-roll is an opportunity to leak.\n\n2. Existing wire-leak defence is one-sided: bd:JMAP-jfia.1's redaction lives only on the changes path. The /set path \u2014 which is where credential-bearing fields (passwords, tokens, mailFrom addresses, attachment blobs) most often live in JMAP backends \u2014 has NO equivalent defence.\n\n3. The SERVER_FAIL_INTERNAL_DESC constant and server_fail_from_backend helper exist for exactly this case. But they're a 'caller MUST remember to use them' contract, not a structural enforcement. Symmetric From impls on BackendChangesError were the structural enforcement; BackendSetError is missing the structural half.\n\nFix (additive, non-breaking):\n\n  impl<E> From<E> for BackendSetError<E> {\n      fn from(e: E) -> Self { Self::Other(e) }\n  }\n\n  impl<E: std::error::Error> From<BackendSetError<E>> for jmap_types::JmapError {\n      fn from(e: BackendSetError<E>) -> Self {\n          match e {\n              BackendSetError::SetError(se) => {\n                  // The SetError variant carries the SetError envelope intended\n                  // for notCreated/notUpdated/notDestroyed maps, NOT a JmapError\n                  // method-level error. Mapping it here is wrong shape \u2014 these\n                  // are per-object set errors, not per-method errors. A From\n                  // impl to JmapError can't preserve the right semantics.\n                  // The correct shape is a method on BackendSetError that\n                  // distinguishes set-error-vs-method-error.\n                  ...\n              }\n              BackendSetError::Other(_inner) => {\n                  jmap_types::JmapError::server_fail(SERVER_FAIL_INTERNAL_DESC)\n              }\n          }\n      }\n  }\n\nCaveat above: the From-to-JmapError impl is harder than the changes case because SetError is per-object, not per-method. The right shape might be a method like `BackendSetError::into_jmap_error_or_set_error(self) -> Result<JmapError, SetError>` that callers consume.\n\nEither way, the symmetric ergonomic surface MUST be filled in. Until it is, every consumer's hand-roll is an opportunity to leak \u2014 and the kit ships a structural guarantee for changes but not for set.\n\nWorkspace propagation: this lands once in jmap-server; every jmap-*-server extension picks up the new conversions transparently. No consumer breakage.\n\nPriority: P1 because the security-defence class is the same as the closed bd:JMAP-jfia.1 and the surface is on every extension server.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "BackendSetError lacks From<E> / From<BackendSetError<E>> for JmapError \u2014 asymmetric with BackendChangesError, blocks redaction default path",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:36:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "1e841e98-663e-5c10-acb3-9359b0ed2d81",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-16T23:25:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-atwe",
+      "id": "883f48e2-9a58-58e1-b9e4-f5a61c5f33e4",
+      "metadata": {},
+      "type": "relates-to"
+    }
+  ]
+}

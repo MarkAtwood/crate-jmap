@@ -1,0 +1,33 @@
+{
+  "closed_at": "2026-05-12T02:26:12Z",
+  "compaction_level": 0,
+  "content_hash": "5834df2bbf08dda4933eb1792937b863b32cbe929bfea0b6f7dabd8d909d0623",
+  "created_at": "2026-05-12T01:25:33Z",
+  "created_by": "bd-spin/bd-spin-20260512T000441Z-1660907",
+  "description": "Follow-up to JMAP-sc1b.77. JMAP-sc1b.77 landed the jscalendar-types canonical conversion (10 sites \u2192 8 typed enums via the impl_string_enum! macro from jmap-types). This bead carries the parallel propagation into crate-jmap-jscontact-types per the bead's notes:\n\n> Treat as one finding spanning both type crates: if .77 is accepted, fix in jscalendar-types first (canonical extension-types pattern for the workspace's RFC-typed extraction crates), then propagate to jscontact-types.\n\n## Sites to convert (jscontact-types/src/lib.rs)\n\nScalar string fields where RFC 9553 enumerates a closed (or vendor-extensible) value set:\n\n- line 150  NameComponent.kind   \u2014 \"title\", \"given\", \"given2\", \"surname\", \"surname2\", \"credential\", \"generation\", \"separator\"\n- line 334  Title.kind           \u2014 \"title\" (default), \"role\"\n- line 515  Calendar.kind        \u2014 \"calendar\", \"freeBusy\" (mandatory per spec, modelled Option for partial-response)\n- line 696  CryptoKey.kind       \u2014 per RFC 9553 \u00a72.6.1\n- line 744  Directory.kind       \u2014 \"directory\", \"entry\"\n- line 799  Link.kind            \u2014 \"contact\" (only enumerated value)\n- line 847  Media.kind           \u2014 \"photo\", \"sound\", \"logo\"\n- line 1009 Anniversary.kind     \u2014 \"birth\", \"death\", \"wedding\"\n- line 1098 PersonalInfo.kind    \u2014 \"expertise\", \"hobby\", \"interest\"\n- line 1105 PersonalInfo.level   \u2014 \"high\", \"medium\", \"low\"\n- line 667  AddressComponent.kind \u2014 17 values per RFC 9553 \u00a72.5.1.2\n\nOut of scope (HashMap<String, bool> keys): Address.contexts, Phone.features, Phone.contexts, EmailAddress.contexts, etc. Converting the key type would be a larger change with knock-on effects on the HashMap API; defer to a separate evaluation.\n\n## Routing note (must resolve before claiming)\n\njscontact-types has a hard design constraint from crate-jmap-jscontact-types/AGENTS.md:\n\n> Dependencies | serde, serde_json only \u2014 no JMAP dep\n> Do not add a JMAP dependency \u2014 this crate is JMAP-free\n\nThe impl_string_enum! macro lives in jmap-types. To use it here, jscontact-types would need to take a jmap-types dep, violating the constraint. Two paths:\n\n  (A) Get explicit permission to add jmap-types as a dep (preferred \u2014 keeps the workspace cookie-cutter consistent).\n  (B) Write manual Serialize/Deserialize/Display impls per enum (matches the precedent in crate-jmap-chat-client/src/types.rs ChatMemberRole/BodyType \u2014 ~30 LOC per enum vs ~10 LOC with the macro).\n\nDecision belongs to Mark; labeled 'human' until that lands.\n\n## Pattern reference\n\njscalendar-types final shape (JMAP-sc1b.77, commit landed this session):\n\n```rust\n#[derive(Debug, Clone, PartialEq, Eq, Hash)]\n#[non_exhaustive]\npub enum Weekday {\n    Monday, Tuesday, /* ... */ Sunday,\n    Other(String),\n}\nimpl_string_enum!(Weekday, \"a JSCalendar weekday string\",\n    \"mo\" => Monday, /* ... */ \"su\" => Sunday,\n);\n```\n\nEach new enum carries round-trip tests for known variant + Other(String).\n\n## Acceptance\n\n- All 11 sites above converted to typed enum\n- Round-trip tests for each new enum (known variant + Other catch-all)\n- Consumer (crate-jmap-contacts-types) tests updated for new field types\n- cargo test -p jmap-jscontact-types -p jmap-contacts-types clean\n- cargo clippy --workspace -- -D warnings clean\n\n## Memory references\n- agents-md-result-enum-pattern-doc-vs-reality\n- jscontact-types-jmap-free-constraint",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.108",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Labeled 'human': bead description's Routing Note section captures the open design question (jscontact-types AGENTS.md prohibits jmap-types dep, conflicts with impl_string_enum! macro reuse). Mark needs to pick path A (allow the dep, cookie-cutter clean) or path B (manual impls per enum, ~3x LOC) before the autonomous /do-beads loop can pick this up.\nDecision (2026-05-11, Mark): wontfix \u2014 close.\n\nRationale (Mark's words): in the contacts ecosystem, 'the RFC can enumerate all it wants, and literally nobody does it like the RFC says'. Real-world wire traffic from Outlook, Google, Apple, vCard exporters, and localized clients routinely sends classifier-string values outside RFC 9553's enumeration. Typing these into typed enums with Other(String) catch-all creates a fiction where the catch-all does the real work and the named variants do no programmatic dispatch. Maintenance burden (variant additions on spec revisions, non_exhaustive surface, consumer-crate ripples) is paid for no benefit.\n\nRouting question (path A: allow jmap-types dep / path B: hand-written impls) becomes moot \u2014 neither will be done.\n\nCross-link: workspace AGENTS.md policy narrowing filed as JMAP-sc1b.110 to prevent re-litigation. Parallel revert of the analogous jscalendar-types conversion (JMAP-sc1b.77) filed as JMAP-sc1b.111 so both type crates land in the same posture.\n\nThis decision does NOT touch JMAP-native enums (MailboxRole, ChatKind, EmojiKind, NodeType, ParticipantRole, etc.) \u2014 those remain typed per JMAP-sc1b.110's preserved in-scope policy.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jscontact-types: propagate enumerated-string -> typed enum conversion",
+  "updated_at": "2026-05-12T02:26:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T18:25:32Z",
+      "created_by": "bd-spin/bd-spin-20260512T000441Z-1660907",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "4bbb4ce5-b666-5c7e-8084-69735fb3ea9e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

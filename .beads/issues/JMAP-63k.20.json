@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T06:50:43Z",
+  "compaction_level": 0,
+  "content_hash": "8a3069134a0e9c0e38e22885d5f6b2715ea82362389ee4c4b2dd5122b6ac3f3d",
+  "created_at": "2026-05-02T06:46:25Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-mail-server/src/backend.rs:33 and crate-jmap-server/src/backend.rs:20\nIssue: SetError and SetErrorType are fully redefined in jmap-mail-server instead of re-exporting or extending the type from jmap-server. The two structs are structurally similar but not the same Rust type. Mail-specific fields (max_recipients, invalid_recipients, not_found, max_size) could not be added to the base type so a parallel definition was introduced. These two types cannot be used interchangeably \u2014 code that imports one cannot accept the other \u2014 and there is no compiler error when a new variant is added to one but not the other.\nRisk: Adding a new base RFC 8620 SetError variant requires editing two places (jmap-server and every domain crate). Missing the update in one crate compiles silently. As jmap-chat-server re-exports SetError from jmap-server, it diverges from jmap-mail-server consumers, creating an inconsistent API surface across the crate family.\nFix: Either (a) merge all fields into the base SetError in jmap-server (mail-specific fields are skip_serializing_if = None so they add no wire cost for non-mail types), or (b) define a MailSetError that wraps/extends the base type and document the extension pattern explicitly for future domain crates.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Dual SetError/SetErrorType definitions",
+  "updated_at": "2026-05-02T06:50:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:46:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "13fd2cd5-ebff-554e-a6e0-6619116a39f3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

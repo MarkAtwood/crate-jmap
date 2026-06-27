@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already defended: session_parts is pub(crate) with explicit signature returning (&str, &str). The shape is correct as filed; this is a Section-6 'good-decision' note, no code change required.",
+  "closed_at": "2026-05-10T05:29:34Z",
+  "compaction_level": 0,
+  "content_hash": "3d62edf2af986c4e750176cbb20aab1d0777eb21489928c53e3715d6ddbc4374",
+  "created_at": "2026-05-08T03:19:39Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:242-253: `session_parts(&self) -> Result<(&str, &str), ClientError>` returns two borrows of self.session. Every method call immediately uses both in the same expression and discards. This is fine; it allocates nothing.\n\nNote: had this been written as `(String, String)`, every method call would allocate two Strings per request \u2014 a small but non-zero hot-path cost given that calendar_get etc. are likely called frequently. The current shape is the right choice. Filing only as a Section 6 'what is good' decision so a future contributor doesn't 'simplify' it to owned strings.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "session_parts() returns &str when callers immediately serialize as &str \u2014 correct, but borrow ties &self",
+  "updated_at": "2026-05-10T05:29:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:19:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "05c679e9-3b4b-5916-9ff2-3c26cf16b738",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

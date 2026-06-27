@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "MemoryBackend.create_object and update_object now enforce the RFC 9610 \u00a73 addressBookIds non-empty invariant. New contact_card_has_address_book_ids helper inspects the post-mutation JSON; failures surface as SetError(InvalidProperties).with_properties(['addressBookIds']). Per workspace 'backends are canonical' rule, the gate lives in the backend; handlers may add defense-in-depth checks but the backend re-verifies atomically with the mutation. 4 new integration tests lock in the create-missing, create-empty, update-empties, and unrelated-update cases. Cross-reference bd:JMAP-qz9v.1 cascade is unaffected (cascade destroys exclusive cards directly and only patches multi-book cards where the post-patch count stays \u22651). Implementation in commit 6c83b7b.",
+  "closed_at": "2026-05-15T10:11:32Z",
+  "compaction_level": 0,
+  "content_hash": "74f6f38a3b498a1b67d843811a2d15f07a01a29a2e4bd559e429924484d76808",
+  "created_at": "2026-05-14T19:22:21Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger (a): ContactCard/set create with addressBookIds: {} (empty map). The card is created with zero AddressBookIds.\n\nTrigger (b): ContactCard/set update with patch removing the last AddressBookId entry, e.g. patch addressBookIds/ab1: null on a card with only that key. The card ends up with addressBookIds: {} (empty).\n\nRFC 9610 \u00a73: 'A card MUST belong to at least one AddressBook at all times (until it is destroyed).'\n\nNeither the handler nor the reference backend enforces this. The result on the wire: cards exist with no AddressBook membership, queries against AddressBook/* exclude them, but they still appear in ContactCard/get. They are 'lost' from the per-book navigation perspective.\n\nThe standard SetError is 'invalidProperties' on addressBookIds, with a description string. Two enforcement points:\n\n 1. Handler-side (defense-in-depth): in handle_contact_card_set, reject create entries and update patches that would leave addressBookIds empty. The shape of patching makes #2 the harder case \u2014 to check #2 the handler would need to either fetch-then-validate (race window) or have the backend report the post-patch shape.\n\n 2. Backend-side (canonical, per workspace pattern): MemoryBackend.create_object and update_object should validate that the post-mutation addressBookIds is non-empty, returning BackendSetError::SetError(SetError::new(SetErrorType::InvalidProperties).with_properties(['addressBookIds'])).\n\nThe latter aligns with the workspace 'backends are canonical for enforcement' rule. The bug surface today is that NEITHER point enforces, so the invariant is bypassable.\n\nCross-reference: JMAP-qz9v.1 has the inverse case (the cascade deletes the LAST AddressBookId entry but doesn't destroy the orphan card). Both bugs together produce 'orphaned' cards with empty addressBookIds.\n\nTests: no test exercises empty-addressBookIds. Adding (a) and (b) as integration tests against MemoryBackend would lock in the fix.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactCard.addressBookIds invariant 'card MUST belong to at least one AddressBook' not enforced on create or update",
+  "updated_at": "2026-05-15T10:11:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:22:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "423fbf1b-7db8-5ea2-bd60-70b10a756a6c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

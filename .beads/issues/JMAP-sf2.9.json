@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-sf2.9",
+  "title": "now_utc_string() is bespoke date arithmetic \u2014 not tested for calendar edge cases",
+  "description": "helpers.rs: now_utc_string() implements custom Gregorian calendar conversion using the Howard Hinnant algorithm. No tests for Dec 31 \u2192 Jan 1 transition, leap day (Feb 29), or pre-epoch timestamps. A bug here produces a syntactically invalid RFC 3339 string that breaks receivedAt parsing for every email received during the bad window. Risk is low but consequence is high. Suggest adding at least three targeted unit tests: a known date, a leap day, and a year boundary.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:29:28Z",
+  "updated_at": "2026-05-01T02:49:47Z",
+  "closed_at": "2026-05-01T02:49:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sf2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:29:27"
+    }
+  ]
+}

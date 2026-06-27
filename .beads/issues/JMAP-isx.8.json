@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-isx.8",
+  "title": "ChangesResult, QueryResult, AddedItem, QueryChangesResult missing #[non_exhaustive]",
+  "description": "backend.rs lines 198-245: four public structs are missing #[non_exhaustive]. BackendChangesError and BackendSetError correctly have it. Adding a field to ChangesResult (e.g., 'immutable_properties' for Mailbox optimizations) breaks all downstream code that constructs it, since struct literal construction of non-exhaustive types is a compile error for external crates. This is a breaking API surface that fossilizes on first publish. Fix: add #[non_exhaustive] to ChangesResult, QueryResult, AddedItem, QueryChangesResult. Impact: backends must construct via ..Default::default() or a constructor; add constructors if missing.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:20:26Z",
+  "updated_at": "2026-04-30T23:28:08Z",
+  "closed_at": "2026-04-30T23:28:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-isx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:20:26"
+    }
+  ]
+}

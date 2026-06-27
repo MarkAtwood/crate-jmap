@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:28Z",
+  "compaction_level": 0,
+  "content_hash": "f609b62680ef9f30d3c7354e58ed80fc563f9cf19ac7f76ef519ca97fd8fe9f2",
+  "created_at": "2026-05-02T02:54:57Z",
+  "created_by": "Mark Atwood",
+  "description": "MailBackend::find_thread_by_message_ids has no default; it is required. But the warning on next_id() in email.rs is only in a comment, not enforced by the type system. The clock-seeded counter is explicitly documented as collision-prone across process restarts (common in containers). Any real backend must override find_thread_by_message_ids with durable thread lookup, but the only enforcement is documentation \u2014 no compile-time guard, no runtime panic. A contributor building a persistent backend without reading the full doc will silently corrupt thread graphs.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_thread_by_message_ids default returns None \u2014 persistent backends generate collision-prone IDs",
+  "updated_at": "2026-05-02T03:22:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:54:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "59b5cd35-1c37-52e7-b8df-ad12ae2d4be4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

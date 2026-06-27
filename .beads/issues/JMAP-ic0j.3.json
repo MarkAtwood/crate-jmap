@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T17:30:50Z",
+  "compaction_level": 0,
+  "content_hash": "c59e19297b598f368a67ed2ceb5b322a8ad9664123f23e5fbdd171f0a699baec",
+  "created_at": "2026-05-15T16:55:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: a CalendarEvent/set update patch whose top-level keys are JSON Pointer paths into a per-user property (RFC 8620 \u00a75.3 PatchObject paths with '/' separator), e.g.\n\n  {\n    'accountId': 'acc',\n    'update': {\n      'ev1': {\n        'alerts/abc/trigger': {...},\n        'alerts/abc/action': 'display'\n      }\n    }\n  }\n\nis misrouted to update_object (the shared-property path) instead of update_per_user_properties (the per-user path).\n\nLocation: event.rs:356-362.\n\n  let is_per_user_only = patch_val.as_object()\n      .map(|m| m.iter().all(|(k, _)|\n              jmap_calendars_types::is_per_user_calendar_event_property(k)))\n      .unwrap_or(false);\n\nThe predicate is_per_user_calendar_event_property does a direct string-equality check against the fixed list ['keywords', 'color', 'freeBusyStatus', 'useDefaultAlerts', 'alerts']. crate-jmap-calendars-types/src/backend.rs:281 already has a test that asserts is_per_user_calendar_event_property('alerts/abc') returns FALSE.\n\nSo 'alerts/abc/trigger' goes through update_object, which means:\n1. The shared 'updated' timestamp is bumped (draft \u00a75.4: 'changes that affect only per-user properties MUST NOT bump the shared updated timestamp').\n2. Any iTIP scheduling that update_calendar_event triggers on this path (when sendSchedulingMessages: true) fires for what should have been a per-user-only mutation \u2014 \u00a75.9.2.1 says per-user-only updates do NOT generate iTIP REQUEST.\n\nBoth are wire-level observable. Other clients will see a phantom update notification on the shared 'updated' field, and recipients may receive iTIP messages that were not warranted.\n\nFix: check the first path segment, not the whole key. Roughly:\n\n  m.iter().all(|(k, _)| {\n      let head = k.split_once('/').map_or(k.as_str(), |(h, _)| h);\n      jmap_calendars_types::is_per_user_calendar_event_property(head)\n  })\n\nNote RFC 6901 JSON Pointer escaping: '~0' is '~' and '~1' is '/', so a key like 'keywords~1foo' is the literal property name 'keywords/foo' which is NOT a sub-path of 'keywords'. The current predicate also gets this case wrong (returns false). The replacement using split_once('/') treats it correctly as a top-level key 'keywords~1foo' which is neither 'keywords' nor any other per-user property \u2014 invalidProperties at the backend.\n\nTest gap: the existing routing tests (event.rs:1556-1656) cover only top-level property keys; the JSON Pointer sub-path case has no coverage.\n\nP0 because it can cause inappropriate iTIP scheduling messages to be sent in production once a backend overrides update_calendar_event with real iTIP delivery \u2014 that is an externally-observable, off-spec wire-level effect.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "per-user-only routing misclassifies sub-path patches on per-user properties",
+  "updated_at": "2026-05-15T17:30:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T09:55:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "58421a7b-ab19-5c9b-bcba-3d1c7a3a4ee2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

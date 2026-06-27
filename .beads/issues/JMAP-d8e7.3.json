@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "All capability round-trip tests pass. cargo test exits 0.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added 14 new capability round-trip tests; all 10 capability structs now tested; 45 tests pass; clippy clean",
+  "closed_at": "2026-05-05T04:02:07Z",
+  "compaction_level": 0,
+  "content_hash": "4d879140efd63942da21378e6b288441f47e6b90e8167d22f6daaed7c31a777c",
+  "created_at": "2026-05-05T02:51:53Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Add comprehensive serde tests for all capability structs in jmap-tasks-types, using hand-written JSON fixtures. Independent oracles \u2014 no test derives expected values from the code.\n\n**Algorithm:**\n1. For each session-level empty capability struct (TasksCapability, TasksRecurrencesCapability, TasksAlertsCapability, TasksMultilingualCapability, TasksCustomTimeZonesCapability): assert {} serializes and deserializes correctly.\n2. For each new account-level empty capability struct (from B1): same tests.\n3. For TasksAccountCapability: write fixture with minDateTime/maxDateTime/mayCreateTaskList values. Assert deserialization and reserialization match.\n4. For TasksRecurrencesAccountCapability: fixture with maxExpandedQueryDuration.\n5. For TasksAssigneesAccountCapability: fixture with maxParticipantsPerTask null and non-null.\n6. For PrincipalTasksCapability (from B2): fixture with accountId null, fixture with accountId set, fixture with sendTo null (absent) and sendTo present.\n7. All expected JSON strings are written by hand from spec \u00a71.6 definitions.\n8. Run cargo test -p jmap-tasks-types.\n\n**Acceptance criteria:**\n- At least 2 tests per capability struct (serialize + deserialize).\n- No test derives expected value from the code under test.\n- cargo test -p jmap-tasks-types exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-d8e7.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add capability serde round-trip tests for all tasks capability types",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:52:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-d8e7.1",
+      "id": "59b6830a-c057-5f36-8bf8-d0884e5a27b3",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:51:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-d8e7",
+      "id": "c2652d19-3998-5f25-8b21-8967a27f922a",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:52:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-d8e7.2",
+      "id": "ef04a663-efa5-528c-8211-dbbe448c8bbc",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

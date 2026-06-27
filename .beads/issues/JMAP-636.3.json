@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-636.3",
+  "title": "download_blob has 6 positional string params \u2014 easy to swap silently",
+  "description": "blob.rs: download_blob(template, account_id, blob_id, name, accept_type, expected_sha256) \u2014 6 positional string-typed params, two of which are Option<&str>. There is no way for the compiler to catch swapping blob_id and name, or account_id and blob_id. A builder struct (DownloadBlobRequest) or at minimum grouping the template variables into a struct would make misuse impossible rather than possible. This API will fossilize as soon as the first caller takes a dependency on it.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:54:08Z",
+  "updated_at": "2026-04-30T16:00:34Z",
+  "closed_at": "2026-04-30T16:00:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-636",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:54:07"
+    }
+  ]
+}

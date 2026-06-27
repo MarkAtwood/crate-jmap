@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T16:28:00Z",
+  "compaction_level": 0,
+  "content_hash": "5f786bd13110c26d59249b91121f1544ed5269e455e1df679303b087d0940c83",
+  "created_at": "2026-05-15T05:43:45Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-types/src/id.rs:138-159 implements `validate_id` with this rule:\n\n    SAFE-CHAR = 0x21..=0x7E excluding 0x22 (DQUOTE)\n\nSo `Id::new_validated` accepts characters like `#` `!` `$` `%` `&` `'`\n`(` `)` `*` `+` `,` `.` `/` `:` `;` `<` `=` `>` `?` `@` `[` `\\\\` `]` `^`\n`` ` `` `{` `|` `}` `~`.\n\nBut RFC 8620 \u00a71.2 (rfc8620.txt lines 287-296 in this repo) says:\n\n    Where \\\"Id\\\" is given as a data type, it means a \\\"String\\\" of at least\n    1 and a maximum of 255 octets in size, and it MUST only contain\n    characters from the \\\"URL and Filename Safe\\\" base64 alphabet, as\n    defined in Section 5 of [RFC4648], excluding the pad character (\\\"=\\\").\n    This means the allowed characters are the ASCII alphanumeric\n    characters (\\\"A-Za-z0-9\\\"), hyphen (\\\"-\\\"), and underscore (\\\"_\\\").\n\nThe rustdoc in id.rs:20-24 even correctly cites the spec:\n\n    /// Character set: URL-safe base64 alphabet (A-Za-z0-9, `-`, `_`), max 255 octets.\n\nSo the rustdoc claims spec-correct validation; the implementation\ndelivers a much looser validator. The validator does NOT match its own\ndocumentation.\n\nWhat a caller depending on this API in production accepts:\n\n1. `Id::new_validated(\\\"#root\\\")` succeeds in this crate but `#root` would\n   be rejected by a spec-compliant downstream JMAP server. Caller writes\n   defensive code in their own validator that does `Id::new_validated`\n   plus a re-check of the alphabet.\n2. The `# Errors` contract of `new_validated` is ambiguous: callers\n   cannot tell whether the validator enforces the RFC or some looser\n   internal rule.\n3. A future fix that tightens the validator to the spec is a *behavior\n   change* visible to every caller. It would be a minor-bump\n   bug-fix... but if any caller is currently in production passing\n   non-base64 ids that happen to work today (e.g. URL-encoded\n   characters), the fix breaks them.\n\nFix candidates:\n- Tighten `validate_id` to match the rustdoc: reject any character\n  outside `A-Za-z0-9-_`. Treat this as a 0.1.2 bug-fix (the validator's\n  rustdoc claims spec compliance, so the looser behavior is a defect,\n  not an API). Add a `# Errors` section listing the categories\n  explicitly. Verify with a test that injects each of the now-rejected\n  characters.\n- Or: weaken the rustdoc to match the implementation, accepting that\n  `new_validated` is not RFC-compliant and documenting the divergence.\n  Less honest than option 1.\n\nThe SAFE-CHAR rule in the current validator looks lifted from a\ndifferent spec (possibly RFC 5424 PRINTUSASCII or RFC 5322 atext-like).\nWhatever the source, it is not RFC 8620's alphabet.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Id::new_validated accepts wider character set than RFC 8620 1.2 and than its own rustdoc claims",
+  "updated_at": "2026-05-17T16:28:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:43:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "c5db2088-2367-5f91-9d1a-953e0673f06e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

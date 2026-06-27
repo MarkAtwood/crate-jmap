@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-ez5",
+  "title": "Review: jmap-mail-types",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:40:50Z",
+  "updated_at": "2026-04-30T04:53:24Z",
+  "closed_at": "2026-04-30T04:53:24Z",
+  "notes": "Maintainer risk: LOW \u2014 No correctness bugs. One P1 maintainer-burden issue (macro discoverability). Wire types are spec-faithful. All types are non-exhaustive. No unsafe, no async leakage.\nConfidence: 5% chance of missed bug. Least confident flags: none \u2014 all findings are elegance/readability. Uncertainty driven by: not reading the full RFC 8621 text inline. Would raise confidence if: ran against a real JMAP server response fixture.\nIdiom rating: ACCEPTABLE \u2014 No unsafe, no unwrap in production code, no gratuitous clones. Main concerns: (1) MailboxRole duplicates the macro pattern from submission.rs; (2) two string-type fields (comparator property, keyword values) could be newtypes for safety. These are real but non-blocking.\nRust idiom confidence: 10% chance of missed issue. Least confident flags: the Keyword newtype suggestion (may be over-engineering for a wire-types crate). Uncertainty driven by: did not trace every caller usage pattern."
+}

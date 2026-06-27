@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "AddressBookFilterCondition removed. cargo test exits 0. Clippy clean.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Removed AddressBookFilterCondition struct and doc comment from addressbook.rs; removed from lib.rs pub use; updated module doc; 22 tests pass; clippy clean",
+  "closed_at": "2026-05-05T14:41:09Z",
+  "compaction_level": 0,
+  "content_hash": "22ebe60cf22a0cb1b202e07d1526ff86df838e5b46476c84a99337e503e2f413",
+  "created_at": "2026-05-05T02:51:23Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Delete AddressBookFilterCondition from addressbook.rs. draft-ietf-jmap-contacts-10 defines no AddressBook/query method and no filter type for AddressBooks. The struct is dead code that misrepresents the spec. backend.rs already correctly omits QueryObject impl for AddressBook with a comment explaining why.\n\n**Algorithm:**\n1. Delete AddressBookFilterCondition struct and its doc comment from addressbook.rs.\n2. Remove AddressBookFilterCondition from the pub use line in lib.rs.\n3. Remove it from the module-level doc comment in addressbook.rs.\n4. Verify no test references AddressBookFilterCondition \u2014 if any do, remove those too.\n5. Run cargo test -p jmap-contacts-types and cargo clippy -p jmap-contacts-types -- -D warnings.\n\n**Acceptance criteria:**\n- grep -r AddressBookFilterCondition src/ returns no results.\n- cargo test -p jmap-contacts-types exits 0. Clippy clean.",
+  "ephemeral": 0,
+  "id": "JMAP-6mmk.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Remove dead AddressBookFilterCondition struct (spec has no AddressBook/query)",
+  "updated_at": "2026-05-05T14:41:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:51:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6mmk",
+      "id": "4560c9d2-9d74-5390-be8d-cfde74920154",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

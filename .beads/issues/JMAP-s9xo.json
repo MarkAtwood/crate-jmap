@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1fce7229907770dcc0d796fd9f067b83f98161dd01c9146252a09c342338ae28",
+  "created_at": "2026-05-17T19:36:48Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/memory.rs carries 15 load-bearing #[allow(clippy::result_large_err)] annotations after JMAP-x2gd.105 cleaned up the 2 dead ones. Each suppresses a default-on clippy warning that the function's Err-variant is at least 200 bytes (the lint threshold is 128 bytes).\n\nAffected return shapes:\n- Result<Vec<OpResult>, BackendSetError<MemoryError>>\n- Result<Option<jmap_chat_types::Space>, BackendSetError<MemoryError>>\n- Result<Option<Id>, SetError>\n- Result<(), SetError>\n\nThe clippy lint suggests two fixes:\n  (a) Box<BackendSetError<E>> and Box<SetError> at the return type.\n  (b) Shrink SetError itself (currently 8 typed Option fields + extras Map).\n\nBoth are workspace-architectural: SetError and BackendSetError live in jmap-server (foundation), and the type is used across all 8 extension-server crates plus their MemoryBackends. Any change here propagates to: jmap-server (canonical), jmap-mail-server (canonical extension), jmap-chat-server, jmap-calendars-server, jmap-tasks-server, jmap-contacts-server, jmap-filenode-server, jmap-metadata-server, jmap-sharing-server.\n\nWhy chat-server fires but mail-server does not: chat-server has extensive inherent-method and free-function pre-validation helpers around Space mutations (apply_space_patch_impl + 12 apply_* variants + validate_space_patch_ops + check_count_caps' callees). Mail-server's MemoryBackend uses trait-impl methods almost exclusively; clippy's result_large_err lint allow-list-by-default appears to skip trait-impl return types.\n\nEngineering basis for action:\n- 15 per-fn allow attributes are noise. Future maintainers will read them as suppressing a non-firing lint (per JMAP-x2gd.105's premise \u2014 which was wrong) and either delete them prematurely (breaking the workspace gate) or assume each fn is intentionally large (false).\n- Box<SetError> on the Err arm shrinks the Result from ~208 bytes to 16 bytes (pointer + tag). On the hot success path (Ok), 16 bytes vs 208 bytes is a measurable stack-frame and copy difference.\n- All ergonomic constructors (SetError::new, with_description, etc.) can grow Box-returning siblings or callers can wrap at the return site.\n\nWorkspace-canonical implication:\n- Decide between (a) Box at the return type or (b) shrink SetError.\n- Land on jmap-server canonical first; propagate to all extension-server siblings in the same pass.\n- After the propagation, every #[allow(clippy::result_large_err)] across all extension-server crates can be deleted (sibling sweep).\n\nAlternatives considered and rejected here:\n- Move SetError to a Box<SetError> only in the Err arm via thiserror-style separation: workspace policy is no thiserror, no error-helper crates.\n- Crate-level #[allow] on chat-server: weakens the workspace clippy gate intent (each gate is per-warning, the lint should fire when a new big Err is added).\n\nPre-cursor: JMAP-x2gd.105 (closed 2026-05-17). My outcome there fixed 2 dead allows; this bead carries the canonical workspace decision the remaining 15 require.",
+  "ephemeral": 0,
+  "id": "JMAP-s9xo",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Box-or-shrink SetError / BackendSetError: 15 result_large_err allows in chat-server MemoryBackend signal canonical-cleanup opportunity",
+  "updated_at": "2026-05-17T19:36:48Z"
+}

@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "BusyPeriod type added. cargo test -p jmap-calendars-types exits 0.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T03:12:15Z",
+  "compaction_level": 0,
+  "content_hash": "28e0ad1f88c85423af5434e42477e96d899157c200592eee3058e7ed46b11d51",
+  "created_at": "2026-05-05T02:52:17Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Add BusyPeriod struct to crate-jmap-calendars-types. Draft-ietf-jmap-calendars-26 \u00a72.2 defines BusyPeriod as a named data object returned by Principal/getAvailability. Fields: utcStart (String/UTCDateTime), utcEnd (String/UTCDateTime), busyStatus (Option<String> \u2014 \"confirmed\"|\"tentative\"|\"unavailable\"), event (Option<CalendarEvent>), accountId (Option<Id>).\n\n**Algorithm:**\n1. Add to capability.rs or a new availability.rs module:\n   #[non_exhaustive]\n   #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]\n   #[serde(rename_all = \"camelCase\")]\n   pub struct BusyPeriod {\n       pub utc_start: String,\n       pub utc_end: String,\n       #[serde(skip_serializing_if = \"Option::is_none\")]\n       pub busy_status: Option<String>,\n       #[serde(skip_serializing_if = \"Option::is_none\")]\n       pub event: Option<crate::CalendarEvent>,\n       #[serde(skip_serializing_if = \"Option::is_none\")]\n       pub account_id: Option<jmap_types::Id>,\n   }\n2. Re-export from lib.rs.\n3. Add round-trip serde test using a JSON fixture with all fields from spec \u00a72.2 field definitions (hand-written, not derived from code).\n4. Run cargo test -p jmap-calendars-types.\n\n**Acceptance criteria:**\n- BusyPeriod publicly accessible from crate root.\n- Wire names: utcStart, utcEnd, busyStatus, event, accountId.\n- cargo test -p jmap-calendars-types exits 0. Clippy clean.",
+  "ephemeral": 0,
+  "id": "JMAP-z2cy.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add BusyPeriod struct (Principal/getAvailability response object \u00a72.2)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:52:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-z2cy",
+      "id": "21b3a127-0ed0-514f-bb5b-909965c618ca",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Ratified to option (A) \u2014 keep String inner repr. No code change required; the existing Sha256(String) is the chosen design.",
+  "closed_at": "2026-05-17T21:41:09Z",
+  "compaction_level": 0,
+  "content_hash": "f13c8fb1d4c9b32b2fa9574e1f35565aa4454a937fece0c31fbb4e1939ac0032",
+  "created_at": "2026-05-16T03:52:44Z",
+  "created_by": "Mark Atwood",
+  "description": "Sha256(String) carries the 64-char hex *wire encoding* as the in-memory representation (crate-jmap-cid-types/src/digest.rs:102), not the canonical 32-byte digest. Idiomatic Rust newtypes over a fixed-size digest store the canonical form ([u8; 32], stack-allocatable, zero allocations, Eq/Hash work over the digest not the hex bytes) and format on demand for Display/Serialize. Compare RustCrypto's Output<Sha256> / GenericArray<u8, U32>.\n\nWhat goes wrong:\n- Heap allocation per Sha256 (the String). [u8; 32] is stack only.\n- PartialEq/Hash compare/hash 64 UTF-8 bytes instead of 32 raw bytes. The myoss pass .17 flagged the variable-time issue but the underlying cause is the same \u2014 choice of inner representation.\n- as_str(&self) -> &str locks in the String backing: switching to [u8; 32] later requires breaking that accessor (no lifetime to hand out from a value derived on the fly). The myoss .13 docs gap and this finding are both downstream of the same representational choice.\n- from_bytes pre-allocates a String capacity 64 every call, instead of writing 64 hex chars on demand into the formatter (Display::fmt(&self, f)) with zero allocations.\n\nIdiomatic alternative: Sha256([u8; 32]) with:\n- from_hex returning Result<Sha256, Sha256DigestError> \u2014 same surface, decodes hex into the byte array.\n- from_bytes (or From<[u8; 32]>) trivial \u2014 direct field assignment.\n- Display computes hex on the fly via fmt::Write into the formatter (no String allocation).\n- Serialize via serializer.collect_str(self) \u2014 also zero allocation.\n- Deserialize via a Visitor that decodes the 64-char input directly into [u8; 32].\n\nThis is a pre-v0.1.0 representational choice \u2014 fixing later is a public-API break of as_str(), AsRef<str>, into_inner, and From<Sha256> for String. The forward-compat cost of NOT making this choice now is concrete.",
+  "ephemeral": 0,
+  "id": "JMAP-sf5h.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sha256 stores derived hex String instead of canonical [u8; 32] \u2014 non-idiomatic for a fixed-size digest",
+  "updated_at": "2026-05-17T21:41:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T20:52:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sf5h",
+      "id": "3677471e-9b75-5363-9df2-f56cf35d62b1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

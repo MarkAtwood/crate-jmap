@@ -1,0 +1,33 @@
+{
+  "close_reason": "Stale: find_immutable_patch_key uses a const &[&str] linear scan, not an OnceLock HashSet. The doc comment at helpers.rs:83 already explains the design choice.",
+  "closed_at": "2026-05-04T15:44:43Z",
+  "compaction_level": 0,
+  "content_hash": "3bb0d7719858992c3be2c4ea1bdab1304412b6448048f177449145f5dee93d40",
+  "created_at": "2026-05-02T03:27:21Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs find_immutable_patch_key: the static OnceLock<HashSet> initialization ensures the set is built once per process and reused across all calls. The sub-path check (starts_with + byte check for '/') correctly distinguishes 'messageId' from 'messageIdX' while still blocking 'messageId/0'. A naive implementation would use a linear scan or a Vec contains check. The current approach is O(k) per patch key where k is the number of patch keys, not O(n*m) where n = keys and m = immutable fields. A contributor might suggest simplifying to a linear scan \u2014 the OnceLock approach should be defended on grounds that Email/set can receive patches with many keys.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_immutable_patch_key OnceLock HashSet avoids O(n*m) scan per email",
+  "updated_at": "2026-05-04T15:44:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:27:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "70e79165-6429-5c4f-af67-dcb04207e76a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

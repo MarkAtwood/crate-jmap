@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-12T05:23:54Z",
+  "compaction_level": 0,
+  "content_hash": "edba2c37b01aff83c75aaec1445eccd5a6f07dae03ba101a43c8c6156c3fa495",
+  "created_at": "2026-05-11T07:22:56Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Child of JMAP-sc1b.17. Add crate-jmap-mail-client/examples/mailbox_list.rs that spins up jmap_mail_server::memory::MemoryBackend behind an in-process axum server, points a JmapClient at it, queries mailboxes, and prints (~50\u201380 LOC). Depends on the public MemoryBackend extraction (already landed) and on jmap-mail-server's axum integration.\n\nAcceptance:\n- examples/mailbox_list.rs compiles and produces sane output.\n- README.md gains a one-line link to examples/.\n- cargo run --example mailbox_list -p jmap-mail-client succeeds.\n- cargo build --workspace --examples clean.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.17.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Decision (2026-05-11, Mark): option (A) \u2014 wiremock + hand-written JSON fixture, matching the landed .17.2 (session_fetch) and .17.3 (dispatcher_minimal) template.\n\nRationale: the bead body's 'wrap MemoryBackend behind axum/hyper test server' framing was aspirational; the workspace's server crates are deliberately transport-agnostic (audit confirms zero axum/hyper/tower/tokio-tungstenite deps across all 9 server crates). The 'should workspace own transport?' question is a real architectural decision but separate from shipping these examples \u2014 filed as JMAP-l99e (epic). Examples ship via (A) now and may be retroactively redone if the epic resolves Yes-own-transport.\n\nImplementation hint:\n  - Pattern after crate-jmap-base-client/examples/session_fetch.rs (.17.2).\n  - wiremock serves a single POST /jmap responding with a hand-written Mailbox/get response JSON fixture (5-10 mailboxes).\n  - JmapClient is pointed at the wiremock URL.\n  - Example prints the parsed mailbox names + counts.\n  - README ## Examples section gets a one-liner pointing here.\n  - ~80 LOC target.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sub: examples/mailbox_list.rs for jmap-mail-client",
+  "updated_at": "2026-05-12T05:23:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T00:22:56Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b.17",
+      "id": "e81c6f98-9522-51ea-8fc7-75e5015fb567",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

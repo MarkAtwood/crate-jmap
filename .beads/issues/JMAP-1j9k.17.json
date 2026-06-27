@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T12:21:27Z",
+  "compaction_level": 0,
+  "content_hash": "681827a1e66d5228d18f3487ebd7011cdf67d108139a231e326a9ff6f8880e2a",
+  "created_at": "2026-05-15T01:19:18Z",
+  "created_by": "Mark Atwood",
+  "description": "## What the code does\n\nThree `_set` methods and one `_copy` method in calendars-client validate \"no creation id is empty\" using an explicit `for` loop with an early-return inside:\n\n```rust\n// crate-jmap-calendars-client/src/methods/calendar.rs:96-104\nif let Some(ref m) = create {\n    for k in m.keys() {\n        if k.is_empty() {\n            return Err(jmap_base_client::ClientError::InvalidArgument(\n                \"calendar_set: create map key (creation id) may not be empty\".into(),\n            ));\n        }\n    }\n}\n```\n\nSame shape in event.rs:105-113, event_copy.rs:28-34, participant_identity.rs:79-88.\n\n## What idiomatic Rust would do\n\nThe loop body is a pure predicate (\"is there any empty key\") with one action on a hit. The Rust-idiomatic spelling is `Iterator::any`:\n\n```rust\nif let Some(m) = &create {\n    if m.keys().any(|k| k.is_empty()) {\n        return Err(jmap_base_client::ClientError::InvalidArgument(\n            \"calendar_set: create map key (creation id) may not be empty\".into(),\n        ));\n    }\n}\n```\n\n(Note the parallel finding that `Some(ref m) =` is itself a stale pre-2018 pattern, filed separately. Both fixes compose into the same site.)\n\n## Why it matters\n\n`Iterator::any` communicates intent (\"is there any element matching this predicate\") at a glance; the `for` loop with embedded `if` and `return` makes the reader trace the control flow to recover the same semantics. Three nesting levels (`if let` \u2192 `for` \u2192 `if`) collapses to two (`if let` \u2192 `if`).\n\nThis is a low-stakes idiom \u2014 not a correctness bug, not a performance issue (both compile to the same code under any optimisation level worth caring about). The engineering argument is reader comprehension: a serious Rust practitioner expects `Iterator::any` for \"does any element match\" and reads `for ... if ... return` as \"this code was written by someone who hasn't internalised the iterator combinators yet\".\n\nThe pattern is duplicated four times in this crate. Fixing one teaches the reader nothing; fixing all four restores the cookie-cutter consistency that workspace AGENTS.md treats as a first-order goal.\n\n## Why not just leave it\n\nPure-style change with no behavioural difference is exactly the territory the bikeshedding warning in the slash-command prompt is meant to constrain. The engineering basis here is:\n\n1. The same defensive guard is at four call sites and they are about to be propagated to (potentially) every other extension-client sibling under any future canonical-template sweep. Settle on the idiomatic shape before the pattern spreads to six more crates.\n\n2. The canonical mail-client does NOT have this guard at all (it doesn't validate empty creation ids). If/when the workspace decides this validation should be canonical, sweeping the cleaner shape is meaningfully easier than sweeping the `for`-with-embedded-return shape.\n\n## Fix shape\n\nMechanical `for k in m.keys() { if k.is_empty() { ...err... } }` \u2192 `if m.keys().any(|k| k.is_empty()) { ...err... }` at four sites.\n\n## Source citations\n\n- crate-jmap-calendars-client/src/methods/calendar.rs:96-104\n- crate-jmap-calendars-client/src/methods/event.rs:105-113\n- crate-jmap-calendars-client/src/methods/event_copy.rs:28-34\n- crate-jmap-calendars-client/src/methods/participant_identity.rs:79-88",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "`for k in m.keys() { if k.is_empty() { return Err... } }` is non-idiomatic predicate-on-iterator \u2014 should be `.any()`",
+  "updated_at": "2026-05-17T12:21:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:19:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "016588ed-097f-50dc-8dfc-0eaf584d848e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

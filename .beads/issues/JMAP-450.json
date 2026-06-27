@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-450",
+  "title": "Review: feat(jmap-mail-server): implement RFC 8621 mail handlers",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:34:07Z",
+  "updated_at": "2026-04-30T22:02:31Z",
+  "closed_at": "2026-04-30T22:02:31Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 P0 correctness bugs exist (hardcoded date, notFound/notParsable confusion, wrong state in onSuccessUpdateEmail response, collapseThreads total) but they are isolated and fixable. The duplicate extract_account_id will spread. The MailBackend trait's Patch-as-any-Value design flaw will cause pain for every backend implementor.\nConfidence: 15% chance of missed bug. Least confident flags: collapseThreads position semantics (may be correct depending on RFC reading), limit defaulting to 256 (may be intentional server policy). Uncertainty driven by: not being able to run the handlers against a real JMAP test suite; the MemoryBackend ignores filters so query tests don't prove filter correctness. Would raise confidence if: integration tests covered collapseThreads with multiple pages, and Email/parse tests verified notFound vs notParsable distinction.\nIdiom rating: ACCEPTABLE \u2014 Core patterns are sound (no unsafe, errors propagated correctly, no Box<dyn Error> in public API). Main issues: ~15 silent unwrap_or(Value::Null) serialization holes, missing #[non_exhaustive] on SetErrorType, for-push loops instead of collect(). Nothing that makes the code unsound or unmaintainable at current scale.\nRust idiom confidence: 10% chance of missed issue. Least confident flags: the Any downcast in MemoryBackend (not public API so lower risk, but still documents a wrong pattern); the collapseThreads/position interaction (may be intentional given MemoryBackend doesn't paginate). Uncertainty driven by: cannot run cargo clippy in this session to catch issues I may have missed visually."
+}

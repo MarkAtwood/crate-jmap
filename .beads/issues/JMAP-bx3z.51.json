@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:36:33Z",
+  "compaction_level": 0,
+  "content_hash": "83432adb1f880383c860a10048c22c21945c31d40512c9eba581fe54ecf8ce0b",
+  "created_at": "2026-05-02T19:19:44Z",
+  "created_by": "Mark Atwood",
+  "description": "seed_fixture_tests.rs cites seed-data.ts line numbers extensively (e.g. 'seed-data.ts line ~116', 'seed-data.ts line ~413'). These line numbers will drift as seed-data.ts is modified, silently making the oracle references wrong. The file header already cites the file path. The line number references should be replaced with stable identifiers (function names, object keys, or comments in seed-data.ts itself) that do not change when unrelated lines are added above.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.51",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "seed_fixture_tests.rs: oracle line number references will drift without version anchor",
+  "updated_at": "2026-05-02T22:36:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:19:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "ab7193c5-978f-5385-9a56-5366929610f0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

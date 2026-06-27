@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-8kf.7",
+  "title": "parse_state_data clones serde_json::Value before deserializing changed field",
+  "description": "sse.rs parse_state_data calls serde_json::from_value::<...>(changed_val.clone()) \u2014 the .clone() is unnecessary because from_value consumes its argument and the original val is not needed afterward. Restructuring to remove the clone (e.g. extracting changed before the match, or using a single serde_json::from_value call on val directly) would avoid one full serde_json::Value clone per StateChange received.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:21:38Z",
+  "updated_at": "2026-04-30T00:27:49Z",
+  "closed_at": "2026-04-30T00:27:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-8kf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:21:38"
+    }
+  ]
+}

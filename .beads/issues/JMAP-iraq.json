@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:42:47Z",
+  "compaction_level": 0,
+  "content_hash": "693e690a531070bd070eaef6b00ceebb096258a9992a8642f130dc96e678c44d",
+  "created_at": "2026-05-02T23:38:19Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src/mdn.rs:148-149: the comment says 'per draft \u00a72.1' for the onSuccessUpdateEmail/ validation, but the operative 'MUST reject' clause is in draft-ietf-jmap-mdn-17 \u00a73.1 (the MDN/send method section), not \u00a72.1 (the Mdn object definition section). Wrong section citation is a genuine auditing trap: a maintainer checking the validation logic against the spec will look in \u00a72.1, not find it clearly, and doubt whether the implementation is correct. Fix: change '\u00a72.1' to '\u00a73.1' in the comment at line 149 (and the matching comment at line 152).",
+  "ephemeral": 0,
+  "id": "JMAP-iraq",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix wrong spec section in handle_mdn_send Step 3 comment",
+  "updated_at": "2026-05-02T23:42:47Z"
+}

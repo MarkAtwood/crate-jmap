@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:29:23Z",
+  "compaction_level": 0,
+  "content_hash": "f6a3c797e198cd665762136f434caec97c820f067f9092178d7c4b382afafd16",
+  "created_at": "2026-05-15T20:41:59Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-client/src/methods/mod.rs:178-187 (custom Deserialize impl).\n\nThe custom `Deserialize` impl for `Patch<T>` maps:\n- JSON `null` \u2192 `Patch::Clear`\n- JSON value \u2192 `Patch::Set(v)`\n- (Note: there is no \"absent\" arm in `deserialize`; that only happens with `#[serde(default)]` on the field, in which case the `Default` impl returns `Patch::Keep`.)\n\nThe struct-level rustdoc (mod.rs:103-128) tells callers to write:\n```rust\n#[serde(default, skip_serializing_if = \"Patch::is_keep\")]\npub my_field: Patch<String>,\n```\n\nThe two attributes are documented as \"must\" carry both. BUT:\n\nIf a downstream caller wraps `Patch<T>` in their own type and forgets `#[serde(default)]`, the absent-key case **does not produce `Patch::Keep`**. Instead it fails the deserialize entirely (no default). If they remember `#[serde(default)]` but forget `skip_serializing_if`, serialization fails at runtime with the custom-Serialize Error path (mod.rs:168-171).\n\nThis is exactly the \"API shape that forces every caller to write the same boilerplate\" pattern. Three failure modes:\n- Forget `default`: every absent field rejects on parse, even though `Patch::Keep` is the intended absent value.\n- Forget `skip_serializing_if`: every `Patch::Keep` panics at runtime with a `serde::ser::Error::custom(\"Patch::Keep cannot be serialized\u2026\")`.\n- Forget BOTH: never even reaches the second failure because parse fails first.\n\nThe contract is correct as designed, but the boilerplate has no compile-time enforcement. A derive helper macro (`#[derive(JmapPatch)]`) is the canonical fix but a larger change. Smaller fixes:\n\n1. Add a doctest that demonstrates the failure modes \u2014 at least callers reading rustdoc will see them.\n2. Add a clippy-lint or rustc check note: not really feasible without a proc-macro.\n3. Provide a `pub trait PatchField` with a blanket impl that requires the attributes to work, so the compiler errors guide the caller. (Tricky to implement.)\n4. Wrap the `Patch<T>` in a `pub struct PatchField<T>(Patch<T>);` with `#[serde(transparent)]`-equivalent behavior and a `Serialize`/`Deserialize` pair that handles the absent case via `Option<T>` \u2014 but this defeats the point of `Patch<T>` existing.\n\nRecommendation: doctest in mod.rs:113 showing both the right and wrong way, especially the \"forget `default` \u2192 parse fails\" case. The current doc says \"must\" but doesn't show the failure.\n\nCaller impact: real. Anyone building a downstream extension to JMAP Chat that wants its own `*Patch` struct hits this. The fail-fast direction is correct (errors are loud), but the failure happens far from where the attribute was forgotten.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.43",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Patch<T> attribute boilerplate (\\#[serde(default)] + skip_serializing_if) has no compile-time enforcement",
+  "updated_at": "2026-05-17T17:29:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:41:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "c6cc9efc-b437-5444-9deb-f538b49f7cfc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

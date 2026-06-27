@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T23:35:07Z",
+  "id": "019e384b-1dcc-70e4-a3b8-7c29967c9ce5",
+  "issue_id": "JMAP-ops7.32",
+  "text": "Fix spans crates: workspace root Cargo.toml + 9 client crates + jmap-base-client + jmap-mime + jmap-server + jmap-metadata-server = 13 files. /do-beads must verify with cargo build --workspace + cargo test --workspace producing byte-identical resolved tree (cargo tree --workspace before/after)."
+}

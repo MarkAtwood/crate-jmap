@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Adopted PatchObject across jmap-filenode-{types,server,client}. 1 SetObject::Patch impl, 1 server destructure converted, 1 client method migrated. cargo test --workspace: 1450/0/7. clippy clean. Commit pending; will fill after.",
+  "closed_at": "2026-05-08T20:57:28Z",
+  "compaction_level": 0,
+  "content_hash": "0257e6e50e1da19e97ac8ba3bd83162f62e2ec4f0d74853678ff8493cf8a72c0",
+  "created_at": "2026-05-08T20:46:34Z",
+  "created_by": "Mark Atwood",
+  "description": "Non-locked subset of JMAP-zk6m. Migrate jmap-filenode-types (1 SetObject::Patch impl: FileNode), jmap-filenode-server (1 destructure site in filenode.rs:444 + parentId pre-introspection at :450 + update_object call at :479 + tests/common/mod.rs MemoryBackend), jmap-filenode-client (1 method signature: file_node_set). Wire format unchanged.",
+  "ephemeral": 0,
+  "id": "JMAP-zk6m.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Adopt PatchObject across filenode triple (types+server+client)",
+  "updated_at": "2026-05-08T20:57:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-08T13:46:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zk6m",
+      "id": "d2097c15-6bb3-5100-8828-27131ce1f2a6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Updated reg! macro in jmap-calendars-server to use ClosureHandlerWithCtx; clippy clean",
+  "closed_at": "2026-05-05T18:34:33Z",
+  "compaction_level": 0,
+  "content_hash": "989aa42174944a8506ac0c9360db9242340cbb33ef2a61e0a5c0ac7969248039",
+  "created_at": "2026-05-05T17:28:57Z",
+  "created_by": "Mark Atwood",
+  "description": "Update register_calendars_handlers to forward CallerCtx using ClosureHandlerWithCtx<B, C> (from JMAP-exue.1).\\n\\nAll CalendarEvent/*, Calendar/*, and Principal/getAvailability handler closures receive ctx: C. Particularly relevant for multi-tenant calendar servers where compute_utc_times and get_availability need to know which user is requesting.\\n\\nAcceptance criteria:\\n- register_calendars_handlers closures receive CallerCtx\\n- cargo test -p jmap-calendars-server exits 0\\n- Clippy clean\\n\\nDepends on JMAP-exue.1.",
+  "ephemeral": 0,
+  "id": "JMAP-exue.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-calendars-server: Forward CallerCtx in register_calendars_handlers",
+  "updated_at": "2026-05-05T18:34:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T10:29:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-exue.1",
+      "id": "05506316-ed81-5345-865b-2be3f334d302",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-05T10:28:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-exue",
+      "id": "688c91ee-b9c3-553b-ac65-e1b041451a52",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

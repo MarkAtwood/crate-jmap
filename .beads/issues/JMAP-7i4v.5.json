@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "4 Principal/getAvailability wiremock tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/availability_tests.rs (1 test: getAvailability round-trip returns empty list); clippy clean",
+  "closed_at": "2026-05-05T15:47:13Z",
+  "compaction_level": 0,
+  "content_hash": "6c2f6c18de6d6ea49c326616b90c6486b123a37f2b734925060145910ecc73ac",
+  "created_at": "2026-05-05T02:55:52Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-calendars-client/tests/availability_integration.rs with 4 async wiremock tests. Oracle: \u00a72.2 field definitions for BusyPeriod and request args.\n\n**Tests:**\n1. availability_request_shape: assert request has methodCalls[0][0]==\"Principal/getAvailability\", field \"id\" present (not \"principalId\"), utcStart and utcEnd present, using contains \"urn:ietf:params:jmap:principals:availability\".\n2. availability_response_busy_period: mock returns list with one BusyPeriod (hand-written from \u00a72.2); assert utc_start, utc_end, busy_status.\n3. availability_empty_list: mock returns {\"list\":[]}; assert resp.list.is_empty().\n4. availability_show_details_false_absent: call with show_details=None; assert showDetails key absent from request.\n\n**Acceptance criteria:** All 4 tests pass. \"id\" not \"principalId\" verified.",
+  "ephemeral": 0,
+  "id": "JMAP-7i4v.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock test: Principal/getAvailability round-trip",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:55:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v",
+      "id": "43a3045d-f704-5faf-9bb2-5e9c0c9c94ec",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:56:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v.3",
+      "id": "af019225-55dd-5799-b9de-09f22bb26216",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

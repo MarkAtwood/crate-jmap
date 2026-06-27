@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:58:39Z",
+  "compaction_level": 0,
+  "content_hash": "210a295d139a27700ba46998309c6e2f7071238c756c34b5c35f6fc9b14b30bd",
+  "created_at": "2026-05-07T20:29:21Z",
+  "created_by": "Mark Atwood",
+  "description": "Pattern across multiple type-crate READMEs:\n\n- jmap-mail-types: 'What' lacks property enums  \n- jmap-sharing-types: missing PrincipalsCapability, PrincipalsOwnerCapability, JMAP_PRINCIPALS_URI, JMAP_PRINCIPALS_OWNER_URI, PrincipalProperty, ShareNotificationProperty\n- jmap-tasks-types: missing TaskComparator, TaskNotificationComparator, TaskProperty, TaskListProperty, TaskNotificationProperty\n- jmap-filenode-types: missing FileNodeProperty\n- jmap-types: missing Filter, FilterOperator, Operator, Date, ValidationError, GetObject, JmapObject, QueryObject, SetObject, backend module, query module\n\nProperty enums and capability URI constants are part of the public API surface and should appear in the 'What' table. Currently users have to read lib.rs to discover them.\n\nFix: regenerate each 'What' table from the actual pub use list. Could be a single agent task across all 7 type crates.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: type-crate READMEs frequently omit Property enums and capability constants from 'What' tables",
+  "updated_at": "2026-05-07T21:58:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "d51f6e44-bf9e-5b2d-bd9c-9bd0525cdea2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

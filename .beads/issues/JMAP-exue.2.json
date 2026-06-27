@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Updated reg! macro in jmap-mail-server to use ClosureHandlerWithCtx; _ctx: C parameter now available in all handler closures; doc comment updated; all tests pass; clippy clean",
+  "closed_at": "2026-05-05T18:34:31Z",
+  "compaction_level": 0,
+  "content_hash": "08146e27783c71087f5c894f7d7810783dc9515212d917e01456709762168723",
+  "created_at": "2026-05-05T17:28:50Z",
+  "created_by": "Mark Atwood",
+  "description": "Update register_mail_handlers to use ClosureHandlerWithCtx<B, C> (from JMAP-exue.1) so CallerCtx is forwarded to every mail handler closure.\\n\\nCurrent: macro reg! builds ClosureHandler closures |b, ci, a| that ignore the caller.\\nNew: macro reg_ctx! builds ClosureHandlerWithCtx closures |b, ci, a, ctx| \u2014 ctx is the forwarded CallerCtx.\\n\\nHandler functions that need per-request auth should accept an additional ctx: C parameter. For the initial pass, add the parameter with _ctx naming so it compiles without callers having to change anything yet.\\n\\nAcceptance criteria:\\n- register_mail_handlers closures receive CallerCtx as a fourth argument\\n- All 26 handlers compile with the new signature\\n- cargo test -p jmap-mail-server exits 0\\n- Clippy clean\\n\\nDepends on JMAP-exue.1 (ClosureHandlerWithCtx in jmap-server).",
+  "ephemeral": 0,
+  "id": "JMAP-exue.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-mail-server: Forward CallerCtx in register_mail_handlers",
+  "updated_at": "2026-05-05T18:34:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T10:29:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-exue.1",
+      "id": "1471c9e8-54f1-5281-8daf-fe7336bb8ce9",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-05T10:28:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-exue",
+      "id": "9550375f-51c8-568a-9971-619d1226c65d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

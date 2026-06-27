@@ -1,0 +1,33 @@
+{
+  "close_reason": "Confirmed: COLLAPSE_THREADS_MAX_EMAILS cap with memory budget comment is appropriate; no change needed",
+  "closed_at": "2026-05-01T16:13:55Z",
+  "compaction_level": 0,
+  "content_hash": "4e17611db59d3974b36df009a716a8e09b09923b42ccdc3d935ff24e4c773dc9",
+  "created_at": "2026-05-01T15:42:51Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs:13-18. The 65,536 cap on collapseThreads query size is a server-side safety measure against OOM from hostile clients. The comment documents the specific calculation: 65536 ids \u00d7 32 bytes each \u2248 2 MiB. A contributor might suggest removing the cap to support large accounts or making it configurable; the correct answer is that without a cap, a single Email/query with collapseThreads on an account with 10M emails would OOM the server. The comment should be preserved and the value should not be changed without updating the memory budget calculation.",
+  "ephemeral": 0,
+  "id": "JMAP-ptl.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "COLLAPSE_THREADS_MAX_EMAILS cap with memory budget comment",
+  "updated_at": "2026-05-01T16:13:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:42:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ptl",
+      "id": "fbb3e03c-c331-5927-88ca-e3cd2b818a2a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

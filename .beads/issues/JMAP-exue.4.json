@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Updated reg! macro in jmap-contacts-server to use ClosureHandlerWithCtx; clippy clean",
+  "closed_at": "2026-05-05T18:34:32Z",
+  "compaction_level": 0,
+  "content_hash": "871d52b8c03bcebe3d75aaa8ffd6e13c7d199196066dd69a960740521151c4e8",
+  "created_at": "2026-05-05T17:28:57Z",
+  "created_by": "Mark Atwood",
+  "description": "Update register_contacts_handlers to forward CallerCtx using ClosureHandlerWithCtx<B, C> (from JMAP-exue.1).\\n\\nAll ContactCard/* and AddressBook/* handler closures receive ctx: C. This is particularly important for contacts servers that need to enforce per-user visibility of address books.\\n\\nAcceptance criteria:\\n- register_contacts_handlers closures receive CallerCtx\\n- cargo test -p jmap-contacts-server exits 0\\n- Clippy clean\\n\\nDepends on JMAP-exue.1.",
+  "ephemeral": 0,
+  "id": "JMAP-exue.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-contacts-server: Forward CallerCtx in register_contacts_handlers",
+  "updated_at": "2026-05-05T18:34:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T10:29:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-exue.1",
+      "id": "aceb6941-9aff-5664-a0ed-98ffac45cecb",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-05T10:28:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-exue",
+      "id": "e62915e5-e7e6-5dc1-90f2-ea1ed70d6235",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

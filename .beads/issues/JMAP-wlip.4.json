@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Dropped pub on MAX_MERGE_PATCH_DEPTH constant \u2014 it's now pub(crate). Removed the export from crate-jmap-server/src/lib.rs. The constant is no longer part of the public API surface; consumers see the cap-exceeded behaviour via MergePatchError::DepthExceeded (introduced in bd:JMAP-wlip.1). Doc comment explicitly notes the workspace reserves the right to tighten the value (e.g. 32 \u2192 16) without a major-version bump because the contract is the typed error, not the literal cap value. Public doc comments on json_merge_patch and MergePatchError::DepthExceeded that referenced the constant by intra-doc link are rewritten as plain text so rustdoc -D warnings stays clean.",
+  "closed_at": "2026-05-14T13:53:29Z",
+  "compaction_level": 0,
+  "content_hash": "7bda6fadceef8460a424f9ac37455c733a32cb661d83a8596e91235bbbed0bb1",
+  "created_at": "2026-05-14T12:52:23Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: the new pub const MAX_MERGE_PATCH_DEPTH (crate-jmap-server/src/helpers.rs:112) is re-exported from the crate root (lib.rs:23). A downstream extension *-server crate authors notes the constant and writes pre-validation: 'if patch_depth(patch) > MAX_MERGE_PATCH_DEPTH return SetError::InvalidPatch'. That code becomes the de facto API contract \u2014 and any future tightening of the constant (32 \u2192 16 to harden further) silently changes the contract.\n\nThe constant is also exported alongside json_merge_patch, suggesting it is part of the public surface. But the only legitimate consumer of the constant is the test file in this crate. Once Issue JMAP-wlip.1 lands (json_merge_patch returns Result or bool), the constant becomes either internal implementation detail (caller doesn't need to know the value) or part of the contract (caller depth-validates before calling). It cannot be both.\n\nRecommendation: defer this until JMAP-wlip.1's API shape lands. If JMAP-wlip.1 changes json_merge_patch to surface cap-exceeded as an error, drop the pub on MAX_MERGE_PATCH_DEPTH (keep the doc, remove the export). If it doesn't, document the constant's stability guarantee explicitly in its rustdoc.\n\nMaintenance consequence: a consumer crate compiles against MAX_MERGE_PATCH_DEPTH = 32, the workspace tightens it to 16, and the consumer's pre-validation now rejects patches the server would accept (or vice versa). The drift is silent until a runtime mismatch.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MAX_MERGE_PATCH_DEPTH is exported with no actionable use for consumers",
+  "updated_at": "2026-05-14T13:53:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:52:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "8fe83cb2-043e-555d-8f0d-4eaa9ff4431c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

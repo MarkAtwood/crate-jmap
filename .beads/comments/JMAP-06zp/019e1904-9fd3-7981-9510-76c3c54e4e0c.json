@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T21:49:54Z",
+  "id": "019e1904-9fd3-7981-9510-76c3c54e4e0c",
+  "issue_id": "JMAP-06zp",
+  "text": "All five autonomous children (.1-.5) closed as of 2026-05-11. Only .3.5 remains, and it is human-labeled (Metadata/changes filter post-processing \u2014 strict-conformance for destroyed array requires backend trait extension, which is a design call). Labelling this parent epic 'human' too so the do-beads loop skips it instead of re-evaluating each session. Re-open by removing the 'human' label once .3.5 is resolved."
+}

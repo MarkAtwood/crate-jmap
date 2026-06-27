@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T05:41:11Z",
+  "compaction_level": 0,
+  "content_hash": "28f0cc92121520bb58172ea02bd9dd3bf21495fc8a5c8962bc17926f75c2b2ac",
+  "created_at": "2026-05-08T03:30:10Z",
+  "created_by": "Mark Atwood",
+  "description": "draft-ietf-jmap-calendars-26 \u00a75.7 (line 1417 onward) defines four extra arguments on top of the standard /get for CalendarEvent:\n- recurrenceOverridesBefore: UTCDateTime|null \u2014 filter overrides by date\n- recurrenceOverridesAfter: UTCDateTime|null \u2014 filter overrides by date\n- reduceParticipants: Boolean \u2014 omit non-owner participants\n- timeZone: TimeZoneId (default 'Etc/UTC') \u2014 used to compute utcStart/utcEnd for floating events\n\nsrc/event.rs:24-61 (handle_calendar_event_get) reads the request, decides whether utcStart/utcEnd are wanted, then forwards args verbatim to jmap_server::handlers::handle_get. The four \u00a75.7 extra args are NEVER extracted from the args object and NEVER passed to the backend. Specifically:\n- recurrenceOverridesBefore/After: not parsed at all; the backend has no path to receive them\n- reduceParticipants: not parsed at all\n- timeZone: src/event.rs:48 calls compute_utc_times(account_id, event, None) \u2014 passes hardcoded None for tz_hint, ignoring whatever timeZone the client sent\n\nPLAN.md \u00a77 explicitly described a CalendarEventGetArgs struct that should be passed to the backend method get_calendar_events. That struct does not exist in src/backend.rs.\n\nWire impact: a compliant client calling CalendarEvent/get with reduceParticipants:true gets back the full participant list anyway. A client requesting utcStart with timeZone:'America/New_York' for a floating event gets utcStart computed using a default tz instead.\n\nFix: add CalendarEventGetArgs (or extend CalendarsBackend) to receive the four args, parse them in handle_calendar_event_get, pass to backend. Pass the parsed timeZone to compute_utc_times in place of the hardcoded None.\n\nTest gap: there are no inline tests covering any of these four args. Add at minimum: (a) a test that reduceParticipants:true makes it to the backend, (b) a test that timeZone is forwarded to compute_utc_times.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CalendarEvent/get \u00a75.7 extra args silently dropped (recurrenceOverridesBefore/After, reduceParticipants, timeZone)",
+  "updated_at": "2026-05-08T05:41:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:30:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "93fa9a6b-3223-580c-8901-3af84a52241e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

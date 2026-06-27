@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T17:52:01Z",
+  "compaction_level": 0,
+  "content_hash": "fd2cb24c49de3a5906a5a78fa0223355d5f44264e3143439475cbe9d25c814f5",
+  "created_at": "2026-05-15T17:11:57Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs:114-125 \u2014 CalendarsBackend::update_object rustdoc reads:\n\n    /// Apply a partial update (patch) to an existing object of type `O`.\n    ///\n    /// Returns `Some(updated_object)` if the backend modified any properties\n    /// beyond what the client requested (RFC 8620 \u00a75.3 server-set field echo),\n    /// or `None` if the patch was applied verbatim.\n\nThe canonical mail-server's MailBackend::update_object at\ncrate-jmap-mail-server/src/backend.rs:106-126 carries the same return-shape\ndescription PLUS an explicit caller contract:\n\n    /// **Callers must handle the `Some` case.** When the return value is\n    /// `Some(O)`, the handler should serialize the updated object and include\n    /// the server-modified fields in the `updated` map of the `/set` response\n    /// (RFC 8620 \u00a75.3). Discarding the return value causes server-modified\n    /// fields to be silently omitted from the response. Per-request auth\n    /// context is available via the `caller` parameter, which the\n    /// `register_mail_handlers` closures forward unchanged from\n    /// [`jmap_server::Dispatcher::dispatch`].\n\nWhat goes wrong for the caller: a calendars backend author who reads only\nthe calendars rustdoc may treat the return as an optimistic side-channel\n(\"only return Some when you have a reason\"). They write a real backend that\nDOES modify properties beyond the patch (e.g. always-set updated timestamp,\nserver-generated etag, etc.) but returns None unless explicitly needed by\nthe handler \u2014 because the doc doesn't tell them the handler echoes Some\ninto the wire response. The result is silently incomplete /set responses\nwhere clients see oldValue persisting even though the server changed it.\n\nThis is more than a doc-style nit: it's the difference between a backend\nauthor shipping a correct or an RFC-8620-\u00a75.3-violating implementation\nbased purely on which sibling's rustdoc they read first.\n\nFix: mirror the canonical paragraph verbatim (calendars-specific tweaks\nonly as needed). Same change applies to update_per_user_properties at\nbackend.rs:148-158 if it can return Some(CalendarEvent) under similar\nserver-set-field circumstances.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "update_object rustdoc lacks 'callers must handle the Some case' warning that canonical documents",
+  "updated_at": "2026-05-15T17:52:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:11:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "899850c5-d809-5204-8385-bebde1b1ceaf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

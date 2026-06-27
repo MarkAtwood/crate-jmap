@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T23:58:52Z",
+  "compaction_level": 0,
+  "content_hash": "85c62de31182b32e0ebbb4d59daa92f5b47e10df4288d14fc851bba4ef7205f2",
+  "created_at": "2026-05-14T23:36:00Z",
+  "created_by": "Mark Atwood",
+  "description": "Section C \u2014 Untrusted Input at Protocol Boundaries; Section F \u2014 Logging Output Safety.\n\nparse_base_url at crate-jmap-base-client/src/client.rs:741-774 rejects empty input, non-http/https schemes, path components, query strings, and fragments. It does NOT reject URLs that carry credentials in the authority component (the RFC 3986 `userinfo` field \u2014 `https://user:password@host/`). url::Url::parse accepts this form and stores password() and username().\n\nWhen such a URL is passed through to reqwest and a request later fails, reqwest's Error carries a reqwest::Url that retains the user-info component. HttpError::url() at error.rs:80-82 returns it via to_string() \u2014 and url::Url::Display includes the user-info component verbatim (RFC 3986 \u00a77.5 explicitly warns against this; url crate Display follows the lossless-round-trip rule, not the safe-display rule). HttpError::Display delegates to the inner reqwest::Error which itself includes the URL in many failure messages.\n\n# What goes wrong (confidentiality)\n\nA caller that accidentally passes `https://alice:secret@jmap.example.com` as base_url (or one that interpolates user input into the base_url string) sees the password in:\n\n- ClientError::Http(HttpError) error message when any request fails\n- Any tracing::*-style log that captures the error\n- Any stderr / panic / Debug-format of the HttpError\n- The url() accessor's owned String return\n\nThe existing JMAP-6r7c.35 finding flags Session.username PII; this is the analogous defect at the URL layer for actual credentials (password component of the authority).\n\n# Suggested fix\n\nIn parse_base_url, after url::Url::parse succeeds, reject the URL if parsed.username() is non-empty or parsed.password() is Some. Emit ClientError::InvalidArgument with a message that does NOT echo the URL back (to avoid the error chain itself leaking the credential the caller just tried to supply). Suggested text: `'base_url must not contain user-info; pass credentials via AuthProvider instead'`.\n\nDefense in depth: HttpError::url() could also strip user-info before returning the String. RFC 3986 \u00a77.5 is the canonical guidance.\n\n# What this is NOT\n\nThis is NOT a vulnerability of the JMAP protocol itself. JMAP authenticates via the Authorization header, not URL user-info. The defect is that the BASE client accepts a URL shape that ferries credentials into log output without the caller noticing.\n\n# Probe (read-only)\n\nVerify by writing a one-line probe:\n\n```rust\nlet u = url::Url::parse(\"https://alice:secret@jmap.example.com/\").unwrap();\nprintln!(\"{}\", u);  // outputs: https://alice:secret@jmap.example.com/\nprintln!(\"{:?}\", u.password());  // Some(\"secret\")\n```\n\n(Do not run from this review session; included as the probe a /do-beads session can run.)\n\n# References\n\n- RFC 3986 \u00a73.2.1, \u00a77.5 \u2014 user-info syntax + security implications\n- url crate docs: Url::password, Url::username, Url::Display behavior",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.58",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "parse_base_url accepts user-info in URL authority; credentials leak via HttpError Display",
+  "updated_at": "2026-05-14T23:58:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:35:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "1c60d5cb-922c-54d9-a933-aacb6deb5a27",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

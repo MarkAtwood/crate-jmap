@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in b091273. Option 1 per bead: extracted build_* / assert_*_fixture helpers from benches/mime_pipeline.rs into tests/common/mod.rs. New tests/bench_fixtures.rs (3 #[test] items) exercises the structural invariants under cargo test. The bench file consumes the same module via #[path = \"../tests/common/mod.rs\"]. Bench-time asserts retained as belt-and-suspenders. The misleading 'equivalent guarantee' doc comment in the bench file was rewritten to describe the actual two-layer guarantee. JMAP-t307.5 (which depends on this doc-comment fix) can now close as already-done; will verify and close in a separate step. Pre-commit gate: 24 tests pass (20 unit + 3 bench_fixtures + 1 doc-test); clippy --all-targets clean; bench still compiles.",
+  "closed_at": "2026-05-15T06:32:44Z",
+  "compaction_level": 0,
+  "content_hash": "7aa6deeb003b6088a8dc7485b8ccaab80e670cf6e499ee2e2e76c2b0213513a6",
+  "created_at": "2026-05-15T05:53:49Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: a workspace dep upgrade or refactor changes mime-tree's parse output shape, breaking build_medium_multipart or build_large_deep_multipart's structural invariants (child count, nesting depth, byte band).\n\nConsequence: crate-jmap-mime/benches/mime_pipeline.rs lines 198-253 (assert_small_fixture, assert_medium_fixture, assert_large_fixture) only fire when bench_* functions actually run, i.e. under 'cargo bench -p jmap-mime'. The workspace pre-commit gate is 'cargo fmt + cargo clippy --workspace -- -D warnings + cargo test --workspace' per workspace AGENTS.md. cargo bench is not in that gate. So a fixture regression slips through CI silently and only surfaces when someone runs benches manually \u2014 possibly months later.\n\nThe docstring on lines 199-202 explicitly justifies the inline-assertion approach by saying '#[test] items inside this file would never be collected; inline assertions are the equivalent guarantee.' That justification is wrong: bench-time assertions are NOT equivalent to test-time assertions, because cargo test does not invoke them.\n\nFix options:\n1. Add a sibling tests/bench_fixtures.rs that calls build_small_plain / build_medium_multipart / build_large_deep_multipart and the three assert_*_fixture helpers as #[test]s. The helpers would need to be moved to a shared module (mod common) accessible to both.\n2. Or move the fixture builders into a tests/common/ helper crate-internal module imported by both the bench and a new fixtures test file.\n3. Or accept the gap and document it explicitly \u2014 but then drop the misleading 'equivalent guarantee' claim from the bench file's doc comment.\n\nRecommendation: option 1. Small file, no API change, restores the CI guarantee that was claimed.",
+  "ephemeral": 0,
+  "id": "JMAP-t307.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Bench fixture invariants only run under cargo bench, not pre-commit gate",
+  "updated_at": "2026-05-15T06:32:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:53:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-t307",
+      "id": "531cbb93-1416-57e3-bae8-d095300c4a23",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T04:44:13Z",
+  "id": "019e343f-be67-79d1-9776-fdc7c256ac67",
+  "issue_id": "JMAP-x2gd.52",
+  "text": "Blocked on workspace epic JMAP-grs0 per the canonical-template rule and the kb note from .84 closure (\"the next agent picking up .52 or .53 will plan as a multi-bead epic, not autonomous frontier work\"). The chat-server-local fix cannot land before the mail-server (canonical) restructure does. This bead is now the chat-server-scope tracker that will close when JMAP-grs0's chat-server child (JMAP-grs0.2) lands.\n\nThe new epic embeds the recommended design choice \u2014 option (a) nested HashMap \u2014 drawn from this bead's own engineering basis. Not filing 'human' on the epic because the bead's recommendation paragraph satisfies the AGENTS.md 'Recommendation: option (a). Rationale: \u2026' carve-out from the 'When NOT to file human' guidance (the agent authored a clear recommendation in the bead body; ratifying it is not 'should we do the obvious thing')."
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T00:09:22Z",
+  "compaction_level": 0,
+  "content_hash": "f0fa96c5ca5e6d1ba612c370aa65f416c3a1ca495cc3208be14610475dbe060b",
+  "created_at": "2026-05-14T23:09:21Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/client_tests.rs:889-903 builds a JmapResponse with a Mailbox/get invocation carrying a real RFC-shape payload (accountId, state, list, notFound), calls extract_response::<serde_json::Value>, then asserts only:\n\n  assert!(val.is_ok(), 'extract_response must succeed: {val:?}');\n\nA regression in extract_response that returned Ok(Value::Null) \u2014 for example, if the deserializer were short-circuited or the value path inverted \u2014 would pass this test. The fixture payload is right there at line 894; tightening to assert!(val.expect(\"...\").as_object().unwrap().contains_key(\"accountId\")) is one line and forecloses the false-pass class.\n\nSame shape issue at tests/client_tests.rs:382-411 (test_call_round_trip): the test asserts session_state, method_responses.len(), method_responses[0].0 (method name), and method_responses[0].2 (call_id), but does NOT inspect method_responses[0].1 (the args payload). The fixture in tests/fixtures/jmap/call_response.json contains the args; a regression that stripped or zeroed the args would not be caught.\n\nBoth tests have the necessary fixture data already; tighten the assertions.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "test_extract_response_success only asserts is_ok(); does not inspect returned Value",
+  "updated_at": "2026-05-15T00:09:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:09:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "497dee2e-b748-5858-bd9d-6859a4f1f881",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

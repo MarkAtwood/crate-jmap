@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "New Beads issue created. Title, line citation, RFC citation, fix approach all present.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Gap documented in PLAN.md \u00a7Known Limitations #1: size uses encoded byte length (part.body_range.1) not decoded length; RFC 8621 \u00a74.1.4 requires post-decode; this bead IS the tracking issue",
+  "closed_at": "2026-05-05T01:05:37Z",
+  "compaction_level": 0,
+  "content_hash": "57762b7b6bc43f346626eeb31505f93ebcb121a3defabc9dac05dfc1b0ff0a14",
+  "created_at": "2026-05-05T01:00:03Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** File a tracked gap issue (child of this epic) documenting that\nEmailBodyPart.size is populated with the pre-decode (on-wire) byte count from\nParsedPart.body_range.1, but RFC 8621 \u00a74.1.4 specifies it must be the\npost-decode (charset-decoded content) byte count.\n\n**Algorithm:**\n1. Locate the relevant line in crate-jmap-mime/src/lib.rs:\n     out.size = (!is_multipart).then_some(part.body_range.1 as u64);\n   Confirm body_range.1 is the encoded length field in ParsedPart.\n2. Read RFC 8621 \u00a74.1.4 size field definition:\n     'The size in octets of the raw data of the part.'\n   Note: RFC says 'raw data' after CTE decode but before charset decode.\n   Cross-reference with EmailBodyValue.value which is CRLF-normalized charset\n   text \u2014 its length will generally differ from size.\n3. Determine the precise impact:\n   - For Content-Transfer-Encoding: identity, 7bit, 8bit \u2014 no difference.\n   - For base64: decoded is ~75% of encoded.\n   - For quoted-printable: decoded differs by =XX escapes.\n4. Create a standalone Beads issue (NOT a child of this epic \u2014 a new root issue\n   or child of a quality epic) titled:\n     'jmap-mime: size field reports encoded byte length instead of decoded'\n   with priority P2, type task, description covering:\n   - The offending line and its filename:line\n   - The RFC citation\n   - The correct fix (call decode_body_value to get the decoded bytes, measure len)\n   - The constraint: decode_body_value requires &[u8] raw bytes, so part_to_jmap's\n     signature would need to accept them, or a new variant function must be added\n   - Suggested test: create a base64-encoded text/plain part, assert\n     EmailBodyPart.size == decoded_text.len() not encoded_bytes.len()\n\n**Defensive programming rules:**\n- This bead creates a Beads issue only \u2014 no code changes.\n- The issue description must cite the exact line number from src/lib.rs (verify\n  by reading the file before writing the issue).\n- Do not guess at line numbers.\n\n**Subagent instructions:**\nSpawn one subagent: read crate-jmap-mime/src/lib.rs lines around\n`body_range`, read RFC 8621 \u00a74.1.4 size definition, then write the issue.\n\n**Tests:** N/A \u2014 this bead produces a tracking issue, not code.\n\n**Acceptance criteria:**\n- A new Beads issue exists with the exact title above.\n- Issue description cites the correct line number from src/lib.rs.\n- Issue description contains the RFC 8621 \u00a74.1.4 citation.\n- Issue description describes the fix approach and its signature-change implication.",
+  "ephemeral": 0,
+  "id": "JMAP-dcgj.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-mime gap: size uses encoded length not decoded",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:00:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-dcgj.1",
+      "id": "047cd4ec-502f-5ced-bde8-a4ba9d8f956a",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T18:00:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-dcgj",
+      "id": "965c546d-6e81-52e3-9172-30e8c28b585d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

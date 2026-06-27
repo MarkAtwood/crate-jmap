@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "233d371441472855cfacd7843eb48784f100990760869593676e24cf1249664e",
+  "created_at": "2026-05-15T17:21:41Z",
+  "created_by": "Mark Atwood",
+  "description": "The phrase '.expect(\"derive(Serialize) on plain data is infallible\")' appears in event.rs (3x), participant_identity.rs (2x), calendar.rs (2x), helpers.rs (1x) \u2014 8 times in this crate alone. Workspace-wide it appears in 13 files across jmap-calendars-server and jmap-mail-server (5x in email.rs, 4x in memory.rs, 3x in submission.rs and mailbox.rs, etc.) \u2014 roughly 30 occurrences.\n\nEach site is the same pattern:\n  serde_json::to_value(&created_obj).expect(\"derive(Serialize) on plain data is infallible\")\n\nThis is a documented invariant ('plain data + derive(Serialize) cannot fail') with an explanatory message, so the .expect() itself is defensible per workspace AGENTS.md (which forbids unexplained .unwrap()/.expect()). The problem is the duplication: 30 copies of the same explanation in the same crate-family is noise, and a future contributor who changes the invariant (adds a custom Serialize impl, adds a non-stringifiable field) has to track down every site.\n\nIdiomatic fix: add to crate::helpers (and the canonical sibling crate::helpers in jmap-mail-server) a small inline helper:\n    pub(crate) fn to_jmap_value<T: Serialize>(obj: &T) -> Value {\n        serde_json::to_value(obj).expect(\"derive(Serialize) on plain data is infallible\")\n    }\n\nEvery call site becomes 'to_jmap_value(&created_obj)' \u2014 single source of truth for the invariant, single .expect() site to audit if the invariant ever changes. set_error_value (helpers.rs:107) already follows exactly this shape for SetError; the broader pattern just needs the same treatment.\n\nPer the workspace canonical-template rule (AGENTS.md 'Canonical Templates'): fix the canonical jmap-mail-server first, then propagate to all 7 extension-server siblings in the same pass.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Repeated .expect(\"derive(Serialize) on plain data is infallible\") at every /set call site \u2014 should be a helper",
+  "updated_at": "2026-05-15T18:48:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:21:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "90bf2a9d-f82a-5808-aed6-f3c126ade308",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

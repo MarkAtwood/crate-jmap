@@ -1,0 +1,36 @@
+{
+  "acceptance_criteria": "Message/set update with readAt only stores readDisposition: displayed; Message/set update with readAt + readDisposition: deleted stores deleted; Message/set update with readAt + readDisposition: custom-value stores custom-value unchanged; Message/set update without readAt does not inject readDisposition",
+  "assignee": "Mark Atwood",
+  "close_reason": "readDisposition default injection added to augmented patch block; 4 integration tests pass",
+  "closed_at": "2026-05-02T21:01:25Z",
+  "compaction_level": 0,
+  "content_hash": "7287259ef5d4305a3ba89a110d09ad283db645c954b7db9b9b7e8d6c4a5363d1",
+  "created_at": "2026-05-02T15:46:42Z",
+  "created_by": "Mark Atwood",
+  "description": "Update the Message/set update augmentation logic in crate-jmap-chat-server/src/message.rs to inject readDisposition: \"displayed\" when readAt is present in the patch but readDisposition is absent.",
+  "design": "File: crate-jmap-chat-server/src/message.rs\n\nIn the augmented patch block (around line 451), after the existing editedAt and deletedAt injection logic, add:\n\n    // Spec: when readAt is set without readDisposition, default to \"displayed\".\n    if let Some(obj) = augmented.as_object_mut() {\n        if obj.contains_key(\"readAt\") && !obj.contains_key(\"readDisposition\") {\n            obj.insert(\"readDisposition\".to_owned(), json!(\"displayed\"));\n        }\n    }\n\nreadDisposition is NOT added to MESSAGE_READONLY \u2014 it is client-settable per spec. Any value (including extension values) passes through to the backend unchanged; the server only supplies the default.\n\nNo other changes to the handler. The backend stores whatever readDisposition arrives in the patch, same as all other non-server-set fields.",
+  "ephemeral": 0,
+  "id": "JMAP-ypc1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat-server: inject readDisposition default in Message/set update path",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:46:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h8go",
+      "id": "6f30c792-5e22-552a-ba90-2b44190b2cc0",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

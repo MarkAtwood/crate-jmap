@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: MemoryBackend create_object now sets size from serialized JSON byte length instead of leaving placeholder 0; email.rs has explicit backend-contract comment; integration test email_set_create_size_is_nonzero asserts size>0",
+  "closed_at": "2026-05-02T19:30:36Z",
+  "compaction_level": 0,
+  "content_hash": "d00974917af138bb273cc04e5c54c45102e9958ea095e0f07d0455c36ca59659",
+  "created_at": "2026-05-02T19:19:10Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs build_email_from_create sets size=0 as a placeholder and documents that the backend must set the real value. The MemoryBackend create_object does NOT update size \u2014 it stores 0. When Email/set create returns the email object with server-set fields, it echoes back created_obj.size which is 0. RFC 8621 \u00a75.5.3 says size is server-set; if a client reads size from the Email/set response it will see 0. Any test that asserts size > 0 after Email/set create will fail; currently there may be no such test, giving false confidence. Maintenance consequence: the 0-size contract fossilizes as implicit behaviour before it is caught.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.40",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/set create: size=0 placeholder may fossilize as a public API assumption",
+  "updated_at": "2026-05-02T19:30:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:19:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "0426e00f-cccc-50a8-b24b-6317981fe2ec",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

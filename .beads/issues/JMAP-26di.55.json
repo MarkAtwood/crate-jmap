@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Extracted build_chat_push_map(cp, context) -> Result<Map, ClientError> private free function in misc.rs. Both push_subscription_create and push_subscription_update Patch::Set arm now call it. Loop-fusion achieved naturally via single-pass insert-then-check (insert returns Some(old) on collision, replacing the two-pass HashSet idiom).\n\nError message format now identical between the two callers (was 'positional vs implicit format!()' drift before). Behaviour-equivalent on wire shape.\n\ncargo test -p jmap-chat-client green (all 94+ tests). cargo clippy -p jmap-chat-client --all-targets -- -D warnings clean. cargo fmt clean. Committed as 17033be.",
+  "closed_at": "2026-05-15T21:30:06Z",
+  "compaction_level": 0,
+  "content_hash": "1bb74bef117aaaf1483b1138942f2d002fad215e8955e86627dfe8a7e8ab649d",
+  "created_at": "2026-05-15T20:51:21Z",
+  "created_by": "Mark Atwood",
+  "description": "misc.rs:230-249 (push_subscription_create) and misc.rs:327-344 (push_subscription_update) contain near-identical 20-line blocks: HashSet-based duplicate accountId detection, then a second loop that calls serde_json::to_value(config) for each entry and inserts into chat_push_map. Same logic, two callers, same error-formatting string. Engineering basis: DRY \u2014 two copies will drift; the second copy of the duplicate-check accidentally diverged (use of format!() with positional vs implicit). Refactor: extract 'fn build_chat_push_map(cp: &[(&Id, ChatPushConfig)], context: &str) -> Result<serde_json::Map<...>, ClientError>' and call from both sites. The second of the two loops can also be fused into the first (see sibling finding on two-pass iteration).",
+  "ephemeral": 0,
+  "id": "JMAP-26di.55",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat_push duplicate-detection + map-build duplicated between create and update",
+  "updated_at": "2026-05-15T21:30:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:51:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "0a7ceed9-a0ff-5786-91d2-c7f255f67c0a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

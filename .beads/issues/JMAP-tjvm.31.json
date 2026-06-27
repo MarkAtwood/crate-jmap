@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied the sealed-trait pattern to 7 extension-client traits that lacked it: JmapMailExt (canonical), JmapCalendarsExt, JmapTasksExt, JmapContactsExt, JmapFileNodeExt, JmapSharingExt, JmapMetadataExt. jmap-chat-client::JmapChatExt was already sealed pre-existing (via mod sealed::Sealed) \u2014 adopted that exact pattern verbatim for consistency: a private mod sealed { pub trait Sealed {} impl Sealed for ::jmap_base_client::JmapClient {} } block plus a 'pub trait JmapXExt: sealed::Sealed' constraint on the trait declaration. Each trait's rustdoc now carries the canonical 'This trait is **sealed**: implementations outside this crate are not permitted.' note explaining that sealing keeps adding methods to the trait a non-breaking change. Workspace canonical-template propagation rule followed: changed mail-client first, then propagated cookie-cutter to the 6 remaining unsealed siblings in the same pass. Cheap-now-expensive-later fix landed pre-publish per the bead's recommendation; no third-party impls exist outside the workspace today so no caller-side breakage.",
+  "closed_at": "2026-05-17T14:05:45Z",
+  "compaction_level": 0,
+  "content_hash": "c815e2b0cf840a4a05aee44bf2bc278223dddb73003d92a78bd9660238852c3f",
+  "created_at": "2026-05-15T01:56:46Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs:38-43\n\n  pub trait JmapMailExt {\n      fn with_mail_session(&self, session: jmap_base_client::Session) -> methods::SessionClient;\n  }\n\nThe trait is not sealed. A downstream crate can impl JmapMailExt for its own type:\n\n  impl JmapMailExt for MyCustomClient { ... }\n\nThe trait exists solely to attach with_mail_session to jmap_base_client::JmapClient. There is no scenario where a third-party type should implement it \u2014 every JMAP Mail method on SessionClient depends on the concrete jmap_base_client::JmapClient inside SessionClient, so a custom impl can only fake the trait, never actually deliver the methods.\n\nConsequence of unsealed: if a future revision of this crate adds another method to JmapMailExt (e.g. with_mail_session_v2 to take an updated Session shape), every downstream impl breaks. The crate's API contract therefore promises that JmapMailExt's method set is frozen at 0.1.0.\n\nStandard idiom for \"extension trait that should only be implemented by this crate\" is the sealed-trait pattern:\n\n  mod private { pub trait Sealed {} }\n  pub trait JmapMailExt: private::Sealed {\n      fn with_mail_session(...) -> SessionClient;\n  }\n  impl private::Sealed for jmap_base_client::JmapClient {}\n  impl JmapMailExt for jmap_base_client::JmapClient { ... }\n\nAfter sealing, adding methods to JmapMailExt becomes a NON-breaking change (no third party can impl the trait, so no third party breaks).\n\nSame finding applies to the six sibling extension-client crates' Jmap*Ext traits (canonical-template propagation).\n\nRecommendation: seal JmapMailExt before publish. Backward-compatible today (no third-party impls can exist while the crate is path-dep only). Post-publish, unsealing or breaking the seal becomes a major-version change.\n\nPriority P3 because today no callers exist outside the workspace. But this is precisely the kind of immutability commitment that becomes expensive to fix after publish. The fix is cheap NOW and expensive LATER.\n\nMark says NO HUMAN \u2014 Recommendation: add the sealed-trait pattern. Standard Rust API idiom, no design ambiguity.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JmapMailExt trait is unsealed \u2014 third-party impls forbid future trait expansion",
+  "updated_at": "2026-05-17T14:05:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:56:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "f24e7361-6726-5390-a22f-c314d5fd82b7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Ratified as counter-finding to .6: workspace canonical pattern (jmap-types::SetResponse) is HashMap<String, _> for creation-id keys and HashMap<Id, _> for real-id keys. This decides .6 (close as wontfix \u2014 MdnSendRequest.send is correctly String-keyed) and motivates the .11 fix (revert on_success_update_email key type from Id to String). Closing as ratified.",
+  "closed_at": "2026-05-17T15:18:30Z",
+  "compaction_level": 0,
+  "content_hash": "27a0e30179dfce174e2e52aaeb1bf230503559e61af7b86f8f2ffdd68b4d30c3",
+  "created_at": "2026-05-15T04:57:53Z",
+  "created_by": "Mark Atwood",
+  "description": "## Supplement counter-research to bd JMAP-zx3s.6: workspace canonical pattern for creation-id keys is String, not Id.\n\nThe main review filed bd JMAP-zx3s.6 (\\\"MdnSendRequest.send keyed by String, not Id \u2014 type discipline divergence from on_success_update_email\\\"), arguing that \\`MdnSendRequest.send: HashMap<String, Mdn>\\` should be \\`HashMap<Id, Mdn>\\` for consistency with the diff's new \\`on_success_update_email: HashMap<Id, PatchObject>\\`. The reviewer's own calibration explicitly flagged this finding as \\\"least confident\\\" pending verification of the prevailing pattern across the workspace.\n\nThis supplement resolves the uncertainty. The workspace canonical pattern is established in \\`crate-jmap-types/src/methods.rs:282-286\\` (SetResponse):\n\n\\`\\`\\`rust\n/// Failed creates, keyed by caller-supplied creation id.\npub not_created: Option<HashMap<String, SetError>>,   // String for creation-ids\n/// Failed updates, keyed by record id.\npub not_updated: Option<HashMap<Id, SetError>>,       // Id for real ids\n/// Failed destroys, keyed by record id.\npub not_destroyed: Option<HashMap<Id, SetError>>,     // Id for real ids\n\\`\\`\\`\n\nThe pattern is unambiguous: creation-id-keyed maps use \\`String\\`; real-id-keyed maps use \\`Id\\`. The justification is that \\`Id\\` (per \\`crate-jmap-types/src/id.rs:20-29\\`) carries the contract \\\"URL-safe base64 alphabet, max 255 octets\\\" \u2014 creation-id reference syntax (\\`#k1\\`) does not conform and would lie about the type's contract if used as the key.\n\n\\`MdnSendRequest.send\\` keys are creation IDs (clients assign them; the server matches them in the response's \\`sent\\` / \\`notSent\\` maps). They are not real Email IDs. So \\`HashMap<String, Mdn>\\` is correct per workspace canonical pattern, and the .6 recommendation reverses.\n\n### What this means for the wider .6 finding\n\n1. \\`MdnSendRequest.send\\`: \\`HashMap<String, Mdn>\\` is CORRECT \u2014 no change needed. Close .6 as wontfix.\n2. \\`MdnSendResponse.sent\\`: \\`HashMap<String, Mdn>\\` is CORRECT (same creation-id key).\n3. \\`MdnSendResponse.not_sent\\`: \\`HashMap<String, Value>\\` is CORRECTLY keyed but INCORRECTLY typed in its value \u2014 see bd JMAP-zx3s.10 for the SetError typing fix.\n4. \\`MdnSendRequest.on_success_update_email\\`: the diff's choice of \\`HashMap<Id, PatchObject>\\` is the actual divergence \u2014 see bd JMAP-zx3s.11 for the underspecification issue (Id contract vs \\`#creationId\\` references).\n\n### Why I'm filing this as a separate finding rather than commenting on .6\n\nPer the \\`/review-library-supplement\\` template, every finding is filed as a \\`bd create\\` issue under the epic. The counter-research changes the maintainer's correct path forward on .6 (close as wontfix rather than \\\"convert HashMap<String, Mdn> to HashMap<Id, Mdn>\\\"), so it is worth a separate, searchable bead rather than buried inline in .6's comment thread.\n\n### Cross-references\n\n- bd JMAP-zx3s.6 \u2014 original finding this counter-research contradicts.\n- bd JMAP-zx3s.10 \u2014 typed-value fix for not_sent (SetError vs Value).\n- bd JMAP-zx3s.11 \u2014 underspecification of on_success_update_email's Id keys.\n- \\`crate-jmap-types/src/methods.rs:282-286\\` \u2014 workspace canonical SetResponse pattern.\n- \\`crate-jmap-types/src/id.rs:20-29\\` \u2014 Id contract definition.",
+  "ephemeral": 0,
+  "id": "JMAP-zx3s.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Counter-finding to JMAP-zx3s.6: SetResponse canonical pattern uses HashMap<String, T> for creation-id keys \u2014 recommendation reverses",
+  "updated_at": "2026-05-17T15:18:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:57:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zx3s",
+      "id": "16f62579-0801-5053-b9f8-e34743424a58",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:14:52Z",
+  "compaction_level": 0,
+  "content_hash": "dc58c77d79ca1a203d46f16a0d932da0197e6197b804957d5d8f445e912e8d70",
+  "created_at": "2026-05-14T21:51:02Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server has an inline test get_unknown_account_returns_account_not_found (principal.rs:316) for Principal/get, and the dispatcher-level test registers_all_10_methods (lib.rs:419) does NOT pass an unknown accountId. There is no unit test or integration test that asserts Principal/set or ShareNotification/set with unknown accountId returns accountNotFound. As a direct consequence the missing-account_exists bug (bd:JMAP-3t94.1) shipped uncaught.\n\nScenario triggering the cost: a future contributor adds a new sibling extension server by cookie-cutting from this crate. They copy the /set handlers and inherit the missing check. Their test suite passes because they cookie-cut the test files too, none of which assert accountNotFound on /set.\n\nMaintenance consequence: every new sibling repeats the bug. The test-coverage gap is the upstream cause of the propagation.\n\nFix: add two inline tests next to get_unknown_account_returns_account_not_found:\n  - set_unknown_account_returns_account_not_found (Principal/set with create={} on unknown account)\n  - share_notification_set_unknown_account_returns_account_not_found\n\nThen propagate to the canonical jmap-mail-server (which has the check but no test) so future cookie-cuts include the test by default.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Added inline regression tests:\n- src/principal.rs::tests::set_unknown_account_returns_account_not_found\n- src/notification.rs::tests::set_unknown_account_returns_account_not_found\n- src/memory.rs::tests::get_changes_recycled_id_lands_in_created (regression for .3)\n- src/memory.rs::tests::get_changes_create_then_destroy_lands_in_destroyed_only (negative regression for .3)\n\nThe /set tests cover the gap identified in the original bead. The /changes tests document the workspace's choice among the RFC 8620 \u00a75.2 MAY-allowed reportings (destroyed-only for create\u2192destroy; created for create\u2192destroy\u2192create recycled).",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "No test coverage for unknown-account on /set handlers in sharing-server",
+  "updated_at": "2026-05-14T22:14:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:51:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "ef56a491-1ca2-580a-bddf-3c4078ecd7c8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

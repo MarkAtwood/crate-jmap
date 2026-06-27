@@ -1,0 +1,33 @@
+{
+  "close_reason": "Superseded by JMAP-7a8b.7 (same issue, more precise suggested fix)",
+  "closed_at": "2026-05-03T13:02:47Z",
+  "compaction_level": 0,
+  "content_hash": "1aad27d3b981c647adb78d5ef4c522e9b2dd9c03618bcd35288a09ee6b64b9a5",
+  "created_at": "2026-05-03T13:00:23Z",
+  "created_by": "Mark Atwood",
+  "description": "The CRLF validation in handle_mdn_send (step 4) uses 10 consecutive 'if \\!crlf_bad { ... }' blocks. Each block independently checks one optional field. The pattern is O(n_fields) even if a bad field is found early, because the checks fall through (actually they do short-circuit due to the if \\!crlf_bad guard, so this is not a real efficiency issue). The issue is readability more than efficiency \u2014 the 10-block pattern duplicates the same structure 10 times. At scale (if more fields are added) this grows linearly and is easy to miss. Expected impact at scale: minimal (fields are bounded by spec), but the structural problem remains.",
+  "ephemeral": 0,
+  "id": "JMAP-7a8b.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CRLF validation in handle_mdn_send uses 10 if-else blocks instead of iterator short-circuit",
+  "updated_at": "2026-05-03T13:02:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:00:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7a8b",
+      "id": "87754dd8-b002-5d1c-8d7b-bc2b1ec5a603",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added Dispatcher::try_register returning Result<(), DuplicateMethodError>. register kept with expanded doc pointing at try_register. DuplicateMethodError is pub, #[non_exhaustive], Display+Error. Tests pin both paths. Workspace clippy passes \u2014 no downstream migration forced.",
+  "closed_at": "2026-05-14T17:06:25Z",
+  "compaction_level": 0,
+  "content_hash": "eea929d8e73f77f95b8488596f539bfdb83625ce44b816ab8b0ff6b1d937ae8e",
+  "created_at": "2026-05-14T16:36:10Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/lib.rs:168-174 \u2014 Dispatcher::register uses HashMap::insert and silently replaces any existing handler under the same method name. The doc admits this. In the workspace pattern where each extension crate ships a register_*_handlers macro that registers ~10 method names against a Dispatcher, a typo or accidental double-registration (e.g. mail register_mail_handlers + a second register call) silently drops one binding with no diagnostic.\n\nThe maintenance consequence: a future contributor adding a method that collides with an existing one will see their handler never fire, with no compile-time or runtime error pointing at the cause. They will spend time debugging \"why doesnt my handler get called\" and the dispatcher will not help.\n\nRecommendation: change the signature to fn register(...) -> Option<Arc<dyn JmapHandler<CallerCtx>>> returning the previous handler (matching HashMap::insert), or add a fn try_register(...) -> Result<(), DuplicateMethodError> that errors on collision. Either makes the silent-overwrite an explicit choice at the call site.\n\nBackwards-compat: changing the return type from () to Option<Arc<...>> is a breaking change. Could land an additive try_register first, deprecate register, and remove in the next major.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Dispatcher::register silently overwrites on duplicate method name",
+  "updated_at": "2026-05-14T17:06:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:36:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "21a8d283-96f9-5468-9022-069e4cd5540a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b1bcc51f2e1658e2e19af4586af900d282d9bc861f08ec1bd3fa062e28604605",
+  "created_at": "2026-05-15T18:07:01Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-calendars-server/src/backend.rs:679 (CalendarEventGetArgs) and :702 (CalendarEventQueryArgs) both expose `pub time_zone: Option<String>` as part of the public extra-args contract that backend implementations receive.\n\nThe rustdoc says the value is an IANA TimeZoneId (e.g. `America/New_York`, `Etc/UTC`) with a sentinel default of `Etc/UTC` when `None`. But the type is bare `Option<String>`. There are three contract consequences:\n\n1. No compile-time validation that an arbitrary string is a known IANA name. Every backend implementor must duplicate parse-and-validate logic (likely against `chrono-tz` or system tzdata), and there is no way at the trait surface to know whether `Some(\"\")` is rejected, whether `Some(\"UTC\")` aliases to `Etc/UTC`, or whether `Some(\"PST\")` is silently treated as unknown.\n\n2. The canonical sibling jmap-mail-server has ZERO `Option<String>` fields in its public args / params structs (verified by grep across crate-jmap-mail-server/src/). This is a divergence from the canonical extension-server template.\n\n3. A typed wrapper newtype (`TimeZoneId(String)` with `FromStr` doing IANA validation) is the standard fix and is consistent with how the workspace already wraps `Id`, `UTCDate`, `State` etc. The fix is non-breaking only BEFORE the args struct's public surface stabilises.\n\nWhat callers cannot rely on: which strings are accepted at the API boundary vs. routed to the backend, what validation discipline each backend impl applies, and whether two backend impls produce the same answer for the same `time_zone` input.\n\nOnce the args struct ships in a 1.0 release the choice locks. Should be reshaped pre-1.0.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.54",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "CalendarEventGetArgs/QueryArgs.time_zone: Option<String> leaks bare-string IANA tz to public API",
+  "updated_at": "2026-05-15T18:29:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T11:07:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "c79699dd-e682-50b3-ad68-5dc2f352e15d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

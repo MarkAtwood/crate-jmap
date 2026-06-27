@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T12:33:32Z",
+  "compaction_level": 0,
+  "content_hash": "5bc370f7684c895e75fc44f06e38b0fdfdebfe8db3e90f4b2dbc0db35c2e12df",
+  "created_at": "2026-05-15T01:45:28Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8621 \u00a75.1 (rfc8621.txt:3849-3906) defines SearchSnippet/get arguments as\nexactly:\n- accountId\n- filter\n- emailIds  \u2190 only this, no threadIds\n\nThe `threadIds: \"Id[]\"` field at rfc8621.txt:4474 is in \u00a77.3 (EmailSubmission/\nquery FilterCondition), NOT in \u00a75.1 SearchSnippet/get.\n\nCurrent code (src/methods/search_snippet.rs:30-55) takes `thread_ids:\nOption<&[Id]>` and emits `threadIds` on the wire when provided. Comments in\ntests/search_snippet_smoke_tests.rs:4, 10-11, 134 claim \"RFC 8621 \u00a76 allows\nboth\" \u2014 wrong on two counts: (a) SearchSnippet is \u00a75 not \u00a76, and (b) the\nspec does not allow threadIds at all.\n\nImpact: a strict server returns `invalidArguments` per RFC 8620 \u00a73.6.3. A\nlenient server (Stalwart, Cyrus) likely accepts it as a vendor extension.\nThe client API silently exposes a non-portable extension as if it were\nspec, leading consumers to build feature-flag dependencies on a non-spec\nshape.\n\nFix options:\n  (a) Drop the `thread_ids` parameter entirely. Cleanest. Forces callers to\n      resolve threads \u2192 emails via Thread/get first.\n  (b) Keep `thread_ids` but document it as a non-spec extension. Pros:\n      pragmatic. Cons: locks in a non-spec API and consumers will assume\n      portability.\n  (c) Move it to a separate `search_snippet_get_extension_*` shape (or\n      behind a feature flag) so it is impossible to use accidentally.\n\nRecommend (a) for the canonical-template kit, since the kit is supposed to\nbe spec-conformant and downstreams that need the vendor extension can\nbuild it themselves.\n\nWhile fixing, also correct the \u00a76 \u2192 \u00a75 doc citations in\nsearch_snippet_smoke_tests.rs and the \"RFC 8621 \u00a75\" comments in\nsearch_snippet.rs.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "search_snippet_get: thread_ids param is non-spec \u2014 RFC 8621 \u00a75.1 defines only emailIds",
+  "updated_at": "2026-05-17T12:33:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:45:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "ef820588-9fab-5a9a-9c9b-6f5484e1b7fb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

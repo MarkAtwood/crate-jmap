@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in f91f908. Added a demotion-detection pass that runs after the regular create+update+destroy loops in handle_address_book_set. Captures the set of currently-default AddressBook ids ONCE at the top, then re-fetches after the loops and inserts any flipped-to-false entries into the wire 'updated' map. Skips ids that already have authoritative records in 'updated' or 'created'.\n\nPass runs BEFORE the existing onSuccessSetIsDefault block to avoid double-attribution. The pre-existing over-inclusion bug in the onSuccessSetIsDefault block (it inserts books that were never default at the start) is NOT touched here \u2014 out of scope; can be folded into the same machinery later if needed.\n\nThree new integration tests on MemoryBackend exercise:\n- update-with-isDefault: demoted sibling appears in wire updated\n- create-with-isDefault: demoted sibling appears in wire updated\n- regular update without isDefault: 'updated' is NOT polluted with unrelated sibling entries (regression guard)\n\n94+36+1 contacts-server tests pass; workspace clippy + tests + doc clean.",
+  "closed_at": "2026-05-17T10:27:12Z",
+  "compaction_level": 0,
+  "content_hash": "2175cc5cd9780edc252871b89caf2f00c71b82b372b25282ed15ff580eba7310",
+  "created_at": "2026-05-17T10:21:28Z",
+  "created_by": "Mark Atwood",
+  "description": "## Context\n\nThe MemoryBackend (and any conformant backend) now atomically demotes other AddressBooks when an update OR create makes one default (bd:JMAP-qz9v.5 and bd:JMAP-qz9v.11). The wire 'updated' map in AddressBook/set response only reflects the change for the directly-targeted book; demoted siblings are NOT surfaced.\n\nThe onSuccessSetIsDefault block at addressbook.rs:413-440 DOES re-fetch all other books after a successful patch and inserts demoted ones into 'updated'. The regular update path at addressbook.rs:248-281 does NOT. The create path at addressbook.rs:194-223 does NOT.\n\n## Wire consequence\n\nA client that does:\n  AddressBook/set { create: { c1: { isDefault: true, ... } } }\nor:\n  AddressBook/set { update: { ab1: { isDefault: true } } }\n\n\u2026gets a response that ONLY mentions the created/promoted book in 'updated' even though one or more sibling books were just server-demoted to isDefault:false. The client's local cache then thinks both books are still default, in violation of RFC 9610 \u00a72 'MUST NOT be true for more than one'.\n\nThe /changes machinery does report the demotion (the backend records demoted ids in the change_log per bd:JMAP-qz9v.5/.11), but that requires the client to follow up with AddressBook/changes. RFC 8620 \u00a75.3 expects the /set response itself to carry all changes for objects that were modified beyond the client's explicit request.\n\n## Approach options\n\n(a) Handler re-fetches all AddressBooks after each successful create-with-isDefault or update-with-isDefault and inserts demoted ones into 'updated'. Mirrors the onSuccessSetIsDefault pattern at addressbook.rs:422-440.\n\n(b) Backend trait returns Vec<Id> of demoted books alongside the created/updated object. Handler converts the list to /get calls or maintains its own demoted-set. Cleaner backend->handler contract but requires trait change.\n\n(c) Document the gap as a workspace-policy choice ('the server may signal side-effect changes via /changes only; clients SHOULD follow /set with /changes').\n\nRecommendation: (a) \u2014 matches existing onSuccessSetIsDefault pattern, no trait change, localized fix in the handler.\n\n## Scope\n\n- Update create branch in handle_address_book_set to re-fetch siblings after a successful create that set isDefault:true; insert demoted entries into 'updated'.\n- Update update branch similarly.\n- Two integration tests on MemoryBackend exercising the wire 'updated' map contains demoted books for both paths.\n\n## Related\n\n- bd:JMAP-qz9v.5 (closed, MemoryBackend create-side invariant landed)\n- bd:JMAP-qz9v.11 (closed, MemoryBackend update-side invariant landed)\n- onSuccessSetIsDefault path already covers the test in src/addressbook.rs::set_on_success_reports_demoted_book_in_updated",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.57",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Handler: report demoted AddressBooks in wire 'updated' on regular create+update paths",
+  "updated_at": "2026-05-17T10:27:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T03:21:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "7569df39-b1b9-55e7-8827-5da27df2055e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

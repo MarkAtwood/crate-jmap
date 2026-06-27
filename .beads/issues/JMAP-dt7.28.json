@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.28",
+  "title": "expand_url_template: O(n*m) repeated string replacement instead of single pass",
+  "description": "blob.rs lines 33-40: expand_url_template calls result.replace() once per variable, rebuilding the entire string on every iteration. For JMAP templates with 4 variables this rebuilds the string 4 times. The function name 'expand' implies template expansion; a single-pass scan that emits substituted or literal bytes as it goes is both more efficient and reflects the concept directly. Rewrite: scan template byte-by-byte, copying literals and substituting {name} tokens in one pass into a preallocated output buffer.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:13:33Z",
+  "updated_at": "2026-04-30T01:02:46Z",
+  "closed_at": "2026-04-30T01:02:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:13:32"
+    }
+  ]
+}

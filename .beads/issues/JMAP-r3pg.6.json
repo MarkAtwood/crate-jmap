@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T04:36:40Z",
+  "compaction_level": 0,
+  "content_hash": "5e330c3a7322c690073a0560c1946b566c2fb9870925b86e2b8c4b616109f7b3",
+  "created_at": "2026-05-08T03:31:17Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8620 \u00a75.3 paragraph 5: 'Records may have any properties set on them; however, the server SHOULD reject the create with an invalidProperties SetError if any property cannot be set or has an invalid value. [\u2026] The id property MUST NOT be set in the create object.' (paraphrasing \u2014 the spec wording is that id is server-set and any client-provided value is invalid).\n\nsrc/calendar.rs:88-96, src/event.rs:144-151, src/participant_identity.rs:73-81 all use the same pattern:\n\n    let obj_with_id = match obj_val {\n        Value::Object(mut m) => {\n            m.entry(\"id\")\n                .or_insert_with(|| Value::String(\"placeholder\".to_owned()));\n            Value::Object(m)\n        }\n        other => other,\n    };\n\nThis injects a placeholder \"id\" only if the client did NOT supply one. If the client DID supply \"id\": \"client-chosen-id\", the placeholder injection is a no-op and the deserialiser accepts the client's id. The handler then proceeds to call create_object with the client's id baked into the object body \u2014 backends that trust the deserialised struct will store the client-chosen id.\n\nFix: invert the check. If the create payload contains a non-null \"id\" key, reject with invalidProperties citing properties:[\"id\"]. The placeholder injection is needed only because Calendar/CalendarEvent/ParticipantIdentity have a non-Optional id field \u2014 that's a workaround, not a feature. The cleaner fix is to make Id optional during deserialisation of the create payload, but that's a types-crate change; the local fix is to validate in the handler before placeholder injection.\n\nTest gap: no test sends \"id\" in a create entry to verify it's rejected. Add one per type.\n\nThis is a wire-protocol bug, not just an idiom issue: the server is accepting input it MUST reject per the base spec. A second client racing to create an object with the same id could confuse a backend that doesn't dedupe.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Create entries silently accept client-supplied 'id'; RFC 8620 \u00a75.3 requires invalidProperties SetError",
+  "updated_at": "2026-05-08T04:36:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:31:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "303fdb6f-8f29-5970-9ceb-f0e99f7b8b9f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

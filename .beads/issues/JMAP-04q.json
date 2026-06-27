@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-04q",
+  "title": "Review: jmap-server crate",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:43:15Z",
+  "updated_at": "2026-04-30T17:44:48Z",
+  "closed_at": "2026-04-30T17:44:48Z",
+  "notes": "Maintainer risk: LOW \u2014 no security surface, no public API ambiguity. Only gaps are a missing test oracle and a .expect() style issue.\nConfidence: 5% chance of missed bug. Least confident: json_pointer_ext wildcard edge cases at spec boundaries (e.g. nested wildcards) \u2014 not covered by RFC 8620 so probably not exercised in practice. Would raise confidence if: RFC 8620 \u00a73.7 example payloads were added as test vectors.\nIdiom rating: CLEAN \u2014 proper Cow<str>, two-phase atomicity, Arc<dyn Trait> pattern, CallerCtx generics, no unsafe. Only gap is the .expect() in library code (filed).\nRust idiom confidence: 5% chance of missed issue. Least confident flags: HandlerFuture manual Future pinning could use async_trait but current approach is deliberate and object-safe \u2014 not a bug."
+}

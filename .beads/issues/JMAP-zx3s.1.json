@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Workspace AGENTS.md and all extension-types PLAN.md/README.md docs updated to say Other(String) (option A). Verified: all type-crate enums (mailbox.rs, query.rs, submission.rs, calendars/tasks notification.rs, etc.) use Other(String) universally \u2014 code unchanged. Discovered divergence in jmap-chat-client/src/types.rs (ChatMemberRole, BodyType use Unknown(String)); filed as JMAP-zx3s.16 follow-up since it's a separate client-crate divergence outside the doc-policy scope. cargo check --workspace passes.",
+  "closed_at": "2026-05-17T15:04:51Z",
+  "compaction_level": 0,
+  "content_hash": "f8a478b5f1da43af62d8b0363d75b3cf9d44ec328a57cd555a5b1bac09c6d581",
+  "created_at": "2026-05-15T04:46:22Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace AGENTS.md 'Extras-preservation policy for vendor/site fields' section gives this canonical example for forward-compatible result-enum shape:\n\n```rust\n#[non_exhaustive]\n#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]\n#[serde(rename_all = \"camelCase\")]\npub enum MailboxRole {\n    Inbox,\n    Sent,\n    // ... known RFC 8621 \u00a72.1.1 variants ...\n\n    /// Forward-compat catch-all for vendor / site / future-spec roles.\n    /// The wire string is preserved for round-trip.\n    #[serde(other)]\n    Unknown(String),\n}\n```\n\nThe policy text explicitly names `MailboxRole` and uses `Unknown(String)` as the catch-all variant. But the actual `MailboxRole` in crate-jmap-mail-types/src/mailbox.rs:43 declares `Other(String)`, and so does every sibling extension-types crate:\n\n- jmap-mail-types: MailboxRole, Delivered, Displayed, UndoStatus, ComparatorProperty \u2014 all use Other(String)\n- jmap-chat-types: presence.rs, message.rs (\u00d72), chat.rs \u2014 all Other(String)\n- jmap-calendars-types: notification.rs \u2014 Other(String)\n- jmap-tasks-types: notification.rs, task_list.rs, task.rs \u2014 all Other(String)\n\nThis is a workspace-wide consistency gap between the policy doc and the actual canonical code. Two ways to resolve:\n\n(A) Update the workspace AGENTS.md policy text to say `Other(String)` (matches all existing code; zero code churn; existing rustdoc that says 'Other' stays accurate). `#[serde(other)]` already works with any variant name \u2014 the attribute is what matters, not the variant identifier.\n\n(B) Rename every existing `Other(String)` to `Unknown(String)` across all extension-types crates, plus update the impl_string_enum! macro in jmap-types to emit `Unknown` instead of `Other`. This is a public-API breaking change in 14+ crates touching ~10 enums each.\n\nRecommendation: (A). The variant identifier is a Rust-side naming choice that the wire format doesn't see; `Other` is the de-facto pattern across the workspace; `Unknown` would force a downstream-breaking rename for no engineering benefit. The policy doc should match the code.\n\nThis is a workspace-wide decision (touches jmap-types macro definition and every extension-types crate). Filing as a human-decision bead.\n\nCross-reference: workspace AGENTS.md 'Extras-preservation policy for vendor/site fields'.",
+  "ephemeral": 0,
+  "id": "JMAP-zx3s.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Workspace policy says `Unknown(String)` but every extension-types crate uses `Other(String)` \u2014 pick one",
+  "updated_at": "2026-05-17T15:04:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:46:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zx3s",
+      "id": "f19563a6-cf75-55e5-8ff5-f149f9374684",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

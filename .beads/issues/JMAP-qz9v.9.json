@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Test renamed from set_destroy_with_on_destroy_remove_contents_true_proceeds \u2192 set_destroy_with_on_destroy_remove_contents_true_skips_contents_check to reflect its narrow scope (verifies the gate routes around addressBookHasContents under MockBackend). Docstring now points to the address_book_set_destroy_cascade_* integration tests against MemoryBackend that lock in the actual cascade behavior (added in bd:JMAP-qz9v.1). Implementation in commit e40fdb4.",
+  "closed_at": "2026-05-15T10:04:10Z",
+  "compaction_level": 0,
+  "content_hash": "87359e314aa21c1c80ef3f2ca7d68773f6d19243297f45064c17c583391f1aaf",
+  "created_at": "2026-05-14T19:20:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario that triggers the cost: a reviewer or future contributor reads addressbook.rs:451-472, sees a test that says 'with on_destroy_remove_contents_true_proceeds', and concludes that the cascade behavior is verified. It is not.\n\nWhat the test actually does: seeds NO addressbook, sends destroy: ['ab-nonempty'], expects the bypass to make notDestroyed['ab-nonempty']['type'] NOT be 'addressBookHasContents'. Since the mock's destroy_object returns NotFound for any id, notDestroyed['ab-nonempty']['type'] == 'notFound', which trivially passes the assertion. The test gives a green checkmark for a code path it doesn't actually exercise.\n\nMaintenance consequence: the test is now a tripwire-shaped lock-in. A future PR that adds the cascade behavior would not change this test's pass/fail result, so the test does not signal regression progress. Worse, a future PR that BREAKS the bypass (e.g. by accidentally re-introducing the address_book_has_contents check on the on_destroy_remove_contents=true branch) would only fail this test if address_book_has_contents now returns true for an un-seeded book \u2014 which it doesn't with the mock.\n\nThe fix is twofold:\n 1. Rename the test to set_destroy_with_on_destroy_remove_contents_true_skips_contents_check, or similar, to reflect what it actually asserts.\n 2. Add a SEPARATE test that seeds a book + a card pointing at it, runs destroy with on_destroy_remove_contents=true, and asserts the card has its addressBookIds entry removed (or, if last reference, the card is destroyed). This is the test that locks in the cascade behavior the README documents.\n\nCross-reference: the cascade bug itself is JMAP-qz9v.1. This issue is about the test giving false confidence.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Test set_destroy_with_on_destroy_remove_contents_true_proceeds asserts only the bypass, hides the missing cascade",
+  "updated_at": "2026-05-15T10:04:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:20:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "01e54c1b-365b-5d6b-8df6-c73efd1fdc28",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

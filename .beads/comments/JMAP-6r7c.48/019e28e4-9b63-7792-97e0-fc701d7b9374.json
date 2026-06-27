@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T23:48:51Z",
+  "id": "019e28e4-9b63-7792-97e0-fc701d7b9374",
+  "issue_id": "JMAP-6r7c.48",
+  "text": "Escalating to human: public-API breaking change on DownloadBlobParams.expected_sha256 (Option<&str> \u2192 Option<&Sha256>). Same scope-of-decision as JMAP-6r7c.50: 0.1.1 jmap-base-client crate, workspace AGENTS.md says 'Prefer non-breaking changes. Reshape only when the workspace is bumping a major.'\n\nThe reshape is sound on its own merits \u2014 eliminates is_valid_sha256_hex helper, the InvalidArgument(\"expected_sha256 is not 64-char hex\") branch, and the to_ascii_lowercase normalize, replacing them all with the typed Sha256 wrapper's deserialize-time ABNF guarantee. This is exactly the parse-don't-validate posture this crate already adopted for BlobUploadResponse.sha256 in bd:JMAP-v9py.13.\n\nRecommendation: bundle with JMAP-6r7c.50 (UploadBlobParams reshape) and JMAP-6r7c.20 (AuthProvider::auth_header secret-typing) into a single 0.2.0 minor-bump epic. All three are 'pay the SemVer cost once and ratify the type-design discipline' changes; landing them together amortises the version bump and the per-consumer migration effort.\n\nSame caveats as JMAP-6r7c.50: no current workspace consumer calls download_blob with an external String (the test sites are all in this crate). Ripple to jmap-mail-client / jmap-chat-client is zero today."
+}

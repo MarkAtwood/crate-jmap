@@ -1,0 +1,33 @@
+{
+  "close_reason": "Obsolete after JMAP-6lsm.6 refactor: the next_frame match was rewritten with explicit MessageDisposition arms; the redundant 'continue' the bead flagged no longer exists. Resolved by code restructure, not by silencing the lint.",
+  "closed_at": "2026-05-09T07:29:31Z",
+  "compaction_level": 0,
+  "content_hash": "b668403aa4a2db0d538d387e07d7f9f244a7784f980a4b0237a342a4b917bc95",
+  "created_at": "2026-05-08T03:05:49Z",
+  "created_by": "Mark Atwood",
+  "description": "src/ws/mod.rs:94 \u2014 clippy::needless_continue (pedantic) flags `Ok(_) => continue` in a match inside a loop where it is the last arm. The continue is technically redundant; the match would fall through to the next loop iteration anyway. However, the explicit continue documents intent (\"silently skip and keep listening\") which has communicative value. Filing as opinion-tagged. Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "WsSession::next_frame Ok(_) => continue is a redundant continue",
+  "updated_at": "2026-05-09T07:29:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:05:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "003fd24f-c4e0-5a35-91b1-a579200443bc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

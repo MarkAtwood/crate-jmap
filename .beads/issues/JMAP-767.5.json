@@ -1,0 +1,33 @@
+{
+  "close_reason": "not a bug: onSuccessUpdateOriginal is not in RFC 8620/8621; keys are correct per Email/set semantics",
+  "closed_at": "2026-05-01T11:58:42Z",
+  "compaction_level": 0,
+  "content_hash": "5a240bcaede3b1bd04ef451fd284a299f9ea05e2d935e2f5c294aeb06110c361",
+  "created_at": "2026-05-01T11:48:50Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8620 \u00a76.3 says onSuccessUpdateOriginal is a map keyed on the *copy_id* (creation id string from the 'create' map). The handler in email.rs:1357 correctly iterates copied_source_ids and looks up patches by copy_id. That part is correct. However, the implicit Email/set response (email.rs:1407) places the results keyed by source_id (the original email's id from fromAccountId). RFC 8620 \u00a76.3 says the implicit Email/set response should be keyed with the *copy_id* values from the original request. A client correlating which copy-id led to which result cannot do so correctly if the response is keyed by source_id. Trigger: Email/copy with onSuccessUpdateOriginal:{'c1': {...patch...}} where the source email id is 'abc' \u2014 the implicit Email/set 'updated' map will have key 'abc' instead of 'c1', breaking client correlation.",
+  "ephemeral": 0,
+  "id": "JMAP-767.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/copy onSuccessUpdateOriginal key semantics differ from RFC",
+  "updated_at": "2026-05-01T11:58:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:48:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "70865c42-9d6f-5545-b87c-1cfe144de05c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

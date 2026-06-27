@@ -1,0 +1,22 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "edfdb0c67335c708dea592cd18c5fb11eb2353da2b5017850bd3f5168c6f103c",
+  "created_at": "2026-05-15T22:26:35Z",
+  "created_by": "Mark Atwood",
+  "description": "Deep pre-merge review (my-oss mode) of crate-jmap-metadata-types covering all changes since baseline commit 9c0d34f. Three commits in scope: 22c81a3 (scaffold), ff48ff1 (README convention sweep), 67c221d (unpin IETF draft URLs). Output: bd issues under this epic.",
+  "ephemeral": 0,
+  "id": "JMAP-b3wp",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "in_progress",
+  "timeout_ns": 0,
+  "title": "Review: crate-jmap-metadata-types since 9c0d34f",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

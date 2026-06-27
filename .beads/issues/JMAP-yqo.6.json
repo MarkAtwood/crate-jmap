@@ -1,0 +1,33 @@
+{
+  "close_reason": "duplicate of JMAP-yqo.1",
+  "closed_at": "2026-05-02T03:13:23Z",
+  "compaction_level": 0,
+  "content_hash": "eb209565fd12d7e102eae2dd36216e8a638e71a9575956f5df92c0a7d65eec94",
+  "created_at": "2026-05-02T02:54:44Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8621 \u00a75.8 says Email/parse SHOULD support the same properties as Email/get including header: dynamic properties. The handler silently ignores them today (filed as correctness bug JMAP-yqo.1). But the maintainer risk is: any contributor who adds header: support to Email/get will not notice it is missing from Email/parse, and users who request dynamic headers via Email/parse will get silent null values with no error. The surface is public API that users will immediately depend on.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "header: properties not validated or processed in Email/parse \u2014 public API gap",
+  "updated_at": "2026-05-02T03:13:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:54:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "44dd055b-c2be-5332-8ca9-20f130d26a1b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

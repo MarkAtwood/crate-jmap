@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decision record noted",
+  "closed_at": "2026-05-02T21:44:30Z",
+  "compaction_level": 0,
+  "content_hash": "769b167e5d57fa6e9b92db2adf6177f647277c3f1849eeff2c41bff421430c58",
+  "created_at": "2026-05-02T21:40:49Z",
+  "created_by": "Mark Atwood",
+  "description": "Each fixture comment follows the pattern: (MIME structure + keywords), (mailbox), dash, 'exercises' (feature list). This is not decoration \u2014 it serves as a lookup index for anyone writing a new test who needs to find an existing fixture covering a given feature. 16 fixtures cover distinct feature intersections; without this index a contributor has to read each fixture's construction code to understand its purpose. The consistent structure also makes it easy to scan for gaps (e.g., 'which fixture exercises header:name:all?'). A contributor might suggest removing the comments as redundant with the fixture names, but the names are short identifiers (email-6: multi-mailbox) while the comments state the specific fields and behaviors exercised, which the name alone cannot convey. The comments should be kept and the three-part structure should be enforced for any new fixtures added.",
+  "ephemeral": 0,
+  "id": "JMAP-a81m.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Seed fixture comments follow consistent three-part structure: content / placement / what-it-exercises",
+  "updated_at": "2026-05-02T21:44:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:40:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a81m",
+      "id": "64f79405-fd1f-5ad2-8621-2c406f8dd211",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

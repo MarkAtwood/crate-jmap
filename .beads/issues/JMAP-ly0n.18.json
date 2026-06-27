@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in ab4804f (batch). See commit message for per-bead details.",
+  "closed_at": "2026-05-16T03:27:41Z",
+  "compaction_level": 0,
+  "content_hash": "9a04515898109e488d69742f38b32e89fb1d029d9dffb624bd7edc2a302430a6",
+  "created_at": "2026-05-16T02:48:30Z",
+  "created_by": "Mark Atwood",
+  "description": "SECTION: Documentation as contract\n\nCONTRACT RISK\nTwo HashMap<String, _> fields on Message do not document what the\nString key represents:\n\n  src/message.rs  Message.reactions: HashMap<String, Reaction>\n                  /// The `reactions` property (draft-atwood-jmap-chat-00 \u00a74.11).\n\n  src/message.rs  Message.delivery_receipts: Option<HashMap<String, DeliveryReceipt>>\n                  /// The `deliveryReceipts` property (draft-atwood-jmap-chat-00 \u00a74.11).\n\nFor both, the doc comment cites the spec section but does NOT tell a\ncaller what the key is. Looking at the test fixtures:\n\n  reactions:         \"r1\" => Reaction { emoji, senderId, sentAt, ... }\n  delivery_receipts: \"u1\" => DeliveryReceipt { deliveredAt, readAt, ... }\n\nThe keys appear to be a reaction id and a recipient ChatContact id\nrespectively, but neither the spec citation nor the field doc\nmakes that explicit.\n\nWHAT BREAKS FOR CALLERS\n- A caller writing `for (key, reaction) in &msg.reactions` cannot\n  tell whether `key` is the reaction id (for lookup operations), the\n  emoji (for grouping), the sender id (for who-reacted lookup), or\n  something else. They guess wrong and either pass the wrong value\n  into another JMAP method or silently miss data.\n- For delivery_receipts, a caller writing per-recipient UI cannot\n  tell whether the key is a SenderId-shape value (\"self\" or\n  ChatContact.id), or a raw ChatContact.id, or an Account id, or\n  something else. The semantics around the \"self\" sentinel\n  (JMAP-ly0n.1) compound this \u2014 the key's relationship to SenderId\n  matters but is not documented.\n- Iterating in a stable order is not possible; the doc does not\n  state whether iteration order matters per spec. (HashMap iteration\n  order is intentionally random in Rust.)\n\nWHY THIS IS API-CONTRACT, NOT JUST A DOC NIT\nThe fields are `pub` HashMap with a public key type of String. The\nkey semantics are part of the API contract whether the maintainer\nwants them to be or not. Callers will eventually pin behaviour to\ntheir guess at what the key means; once they ship, the maintainer\ncannot retroactively change the contract without breaking them.\n\nRECOMMENDED RESOLUTION\nAdd a single doc sentence to each field naming the key shape, with\na spec citation. Example shape (matching what the test fixtures imply):\n\n  /// The `reactions` property (draft-atwood-jmap-chat-00 \u00a74.11).\n  ///\n  /// Map key: the server-assigned reaction id (an [`Id`] string in\n  /// JMAP terms; kept as `String` so the JSON object's natural key\n  /// shape is preserved). Iteration order is not specified.\n\n  /// The `deliveryReceipts` property (draft-atwood-jmap-chat-00 \u00a74.11).\n  ///\n  /// Map key: the recipient's `ChatContact.id` (per the spec, the\n  /// account owner's own receipt \u2014 if present \u2014 is keyed by the\n  /// \"self\" sentinel; see [`SenderId`] for the latitude on that\n  /// sentinel).\n\nOptionally, change the key type to `Id` where the spec says the\nkey is an id \u2014 but the wire format requires String keys in JSON\nobjects, so the doc is the more sustainable fix.\n\nORACLE\ndraft-atwood-jmap-chat-00 \u00a74.11 (Message); existing field-doc style\nelsewhere in the same struct (every other field carries a spec\ncitation).",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "HashMap<String, _> fields do not document what the key represents (Message.reactions, Message.delivery_receipts)",
+  "updated_at": "2026-05-16T03:27:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:48:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "91c330be-fb36-5d93-8c3b-49f33d279b07",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

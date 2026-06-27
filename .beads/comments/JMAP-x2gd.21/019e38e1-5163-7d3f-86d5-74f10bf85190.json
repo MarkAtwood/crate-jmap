@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T02:19:11Z",
+  "id": "019e38e1-5163-7d3f-86d5-74f10bf85190",
+  "issue_id": "JMAP-x2gd.21",
+  "text": "Duplicate of JMAP-x2gd.14 (8 *_READONLY string lists across handlers) which was already reclassified as workspace-canonical at JMAP-x2gd.87. The latter is human-labeled awaiting workspace-arch decision (option 1: trait method, option 2: proc-macro, option 3: separate patch type per data type).\n\nWhen JMAP-x2gd.87 is resolved, the chosen mitigation will land across all 8 sites in chat-server plus the parallel sites in mail-server (and likely all 7 other extension-server siblings). Closing this bead as duplicate of the workspace-canonical sweep."
+}

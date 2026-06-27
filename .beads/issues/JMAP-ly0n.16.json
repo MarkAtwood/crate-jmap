@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in 93bdf82 (option-b doc-only fix): new vocabulary.rs module exports four canonical const slices (SPEC_PERMISSION_NAMES, SPEC_CHAT_MEMBER_ROLES, SPEC_CHANNEL_PERMISSION_TARGET_TYPES, SPEC_EPHEMERAL_DATA_TYPES). Five affected fields' doc-comments now cite the spec section and the vocabulary const. The bead's option (a) (full typed-enum retype, plus chat-server permissions.rs / chat-client ChatMemberRole consolidation) is tracked at bd:JMAP-do5p as a workspace sweep epic.",
+  "closed_at": "2026-05-16T03:21:02Z",
+  "compaction_level": 0,
+  "content_hash": "dd88ff90bf7660774b790d13346aff6f8b9e06f096a32eaa0d99aa6350a5ef74",
+  "created_at": "2026-05-16T02:47:47Z",
+  "created_by": "Mark Atwood",
+  "description": "SECTION: Contract underspecification\n\nCONTRACT RISK\nA family of fields across chat-types carry spec-enumerated wire\nvocabularies but are typed as plain String / Vec<String> with no doc\npointer to the enumeration. Callers cannot get compiler-checked\nidentifiers, IDE completion, or exhaustive-match safety:\n\n  src/chat.rs    SpaceRole.permissions: Vec<String>          (perm names)\n  src/chat.rs    ChannelPermission.target_type: String       (kind tag)\n  src/chat.rs    ChannelPermission.allow: Vec<String>        (perm names)\n  src/chat.rs    ChannelPermission.deny:  Vec<String>        (perm names)\n  src/chat.rs    ChatMember.role: String                     (role name)\n  src/space_set.rs  RolePatch.permissions: Option<Vec<String>>   (perm names)\n  src/ephemeral.rs  ChatStreamEnable.data_types: Vec<String>     (stream-tag names)\n\nEach one has spec-defined valid values\n(draft-atwood-jmap-chat-00 \u00a74.9, \u00a74.12, \u00a74.15;\n draft-atwood-jmap-chat-wss-00 \u00a77.1). The test code in space_set.rs\nand chat.rs uses values like \"chat:read\", \"chat:write\",\n\"send_message\", \"manage_channels\", \"ban\", \"role\" \u2014 clearly drawn from\nan enumeration.\n\nThis is the same pattern flagged by the mode prompt for two narrow\nfields:\n  - JMAP-ly0n.11: ChatPushConfig.urgency + mention_urgency\n  - JMAP-ly0n.3:  ChatPresenceEvent.presence\n  - JMAP-ly0n.4:  ChatTypingEvent.sender_id\n\n\u2026but those findings did not cover the permission/role/data-type\nfields above. This is the systemic API-contract pattern: the crate\nhas a perfectly good idiom (impl_string_enum! macro used by\nDeliveryState, ReadDisposition, ChatKind, Presence) but does not\napply it to permission vocabularies.\n\nWHAT BREAKS FOR CALLERS\n- Typos in permission names (\"send_messages\" vs \"send_message\") are\n  not compile errors; they silently produce inert permission entries\n  that the server will likely 4xx but the caller cannot easily catch\n  with unit tests.\n- Refactoring callers that store a \"permission vocabulary cache\"\n  cannot use Rust's type system to enforce vocabulary correctness.\n- IDE / rust-analyzer cannot suggest valid values.\n- Cross-crate consumers (jmap-chat-client, jmap-chat-server,\n  jmap-testjig) end up duplicating const &str arrays as their own\n  vocabulary canon \u2014 the type crate should be that canon.\n\nThe doc strings give zero contract: \"The `allow` property\n(draft-atwood-jmap-chat-00 \u00a74.15)\" tells callers to read the spec.\nThat's an underspecified contract.\n\nWHY NOT FIX TODAY\nThe fields are on the wire as JSON strings, so the typed enum needs an\nOther(String) catch-all per workspace extras policy. The macro\ninfrastructure (impl_string_enum!) exists. The blocker is that the\ntype-crate AGENTS.md says \"field names must match spec drafts\nexactly\" \u2014 the typed-enum approach would still serialise to the same\nstrings, so this is purely a Rust-side type-safety win without a\nwire-format change. There is no design tension preventing the\nconversion.\n\nRECOMMENDED RESOLUTION\nTwo options, in order of preference:\n\n(a) Define typed enums backed by impl_string_enum! for each\n    vocabulary: ChatPermission, ChannelPermissionTargetType,\n    ChatMemberRole, EphemeralStreamDataType. Mirror the existing\n    DeliveryState / ReadDisposition / ChatKind shape including an\n    Other(String) catch-all per workspace extras policy.\n\n(b) If (a) is judged premature pending draft-01 stabilisation, at\n    minimum: add a doc line on each affected field pointing to the\n    spec section that enumerates the valid values AND reference an\n    associated module-level const &[&str] listing the currently\n    spec-known values for caller-side validation.\n\nORACLE\ndraft-atwood-jmap-chat-00 \u00a74.9, \u00a74.12, \u00a74.15; existing\nimpl_string_enum! usage in chat-types for DeliveryState,\nReadDisposition, ChatKind, Presence; workspace extras-preservation\npolicy for \"wire-format result string enums\".",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Permission/role/data-type vocabulary fields are stringly-typed without spec-enum reference in docs",
+  "updated_at": "2026-05-16T03:21:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:47:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "7b87f029-0d51-5093-8661-f5fdc7bc3269",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

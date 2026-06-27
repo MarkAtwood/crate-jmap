@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-5xe.3",
+  "title": "download_blob/upload_blob buffer entire body before size-cap check",
+  "description": "Both download_blob and upload_blob call resp.bytes().await (which buffers the full body into one Bytes allocation) before comparing against the configured size cap. With Content-Length absent or lying, a server sending 200 MiB will cause a 200 MiB allocation before the 64 MiB cap is enforced. The Content-Length early-exit is an optimization only. Streaming read with a manual byte cap would prevent OOM. This is a real OOM window at the library's documented limit boundary.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:27:14Z",
+  "updated_at": "2026-04-30T17:31:37Z",
+  "closed_at": "2026-04-30T17:31:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-5xe",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:27:14"
+    }
+  ]
+}

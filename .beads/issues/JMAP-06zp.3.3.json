@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T21:27:36Z",
+  "compaction_level": 0,
+  "content_hash": "fd80b8d96bec304199e3afff7dfc95af36255c1aac07a4c6aa7155af925a99c4",
+  "created_at": "2026-05-11T21:14:12Z",
+  "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "description": "Implement the five Metadata method handlers per draft-ietf-jmap-metadata-01 \u00a73:\n\n- handle_metadata_get (\u00a73.2) \u2014 thin wrapper over jmap_server::handlers::handle_get::<Metadata, B>\n- handle_metadata_changes (\u00a73.3) \u2014 CUSTOM: \u00a73.3 adds filterRelatedType:String|null and filterMetadataType:String[]|null arguments beyond the standard /changes. Filtering applies to the returned created/updated/destroyed arrays but NOT to the state token. Must consume these args before delegating to handle_changes, then post-filter the response arrays.\n- handle_metadata_set (\u00a73.1) \u2014 Standard /set with full create/update/destroy semantics. Cookie-cut from handle_principal_set in jmap-sharing-server. Backend reports server-side uniqueness, maySetPrivate gating, quota, and relatedType validation via BackendSetError::SetError (alreadyExists / forbidden / overQuota / invalidProperties). Handler is generic \u2014 does NOT enforce semantics itself.\n- handle_metadata_query (\u00a73.4) \u2014 thin wrapper over jmap_server::handlers::handle_query::<Metadata, B>\n- handle_metadata_query_changes (\u00a73.5) \u2014 thin wrapper over jmap_server::handlers::handle_query_changes::<Metadata, B>\n\nInline #[cfg(test)] unit tests using a minimal MockBackend (cookie-cut from sharing-server's test_support pattern). Oracle for each test: cite spec section in doc comment.\n\n## Acceptance\n- cargo test -p jmap-metadata-server (unit tests pass)\n- cargo clippy -p jmap-metadata-server -- -D warnings clean\n- cargo doc -p jmap-metadata-server --no-deps clean\n- All 5 method handler doc comments cite the relevant draft-ietf-jmap-metadata-01 section\n- handle_metadata_changes correctly filters created/updated/destroyed by filterRelatedType and filterMetadataType when present; state token remains unfiltered per \u00a73.3\n\n## Out of scope\n- Memory backend (.3.4)\n- Real cross-handler integration tests against memory backend (.3.4)\n\n## Depends on\nJMAP-06zp.3.2",
+  "ephemeral": 0,
+  "id": "JMAP-06zp.3.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement Metadata/* method handlers in metadata.rs",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T14:14:26Z",
+      "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+      "depends_on_issue_id": "JMAP-06zp.3.2",
+      "id": "53cf1799-2924-5879-8288-92e192025bdb",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T14:14:12Z",
+      "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+      "depends_on_issue_id": "JMAP-06zp.3",
+      "id": "d7c05215-b2cb-5bdd-b5fd-22c793050646",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

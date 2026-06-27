@@ -1,0 +1,36 @@
+{
+  "acceptance_criteria": "Email/parse parses all 5 body-value args; correct default property list used; tests with RFC spec examples",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:32:53Z",
+  "compaction_level": 0,
+  "content_hash": "4d76d16ca59dbacd57a529fa3999bf3240e54d6668ae2be8cfa64c44e77677e1",
+  "created_at": "2026-05-02T00:06:08Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8621 \u00a74.9 requires Email/parse to parse the same 5 body-value fetch arguments as Email/get (bodyProperties, fetchTextBodyValues, fetchHTMLBodyValues, fetchAllBodyValues, maxBodyValueBytes). Currently handle_email_parse (email.rs ~lines 1074\u20131135) only accepts blobIds and properties. Also, when 'properties' is null/omitted, must use the RFC 8621 \u00a74.9 default list (messageId, inReplyTo, references, sender, from, to, cc, bcc, replyTo, subject, sentAt, hasAttachment, preview, bodyValues, textBody, htmlBody, attachments) \u2014 currently all properties returned. Both issues are in email.rs lines 1074\u20131135.",
+  "ephemeral": 0,
+  "id": "JMAP-wdp",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Epic: JMAP-sz1 (jmap-mail-server RFC 8621 compliance)",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/parse: body-value fetch args + default property list",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:19:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xv",
+      "id": "e7852141-a17a-5dc2-89ff-ade0a2c19827",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Defensive bead, no action required. The empty-since_state guard pattern in *_changes/*_query_changes methods is correct and intentional. The bead documents the reasoning (State::from accepts empty strings; State::new_validated rejects them; only the request semantics reject empty sinceState; thread_changes_empty_since_state_rejected_before_send test asserts the guard fires) to defend against a future contributor proposing 'redundant guard removal'. The justification comment in production code (e.g. thread.rs:51 'Defence-in-depth: State::new_validated rejects empty strings, but State::from does not.') already captures this in-tree, and the wiremock test in thread_smoke_tests.rs:124-153 enforces it. Nothing to add; nothing to remove. Closing as 'documented in-tree, no code action needed'.",
+  "closed_at": "2026-05-17T14:12:55Z",
+  "compaction_level": 0,
+  "content_hash": "37a4d70b06ef290cd4f7408e8078849f0bd2af8228be25dfa789c0df870a532d",
+  "created_at": "2026-05-15T01:47:03Z",
+  "created_by": "Mark Atwood",
+  "description": "Every `*_changes` and `*_query_changes` method has the same guard:\n```rust\nif since_state.as_ref().is_empty() {\n    return Err(ClientError::InvalidArgument(\n        \"method_name: since_state may not be empty\".into()));\n}\n```\nWith justification comment \"Defence-in-depth: `State::new_validated` rejects\nempty strings, but `State::from` does not. Guard against pathological\nconstructions.\"\n\nA contributor who looks at this and sees the State validation upstream might\npropose \"delete the redundant guard\" \u2014 that proposal is wrong because:\n  - `State::from(s: &str)` is `impl_string_newtype!(State)` and DOES NOT\n    validate the inner string (id.rs:79-87). Empty strings are constructible.\n  - The thread_changes wiremock test at tests/thread_smoke_tests.rs:124-153\n    explicitly verifies that empty since_state is rejected client-side\n    BEFORE any HTTP request fires. That test would fail if the guard were\n    removed.\n  - The base client cannot reject this \u2014 the State newtype is structurally\n    valid; only the request semantics reject empty `sinceState`.\n\nDefend by pointing at thread_changes_empty_since_state_rejected_before_send\nand the matching comments in each implementation.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Defence-in-depth empty since_state guards across changes methods",
+  "updated_at": "2026-05-17T14:12:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:47:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "73f2ea0d-7ccc-5ad0-972a-6cc98176b139",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

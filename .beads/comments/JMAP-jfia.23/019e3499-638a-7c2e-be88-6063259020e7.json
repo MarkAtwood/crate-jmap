@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T06:22:08Z",
+  "id": "019e3499-638a-7c2e-be88-6063259020e7",
+  "issue_id": "JMAP-jfia.23",
+  "text": "Ratifying the 2026-05-14 'defer to major-bump' recommendation per workspace AGENTS.md 'When NOT to file human' anti-pattern #2 (deferred+human). The recommendation has stood ~48h with no human pushback; the bead's owner-authored conclusion was 'park this until a concrete major-bump driver exists', which is the definition of 'deferred', not 'human owes a decision'. Removing human, adding deferred. The bead remains open and tracked; bd-spin's autonomous frontier will skip it; a future major-bump epic can pick it up by querying label:deferred parent:JMAP-jfia."
+}

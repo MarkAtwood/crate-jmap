@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "cargo check -p jmap-chat-client passes; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:48:06Z",
+  "compaction_level": 0,
+  "content_hash": "90a4f2e0b3c13bc1479513c1fb21d8f278f4603ba2f775da27c7d318e70da849",
+  "created_at": "2026-05-04T15:06:18Z",
+  "created_by": "Mark Atwood",
+  "description": "WHAT: Port all Space method implementations from ~/PROJECT/crate-jmapchat-client/src/methods/space.rs. Methods: space_get, space_changes, space_destroy, space_query, space_query_changes, space_create, space_join, space_update. Type: jmap_chat_types::Space. Returns SpaceJoinResponse for space_join. DEFENSIVE: No unwrap(). ACCEPTANCE: cargo check passes; clippy clean",
+  "ephemeral": 0,
+  "id": "JMAP-h8io",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-client: methods/space.rs \u2014 Space/* methods",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T11:29:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w",
+      "id": "4c6ba251-c8e9-58f4-bc2a-c7a085bf6168",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T08:07:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ds04",
+      "id": "76e188ed-d459-5063-9b21-4361361c5b6d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T08:07:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s1ei",
+      "id": "ec14b8b8-f65c-567e-a7e5-63ae3ecef879",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

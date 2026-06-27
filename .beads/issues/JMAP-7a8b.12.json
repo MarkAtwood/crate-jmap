@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decision recorded: batch email fetch before mdnsent check is correct design",
+  "closed_at": "2026-05-03T13:08:17Z",
+  "compaction_level": 0,
+  "content_hash": "7d76bf79cfbdcd0ed087203a1755e6f46c2884dc75ebe778817040cadf46bc20",
+  "created_at": "2026-05-03T13:01:04Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mdn_send step 5 batch-fetches ALL referenced emails in ONE get_objects call, then checks  locally. An obvious simplification would be to check  in the backend.send_mdns call itself. That would require N round-trips to the backend. The current design is correct: one get_objects call for all email IDs, O(1) local map lookups for . Defend if a contributor suggests moving the check into send_mdns.",
+  "ephemeral": 0,
+  "id": "JMAP-7a8b.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Batch email fetch before  check \u2014 correct design to avoid N backend round-trips",
+  "updated_at": "2026-05-03T13:08:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:01:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7a8b",
+      "id": "2219fea6-0cfb-5003-9a8f-57aeb583dbd8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

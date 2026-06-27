@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Re-parented to workspace-wide rustdoc sweep epic JMAP-ibyi per the bead's 'one sweep PR' framing + canonical-template rule.",
+  "closed_at": "2026-05-18T01:57:44Z",
+  "compaction_level": 0,
+  "content_hash": "27117301019827d9291e74133ec3b9b9999e476ec3fb08698a46c4357b23080b",
+  "created_at": "2026-05-14T04:25:33Z",
+  "created_by": "Mark Atwood",
+  "description": "cargo clippy -p jmap-chat-server --all-features -- -W clippy::pedantic surfaces three doc-comment lint families at high volume:\n\n- 93 doc_markdown / item in documentation is missing backticks \u2014 type names, method names, and crate names mentioned in doc-comments without backtick quoting. Example: a doc comment mentioning ChatBackend reads as English text in cargo doc instead of as a linked identifier.\n- 49 missing_errors_doc \u2014 pub fn returning Result without a \"# Errors\" section in its rustdoc. Required by clippy's docs guidance and by the workspace's stated intent to publish a kit (downstream consumers reading the rustdoc want to know what each error variant means).\n- 11 missing_panics_doc \u2014 pub fn that may panic (.unwrap(), .expect(), explicit panic!) without a \"# Panics\" section. Critical for the kit's public surface because consumers calling into MemoryBackend (the only pub-surface .expect()s in the crate live there) need to know the panic preconditions.\n\nSite distribution (rough, from the clippy output):\n- backend.rs, lib.rs: bulk of missing_errors_doc (the handler-registration surface)\n- memory.rs: bulk of missing_panics_doc (the .lock().unwrap() and .expect() sites)\n- across all .rs files: doc_markdown is uniformly distributed\n\nThree lints; one sweep PR; one bead so the work shows up on a single sprint. The fix is mechanical:\n1. Wrap identifiers in backticks in doc comments (sed-able for many sites; some require judgment to distinguish identifier-mentioned-as-identifier from identifier-mentioned-as-English-word).\n2. Add \"# Errors\" sections enumerating the SetError / BackendSetError variants each fn can return.\n3. Add \"# Panics\" sections to MemoryBackend methods that hold std::sync::Mutex (poison-panic if a previous holder panicked) and to the .expect()s tagged 'OS CSPRNG must be available' etc.\n\nPer workspace AGENTS.md \"Canonical Templates\": check jmap-mail-server for the same pattern density before sweeping; the rustdoc-quality gap is likely workspace-wide and a one-shot sweep across all 30+ crates is the efficient form. The propagation epic JMAP-76wm (workspace README convention sweep, closed) shows the workspace already accepts this kind of cross-crate doc polish.\n\nWhat goes wrong if left: this is the kind of pre-publish polish that publishers always wish they did before 1.0. RUSTDOCFLAGS=--cfg docsrs -D warnings cargo +nightly doc (the workspace's documented pre-publish gate per workspace AGENTS.md's RustCrypto Contribution Workflow) does not yet check pedantic doc lints but reviewers do read rustdoc and unbacktick'd identifiers look amateurish in a published API.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.56",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "rustdoc polish sweep: 93 missing-backticks, 49 missing-Errors, 11 missing-Panics under clippy::pedantic",
+  "updated_at": "2026-05-18T01:57:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T21:25:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "5d7cbfea-8fee-508f-a1cb-dc6fd96c095c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

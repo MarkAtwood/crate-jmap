@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T18:53:28Z",
+  "id": "019e1863-171b-7e00-9a79-ec1fa77abdbb",
+  "issue_id": "JMAP-lbdy.1",
+  "text": "Closed. Added `pub extra: serde_json::Map<String, Value>` with the canonical attributes to 8 wire-shaped Deserialize structs: GetResponse<T>, ChangesResponse, SetResponse<T>, QueryResponse, QueryChangesResponse, AddedItem (methods.rs), JmapRequest, JmapResponse (wire.rs). Each gets one round-trip preservation test (vendor field survives deserialize/serialize). Two empty-extras tests prove byte-identical wire shape when extras absent. SetError already carried an extra field as the original precedent \u2014 its HashMap\u2192Map migration tracked separately as JMAP-lbdy.11. ResultReference deferred (bead said out-of-scope due to recursive-on-T uncertainty). cargo test --workspace 1645 passing (+10 new tests). cargo clippy --workspace -- -D warnings clean. cargo doc -D warnings clean. PLAN.md updated with Type-design constraints section."
+}

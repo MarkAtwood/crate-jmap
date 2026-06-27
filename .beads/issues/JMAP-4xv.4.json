@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-4xv.4",
+  "title": "MailboxFilterCondition.parent_id uses Option<serde_json::Value> in public API",
+  "description": "parent_id: Option<serde_json::Value> preserves the three-way absent/null/id distinction without a custom deserializer, but exposes serde internals in a public API type. Backend implementors must pattern-match on raw Value::Null vs Value::String. Doc comment explains the choice. Alternative: a dedicated enum ParentIdFilter { Absent, Null, Id(Id) } with custom Deserialize, or serde deserialize_with. Not urgent but is a leaky abstraction.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:58:08Z",
+  "updated_at": "2026-05-01T03:08:29Z",
+  "closed_at": "2026-05-01T03:08:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-4xv",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:58:07"
+    }
+  ]
+}

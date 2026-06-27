@@ -1,0 +1,33 @@
+{
+  "close_reason": "Extracted parse_base_url helper. JmapClient::new now reads as four facts (parse, validate config, build transport, construct Self) rather than a six-step inline procedure. Validation rules + PASS/FAIL examples in the helper's doc-comment. No public-API change; existing tests pass.",
+  "closed_at": "2026-05-09T07:36:26Z",
+  "compaction_level": 0,
+  "content_hash": "31a345ccdb454b44a10124e8d4634494b75236f12aa8d8a691a3cf6e4b596877",
+  "created_at": "2026-05-08T03:07:09Z",
+  "created_by": "Mark Atwood",
+  "description": "src/client.rs:151-197 \u2014 the constructor does six sequential validation passes (empty / parse / scheme / path / query / fragment / config.validate / build_client) inline before constructing Self. The validations are correct but the function reads as a procedure rather than 'parse, don't validate'. Idiomatic alternative: a private `fn parse_base_url(s: &str) -> Result<url::Url, ClientError>` returning a fully-validated Url, called from new() as one expression. Combined with config.validate() into a single 'preflight' step, the constructor body shrinks to ~5 lines. Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JmapClient::new validation logic is 30+ lines of stringy URL checks",
+  "updated_at": "2026-05-09T07:36:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:07:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "27279729-e667-5d05-af5f-c01a69493a9f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

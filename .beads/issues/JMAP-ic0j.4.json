@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T17:47:36Z",
+  "compaction_level": 0,
+  "content_hash": "e6847df9626a8a2c994fa464fe16189a132fab12c108505188eb44fbb8dea473",
+  "created_at": "2026-05-15T16:55:49Z",
+  "created_by": "Mark Atwood",
+  "description": "backend.rs:260-265 \u2014 CalendarsBackend::calendar_has_events returns 'impl Future<Output = bool>'. No Result. A backend that has a transient storage failure has exactly two options:\n\n1. Return false \u2192 handler proceeds to destroy_object, which itself can detect the storage failure and produce serverFail. BUT the calendarHasEvent guard is bypassed: if events DO exist but the read failed, the destroy proceeds, the events are silently orphaned (or destroy_object itself fails for a different reason), and the client sees inconsistent state.\n\n2. Return true \u2192 silently blocks a legitimate destroy and the client gets a misleading calendarHasEvent error that hides a real transient backend issue.\n\nCompare against the canonical jmap-mail-server (e.g. mail-server backend.rs:200-217, MailBackend::blob_exists) which uses Result<bool, Self::Error> with documented rationale: 'Returning Ok(false) for a transient backend failure is a bug: it surfaces as a deterministic-looking error and the client will not retry.'\n\nThis is a canonical-template divergence: the calendars-server signature was written without that lesson, so it now ships an API that cannot signal storage failure correctly. Same shape error as the original mail-server blob_exists shape before d87d482 widened it.\n\nFix: change to '-> impl Future<Output = Result<bool, Self::Error>> + Send'. Handler calendar.rs:252 maps Err to serverFail SetError on the destroy entry. This is an API break on CalendarsBackend, so it bundles with the next CallerCtx-class change window (the JMAP-g7wu pattern). It is not P0 because today every backend returns 'false' (the default in MemoryBackend at memory.rs:806-812 reads HashMap and can't fail), and the bool signature is consistent with no in-tree backend overriding it. Becomes urgent the first time a production backend wants to do an async DB query here.\n\nAlso: the doc comment on calendar_has_events (backend.rs:254-259) does NOT document the 'what does false really mean' question and does not warn implementors against silently swallowing errors. Whether or not the signature changes, this needs a 'must not silently swallow' paragraph.\n\nP1 because the wrong signature on a freshly-shipped public trait method is the cookie-cutter-consistency regression that the canonical-template rule exists to catch BEFORE consumers depend on it.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "calendar_has_events returns bool, swallows transient backend errors",
+  "updated_at": "2026-05-15T17:47:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T09:55:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "c461c02b-5026-5125-9b3e-cf8cb126ad8f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

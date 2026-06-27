@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T23:44:34Z",
+  "id": "019e3853-c22f-781f-9273-e10bdc6f6055",
+  "issue_id": "JMAP-ops7.32",
+  "text": "Closed by commit ca0e6d5.\n\nHoisted wiremock (9 \u2192 1 spec), criterion (3 \u2192 1 spec), tracing (2 \u2192 1 spec),\ntracing-subscriber (2 \u2192 1 spec) to workspace root [workspace.dependencies].\nUpdated 13 inline call sites to use `{ workspace = true }`.\n\nVerification:\n- `cargo tree --workspace --edges normal,build,dev | sort -u` produces a\n  byte-identical 502-line resolved tree before and after the change.\n- `cargo check --workspace` and `cargo test --workspace` pass.\n- `cargo clippy --workspace -- -D warnings` clean.\n\nNo version skew was introduced because none existed pre-change. The new\ncontributor onboarding path is now: 'wiremock = { workspace = true }' by\ndefault for any new client crate's dev-dependencies."
+}

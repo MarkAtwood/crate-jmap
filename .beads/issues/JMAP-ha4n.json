@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a7c6e14486da3ab305ccd548f68d074220b5db5400fb6bdd5bd66df47f53a357",
+  "created_at": "2026-05-16T19:21:15Z",
+  "created_by": "Mark Atwood",
+  "description": "Surfaced incidentally during bd:JMAP-ayoz.41.1 workspace rustdoc check.\n\n\\`RUSTDOCFLAGS=\\\"-D warnings\\\" cargo doc --workspace --no-deps\\` fails with:\n\n\\`\\`\\`\nerror: unresolved link to \\`BackendChangesError::CannotCalculate\\`\n  --> crate-jmap-sharing-server/src/principal.rs:36:7\n36 | /// [\\`BackendChangesError::CannotCalculate\\`] (bd:JMAP-jfia.31) to\n\nerror: unresolved link to \\`BackendChangesError::CannotCalculate\\`\n  --> crate-jmap-sharing-server/src/principal.rs:303:7\n303 | /// [\\`BackendChangesError::CannotCalculate\\`] (bd:JMAP-jfia.31) which\n\\`\\`\\`\n\nThe type lives in jmap_server::backend::BackendChangesError. Either qualify the intra-doc link to \\`jmap_server::BackendChangesError::CannotCalculate\\` or bring the type into scope via \\`use jmap_server::BackendChangesError;\\` near the top of principal.rs.\n\nVerified pre-existing via \\`git stash\\` + standalone cargo doc against main.\n\n## Acceptance\n\n- crate-jmap-sharing-server/src/principal.rs:36 and :303 doc links resolve\n- \\`RUSTDOCFLAGS=\\\"-D warnings\\\" cargo doc -p jmap-sharing-server --no-deps\\` clean\n- \\`RUSTDOCFLAGS=\\\"-D warnings\\\" cargo doc --workspace --no-deps\\` clean (no other regression introduced)",
+  "ephemeral": 0,
+  "id": "JMAP-ha4n",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Pre-existing: jmap-sharing-server rustdoc broken-intra-doc-links at principal.rs:36, :303",
+  "updated_at": "2026-05-16T19:21:15Z"
+}

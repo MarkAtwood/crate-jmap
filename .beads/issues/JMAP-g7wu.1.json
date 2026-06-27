@@ -1,0 +1,33 @@
+{
+  "close_reason": "All 9 child beads complete. The CallerCtx mega-PR landed atomically across the 8 server crates (foundation jmap-server + canonical jmap-mail-server + 6 propagation siblings) plus folded-in JMAP-r3pg.14 extract_account_id reshape. JmapBackend now has type CallerCtx: Clone + Send + Sync + 'static; every backend method takes caller: &Self::CallerCtx first; every handle_* signature takes caller: &B::CallerCtx as second positional arg; every register_*_handlers function takes Dispatcher<B::CallerCtx>. ~129 handler functions, ~80 extract_account_id call sites, 9 register_* macros, 14 backend trait impls all coordinated. Quality gates: cargo fmt clean, cargo clippy --workspace --all-targets --all-features -- -D warnings clean, cargo test --workspace --all-features all passing, RUSTDOCFLAGS=-D warnings cargo doc --no-deps --workspace clean. Unblocks JMAP-g7wu.2.4.",
+  "closed_at": "2026-05-11T16:24:41Z",
+  "compaction_level": 0,
+  "content_hash": "e292db36f6501024c39d979e6b8f833e02a9ae7a2a182a73ca3049224ca9d769",
+  "created_at": "2026-05-11T00:05:48Z",
+  "created_by": "Mark Atwood",
+  "description": "Currently the four extension *Backend traits (jmap-mail-server, jmap-contacts-server, jmap-sharing-server, and the ClosureHandler in jmap-server) do not forward CallerCtx through to the backend. Adding the parameter is a public-API breaking change.\n\nAffected sites:\n- crate-jmap-server/src/lib.rs:271 (ClosureHandler)\n- crate-jmap-mail-server/README.md:255 (MailBackend)\n- crate-jmap-contacts-server/README.md:201 (ContactsBackend)\n- crate-jmap-sharing-server/README.md:183 (SharingBackend)\n\nAll four sites describe the change as 'deferred to a future version' but have no bead tracking. Filing this epic makes it visible.\n\nPer the canonical-template propagation rule in workspace AGENTS.md, the four crates must change together (or one canonical leads and the others follow within the same release window).\n\nThis is a 0.2.0-class change but should be tracked as active work, not deferred.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "EPIC: CallerCtx forwarding through *Backend traits (4 server crates)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:05:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu",
+      "id": "9c678c71-54aa-5304-a4b1-c809268f0f49",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

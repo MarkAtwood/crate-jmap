@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-04q.3",
+  "title": "Two-phase atomic resolve_args and Dispatcher panic isolation are well-designed",
+  "description": "The two-phase atomicity in resolve_args (collect all resolutions read-only, then apply mutations) is correct and should be preserved \u2014 a naive single-pass approach would partially mutate args on failure. The tokio::task::spawn panic isolation in Dispatcher::dispatch is also correct and should not be changed to a direct .await \u2014 a panic in a handler would abort the connection task without it.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:43:52Z",
+  "updated_at": "2026-04-30T17:44:47Z",
+  "closed_at": "2026-04-30T17:44:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-04q",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:43:51"
+    }
+  ]
+}

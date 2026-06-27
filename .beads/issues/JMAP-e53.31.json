@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:54:58Z",
+  "compaction_level": 0,
+  "content_hash": "d7ced83d130320478d847bc8a9db63e66f48f97780eca4de142a063a953a926d",
+  "created_at": "2026-05-02T00:44:16Z",
+  "created_by": "Mark Atwood",
+  "description": "process_create inserts DeliveryStatus::new(\"250 OK\", Delivered::Yes, Displayed::Unknown) into the submission object before any actual SMTP send occurs. EmailSubmission/get will therefore return delivered: \"yes\" for submissions that may be queued or failed. A contributor adding async delivery will not notice this must be initialized to Delivered::Queued; the incorrect initial state is invisible.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "process_create sets delivery_status to Delivered::Yes before actual delivery",
+  "updated_at": "2026-05-02T00:54:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:44:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "21aa5474-ac79-5244-8723-dba15179de01",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

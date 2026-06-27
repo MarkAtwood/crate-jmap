@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-kjt",
+  "title": "Finish jmap-mail-types: missing RFC 8621 types",
+  "description": "jmap-mail-types has all 6 core RFC 8621 object types (Email, Mailbox, Thread, Identity, EmailSubmission, SearchSnippet) with fixtures and passing tests. Missing: query filter/sort types needed by jmap-mail-server, VacationResponse object, keyword constants, EmailSubmission filter, PLAN.md, and review loop.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:04:54Z",
+  "updated_at": "2026-04-30T04:38:11Z",
+  "closed_at": "2026-04-30T04:38:11Z"
+}

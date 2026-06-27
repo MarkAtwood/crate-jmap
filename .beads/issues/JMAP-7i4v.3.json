@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "principal_get_availability implemented. \"id\" key verified. Tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created principal_availability.rs with principal_get_availability method; 4 unit tests (guard, id key vs principalId, showDetails absent, USING_AVAILABILITY URIs); 32 total pass; clippy clean",
+  "closed_at": "2026-05-05T15:40:25Z",
+  "compaction_level": 0,
+  "content_hash": "c65aaf2ce6b499faee0fbacf0615ef4938f3d9334760af3fd7fd5c574a778292",
+  "created_at": "2026-05-05T02:55:36Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-calendars-client/src/methods/principal_availability.rs implementing principal_get_availability on SessionClient. Oracle: draft-ietf-jmap-calendars-26 \u00a72.2.\n\n**Signature:**\npub async fn principal_get_availability(&self, principal_id: &str, utc_start: &str, utc_end: &str, show_details: Option<bool>, event_properties: Option<&[&str]>) -> Result<PrincipalGetAvailabilityResponse, ClientError>\n\n**Algorithm:**\n1. Create principal_availability.rs and add pub mod principal_availability to mod.rs.\n2. Guards: principal_id.is_empty() \u2192 InvalidArgument; utc_start.is_empty() \u2192 InvalidArgument; utc_end.is_empty() \u2192 InvalidArgument.\n3. session_parts() \u2192 (api_url, account_id).\n4. Build args: accountId, id (NOT principalId \u2014 spec \u00a72.2 uses \"id\"), utcStart, utcEnd; conditionally add showDetails and eventProperties.\n5. build_request(\"Principal/getAvailability\", args, USING_AVAILABILITY).\n6. call_internal \u2192 extract_response.\n7. Unit tests: empty principal_id \u2192 InvalidArgument; request uses \"id\" key (not \"principalId\"); show_details:None \u2192 absent from request; using contains principals:availability URI.\n\n**Acceptance criteria:**\n- principal_id:\"\" returns Err(InvalidArgument).\n- Request uses \"id\" key per spec \u00a72.2 (NOT \"principalId\").\n- using contains \"urn:ietf:params:jmap:principals:availability\".\n- cargo test -p jmap-calendars-client exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-7i4v.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement principal_get_availability method on SessionClient (\u00a72.2)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:56:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v.1",
+      "id": "d2e16e05-9481-5c70-bd99-efe1d7b1fc9a",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:55:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v",
+      "id": "e70a9209-16fc-546d-b14c-b5ffae91c884",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

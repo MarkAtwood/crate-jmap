@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added doc example showing typical call-site usage",
+  "closed_at": "2026-05-02T22:04:35Z",
+  "compaction_level": 0,
+  "content_hash": "347dbc5a1063e41c9683d60651afaa11205104d1fe9227c0748cbc2fc8a1ec8b",
+  "created_at": "2026-05-02T21:57:36Z",
+  "created_by": "Mark Atwood",
+  "description": "The doc for check_known_capabilities says 'map any Err to an HTTP 400 response using request_error'. RFC 8620 \u00a73.6.1.1 example shows the error detail includes the unrecognised URI. The doc gives no guidance on how to construct that detail. A contributor reading this doc will call request_error(err) directly and produce a detail-less response. The gap between the doc's instruction and RFC conformance is invisible without also reading response.rs \u2014 the call chain is documented nowhere as a unit.",
+  "ephemeral": 0,
+  "id": "JMAP-kgyn.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "doc example for check_known_capabilities doesn't show how to populate detail",
+  "updated_at": "2026-05-02T22:04:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:57:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-kgyn",
+      "id": "dad78eca-c07f-5aac-93f4-cd2fb822d32b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

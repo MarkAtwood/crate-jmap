@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8c9f2410dce8998396bcf20f777023cff21ea60c7372090470a625a75d28a3f1",
+  "created_at": "2026-05-15T01:01:50Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: callers want to express CalendarEventFilterCondition AND/OR another condition, or NOT a condition (RFC 8620 \u00a75.5 Filter algebra). The shipped signatures are filter: Option<&CalendarEventFilterCondition> (src/methods/event.rs:154) and filter: Option<&NotificationFilterCondition> (src/methods/event_notification.rs:138) \u2014 bare conditions only, no FilterOperator wrapper. The canonical sibling jmap-mail-client uses filter: Option<serde_json::Value> (crate-jmap-mail-client/src/methods/email.rs:143), which permits compound filters at the cost of typing. Consequence: every caller that needs a compound filter is blocked on an API break. jmap-types::Filter<T> already exists (crate-jmap-types/src/query.rs:104) so accepting Option<&Filter<CalendarEventFilterCondition>> is a typed alternative. Decide before 0.1.x ships widely: typed Filter wrapper (preferred \u2014 matches the workspace's typed-from-day-one stance) or align with the mail-client serde_json::Value shape. Picking neither and shipping is the worst option \u2014 the next caller will file an issue and we'll break the API.",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "calendar_event_query and calendar_event_notification_query filter param locks out compound AND/OR/NOT",
+  "updated_at": "2026-05-15T01:01:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:01:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "fd0c31f4-7c62-5f73-9b7c-06139d66156d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

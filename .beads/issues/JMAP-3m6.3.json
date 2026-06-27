@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.3",
+  "title": "connect_ws: uppercase WS:// bypasses scheme guard, yields WebSocket err not InvalidArgument",
+  "description": "connect_ws checks starts_with(\"ws://\") and starts_with(\"wss://\") (lowercase only). A URL \"WS://host/\" or \"WSS://host/\" does not match either prefix, so the function falls through to into_client_request(), which returns a tungstenite error (ClientError::WebSocket) rather than ClientError::InvalidArgument. The doc comment says 'Returns ClientError::InvalidArgument if the URL scheme is not ws:// or wss://', but that contract is violated for uppercase-scheme inputs. The SSRF guard is then also absent for uppercase-scheme HTTP URLs like \"HTTP://host/\".",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:54:04Z",
+  "updated_at": "2026-04-30T02:08:40Z",
+  "closed_at": "2026-04-30T02:08:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:54:03"
+    }
+  ]
+}

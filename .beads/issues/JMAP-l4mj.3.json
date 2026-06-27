@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:38:07Z",
+  "compaction_level": 0,
+  "content_hash": "c3bdc3cef0ca53da6112015432b1cb31d3c0ef956066deebaed2da9ae9719e3d",
+  "created_at": "2026-05-04T19:33:32Z",
+  "created_by": "Mark Atwood",
+  "description": "In Step B of activation machine: if deactivating old active script fails (storage error), code falls through to activate new script, potentially leaving two active scripts. Fix: check not_updated for the deactivate target after the deactivate attempt; if error, skip the activate step.",
+  "ephemeral": 0,
+  "id": "JMAP-l4mj.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve_set: deactivate failure should abort activate step",
+  "updated_at": "2026-05-04T19:38:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T12:33:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-l4mj",
+      "id": "b34dd597-b390-542b-8c8a-5b1357724190",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

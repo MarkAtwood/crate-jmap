@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T06:07:26Z",
+  "compaction_level": 0,
+  "content_hash": "b59e6c8ab31e6047e03a24a99e56723a4acc7131101e21d5f8915cfb783b0765",
+  "created_at": "2026-05-01T05:49:17Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8621 \u00a74.8 specifies that the Email/import 'created' map contains objects with only 'id', 'blobId', 'threadId', and 'size'. The handler calls serde_json::to_value(&email) which serializes the full Email object (including mailboxIds, keywords, receivedAt, subject, etc.) and then injects the id. This violates the spec's explicit list of four fields and could expose data the client did not expect in this response slot. Fix: build the created entry explicitly with those four fields only, same pattern as Email/set create.",
+  "ephemeral": 0,
+  "id": "JMAP-2qp.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/import created response returns full Email not just 4 server-set fields",
+  "updated_at": "2026-05-01T06:07:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-04-30T22:49:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-2qp",
+      "id": "d88f6c15-9b1a-5e66-8422-b6e1bae37d16",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

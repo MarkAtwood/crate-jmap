@@ -1,0 +1,33 @@
+{
+  "close_reason": "Resolved by 13d3253 (JMAP-ly0n.15): the README's promised shape {type_name, payload} is now the actual code shape. The README/code mismatch is closed by aligning the code, not the docs (matching the README's preservation-policy intent per workspace AGENTS.md \u00a76).",
+  "closed_at": "2026-05-16T03:02:29Z",
+  "compaction_level": 0,
+  "content_hash": "7e7253e523bf37d6bf0777681aad1a8956130c5ad5fa018a9c3b581de7dd43da",
+  "created_at": "2026-05-16T02:36:48Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: a downstream consumer reads the README of jmap-chat-types and writes a match arm for EphemeralMessage::Unknown { type_name, payload }.\n\nBad behavior: code does not compile, because in crate-jmap-chat-types/src/ephemeral.rs:122-124 the Unknown variant is a unit variant attached via #[serde(other)]:\n\n    /// Any `@type` not recognized by this version of the library.\n    #[serde(other)]\n    Unknown,\n\nBut crate-jmap-chat-types/README.md:97 promises:\n\n    EphemeralMessage::Unknown { type_name, payload }\n    ... Callers must handle this variant; match exhaustion without it will not compile.\n\nTwo real consequences:\n1. The README claim that the unknown variant carries the type-name and payload is false. As written, the raw payload of an unknown @type is dropped on deserialize \u2014 there is no round-trip preservation for unknown EphemeralMessage variants. Compare to ChatKind / DeliveryState / ReadDisposition which carry Other(String) and round-trip the wire value verbatim.\n2. The README's claim about non-compiling match arms is technically true (Unknown is a variant), but for the wrong reason and with the wrong shape.\n\nFix: pick one and align both:\n(a) keep the unit variant but rewrite the README to match (and accept the loss-of-payload trade), OR\n(b) reshape Unknown to a struct variant that captures the unknown @type and payload (requires a custom Deserialize impl since #[serde(other)] doesn't support carrying the discriminant). Option (b) matches the rest of the crate's 'preserve everything' policy and matches the README claim.\n\nPriority P1: documentation lies about behavior, but the actual deserialize path doesn't panic, it silently drops. This is exactly the kind of thing the workspace extras-preservation policy was meant to prevent \u2014 losing data because the type model can't represent it. The fact that Section 6 of the workspace AGENTS.md spends ~50 lines on extras-preservation as 'workspace policy is preservation' makes EphemeralMessage::Unknown's silent-drop a policy gap worth closing.",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README documents EphemeralMessage::Unknown as struct variant; code defines it as unit variant",
+  "updated_at": "2026-05-16T03:02:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:36:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "2aae4b28-9346-5872-9f16-a9c47f6b62cc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

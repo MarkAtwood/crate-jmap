@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T21:39:49Z",
+  "compaction_level": 0,
+  "content_hash": "4922c791b28128c76ad33df00a427a3a4a1a44dbddd1003195bbc2a1ebc94c3a",
+  "created_at": "2026-05-14T20:55:49Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/filenode.rs:860-874 (handle_filenode_copy account-existence checks).\n\n```rust\nif !backend.account_exists(caller, &from_account_id).await? {\n    return Err(JmapError::account_not_found());\n}\nif !backend.account_exists(caller, &account_id).await? {\n    return Err(JmapError::account_not_found());\n}\n```\n\nBoth checks return the same generic `accountNotFound` error type.\nRFC 8620 \u00a75.4 defines TWO distinct error types for a `Foo/copy` call:\n\n> \"fromAccountNotFound\": The \"fromAccountId\" does not correspond to a\n> valid account.\n> \"fromAccountNotSupportedByMethod\": The \"fromAccountId\" given\n> corresponds to a valid account, but the account does not support\n> this data type.\n> \"accountNotFound\" (inherited from \u00a73.6.2): The accountId does not\n> correspond to a valid account.\n\nA client receiving `accountNotFound` cannot tell whether their\nsource or destination account is the problem. For `fromAccountId`\nthe error type should be `fromAccountNotFound`, not\n`accountNotFound`. For account-exists-but-unsupported, the error\ntype should be `fromAccountNotSupportedByMethod` \u2014 but there is no\nsupport-check path because `supports_type` is unused by this crate\n(see bd:JMAP-510h.34 / .43).\n\nConcrete impact:\n\n- A monitoring/logging stack that classifies JMAP errors by type sees\n  source-account misconfiguration as \"account does not exist\", with\n  no way to distinguish \"the source they gave us is bogus\" from \"the\n  destination they're trying to write to is bogus\". Operators get\n  paged for the wrong thing.\n- A client UX layer that renders different messages for \"your source\n  is bad\" vs \"your destination is bad\" cannot do so based on the\n  error type \u2014 it must parse the surrounding response context.\n\nRequired fix:\n\n1. Replace `JmapError::account_not_found()` for the from-side check\n   with a new `JmapError::from_account_not_found()` (define on\n   jmap_types::JmapError per RFC 8620 \u00a75.4 error table). This is a\n   foundation change at the canonical jmap-types crate, propagated\n   through every Foo/copy handler across the workspace.\n2. Wire `supports_type::<FileNode>()` on the from-side (separately\n   from the unconditional registration covered by .43) so a backend\n   that opts out of the type can return\n   `fromAccountNotSupportedByMethod` rather than ambiguous\n   `accountNotFound`.\n\nPropagation: this is a foundation-level issue. jmap-mail-server's\nEmailSubmission/copy and any future Foo/copy handler will hit the\nsame gap. Fix the foundation first per the workspace canonical-\ntemplate propagation rule.\n\nLABELS: api-contract, leakage, spec",
+  "ephemeral": 0,
+  "id": "JMAP-510h.58",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_filenode_copy returns 'accountNotFound' for both fromAccountId and accountId; RFC 8620 \u00a75.4 defines distinct error types",
+  "updated_at": "2026-05-14T21:39:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:55:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "4ad0023c-d663-549d-b9e3-11ed8f225794",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

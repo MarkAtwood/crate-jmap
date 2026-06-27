@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already defended: mailbox.rs lines 714-730 have extensive comments explaining the two-pass strategy, role-swap atomicity, and why the two passes are needed.",
+  "closed_at": "2026-05-04T15:44:43Z",
+  "compaction_level": 0,
+  "content_hash": "eff215ad7a8de3630c50db149077f043d03dd751fe81803b743b5c3f13f3ecc5",
+  "created_at": "2026-05-02T03:27:13Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs handle_mailbox_set: the two-pass update strategy (pass 1 = role-vacating patches, pass 2 = role-claiming patches) correctly handles the case where a single request needs to swap roles between two mailboxes (A vacates inbox, B claims inbox). Without this, map iteration order could cause B to fail because A has not yet vacated. The roles_actually_vacated set tracks only successfully-vacated roles, so a failed vacate does not release the role to a subsequent claim in the same request. This is a non-obvious correctness property that a future contributor might 'simplify' by removing the two-pass structure. Defend it.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Two-pass Mailbox update loop handles role swap atomically",
+  "updated_at": "2026-05-04T15:44:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:27:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "f61c6146-a979-55f7-83bd-260b510a9d28",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

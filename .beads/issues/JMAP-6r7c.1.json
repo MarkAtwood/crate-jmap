@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T23:45:54Z",
+  "compaction_level": 0,
+  "content_hash": "2d1eeb740e609eecf33a4bd89b59414841d5365f5e11a0bdd30e32246852c563",
+  "created_at": "2026-05-14T23:08:15Z",
+  "created_by": "Mark Atwood",
+  "description": "fetch_session (client.rs:279), call (client.rs:333), and upload_blob (blob.rs:262) all call resp.bytes().await which buffers the entire response body into memory BEFORE checking the size cap. The Content-Length pre-check at lines 274/328/254 fires only when the server actually sends Content-Length AND it exceeds the limit. A hostile or compromised server that sends chunked Transfer-Encoding without Content-Length, or that under-reports Content-Length, forces the client to allocate up to whatever the server actually sends before the per-byte check fires.\n\nTrigger: server sends 1 GiB body with chunked encoding and no Content-Length, against a fetch_session call whose limit is 1 MiB.\nBehavior: client allocates ~1 GiB in resp.bytes().await, then the post-buffer check at client.rs:280 returns ResponseTooLarge. Memory is reclaimed after the check, but the peak allocation already occurred \u2014 sufficient to OOM-kill the client on low-memory devices.\n\nThis is precisely the pattern the author got RIGHT in download_blob (blob.rs:372-385): bytes_stream() + per-chunk accumulation + per-chunk cap check. The comment at blob.rs:368-371 explicitly says 'This prevents buffering a response that exceeds the limit when Content-Length is absent or lying \u2014 without this, resp.bytes().await would buffer the full response before the check could fire.' The same comment justifies treating the other three paths the same way.\n\nThreat model: matters when connecting to untrusted servers (federation peers, third-party JMAP services, DNS-hijacked endpoints, MITM scenarios). Less acute against Fastmail-style trusted servers, but defense-in-depth.\n\nFix: replicate download_blob's bytes_stream() pattern in fetch_session, call, and upload_blob. The Content-Length pre-check is still useful as a fast-path rejection for honest oversized responses but cannot be relied on as the only guard.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "fetch_session/call/upload_blob buffer entire body before size cap check (DOS vs hostile server)",
+  "updated_at": "2026-05-14T23:45:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:08:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "cc059baf-7d36-5b03-87ef-276a21422cfd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

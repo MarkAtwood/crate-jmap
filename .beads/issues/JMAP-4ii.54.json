@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T05:01:31Z",
+  "compaction_level": 0,
+  "content_hash": "abda5c9b7bf0070c22569930c97c5c3fc5202514005f4b1c426c3b25bb6d422b",
+  "created_at": "2026-05-02T04:19:47Z",
+  "created_by": "Mark Atwood",
+  "description": "In the update echo path (chat.rs:461, space.rs:456), when update_object returns Ok(Some(obj)), the code does serde_json::to_value(&obj).unwrap_or(Value::Null). If serialization fails, the entry is silently inserted as null \u2014 indistinguishable from Ok(None) (no server-side modifications). The correct behavior mirrors the create path: unwrap_or_else(|e| json!({\"type\": \"serverFail\", \"description\": e.to_string()})). With derived Serialize the error is near-impossible in practice, but the fallback semantics are wrong and will mislead future readers about what null means in the updated map. mailbox.rs uses .and_then(|o| serde_json::to_value(o).ok()).unwrap_or(Value::Null) \u2014 equally wrong. All update echo paths should use the create-side error-surfacing pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.54",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "update echo: serde_json::to_value(&obj).unwrap_or(Value::Null) silently swallows serialization error",
+  "updated_at": "2026-05-02T05:01:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:19:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "30e3396b-eeac-56e8-9caa-af7563b128dc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

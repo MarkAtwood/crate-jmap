@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-05T01:47:31Z",
+  "compaction_level": 0,
+  "content_hash": "9f8825ba602ab7cb85d24bdf9e87489dfd2b59cb8409810e3df1642945f5f779",
+  "created_at": "2026-05-05T01:44:08Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-ydip.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "write src/lib.rs with JmapFileNodeExt trait",
+  "updated_at": "2026-05-05T01:47:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:44:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ydip",
+      "id": "c0503ce8-e09c-520a-bb5c-c5f2ffe75e21",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

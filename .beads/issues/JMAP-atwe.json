@@ -1,0 +1,43 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Single-line doc fix landed at 726f258. Workspace audit confirmed no sibling *-server crates carried the same stale prescription; mail-server backend.rs:230 was the only occurrence workspace-wide. All gates green (cargo fmt / clippy -D warnings / test --workspace / RUSTDOCFLAGS=-D warnings doc).",
+  "closed_at": "2026-05-17T06:27:22Z",
+  "compaction_level": 0,
+  "content_hash": "0f4745752736171fb08b3152324bbaac585f2aac78c53eab6dad4dbea3c8353e",
+  "created_at": "2026-05-17T06:24:33Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src/backend.rs:230 \u2014 the import_email trait method's doc-comment error-mapping table prescribes:\n\n    | `Err(BackendSetError::Other(e))` | `notCreated[creationId] = { type: \"serverFail\", description: <e.to_string()> }` |\n\nThis is the exact wire-leak pattern that bd:JMAP-jfia.1 closed for the BackendChangesError path: interpolating the backend's Display output into the wire `description` field can leak credentials, blob bytes, internal paths, or PII embedded in downstream errors (e.g. Postgres errors that include the offending row, S3 errors that include the bucket+key, Redis errors that include the connection URI with embedded auth, tracing-instrumented errors with span attributes).\n\nThe actual implementations in email.rs:1178, mailbox.rs:610, identity.rs:283, sieve.rs:433, submission.rs:483, etc. correctly use `server_fail_value_from_backend(&e)` \u2014 the helper from jmap-server::handlers that drops the Display string and substitutes SERVER_FAIL_INTERNAL_DESC. So no live leak exists. But the trait-doc prescription is the canonical guidance future contributors will follow when adding new backend methods or new mail-server modules.\n\nFix: replace the table row at backend.rs:230 with:\n\n    | `Err(BackendSetError::Other(e))` | `notCreated[creationId] = server_fail_value_from_backend(&e)` (description = \"internal error\", per bd:JMAP-wlip.2 / bd:JMAP-jfia.1 redaction contract) |\n\nAudit every other `Err(BackendSetError::Other(e))` row in the trait docs in this crate:\n- import_email (backend.rs:230)\n- any other trait method's doc-table that prescribes the same pattern\n\nSweep the canonical-template propagation per workspace AGENTS.md: jmap-mail-server is the canonical extension-server template, so the same audit must run against jmap-chat-server, jmap-calendars-server, jmap-tasks-server, jmap-contacts-server, jmap-filenode-server, jmap-sharing-server, jmap-metadata-server backend.rs trait docs.\n\nDiscovered during /do-beads JMAP-jfia investigation of JMAP-jfia.36 (BackendSetError redaction contract). The .36 comment claimed mdn.rs:462-466 had a live leak; on inspection it does not (uses server_fail_from_backend correctly). The actual leak risk lives in the stale trait-doc prescription, not the implementations.\n\nPriority P1 because the stale doc is the most likely path to introducing a future leak in mail-server or any sibling extension-server. Same severity class as bd:JMAP-jfia.1 (defence-in-depth gap, not live exploit).",
+  "ephemeral": 0,
+  "id": "JMAP-atwe",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Discovered while investigating JMAP-jfia.36. See that bead's 2026-05-15 comment for the original (incorrect) leak claim and this bead's description for the corrected analysis.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-mail-server backend.rs:230 trait doc prescribes BackendSetError::Other leak that the actual implementation correctly avoids",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T23:25:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia.1",
+      "id": "1dfeb0d6-81c6-5329-bdae-461023ba3c9f",
+      "metadata": {},
+      "type": "relates-to"
+    },
+    {
+      "created_at": "2026-05-16T23:25:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia.36",
+      "id": "b70676c0-056f-5579-8ac9-040ae79b5411",
+      "metadata": {},
+      "type": "relates-to"
+    }
+  ]
+}

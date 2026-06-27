@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: removed redundant static HashSet; single linear scan through IMMUTABLE_EMAIL_FIELDS (n=23)",
+  "closed_at": "2026-05-02T19:30:44Z",
+  "compaction_level": 0,
+  "content_hash": "5213ba09607b8ec403ee5fbf42a36af1014dcd6b6ced0a5ff40bd01afee99bdf",
+  "created_at": "2026-05-02T19:18:25Z",
+  "created_by": "Mark Atwood",
+  "description": "find_immutable_patch_key (crate-jmap-mail-server/src/helpers.rs:83-111) uses a static HashSet for the O(1) contains check, but then does a second O(n) linear scan through IMMUTABLE_EMAIL_FIELDS to obtain the &'static str to return. n=21 so the absolute cost is negligible, but the pattern is inconsistent: either return the canonical string from a HashMap<&str, &'static str> built alongside the existing HashSet (one lookup, one allocation at init), or accept that a 21-element scan is fast enough and remove the HashSet. The current dual-structure is confusing without buying anything.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_immutable_patch_key: O(n) linear scan after O(1) HashSet hit",
+  "updated_at": "2026-05-02T19:30:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "1113ca1e-47c5-5709-8134-10798496dc15",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

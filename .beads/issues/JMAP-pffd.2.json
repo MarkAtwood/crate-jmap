@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Doc build verified passing. Intra-doc link is fine. Closing.",
+  "closed_at": "2026-05-02T22:16:39Z",
+  "compaction_level": 0,
+  "content_hash": "52417ce7a0b28d4d5d34ddb42a2edd676c0128b2dae9d77c8adf9d05cd7a3245",
+  "created_at": "2026-05-02T22:14:22Z",
+  "created_by": "Mark Atwood",
+  "description": "The doc comment on unknown_capability_with_detail contains 'Use this in preference to [unknown_capability()][Self::unknown_capability]'. Linking to a deprecated item in rustdoc can produce a 'deprecated in use' warning depending on rustdoc version and lint settings. If RUSTDOCFLAGS=-D warnings is in CI this will break the doc build. The link should either be removed now that the function is deprecated, or a #[doc(hidden)] or explicit allow should suppress the lint.",
+  "ephemeral": 0,
+  "id": "JMAP-pffd.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Verified: RUSTDOCFLAGS=-D warnings cargo doc --no-deps -p jmap-types completes without warnings. Current rustdoc does not lint links to deprecated items. Finding stands as a future-proofing concern only.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "intra-doc link to deprecated fn may trigger rustdoc lint in unknown_capability_with_detail doc",
+  "updated_at": "2026-05-02T22:16:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:14:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-pffd",
+      "id": "9e0e90d2-f8a3-5d80-bb35-9d5f180e0540",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

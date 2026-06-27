@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-c6k.2",
+  "title": "EmailFilterCondition::header invariant not enforced at construction",
+  "description": "The 1-2 element constraint on EmailFilterCondition::header (RFC 8621 \u00a74.4.1) is enforced in the custom deserializer but not at construction time. A server building filter conditions programmatically can set header: Some(vec![]) or header: Some(vec![a,b,c]) and serialize it without error, producing invalid wire output. Fix: add a Header newtype (validated wrapper around Vec<String>) or add a validate() method, or at minimum add a doc note that callers must uphold the invariant.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:24:39Z",
+  "updated_at": "2026-04-30T05:29:08Z",
+  "closed_at": "2026-04-30T05:29:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-c6k",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:24:39"
+    }
+  ]
+}

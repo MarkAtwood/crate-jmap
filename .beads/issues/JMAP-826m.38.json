@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Rewrote the json_merge_patch import comment at memory.rs:193 to name the workspace's flat-key vs path-key patch-dialect distinction. Stops the false 'every reference backend imports it' claim.",
+  "closed_at": "2026-05-15T09:14:45Z",
+  "compaction_level": 0,
+  "content_hash": "c71081aad84e311d9cdd0b65fc4b1a855835b006679cb85e01c5584d2a81fec7",
+  "created_at": "2026-05-14T17:57:56Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:117-119:\n\n  // json_merge_patch lives in jmap-server (the shared foundation crate).\n  // Every reference backend imports it; the canonical RFC 7396 tests live\n  // with the function there.\n\nThis is wrong. Mail-server's MemoryBackend has its own apply_jmap_patch helper (memory.rs:1057-1063) for the JMAP path-style patch dialect (e.g. 'mailboxIds/abc123'), NOT json_merge_patch. So 'every reference backend imports it' is contradicted by the canonical sibling.\n\nThe corrected version: 'json_merge_patch is the RFC 7396 implementation in jmap-server. This backend uses it because Metadata supports flat-key patches. Backends with path-key patch dialect (e.g. jmap-mail-server's Email/set) use a different helper.'\n\nAudience: contributor reading this for the workspace-wide pattern. They will conclude all backends use json_merge_patch and write their own code accordingly.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "memory.rs:117-119 comment 'Every reference backend imports it' is factually wrong \u2014 mail-server's MemoryBackend uses a custom apply_jmap_patch helper, not json_merge_patch",
+  "updated_at": "2026-05-15T09:14:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:57:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "42a06745-9fc2-5aae-9d37-2464fca01141",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

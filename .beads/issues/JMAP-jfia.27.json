@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added explicit performance contract on JmapBackend::account_exists doc \u2014 sub-millisecond, in-memory cache or local indexed lookup, anti-pattern is remote DB round-trip per call. Dispatcher-layer caching is workspace-architectural and out of scope.",
+  "closed_at": "2026-05-14T17:27:15Z",
+  "compaction_level": 0,
+  "content_hash": "83fe0c0e8e8b0aa1b0eb3937291b98e816c855b1a126791a9944078b73b8dc1a",
+  "created_at": "2026-05-14T16:47:51Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/backend.rs:808-817 \u2014 JmapBackend::account_exists is\ndocumented as:\n\n> Return `true` if the given account exists in this backend.\n>\n> Handlers call this at the start of each method to return\n> `accountNotFound` (RFC 8620 \u00a73.6.2) rather than surfacing\n> the wrong error when `accountId` is unknown.\n\nThe doc tells implementors WHERE the method is called (start of each\nmethod) but not WHAT the implementor must guarantee. handlers.rs\nconfirms the pattern: handle_get, handle_changes, handle_query,\nhandle_query_changes all open with:\n\n    if !backend.account_exists(caller, &account_id).await.map_err(...)?\n\nThat is FOUR backend roundtrips per typical /get + /changes + /query\n+ /queryChanges sequence (a single client batch). Extension *-server\ncrates inherit the pattern.\n\nWhat callers cannot depend on:\n\n1. That a slow account_exists is \"fine because it's just an\n   existence check\". A backend that does a Postgres SELECT or a\n   network RPC for every check multiplies every JMAP method call's\n   latency by one extra round-trip \u2014 silently.\n\n2. That cache invalidation around account_exists is the\n   backend's responsibility. The kit doesn't cache. Every call\n   site re-asks. The doc doesn't tell the implementor \"you should\n   probably cache this\".\n\n3. That the perf cost is bounded. A batch of 16 method calls (the\n   conventional max_calls in jmap-server) produces 16 round-trips\n   in addition to the actual data fetch.\n\nWhat goes wrong when this stays as-is:\n\n- A backend implementor naively writes account_exists to do a\n  full database round-trip and ships. Production latency at scale\n  doubles. The cause is not obviously in the backend impl \u2014 the\n  call is invisible from the handler-author's perspective.\n- An audit or perf review of an extension *-server crate finds\n  the issue six months in.\n- A future contributor adds caching at the wrong layer (handler\n  side, with cache-invalidation timing wrong against the\n  backend's truth) and introduces a stale-cache bug.\n\nResolution paths (one is sufficient):\n\n- Document the perf contract on the trait method:\n  \"Implementations SHOULD return in sub-millisecond time\n  (in-memory cache, indexed primary key, etc.). A naive remote\n  round-trip is incorrect \u2014 handlers call this at the start of\n  every method invocation.\"\n\n- Cache at the dispatcher layer: store the verified accountId set\n  for the duration of a single dispatch call, so 16 method calls\n  in a batch hit the backend at most once per unique accountId.\n  Workspace-architectural decision (touches Dispatcher state\n  during a single dispatch call).\n\n- Push the check into the handler-side helper that handlers\n  already use (extract_account_id) \u2014 but extract_account_id is\n  sync and account_exists is async; not a drop-in fix.\n\nThe doc-only fix is right for the current review. The dispatcher-\nlayer caching is the structural fix and is a workspace-architectural\ndecision.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JmapBackend::account_exists is called per-method-call but perf contract is undocumented",
+  "updated_at": "2026-05-14T17:27:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:47:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "e6a03333-4722-574b-8ed3-f0e900bfcd64",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

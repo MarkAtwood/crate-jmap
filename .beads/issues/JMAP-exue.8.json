@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Updated reg! macro in jmap-filenode-server to use ClosureHandlerWithCtx; clippy clean",
+  "closed_at": "2026-05-05T18:34:35Z",
+  "compaction_level": 0,
+  "content_hash": "f86425234cff9b7628de2445d02caffbc5923dcfd2cd289d5de211757a39456d",
+  "created_at": "2026-05-05T17:29:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Update register_filenode_handlers to forward CallerCtx using ClosureHandlerWithCtx<B, C> (from JMAP-exue.1).\\n\\nAll FileNode/* handler closures receive ctx: C. Important for filenode servers enforcing access control on blob_exists checks and sibling-name lookups.\\n\\nAcceptance criteria:\\n- register_filenode_handlers closures receive CallerCtx\\n- cargo test -p jmap-filenode-server exits 0\\n- Clippy clean\\n\\nDepends on JMAP-exue.1.",
+  "ephemeral": 0,
+  "id": "JMAP-exue.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-filenode-server: Forward CallerCtx in register_filenode_handlers",
+  "updated_at": "2026-05-05T18:34:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T10:29:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-exue",
+      "id": "4ec1c4d9-07f3-539e-b07a-4ac059f9bd86",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-05T10:29:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-exue.1",
+      "id": "f7512c46-908f-57bf-9d1c-fdc6a1ee4522",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

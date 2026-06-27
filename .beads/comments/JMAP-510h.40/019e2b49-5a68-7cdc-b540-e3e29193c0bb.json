@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T10:58:08Z",
+  "id": "019e2b49-5a68-7cdc-b540-e3e29193c0bb",
+  "issue_id": "JMAP-510h.40",
+  "text": "Filed consolidated workspace propagation epic JMAP-xbeb covering this + JMAP-510h.44 + JMAP-510h.39. When JMAP-xbeb decomposes, this bead's per-crate filenode-server child becomes one of the ~22 children."
+}

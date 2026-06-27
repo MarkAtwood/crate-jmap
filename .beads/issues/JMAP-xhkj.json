@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "bd87a2ac9a55fa455660820e0fc5972ccb4e8eec23813762d8b5de68259aa72a",
+  "created_at": "2026-05-15T18:20:25Z",
+  "created_by": "Mark Atwood",
+  "description": "cargo clippy -p jmap-jscontact-types --all-targets -- -D warnings fails on a 'very complex type used' lint at crate-jmap-jscontact-types/src/lib.rs:1735:\n\n    let cases: &[(&str, serde_json::Value, fn(&AnniversaryDate) -> bool)] = &[ ... ];\n\nThis is a workspace-level clippy gate failure on main. Found while running the workspace-wide pre-commit gate during bd:JMAP-ic0j.53. Fix: factor the tuple element type into a type alias above the test fn body. Out of scope for the bead that surfaced it.",
+  "ephemeral": 0,
+  "id": "JMAP-xhkj",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "fix(jmap-jscontact-types): clippy 'very complex type' in lib.rs:1735 test cases array",
+  "updated_at": "2026-05-15T18:20:25Z"
+}

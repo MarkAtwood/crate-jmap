@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-isx.16",
+  "title": "SMTP injection defense in EmailSubmission/set process_create is correct and explicit",
+  "description": "submission.rs:515-523: check_no_crlf is applied to both mailFrom.email and each rcptTo.email before storing or sending. This is security-critical: CR/LF injection in SMTP envelope addresses can cause header injection attacks. The check is explicit (named function, called twice), documented (RFC 8621 \u00a77.5 referenced), and returns an InvalidRecipients error with a clear description. A contributor might simplify by removing the check for 'efficiency'; that would be a security regression.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:21:34Z",
+  "updated_at": "2026-04-30T23:41:02Z",
+  "closed_at": "2026-04-30T23:41:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-isx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:21:34"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decision record noted",
+  "closed_at": "2026-05-02T21:44:29Z",
+  "compaction_level": 0,
+  "content_hash": "bbeb4c30275bbbd63faeb62e18a714624abb01202392ff4922c0acb66eb81459",
+  "created_at": "2026-05-02T21:40:19Z",
+  "created_by": "Mark Atwood",
+  "description": "The guard (len <= 1) fires after the email_ids Vec is obtained but before the into_iter() map that does a store lookup per element and the subsequent sort. This is the correct placement: zero or one element cannot be misordered so the lookups and sort are pure waste, but the guard must come after the Vec because the length check requires the Vec to exist. A future contributor might move it earlier (before the match on None) or remove it as 'premature optimization', but the store lookup per element is non-trivial even in test-harness code, and the <= 1 guard is the idiomatic Rust pattern for making single-element cases free. The zero case (no emails in thread) is also covered, which is correct \u2014 an empty thread has nothing to sort.",
+  "ephemeral": 0,
+  "id": "JMAP-a81m.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Early return in sort_thread_email_ids placed after Vec collect, before store lookups",
+  "updated_at": "2026-05-02T21:44:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:40:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a81m",
+      "id": "f607d99f-3aab-556c-8030-3dfd7b7de0c7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T18:13:12Z",
+  "compaction_level": 0,
+  "content_hash": "8aa685968327f4db10f7271c7b85d2b20058becf412087089b4d5cc0fd5a17ba",
+  "created_at": "2026-05-02T17:32:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Port jmap-test-suite mailbox-set.test.ts (13 tests) and mailbox-changes.test.ts (6 tests) to Rust. Key cases: create top-level and child, rename, move, destroy empty, onDestroyRemoveEmails, mailboxHasChild error (destroy with children), alreadyExists error (duplicate name+parent), state changes (oldState\\!=newState); changes-no-changes, changes-after-create, changes-after-rename. Source: ~/GIT/jmap-test-suite/src/tests/mailbox/",
+  "ephemeral": 0,
+  "id": "JMAP-sj14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "test: Mailbox/set + Mailbox/changes conformance",
+  "updated_at": "2026-05-02T18:13:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:32:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz6b",
+      "id": "8d81a758-1453-586c-a165-4607cf515fd2",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:32:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bhw5",
+      "id": "d5d20679-2e95-55f4-9dcd-dcb45501a2a6",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

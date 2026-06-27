@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4fa590ca879bfbb5d4cb8592986eb007fb052d56780ab05298dec0cbd377f546",
+  "created_at": "2026-05-17T12:41:43Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-metadata-types/tests/metadata_types.rs:195 fails 'cargo clippy --workspace --tests -- -D warnings' with:\n\n    error: the borrowed expression implements the required traits\n    let round_trip = serde_json::to_value(&Metadata::Annotation(ann)).unwrap();\n                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nclippy::needless_borrows_for_generic_args (rust 1.95.0 lint).\n\nFix: drop the leading & from the argument. Discovered while running workspace clippy for JMAP-tjvm.5; pre-existing on commit e335675, unrelated to that work.",
+  "ephemeral": 0,
+  "id": "JMAP-79qy",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Pre-existing clippy warning: needless_borrows_for_generic_args in metadata-types test",
+  "updated_at": "2026-05-17T12:41:43Z"
+}

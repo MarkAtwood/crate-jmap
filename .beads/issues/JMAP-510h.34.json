@@ -1,0 +1,33 @@
+{
+  "close_reason": "Resolved together: all 6 FileNode/* handlers now consult supports_type::<FileNode>() at the top and return accountNotSupportedByMethod when the backend has opted out. Mirrors canonical jmap-mail-server snippet.rs:35 pattern. Regression test all_handlers_gate_on_supports_type_false uses a NoFileNodeBackend wrapper (mirroring NoSnippetBackend in mail-server tests/integration.rs:490).",
+  "closed_at": "2026-05-15T10:55:01Z",
+  "compaction_level": 0,
+  "content_hash": "10a4c3c0634e507bcd8739c2acc3cf7e4abf87864db78b3a78008c2f16d82e49",
+  "created_at": "2026-05-14T20:01:57Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/backend.rs:69-72; called from\nnowhere in the crate.\n\n```rust\n/// Returns `true` if this account supports the given JMAP object\n/// type. Backends that support all types unconditionally can always\n/// return `true`.\nfn supports_type<O: JmapObject>(&self) -> bool;\n```\n\nEvery implementor of `FileNodeBackend` is forced to write a method\nthat no handler in this crate ever calls. `grep` for `supports_type`\nacross `src/` only finds the trait definition and the two test-double\nimpls (lib.rs:399, memory.rs:565) \u2014 both of which return `true`\ntrivially. No `handle_filenode_*` consults it.\n\nCompare canonical sibling `jmap-mail-server`: its handler\n`snippet.rs:35` actually calls `backend.supports_type::<SearchSnippet>()`\nto short-circuit when the backend has opted out of the type. There\nis precedent for `supports_type` mattering \u2014 but only on the canonical\nside.\n\nTwo consequences for the API contract:\n\n1. **Defensive-code-forcing.** Every FileNodeBackend implementor (in\n   stoa, kith, downstream consumers) writes `fn supports_type<O>(&self)\n   -> bool { true }`. That boilerplate buys nothing because the handler\n   library does not consult the result. Forever-pub method, forever-\n   boilerplate cost.\n\n2. **Divergence from canonical.** The canonical extension-server\n   template uses this method to gate handlers; filenode-server does\n   not. If a future caller adds a second JMAP object type to the\n   FileNode capability (the draft has not, but the spec could evolve)\n   and adds the gate-check pattern from `snippet.rs`, the existing\n   backends will continue to return `true` and the gate will be a\n   no-op.\n\nPick one:\n\n- If FileNode is the only type that will ever live under this trait,\n  remove `supports_type` from the trait. Saves implementor work and\n  removes a method whose only documented purpose (\"Called by the\n  server consumer e.g. the session capability builder\") is also not\n  exercised by any code path in this crate.\n\n- If the gate is intended for future extension, then\n  `register_filenode_handlers` (lib.rs:75) should call\n  `supports_type::<FileNode>()` once and either panic / return Err\n  on `false`, or each handler should early-exit with `unknownMethod`\n  on `false`. Pick the early-exit pattern that matches `snippet.rs`\n  in the canonical sibling.\n\nThis is api-contract because every consumer pays the boilerplate\ntax and depends on a documented method that the library does not\nhonor. Either honor it or remove it.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "FileNodeBackend::supports_type<O> is part of the trait contract but never called by this crate's handlers",
+  "updated_at": "2026-05-15T10:55:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:01:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "136f911c-469f-5372-9760-186f2bf5a522",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

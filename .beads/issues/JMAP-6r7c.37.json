@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done partially in [commit]; followup bd:JMAP-6r7c.65 tracks the full builder. Added CustomCaTransport::from_pem_bytes addressing the highest-frequency operator-friction case (single PEM file). Multi-cert chains and mTLS need a builder API; filed separately to keep the bead atomic. PEM fixtures generated via openssl as independent oracle; round-trip test asserts byte-identical DER output. Minimal in-line PEM decoder avoids adding rustls_pemfile dep.",
+  "closed_at": "2026-05-17T11:53:46Z",
+  "compaction_level": 0,
+  "content_hash": "380c0bfc805aaefdafa0a43323da49571c2602f5eec10f69aa3b368379890496",
+  "created_at": "2026-05-14T23:19:04Z",
+  "created_by": "Mark Atwood",
+  "description": "auth.rs:62-71 \u2014 pub struct CustomCaTransport { der_cert: Vec<u8> }\n\nAPI surface: single CA cert, DER-encoded only, single root.\n\nReal-world deployments routinely need:\n1. **PEM input.** Operators have PEM files (text-format CA certs). Today every caller writes:\n     let pem = std::fs::read_to_string(\"ca.pem\")?;\n     let der = rustls_pemfile::certs(&mut pem.as_bytes())?.into_iter().next()?;\n     let transport = CustomCaTransport::new(der);\n   Every caller. Same boilerplate. The crate could ship a CustomCaTransport::from_pem() helper.\n\n2. **Multi-cert chains.** A private PKI typically has a root + intermediate. CustomCaTransport stores ONE DER cert. There is no way to add an intermediate. Workaround: caller has to construct their own reqwest::ClientBuilder, add multiple certs, then... they can't, because TransportConfig doesn't expose a way to inject a pre-built reqwest::Client.\n\n3. **No client cert support.** Mutual TLS (mTLS) requires the client to present a cert. CustomCaTransport only configures the trust root. A caller wanting mTLS has to roll their own TransportConfig impl from scratch \u2014 at which point why does CustomCaTransport exist at all?\n\nThe naming claim \"Custom CA transport\" implies it handles all custom-CA cases. It handles exactly one: single-root, DER-encoded, no client cert. This is defensive-code-forcing: every real-world consumer with anything more complex writes their own TransportConfig and the foundation type is decorative.\n\nRecommendation: in a minor release, add a builder:\n  pub struct CustomTransportBuilder {\n      roots: Vec<Vec<u8>>,\n      client_certs: Option<Vec<u8>>,\n      client_key: Option<Vec<u8>>,\n      timeouts: ...,\n  }\n  pub fn from_pem_file(path: &Path) -> Result<Self, ...>;\n  pub fn from_pem_bytes(bytes: &[u8]) -> Result<Self, ...>;\n  pub fn build(self) -> impl TransportConfig;\n\nThe single-cert CustomCaTransport stays for backward compat.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CustomCaTransport takes Vec<u8> DER bytes \u2014 no support for PEM, multi-cert chains, or trust store builder",
+  "updated_at": "2026-05-17T11:53:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:19:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "34391126-90ff-58f2-95e7-dc75bb79eb77",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

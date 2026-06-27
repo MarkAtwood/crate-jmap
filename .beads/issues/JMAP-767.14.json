@@ -1,0 +1,33 @@
+{
+  "close_reason": "reviewed pass 23: loop converged; no P0/P1/P2 found in current code",
+  "closed_at": "2026-05-01T12:39:54Z",
+  "compaction_level": 0,
+  "content_hash": "7802b0f24035990bddc62e3a7b2940abe5193758c429d239606c73fb731b7258",
+  "created_at": "2026-05-01T11:50:00Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_identity_set destroy loop (identity.rs:318-331) checks '!not_found_ids.is_empty()' then immediately falls through to 'found.into_iter().next()' with another None arm that also inserts notFound. The two code paths are logically identical \u2014 if get_objects returns the id in not_found it cannot also be in found. The second check (the Option::next() arm) is dead code in practice. Remove the second check and rely solely on the not_found_ids check, or use a single 'found.into_iter().next().ok_or(...)?' pattern. Suggested rewrite: match (found.into_iter().next(), not_found_ids.is_empty()) and handle the two cases in one expression.",
+  "ephemeral": 0,
+  "id": "JMAP-767.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "identity.rs destroy: redundant dual not-found check after get_objects",
+  "updated_at": "2026-05-01T12:39:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:50:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "83c64c21-34d5-5bb1-831b-e6e114e244b9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

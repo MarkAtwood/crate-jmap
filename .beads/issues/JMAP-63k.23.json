@@ -1,0 +1,33 @@
+{
+  "close_reason": "same location as JMAP-63k.17, fixed together",
+  "closed_at": "2026-05-02T06:50:05Z",
+  "compaction_level": 0,
+  "content_hash": "2a20b589200ce1329b5b1d3b87177e3902faf8aa18fd35893014c501eaf6661c",
+  "created_at": "2026-05-02T06:46:48Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/chat.rs:472-474\nIssue: When the optimistic Direct-chat dedup detects a race (duplicate created concurrently), the losing copy is destroyed via backend.destroy_object. The result is bound to _ and the error is discarded. If the destroy fails (transient storage error, object already gone, permissions issue), the orphaned duplicate remains in storage and the client receives an alreadyExists error pointing to the canonical id. The client has no way to know the cleanup failed.\nRisk: Failed cleanups accumulate silently. Under storage layer errors, a single concurrent create request can leave a permanent orphan. A monitoring system watching for unexpected object counts will see noise. Future code reading all Direct chats may find duplicates the dedup was supposed to prevent.\nFix: Log the destroy error at a warning level (or propagate it as a serverFail for the create operation) so operators can observe failed cleanups. At minimum, the comment should acknowledge the failure case and state the accepted risk.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "destroy_object error silently ignored in race-resolution path",
+  "updated_at": "2026-05-02T06:50:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:46:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "65bb12d2-aa04-52c3-a17e-cfbb80399ad7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

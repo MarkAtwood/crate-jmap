@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:22:25Z",
+  "compaction_level": 0,
+  "content_hash": "e363373c7f28c75da8c1bceaa6e4d740fca7cdb1a03699cd02291b6e9876925c",
+  "created_at": "2026-05-14T22:07:45Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/principal.rs:121-123 and memory.rs:498-499 / memory.rs:551-552\n\nThe crate has settled on the convention that serde_json::to_value on a derive-Serialize plain-data type is provably infallible, and uses .expect(...) with a justifying comment to express that. principal.rs:121-123:\n\n    serde_json::to_value(&created_obj)\n        .expect('derive(Serialize) on plain data is infallible'),\n\nand helpers.rs:18-20:\n\n    pub(crate) fn set_error_value(e: &crate::backend::SetError) -> serde_json::Value {\n        serde_json::to_value(e).expect('derive(Serialize) on plain data is infallible')\n    }\n\nThe same shape appears at memory.rs:498-499 (create_object body) and memory.rs:551-552 (update_object body), but with map_err instead of expect:\n\n    let mut val = serde_json::to_value(&obj)\n        .map_err(|e| BackendSetError::Other(MemoryError(format!('serialize: {e}'))))?;\n    ...\n    let patch_val = serde_json::to_value(&patch)\n        .map_err(|e| BackendSetError::Other(MemoryError(format!('serialize patch: {e}'))))?;\n\nBoth Principal and the SetObject::Patch associated type are derive-Serialize on plain data. The infallibility argument that justifies .expect at the handler site applies equally to the backend site. The map_err arm is dead code that the type checker preserves only because Result threading requires it.\n\nChoose one idiom:\n\n(a) Use .expect at all sites with the same justification comment. Consistent with the handler convention.\n(b) Use map_err at all sites (preserves a runtime escape for a future serde_json bug). Consistent with the conservative defense-in-depth posture but contradicts the handler's commitment.\n\nThe current code has BOTH conventions in the same crate within ~400 lines. The mixing is the problem; either resolution is fine.\n\nWhat goes wrong for callers when this stays as-is: a reader who finds memory.rs:498 first reads it as 'serialize can fail; the backend handles it' and writes their own backend with similar map_err. A reader who finds principal.rs:121 first reads it as 'serialize is infallible on plain-data structs; just .expect it' and writes their backend that way. Two writing styles, same crate, no documented rationale for the difference.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Resolved by documentation: added inline comments on the memory.rs map_err sites explaining the engineering reason for the divergence \u2014 handler sites serialize crate-defined plain-data types (.expect is sound), backend sites serialize consumer-controlled O / O::Patch types (map_err defends against a hypothetical future hand-rolled Serialize impl). Reviewer labelled this 'opinion' / 'either resolution is fine'; documenting the actual rationale is the third option that explains why each site picked its idiom.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Inconsistent infallible-serde idiom: principal.rs uses .expect, memory.rs uses .map_err for same shape",
+  "updated_at": "2026-05-14T22:22:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T15:07:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "4e8bd4c6-a6c8-5f22-9d60-e6d599b547ca",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

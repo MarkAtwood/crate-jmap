@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-5tq",
+  "title": "Review: jmap-client crate",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:42:20Z",
+  "updated_at": "2026-04-30T06:51:23Z",
+  "closed_at": "2026-04-30T06:51:23Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 Two variants of ClientError wrapping the same type is a contributor footgun; StateChange missing #[non_exhaustive] is an API lock-in risk. Both are fixable before 1.0.\nIdiom rating: ACCEPTABLE \u2014 One bool parameter issue (hex_digit), one type inconsistency (StateChange using String vs newtypes). No ownership/lifetime issues, no unsafe, no gratuitous clones. Core patterns are solid.\nConfidence: 15% chance of missed bug. Least confident flags: SSE stream edge cases under adversarial servers (partial writes, unusual chunk boundaries). Uncertainty driven by: cannot exercise the streaming code path without a live HTTP server. Would raise confidence if: integration tests with a mock HTTP server exercising the UTF-8 split bug path.\nRust idiom confidence: 90% chance of missed issue. Least confident flags: none \u2014 I have read every line. Uncertainty driven by: interaction between JmapResponse serde and WsFrame deserialization I haven't traced fully."
+}

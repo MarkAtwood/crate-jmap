@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T17:07:09Z",
+  "id": "019e36e7-e952-71c5-be17-45d3207a87bb",
+  "issue_id": "JMAP-ic0j.46",
+  "text": "Fixed. handle_calendar_event_parse now validates blobIds and properties via serde_json::from_value, mirroring the canonical jmap-mail-server::handle_email_parse pattern at crate-jmap-mail-server/src/email.rs:2193. Non-string entries now produce invalidArguments (RFC 8620 \u00a73.6.1) instead of being silently dropped via filter_map. Missing/null blobIds still produces an empty result rather than an error (preserves the deliberate calendars-server divergence from the canonical's 'blobIds is required' shape, which is its own scope of work). Added two regression tests (parse_non_string_blob_id_returns_invalid_arguments, parse_non_string_property_returns_invalid_arguments) with explicit RFC 8620 \u00a73.6.1 / draft-ietf-jmap-calendars-26 \u00a75.13 oracle citations. Verified: cargo fmt clean, clippy --all-features --all-targets -D warnings clean, cargo test --all-features 119+13+1 passed."
+}

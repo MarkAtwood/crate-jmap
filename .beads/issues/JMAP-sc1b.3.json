@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:36:05Z",
+  "compaction_level": 0,
+  "content_hash": "894d5451e5f163f012280d167435bad7c7afb3e52bc4d87ea31e80a0e7e684cb",
+  "created_at": "2026-05-07T20:17:23Z",
+  "created_by": "Mark Atwood",
+  "description": "Only `crate-jmap-mime/Cargo.toml` uses `.workspace = true` field inheritance (for edition/rust-version/license). The other 24 crates duplicate `authors`, `repository`, `edition`, `rust-version`, `license` literally.\n\nThis made the recent 'bump all crate versions' commit harder than it had to be: every crate's Cargo.toml had to be edited. The same will happen for the next coordinated change (e.g. updating MSRV, switching repository URL, updating authors).\n\nRecommended: extend root `[workspace.package]` to include:\n```toml\n[workspace.package]\nedition = \"2021\"\nrust-version = \"1.75\"\nlicense = \"MIT OR Apache-2.0\"\nauthors = [\"Mark Atwood <mark@reviewcommit.com>\"]\nrepository = \"https://github.com/MarkAtwood/crate-jmap\"\n# version = \"0.1.1\"   # only if all crates are version-locked together\n```\n\nThen in each crate's Cargo.toml:\n```toml\n[package]\nname = \"jmap-X\"\nauthors.workspace = true\nrepository.workspace = true\nedition.workspace = true\nrust-version.workspace = true\nlicense.workspace = true\n```\n\nKeep `version` per-crate if you want independent version cadences (jmap-server is 0.1.2, others 0.1.1).",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: workspace.package inheritance only used by 1 of 25 crates",
+  "updated_at": "2026-05-07T21:36:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:17:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "a5109ca2-7830-5923-bf67-2b55b96fad60",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

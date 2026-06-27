@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "Per-user routing contract added. Patch routing tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added is_per_user_property and update_task_per_user (default delegates to update_object) to TasksBackend; handler routes per-user-only patches to update_task_per_user; 3 new routing tests; 22 total pass; clippy clean",
+  "closed_at": "2026-05-05T04:20:29Z",
+  "compaction_level": 0,
+  "content_hash": "95484f399a9943e70445f829f153f28f40a93b1e950492fdc76c4eaf6a8e1a39",
+  "created_at": "2026-05-05T03:02:02Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Draft-tasks-06 \u00a74.5.1 defines per-user properties for Task: keywords, color, freeBusyStatus, useDefaultAlerts, alerts. The handler must route patches containing only per-user properties to a separate update path.\n\n**Algorithm:**\n1. Add static method to TasksBackend:\n   fn is_per_user_property(prop: &str) -> bool {\n       matches!(prop, \"keywords\" | \"color\" | \"freeBusyStatus\" | \"useDefaultAlerts\" | \"alerts\")\n   }\n2. Add to TasksBackend:\n   fn update_task_per_user(&self, account_id: &Id, id: &Id, patch: Value) -> impl Future<Output = Result<Option<Task>, BackendSetError<Self::Error>>> + Send;\n   Default impl: delegates to update_object::<Task>(account_id, id, patch).\n3. In handle_task_set update loop: inspect top-level patch keys. If ALL non-null keys are per-user properties \u2192 call update_task_per_user. Otherwise \u2192 call update_object as before.\n4. Document: when only per-user properties are patched, the shared 'updated' timestamp must NOT change (\u00a74.5.1 lines 978-981). The default impl is correct only for single-user scenarios.\n\n**Tests:**\n- Patch {\"color\":\"#ff0000\"} \u2192 update_task_per_user called with that patch.\n- Patch {\"title\":\"New\"} \u2192 update_object called.\n- Patch {\"color\":\"#ff\",\"title\":\"New\"} \u2192 update_object called (mixed).\n\n**Acceptance criteria:**\n- Default impl compiles and passes all existing tests.\n- cargo test -p jmap-tasks-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-131x.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add per-user property routing contract to TasksBackend",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:02:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-131x",
+      "id": "e9f55885-cbfa-54ae-b7d3-d6d75f922066",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

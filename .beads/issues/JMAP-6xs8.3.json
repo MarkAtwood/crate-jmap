@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1b529bac43e87d928386d331862ffe8b7e64b59f276e11baf11e6ee61759d15f",
+  "created_at": "2026-05-15T05:33:52Z",
+  "created_by": "Mark Atwood",
+  "description": "jmap-types is published on crates.io at 0.1.1 (cargo search confirms). Recent commits add new public fields to multiple types: GetResponse.extra, ChangesResponse.extra + updated_properties, SetResponse.extra, QueryResponse.extra, QueryChangesResponse.extra, AddedItem.extra, JmapRequest.extra, JmapResponse.extra (bae3a90), plus SetResponse/ChangesResponse/QueryResponse/QueryChangesResponse field-type changes String \u2192 State (f084943, 25e5021), plus SetError.extra HashMap \u2192 Map (9c66783). All structs are #[non_exhaustive] so adding fields is SemVer-permitted, but the State newtype change breaks downstream String-typed bindings. Cargo.toml still says version = \"0.1.1\". External consumers pinning to 0.1.1 will silently get the new behavior. Fix: bump to 0.1.2 (still 0.1.x so technically pre-1.0 anything-goes, but a bump signals intent) and add a CHANGELOG entry. This will be a recurring class of issue: any future field/type change here needs a coordinated version bump.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Cargo.toml version not bumped despite breaking changes to public structs",
+  "updated_at": "2026-05-17T16:42:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:33:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "a003cbf4-9562-5d1b-8744-566d18940d5d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Renamed limit/client_limit to effective_limit/requested_limit",
+  "closed_at": "2026-05-02T22:41:14Z",
+  "compaction_level": 0,
+  "content_hash": "60370acfe38f8912f1b975beeec84ae7d963bbc0b40aa9912601807b22557faa",
+  "created_at": "2026-05-02T19:18:28Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs lines 563-573: the variable pair (limit, client_limit) encodes 'server-applied limit vs. what the client asked for' but the names do not make this clear. client_limit = None means the client omitted the field; limit is the clamped value actually used. The subsequent check 'if client_limit \\!= Some(limit)' is correct but reads as a riddle. Suggested rewrite: name them (effective_limit, requested_limit) and the check becomes 'if requested_limit \\!= Some(effective_limit)', which reads as the spec clause it implements: echo limit back when the server applied a cap different from what the client sent.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_email_query: (limit, client_limit) tuple obscures intent",
+  "updated_at": "2026-05-02T22:41:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "906d43d2-524f-58d9-949c-51fb2cfe02d6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

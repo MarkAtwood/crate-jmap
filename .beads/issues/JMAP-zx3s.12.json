@@ -1,0 +1,33 @@
+{
+  "close_reason": "Wontfix per workspace AGENTS.md 'Bikeshedding' rule and the parent epic Section 7 calibration. The bead is labeled 'opinion' and argues against an already-decided workspace policy (AGENTS.md 'Extras-preservation policy for vendor/site fields' specifies pub serde_json::Map<String, Value> matching the jmap-types::MethodResponseError.extra precedent). The serde_json SemVer-pinning concern is real but the workspace explicitly accepted the trade-off when adopting the pub-Map shape across all 30+ crates. serde_json has been at 1.0.x for years; an upstream 2.0 would force coordinated migration across the Rust ecosystem regardless. Re-litigating this decision requires a workspace-architectural bead with an explicit migration plan to one of the documented alternatives (accessor / newtype / trait), not a per-crate review finding. Closing without action; the finding documentation in jmap-jscalendar-types/src/lib.rs already calls out the same SemVer pinning as the explicit trade-off.",
+  "closed_at": "2026-05-17T15:22:38Z",
+  "compaction_level": 0,
+  "content_hash": "9a4128a9ed16fb8fc65ffea8ab1c01c44e6def67b3a66414251a9f8e47caa7dc",
+  "created_at": "2026-05-15T04:56:45Z",
+  "created_by": "Mark Atwood",
+  "description": "## Caller contract risk: a serde_json major-version bump becomes a forced API break here.\n\nEvery type migrated by this diff now exposes:\n\n\\`\\`\\`rust\npub extra: serde_json::Map<String, serde_json::Value>,\n\\`\\`\\`\n\n\\`serde_json::Map\\` and \\`serde_json::Value\\` are concrete public types from an upstream crate. The choice is documented as workspace policy (AGENTS.md \\\"Extras-preservation policy for vendor/site fields\\\"). The consequence is that this crate's public API surface includes \\`serde_json::Map\\` and \\`serde_json::Value\\` as visible types in 23+ public field signatures.\n\n### What happens when serde_json 2.0 ships\n\nserde_json is at 1.0.x and has been for years; an upstream major bump is unlikely but not impossible. The day serde_json publishes a new major version with any change to \\`Map\\` or \\`Value\\`'s public shape (e.g. \\`Map\\` becomes generic over its hasher, or \\`Value::Object\\` becomes a different wrapper), every \\`pub extra\\` field in this crate is forced to either:\n\n1. Bump the workspace's own major version too, breaking every downstream consumer.\n2. Pin serde_json to \\`=1.x\\` forever, freezing the workspace at the 1.x ecosystem.\n\nThere is no third option: a public field's type is part of the SemVer surface.\n\n### Alternative shapes that avoid this\n\na. **Accessor pattern**: keep the field private, expose \\`pub fn extra(&self) -> &Map<String, Value>\\` and \\`pub fn extra_mut(&mut self) -> &mut Map<String, Value>\\`. A future serde_json bump can be absorbed by reshaping the internal storage without changing the accessor signatures (or, if the accessor signatures need to change, the accessor at least lets us deprecate gracefully).\n\nb. **Newtype wrapper**: \\`pub struct Extras(serde_json::Map<String, serde_json::Value>);\\` with \\`Deref\\` / \\`DerefMut\\` to the underlying map. The public type is \\`Extras\\`, not \\`serde_json::Map\\`; the inner type can be swapped without touching the public API.\n\nc. **Trait abstraction**: \\`pub trait Extras { fn get(&self, key: &str) -> Option<&Value>; ... }\\`. Same logic, more flexibility.\n\nEach of these is a forever-locked choice. The workspace picked option (none); the choice is consistent across all 30 \\`jmap-*\\` crates per the canonical-template propagation rule, so any change here ripples widely.\n\n### Why this is worth flagging despite being workspace-policy\n\nThe policy decision was made (AGENTS.md, JMAP-lbdy) without \u2014 as far as the policy text shows \u2014 an explicit examination of the serde_json SemVer pinning question. The policy text says \\\"field name is lowercase \\`extra\\` (singular) and visibility is \\`pub\\`, matching the existing \\`MethodResponseError.extra\\` precedent in \\`jmap-types\\`.\\\" The precedent is acknowledged; the SemVer consequence is not.\n\nThis finding is informational: callers depending on \\`jmap-mail-types\\` should be aware that they implicitly also depend on \\`serde_json 1.x\\` types being SemVer-stable, and that any future workspace bump driven by serde_json upstream will hit every consumer.\n\n### Cross-references\n\n- Workspace AGENTS.md \\\"Extras-preservation policy for vendor/site fields\\\" \u2014 established the \\`pub extra: Map\\` shape.\n- \\`crate-jmap-types/src/methods.rs:291\\` \u2014 \\`MethodResponseError.extra\\` precedent.",
+  "ephemeral": 0,
+  "id": "JMAP-zx3s.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Pub serde_json::Map<String, serde_json::Value> in every public type ties jmap-mail-types' SemVer surface to serde_json's",
+  "updated_at": "2026-05-17T15:22:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:56:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zx3s",
+      "id": "a424379a-f091-55f7-9e61-16518dc95b93",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

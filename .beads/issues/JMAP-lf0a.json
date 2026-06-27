@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "60f2411b2c66d6bce45ec1b7346c96784f1b08830e2e8e6661d780bf39eaa5ff",
+  "created_at": "2026-05-17T20:02:28Z",
+  "created_by": "Mark Atwood",
+  "description": "Observed at run bd-review-loop-20260517T193724Z-3658183 (epic JMAP-x2gd). The loop completed iter 1 cleanly: /do-beads landed 8 commits + 8 closes; verdict block emitted 'genuine convergence: no findings filed this pass' and 'borderline: only P3+ findings, no opinion labels' (both branches firing is itself odd \u2014 log shows both messages back-to-back); summary persisted final_verdict=genuine_convergence as bd metadata.\n\nThen stderr emitted:\n  /home/mark/bin/bd-review-loop: line 625: syntax error near unexpected token `fi'\n\n`bash -n /home/mark/bin/bd-review-loop` reports the script is syntactically clean. Line 625 is inside the post-loop MAX_RUNTIME check, but MAX_RUNTIME was unset so that branch shouldn't fire. The error is probably coming from a sub-command (cost_exceeds, count_findings, an awk/jq invocation, or date arithmetic) whose output gets eval'd or executed and produces the parser error.\n\nThe bug is cosmetic \u2014 verdict and metadata were written correctly and convergence detection worked \u2014 but it makes a successful run look like a failure to a casual reader and would mask a real script crash if one ever happened.\n\nAlso worth investigating: the double-log of two mutually-exclusive verdict branches ('genuine_convergence' and 'low_priority_only / borderline') in the same iter. The if/elif chain at lines 597-610 makes them mutually exclusive; both firing suggests stale variables across a subshell boundary, or the script took both branches via subshell control flow. Same vicinity as the syntax error.\n\nRepro: any /do-beads-only iteration that exits without filing new findings under bd-review-loop --epic <id>.",
+  "ephemeral": 0,
+  "id": "JMAP-lf0a",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "bd-review-loop: spurious 'syntax error near unexpected token fi' at line 625 after successful convergence",
+  "updated_at": "2026-05-17T20:02:28Z"
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in next commit. find_thread_by_message_ids docstring rewritten to describe actual contract (handler-side thread-id reuse during Email/set / Email/import) and to give correct persistence guidance (content-addressed hash of Message-ID for durable backends; the process-startup-seeded counter is a MemoryBackend test artifact, not a trait default). cargo doc passes under RUSTDOCFLAGS=-D warnings; tests unchanged.",
+  "closed_at": "2026-05-15T06:56:27Z",
+  "compaction_level": 0,
+  "content_hash": "78a106f438182596911ca198c864500b82cc79e4bff097270ae706838c31b2e3",
+  "created_at": "2026-05-14T16:30:44Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs:156-172 declares:\n\n```\n/// Return the thread id of the first stored Email whose\n/// `messageId` list intersects `message_ids`, or `None` if no match exists.\n///\n/// **Persistent backends MUST override this method.** The default `next_id`\n/// generator used when this returns `None` is seeded from system-clock\n/// nanoseconds at process startup. Two processes that start within the same\n/// nanosecond (common in containers and test harnesses) will produce\n/// identical ID sequences, silently corrupting thread graphs across\n/// restarts. A persistent backend must derive thread IDs from durable\n/// storage \u2014 for example, by looking up a content-addressed hash of the\n/// message-id header \u2014 so that thread identity survives process boundaries.\nfn find_thread_by_message_ids(\n    &self,\n    caller: &Self::CallerCtx,\n    account_id: &jmap_types::Id,\n    message_ids: &[&str],\n) -> impl std::future::Future<Output = Result<Option<jmap_types::Id>, Self::Error>> + Send;\n```\n\nTwo interlocking doc-contract bugs:\n\n1. **\"Persistent backends MUST override this method\"** \u2014 the method has no default implementation. It is a REQUIRED method (no `{ \u2026 }` body, no default impl). Every backend MUST implement it; there is no override semantics. The \"MUST override\" phrasing is wrong because there is nothing to override.\n\n2. **\"The default `next_id` generator used when this returns `None`\"** \u2014 this references machinery that does not appear in this trait. The \"default next_id generator\" lives somewhere else (likely in `MemoryBackend`'s `create_object` impl, which generates UUIDs). A consumer reading the trait doc has no way to find what the doc is talking about. The note about \"process-startup-time-seeded ID generators corrupting thread graphs across restarts\" is correct, but it is a property of `MemoryBackend`, not of any default behavior of this trait method.\n\nThis doc appears to have been written assuming a default implementation that delegates to a global ID generator existed at some earlier point; the method was made required at some later point but the doc was not refreshed.\n\nFix: rewrite the doc to describe the method's actual contract:\n\n```\n/// Look up the thread id of the first stored Email whose `messageId`\n/// list intersects `message_ids`, or `None` if no match exists.\n///\n/// The handler uses this method during `Email/set`/`Email/import` to\n/// reuse an existing thread id when an incoming message has the same\n/// Message-ID / References as a stored message. If this method returns\n/// `None`, the handler calls `create_object::<Email>` which generates\n/// a fresh thread id via the backend's own ID generator.\n///\n/// **Persistence guidance**: backends with durable storage SHOULD\n/// derive thread ids from a content-addressed hash of the Message-ID\n/// header so that thread identity survives restarts. Backends that\n/// generate thread ids from a process-startup-seeded counter (e.g.\n/// `MemoryBackend`) will produce different thread graphs across\n/// restarts; this is fine for tests but unacceptable for production.\n```\n\nPriority P1 because docstring promises a contract the impl does not enforce, and a careful reader will be confused enough to file a follow-up clarification bead, but a less-careful reader will skip \"implementing\" a method that is required.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_thread_by_message_ids doc references non-existent 'default next_id generator'",
+  "updated_at": "2026-05-15T06:56:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:30:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "4c71d28f-e8ce-563a-8eee-d1ab4f1e75bf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

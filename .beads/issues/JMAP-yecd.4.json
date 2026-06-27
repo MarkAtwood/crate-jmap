@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "jmap-mime wired into import_email and parse_email in MemoryBackend; Cell<usize> used for part counter in Fn closure; 210 tests pass",
+  "closed_at": "2026-05-02T20:22:42Z",
+  "compaction_level": 0,
+  "content_hash": "04baec625bf62866628b0d91c70b003ccad05764e82f8c7369cb6273816e44bf",
+  "created_at": "2026-05-02T19:23:22Z",
+  "created_by": "Mark Atwood",
+  "description": "common/mod.rs parse_rfc5322_headers is a custom minimal parser used for import_email/parse_email. It diverges from jmap-mime in CRLF handling, preview extraction, Content-Type parsing. Tests exercise a different code path from production. Related to JMAP-wgbh. Once jmap-mime is wired into import_email, the test backend should use the same MIME parsing path. Source: JMAP-bx3z.35 review finding.",
+  "ephemeral": 0,
+  "id": "JMAP-yecd.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wire jmap-mime into test backend import_email to unify parse paths",
+  "updated_at": "2026-05-02T20:22:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:23:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yecd",
+      "id": "dcb2708c-d919-50ce-9a8c-f4dc363996de",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

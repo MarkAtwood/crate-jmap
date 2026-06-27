@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T18:15:55Z",
+  "id": "019e2cda-25b5-7708-8bb4-21ee061071d3",
+  "issue_id": "JMAP-ic0j",
+  "text": "Idiom rating (rusty pass #2 post-fix): ACCEPTABLE \u2014 UNCHANGED from rusty pass #1 verdict at 17:26. Walked the 10 fix commits (b5662ac, 2617df2, 868caf3, bdf40aa, 4e3cb9f, 0b0eecc, fcfa4c4, 6c44bce, 05fdd41, 7fdac02) and found no new idiom regressions. The MemoryError reshape (05fdd41) is a strict idiom improvement (#[non_exhaustive] named-field + accessors over the pub-field tuple). The new code in the fixes \u2014 debug_assert + tests in 4e3cb9f, monotonic counter in 2617df2, split_once head extraction in b5662ac, lexical string compare in 868caf3, filter-error preservation in 7fdac02 \u2014 is all clean idiomatic Rust. SetAccumulators struct (in helpers.rs) cleanly retires the #[allow(clippy::too_many_arguments)] suppression. No new beads filed in this pass \u2014 convergence reached on the rusty axis."
+}

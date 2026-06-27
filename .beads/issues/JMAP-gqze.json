@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a2254e8438c25a413042c4983229484bd7aae9d482d41ff76a03f5d8a72a398b",
+  "created_at": "2026-05-16T02:59:00Z",
+  "created_by": "Mark Atwood",
+  "description": "Follow-up to JMAP-ly0n.1. The wire-format collision documented on SenderId can only be eliminated at the draft level. Options:\n\n1. Reserve a sentinel form that cannot occur in the userId namespace (e.g. a JSON null, a tagged-union shape like {\"owner\":true} vs {\"contact\":\"id\"}, or a sentinel-prefixed form like \"@self\" with auth layers forbidden from issuing matching userIds).\n2. Encode the owner relationship out of band \u2014 keep senderId as the contact id verbatim and resolve owner-ness from the auth layer at the consumer.\n3. Document the collision in the draft itself (currently \u00a74.5 says ChatContact.id is opaque and \u00a74.7 uses 'self' without addressing the collision) and add a MUST that auth layers SHALL NOT issue 'self' as a userId.\n\nOption 3 is the cheapest path and is workspace policy already (see workspace canonical SenderId rustdoc post-JMAP-ly0n.1). Options 1 and 2 are breaking changes to the wire format and require a -01 draft revision + propagation to crate-jmap-chat-types, crate-jmap-chat-server, crate-jmap-chat-client, and any reference impl.\n\nScope: spec edit in ~/PROJECT/jmap-chat-spec/draft-atwood-jmap-chat-00.md, then crate sweep if a wire-format change is chosen.\n\nOut of scope for JMAP-ly0n.1 (which was a docs-only fix in the canonical type crate).",
+  "ephemeral": 0,
+  "id": "JMAP-gqze",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Spec edit: eliminate SenderId 'self' sentinel collision in draft-atwood-jmap-chat",
+  "updated_at": "2026-05-16T02:59:00Z"
+}

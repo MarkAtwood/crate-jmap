@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Affirmative review finding \u2014 verified in-source. The capture-at-mutation invariant is documented at memory.rs:210-223 (ChangeRecord struct rustdoc) and memory.rs:225-244 (from_stored_value helper rustdoc, which references this bead id JMAP-ayoz.19 explicitly). The three call sites are at memory.rs:1069/1073 (create), 1158/1161 (update), 1195/1201 (destroy), each with a 'Capture related_type / type_name ... BEFORE ...' comment explaining the timing constraint. The get_metadata_changes override at line 1227+ documents how it consumes the captured fields. The defense is fully in-source, names the bead, and would survive a future 'denormalize the change log' simplification attempt \u2014 the reviewer doing that would land on the helper rustdoc and see the rationale immediately. No code change warranted.",
+  "closed_at": "2026-05-17T09:05:46Z",
+  "compaction_level": 0,
+  "content_hash": "f3806559c63a520ab77a6b67ff122914359b5e8c7839a528da9eb839d16fa97b",
+  "created_at": "2026-05-14T14:22:53Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:643-655, 736-748, 783-795 \u2014 every create/update/destroy in MemoryBackend captures (related_type, type_name) into the ChangeRecord BEFORE the value moves into objects_mut. This is the key invariant that lets get_metadata_changes (the override at memory.rs:835-928) strictly conform to \u00a73.3 \u2014 including the destroyed array, which the default-impl post-fetch path cannot filter (the destroyed objects don't exist any more).\n\nThe pattern is non-obvious. The naive approach is 'when filtering destroyed, look up the destroyed object's relatedType and @type'. That doesn't work \u2014 the object is gone. The capture-at-mutation pattern is the structural insight that lets the override be correct.\n\nThis is exactly the kind of pattern a future contributor 'simplifying' would attack: 'why are we storing redundant data in the change log?' Answer: because the change log is the only place this data exists for destroyed entries. The /changes contract requires that the destroyed array supports the same filter as created/updated.\n\nWorkspace ref: tracks bd:JMAP-06zp.3.5.2. The override + capture-at-mutation design is the conformance hook for the override path, and is what makes the MemoryBackend reference-grade for \u00a73.3 strict conformance (as advertised in metadata.rs:55-56 and README.md line 8-10).\n\nDefend against: 'denormalize the change log', 'just look up the object', 'this is duplicating state'. The duplication is load-bearing for the destroyed-array filter contract.\n\nAdjacent: the related smell of empty-string sentinels for non-Metadata types (JMAP-ayoz.11) \u2014 fixing that should not erode this invariant. The capture-at-mutation must remain unconditional for Metadata records.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.get_metadata_changes captures (related_type, type_name) at mutation time",
+  "updated_at": "2026-05-17T09:05:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:22:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "3bc51773-a27d-597f-a323-e5c88be69b62",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

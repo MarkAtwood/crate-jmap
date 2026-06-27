@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Extracted 725 LoC MemoryBackend (and ChangeType + MemoryError + helpers) to src/memory.rs behind feature = memory. tests/common/mod.rs collapses to 15 LoC of re-exports (no FaultyBackend in this crate). Mirrors canonical jmap-mail-server (JMAP-hwdv.1) and siblings JMAP-hwdv.2/.3. All acceptance gates green: cargo test --features memory, cargo test, cargo check --no-default-features, cargo clippy --features memory --tests -- -D warnings, RUSTDOCFLAGS=-D warnings cargo doc --features memory. Workspace fmt/clippy/test all green. Commit c30d7ed.",
+  "closed_at": "2026-05-11T05:22:21Z",
+  "compaction_level": 0,
+  "content_hash": "a31be02021968b000491a6db7b65f2b1dc8b87e0542f7d2cdcbe362584860704",
+  "created_at": "2026-05-10T21:56:35Z",
+  "created_by": "Mark Atwood",
+  "description": "**Extraction (sibling \u2014 mirror canonical .1).** Move `MemoryBackend` from `crate-jmap-filenode-server/tests/common/mod.rs` (673 LOC) to a public, feature-gated reference implementation in `src/memory.rs`.\n\nMirror the canonical pattern landed by .1 (jmap-mail-server): same module name (`memory`), same type names (`MemoryBackend`, `MemoryState`), same feature flag (`\"memory\"`), same documentation idiom.\n\n## Mechanical steps\n\n1. Create `crate-jmap-filenode-server/src/memory.rs` and move the contents of `tests/common/mod.rs`.\n2. Add `[features] memory = []` to Cargo.toml. Gate `pub mod memory;` in lib.rs.\n3. Rewrite `tests/common/mod.rs` as test-side helpers only (expected \u2264 200 LOC).\n4. Add `[dev-dependencies] jmap-filenode-server = { workspace = true, features = [\"memory\"] }`.\n\nAny divergence from .1's pattern is a regression. If a divergence seems necessary, stop and escalate.\n\n## Acceptance\n\n- `cargo test -p jmap-filenode-server --features memory` clean.\n- `cargo test -p jmap-filenode-server` clean.\n- `cargo check -p jmap-filenode-server --no-default-features` clean.\n- `cargo clippy -p jmap-filenode-server --features memory --tests -- -D warnings` clean.\n- `cargo doc -p jmap-filenode-server --features memory --no-deps` clean.\n- `tests/common/mod.rs` \u2264 200 LOC of helpers.\n- Naming exactly matches the canonical (.1).\n\n## Depends on\n\nJMAP-hwdv.1 (mail-server canonical). Cannot start until .1 lands.\n",
+  "ephemeral": 0,
+  "id": "JMAP-hwdv.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Extract MemoryBackend to jmap-filenode-server/src/memory.rs (mirror canonical)",
+  "updated_at": "2026-05-11T05:22:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T14:56:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-hwdv",
+      "id": "57793281-c13d-5fb0-be68-5e16847976eb",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-10T14:56:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-hwdv.1",
+      "id": "93407da4-65ee-5dc0-96b1-e29c7ea9a422",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

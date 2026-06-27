@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "close_reason": "Fixed in 0d617cd: all five sibling json_merge_patch helpers (chat/calendars/tasks/contacts/sharing-server memory.rs) now dispatch through json_merge_patch_inner with a 32-level MAX_MERGE_PATCH_DEPTH cap. Beyond the cap the recursion silently truncates \u2014 outermost levels apply normally, deeper levels are dropped, which matches what would happen if a server-side parse-depth limit kicked in earlier. Test in chat-server confirms a 1000-deep Object-shaped patch returns without stack overflow. Consolidation of the 5 helpers into a shared jmap-server module is left as a follow-up (out of scope for the bug fix).",
+  "closed_at": "2026-05-11T14:39:09Z",
+  "compaction_level": 0,
+  "content_hash": "6446efa1c9c91a526f476668e3a50770f1668bac33c3020ae785412f28516efe",
+  "created_at": "2026-05-11T14:25:25Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Locations (5 sibling MemoryBackend impls, identical pattern):\n- `crate-jmap-chat-server/src/memory.rs:535-552`\n- `crate-jmap-calendars-server/src/memory.rs:794-820`\n- `crate-jmap-tasks-server/src/memory.rs:718-744`\n- `crate-jmap-contacts-server/src/memory.rs:713-739`\n- `crate-jmap-sharing-server/src/memory.rs:524-550`\n\n  fn json_merge_patch(target: &mut serde_json::Value, patch: serde_json::Value) {\n      match patch {\n          serde_json::Value::Object(patch_map) => {\n              let target_map = target\n                  .as_object_mut()\n                  .expect(\"merge patch target must be an object\");\n              for (key, patch_val) in patch_map {\n                  if patch_val.is_null() {\n                      target_map.remove(&key);\n                  } else {\n                      let entry = target_map.entry(key).or_insert(serde_json::Value::Null);\n                      json_merge_patch(entry, patch_val);   // <-- direct recursion, no depth bound\n                  }\n              }\n          }\n          other => *target = other,\n      }\n  }\n\nCONCERN\nThis is the RFC 7396 JSON Merge Patch implementation called by every extension server's `/set update` handler. It recurses directly on the patch tree with no depth bound.\n\nA client-supplied `PatchObject` deserializes into `Map<String, Value>`. The Map keys are JMAP property paths (slash-delimited); the Values are arbitrary JSON that the merge-patch walks recursively. Crucially: `serde_json::from_value::<PatchObject>` only enforces serde_json's default recursion limit on the OUTER Map structure \u2014 the inner `Value` leaves are stored as already-parsed `Value` trees and skip the depth check.\n\nAn attacker posts an `Email/set update` (or any sibling's `/set update`) with a patch like:\n  { \"someField\": { \"a\": { \"a\": { \"a\": ... 4096 deep ... }}}}\n\nThis passes serde_json's outer parse. `json_merge_patch` then recurses 4096 levels, crashing the tokio worker on stack overflow.\n\nThe five impls are byte-identical (cookie-cutter from the canonical pattern \u2014 though mail-server itself does not use this helper because it works with typed Patch types instead of PatchObject<O>). This is exactly the cookie-cutter divergence pattern that AGENTS.md 'Canonical Templates' rule was added to prevent: fix one, propagate to all.\n\nThe `.expect(\"merge patch target must be an object\")` on line 540 is also a latent panic, separately flagged in JMAP-sc1b.87 \u2014 that bead resolved 'unreachable on internal callers' but the recursion-bound issue is orthogonal.\n\nWHAT GOES WRONG\nDoS (stack overflow). Crashes the tokio worker for any authenticated `/set update` call with a deeply nested patch value.\n\nPROPOSED FIX\nTwo options:\n\n(a) **Depth cap** in `json_merge_patch` \u2014 add a depth parameter, increment on each recursion, return early (without mutation) if it exceeds a constant like 32:\n\n       fn json_merge_patch(target: &mut Value, patch: Value, depth: usize) {\n           if depth > MAX_MERGE_DEPTH { return; }  // or: return Err(JmapError::limit(\"patchDepth\"));\n           ...\n           json_merge_patch(entry, patch_val, depth + 1);\n       }\n\n(b) **Iterative rewrite** using an explicit worklist. More invasive but removes the entire stack-DoS class.\n\nPer the canonical-templates rule, apply the fix to ALL FIVE sibling impls in the same commit. If the canonical pattern needs to live somewhere shared, consider lifting `json_merge_patch` into `jmap-server` as a shared helper.\n\nAdd a unit test with a 1000-deep patch Value and confirm the depth cap (or rewrite) handles it.\n\nORACLE\n- RFC 7396 \u00a71: 'The merge patch format is a JSON value that represents the modifications.' No depth bound is specified; that is the implementor's responsibility.\n- Companion to JMAP-sc1b.95 (json_pointer_ext recursion) and JMAP-sc1b.94 (parse_request doc gap) \u2014 three related unbounded-recursion findings.\n\nRISK CLASSIFICATION\nP2. Authenticated stack-DoS in every extension-server memory backend. Cookie-cutter pattern means a single fix propagates to all five sites.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.97",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security: json_merge_patch is unbounded recursion in 5 sibling MemoryBackend impls \u2014 adversarial PatchObject crashes worker",
+  "updated_at": "2026-05-11T14:39:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:25:25Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "9b70b680-1629-55e4-a50f-4c8f6ccfe6a6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit 1b073f4. Added CONTACT_UPDATE_ALLOWED projection (\"blocked\", \"displayName\" per draft \u00a7ChatContact/set line 878) to contact.rs handle_contact_set update branch. Non-allowed fields silently dropped before reaching backend.update_object; patches carrying only non-allowed fields yield invalidPatch. Three new integration tests cover allowed-only, all-rejected, and mixed-patch paths with spec-text oracles. Pattern mirrors existing SpaceBan/set allowlist convention (ban.rs:236-263). The MAINTENANCE invariant on the CONTACT_READONLY/CONTACT_UPDATE_ALLOWED lists is the same hand-maintained pattern tracked workspace-wide under JMAP-x2gd.87.",
+  "closed_at": "2026-05-14T16:05:00Z",
+  "compaction_level": 0,
+  "content_hash": "27501df2bfe8d81da752ef4592cc3dea10794b527efd1b32e1794737ed53e60f",
+  "created_at": "2026-05-14T03:13:23Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/contact.rs:152-218 (handle_contact_set update branch).\n\ndraft-atwood-jmap-chat-00 \u00a7ChatContact/set (line 878): 'update supports: blocked, displayName.'\n\nThe handler:\n- rejects patches that contain {id, firstSeenAt, lastSeenAt} via CONTACT_READONLY (line 156)\n- but then converts the WHOLE remaining patch_val into a PatchObject (line 173) without any whitelist\n\nA client can patch arbitrary fields: lastSeenAt would be rejected (it's read-only) but login, presence, lastActiveAt, status, and any other field flows through to backend.update_object. The MemoryBackend's update_object applies the RFC 7396 merge patch with no further filtering.\n\nThis is the inverse of how SpaceBan/set handles the same problem (ban.rs:234-247: BAN_UPDATE_ALLOWED whitelist, only retained fields land in the cleaned patch). The ChatContact handler should mirror that pattern with const CONTACT_UPDATE_ALLOWED = &[\"blocked\", \"displayName\"].\n\nTrigger: a client sends update {\"contactId\": {\"presence\": \"online\"}}. Spec says clients cannot patch presence (it's server-derived). The handler accepts it; the MemoryBackend stores it; subsequent ChatContact/get returns the client-supplied value. In production this corrupts presence state and lets clients forge other users' presence indicators.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChatContact/set update accepts arbitrary fields; spec restricts to {blocked, displayName}",
+  "updated_at": "2026-05-14T16:05:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:13:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "dc13ed36-a677-50f7-a519-3c212cd43e0f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

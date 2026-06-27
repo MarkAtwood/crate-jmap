@@ -1,0 +1,33 @@
+{
+  "close_reason": "Opinion-level observation; no action needed",
+  "closed_at": "2026-05-01T23:09:25Z",
+  "compaction_level": 0,
+  "content_hash": "fa4d07cdd89fdc62a7a91862d1bfa4700d0465b3c18b1e12cef958a8bf8dd64d",
+  "created_at": "2026-05-01T16:30:03Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs find_immutable_patch_key checks key.as_bytes().get(field.len()) == Some(&b'/') to distinguish 'messageId' (blocked) from 'messageId/0' (blocked) from 'messageIdX' (allowed). A naive starts_with check would incorrectly block the third case. This is subtle and a contributor might 'simplify' it to starts_with. The byte-index check is the right approach and is clearly commented. Do not simplify.",
+  "ephemeral": 0,
+  "id": "JMAP-wdy.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_immutable_patch_key byte-index check is correct and necessary",
+  "updated_at": "2026-05-01T23:09:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T09:30:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wdy",
+      "id": "24bae47a-0ceb-58d5-961e-aabf0c0b9c3b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

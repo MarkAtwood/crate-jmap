@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: next_id() already uses AtomicU64 increment (BASE + COUNTER.fetch_add); confirmed no cross-test collisions",
+  "closed_at": "2026-05-02T19:30:36Z",
+  "compaction_level": 0,
+  "content_hash": "0f9a11b464313f23eba1beccf74f0f473c50eb4ba3a1154b810a8ca6d8c1ec70",
+  "created_at": "2026-05-02T19:18:06Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs next_id() uses a process-global OnceLock<u64> BASE seeded from SystemTime. Consequence 1: in tests that run concurrently (tokio multi-thread), multiple tests share the same counter, so IDs assigned during Email/set create in one test can collide in theory with another. Consequence 2: because the base is a u64 nanosecond timestamp cast from u128, it silently truncates on platforms where duration_since(UNIX_EPOCH) overflows u64 (~year 2554 in nanos). Consequence 3: contributors who see next_id() and copy it for a new object type will produce cross-type collisions. The docstring warns but the design itself is fragile.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "next_id() base counter is process-global and not backend-scoped",
+  "updated_at": "2026-05-02T19:30:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "db2b0a91-c6b1-568e-ab0e-5c10fed0dd0f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

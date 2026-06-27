@@ -1,0 +1,33 @@
+{
+  "close_reason": "Stale: find_immutable_patch_key uses const &[&str] linear scan (no OnceLock<HashSet>). Existing doc at helpers.rs:83 explains the design.",
+  "closed_at": "2026-05-04T15:46:18Z",
+  "compaction_level": 0,
+  "content_hash": "ce341a76ae0a45bc484330897b4e2efa70ad8b82ef535eed18029b66e58e1d34",
+  "created_at": "2026-05-02T02:56:52Z",
+  "created_by": "Mark Atwood",
+  "description": "find_immutable_patch_key (email.rs:1253) builds a HashSet from IMMUTABLE_EMAIL_FIELDS using OnceLock, so the set is only allocated and populated once per process. The exact-match path is then O(1) per key in the patch. A contributor might suggest switching to a static sorted array + binary search (no allocation), which would be marginally more cache-friendly for 18 entries, but the OnceLock<HashSet> approach is correct and avoids a sorted-array maintenance requirement. The redundant linear scan for the return value (JMAP-yqo.16) is a separate fixable issue.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/set immutable-field guard uses OnceLock<HashSet> for O(1) amortized lookup",
+  "updated_at": "2026-05-04T15:46:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:56:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "36d7b4ef-576d-56e6-9142-4b5a72eaa712",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

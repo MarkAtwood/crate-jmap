@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "isDraft immutability enforced. Dead code removed. Tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced dead isDraft no-op with enforcement: get_objects::<Task> fetches current state; isDraft false\u2192true rejected with invalidProperties; added seed_task to MockBackend; updated get_objects to return seeded tasks; 3 new isDraft tests; 19 tests pass; clippy clean",
+  "closed_at": "2026-05-05T04:08:11Z",
+  "compaction_level": 0,
+  "content_hash": "3c043e6ca138b1e9e937aeb4664bfe1655f736b8aba7aa08e9628d56f17d6684",
+  "created_at": "2026-05-05T03:02:01Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Draft-ietf-jmap-tasks-06 \u00a74 says 'Once set to false, the value cannot be updated to true.' The handler at task.rs:143-152 reads the patch for isDraft:true but then executes 'let _ = is_draft' \u2014 a literal no-op. This MUST be enforced at the handler layer.\n\n**Algorithm:**\n1. Remove the dead 'let _ = is_draft' block.\n2. In the update loop, before calling update_object: inspect patch_val.get(\"isDraft\").\n3. If Some(Value::Bool(true)): call backend.get_objects::<Task>(&account_id, &[id], Some(&[\"isDraft\"])).\n4. If returned Task has is_draft == Some(false): insert notUpdated[id] = {\"type\":\"invalidProperties\",\"properties\":[\"isDraft\"]}; continue. Do not call update_object.\n5. If is_draft == Some(true) or None: proceed normally (already draft, no violation).\n6. Extend MockBackend: add seed_task(id, is_draft: bool) helper so tests can pre-populate tasks.\n\n**Tests:**\n- Task with isDraft=false in backend; patch {\"isDraft\":true} \u2192 notUpdated[\"t1\"][\"type\"]==\"invalidProperties\" and properties==[\"isDraft\"]. Oracle: \u00a74 lines 733-737.\n- Task with isDraft=true; patch {\"isDraft\":true} \u2192 passes to backend (no pre-rejection).\n- Patch {\"isDraft\":false} on draft task \u2192 passes to backend (allowed).\n\n**Acceptance criteria:**\n- Dead code at task.rs:148-152 removed.\n- cargo test -p jmap-tasks-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-131x.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Enforce isDraft false\u2192true revert in Task/set handler",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:02:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-131x",
+      "id": "1ef7d7ea-3795-554f-bbce-2f40e8b9fb27",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

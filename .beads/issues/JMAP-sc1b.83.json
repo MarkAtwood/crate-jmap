@@ -1,0 +1,33 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T15:21:08Z",
+  "compaction_level": 0,
+  "content_hash": "8d7cbace8d195d32a5a3487f4c7c6207809c9dc467060534a28747c6d00b0bfe",
+  "created_at": "2026-05-11T14:11:00Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "jmap-types defines impl From<String> for Id and impl From<String> for State (crate-jmap-types/src/id.rs:79-83 via impl_string_newtype! macro). Canonical mail-server uses the From<String> impl directly (e.g. crate-jmap-mail-server/src/memory.rs:370: State::from(n.to_string()), :644: State::from(state_n.to_string())). Siblings instead append .as_str() and use From<&str>, forcing an extra borrow that then re-allocates inside the From<&str> impl (id.rs:84-88: s.to_owned()).\n\nConcretely:\n\n  crate-jmap-calendars-server/src/memory.rs:322   Id::from(format!(...).as_str())\n  crate-jmap-calendars-server/src/memory.rs:384   State::from(n.to_string().as_str())\n  crate-jmap-calendars-server/src/memory.rs:445   State::from(current_state.to_string().as_str())\n  crate-jmap-chat-server/src/memory.rs:166        Id::from(format!(...).as_str())\n  crate-jmap-chat-server/src/memory.rs:236        State::from(n.to_string().as_str())\n  crate-jmap-chat-server/src/memory.rs:298        State::from(current_state.to_string().as_str())\n  crate-jmap-chat-server/src/memory.rs:322-327    State::from(<multiline>.to_string().as_str())\n  crate-jmap-chat-server/src/memory.rs:367-372    State::from(<multiline>.to_string().as_str())\n  crate-jmap-contacts-server/src/memory.rs:267    Id::from(format!(...).as_str())\n  crate-jmap-contacts-server/src/memory.rs:328    State::from(n.to_string().as_str())\n  crate-jmap-contacts-server/src/memory.rs:389    State::from(current_state.to_string().as_str())\n  crate-jmap-filenode-server/src/memory.rs:127    Id::from(format!(...).as_str())\n  crate-jmap-filenode-server/src/memory.rs:281    State::from(format!(...).as_str())\n  crate-jmap-filenode-server/src/memory.rs:306,369,422  same shape\n  crate-jmap-sharing-server/src/memory.rs:171     Id::from(format!(...).as_str())\n  crate-jmap-sharing-server/src/memory.rs:240     State::from(n.to_string().as_str())\n  crate-jmap-sharing-server/src/memory.rs:301     State::from(current_state.to_string().as_str())\n  crate-jmap-tasks-server/src/memory.rs:270       Id::from(format!(...).as_str())\n  crate-jmap-tasks-server/src/memory.rs:331       State::from(n.to_string().as_str())\n  crate-jmap-tasks-server/src/memory.rs:392       State::from(current_state.to_string().as_str())\n\nRoughly 22 sites across 6 sibling crates. Fix is mechanical: drop the .as_str() \u2014 the From<String> impl already exists. Cookie-cutter drift from the canonical mail-server pattern; workspace AGENTS.md 'Canonical Templates' propagation rule applies.\n\nWhy P2 not P3: this is a directly visible idiom drift in a 5-day code-burst that the canonical got right and the siblings didn't, and the section-2 prompt rule says clippy-class findings are P2 deviation default.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.83",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: 14 sites Id::from(format!(...).as_str()) and State::from(...to_string().as_str()) in 6 sibling MemoryBackends \u2014 canonical mail-server drops the .as_str()",
+  "updated_at": "2026-05-11T15:21:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:11:00Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "3a48e0cf-8a48-57d6-bfe0-228a9428975e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

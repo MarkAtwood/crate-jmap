@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:28:25Z",
+  "compaction_level": 0,
+  "content_hash": "0e16b57cdbb416967acebb5c48095a03bded0c3a66e30d3df0da0cd119f51003",
+  "created_at": "2026-05-04T19:22:43Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec \u00a72.1 MUST: reject names containing U+0000-U+001F, U+007F-U+009F, U+2028, U+2029. Also must be >= 1 character. No validation exists in handler for create or update paths. Fix: add validate_script_name() helper called in create and update loops.",
+  "ephemeral": 0,
+  "id": "JMAP-w9hj.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve_set: script name prohibited chars not validated",
+  "updated_at": "2026-05-04T19:28:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T12:22:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w9hj",
+      "id": "17b745d4-e0d1-5173-9d67-c6ca18edb6fa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

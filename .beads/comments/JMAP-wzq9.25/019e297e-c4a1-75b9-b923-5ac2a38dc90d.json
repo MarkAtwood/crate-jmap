@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T02:37:14Z",
+  "id": "019e297e-c4a1-75b9-b923-5ac2a38dc90d",
+  "issue_id": "JMAP-wzq9.25",
+  "text": "Blocked on canonical workspace propagation. The 'Clone is cheap because JmapClient is cheap' doc-claim is verbatim across every extension-client's SessionClient (canonical mail-client mod.rs and all 6 siblings carry the same wording). The downstream contract is owned by jmap-base-client's JmapClient. Fix (downgrade the doc-claim to 'Clone forwards to JmapClient::clone()' + a separate canary test or compile-time bound in base-client) lands canonical-first."
+}

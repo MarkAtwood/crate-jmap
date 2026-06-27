@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-13T17:34:38Z",
+  "id": "019e2267-a50f-795a-9c3a-21344012ef0f",
+  "issue_id": "JMAP-cf7p.12",
+  "text": "Recommendation accepted (Mark, 2026-05-13): option (2) pair with cf7p.10 in one PR sharing the same event-id scheme (process-global counter + 1024-event-per-type ring buffer from cf7p.10). De-labeling human; bead is now claimable by /do-beads."
+}

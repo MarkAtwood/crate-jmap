@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Deleted crate-jmap-sharing-server/tests/memory_backend.rs (3-line mod-common stub contributing zero tests since JMAP-hwdv.2). Test count unchanged at 25. Chat-server and filenode-server (.3 and .4 just landed) have no analogous stub file \u2014 their integration tests are in named binaries already. Commit 7666c4c.",
+  "closed_at": "2026-05-11T05:23:15Z",
+  "compaction_level": 0,
+  "content_hash": "1e27a1a278521175fdc30f30e103cae2dddf37f9841da187ec47bedcf9b01dd9",
+  "created_at": "2026-05-11T05:11:45Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "After JMAP-hwdv.2 extracted MemoryBackend from tests/common/mod.rs to src/memory.rs, the integration test binary `crate-jmap-sharing-server/tests/memory_backend.rs` is now a 3-line stub (just `mod common;`) that runs zero tests, because its sole purpose was to drag in the `mod tests { }` block formerly inside `tests/common/mod.rs`. That block now lives in `src/memory.rs` and runs as crate-level unit tests.\n\nCleanup: delete `crate-jmap-sharing-server/tests/memory_backend.rs`.\n\nAcceptance: `cargo test -p jmap-sharing-server` test count unchanged after deletion (the binary contributes zero tests today).\n\nSame cleanup likely applies to sibling crates after JMAP-hwdv.3 / .4 if their pre-extraction `tests/common/mod.rs` similarly had a `mod tests { }` block plus a tests/*backend*.rs stub. File analogous follow-ups when those land.",
+  "ephemeral": 0,
+  "id": "JMAP-hwdv.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Delete dead tests/memory_backend.rs stub after JMAP-hwdv.2 extraction",
+  "updated_at": "2026-05-11T05:23:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T22:11:44Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-hwdv",
+      "id": "e5aaa620-65de-54a0-814c-b7d89dbeafaa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T17:01:05Z",
+  "id": "019e2c95-a553-7965-b18c-42bb1ee95d13",
+  "issue_id": "JMAP-ic0j",
+  "text": "Confidence: 35% chance of a missed bug. Least confident flags: JMAP-ic0j.5 (Principal/getAvailability bound-ordering \u2014 relied on doc-comment 'half-open interval' wording, did not cross-check draft \u00a72.2 normative text), JMAP-ic0j.3 (per-user routing \u2014 verified the predicate fails for 'alerts/abc' via the existing types test at backend.rs:281, but did not run the bug end-to-end against a TrackingBackend that would have surfaced it; the routing tests in event.rs:1556+ all use top-level keys so this case is uncovered). Uncertainty driven by: did not run cargo test --workspace; did not read draft-ietf-jmap-calendars-26 sections 5.4 / 5.9.2.1 verbatim \u2014 relied on PLAN.md summaries which may simplify edge cases. Would raise confidence if: (a) ran the integration tests, (b) cross-checked the per-user routing claim against draft \u00a75.4 wording about JSON Pointer sub-paths, (c) read draft \u00a72.2 for the utcStart/utcEnd ordering normative text, (d) checked the canonical mail-server for analogous routing patterns to compare against."
+}

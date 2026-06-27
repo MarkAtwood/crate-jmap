@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Moved the MDN/parse blob-id cap onto MdnBackend as fn max_mdn_parse_blob_ids(caller, account_id) -> usize with default MDN_PARSE_MAX_BLOB_IDS (16). The handler reads the cap at request time, eliminating the const-vs-handler-arg duplication and giving backends per-account flexibility. Matches the existing MailBackend per-method max_<thing>(caller, account_id) convention; the workspace AGENTS.md 'Backend caps and limits' section blesses this pre-existing shape for jmap-mail-server.\n\nAPI impact (pre-1.0 break, internal callers only):\n- handle_mdn_parse: drops the max_blob_ids parameter\n- register_mdn_handlers: drops the max_blob_ids parameter\n- MDN_PARSE_MAX_BLOB_IDS const: kept, retconned to 'this is the trait method's default value' rather than 'pass this to the handler' \u2014 backward-compat for external consumers that already use the const by name\n\nQuality gates: fmt + clippy --all-features --tests + test --all-features + doc --all-features all clean. New integration test pins default-16 cap against 17-blob-IDs requestTooLarge response.\n\nDid NOT pursue the bead's Option 2 (Option<usize> with None=use-const) \u2014 the trait-method approach is the workspace-canonical shape for this kind of cap and is more flexible (per-account). Did NOT touch sibling extension-server crates because no sibling currently has an analogous MDN-or-parse-style blob-count cap; this is mail-server-local.\n\nCookie-cutter posture: the trait-method pattern is the workspace-canonical shape, so future sibling extension-server caps (e.g. a hypothetical SearchSnippet/get blob-id cap, a hypothetical Sieve script-import batch cap) should be added via the same fn max_<thing>(caller, account_id) shape \u2014 NOT via const+handler-arg. No separate propagation bead needed because no sibling currently has the bug.",
+  "closed_at": "2026-05-17T06:12:07Z",
+  "compaction_level": 0,
+  "content_hash": "316356032adf8dc9ffe685108b6b2b598ed79b2193bac60c576742b6b2610645",
+  "created_at": "2026-05-14T16:31:16Z",
+  "created_by": "Mark Atwood",
+  "description": "src/mdn.rs:537 declares:\n\n```\npub const MDN_PARSE_MAX_BLOB_IDS: usize = 16;\n```\n\nsrc/mdn.rs:547 (handle_mdn_parse) takes a runtime parameter:\n\n```\npub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(\n    backend: &B,\n    caller: &B::CallerCtx,\n    args: Value,\n    max_blob_ids: usize,\n) -> ...\n```\n\nsrc/lib.rs:278 (register_mdn_handlers) takes the limit at registration time:\n\n```\npub fn register_mdn_handlers<B>(\n    dispatcher: &mut Dispatcher<B::CallerCtx>,\n    backend: Arc<B>,\n    max_blob_ids: usize,\n)\n```\n\nThe default value (16) is encoded in the `pub const`, NOT in the registration function or the handler signature. A consumer who wants the default writes:\n\n```\nregister_mdn_handlers(&mut dispatcher, backend, jmap_mail_server::mdn::MDN_PARSE_MAX_BLOB_IDS);\n```\n\n\u2026which is a verbose ceremony. The doc explicitly tells callers to do this (lib.rs:269: \"Pass [`mdn::MDN_PARSE_MAX_BLOB_IDS`] for the default\").\n\nContract issues:\n\n1. **Changing the default is a multi-site edit.** A future tightening from 16 to 8 means changing the const AND auditing every caller (kith, stoa, third parties) to confirm they pass the const rather than a hardcoded literal. The const is not authoritative; the registered-handler-time value is.\n\n2. **No way to NOT cap.** If a high-volume deployment wants no cap, the caller passes `usize::MAX` \u2014 which works but the doc does not document this idiom. `Option<usize>` with `None = no cap` would be clearer.\n\n3. **The cap is enforced at the handler, not at the backend.** A caller wanting per-account variation cannot \u2014 `register_mdn_handlers` takes one value for all accounts. Compare with `max_collapse_threads_emails(caller, account_id) -> usize` on `MailBackend`, which is per-account.\n\nDefensive shape:\n- Move the cap onto `MdnBackend` as `fn max_mdn_parse_blob_ids(caller, account_id) -> usize { 16 }` to match the rest of the workspace cap convention.\n- OR change the signature to `Option<usize>` with `None` meaning \"use the constant\".\n\nPriority P2 because: not a correctness bug, the current shape works, but the duplicated default and per-account inflexibility lock the maintainer in if a 1.0 contract is shipped before this gets revisited.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MDN_PARSE_MAX_BLOB_IDS default duplicated across const and handler parameter",
+  "updated_at": "2026-05-17T06:12:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:31:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "2103becb-a3f9-5010-9a4c-f48a8418fcf7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

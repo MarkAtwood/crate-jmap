@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-5c0",
+  "title": "tests/common: MemoryBackend in-memory MailBackend impl",
+  "description": "Create tests/common/mod.rs with a complete in-memory MailBackend implementation. This is both the integration test harness and the canonical example for implementors.\n\n## What to implement\n\nMemoryBackend struct with:\n- mailboxes: HashMap<AccountId, HashMap<Id, Mailbox>>\n- emails: HashMap<AccountId, HashMap<Id, Email>>\n- threads: HashMap<AccountId, HashMap<Id, Thread>>\n- identities: HashMap<AccountId, HashMap<Id, Identity>>\n- submissions: HashMap<AccountId, HashMap<Id, EmailSubmission>>\n- vacation_response: HashMap<AccountId, Option<VacationResponse>>\n- state counters: HashMap<AccountId, u64>\n\nImplement MailBackend for MemoryBackend:\n- All CRUD methods: in-memory HashMap operations\n- changes_objects: linear scan of state counters\n- query_objects: sort/filter in memory\n- import_email: parse blob bytes, store as Email\n- parse_email: parse bytes, return Email without storing\n- copy_email: deep-copy email across accounts\n- search_snippets: substring search in email body/subject\n\nHelper: fn next_state(account_id) -> State \u2014 increment counter, return as State string\n\n## Source references\n- Copy pattern: ~/PROJECT/crate-jmapchat-server/jmapchat-server/tests/common/mod.rs (RefStore)\n- Stalwart integration tests for expected behavior: ~/GIT/stalwart-jmap-server/main/tests/src/jmap/\n- MemoryBackend does NOT need to be efficient \u2014 correct is sufficient\n\n## Acceptance criteria\n- cargo test -p jmap-mail-server --test integration passes (once tests exist)\n- MemoryBackend::default() gives a working backend\n- All MailBackend methods implemented (no todo! macros)\n- Used in every integration test in tests/\n\nDepends on: JMAP-8ph (backend.rs trait)\nParent: JMAP-445",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:01:43Z",
+  "updated_at": "2026-04-30T20:51:54Z",
+  "closed_at": "2026-04-30T20:51:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-8ph",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:03:56"
+    }
+  ]
+}

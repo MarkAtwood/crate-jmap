@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Wontfix per the bead's own self-classification: P4 opinion-adjacent, 'current shape is acceptable; the suggested shape is incrementally better. Flag for awareness during any future revisit of the function \u2014 not for forced rework.' Per the workspace AGENTS.md bikeshedding rule, doing a P4 idiom rework on code the bead author explicitly tagged 'not for forced rework' is exactly the failure mode the rule warns against. The double .as_object_mut() walk is a constant-factor wart on a non-hot path (handle_metadata_changes runs once per /changes call, not per change-log entry); the diagnostics-quality concern the bead notes as a separate issue (silent non-object args pass-through) is a feature gap that should be filed independently if pursued, not folded into this idiom-tier finding. If the function is revisited for the diagnostics fix or any other reason, fold the destructure-once shape in then.",
+  "closed_at": "2026-05-17T09:15:23Z",
+  "compaction_level": 0,
+  "content_hash": "5c8fea00b65ed282f98973420e68eff1f9238808bdddb6c1fa949d0d3da1835b",
+  "created_at": "2026-05-14T14:32:59Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_metadata_changes (src/metadata.rs:79-102), the same .as_object_mut() pattern fires twice in succession:\n\n    let filter_related_type: Option<String> = args\n        .as_object_mut()\n        .and_then(|m| m.remove('filterRelatedType'))\n        .and_then(...);\n\n    let filter_metadata_type: Option<Vec<String>> = args\n        .as_object_mut()\n        .and_then(|m| m.remove('filterMetadataType'))\n        .and_then(...);\n\nEach call walks the Value enum to confirm it's an Object. Idiomatic Rust either destructures once:\n\n    let (filter_related_type, filter_metadata_type): (Option<String>, Option<Vec<String>>) =\n        match args.as_object_mut() {\n            Some(m) => {\n                let rt = m.remove('filterRelatedType')\n                    .and_then(|v| if let Value::String(s) = v { Some(s) } else { None });\n                let mt = m.remove('filterMetadataType')\n                    .and_then(|v| if let Value::Array(arr) = v {\n                        Some(arr.into_iter()\n                            .filter_map(|v| if let Value::String(s) = v { Some(s) } else { None })\n                            .collect())\n                    } else { None });\n                (rt, mt)\n            }\n            None => (None, None),\n        };\n\n\u2026or extracts the &mut Map upfront and treats the no-object case explicitly (likely a top-level invalidArguments error, since RFC 8620 \u00a75 requires method args to be a JSON object). Going further: the current code silently treats non-object args as 'no filters present' and proceeds to extract_account_id, which will then fail with its own error \u2014 diagnostics quality would improve if the handler rejected non-object args at the top.\n\nWhat goes wrong: low-priority readability and very small wasted Value-enum-walk cost. The diagnostics-quality wart (silent non-object pass-through) is a separate, more material issue but it's a feature gap, not an idiom miss.\n\nThis is P4 (opinion-adjacent). The current shape is acceptable; the suggested shape is incrementally better. Flag for awareness during any future revisit of the function \u2014 not for forced rework.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_metadata_changes calls args.as_object_mut() twice; could destructure once",
+  "updated_at": "2026-05-17T09:15:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:32:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "2658ebcd-f335-588e-b133-91460b632062",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

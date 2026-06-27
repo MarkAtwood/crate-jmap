@@ -1,0 +1,33 @@
+{
+  "close_reason": "upload_blob now cross-checks BlobUploadResponse.size against actual data.len() before returning. Mismatch surfaces as UnexpectedResponse with both sizes in the message. Used UnexpectedResponse rather than adding a typed variant to keep 0.1.x API stable; typed BlobSizeMismatch can be added in 0.2.0. New regression test pins the contract.",
+  "closed_at": "2026-05-09T07:31:49Z",
+  "compaction_level": 0,
+  "content_hash": "570b9aeb6709d925daf8012ae04c0bc856b31ff75e61e97d3dfa6cd63fa42f6b",
+  "created_at": "2026-05-08T03:05:06Z",
+  "created_by": "Mark Atwood",
+  "description": "src/blob.rs:213-241 \u2014 after upload, the client deserializes BlobUploadResponse and verifies the server's sha256 (when present) but never checks that `upload_resp.size == data.len() as u64`. A buggy server reporting size=0 with a valid sha256 would be accepted. Low-severity: the sha256 check, when present, makes a size mismatch implausible (length is implicit in the digest). When sha256 is absent (most servers), size is the only signal of \"the bytes I sent are the bytes you received\" \u2014 silently ignoring it gives up that signal. Optional: assert size match and return BlobIntegrityMismatch on disagreement.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BlobUploadResponse.size returned by server is never validated against actually-uploaded byte count",
+  "updated_at": "2026-05-09T07:31:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:05:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "f9176014-ce09-5e76-a0f8-df1a9afeb3be",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

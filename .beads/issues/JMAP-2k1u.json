@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:43:37Z",
+  "compaction_level": 0,
+  "content_hash": "9d3eb1ba48f79e15488399727da9e9e89a0a50acd03802595afd26bce7692506",
+  "created_at": "2026-05-02T23:39:14Z",
+  "created_by": "Mark Atwood",
+  "description": "The find_header_value function in common/mod.rs (lines 2554-2561) matches headers by scanning for the first line beginning with 'Field-Name:'. RFC 5322 \u00a72.2.3 allows long header values to be folded across multiple lines (continuation lines start with whitespace). If any header in an MDN blob is folded (e.g. a long Reporting-UA or Original-Recipient), find_header_value will return only the first line fragment, silently dropping the continuation. This affects parse_mdns for any real-world MDN blob with long header values. The function has no comment warning of this limitation.",
+  "ephemeral": 0,
+  "id": "JMAP-2k1u",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mdn find_header_value: no folded-header support",
+  "updated_at": "2026-05-02T23:43:37Z"
+}

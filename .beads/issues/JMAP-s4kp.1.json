@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1a994fcbc092ba9312076bb4d2e94af5b0c32cef563071f6a84b75bd49447820",
+  "created_at": "2026-06-05T03:56:52Z",
+  "created_by": "Mark Atwood",
+  "description": "Canonical template. Wire the 3 metadata-02 integration points into jmap-mail-server MemoryBackend:\n\n**1. query_objects filter matching:**\n- In the Email/Mailbox/Thread/Identity/etc. query_objects filter matcher, detect the 6 metadata filter condition keys (metadataExists, privateMetadataExists, metadataTextContains, privateMetadataTextContains, metadataTextEquals, privateMetadataTextEquals) on the FilterCondition JSON.\n- The metadata values live in the object's `extra` serde_json::Map under the `metadata` and `privateMetadata` wire keys \u2014 these are captured by the workspace extras-preservation policy.\n- Use jmap_metadata_server::filter::{metadata_exists, metadata_text_contains, metadata_text_equals} helpers which take a &serde_json::Value (the object) and the filter args and return bool.\n- Unknown filter keys that happen to match metadata conditions on a type that doesn't opt in should return unsupportedFilter per \u00a73.5.\n\n**2. get_changes ignoreMetadataOnlyChanges:**\n- Parse the `ignoreMetadataOnlyChanges` arg from the /changes request args (Boolean, default false).\n- When true and updatedProperties is present on a change entry, use jmap_metadata_server::changes::is_metadata_only_change to test whether all updated properties are metadata-only; if so, exclude from the updated array.\n- The MemoryBackend change log may need to track which properties changed per entry (currently it only tracks id + created/updated/destroyed). This is the main structural work.\n\n**3. /set patch validation:**\n- In the /set update path, when a PatchObject key targets `metadata` or `privateMetadata` (or a subpath like `metadata/photography/caption`), validate the patch using jmap_metadata_server::validate::{validate_depth, supports_namespace}.\n- The validation config comes from a DataTypeMetadataInfo associated with the type. Add a metadata_info() method to MailBackend (or pass config through limits()) that returns Option<DataTypeMetadataInfo> per type.\n- Reject invalid namespace with invalidProperties SetError. Reject depth-exceeded with invalidProperties SetError.\n- In the /set create path, validate the initial metadata/privateMetadata object the same way.\n\n**Tests:**\n- query_objects: seed objects with metadata extras, query with each of the 6 filter conditions, assert correct filtering\n- get_changes: seed objects, mutate metadata-only, assert ignoreMetadataOnlyChanges=true excludes them\n- /set validation: attempt invalid namespace / depth-exceeded patches, assert invalidProperties\n\n**Spec reference:** draft-ietf-jmap-metadata-02 \u00a72.1, \u00a72.3, \u00a72.4, \u00a73.5",
+  "ephemeral": 0,
+  "id": "JMAP-s4kp.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "mail-server: wire metadata-02 helpers into MemoryBackend",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-04T20:56:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s4kp",
+      "id": "b297253c-91c6-5e0a-a70c-6e6bfef4a2e0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

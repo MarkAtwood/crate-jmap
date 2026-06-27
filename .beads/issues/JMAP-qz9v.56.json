@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T02:52:32Z",
+  "compaction_level": 0,
+  "content_hash": "b542380aec4f4b69b28de3174ad99c9e36d1a4ba06a7d6a31113db1d09b5c0fe",
+  "created_at": "2026-05-14T19:44:53Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/contacts_tests.rs:228-232:\n\n    let err_str = format!(\"{err:?}\");\n    assert!(\n        err_str.contains(\"accountNotFound\") || err_str.contains(\"AccountNotFound\"),\n        \"must be accountNotFound: {err_str}\"\n    );\n\nThe test asserts on the Debug-format string of JmapError. The `format!(\"{err:?}\").contains(...)` pattern is the same anti-pattern as JMAP-qz9v.18 (which already flagged the inline test in addressbook.rs), and adds an extra wrinkle: the OR matches \"accountNotFound\" OR \"AccountNotFound\" \u2014 i.e. the test deliberately accepts both wire-format spelling and Rust enum-variant capitalization, because the author was not sure which would appear in the Debug output.\n\nIdiomatic Rust answer: pattern-match on err.error_type.as_str() the same way the inline tests in card.rs:541 and addressbook.rs:482 already do:\n\n    assert_eq!(err.error_type.as_str(), \"accountNotFound\");\n\nThat's a typed assertion against the wire-format string defined by RFC 8620 \u00a73.6.2; no Debug format string parsing, no OR fallback for capitalization variants.\n\nThis duplicates the idiom error from existing finding .18 in a different file. The fix is mechanical and the same.\n\nEngineering cost: low (test does pass), but Debug format strings are explicitly NOT part of the API contract per workspace AGENTS.md \u2014 any future revision of JmapError's Debug derive silently breaks this test in a way that looks unrelated to error semantics. The OR fallback for capitalization tells you the author noticed the format was unstable and chose to paper over it.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.56",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Integration test asserts error type via err_str.contains() Debug-format substring match",
+  "updated_at": "2026-05-18T02:52:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:44:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "6296940d-e75e-5cd0-bccc-0805eabecb6f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

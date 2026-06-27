@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "PLAN.md exists at crate-jmap-mime/PLAN.md; cargo test -p jmap-mime passes; all six required sections present.",
+  "assignee": "Mark Atwood",
+  "close_reason": "PLAN.md written at crate-jmap-mime/PLAN.md with all six required sections; cargo test -p jmap-mime still passes",
+  "closed_at": "2026-05-05T01:05:03Z",
+  "compaction_level": 0,
+  "content_hash": "9d32f573225d88ff40c72e374a3205d56816da4531aa600f33d9c1022e764784",
+  "created_at": "2026-05-05T00:59:35Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Write PLAN.md for crate-jmap-mime/ documenting the current design, known limitations, and marking the crate as complete.\n\n**Algorithm:**\n1. Read src/lib.rs in full (457 lines).\n2. Read AGENTS.md to understand the crate's role.\n3. Write PLAN.md covering all of the following sections:\n\n   ## Role\n   Thin adapter crate. Converts mime-tree output types to jmap-mail-types types.\n   No parsing logic lives here \u2014 every function is obvious field mapping.\n\n   ## Dependency chain\n   mime-tree \u2192 jmap-mime \u2192 jmap-mail-types (+ jmap-types for Id).\n   mime-tree is listed as version dep `\"0.1\"` in Cargo.toml; the local workspace\n   copy at ../MIME/mime-tree/ is a newer development version. PLAN.md must note\n   this version drift and that the workspace should be tested against the registry\n   0.1 before release.\n\n   ## Public API\n   Document all three public functions with their signatures, what they map,\n   and what each input/output field means. Include the fields intentionally\n   NOT populated (headers, language, location) and why.\n\n   ## Known limitations\n   - headers / language / location: require raw &[u8] bytes which part_to_jmap\n     does not accept; callers that need these fields cannot use part_to_jmap\n     as-is without a signature change.\n   - size field: reflects pre-decoded (on-wire) byte length, not post-decode\n     length. RFC 8621 \u00a74.1.4 specifies decoded size. For base64 parts this is a\n     spec deviation. Filed as JMAP-xxxx (link to gap-issue bead's created id).\n   - is_encoding_problem on ParsedPart: a parse-time structural encoding error\n     flag that has no corresponding EmailBodyPart field in RFC 8621; silently\n     dropped. This is correct per spec but worth noting.\n   - body_value_part_ids: relies on mime-tree's invariant that text_body and\n     html_body part ID lists are disjoint; this is not asserted.\n\n   ## Test coverage\n   List all 16 tests and what each covers. Note oracles are independent\n   (RFC 5322 byte literals, not self-derived).\n\n   ## Status\n   All functions fully implemented. 16 unit tests + 1 doc test pass.\n   cargo clippy clean. No stubs, no TODO/FIXME.\n\n**Defensive programming rules:**\n- This bead only writes documentation \u2014 no production code is modified.\n- No unwrap, no panics, not applicable.\n- Accuracy constraint: every factual claim in PLAN.md must be verifiable from\n  reading src/lib.rs. Do not invent features or tests that do not exist.\n\n**Subagent instructions:**\nSpawn two parallel subagents:\n  Subagent A: reads src/lib.rs completely and produces a function-by-function\n    summary including every field mapping and every comment.\n  Subagent B: reads AGENTS.md and the gap analysis to produce the limitations\n    section text.\nDo not begin writing PLAN.md until both subagents have reported.\n\n**Tests:** N/A \u2014 this bead produces a documentation file, not code.\n\n**Acceptance criteria:**\n- crate-jmap-mime/PLAN.md exists and is non-empty.\n- PLAN.md has sections: Role, Dependency chain, Public API, Known limitations,\n  Test coverage, Status.\n- Every function documented in PLAN.md exists in src/lib.rs with a matching\n  signature.\n- No factual errors (verify by cross-reading src/lib.rs).\n- cargo test -p jmap-mime still passes after the file is added (no code changes).",
+  "ephemeral": 0,
+  "id": "JMAP-dcgj.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-mime: write PLAN.md",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:59:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-dcgj",
+      "id": "ca07ed6b-8288-560a-809d-3d7b5b9255c2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:00:39Z",
+  "compaction_level": 0,
+  "content_hash": "f02c1ee24f6efc3a9f7ef886399ec2e0302f48a2352f831328945b9ab7f78d59",
+  "created_at": "2026-05-15T17:00:35Z",
+  "created_by": "Mark Atwood",
+  "description": "event.rs:854-863 \u2014 when CalendarEvent/query is called with 'expandRecurrences: true', the handler enforces the \u00a75.11 'filter MUST be a single FilterCondition with both before and after' rule BEFORE invoking the backend:\n\n  if expand_recurrences {\n      let bounds_ok = filter.as_ref()\n          .is_some_and(|f| f.before.is_some() && f.after.is_some());\n      if !bounds_ok {\n          return Err(JmapError::invalid_arguments(\n              'expandRecurrences requires a FilterCondition with both before and after',\n          ));\n      }\n  }\n\nWithout this guard the backend would have to enumerate an unbounded set of recurrence instances \u2014 the spec says the server MUST enforce this bound. Pushing it into the handler:\n1. Saves a backend round-trip for malformed requests.\n2. Centralizes the error reporting (one error string, not N variants per backend).\n3. Means a buggy backend that DOES try to enumerate cannot get the chance.\n\nA future contributor might suggest 'let backends decide what 'bounded' means' \u2014 no. The spec is normative, the handler is the right enforcement point because it pre-dates any backend behavior.\n\nDEFEND when reviewers suggest pushing this into the backend.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "expandRecurrences pre-check rejects unbounded filters in the handler before backend round-trip",
+  "updated_at": "2026-05-17T17:00:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:00:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "c62be46e-bc7a-5e7f-9c6f-498fb99a021c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

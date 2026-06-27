@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in bf895d2: added rustdoc to ContactCard documenting that ::default() produces a partial card for incremental construction, not a valid wire payload \u2014 the handler layer (jmap-contacts-server) rejects partial cards on /set create. Matches the workspace pattern: Email, Task, CalendarEvent all derive Default for the same partial-construction use case. Removing the Default derive would diverge from the sibling pattern and break common usage.",
+  "closed_at": "2026-05-15T23:05:23Z",
+  "compaction_level": 0,
+  "content_hash": "9def8574c79540972dd13cd4be3d9d2f6c8b8e936ae0ea9bb3b9b3dcb9d58d4a",
+  "created_at": "2026-05-15T22:45:53Z",
+  "created_by": "Mark Atwood",
+  "description": "ContactCard derives `Default` (card.rs:31). The derived default sets\nall 22+ optional fields to None.\n\n```rust\nlet c = ContactCard::default();\nlet wire = serde_json::to_string(&c).unwrap();\n// wire == \"{}\"\n```\n\nA wire ContactCard is not valid without:\n- `id`: required JMAP addition (RFC 9610 \u00a73)\n- `addressBookIds`: required JMAP addition (RFC 9610 \u00a73, server-side)\n\nA server crate that does:\n\n```rust\nlet mut card = ContactCard::default();\ncard.uid = Some(\"urn:uuid:...\".into());\n// forgot to set id, addressBookIds\nreturn Ok(card);  // serializes to {\"uid\": \"urn:uuid:...\"}\n```\n\n\u2026produces a wire payload that JMAP-strict clients will reject as\n\"missing required fields\".\n\n`#[non_exhaustive]` prevents struct-literal construction from outside\nthe crate, so callers cannot do\n`ContactCard { uid: ..., ..Default::default() }`.\nBut `ContactCard::default()` itself is callable, so a caller can\nconstruct a default and patch fields one at a time.\n\nAdditional immutability concern: once `Default` is shipped in 0.x.y, it\nis a forever-promise. Removing it is a breaking change. If the crate\nlater adopts a typestate builder pattern that prevents wire-invalid\nconstruction, `Default` cannot coexist with that.\n\nThree resolutions:\n\n1. Remove the `Default` derive entirely. Force callers to construct\n   via `serde_json::from_value` or a future builder. Cost: tests inside\n   this crate currently rely on `Default` for ergonomic struct init.\n   Each test would need to switch to from_value-based construction\n   (already the pattern in most tests; see lib.rs).\n\n2. Keep `Default` but rename to `ContactCard::empty()` with a clear\n   \"this is not a wire-valid card\" doc clause. Requires deprecating the\n   Default impl.\n\n3. Keep `Default` and add a doc clause explicitly stating the wire-\n   invalidity and pointing callers at a future `try_into_wire_card()`\n   validator.\n\nLowest-risk fix: option 3 (doc clause). Adds zero API surface; documents\nthe footgun. The doc clause should also note that the only correct way\nto construct a wire-valid ContactCard from outside the crate today is\nvia `serde_json::from_value` or `from_str` against a JSON literal\ncontaining `id` and `addressBookIds`.\n\nSame analysis applies to `AddressBook::default()` \u2014 but AddressBook\ndoes NOT derive Default (addressbook.rs:45-46 only has\n`#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]`). Verify\nthis asymmetry is intentional and document the rationale.\n\nSame analysis applies to `ContactCardFilterCondition::default()` \u2014 that\none IS valid empty (matches every card per RFC 9610 \u00a73.3.1), so the\nDefault derive there is fine.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactCard::default() builds a wire-invalid card; serializing emits \"{}\"",
+  "updated_at": "2026-05-15T23:05:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:45:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "f87464f3-c4e3-5837-bc40-b34f9d18bfda",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

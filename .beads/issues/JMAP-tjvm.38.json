@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "9b0c2f1421b40d358bf7fc433df3d774ab4e47bcb2ecfde24bb3aa445cc821d2",
+  "created_at": "2026-05-17T13:02:25Z",
+  "created_by": "Mark Atwood",
+  "description": "Confirmed via probe (bd:JMAP-tjvm.15 close comment): every workspace struct with a '#[serde(flatten)] pub extra: serde_json::Map<String, serde_json::Value>' field is vulnerable to silent spoofing \u2014 a caller can put a typed-field's wire name into 'extra' and the flatten will SHADOW the typed value at serialize time.\n\nProbe results from EmailImportInput { blob_id: 'REAL', extra: {'blobId': 'SPOOF'} }:\n  - serde_json::to_value() returns {'blobId': 'SPOOF', ...} (typed value LOST entirely)\n  - serde_json::to_string() returns '{\"blobId\":\"REAL\",...,\"blobId\":\"SPOOF\"}' (duplicate keys; per RFC 8259 \u00a74 server behavior is impl-defined; serde_json on the receiving side takes the last value = 'SPOOF')\n\nProbe also confirmed for EmailGetParams: extras carrying 'fetchTextBodyValues' and 'maxBodyValueBytes' silently overrode the typed Some(false) and Some(1024) at to_value time.\n\nJMAP-tjvm.1/.2 fix is INSUFFICIENT \u2014 that fix protected the args-level merge (entry().or_insert()), but the bug occurs INSIDE the params Serialize call where the flattened extras overwrite typed fields BEFORE the to_value Map is even built. The /1/2 args-level merge then sees the already-clobbered Map.\n\nAffected types (every '#[serde(flatten)] extra: Map' in the workspace):\n  - jmap-mail-client: EmailGetParams, EmailCopyParams, MailboxSetParams, EmailSubmissionSetParams, EmailImportInput, EmailParseParams (6)\n  - jmap-calendars-client: CalendarEventGetParams, CalendarEventParseParams, PrincipalGetAvailabilityParams (3)\n  - jmap-contacts-client: AddressBookSetParams (1)\n  - jmap-filenode-client: FileNodeSetParams, FileNodeCopyParams (2)\n  - jmap-metadata-client: Metadata{Get,Set,Changes,Query,QueryChanges}Params (5)\n  - All *-types crates: every public data-object struct with the workspace extras-preservation extra field (Email, Mailbox, Thread, Calendar, etc.) \u2014 see workspace AGENTS.md 'Extras-preservation policy' in-scope list.\n\nThreat model: a multi-tenant SaaS lets tenant A populate 'extra' from tenant input, and a trusted controller passes the 'real' typed field. Vendor-A's spoofed value wins at serialize time.\n\nFix-shape options (recommend B):\n\nA. Custom Serialize impl per struct that strips reserved keys from 'extra' before emitting flatten. Maintenance burden: reserved-keys list per struct, stays in sync with typed fields.\n\nB. Workspace helper proc-macro or build-time generated 'reserved_keys() -> &'static [&'static str]' on each struct that has the extras pattern. Generic Serialize wrapper or a 'sanitize_extras_for_serialize' helper. Cookie-cutter-friendly.\n\nC. Validation at the call-site (reject inputs whose extras carry reserved keys). Lives in *-client handler code; requires per-method list. Doesn't help types-crate consumers (Email etc.) that serialize directly without going through a handler.\n\nD. Drop the extras-preservation pattern entirely. Workspace just affirmed this pattern (JMAP-1j9k.9 closed 2026-05-17). Counter-policy \u2014 not viable.\n\nRecommend B + audit: workspace-wide proc-macro to generate Serialize that filters extras before flatten, with a compile-time #[reserved(extras = [...])] attribute or similar.\n\nP1: confirmed silent-spoof bug, but exploitation requires the specific multi-tenant trust split. Most callers in *typical* usage where the same trust boundary owns both typed args and extras are unaffected. Not P0 because no in-tree consumer demonstrates the vulnerable trust split; P1 because the bug is real and the fix is workspace-wide.\n\nAcceptance criteria:\n1. Workspace decision on fix shape (B vs A vs C).\n2. Implementation in mail-client canonical first.\n3. Cookie-cutter propagation across all extension-client crates and all type crates with the extras pattern.\n4. Regression test pattern in mail-client showing 'extra cannot shadow typed field'.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace sweep: filter reserved keys from #[serde(flatten)] extra Maps on all client/types *Params/*Input structs",
+  "updated_at": "2026-05-17T13:02:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T06:02:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "d795f9bc-0747-5851-b21f-73797b326922",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

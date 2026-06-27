@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T21:22:13Z",
+  "id": "019e18eb-493d-748b-b632-3ccde6fc590d",
+  "issue_id": "JMAP-06zp.3.2",
+  "text": "Already satisfied by JMAP-06zp.3.1 (commit 73ec426). The trait + helpers were written together because separating them would have left helpers.rs with unused-import warnings. All four acceptance criteria pass on the 73ec426 commit: cargo check clean, cargo clippy -D warnings clean, cargo doc --no-deps clean, MetadataBackend trait fully doc-commented including the four \u00a73.1 server-side constraints (uniqueness / maySetPrivate / quota / related-object validation). Closing as done."
+}

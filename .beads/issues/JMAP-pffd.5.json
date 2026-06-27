@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decision: invariant doc mirrors limit() pattern correctly. No code change needed.",
+  "closed_at": "2026-05-02T22:16:37Z",
+  "compaction_level": 0,
+  "content_hash": "79de84e4a907eb61cff4240dfe0c793fe8b278b38168cb9c74f85c25362914e4",
+  "created_at": "2026-05-02T22:14:55Z",
+  "created_by": "Mark Atwood",
+  "description": "The invariant block added to unknown_capability_with_detail matches the pattern established by limit(). Both document: (1) what field carries the payload, (2) which HTTP layer reads that field and why, (3) the consequence of bypassing the constructor. A contributor might simplify the doc by removing the invariant block to reduce length \u2014 this block should be defended as it prevents silent misuse by callers who directly construct JmapError structs.",
+  "ephemeral": 0,
+  "id": "JMAP-pffd.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "invariant doc on unknown_capability_with_detail mirrors the limit() pattern correctly",
+  "updated_at": "2026-05-02T22:16:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:14:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-pffd",
+      "id": "e1f6b8e0-b900-5555-bc2f-a786c89efa10",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

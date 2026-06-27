@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:36:32Z",
+  "compaction_level": 0,
+  "content_hash": "5fd5e33327d14c89f9d9aa8ed71ad051261e24dd7207ac2c8631657b1a8b5cb1",
+  "created_at": "2026-05-02T19:18:24Z",
+  "created_by": "Mark Atwood",
+  "description": "seed.rs says fixtures are 'derived from the jmap-test-suite seed-data spec' but does not say where that spec lives or link to it. seed_fixture_tests.rs has the link (~/GIT/jmap-test-suite/src/setup/seed-data.ts) but seed.rs itself does not. A new contributor reading seed.rs alone cannot find the authoritative spec to verify or extend fixtures. Add the path to the module-level doc comment in seed.rs.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "seed.rs: no link to jmap-test-suite fixture spec",
+  "updated_at": "2026-05-02T22:36:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "7b2acb98-db3d-59e8-add2-49b53ad148c8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Wired enforce_max_objects_in_set into handle_filenode_set immediately after extract_account_id and before get_state, mirroring the canonical mail-server pattern (bd:JMAP-ayoz.41.2).\n\nPosition note documented in commit message: filenode-server's /set handler has no account_exists pre-check (a pre-existing divergence from the canonical, out of scope here); the cap check lands at the semantically-equivalent position (first non-trivial backend interaction).\n\nChanges:\n- src/helpers.rs: pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id}\n- src/filenode.rs: imported enforce_max_objects_in_set; called as\n    enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;\n\nTests in tests/max_objects_in_set.rs (3 new tests):\n- filenode_set_over_limit_create_returns_limit_error\n- filenode_set_over_limit_destroy_returns_limit_error\n- filenode_set_at_limit_passes_cap_check\n\nHand-built independent oracle per workspace test-integrity rules.\n\nPre-commit gate: cargo fmt clean, cargo clippy --workspace --all-features -D warnings clean, cargo test -p jmap-filenode-server clean (45+36+3+1+3+0 tests pass). Committed in c87413e.",
+  "closed_at": "2026-05-17T20:06:06Z",
+  "compaction_level": 0,
+  "content_hash": "8274266e6b779ac2957895ce8043b46feeaeb097749bc2316b2bb6c18f47116a",
+  "created_at": "2026-05-16T19:14:47Z",
+  "created_by": "Mark Atwood",
+  "description": "Propagation of bd:JMAP-ayoz.41.2 canonical pattern to jmap-filenode-server.\n\n## Scope\n\nInsert enforce_max_objects_in_set call (exact shape from .41.2) at top of the filenode-server /set handler, after account_exists:\n\n1. crate-jmap-filenode-server/src/filenode.rs handle_filenode_set\n\n## Tests\n\nIntegration test asserting over-limit returns JmapError type=limit description=maxObjectsInSet.\n\n## Acceptance\n\ncargo fmt+clippy+test+doc clean for jmap-filenode-server.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.41.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wire maxObjectsInSet enforcement into jmap-filenode-server (1 handler)",
+  "updated_at": "2026-05-17T20:06:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T12:14:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.41.2",
+      "id": "2fd84dae-245e-5a76-aa8e-5a15a9189699",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-16T12:14:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.41.1",
+      "id": "302693ac-c9c5-552f-ab90-d328a7416da4",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-16T12:14:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.41",
+      "id": "c0888eda-4c40-546f-b3a9-7d3302478f0b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

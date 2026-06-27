@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260510T221713Z-3712501",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T22:24:46Z",
+  "compaction_level": 0,
+  "content_hash": "68e0035a593082ddf0b0caccd3af362aaf5271e6aa63e63ed15633372c33c664",
+  "created_at": "2026-05-10T21:31:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Add a \"Filter extensibility\" section to the README.md of each crate that contains filter algebra, documenting the workspace policy that filter/comparator algebra is intentionally NOT extensible via vendor \"extras\" fields (JMAP-lbdy \"Decision: filter algebra excluded\", 2026-05-10).\n\n## Crates in scope (7 READMEs)\n\n- `crate-jmap-types/README.md`\n- `crate-jmap-mail-types/README.md` \u2014 type table includes `Filter<T>`, `EmailFilterCondition`, `EmailComparator`, `ComparatorProperty`, `Operator`\n- `crate-jmap-calendars-types/README.md`\n- `crate-jmap-contacts-types/README.md`\n- `crate-jmap-tasks-types/README.md`\n- `crate-jmap-filenode-types/README.md`\n- `crate-jmap-sharing-types/README.md`\n\n`crate-jmap-chat-types/README.md` is exempt (no filter algebra in chat-types).\n\n## Required section content\n\nBrief user-facing section (8-20 lines) placed near the existing type table where filter / comparator types appear. Covers:\n\n1. Filter algebra in this crate is intentionally NOT extensible via vendor \"extras\" fields.\n2. One-line why: a filter clause the server doesn't understand silently breaks query correctness \u2014 there is no compile-time or runtime signal that a vendor extension was dropped.\n3. What to do instead \u2014 two paths:\n   - **IETF-track**: use `draft-ietf-jmap-metadata` (capability URI `urn:ietf:params:jmap:metadata`). It defines a companion Annotation object keyed by `(relatedType, relatedId)` with capability-declared schema and a `Metadata/query` `textMatch` filter. This is the workspace's recommended path for vendor data that needs to be queryable. Workspace implementation tracker: JMAP-06zp.\n   - **Pre-IETF escape**: vendors building against custom server fields right now can escape to `serde_json::Value` for the filter tree, or fork the crate's `FilterCondition` type. See `crate-jmap-calendars-types/PLAN.md` for the hybrid sloppy-value pattern.\n4. Cross-reference: the workspace extras-preservation policy and the filter-algebra exclusion decision are documented in workspace `AGENTS.md`.\n\nWording should be consistent across the 7 crates (sweep). User-facing tone \u2014 this is the section a downstream crate author reads, not a contributor.\n\n## Acceptance criteria\n\n- All 7 affected READMEs have a \"Filter extensibility\" section with consistent wording and both IETF-track and pre-IETF guidance.\n- Section placement: near or immediately after the existing type table (where filter / comparator types are listed).\n- No broken Markdown.\n- README links validate (intra-repo references resolve).\n",
+  "ephemeral": 0,
+  "id": "JMAP-9wh7.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add 'Filter extensibility' section to 7 type-crate READMEs",
+  "updated_at": "2026-05-10T22:24:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T14:31:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-9wh7",
+      "id": "26492716-4a12-56db-9501-cf3a7f041c00",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Replaced from_value(val.clone()) -> Metadata with UniquenessKey::from_stored(&val) helper at memory.rs:931 (using pre-existing helper at memory.rs:312). Net 1 fewer deserialize + 1 fewer Value::clone per create. The full echo path (O::deserialize(&val) at line 957) is unchanged \u2014 it remains the unavoidable typed-O construction. cargo clippy --tests -- -D warnings clean; cargo test --all-features clean (21 unit + 21 integration tests pass).",
+  "closed_at": "2026-05-15T08:55:02Z",
+  "compaction_level": 0,
+  "content_hash": "b64dbc51bff19e15a0d0be2ba98d8d3a5c772c31f8ff2322219b511b144c9626",
+  "created_at": "2026-05-14T17:55:38Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:696-697: val = serde_json::to_value(&obj). memory.rs:728-731: stored_obj: O = O::deserialize(&val). The intermediate steps are uniqueness checking (only when O::TYPE_NAME == Metadata::TYPE_NAME) and injecting the server-assigned id at memory.rs:728.\n\nFor a typical create: serialize O, parse as Metadata, compute uniqueness key, then deserialize a slightly-modified val back to O. That is serialize+parse+inject+deserialize for one create. Net: every create pays 2x serde round-trips on the same JSON value.\n\nImpact: small in absolute terms (Annotation is small JSON), but happens on every create. For a reference impl this is fine; for a teaching impl, the wasteful round-trip would be copied into a real backend.\n\nFix direction: instead of round-tripping via serde, mutate val directly to inject id, then keep val as the stored value AND construct stored_obj from val. The double serde is structurally unnecessary \u2014 Metadata implements both Serialize and Deserialize directly.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.create_object serializes obj to JSON then immediately deserializes the same JSON back to O \u2014 pointless round-trip on every create",
+  "updated_at": "2026-05-15T08:55:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:55:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "72ab4544-7b16-5dc9-b705-6d5ec8cf363f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

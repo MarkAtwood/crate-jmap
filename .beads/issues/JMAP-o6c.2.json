@@ -1,0 +1,33 @@
+{
+  "close_reason": "uuid_id.to_string() is test-backend only; minor allocation acceptable.",
+  "closed_at": "2026-05-02T03:40:16Z",
+  "compaction_level": 0,
+  "content_hash": "c460e815e5fb34ee86d033043f4b1bb66ae0864047ac1724e10cd7940fa734d4",
+  "created_at": "2026-05-02T03:24:54Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/common/mod.rs line ~498-502: Id::from(uuid::Uuid::new_v4().to_string()) creates an Id, then .to_string() is called again on uuid_id to produce a Value::String. This means the UUID string is allocated twice. The serde_json::Value::String should be built directly from the Uuid's string representation before the Id wraps it, or the Id's AsRef<str> impl should be used: Value::String(uuid_id.as_ref().to_owned()). Minor but representative of an allocation smell.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "uuid_id created then immediately .to_string() to re-wrap",
+  "updated_at": "2026-05-02T03:40:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:24:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "63f0d10b-3747-54d9-8dd0-65a783173294",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

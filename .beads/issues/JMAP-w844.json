@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "97149140665aadd4082a81b26916b730bb42c8409c5edc3dfb007b28bc925970",
+  "created_at": "2026-06-13T20:32:50Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec (draft-atwood-jmap-chat-federation-00) extends account capability urn:ietf:params:jmap:chat with role: owner or peer. Currently only round-trips via ChatCapability extra field. Adding typed Option<String> makes it discoverable.",
+  "ephemeral": 0,
+  "id": "JMAP-w844",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add typed ChatCapability.role field for federation",
+  "updated_at": "2026-06-13T20:32:50Z"
+}

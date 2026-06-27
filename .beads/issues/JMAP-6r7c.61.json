@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in f4a005a. Replaced String == on canonical 64-char lowercase SHA-256 hex digests with subtle::ConstantTimeEq::ct_eq via new fn hex_digest_eq helper at upload_blob (blob.rs:294) and download_blob (blob.rs:371) call sites. Added 3 unit tests with independent NIST FIPS 180-4 + RFC 6234 oracles. Matches workspace RustCrypto-first stance and precedent in crate-jmap-chat-server (space.rs:1482 invite-code) and crate-jmap-testjig (auth.rs:127 bearer-token). subtle = workspace dep, no version bump needed.",
+  "closed_at": "2026-05-17T11:14:33Z",
+  "compaction_level": 0,
+  "content_hash": "82b2f5fad9f95c334a038dfcd088bbed80494a27da742ccfa3696be7942f7cd7",
+  "created_at": "2026-05-14T23:37:05Z",
+  "created_by": "Mark Atwood",
+  "description": "Section B \u2014 Side-Channel Hygiene.\n\nTwo call sites in crate-jmap-base-client/src/blob.rs compare cryptographic-output hex strings with plain != operator on String:\n\n1) blob.rs:301 (upload_blob) \u2014 `if local_sha256 != server_sha256.as_str()`\n2) blob.rs:397 (download_blob) \u2014 `if actual != expected_lower`\n\nBoth compare 64-character hex strings. PartialEq on String compares byte-by-byte with early-exit on the first mismatch. A precise attacker timing the round-trip could in principle learn the longest matching prefix and reduce the digest-guess search space \u2014 for a 256-bit value this is academic in any practical setting, but the discipline against timing-side-channel comparisons on cryptographic outputs is standard.\n\n# Why this is P3, not P2\n\nThe values being compared are HASHES of (mostly) public bytes, not MACs / authentication tags / password hashes. Discovering the digest of a blob the attacker can also download themselves gains them nothing. The standard 'compare MACs with constant-time' rule is targeting cases where:\n\n- The expected value is a secret the attacker is trying to forge (HMAC tag)\n- The actual value is derived from attacker-controlled input (HMAC over an attacker-supplied message)\n\nNeither applies here. SHA-256 of blob bytes is not a secret. The integrity check just notices in-transit corruption.\n\nThat said:\n\n- The download_blob case takes expected_sha256 from the caller. If the caller obtained that digest from a private channel (separate signed manifest, end-to-end attestation), then a timing attack on the digest comparison COULD leak partial information about the expected digest to a remote attacker. Implausible threat model for JMAP today, but the field exists.\n\n- The workspace already takes the discipline of explicit constant-time compare on credentials (BearerAuth's HeaderValue::from_str validation is single-shot, not byte-loop). The discipline-creep argument says: adopt the same posture for all cryptographic-output comparisons.\n\n# What goes wrong (timing leak \u2014 bounded)\n\nWorst case, an attacker who can repeatedly trigger upload_blob/download_blob on the same expected digest and time the call learns one byte at a time which prefix of the expected digest matches. For a 256-bit digest this is bounded by 32 successful + 16 average failed comparisons per byte \u2014 measurable on a LAN, much harder over WAN. Realistically: not exploitable in JMAP threat models.\n\n# Suggested fix\n\nUse subtle::ConstantTimeEq from the subtle crate (already in the workspace tree via sha2's deps):\n\n```rust\nuse subtle::ConstantTimeEq;\n\nif local_sha256.as_bytes().ct_eq(server_sha256.as_str().as_bytes()).unwrap_u8() == 0 {\n    // mismatch\n}\n```\n\nThe hex-string comparison is byte-stable (both sides are canonical lowercase 64-hex), so ct_eq is correct. Document the rationale inline.\n\nAlternative: lift the comparison into a small helper `fn hex_digest_eq(a: &str, b: &str) -> bool` with the ct_eq inside; reuse the helper at both call sites. That also makes the call-site code easier to scan for reviewers.\n\n# Test discipline\n\nConstant-time compare resists differential timing tests via cycle-count probes. The standard discipline is to assert behavioral equality vs ==, not to assert timing \u2014 a unit test cannot validate side-channel resistance, only the compiler/CPU pipeline can. The fix is a one-line semantic change with the doc-comment carrying the discipline argument.\n\n# References\n\n- subtle crate documentation, ConstantTimeEq trait\n- RustCrypto's design guidance: constant-time compares on all crypto-output equality checks even when the field is public, for discipline propagation",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.61",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SHA-256 hex digest equality uses String ==, not constant-time compare (defense-in-depth, low real impact)",
+  "updated_at": "2026-05-17T11:14:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:37:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "bff96ff4-309b-5721-881c-1d90ca616bd0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

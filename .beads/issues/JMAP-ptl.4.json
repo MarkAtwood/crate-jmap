@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T16:05:56Z",
+  "compaction_level": 0,
+  "content_hash": "024a2fb4f8dbe58beeeea8a63b4432cf52bfd842c7db9d565ba83d2200194bc4",
+  "created_at": "2026-05-01T15:31:23Z",
+  "created_by": "Mark Atwood",
+  "description": "common/mod.rs MemoryBackend::query_objects prefixes filter and sort with _ and returns all IDs sorted by ID string. Email/query delegates directly to query_objects when neither collapseThreads nor anchor is set. Integration tests using Email/query with a filter will receive all emails in the account regardless of the filter, and the test will pass or fail based on the full result set rather than the filtered one. This creates false confidence: tests appear to cover filtered queries but actually exercise only the pagination math. A new contributor running these tests against their own backend implementation would not notice the MemoryBackend's silent no-op.",
+  "ephemeral": 0,
+  "id": "JMAP-ptl.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend query_objects silently ignores filter and sort",
+  "updated_at": "2026-05-01T16:05:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:31:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ptl",
+      "id": "fe1dc9eb-2385-5235-80d8-0b8180dcc63c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

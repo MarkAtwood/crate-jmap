@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T19:08:43Z",
+  "id": "019e3230-dba1-748e-a03d-bfb4cd141169",
+  "issue_id": "JMAP-wlip.34",
+  "text": "Session-start sweep ratification (2026-05-16): bead is >24h old (created 2026-05-14) with no human reply. Body ends with explicit recommendation: 'defer until a real consumer (kith, stoa, or third-party) reports the resource-leak as a production issue. Option 1 is the most likely path but the API churn cost is real and should be paired with a tagged minor-version bump.' Per workspace AGENTS.md anti-pattern 3 ('stale committed recommendation'), removing 'human' label and adding 'deferred' to park this on the major-bump backlog. The doc fix at JMAP-wlip.23 already acknowledges the gap. Bead remains open in deferred state; will surface again when a major bump epic is filed or a consumer reports the resource leak."
+}

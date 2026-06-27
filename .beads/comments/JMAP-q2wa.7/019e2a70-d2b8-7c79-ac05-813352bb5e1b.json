@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T07:01:38Z",
+  "id": "019e2a70-d2b8-7c79-ac05-813352bb5e1b",
+  "issue_id": "JMAP-q2wa.7",
+  "text": "Sibling-propagation note for q2wa.15: SeedData in crate-jmap-mail-server was made #[non_exhaustive] with #[derive(Default)] and a SeedData::new constructor. Any sibling extension-server crate that has copied the seed pattern needs the same treatment."
+}

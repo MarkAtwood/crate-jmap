@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T01:48:59Z",
+  "compaction_level": 0,
+  "content_hash": "1f50435fb8c9c6842fecb26c8a4dce544819dd657231fc9ada9150a08cd4e800",
+  "created_at": "2026-05-14T15:44:29Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\nThe kitchen-sink integration test seeds `addRoles` / `addCategories`\npatch entries with a client-supplied `id` field and expects the\nbackend to ignore it, returning a server-minted id via the\n`OpResult.outcome` instead:\n\n`crate-jmap-chat-server/tests/space_set_kitchen_sink.rs:191-196`:\n\n```rust\n\"addRoles\": [{\n    \"id\": \"placeholder-new-role\",\n    ...\n}],\n```\n\nlater (lines 284-291):\n\n```rust\nlet new_role_count = roles\n    .iter()\n    .filter(|r| r[\"name\"].as_str() == Some(\"Newly Added\"))\n    .count();\nassert_eq!(new_role_count, 1, ...);\n```\n\nNote the assertion looks up the new role **by name**, not by the\nplaceholder id \u2014 confirming that the placeholder was discarded\nand a real id was minted.\n\nSame pattern for `addCategories` at lines 223-228 + 380-386.\n\n## The contract gap\n\n`OpResult`'s rustdoc at `backend.rs:26-66` says\n`Ok(Some(id))` produces \"a new server-assigned id\" for\n`AddRole` / `AddChannel` / `AddCategory`. That implies \u2014 but\ndoes not state \u2014 that the client-supplied `id` field on the\npatch op is ignored.\n\nThe `SpacePatchOp::AddRole` / `::AddCategory` / `::AddChannel`\nenum variants and their fields (defined in the sibling\n`jmap-chat-types` crate, not chat-server) carry the actual\n`id: Id` field. Their rustdoc is where the \"this is a\nplaceholder\" contract should live, and currently does not.\n\n## What goes wrong for a third-party implementer\n\nTwo distinct failure modes:\n\n1. **Backend honors client-supplied id.** A backend that respects\n   the `id` field on the patch op (because the rustdoc never told\n   them not to) lets clients collide on ids, choose\n   easily-guessable ids, or otherwise undermine server id\n   minting. The kit's reference impl does not honor it, but a\n   plausible alternative implementation would.\n\n2. **Client expects a deterministic id assignment.** A client\n   writer who sees the placeholder field passes through the wire\n   may write code that reads back the response and expects\n   `placeholder-new-role` to appear as a real id. The kit's\n   reference impl correctly mints a new id and returns it via\n   `OpResult`, but the contract that the *placeholder is\n   discarded* needs to be on the wire-type's doc.\n\n## Recommendation\n\nAdd doc-comment on each `SpacePatchOp` variant carrying an `id`\nfield. Wording suggestion (for the `jmap-chat-types` crate\nwhere the variant lives):\n\n> The `id` field on this `Add*` variant is a client-side\n> placeholder. The backend MUST mint its own server-assigned id\n> and return it via [`OpResult::outcome`] = `Ok(Some(real_id))`.\n> Clients should treat the placeholder as opaque and rely on\n> the returned id for subsequent references. Backends that\n> honor the client-supplied id break server-side id minting and\n> are spec-noncompliant.\n\n## Engineering basis\n\n- Test assertions at `space_set_kitchen_sink.rs:191-196`,\n  `:223-228`, `:284-291`, `:380-386` verbatim.\n- `OpResult` rustdoc at `backend.rs:26-66`: says\n  \"a new server-assigned id\" but does not explicitly state the\n  client-supplied id is ignored.\n- The variant-side doc on `SpacePatchOp::AddRole` etc. lives in\n  the sibling `jmap-chat-types` crate; this finding has a\n  cross-crate dimension.\n\n## Priority justification\n\nP3 because:\n- The contract is partly implied by `OpResult`'s\n  \"new server-assigned id\" wording.\n- A backend that mistakenly honors the client id would be\n  caught by the kit's kitchen-sink integration test on first\n  CI run.\n- The wire shape (id present in the op) suggests the\n  client-write path with no doc to the contrary, which is the\n  documented-vs-actual surface that this finding tightens.\n\nBorderline opinion \u2014 a senior reviewer could downgrade to P4 or\nopinion on the grounds that \"server mints ids\" is a standard\nJMAP convention. Not marked opinion because the wire-shape\ndiscrepancy (the `id` field is on the request) makes this\nnon-obvious for a careful reader.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.76",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: SpacePatchOp::AddRole / AddCategory / AddChannel placeholder id field semantics undocumented in jmap-chat-types",
+  "updated_at": "2026-05-18T01:48:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:44:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "417e36c7-c18a-5502-8618-1db2d2b8ccc0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

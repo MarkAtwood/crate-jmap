@@ -1,0 +1,33 @@
+{
+  "close_reason": "Positive observation, no code action required. The bead praises the per-variant RFC-section anchors on TaskProperty (53 variants) / TaskListProperty (15 variants) / TaskNotificationProperty (9 variants) and warns future maintainers not to consolidate them. The inheritance distinction (JMAP fields cite draft-tasks-06; JSCalendar fields cite RFC 8984) is preserved at the variant level, which is the contributor-quality-of-life value the bead identifies. No code change recommended; current state is already optimal.",
+  "closed_at": "2026-05-17T15:41:09Z",
+  "compaction_level": 0,
+  "content_hash": "adc588f47539549942009b78b00960f143b16eb8d791206c4bb2b2b5259a6d3f",
+  "created_at": "2026-05-15T05:07:39Z",
+  "created_by": "Mark Atwood",
+  "description": "The diff added a docstring to every variant of TaskProperty (53 variants), TaskListProperty (15 variants), and TaskNotificationProperty (9 variants) in src/backend.rs, citing the exact spec section for each:\n\n    /// The `freeBusyStatus` property, inherited from the JSCalendar JSTask object (RFC 8984 \u00a74.4.2).\n    FreeBusyStatus,\n\nThis is over 75 variants newly carrying a precise RFC-section anchor. A contributor implementing a backend method that needs to look up \"what does freeBusyStatus mean per spec\" no longer has to scan the whole RFC \u2014 the variant doc gives the exact \u00a7.\n\nThe inheritance distinction is preserved (JMAP additions cite draft-tasks-06; JSCalendar fields cite RFC 8984), so a reader can tell at a glance whether a field is owned by the JMAP draft or inherited from the underlying JSCalendar spec.\n\nWhat someone might \"simplify\": \"this is excessive, just put one doc comment at the top of the enum.\" Defend by pointing at the spec-coverage value: code-review on a future PR that touches `FreeBusyStatus` semantics can be done from the variant doc alone, without context-switching to the RFC index.\n\nThis is a contributor-quality-of-life win that pays compound interest as the crate ages and the next maintainer (who may not be the original author) inherits it.",
+  "ephemeral": 0,
+  "id": "JMAP-ky8g.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Per-field RFC section anchors on TaskProperty / TaskListProperty / TaskNotificationProperty enum variants",
+  "updated_at": "2026-05-17T15:41:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:07:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ky8g",
+      "id": "8d44d27d-2f84-51c4-885e-21d791c9fb5c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

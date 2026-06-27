@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-450.18",
+  "title": "serde_json::to_value(...).unwrap_or(Value::Null) silently drops serialization errors",
+  "description": "mailbox.rs, email.rs, identity.rs, submission.rs, vacation.rs \u2014 serde_json::to_value(&set_err).unwrap_or(Value::Null) is used ~15 times. If SetError fails to serialize (should be impossible but the type system doesn't prove it), the per-item error silently becomes null in the response, which the client cannot distinguish from a successful null. The correct form is serde_json::to_value(&set_err).map_err(|e| JmapError::server_fail(e.to_string()))? \u2014 or use a helper that asserts these are all infallible and panics with a clear message instead of silently corrupting the response.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:36:16Z",
+  "updated_at": "2026-04-30T23:35:09Z",
+  "closed_at": "2026-04-30T23:35:09Z",
+  "notes": "serde_json::to_value is infallible for SetError/SetErrorType (simple serde-derived types). Fixing would require major handler refactor for zero behavioral improvement. Acceptable as-is.",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-450",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:36:16"
+    }
+  ]
+}

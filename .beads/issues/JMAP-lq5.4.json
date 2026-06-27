@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-lq5.4",
+  "title": "Mailbox/query: KNOWN_FILTER_KEYS can drift from MailboxFilterCondition",
+  "description": "KNOWN_FILTER_KEYS is a hardcoded &[&str] that must be kept in sync with MailboxFilterCondition fields. A new filter field added to the struct without updating the list is silently rejected as unsupportedFilter. Two sources of truth for the same set.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:39:13Z",
+  "updated_at": "2026-05-01T03:43:24Z",
+  "closed_at": "2026-05-01T03:43:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-lq5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:39:13"
+    }
+  ]
+}

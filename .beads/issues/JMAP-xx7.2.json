@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-xx7.2",
+  "title": "extract_response consumes JmapResponse \u2014 multi-call batches require clone",
+  "description": "extract_response<T>(resp: JmapResponse, call_id: &str) takes the response by value. Multi-call JMAP requests (the whole point of batching) require extracting multiple typed results from the same response. With the current signature, callers must clone the response before calling extract_response for all but the last invocation. Extension crates (jmap-mail-client, jmap-chat-client) will be the primary callers; every batched request they make will hit this. The signature should take &JmapResponse and clone the args Value internally, or return an iterator. This API will be hard to change once extension crates depend on it. Suggested fix: fn extract_response<T: DeserializeOwned>(resp: &JmapResponse, call_id: &str) -> Result<T, ClientError> \u2014 internal args.clone() is less expensive than forcing all callers to clone the entire response.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T14:49:36Z",
+  "updated_at": "2026-04-30T14:54:20Z",
+  "closed_at": "2026-04-30T14:54:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-xx7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 07:49:35"
+    }
+  ]
+}

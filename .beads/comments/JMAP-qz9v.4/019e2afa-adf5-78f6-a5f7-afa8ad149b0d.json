@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T09:32:12Z",
+  "id": "019e2afa-adf5-78f6-a5f7-afa8ad149b0d",
+  "issue_id": "JMAP-qz9v.4",
+  "text": "Plan: narrow fix to align with canonical mail-server. The bead proposes two paths but both have workspace-template implications:\n\n(a) Replacing with json_merge_patch (RFC 7396) is wrong: the canonical mail-server's /set update uses its OWN apply_jmap_patch (memory.rs:2073-2097), not json_merge_patch. metadata-server's comment (memory.rs:193-201) explicitly documents the pattern: spec defining path-keys \u2192 carry your own apply_jmap_patch; spec defining flat-key \u2192 use json_merge_patch. RFC 9610 \u00a73.4 references RFC 8620 \u00a75.3 path-key semantics. Switching to json_merge_patch would also break existing tests that assert replacement semantics for single-segment patches.\n\n(b) Adding array-indexing + invalidPatch error returns would diverge from canonical mail-server (which has neither). Per workspace canonical-template rule, that requires fixing mail-server first and propagating to all extension siblings.\n\nNarrowed fix: align contacts apply_jmap_patch's worst-case (silent CLOBBER of non-object intermediate at lines 323-330) with mail-server's worst-case (silent NO-OP). This stops the data destruction (the P0 in the bead title) without diverging from canonical. Filing a follow-up bead for the workspace-wide canonical sweep that adds error returns + array indexing across all extension-server siblings."
+}

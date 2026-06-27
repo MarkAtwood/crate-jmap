@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed: hoisted has_on_success before the pre-fetch block; removed duplicate computation at previous line 539.",
+  "closed_at": "2026-05-04T15:52:44Z",
+  "compaction_level": 0,
+  "content_hash": "513f80f58d71c0f389185be47ff7fd7a3bc411986d30219642c6a6bfb1e501e6",
+  "created_at": "2026-05-02T00:43:57Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs: has_on_success is computed inside an unnamed {} block (L359-366) and then identically recomputed outside it (L526-533). The inner variable is dead the moment the block closes. Fix: hoist has_on_success before the unnamed block (or remove the block) so the single binding is reused both times.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "has_on_success computed twice in handle_submission_set",
+  "updated_at": "2026-05-04T15:52:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "8dd36328-0035-5c18-b37c-f32ac3526c9f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

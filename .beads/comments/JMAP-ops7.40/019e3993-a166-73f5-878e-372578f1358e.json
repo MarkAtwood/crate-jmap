@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T05:33:57Z",
+  "id": "019e3993-a166-73f5-878e-372578f1358e",
+  "issue_id": "JMAP-ops7.40",
+  "text": "Fix spans 5 server-sibling AGENTS.md files (chat / calendars / tasks / filenode / metadata). Pure docs sweep. Recommended: switch to unversioned form ('draft-ietf-jmap-X') and track the revision in PLAN.md instead."
+}

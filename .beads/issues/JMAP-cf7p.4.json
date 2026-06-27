@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "close_reason": "Landed src/sse.rs + tests/sse_smoke.rs + Cargo.toml dep additions (tokio-stream + 8 *-types crates). GET /events returns text/event-stream. Polling-driven (200ms tick), per the bead's explicit MVP guidance. Diffs get_state across 16 known JmapObject types per account. Emits RFC 8620 \u00a77.1 StateChange events; honors closeafter=state/no, ping=0/N (clamped 1..86400), types=*/comma-list. 21 sse unit tests + 2 sse_smoke integration tests pass (acceptance: 'After a Space/set update via POST /jmap, the SSE client receives a StateChange event naming the changed type' verified). cargo clippy --workspace --tests -- -D warnings clean. cargo test --workspace clean. Pre-existing rustdoc breakage filed as JMAP-cf7p.11. Signal-driven push and Last-Event-ID replay deferred to JMAP-cf7p.9 / .10.",
+  "closed_at": "2026-05-12T06:31:30Z",
+  "compaction_level": 0,
+  "content_hash": "da9ebb7bb006fc227eea1510956e8d5f6385f9fd3a2751b385dc0f4f52bd6626",
+  "created_at": "2026-05-12T05:47:15Z",
+  "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "description": "Implement the Server-Sent Events endpoint per RFC 8620 \u00a77.3 (the EventSource resource).\n\n- GET /events streams a text/event-stream of StateChange events from the MemoryBackends' change-tracking machinery.\n- Honor the 'types', 'closeafter', and 'ping' query parameters per the RFC.\n- StateChange JSON shape per RFC 8620 \u00a77.4.\n\nThe change-tracking surface that the testjig taps into is the state-counter / change-log infrastructure that every MemoryBackend already maintains. The testjig needs a way to subscribe to all 8 backends' state changes and emit a unified StateChange event.\n\nIf the MemoryBackends don't currently expose a 'subscribe' API, this slice may need to add a polling loop (e.g. tokio interval that diffs get_state across types each second) as a minimum-viable approach, with a follow-up bead for proper signalling.\n\n## Acceptance\n\n- GET /events returns text/event-stream\n- After a Space/set update via POST /jmap, the SSE client receives a StateChange event naming the changed type\n- 'closeafter=state' parameter behavior matches RFC 8620 \u00a77.3\n- 'ping' parameter emits keep-alive events at the requested interval\n- cargo clippy / cargo test workspace clean\n\n## Depends on .3 (MemoryBackend wiring)",
+  "ephemeral": 0,
+  "id": "JMAP-cf7p.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SSE endpoint: GET /events per RFC 8620 \u00a77.3",
+  "updated_at": "2026-05-12T06:31:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T22:47:14Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p.3",
+      "id": "d63143f1-212c-59ab-bbf5-aa7fa915b3ea",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T22:47:14Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p",
+      "id": "fe749b59-d957-5720-8ab4-2dc9b1772072",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

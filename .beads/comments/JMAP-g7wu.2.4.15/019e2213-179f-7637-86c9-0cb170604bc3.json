@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-13T16:02:17Z",
+  "id": "019e2213-179f-7637-86c9-0cb170604bc3",
+  "issue_id": "JMAP-g7wu.2.4.15",
+  "text": "Closed 2026-05-13 (Path B-wide-C \u2014 parameterized hex, no new deps).\n\nDecision recap:\n  * Original framing said 'Path A is fine, demo-only'. Investigation found chat spec normatively mandates ULIDs (line 430: 'All Chat IDs are ULIDs') and uses lex-ordering for unreadCount semantic (line 486).\n  * Investigation also found jmap-mail-server already mints lex-orderable 16-char hex via timestamp+counter at email.rs:1748 \u2014 so the canonical doesn't need to change.\n  * Mark chose B-wide-C: keep the 3-arg signature, change format from '<type><n>' to '<type><n:016x>'. Zero new deps. Cookie-cutter aligned.\n\nImplementation:\n  * Single mechanical edit in 6 *-server MemoryBackend impls: chat, calendars, contacts, metadata, sharing, tasks.\n  * Doc-comments unified across the 6 siblings (previously varied terse vs. multi-line).\n  * jmap-mail-server untouched per workspace canonical-template rule.\n  * Test sweep zero-impact (none of the workspace tests assert literal next_id output).\n  * cargo test --workspace, clippy --workspace -- -D warnings, fmt --all --check all pass.\n  * Committed as 501c04f.\n\nFuture ULID work (if it's ever wanted):\n  * Production backends already mint their own ids (not via this helper) \u2014 no work needed.\n  * If a contributor wants to swap the demo MemoryBackends to real ULIDs, the format-string is now the only line that changes."
+}

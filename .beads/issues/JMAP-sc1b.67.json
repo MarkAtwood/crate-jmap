@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T22:58:14Z",
+  "compaction_level": 0,
+  "content_hash": "10af1dd6afbaf71be6c6303daf7ec6b83eeb3d7ca539e2e7e98b1222c31967b2",
+  "created_at": "2026-05-10T18:19:45Z",
+  "created_by": "bd-spin/bd-spin-20260510T180814Z-3657541",
+  "description": "Sweep follow-up to JMAP-sc1b.53 / JMAP-sc1b.66.\n\nProduction clone-subtree sites in client crates not touched by either:\n- crate-jmap-base-client/src/request.rs:161 \u2014 WebSocketCapability deserialize\n- crate-jmap-chat-client/src/session.rs:163 \u2014 ChatCapability deserialize\n- crate-jmap-chat-client/src/session.rs:181 \u2014 ChatPushCapability deserialize\n- crate-jmap-chat-client/src/methods/mod.rs:943 \u2014 Value tail decoding\n\nPattern: serde_json::from_value::<T>(raw.clone()) \u2192 T::deserialize(raw) (with 'use serde::Deserialize' if needed).\n\nP4 because these are session/capability extraction sites called once per session bootstrap or chat method dispatch, not in a hot loop. Saving a few small Value clones is correct but not measurable.\n\njmap-base-client is the canonical foundation client. If reshaping these is desirable, jmap-mail-client and jmap-chat-client should be checked in the same pass (chat-client is already listed above).",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.67",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P4: 4 from_value(v.clone()) sites in *-client production code",
+  "updated_at": "2026-05-10T22:58:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T11:19:45Z",
+      "created_by": "bd-spin/bd-spin-20260510T180814Z-3657541",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "cb543572-0d05-5035-b2d1-a8303bc7c2dc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

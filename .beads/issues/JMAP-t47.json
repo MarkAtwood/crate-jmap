@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-t47",
+  "title": "Review: jmap-client pre-merge round 5",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:33:00Z",
+  "updated_at": "2026-04-30T01:43:31Z",
+  "closed_at": "2026-04-30T01:43:31Z",
+  "notes": "Maintainer risk: HIGH \u2014 Two issues (rustls-manual-roots breaking DefaultTransport, BlobIntegrityMismatch field naming) will generate immediate user-facing errors and confusing diagnostics. The AuthProvider silent-drop issue is a security surface. The SSE idle-timeout gap is a long-tail reliability issue.\nSection 2: one efficiency finding filed (SSE CR normalization double-allocation). No O(n^2) patterns. All hot-path allocations bounded by 1 MiB cap.\nSection 3: two elegance findings filed. No other control-flow or abstraction issues found that rise above stylistic preference.\nSection 4: two readability findings filed. check_auth_status fully-qualified call in blob.rs is correct (static method). The SSE scan_from comment in client.rs is adequate.\nSection 7: No Section 3/4 findings are pure taste with no engineering basis. Both elegance findings (11, 12) have concrete engineering justifications (allocation count, compile-time vs runtime safety). No opinion labels added.\nConfidence: 15% chance of missed bug. Least confident flags: t47.1 (SSE invalid-byte drain behavior at the cap boundary \u2014 the scenario requires a pathological stream that is unlikely in practice but real in a hostile environment). Uncertainty driven by: inability to run the SSE stream code against a real adversarial server; the subscribe_events unfold closure is complex enough that edge-case interactions between raw_buf, buf, and scan_from may have additional issues not visible in static analysis. Would raise confidence if: a fuzz test were run against parse_sse_block and the unfold loop with arbitrary byte sequences including invalid UTF-8."
+}

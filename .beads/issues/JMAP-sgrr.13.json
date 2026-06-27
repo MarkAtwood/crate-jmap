@@ -1,0 +1,41 @@
+{
+  "close_reason": "Moot after sgrr.4 dropped the JsContactId newtype (commit 6cf54bc). No type exists to add Display/FromStr/Into impls to; the Id is now bare String which already has those traits intrinsically.",
+  "closed_at": "2026-05-17T14:49:36Z",
+  "compaction_level": 0,
+  "content_hash": "494031a0031e726067cae6a3af34fd58f865c629aaf35a1fab15936e171c0a23",
+  "created_at": "2026-05-15T03:40:36Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-jscontact-types/src/lib.rs:60-81 defines JsContactId as a transparent\nnewtype around String with three impls: From<String>, From<&str>, AsRef<str>. It\nis missing four conversions that every caller will hit:\n\n- No Display impl. A caller writing format!(\"ref: {}\", id) gets a type error\n  and has to write format!(\"ref: {}\", id.as_ref()) \u2014 every single call site.\n- No FromStr impl. A caller writing \"abc\".parse::<JsContactId>() does not\n  compile. They have to write JsContactId::from(\"abc\"), which also works but\n  diverges from the std-trait idiom that all other string-newtypes follow.\n- No into_inner or Into<String>. Once a caller has a JsContactId by value and\n  wants the owned String back (to feed it to a function taking String), they\n  can only do id.as_ref().to_owned() \u2014 an extra allocation that the From<String>\n  consumed in the first place.\n- No Deref<Target=str>. Borrowing as &str works via AsRef but not via Deref,\n  so methods like id.starts_with(\"k\") do not autoderef.\n\nCaller-side workaround is trivial each time but the boilerplate is forever and\nmultiplies across every consuming crate (jmap-contacts-types, jmap-contacts-server,\nany third-party JSContact consumer). Comparable workspace newtype JmapId in\njmap-types ships with Display + FromStr per convention; this newtype is the\noutlier.\n\nFix: add the four impls. None is a breaking change.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JsContactId lacks Display, FromStr, Into<String> \u2014 every caller writes the same boilerplate to extract",
+  "updated_at": "2026-05-17T14:49:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:40:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "2d7002a0-bc56-59c1-b46f-9388d0907899",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-14T20:56:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr.4",
+      "id": "e16d974c-e1f8-5575-a3cd-2a4bd7cd93c7",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

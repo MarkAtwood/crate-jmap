@@ -1,0 +1,33 @@
+{
+  "close_reason": "serde_json::from_value(Value::String(s)) is idiomatic for MailboxRole deserialization; no FromStr impl exists on MailboxRole.",
+  "closed_at": "2026-05-02T03:40:13Z",
+  "compaction_level": 0,
+  "content_hash": "8730a4f8c46052965410cefbb520f414388a11076e8bc1f9f4051ed43778a897",
+  "created_at": "2026-05-02T03:26:25Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs build_mailbox_from_props (line ~992): to parse a role string s into MailboxRole, constructs Value::String(s.to_owned()) and calls serde_json::from_value on it. This allocates a String just to wrap s in a JSON value to feed to serde. If MailboxRole derives Deserialize from string, the canonical approach is serde_json::from_str(&format\\!('\"{}\"', s)) or implementing FromStr on MailboxRole, or using serde_json::from_value(Value::String(s)) where s is already a String. The s.to_owned() here is the extra allocation \u2014 s is &str from a map key, so Value::String(s.to_owned()) is correct but the wrapping is inelegant; a FromStr or a direct variant lookup would avoid the double step.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "build_mailbox_from_props uses serde to parse MailboxRole from a Value::String it constructs",
+  "updated_at": "2026-05-02T03:40:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:26:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "f7518da5-adab-5588-b0ec-2eb917f3cc22",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T07:13:13Z",
+  "id": "019e2a7b-70b6-794c-ac8f-920de9b6b736",
+  "issue_id": "JMAP-q2wa.7.7",
+  "text": "Add to the propagation pattern list: q2wa.23 extracted a PLACEHOLDER_ID pub(crate) const in helpers.rs alongside PLACEHOLDER_BLOB_ID. Sibling crates likely hardcode the equivalent sentinel id literal ('placeholder' or local equivalent) at every create_object write site \u2014 sweep needed if a const doesn't already exist."
+}

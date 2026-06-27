@@ -1,0 +1,48 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "b8831c72bc5842834df4eac9f4324d4d7befa203aacaddec623f63822757a12e",
+  "created_at": "2026-05-14T17:55:50Z",
+  "created_by": "Mark Atwood",
+  "description": "What is awkward: lib.rs:234-236 exposes state_for_test() returning std::sync::MutexGuard<'_, HashMap<...>>. Tests then directly mutate the change log Vec to seed test fixtures \u2014 bypassing the trait methods entirely. This is a 'test pierce' that lets tests reach past the public API to manipulate internal state.\n\nThe mock backend is for testing, so loosening encapsulation is defensible. But state_for_test:\n(a) exposes the std::sync::Mutex choice publicly, locking in that implementation detail across test code.\n(b) The MutexGuard type is held across multiple .await points in some tests? \u2014 looking at the test code, no, the guard is dropped in the same scope. OK on await_holding_lock.\n\nSuggested rewrite: replace state_for_test with explicit fixture-injection methods on MockBackend (e.g. record_created_id(account, id), record_destroyed_id, set_state). Each becomes a typed call that documents what it's doing. Tests do not need direct MutexGuard access \u2014 they need 'pretend account X has this change log'.\n\nThis is a refactor that would simplify the test surface significantly. Filing as P3 elegance.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.27",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "blocked",
+  "timeout_ns": 0,
+  "title": "test_support::MockBackend has unused inherent methods (e.g. new_with_account, force_create_error, clear_forced_create_error, state_for_test) where state_for_test exposes inner state via a MutexGuard \u2014 leaks the locking strategy across the test boundary",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T02:07:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m.14",
+      "id": "394dc472-8539-5839-89f9-c0f98cb23baa",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T10:55:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "a0658f01-a22e-56aa-8183-299f588681d8",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-17T02:19:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m.55",
+      "id": "ade0221b-425d-59de-b48b-c9b79e9cf497",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

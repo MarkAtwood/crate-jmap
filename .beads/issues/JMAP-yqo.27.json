@@ -1,0 +1,33 @@
+{
+  "close_reason": "Clippy passes clean. Manual matches are correct and explicit; combinator rewrite adds no safety/correctness benefit here. Closing as opinion.",
+  "closed_at": "2026-05-02T03:22:54Z",
+  "compaction_level": 0,
+  "content_hash": "b963e98bd830e79d49172b5f93d6796c1243a535174cc51f1d51315d3e60d1c2",
+  "created_at": "2026-05-02T02:58:52Z",
+  "created_by": "Mark Atwood",
+  "description": "Throughout submission.rs, mailbox.rs, email.rs, identity.rs, vacation.rs the pattern 'match x { Some(v) => v.clone(), None => continue }' and 'match x { Some(s) => s, None => continue }' appears repeatedly. The idiomatic form in context (especially for Option<String>) is .ok_or_else(...)? or if let/continue patterns using the ? operator where possible. Specifically: (1) In vacation.rs get handler line 31-37, 'requested_ids: Option<Vec<String>>' is fetched by cloning the Value then deserialized \u2014 the ids field is a JSON array of strings that could be parsed without clone using v.as_array() iteration. (2) In submission.rs process_create line 709-718, .ok_or_else() is used correctly, but the code repeating the same structure for identityId and emailId could be a helper. These are clippy-level style issues \u2014 the code is correct \u2014 but the clone-heavy pattern signals the author was avoiding borrow checker friction rather than structuring to avoid it.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Pervasive manual match on Option where combinators suffice",
+  "updated_at": "2026-05-02T03:22:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:58:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "68d3944d-6878-52c5-8057-7962249131e6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

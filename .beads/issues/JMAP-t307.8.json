@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decision-type finding: ratifies the 'Workspace tracking: bd:JMAP-sc1b.105.' inline citation at crate-jmap-mime/benches/mime_pipeline.rs:30 as permanent provenance. Pattern is consistent with sibling crate-jmap-base-client/benches/session_and_urls.rs and crate-jmap-server/benches/dispatcher.rs. No code change required; finding documents the citation idiom for future bench-file additions.",
+  "closed_at": "2026-05-15T06:23:10Z",
+  "compaction_level": 0,
+  "content_hash": "1c516c2127e7d3695b0f72195d42c12c379488584034cdd225346e4db3f21ae3",
+  "created_at": "2026-05-15T05:55:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this choice is correct: crate-jmap-mime/benches/mime_pipeline.rs:30 carries 'Workspace tracking: bd:JMAP-sc1b.105.' inline in the file-level doc comment. The bench file is thus self-describing \u2014 a future reader who finds it without context can run 'bd show JMAP-sc1b.105' and recover the original requirements (workload sizes, acceptance criteria, design rationale) immediately.\n\nThis matches the workspace pattern established in crate-jmap-base-client/benches/session_and_urls.rs (cites JMAP-sc1b.106) and crate-jmap-server/benches/dispatcher.rs. Keep the citation idiom for any future bench file.\n\nA future contributor might suggest 'cleaning up' the citation as a TODO-like comment that should not survive the bead's closure. Reject that suggestion. The bead-citation is permanent provenance, not a TODO. It links the artifact to its design discussion forever, even after the bead closes (which it has \u2014 JMAP-sc1b.105 is CLOSED).\n\nSame applies to examples/parse_eml.rs: tracking bd:JMAP-sc1b.17.1 should remain in the commit message and any future docstring that gets added (currently the example does not cite its bead inline; that is a small readability gap but not worth a finding by itself).",
+  "ephemeral": 0,
+  "id": "JMAP-t307.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Bench file cites bd:JMAP-sc1b.105 inline; workspace tracking explicit",
+  "updated_at": "2026-05-15T06:23:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:55:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-t307",
+      "id": "636c81f7-0bab-58c1-9364-10c965e3a0ea",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

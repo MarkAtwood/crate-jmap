@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-9hz.11",
+  "title": "validate_session_urls returns InvalidArgument for server-provided session URLs",
+  "description": "validate_session_urls() in client.rs returns ClientError::InvalidArgument when a session URL has a non-http/https scheme. Session URLs (api_url, upload_url, download_url, event_source_url) come from the server's Session document \u2014 they are not caller-supplied arguments. A malformed or hostile server providing a bad scheme is a session document defect, not a caller argument error. The correct variant is ClientError::InvalidSession (\"session URL has non-http/https scheme: ...\"), consistent with how other server-side validation failures are reported.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:26:42Z",
+  "updated_at": "2026-04-30T06:33:17Z",
+  "closed_at": "2026-04-30T06:33:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9hz",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:26:42"
+    }
+  ]
+}

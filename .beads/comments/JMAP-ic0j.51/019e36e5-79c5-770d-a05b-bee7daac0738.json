@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T17:04:29Z",
+  "id": "019e36e5-79c5-770d-a05b-bee7daac0738",
+  "issue_id": "JMAP-ic0j.51",
+  "text": "Closing as canonical-template propagation deferred. Bead body itself acknowledges 'Same pattern in canonical jmap-mail-server: rg #[allow.too_many_arguments showed the same suppressions on adjacent methods (multi-arg JmapBackend methods). Workspace-wide template-level fix.' Per workspace AGENTS.md cookie-cutter rule, args-struct consolidation must land in the canonical jmap-mail-server first then propagate to every extension-server sibling in the same pass \u2014 fixing this in calendars-server alone would diverge from the canonical and require an immediate matching mail-server revert/re-propagate. The crate already demonstrates the args-struct pattern in adjacent surface (CalendarEventQueryArgs, GetArgs, SetArgs, SetAccumulators) so the escape hatch exists for callers concerned about positional-arg swap risk on these two methods. Pairs with bd:JMAP-ic0j.36 in the same family (both deferred for the same canonical-propagation reason)."
+}

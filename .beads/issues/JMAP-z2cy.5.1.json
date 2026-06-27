@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "Link.blob_id added. 4 new Link tests pass. cargo test -p jmap-calendars-types exits 0. Clippy clean.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added blob_id: Option<Id> to Link struct in jscalendar.rs; 4 new tests (link_with_href_roundtrip, link_with_blob_id_roundtrip, link_blob_id_absent_when_none, link_wire_names); 44 tests pass; clippy clean",
+  "closed_at": "2026-05-05T03:45:09Z",
+  "compaction_level": 0,
+  "content_hash": "5bd99d9fa2aa81c8e002224f70c4a8cd1a4d53f18a5b223248892c8e1d874c4b",
+  "created_at": "2026-05-05T03:31:53Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Add blob_id: Option<Id> to the Link struct in jscalendar.rs, and add the first tests for Link (which currently has zero test coverage).\n\n**Algorithm:**\n1. In crate-jmap-calendars-types/src/jscalendar.rs, add import at top: `use jmap_types::Id;` (alongside existing `use std::collections::HashMap;`).\n2. Add field to Link struct after `display`:\n```rust\n/// JMAP blob id; may be set instead of `href` for server-stored attachments\n/// (draft-ietf-jmap-calendars-26 \u00a75.3 / \u00a710.9.14).\n///\n/// When present, `href` may be absent.  The server MUST translate this to\n/// an embedded data: URL when sending to systems that cannot access blobs.\n#[serde(skip_serializing_if = \"Option::is_none\")]\npub blob_id: Option<Id>,\n```\n3. In tests/types_test.rs, add Link to the import list and add 4 tests:\n\n**Test A: link_with_href_roundtrip**\n- JSON: {\"@type\":\"Link\",\"href\":\"https://example.com/file.pdf\",\"contentType\":\"application/pdf\",\"size\":4096,\"rel\":\"enclosure\",\"display\":\"report.pdf\"}\n- Assert each field. Verify blobId absent from serialized output.\n- Oracle: RFC 8984 \u00a71.4.11 field definitions.\n\n**Test B: link_with_blob_id_roundtrip**\n- JSON: {\"@type\":\"Link\",\"blobId\":\"blob-abc123\",\"contentType\":\"image/png\",\"size\":2048,\"rel\":\"enclosure\"}\n- Assert blob_id==Some(Id::from(\"blob-abc123\")), href==None.\n- Verify serialized output contains \"blobId\":\"blob-abc123\" and does NOT contain \"href\".\n- Oracle: draft-ietf-jmap-calendars-26 \u00a75.3 \u2014 blobId may be set instead of href.\n\n**Test C: link_blob_id_absent_when_none**\n- Construct Link with only @type and href set; serialize; assert \"blobId\" key absent.\n- Oracle: skip_serializing_if = None \u2014 optional field absent when not set.\n\n**Test D: link_wire_names**\n- Deserialize JSON with all known fields; re-serialize; assert camelCase wire keys\n  (blobId, contentType, rel, display \u2014 NOT blob_id, content_type etc.).\n- Oracle: #[serde(rename_all = \"camelCase\")] on Link struct.\n\n4. Run: cargo test -p jmap-calendars-types\n5. Run: cargo clippy -p jmap-calendars-types -- -D warnings\n\n**Defensive programming rules:**\n- No unwrap(); use .expect(\"descriptive message\") in tests\n- Import added as `use jmap_types::Id;` (Pattern A, consistent with event.rs/calendar.rs)\n- blobId is optional (skip_serializing_if) \u2014 spec says clients \"may\" set it; it is not required-nullable\n\n**Acceptance criteria:**\n- Link struct has blob_id: Option<Id> with wire name \"blobId\"\n- 4 tests pass; no existing test regresses\n- cargo test -p jmap-calendars-types exits 0\n- Clippy clean.",
+  "ephemeral": 0,
+  "id": "JMAP-z2cy.5.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add Link.blob_id field and Link tests",
+  "updated_at": "2026-05-05T03:45:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:31:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-z2cy.5",
+      "id": "ef23f210-4091-52c0-97d7-09596887cfa1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

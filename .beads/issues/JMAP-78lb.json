@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T00:46:07Z",
+  "compaction_level": 0,
+  "content_hash": "774b470f8f9977ff58747c9d3b8599898ce905229e62d17d97138d0e3aa34bfe",
+  "created_at": "2026-05-09T00:41:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Combined value-type AND key-type fix on the same line \u2014 RFC 8621 \u00a77.4 specifies keys as Email IDs and values as PatchObjects.\n\nFile: crate-jmap-mail-types/src/mdn.rs:231\n\n  // Before\n  pub on_success_update_email: Option<HashMap<String, serde_json::Value>>,\n  // After\n  pub on_success_update_email: Option<HashMap<jmap_types::Id, jmap_types::PatchObject>>,\n\n## Rationale (combined)\n\nValue type: doc-comment already says 'values are PatchObjects (RFC 8620 \u00a75.3)' but type is Value. Migration types the contract.\n\nKey type: matches the canonical client-side parallel field at crate-jmap-mail-client/src/methods/submission.rs::EmailSubmissionSetParams::on_success_update_email which is already HashMap<Id, PatchObject>. Cookie-cutter consistency.\n\nWire format byte-identical (Id and PatchObject are both #[serde(transparent)]).\n\n## Consumer-code impact\n\ncrate-jmap-mail-server/src/mdn.rs around lines 411-435: the per-iteration serde_json::from_value::<PatchObject>(patch.clone()) call becomes unnecessary because the field is already typed. Net code simplification.\n\nTest fixtures: anything that constructs MdnSendRequest via struct literal with String keys must migrate to Id::from(s). serde_json::from_value / from_str sites are transparent.\n\n## Acceptance criteria\n\ncargo test --workspace clean, lib clippy clean, wire format byte-identical.",
+  "ephemeral": 0,
+  "id": "JMAP-78lb",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Merged with JMAP-e0g3 (closed) per user instruction 2026-05-09: 'merge into one bead'. Same line touched by both fixes; splitting into separate commits would mean editing line 231 twice.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Migrate MdnSendRequest::on_success_update_email to HashMap<Id, PatchObject>",
+  "updated_at": "2026-05-10T00:46:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T17:32:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-trmz",
+      "id": "ea7ad405-8249-5322-a238-5b15e3530400",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-isx.3",
+  "title": "EmailSubmission/set process_create: BackendSetError::Other mapped to invalidProperties",
+  "description": "submission.rs:565-570: when create_object returns BackendSetError::Other(inner), the handler returns SetError::new(SetErrorType::InvalidProperties).with_description(inner.to_string()). A storage failure is reported to the client as 'your properties are invalid', which is wrong and will mislead debugging. Similarly at submission.rs:572-574: serde serialization failure on the created object reports as InvalidProperties. Fix: use a SetErrorType that communicates server failure (or consider mapping to a serverFail JSON object directly).",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:19:42Z",
+  "updated_at": "2026-04-30T23:26:01Z",
+  "closed_at": "2026-04-30T23:26:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-isx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:19:42"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "compute_utc_times added. utcStart+start conflict detected. Tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added compute_utc_times with default (None,None) impl; expanded handle_calendar_event_get to inject utcStart/utcEnd; added \u00a75.9 conflict detection (utcStart+start, utcEnd+duration); 4 new tests; 21 pass; clippy clean",
+  "closed_at": "2026-05-05T15:00:39Z",
+  "compaction_level": 0,
+  "content_hash": "3f7483071a812526528b465ac78a823e1a054422eb8e0212ea54322a1285ff81",
+  "created_at": "2026-05-05T03:02:08Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Draft-ietf-jmap-calendars-26 \u00a75.2: utcStart/utcEnd are computed at fetch time from start+timeZone+duration. Also \u00a75.9: client cannot set both utcStart and start simultaneously.\n\n**Algorithm:**\n1. Add to CalendarsBackend:\n   fn compute_utc_times(&self, account_id: &Id, event: &CalendarEvent, tz_hint: Option<&str>) -> impl Future<Output = Result<(Option<String>, Option<String>), Self::Error>> + Send;\n   Default impl returns (None, None).\n2. Modify handle_calendar_event_get: if utcStart or utcEnd in requested properties, call compute_utc_times per event and inject results.\n3. In handle_calendar_event_set: if patch/create object contains both utcStart and start \u2192 invalidProperties; if both utcEnd and duration \u2192 invalidProperties. Oracle: \u00a75.9.\n4. Document: backend MUST implement compute_utc_times for correct utcStart/utcEnd support.\n\n**Tests:**\n- get with utcStart in properties \u2192 compute_utc_times called; result in response.\n- get without utcStart in properties \u2192 field absent.\n- set with utcStart + start \u2192 invalidProperties. Oracle: \u00a75.9.\n- set with utcEnd + duration \u2192 invalidProperties. Oracle: \u00a75.9.\n\n**Acceptance criteria:** Default impl compiles; backward compatible. cargo test -p jmap-calendars-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-qksw.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add compute_utc_times to CalendarsBackend; handle utcStart/utcEnd in set validation",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:02:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw",
+      "id": "605b7f8c-993b-5124-8822-9f14da2b49da",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

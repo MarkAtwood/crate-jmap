@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "00f7eda41912fb5fe9f71512a34ea9288b7e91f46b6412f2255121a70588be2a",
+  "created_at": "2026-05-14T13:49:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Background: bd:JMAP-wlip.8 closed the bench-visibility half \u2014 Dispatcher::dispatch now has dispatch_single_call and dispatch_batch_of_sixteen benches so the per-call spawn overhead is measurable in criterion. The actual perf optimization is an architectural decision.\n\nCurrent shape (crate-jmap-server/src/lib.rs:177): each method call inside a batch is run via tokio::task::spawn(async move { handler.call(...).await }).await. The JoinHandle is awaited immediately, so only one call runs at a time. The spawn exists purely for panic isolation \u2014 a panicking handler returns serverFail instead of crashing the connection task.\n\nProposed shape: std::panic::AssertUnwindSafe + FutureExt::catch_unwind from futures-util. Catches panic without spawn \u2014 saves the per-call allocation and scheduler hop. Tested against the existing panicking_handler_returns_server_fail and panic_message_not_in_response tests.\n\nCost:\n- Adds futures-util dep to jmap-server. AGENTS.md restricts to 'serde, serde_json, tokio, http, thiserror' \u2014 explicit dep allowlist change.\n- Behavioural change: tokio::task::JoinError's is_cancelled() / is_panic() distinction goes away. Today lib.rs:218-223 uses is_cancelled() to emit 'task cancelled' vs 'internal error' in the serverFail description. With catch_unwind, the cancellation case (future-drop while a handler is mid-execution \u2014 which today's task::spawn handles by running to completion anyway, since the JoinHandle drop doesn't cancel the spawned task) collapses into the panic-only path.\n- Tests that match on the descriptions (\"task cancelled\" vs \"internal error\") would need updating.\n\nBenefit:\n- ~200ns + alloc overhead per call saved. At 10k req/sec with 4 calls each, ~8ms CPU/sec.\n- Smaller flame-graph footprint at high request volume.\n\nBead author's confidence: low (\"low for non-hot-path consumers; meaningful for a high-throughput proxy or multi-tenant Mailbox server\").\n\nDecision needed from Mark:\n- (a) Schedule for a future minor that adds futures-util to the allowlist.\n- (b) Defer indefinitely; the bench is in place to surface the cost when it matters.\n- (c) Reshape now.\n\nPairs with bd:JMAP-wlip.34 (cancellation): both touch the spawn-vs-catch_unwind axis; deciding on one affects the other.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Architectural decision: replace task::spawn with catch_unwind for panic isolation in Dispatcher",
+  "updated_at": "2026-05-14T13:49:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:49:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "a2b1229e-5c5a-5e10-a52f-0c7e3172e59d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

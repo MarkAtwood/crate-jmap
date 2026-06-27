@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Re-parented to workspace-arch epic JMAP-eedw per the bead's own 'no fix in chat-server in isolation' recommendation.",
+  "closed_at": "2026-05-18T01:56:10Z",
+  "compaction_level": 0,
+  "content_hash": "a65a1d8ba68212bee370194e4127c6270af2077edafa505006f4fe75703ec2a0",
+  "created_at": "2026-05-14T04:26:08Z",
+  "created_by": "Mark Atwood",
+  "description": "Sites: four /set handlers exceed clippy::pedantic's too_many_lines threshold (100) by ~3x:\n- crate-jmap-chat-server/src/message.rs:294 handle_message_set \u2014 474 lines\n- crate-jmap-chat-server/src/chat.rs:79  handle_chat_set    \u2014 373 lines\n- crate-jmap-chat-server/src/space.rs:766 handle_space_set   \u2014 363 lines\n- crate-jmap-chat-server/src/emoji.rs:272 handle_emoji_set   \u2014 355 lines\n\nA senior Rust reviewer's instinct is \"split into helpers per /set sub-operation (create / update / destroy, or one fn per patch-op family)\". The diff would shrink each ~400-line linear narrative into a 50-line orchestrator that delegates to named sub-functions, each independently testable and reviewable.\n\nHOWEVER \u2014 this is the canonical extension-server cookie-cutter pattern inherited from jmap-mail-server, the workspace's anointed canonical template (workspace AGENTS.md \"Canonical Templates\"). Cross-checking:\n\n  $ wc -l crate-jmap-mail-server/src/*.rs\n     2578 crate-jmap-mail-server/src/email.rs\n     1195 crate-jmap-mail-server/src/mailbox.rs\n      984 crate-jmap-mail-server/src/submission.rs\n      607 crate-jmap-mail-server/src/mdn.rs\n     1218 crate-jmap-mail-server/src/sieve.rs\n\nMail-server's handle_email_set inside email.rs (2578 lines) is the canonical 'one big handler per object type' shape. Splitting chat-server's handlers without first splitting mail-server's would be a divergent sibling per the propagation rule, which review will catch (and the workspace AGENTS.md says will be reverted).\n\nThe correct framing of this finding: it's a WORKSPACE-CANONICAL-SHAPE question, not a chat-server-local one. The decision is whether the kit's canonical extension-server template should:\n  (a) keep big single-fn handlers (current), accepting the function-size lint as documented-policy noise, or\n  (b) split each /set into per-op sub-functions in jmap-mail-server first, then propagate the same split across all 8 extension-server siblings (~16-24 sub-functions per crate, ~140-200 across the workspace).\n\nOption (b) is the senior-Rust-shop answer. Option (a) is the working-as-intended answer. The trade is testability + reviewability (b wins) vs. cookie-cutter consistency + already-shipped (a wins until the canonical changes).\n\nRecommendation: do NOT change in chat-server alone. File this as a workspace-architectural decision bead for the canonical-template family (parent should arguably be a workspace epic, not this chat-server review epic), then either (i) accept (a) explicitly as policy and silence the lint workspace-wide with #[allow(clippy::too_many_lines)] on the canonical, or (ii) plan a sweep that reshapes mail-server first and propagates. Both outcomes resolve the lint; doing nothing leaves the lint as workspace-wide noise that hides the next legitimate hit.\n\nThis finding is filed here (under JMAP-x2gd) for review-pass completeness but should be re-parented to a workspace-architectural epic when picked up. No fix in chat-server in isolation.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.58",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Workspace canonical-template question: handle_*_set handlers are 350-475 lines each, lint vs. cookie-cutter consistency",
+  "updated_at": "2026-05-18T01:56:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T21:26:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "a4c7bb53-8413-5680-bd4c-01b8a91f84e6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-9hz.12",
+  "title": "subscribe_events uses split_off+reassign; prefer drain",
+  "description": "In client.rs subscribe_events, after extracting a frame the code does: let suffix = buf.split_off(pos + delim_len); buf = suffix; This discards the processed frame by splitting buf at the delimiter end, then replacing buf with the returned suffix. The cleaner idiomatic alternative is buf.drain(..pos + delim_len); which drains (discards) the processed frame prefix in-place, leaving buf as the remaining suffix without the intermediate variable. drain avoids the temporary String allocation and makes the intent (discard prefix, keep suffix) more explicit.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:26:45Z",
+  "updated_at": "2026-04-30T06:33:19Z",
+  "closed_at": "2026-04-30T06:33:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9hz",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:26:44"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T22:15:17Z",
+  "id": "019e288e-ef3d-720f-812b-41f40eb0df0f",
+  "issue_id": "JMAP-3t94.5",
+  "text": "Out-of-scope-for-do-beads-session decision: this bead requires a workspace-wide architectural choice between (a) propagating demo_next_id to the canonical mail-server, or (b) reverting all 6 siblings (chat, calendars, contacts, metadata, sharing, tasks) to uuid::Uuid::new_v4().\n\nThe /do-beads JMAP-3t94 session is scoped to crate-jmap-sharing-server. Resolving this bead unilaterally would either (a) touch the canonical mail-server outside scope, or (b) introduce a divergence between sharing-server and 5 other siblings that adopted demo_next_id together (commit 920fb0d).\n\nNo clear recommendation: the 920fb0d commit landed deliberately as a cargo-cult mitigation; reverting it would re-expose the worse pattern, but keeping it inverts the canonical-template precedence rule. Both costs are real.\n\nDefense-in-depth note: the underlying recycled-id correctness bug (.3) has been fixed independently of this \u2014 the new get_changes net-outcome HashMap correctly handles the recycled case even when demo_next_id collides. So the urgency that motivated the original review pairing (.3 + .5 as defense-in-depth) is reduced: .3's correctness no longer depends on whether .5 is addressed.\n\nRecommendation deferred to human. Reopen with a chosen option (a) or (b) for cross-crate execution."
+}

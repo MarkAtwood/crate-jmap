@@ -1,0 +1,33 @@
+{
+  "close_reason": "Obsoleted by JMAP-h47t.10: the .cloned() in recompute_task_lists_with_tasks was a workaround for the borrow-checker collision in a function that itself is now deleted. The new incremental refcount path does not have a similar shape \u2014 inc/dec_task_ref each acquire aux_mut for a single insert/decrement without holding an outer immutable borrow on self.objects.",
+  "closed_at": "2026-05-14T19:10:08Z",
+  "compaction_level": 0,
+  "content_hash": "32f55a8626ec31978fed843f76671e0e03c332b85bab08e4974e85554098f4a4",
+  "created_at": "2026-05-14T18:28:01Z",
+  "created_by": "Mark Atwood",
+  "description": "`memory.rs:196-210`:\n\n    fn recompute_task_lists_with_tasks(&mut self, account_id: &str) {\n        let tasks = self\n            .objects\n            .get(&(\"Task\", account_id.to_owned()))\n            .cloned()\n            .unwrap_or_default();\n\n        let mut set: HashSet<Id> = HashSet::new();\n        for value in tasks.values() {\n            if let Some(s) = value.get(\"taskListId\").and_then(|v| v.as_str()) {\n                set.insert(Id::from(s));\n            }\n        }\n        self.aux_mut(account_id).task_lists_with_tasks = set;\n    }\n\nThe `.cloned()` on an `Option<&HashMap<Id, Value>>` materialises a fresh `HashMap<Id, Value>` \u2014 every Id, every JSON Value \u2014 solely to release the immutable borrow on `self.objects` so the subsequent `self.aux_mut(account_id)` mutable borrow compiles. The clone is gratuitous: an immutable scope can be opened over `self.objects` and closed (by ending the block) before `aux_mut` is called:\n\n    fn recompute_task_lists_with_tasks(&mut self, account_id: &str) {\n        let mut set: HashSet<Id> = HashSet::new();\n        if let Some(tasks) = self.objects.get(&(\"Task\", account_id.to_owned())) {\n            for value in tasks.values() {\n                if let Some(s) = value.get(\"taskListId\").and_then(|v| v.as_str()) {\n                    set.insert(Id::from(s));\n                }\n            }\n        }\n        self.aux_mut(account_id).task_lists_with_tasks = set;\n    }\n\nThe immutable borrow on `self.objects` is dropped at the end of the `if let`; the `aux_mut` call that follows then has an exclusive borrow on `self`. No clone, no double-walk of the data.\n\nWhat goes wrong if it stays as-is: every Task mutation (create/update/destroy/copy_task) calls `recompute_task_lists_with_tasks`, which clones every stored Task in the account just to scan their `taskListId` fields. The base reviewer flagged the O(n) algorithm separately (JMAP-h47t.10) \u2014 this finding is about the additional O(n) allocation overhead from the unnecessary clone. The two findings reinforce each other: the gratuitous clone makes the bad asymptotic worse by a constant factor.\n\nThis is the canonical 'clone to escape the borrow checker' smell. The fix is to rethink the borrow scope, not to clone harder.\n\nWorkspace-wide context: the same pattern lives in `jmap-calendars-server::memory::recompute_calendars_with_events` and `jmap-contacts-server::memory::recompute_address_books_with_contents`. Per AGENTS.md the canonical sibling for derived-index design is jmap-calendars-server (JMAP-hwdv.5 pioneered the pattern). A workspace-wide propagation epic would address all three; alternatively this crate can lead the fix and propagate.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::recompute_task_lists_with_tasks clones entire Task HashMap to escape borrow checker",
+  "updated_at": "2026-05-14T19:10:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:28:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "c571bfb5-207a-5a0d-9571-bd771fada2b2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

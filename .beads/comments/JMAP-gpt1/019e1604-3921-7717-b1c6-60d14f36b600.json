@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "created_at": "2026-05-11T07:50:36Z",
+  "id": "019e1604-3921-7717-b1c6-60d14f36b600",
+  "issue_id": "JMAP-gpt1",
+  "text": "Closed by commit cab0a38. account_exists check added to handle_task_list_set, handle_task_set, and handle_task_notification_set. handle_task_copy already had the check on to_account_id. Test coverage: task_list_set_unknown_account_returns_account_not_found, task_set_unknown_account_returns_account_not_found, task_notification_set_unknown_account_returns_account_not_found (all newly passing). Mirrors JMAP-r3pg.4 precedent."
+}

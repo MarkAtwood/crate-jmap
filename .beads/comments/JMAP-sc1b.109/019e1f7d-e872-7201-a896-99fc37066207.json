@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-13T04:00:06Z",
+  "id": "019e1f7d-e872-7201-a896-99fc37066207",
+  "issue_id": "JMAP-sc1b.109",
+  "text": "Spot-check approved (2026-05-12, Mark).\n\nThe chat-server AGENTS.md (144 lines) is blessed as the sibling reference. Acceptable to cookie-cut into the 6 remaining sibling crates (calendars/tasks/contacts/filenode/sharing/metadata server). Per-sibling differences should be limited to: spec references (RFC/draft name), backend trait name, crate-family-context diagram, and any genuinely-extension-specific design constraints (e.g. the chat 'constant-time secret compares' row has no analog in non-credential-handling extensions).\n\nThe new 'Permission enforcement: backend canonical' section (lines 74-97) is correct content but is workspace-wide policy, not chat-specific. It belongs on every sibling AGENTS.md AND on the canonical mail-server AGENTS.md. The 6-sibling sweep will propagate it horizontally; backport to the canonical is filed as a separate follow-up bead.\n\nRemoving 'human' label; /do-beads can claim this bead next pass."
+}

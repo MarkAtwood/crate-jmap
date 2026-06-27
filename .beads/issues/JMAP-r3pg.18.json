@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Fixed in calendars-server (calendar.rs, event.rs, event_notification.rs, participant_identity.rs) by adding upfront validation that every destroy[] entry is a string, returning invalidArguments otherwise per RFC 8620 \u00a75.3. Added regression test set_destroy_rejects_non_string_entry. Per cookie-cutter rule, propagated identical validation to chat-server (8 files), contacts-server (2), filenode-server (1), tasks-server (3), and unified the existing-but-divergent forms in sharing-server (2) and mail-server/sieve.rs to the canonical mail-server/mailbox.rs shape. All 96 test groups pass; clippy clean.",
+  "closed_at": "2026-05-10T06:36:30Z",
+  "compaction_level": 0,
+  "content_hash": "2595fe4f27e5e6336a742c8ac6915dbf829f107aaba440af62a804b558dc28e2",
+  "created_at": "2026-05-08T03:34:16Z",
+  "created_by": "Mark Atwood",
+  "description": "calendar.rs:172-177, event.rs:274-279, event_notification.rs:103-108, participant_identity.rs:151-156 all use the same 'continue on non-string' pattern:\n\n    for id_val in destroy_arr {\n        let id_str = match id_val.as_str() {\n            Some(s) => s.to_owned(),\n            None => continue,\n        };\n        ...\n    }\n\nA destroy array entry that is not a string (number, null, object, etc.) is silently skipped. The id never appears in destroyed[], notDestroyed[], or any error response \u2014 the client gets no signal that part of its request was malformed.\n\nRFC 8620 \u00a73.6.1 establishes invalidArguments as the method-level error for argument-shape violations. \u00a75.3 'destroy' is typed as Id[]. A non-string element is a type violation of the destroy argument.\n\nTwo reasonable behaviours:\n1. Hard-fail the whole call with invalidArguments method-error citing 'destroy[N]'.\n2. Soft-fail per-entry into notDestroyed with a SetErrorType::invalidProperties \u2014 but notDestroyed keys are Ids (strings), so this doesn't fit.\n\nThe clean fix is option 1: validate destroy is Vec<String> up front, return invalidArguments otherwise. Then the loop body can be infallible on the input shape.\n\nTest gap: no test exercises malformed destroy arrays. Add a per-handler test sending destroy: [null] or destroy: [{}] and assert invalidArguments.\n\nP3 because real clients won't send malformed destroy entries; defence-in-depth more than user-visible bug.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Calendar/set destroy ignores non-string entries in the destroy array silently \u2014 RFC requires invalidArguments?",
+  "updated_at": "2026-05-10T06:36:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:34:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "9406e8f9-dc71-5b02-840e-7781939ebb84",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

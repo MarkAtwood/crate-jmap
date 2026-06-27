@@ -1,0 +1,33 @@
+{
+  "close_reason": "documented N+2 gap, filed as MailBackend API gap",
+  "closed_at": "2026-05-02T06:29:31Z",
+  "compaction_level": 0,
+  "content_hash": "188e45d3a77ae626d8255de5ad7d0ca5ecf69a8e47c9c80e7b24e30d4d1ce83e",
+  "created_at": "2026-05-02T03:56:56Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs handle_mailbox_set destroy path: for each mailbox destroyed with onDestroyRemoveEmails=true, the handler does query_objects + get_objects to find contained emails, then one destroy_object or update_object call per email. N emails = N+2 backend calls. A single destroy of a large inbox triggers hundreds of round-trips to storage. The comment in the code already notes this and suggests batch_destroy_objects/batch_update_objects. Without those traits, a user destroying a large Inbox with onDestroyRemoveEmails=true will see O(n) latency spikes visible to the HTTP client. This should be filed as a MailBackend API gap before the trait is frozen.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/set destroy loop: N+2 backend calls per destroyed mailbox with emails",
+  "updated_at": "2026-05-02T06:29:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:56:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "0cc12ea8-0105-5203-a066-0af169509772",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

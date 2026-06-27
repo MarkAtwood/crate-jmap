@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-fpp.9",
+  "title": "SSE scan_from overlap comment explains bytes not chars",
+  "description": "client.rs subscribe_events: comment says 'scan_from is set to old_len.saturating_sub(3)... 3 bytes back covers the longest incomplete delimiter prefix that can straddle a chunk boundary: \\r\\n\\r (prefix of \\r\\n\\r\\n)'. But scan_from is an index into a String (char boundary in UTF-8), not a raw byte count, and old_len is buf.len() (bytes). The scan_from walk-back loop then adjusts to a char boundary. The comment is accurate about the 3-byte overlap but a contributor might confuse why we walk back to a char boundary if we're counting bytes. The comment should note that the 3-byte overlap is in bytes, which is safe because \\r and \\n are single-byte codepoints \u2014 no char boundary adjustment is ever needed for these specific delimiters.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:15:52Z",
+  "updated_at": "2026-04-30T01:23:29Z",
+  "closed_at": "2026-04-30T01:23:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-fpp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:15:51"
+    }
+  ]
+}

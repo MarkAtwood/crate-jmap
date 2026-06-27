@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Review-acknowledgement; ct_eq invite-code comparison preserved.",
+  "closed_at": "2026-05-18T02:18:51Z",
+  "compaction_level": 0,
+  "content_hash": "675eec17fbd89f8e4ddf41d6aa8e66515a900b2f998ed63d82bf0dbd0dcfa60f",
+  "created_at": "2026-05-14T03:16:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/space.rs:1296-1314 (handle_space_join invite-code branch).\n\nThe comparison uses subtle::ConstantTimeEq::ct_eq on the invite-code bytes:\n    .find(|inv| inv.code.as_bytes().ct_eq(code.as_bytes()).into())\n\nThis is correct: invite codes are CSPRNG-derived credentials (16-byte / 32-hex), and a plain == short-circuits at first mismatched byte, exposing a byte-by-byte timing oracle.\n\nWhat a future contributor might suggest changing:\n- 'Use Iterator::find with == \u2014 the codes are short, the timing leak is theoretical.' False: the linear-scan find is repeatedly called per byte for an attacker, and aggregating timing differences over many requests recovers the code. This pattern has been demonstrated in real attacks against MAC/token comparisons.\n- 'Move the compare into the backend \u2014 it's storage-layer business.' Possible refactor, but the kit owns the invite-redemption logic today; moving the compare into the backend means trusting that every future backend implementor also uses ct_eq. The current placement is defense-in-depth.\n- 'Eliminate the linear scan \u2014 the backend should provide find_by_code.' True (and the same point as the architectural fix in JMAP-x2gd.10), but the inner compare must remain ct_eq.\n\nThe doc-comment at 1300-1310 captures why this matters (length-discrimination note plus the cit to bd:JMAP-sc1b.89). Preserve both the choice and the comment.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Constant-time invite code compare in handle_space_join is correct and load-bearing",
+  "updated_at": "2026-05-18T02:18:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:16:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "e67594d4-14d8-57d8-b47e-aa96a6792f34",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

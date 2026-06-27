@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T04:42:38Z",
+  "compaction_level": 0,
+  "content_hash": "849882004d81c88da27650d5622a3b47bf28b518b5ed4279fc1635e0d87a6ae6",
+  "created_at": "2026-05-11T04:40:48Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Add path-dep on jmap-jscalendar-types to crate-jmap-tasks-types/Cargo.toml, mirror calendars-types re-export pattern (both top-level named re-exports and `jscalendar` module alias), and update PLAN.md \u00a7JSCalendar complex sub-objects are serde_json::Value to remove the \"a future crate provides typed JSCalendar types\" wording.\n\nMirror exactly what landed for calendars-types in JMAP-x59i.2 (commit b73534e):\n- Cargo.toml: `jmap-jscalendar-types = { workspace = true }`\n- lib.rs: `pub use jmap_jscalendar_types as jscalendar;` module alias for symmetry\n- lib.rs: `pub use jmap_jscalendar_types::{AbsoluteTrigger, Alert, AlertTrigger, Duration, Link, LocalDateTime, Location, NDay, OffsetTrigger, Participant, RecurrenceRule, Relation, SignedDuration, VirtualLocation};` top-level re-exports\n- PLAN.md \u00a7342-349: rewrite to point at the actual crate instead of the future-crate placeholder\n\nDo NOT pre-emptively apply the extras-preservation pattern (per JMAP-yfpq NOTES \u2014 leave for JMAP-lbdy.6 sweep).\n\nRound-trip tests for the 13 sloppy fields stay in scope of sibling .2; this bead is plumbing only.\n\nAcceptance:\n- cargo check -p jmap-tasks-types clean\n- cargo clippy -p jmap-tasks-types -- -D warnings clean\n- cargo test -p jmap-tasks-types clean (no regression; new tests come in .2)\n- cargo doc -p jmap-tasks-types --no-deps clean",
+  "ephemeral": 0,
+  "id": "JMAP-yfpq.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Migrate jmap-tasks-types to consume jmap-jscalendar-types (path-dep + re-export + PLAN.md)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T21:40:47Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-yfpq",
+      "id": "0a1da464-62d6-5eb4-a26d-5042834e2d1a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

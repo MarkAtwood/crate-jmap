@@ -1,0 +1,33 @@
+{
+  "close_reason": "Race condition is documented in code comment; cannot enforce idempotency in the trait contract without breaking simplicity.",
+  "closed_at": "2026-05-02T03:40:10Z",
+  "compaction_level": 0,
+  "content_hash": "f5869bf655b643f692f30a60ebf9077d5b8b455ab1ce85d884e82c8fd354f705",
+  "created_at": "2026-05-02T03:25:48Z",
+  "created_by": "Mark Atwood",
+  "description": "vacation.rs handle_vacation_set: the upsert path (update fails NotFound \u2192 create \u2192 update) is a three-step sequence with a TOCTOU window. Two concurrent requests can both enter the NotFound branch and both call create_object. A comment in the code says 'backends MUST make create_object idempotent for the singleton key', but this is not enforced by the trait signature or any test. Any implementor who reads only the MailBackend trait doc (not the vacation.rs handler code) will not know they need idempotent create for 'singleton'. This should be captured in the create_object or MailBackend trait doc, and ideally tested with FaultyBackend.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "VacationResponse upsert race is documented but trait does not enforce safety",
+  "updated_at": "2026-05-02T03:40:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:25:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "c747e570-7a77-5fa4-bcc2-ac1b1a66bf9a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

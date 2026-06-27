@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-sev.4",
+  "title": "push::StateChange is canonical type but SseEvent does not wrap it \u2014 good decisions worth defending",
+  "description": "Introducing push::StateChange as a module-level struct (not ws-specific) and re-exporting it from lib.rs is the correct consolidation direction. It gives extension crates a single import for StateChange regardless of transport. The round-3 WS import now uses push::StateChange, eliminating the prior duplicate type. Half-step: SSE still uses an inline variant \u2014 see JMAP-sev.2. The direction is correct; completion is needed.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:30:27Z",
+  "updated_at": "2026-04-30T01:02:47Z",
+  "closed_at": "2026-04-30T01:02:47Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sev",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:30:27"
+    }
+  ]
+}

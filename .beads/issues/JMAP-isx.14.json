@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-isx.14",
+  "title": "ClosureHandler.call_fn wrapped in Arc unnecessarily; handler is already in Arc",
+  "description": "lib.rs:78-84, 193, 199: the macro creates Arc::new(ClosureHandler { call_fn: Arc::new(move |...| ...) }). The closure is wrapped in Arc even though ClosureHandler itself is Arc'd. The outer Arc makes the handler cloneable across tasks; the inner Arc on call_fn is an extra indirection that costs an extra allocation per handler registration with no benefit. Box<CallFn<B>> (a single allocation) would suffice. The type alias CallFn is defined but not exposed, so this is an internal change. Fix: change call_fn: Arc<CallFn<B>> to call_fn: Box<CallFn<B>>.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:21:19Z",
+  "updated_at": "2026-04-30T23:40:52Z",
+  "closed_at": "2026-04-30T23:40:52Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-isx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:21:19"
+    }
+  ]
+}

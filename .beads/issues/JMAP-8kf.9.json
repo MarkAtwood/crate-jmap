@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-8kf.9",
+  "title": "StateChange type duplicated between ws/mod.rs and sse.rs",
+  "description": "ws/mod.rs defines a StateChange struct with changed: HashMap<String, HashMap<String, String>>; sse.rs defines SseEvent::StateChange { changed: HashMap<String, HashMap<String, String>> } with the same field type. The payload type is identical but defined twice. A shared StateChange type (in jmap-types or exported from one module) would eliminate the duplication and let callers handle state-change data from both SSE and WebSocket paths uniformly.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:21:44Z",
+  "updated_at": "2026-04-30T00:22:30Z",
+  "closed_at": "2026-04-30T00:22:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-8kf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:21:43"
+    }
+  ]
+}

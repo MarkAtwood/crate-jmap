@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T20:37:04Z",
+  "compaction_level": 0,
+  "content_hash": "3eb3ab0f506d0ea4ed2798248615e3828540a252cdd9cec7de3e4b9d7777c441",
+  "created_at": "2026-05-14T19:36:07Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/README.md:232-233\n\nCURRENT TEXT:\n    - No storage backend ships with this crate. The in-memory\n      MemoryBackend in tests/ is a test harness only.\n\nACTUAL STATE (per crate-jmap-contacts-server/src/lib.rs:39-44):\n    /// In-memory reference implementation of [`ContactsBackend`].\n    ///\n    /// Gated behind `feature = \"memory\"`. Not production. See [`memory`]\n    /// for the full module documentation.\n    #[cfg(feature = \"memory\")]\n    pub mod memory;\n\nThe MemoryBackend lives at src/memory.rs and IS shipped \u2014 under the\n`memory` cargo feature \u2014 to downstream consumers. The README claim \"No\nstorage backend ships with this crate\" is now incorrect, and the\nfollow-up \"the in-memory MemoryBackend in tests/\" misdirects readers\nwho go looking for it.\n\nPROBLEM:\nThis is the README's Gotchas section \u2014 the section consumers read when\nthey have a question about what is shipped, what is supported, and\nwhere to look. The stale content tells them:\n1. False: no storage backend ships \u2190 refuted by feature = \"memory\"\n2. False: the backend lives in tests/ \u2190 it lives in src/memory.rs\n3. Implied: don't expect to use it \u2190 it IS publicly usable behind the\n   feature gate\n\nThe JMAP-hwdv.6 commit ed112ab (\"feat(contacts-server): add\nmemory::MemoryBackend reference impl + sibling fixes\") moved the\nbackend from tests/common/ to src/memory.rs and exposed it. The README\nGotchas paragraph was not updated as part of that move.\n\nWHAT CALLERS CANNOT DEPEND ON:\n- That README \"Gotchas\" content reflects the current shipped state.\n- That advice in the Gotchas section is actionable.\n\nRECOMMENDED:\nReplace README.md:232-233 with:\n\n    - The in-memory `memory::MemoryBackend` (gated behind `feature =\n      \"memory\"`) is a reference implementation, not production. It is\n      intended for downstream contributors to study, for integration\n      tests, and for smoke tests / examples. See the module docs for\n      the explicit non-production caveats (in-memory state, no\n      persistence, simplified RFC 9610 edge cases).\n\nP2 because the failure mode is \"consumer reads docs, gets misdirected,\nfiles a confused issue\" rather than runtime breakage, but the README\nis the primary discovery surface for consumers.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README \u00a7'Gotchas' says 'MemoryBackend in tests/' but it now lives at src/memory.rs behind a feature gate \u2014 stale post-JMAP-hwdv.6",
+  "updated_at": "2026-05-17T20:37:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:36:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "ac4689f9-4664-5409-b8f3-3838b284d6b2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

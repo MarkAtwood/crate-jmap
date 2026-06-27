@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T12:08:05Z",
+  "compaction_level": 0,
+  "content_hash": "c7e276a91b15df201f1946ff6273f1f5c7c27bfbea634f57adf98032406208ad",
+  "created_at": "2026-05-15T01:18:33Z",
+  "created_by": "Mark Atwood",
+  "description": "## What the code does\n\nAcross calendars-client, every `since_state` / `since_query_state` / `utc_start` / `utc_end` / `from_account_id` reference inserted into a `serde_json::json!{...}` literal is first converted to `&str` via `.as_ref()`:\n\n```rust\n// crate-jmap-calendars-client/src/methods/calendar.rs:62-66\nlet mut args = serde_json::json!({\n    \"accountId\": account_id,\n    \"sinceState\": since_state.as_ref(),\n});\n```\n\nOther call sites: event.rs:73-76, event.rs:206-209, event_notification.rs:58-61, event_notification.rs:187-190, participant_identity.rs:49-52, event_copy.rs:41-45, principal_availability.rs:27-32.\n\n## What idiomatic Rust would do\n\n`State`, `Id`, and `UTCDate` (in `jmap-types`) all derive (or hand-implement) `Serialize` that emits the same wire string `.as_ref()` exposes. The canonical mail-client passes the typed value directly to the `json!{}` macro and lets serde do the conversion:\n\n```rust\n// crate-jmap-mail-client/src/methods/email.rs:82-85\nlet mut args = serde_json::json!({\n    \"accountId\": account_id,\n    \"sinceState\": since_state,\n});\n```\n\nSame wire output. Same byte-for-byte JSON. The `.as_ref()` is non-idiomatic ceremony \u2014 it bypasses the type's own `Serialize` impl in favour of a manual coercion. A serious Rust practitioner reading this asks \"why is the author distrusting the typed wrapper's Serialize impl?\" and finds no answer in comments.\n\n## Why it matters\n\n1. **Maintainability.** If `State`'s wire encoding ever needed to change (length-prefixing, base64, etc.) the canonical pattern would propagate the change automatically through every json!{} site; the calendars pattern would require finding and updating every `.as_ref()` call site by hand. The bypass-the-typed-Serialize idiom is exactly the kind of code that drifts out of sync with the type it's coupled to.\n\n2. **Cookie-cutter divergence.** Per workspace AGENTS.md canonical-template rule, calendars-client should mirror jmap-mail-client. This pattern doesn't.\n\n3. **Reader cognitive load.** `since_state.as_ref()` invites the reader to wonder whether `.as_ref()` is necessary \u2014 whether `State` lacks a Serialize impl, whether there's a subtle wire-shape difference, whether the trailing `.is_empty()` check needs the `&str` view (it does, but the json! site does not). The canonical `since_state` is one less question to answer per call site.\n\nNote: the empty-string defence-in-depth check at the top of each method (`if since_state.as_ref().is_empty()`) does legitimately need `.as_ref()` because the check operates on the `&str` view. That use is fine; this finding is purely about the json!{} body sites.\n\n## Fix shape\n\nDrop the `.as_ref()` on every json!{} body site for typed-wire-string values. Five-line mechanical change across six files. Wire output is unchanged (byte-equal).\n\n## Source citations\n\n- crate-jmap-calendars-client/src/methods/calendar.rs:62-66\n- crate-jmap-calendars-client/src/methods/event.rs:73-76, 206-209\n- crate-jmap-calendars-client/src/methods/event_notification.rs:58-61, 187-190\n- crate-jmap-calendars-client/src/methods/event_copy.rs:41-45\n- crate-jmap-calendars-client/src/methods/participant_identity.rs:49-52\n- crate-jmap-calendars-client/src/methods/principal_availability.rs:27-32\n- crate-jmap-mail-client/src/methods/email.rs:82-85, 188-191 (canonical)",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": ".as_ref() noise when serialising typed State/Id/UTCDate via json!{} macro \u2014 diverges from canonical mail-client idiom",
+  "updated_at": "2026-05-17T12:08:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:18:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "7278c4e5-4fb5-5d51-84d2-3b21a1be8ec8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

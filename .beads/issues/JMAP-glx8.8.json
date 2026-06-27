@@ -1,0 +1,33 @@
+{
+  "close_reason": "GOOD observation acknowledged. localizations migration to HashMap<String, PatchObject> + #[serde(transparent)] on PatchObject is wire-byte-identical and the canonical shape established by JMAP-46s0/JMAP-trmz; matches jmap-tasks-types::Task::localizations and jmap-calendars-types::CalendarEvent::localizations. Test contact_card_localizations_patch_object_transparent (lib.rs) asserts byte-identical round-trip. The HashMap-vs-ordered-map question is the active topic of JMAP-glx8.20 and gets resolved there, but the typed-envelope shape itself is locked in. No code change needed for this bead.",
+  "closed_at": "2026-05-15T22:55:31Z",
+  "compaction_level": 0,
+  "content_hash": "3b44283c1ecc2f5170a6e952c42ab21f8a203e27a52c18801b6c63972e7415eb",
+  "created_at": "2026-05-15T22:37:03Z",
+  "created_by": "Mark Atwood",
+  "description": "ContactCard.localizations migrated from Option<serde_json::Value> to Option<HashMap<String, PatchObject>>, where jmap_types::PatchObject is #[serde(transparent)] over serde_json::Map<String, Value>. The wire format is byte-identical to the previous Value shape (test: contact_card_localizations_patch_object_transparent at lib.rs:489-502 round-trips a literal JSON string), and the typed shape enforces the outer object-map structure (BCP 47 language tag \u2192 PatchObject) at the type system level.\\n\\nThe transparency property is the load-bearing part: a future contributor will be tempted to 'add a discriminant' or 'wrap PatchObject in an enum' or 'just use Value, it's the same thing'. None of those preserve byte-identical wire output. The current shape is the result of bd JMAP-46s0 / JMAP-trmz (the cross-extension PatchObject typed-envelope sweep) and matches the canonical shape in jmap-tasks-types::Task::localizations.\\n\\nDo not revert to Value, do not change the transparency attribute on PatchObject, do not add wrapper keys.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "GOOD: localizations typed-envelope migration preserves wire format",
+  "updated_at": "2026-05-15T22:55:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:37:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "0630880c-bbc9-5b5c-aab0-b79fcd310531",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

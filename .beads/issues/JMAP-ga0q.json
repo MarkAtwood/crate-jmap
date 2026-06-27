@@ -1,0 +1,23 @@
+{
+  "close_reason": "all steps complete",
+  "closed_at": "2026-05-12T00:23:36Z",
+  "compaction_level": 0,
+  "content_hash": "244ec52f4aa844cee4354177bd0dd6fdd1e60672d3dda56869ba31c1c9d44114",
+  "created_at": "2026-05-11T22:26:49Z",
+  "created_by": "Mark Atwood",
+  "description": "Establishes the workspace-wide contract for how JMAP method handlers and backends learn who the authenticated caller is. The current settled design \u2014 'Auth: Not in dispatcher, caller's responsibility before dispatch' \u2014 leaves an empty contract on the `CallerCtx` associated type. JMAP method semantics that depend on caller identity (chat role hierarchy, mail $seen on shared mailboxes, calendar ACLs, sharing/myRights, metadata isPrivate visibility) cannot be honored against an opaque `CallerCtx`.\n\nThis epic locks in the foundation answer that is intended to outlive the workspace.\n\n## Principles\n\n1. **Identity is a foundation concept, not an extension feature.** Decide once in jmap-server; every extension inherits.\n2. **`CallerCtx` is the seam: foundation declares the contract, deployment decides the content.** Associated type stays; contract extends.\n3. **Backend is canonical.** Handlers may add defense-in-depth pre-checks for fast-fail but the backend is the single source of truth for permission enforcement, atomic with the mutation.\n\n## The shape\n\n```rust\npub trait JmapBackend: Send + Sync + 'static {\n    type CallerCtx: Clone + Send + Sync + 'static;\n\n    // ... existing methods ...\n\n    /// The caller's stable identity within this account namespace.\n    ///\n    /// Returns `None` for deployments that have not wired identity\n    /// (test fixtures, single-user dev servers). A `None`-returning\n    /// backend CANNOT honor JMAP semantics that depend on caller\n    /// identity \u2014 chat role-hierarchy, calendar ACLs, sharing/myRights,\n    /// per-user $seen on shared mailboxes, etc. Authentication is\n    /// still the HTTP layer's job; this method exposes the result of\n    /// that authentication to the JMAP layer for in-method semantics.\n    ///\n    /// Implementations MUST NOT mint identity \u2014 they MUST read it\n    /// from the `CallerCtx` populated by the HTTP/auth middleware\n    /// before `dispatch()` was called.\n    fn principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id> {\n        let _ = caller;\n        None\n    }\n}\n```\n\n## Locked-in rules (workspace policy)\n\n- The ONLY way a JMAP method or backend asks 'who is the caller' is `JmapBackend::principal_id`.\n- Handlers do NO permission checking. Single source of truth = backend.\n- If a future extension needs more than an id (groups, claims, roles), it adds that to its OWN backend trait \u2014 NOT to JmapBackend. Foundation gives you the id; extensions own the meaning.\n- No 'caller_identity returns generic blob' escape hatch. Typed return (`&Id`).\n- Federation does NOT need a separate hook here \u2014 federation handler maps peer-signed identity to a local principal once, before invoking the JMAP method. The JMAP method sees a normal `principal_id()`.\n\n## Decomposition\n\n  .1 \u2014 Add `principal_id` method on `JmapBackend` with default impl + tests.\n  .2 \u2014 Update workspace AGENTS.md and crate-jmap-server/AGENTS.md to document the seam + 'backend canonical' rule.\n\n## Downstream consumers\n\nThis epic unblocks all identity-dependent semantics across the workspace. First consumer is JMAP-g7wu.2.4 (chat Space/set permission enforcement). Future consumers: jmap-mail-server (RFC 8621 $seen on shared mailboxes), jmap-calendars-server (calendar ACLs), jmap-sharing-server (RFC 9670 myRights), jmap-metadata-server (isPrivate visibility scoping).\n\n## Status\n\nArchitectural decision approved by Mark, 2026-05-11. Children to be picked up by the autonomous /do-beads loop.",
+  "ephemeral": 0,
+  "id": "JMAP-ga0q",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "EPIC: Foundation identity seam \u2014 JmapBackend::principal_id",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

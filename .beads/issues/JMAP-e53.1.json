@@ -1,0 +1,33 @@
+{
+  "close_reason": "Stale: doc comment for build_email_from_create is now correctly placed directly above the function; validate_and_normalize_keywords has its own separate doc block.",
+  "closed_at": "2026-05-04T16:02:57Z",
+  "compaction_level": 0,
+  "content_hash": "866d643a8149b695953cfd54d8ebc72d5b85cc8e9b55f9e78ecb675a0b844d35",
+  "created_at": "2026-05-02T00:43:19Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs lines 1235-1252: the doc comment for build_email_from_create is a merged/garbled block \u2014 halfway through it pivots without warning into documenting validate_and_normalize_keywords. A contributor reading the function's doc comment gets partial, misleading documentation for both functions. Split into two separate, correct doc comments.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "garbled doc on build_email_from_create",
+  "updated_at": "2026-05-04T16:02:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "883ae0b7-ad99-57a9-82fe-e3f894b8912c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

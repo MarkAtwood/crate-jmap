@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "CalendarAlert struct added. @type and recurrenceId serialize correctly.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added CalendarAlert struct to notification.rs; re-exported from lib.rs; 3 tests (with/without recurrenceId, wire names); 47 tests pass; clippy clean",
+  "closed_at": "2026-05-05T03:51:22Z",
+  "compaction_level": 0,
+  "content_hash": "d7de0a17863db32ba52e4c1932ac52669121f5ec21705f4248a68e715cf28b6b",
+  "created_at": "2026-05-05T02:52:31Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Add CalendarAlert struct to notification.rs. Draft-ietf-jmap-calendars-26 \u00a76.4 defines the push payload emitted when a calendar alert fires. Fields: @type (always \"CalendarAlert\"), accountId (Id), calendarEventId (Id), uid (String), recurrenceId (Option<String> \u2014 null if non-recurring), alertId (String).\n\n**Algorithm:**\n1. Add to notification.rs:\n   #[non_exhaustive]\n   #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]\n   #[serde(rename_all = \"camelCase\")]\n   pub struct CalendarAlert {\n       #[serde(rename = \"@type\")]\n       pub at_type: String,        // always \"CalendarAlert\"\n       pub account_id: Id,\n       pub calendar_event_id: Id,\n       pub uid: String,\n       pub recurrence_id: Option<String>,   // null if non-recurring (no skip_serializing_if)\n       pub alert_id: String,\n   }\n2. Re-export from lib.rs.\n3. Add round-trip serde tests: with and without recurrenceId. Assert @type serializes to \"CalendarAlert\".\n4. Run cargo test -p jmap-calendars-types.\n\n**Acceptance criteria:**\n- @type wire name is \"@type\" (not atType).\n- recurrenceId serializes as null when None.\n- cargo test -p jmap-calendars-types exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-z2cy.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add CalendarAlert push-notification struct (calendars-26 \u00a76.4)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:52:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-z2cy",
+      "id": "39326413-bc4f-551c-813b-b748eb80bffa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

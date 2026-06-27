@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T19:08:58Z",
+  "id": "019e3231-149b-77b7-a0d9-bae0d0da4918",
+  "issue_id": "JMAP-wlip.36",
+  "text": "Session-start sweep ratification (2026-05-16): bead is >24h old (created 2026-05-14) with no human reply. Body lists three options with bead author confidence 'low' overall, and option (b) reads 'Defer indefinitely; the bench is in place to surface the cost when it matters.' Bead also notes 'Pairs with JMAP-wlip.34 \u2014 deciding on one affects the other'; .34 has been ratified-deferred in the same sweep so this one follows. Per workspace AGENTS.md anti-pattern 3, removing 'human' label and adding 'deferred'. The dispatch_single_call / dispatch_batch_of_sixteen benches from JMAP-wlip.8 are in place to surface the cost when it matters. Bead remains open in deferred state."
+}

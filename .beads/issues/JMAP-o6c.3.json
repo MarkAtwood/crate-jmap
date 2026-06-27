@@ -1,0 +1,33 @@
+{
+  "close_reason": "RFC 8621 \u00a72.3 says sortAsTree is a sort-behavior modifier; unsupportedSort is correct per spec. Downgrading as opinion.",
+  "closed_at": "2026-05-02T03:33:06Z",
+  "compaction_level": 0,
+  "content_hash": "7450107a231d40c3e5904fed11c4e18133316edc1ed6e4ed039908e470056861",
+  "created_at": "2026-05-02T03:25:00Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs line 173: when sortAsTree=true the handler returns JmapError::unsupported_sort(), but sortAsTree is a filter-semantics argument not a sort argument. RFC 8620 \u00a75.5 does not specify which error to use for unsupported tree modes, but the existing code pattern returns unsupported_filter for filterAsTree and unsupported_sort for sortAsTree. The inconsistency means a client that checks error types to distinguish unsupportedSort from unsupportedFilter will misinterpret the rejection of sortAsTree=true as a sort rejection, not a feature rejection.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sortAsTree=true returns wrong error type",
+  "updated_at": "2026-05-02T03:33:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:24:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "2bb37811-3097-5962-8ab9-b95064db4b97",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

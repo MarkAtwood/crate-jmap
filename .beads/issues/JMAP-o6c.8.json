@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:34:02Z",
+  "compaction_level": 0,
+  "content_hash": "134196c8bb6acda08f4cbb520ca045333dc3b4aeefd6d5a095def910332e47af",
+  "created_at": "2026-05-02T03:25:16Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs build_email_from_create: the code validates body parts and can return an invalidProperties error, but RFC 8621 \u00a75.5 requires that when the error type is 'blobNotFound', the SetError object MUST include an extra 'notFound' property of type Id[] listing every blobId that could not be found. The current code returns generic invalidProperties errors for blob validation failures without ever returning blobNotFound or the required notFound list. A client that checks for blobNotFound to enumerate missing blobs will never receive that signal, and a conforming JMAP client may loop indefinitely retrying with the same missing blobs.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "blobNotFound SetError missing required notFound property",
+  "updated_at": "2026-05-02T03:34:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:25:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "8bbf2977-a860-50cf-bd67-f7280a24f85c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

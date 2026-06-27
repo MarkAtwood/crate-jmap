@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in d64bc4e: pub const MAX_PART_DEPTH=64; private part_to_jmap_inner now carries a depth: usize counter and emits an opaque multipart-typed EmailBodyPart with sub_parts=None at depths >= MAX_PART_DEPTH. Four new tests: shallow round-trip preserves, MAX_PART_DEPTH+4 truncates at exactly MAX_PART_DEPTH levels, 1000-level adversarial input does not panic, truncation marker has multipart type with sub_parts None. README Gotchas adds two entries (adapter bound; upstream parse() still unbounded so consumers must bound message size). PLAN.md adds item 7. Option (a)+(c) per the bead. 20 unit tests + 1 doc-test green; clippy -D warnings clean.",
+  "closed_at": "2026-05-15T06:26:53Z",
+  "compaction_level": 0,
+  "content_hash": "587f8e160170bfe5befaddceba1d6e66bad586addd0d9992f303a3a8ff356659",
+  "created_at": "2026-05-15T06:16:53Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: an SMTP sender (i.e. anyone on the public internet) delivers an email to a user whose JMAP backend uses jmap-mime, with a multipart/mixed body nested thousands of levels deep. The framing bytes per level are small (`--bnd1\\r\\nContent-Type: multipart/mixed; boundary=\\\"bnd2\\\"\\r\\n\\r\\n` is ~60 bytes), so a 25 MB message \u2014 well within typical SMTP MaxMessageSize \u2014 easily exceeds 100k levels.\n\nPath the attacker exercises, all unbounded recursion, all on the parsing worker's stack:\n\n1. `mail_parser` parses the MIME framing (out of scope here; presumably has its own DoS posture).\n2. `mime_tree::parse::build_part` (mime-tree-0.3.0/src/parse.rs:131-220) recurses on every `PartType::Multipart` with no depth bound \u2014 line 195 calls `build_part` recursively, no `depth` parameter.\n3. `jmap_mime::part_to_jmap_inner` (crate-jmap-mime/src/lib.rs:77-106) recurses on every multipart with no depth bound \u2014 line 84 `.map(|c| part_to_jmap_inner(c, blob_id_for))` walks children unconditionally.\n4. `mime_tree::ParsedPart::find_by_id` (mime-tree-0.3.0/src/part.rs:99) recurses unbounded on lookup, and `message_to_jmap_body` calls it once per textBody/htmlBody/attachments entry (src/lib.rs:138, 145, 152).\n\nConsequence: the parsing worker stack-overflows, the thread aborts (Rust's stack-overflow handler aborts the process by default; the worker thread crashes; the host JMAP process exits or the supervisor restarts it). Either way, the JMAP service becomes unavailable to all users on the affected worker. A single attacker email is enough; re-delivery via auto-reconnect retries the same payload and triggers the same crash, producing a sustained DoS.\n\nSurface attention from this diff: the new `crate-jmap-mime/benches/mime_pipeline.rs` (lines 116-151, `build_large_deep_multipart`) demonstrates the walker on 5 levels of nesting with the docstring 'exercising the recursive tree walker and the `find_by_id` lookups'. The bench's choice of 5 levels suggests to a contributor that the adapter is happy at that depth \u2014 but says nothing about whether the adapter is *bounded* at any depth. A reviewer reading the bench gets no signal that thousand-level nesting is a live DoS vector.\n\nWhat goes wrong if this stays as-is: **availability** of the JMAP message-parsing endpoint, exploitable by any party that can deliver email to the user's mailbox. This is a Section C 'untrusted input at protocol boundary' / 'parsing is total, no panic reachable' / 'no negative test for malformed/oversized input' finding from the crypto-security supplement.\n\nFix options (maintainer's choice):\n\n  (a) **Defense in jmap-mime adapter.** Add a depth parameter to `part_to_jmap_inner`. If `depth > MAX_DEPTH` (e.g. 64, matching what most production MIME parsers cap at), stop recursing and return an `EmailBodyPart` with `sub_parts = None` (treating the over-deep subtree as an opaque leaf). Document the constant. Add a `#[test]` that builds a 1000-level-deep fixture and asserts the adapter returns a truncated tree without stack-overflow.\n\n  (b) **Push the bound upstream to mime-tree.** File against mime-tree-0.3.0 (or 0.4.x) to add a depth limit in `build_part`. jmap-mime then inherits the bound implicitly. Slower to land; cross-crate coordination.\n\n  (c) **Document the requirement on consumers.** Add a Gotchas entry in crate-jmap-mime/README.md naming the unbounded recursion as a property of the current adapter and flagging that consumers must either (i) bound message size upstream, (ii) bound recursion depth themselves by inspecting `msg.part_index.children` before calling `message_to_jmap_body`, or (iii) tolerate worker crashes on adversarial input. Worst option from a defense-in-depth standpoint but cheapest to ship.\n\nRecommendation: (a) plus (c). The adapter is the right place to enforce its own walker bound; the README note is the right place to set caller expectation for total-message safety even with the bound.\n\nWorkspace tracking: this is a crypto-security-supplement finding on the diff covered by JMAP-t307 ('Review: crate-jmap-mime since 9c0d34f'). It is not a duplicate of JMAP-t307.2 (which is about `.expect()` panic-on-malformed input in example/rustdoc \u2014 same threat model, different mechanism).",
+  "ephemeral": 0,
+  "id": "JMAP-t307.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Unbounded recursion in part_to_jmap_inner: deeply-nested multipart from SMTP-delivered email stack-overflows the parsing worker",
+  "updated_at": "2026-05-15T06:26:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T23:16:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-t307",
+      "id": "22d85179-10a3-574f-aacf-dff0c7d7eb3a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

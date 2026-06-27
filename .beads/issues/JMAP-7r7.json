@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T23:45:20Z",
+  "compaction_level": 0,
+  "content_hash": "102b2aa1f6c58d7c80e6759fc48b16f2b082f6c04be8bc12c51c489742d0a5e6",
+  "created_at": "2026-05-01T23:01:15Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec \u00a7Space/join: method for joining a space via invite code or when space is public (isPublic:true). Not registered in lib.rs. Requirements: redeem invite codes (verify expiry and maxUses), atomically increment uses count, verify isPublic for public joins, return forbidden if invite invalid/expired.",
+  "ephemeral": 0,
+  "id": "JMAP-7r7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement Space/join handler",
+  "updated_at": "2026-05-01T23:45:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T16:10:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x09",
+      "id": "5e51b913-094f-54d3-bff2-a8579a1d5afc",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-01T16:31:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-j1q",
+      "id": "f1c597fd-9046-5a44-bf6f-77355ee3b26b",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

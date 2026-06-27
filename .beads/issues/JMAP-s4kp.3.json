@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "45e2717df96ad272fb3ec934b7487e1f067f23e360d1737c4a50964455482b5f",
+  "created_at": "2026-06-05T03:57:00Z",
+  "created_by": "Mark Atwood",
+  "description": "Propagate canonical mail-server metadata-02 integration (JMAP-s4kp.1) to jmap-calendars-server MemoryBackend. Same 3 integration points: query_objects filter matching for 6 metadata conditions, get_changes ignoreMetadataOnlyChanges, /set patch validation. Adapt to calendars-server's type set (Calendar, CalendarEvent, ParticipantIdentity) and its per-user property routing. See JMAP-s4kp.1 for canonical pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-s4kp.3",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "calendars-server: wire metadata-02 helpers into MemoryBackend",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-04T20:57:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s4kp",
+      "id": "5bd47c29-9242-5bc5-829e-69a09154cb49",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-06-04T20:57:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s4kp.1",
+      "id": "b22fe628-d440-5aed-b5d3-f646871c911a",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

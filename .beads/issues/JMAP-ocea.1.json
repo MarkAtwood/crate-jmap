@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added #[serde(rename = \"reportingUA\")] to Mdn::reporting_ua in jmap-mail-types/src/mdn.rs; updated unit test and parse_mdns JSON key in common/mod.rs",
+  "closed_at": "2026-05-03T02:39:54Z",
+  "compaction_level": 0,
+  "content_hash": "fbf2ad64a8b3801af8e6bca3ffbdfc6e564f679f0fbba1134698b8906f7077b6",
+  "created_at": "2026-05-03T02:38:27Z",
+  "created_by": "Mark Atwood",
+  "description": "Mdn::reporting_ua with #[serde(rename_all = \"camelCase\")] serializes to reportingUa (lowercase a). draft-ietf-jmap-mdn-17 \u00a72 specifies the wire name as reportingUA (uppercase A). Confirmed in spec: 'reportingUA: String|null Name of the MUA'. Trigger: any client that reads the spec and sends {\"reportingUA\": ...} will have the field silently dropped (serde ignores unknown camelCase fields). Fix: add #[serde(rename = \"reportingUA\")] to the reporting_ua field in jmap-mail-types/src/mdn.rs.",
+  "ephemeral": 0,
+  "id": "JMAP-ocea.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "reportingUA wire name: camelCase gives reportingUa but spec says reportingUA",
+  "updated_at": "2026-05-03T02:39:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T19:38:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ocea",
+      "id": "9e253fd8-fdac-5a6e-94e1-d4f19b750d57",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

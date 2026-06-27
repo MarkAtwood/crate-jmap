@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T08:05:45Z",
+  "compaction_level": 0,
+  "content_hash": "83eaf0f1a50dc4e78a9bb2a43f70ae2b906892198d80179bb1db9a69be5094ba",
+  "created_at": "2026-05-14T17:52:21Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: A backend implementer reads supports_type's doc (backend.rs:111-116):\n\n  /// Returns true if this account supports the given JMAP object type.\n\n\u2026but the method signature is fn supports_type<O: JmapObject>(&self) -> bool \u2014 no caller, no account_id. A backend that needs per-account type support (e.g. accounts with the metadata capability not yet enabled) cannot implement this method correctly. They will either return true globally (silently lying for accounts that don't support metadata) or shoehorn account information into &self (anti-pattern).\n\nThis is identical to the canonical mail-server signature (backend.rs:234), so it's a workspace-wide pattern, not a metadata-specific defect. But the docstring lies about per-account scoping. Either:\n(a) Change the doc to 'Returns true if this backend supports the given JMAP object type at all' (matches the actual signature).\n(b) Add caller and account_id parameters to the trait method, making per-account gating possible (this is a workspace-wide canonical sweep).\n\nMaintenance consequence: when a contributor wires session-capability-builder code that calls supports_type to filter the per-account capabilities map, they get a backend-wide answer that may be wrong for some accounts. The bug surfaces as 'capability advertised to account X but Metadata/get returns invalidArguments' (because /get's account-level guard rejects something the session said was supported).\n\nThe propagation direction depends on Mark's preference. (a) is a 1-line fix; (b) is a workspace sweep through jmap-mail-server, jmap-chat-server, all 7 extension-server crates.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "supports_type<O>() trait method has no caller/account context \u2014 claim 'this account supports this type' but contract is global",
+  "updated_at": "2026-05-15T08:05:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:52:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "d5adffb7-be16-506d-9eb6-a44bc4fffd95",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

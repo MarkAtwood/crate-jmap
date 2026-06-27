@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:31Z",
+  "compaction_level": 0,
+  "content_hash": "c78944e530cf8574c669171da33ccd44fafee0e293d1b4bc6a5645e006605df4",
+  "created_at": "2026-05-02T02:59:01Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs: ClosureHandler stores call_fn: Box<dyn Fn(Arc<B>, String, serde_json::Value) -> HandlerFuture>. The String call_id is passed by value even though handler code immediately passes &ci to downstream functions (handle_email_copy, handle_submission_set). This forces an allocation-and-copy at every dispatch invocation even for handlers that bind _ci. The JmapHandler::call signature (jmap-server crate) likely takes call_id: String by value already, but the closure could take &str instead if the trait allows it, or the ClosureHandler could forward &call_id and the closure parameter could be &str. Compare with jmap-chat-server/src/backend.rs to check whether it avoids this. The practical cost per call is one String allocation that could be avoided, but more importantly it establishes an inconsistent ownership pattern: handlers that need call_id pay the same cost as handlers that don't.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClosureHandler call_fn takes String call_id by value \u2014 forces allocation at every dispatch",
+  "updated_at": "2026-05-02T03:22:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:59:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "27e95586-df48-57cf-825f-67baaf282b97",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

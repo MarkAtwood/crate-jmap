@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Removed the redundant inner 'use jmap_sharing_types::ShareNotification' at lib.rs:312. ShareNotification is already in scope via the module-level import at lib.rs:254 ('use jmap_sharing_types::{Principal, ShareNotification}'). One-line delete, no behavior change. clippy clean, fmt clean, all 11 tests pass.",
+  "closed_at": "2026-05-14T22:50:20Z",
+  "compaction_level": 0,
+  "content_hash": "fc801467f681d4328d8bcbe8144550bcf450e94b693f25c87b6317917b110204",
+  "created_at": "2026-05-14T22:44:27Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs:306 inside MockBackend::add_notification begins with:\n\n```rust\npub fn add_notification(&self, account_id: &str, notif_id: &str) {\n    use jmap_sharing_types::ShareNotification;\n    // ...\n}\n```\n\nShareNotification is already imported at the test_support module level at lib.rs:247:\n\n```rust\nuse jmap_sharing_types::{Principal, ShareNotification};\n```\n\nThe inner use statement is pure redundancy \u2014 both names refer to the same item. Remove the inner use at lib.rs:306; the function-body `let notif: ShareNotification = ...` still resolves via the module-level import.\n\nThis is borderline bikeshed (no engineering impact, won't fire as a clippy warning on default settings), but it's clean-cut redundancy that would be caught by code review elsewhere. Priority kept at P4 accordingly. Filed for completeness; the cleanup is a 1-line delete.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MockBackend::add_notification has redundant inner 'use jmap_sharing_types::ShareNotification'",
+  "updated_at": "2026-05-14T22:50:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T15:44:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "b1df13cc-ffa2-5583-a871-6bfc0282b8d4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

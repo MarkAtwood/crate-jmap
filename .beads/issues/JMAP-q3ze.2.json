@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "Invariant documented. cargo test passes.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Updated create_object doc comment with invariant and RFC 8620 \u00a75.3 citation; added TODO in MockBackend; cargo test passes",
+  "closed_at": "2026-05-05T04:46:51Z",
+  "compaction_level": 0,
+  "content_hash": "52933c4941e5d91d3e5748ce63687eebd25c766b1f15b47df5df64ad76ec8e05",
+  "created_at": "2026-05-05T02:55:52Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Add explicit doc comment invariant to SharingBackend::create_object in backend.rs: the returned O MUST have its id field set to the server-assigned Id (returned_obj.id == assigned_id). The handler relies on this to populate the created response map per RFC 8620 \u00a75.3.\n\n**Algorithm:**\n1. Update the doc comment on create_object in backend.rs to add the invariant sentence.\n2. In lib.rs test_support MockBackend::create_object, add a comment confirming it satisfies this invariant.\n3. Run cargo doc --no-deps -p jmap-sharing-server to verify rendering.\n\n**Acceptance criteria:**\n- Doc comment clearly states the invariant with RFC 8620 \u00a75.3 citation.\n- cargo test -p jmap-sharing-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-q3ze.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Doc: clarify create_object must return object with server-assigned id",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:55:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze",
+      "id": "40d73848-0a2e-536d-8b32-b6f5fc6da808",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

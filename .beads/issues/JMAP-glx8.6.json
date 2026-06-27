@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed as workspace-API observation deferred to JMAP-glx8.4 (aligned to the 3-sibling consensus camp). The opposite-direction propagation (align all 4 extension-types siblings to EmailComparator's skip_serializing_if + bool_true pattern) is filed as JMAP-18qe \u2014 a workspace-API sweep, not a per-crate fix. Local contacts-types behavior matches Tasks/Calendars siblings.",
+  "closed_at": "2026-05-15T23:05:19Z",
+  "compaction_level": 0,
+  "content_hash": "2c7482d9fb29ea68e372c5a81afef4842b1a9dd8d6168fabcb06ac73fc4e8128",
+  "created_at": "2026-05-15T22:36:08Z",
+  "created_by": "Mark Atwood",
+  "description": "EmailComparator (jmap-mail-types/src/query.rs:310-311) declares:\\n    #[serde(default = \"bool_true\", skip_serializing_if = \"is_true\")]\\n    pub is_ascending: bool,\\n\\nResult on the wire: is_ascending is omitted when ascending (the default), present only when descending. Smaller wire footprint, matches the JMAP spec convention that defaults are omittable.\\n\\nContactCardComparator (card.rs:332-333) and the calendars/tasks siblings declare:\\n    #[serde(default = \"default_true\")]\\n    pub is_ascending: bool,\\n\\nResult: always emitted, even when ascending.\\n\\nWire-format spec-conformant in both cases. Worth noting because EmailComparator is the canonical-template authority for the extension-types family, and this is a real wire-format divergence. Either propagate skip_serializing_if to the sibling comparators (smaller wire output, matches mail-types) or document why the simpler 'always-emit' shape is right here. The 4-sibling consensus (calendars, tasks\u00d72, contacts) is the simpler 'always-emit' shape, so adding skip_serializing_if would be the propagation direction; bd JMAP-glx8.4 covers the broader divergence.\\n\\nDo NOT fix in isolation \u2014 file as a workspace-API observation tied to the canonical-template propagation decision. The four siblings should resolve together.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactCardComparator is_ascending wire format differs from EmailComparator default-skip",
+  "updated_at": "2026-05-15T23:05:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:36:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "61667fe1-edc3-53fe-ae32-12c67856f30a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

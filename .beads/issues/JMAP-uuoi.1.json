@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T021545Z-3955436",
+  "close_reason": "Landed: 17 new wiremock smoke tests across 4 files in crate-jmap-calendars-client/tests/:\n\n- tests/calendar_smoke_tests.rs (extended): 3 new tests\n  * calendar_set_on_destroy_remove_events_true_passthrough\n  * calendar_set_on_destroy_remove_events_none_omits_field\n  * calendar_changes_since_state_and_max_changes_passthrough\n- tests/event_smoke_tests.rs (new): 7 tests covering\n  CalendarEventGetParams, CalendarEvent/changes, CalendarEvent/query\n  filter+sort+expandRecurrences, CalendarEvent/queryChanges,\n  CalendarEvent/copy cross-account success.\n- tests/event_notification_smoke_tests.rs (new): 6 tests covering\n  CalendarEventNotification/get, /changes, /set (destroy-only with\n  both None and Some inputs), /query with NotificationFilterCondition\n  including the 'type' wire-key rename, /queryChanges.\n- tests/participant_identity_smoke_tests.rs (new): 4 tests covering\n  ParticipantIdentity/get, /changes, /set create round trip, /set\n  destroy-only passthrough.\n\nEach test independently mocks a spec-shaped response (oracle:\ndraft-ietf-jmap-calendars-26 \u00a73, \u00a74, \u00a75, \u00a77) and asserts on BOTH the\ncaptured wire request body and the deserialized typed response.\n\nAlso updated 6 dangling source-comment references to closed/nonexistent\ntrackers (JMAP-sc1b.64, JMAP-231o.8.1) across src/methods/{calendar,\nevent, event_copy, event_notification, event_parse, participant_identity,\nprincipal_availability}.rs to either point at JMAP-uuoi.1 or, where the\ncoverage now actually exists, name the specific test that covers it.\n\nNote on the JMAP-231o.8.1 edits: those references were technically out of\nthe bead's stated acceptance (which only listed JMAP-sc1b.64), but every\nfile already needed a JMAP-sc1b.64 edit on adjacent lines, and leaving the\nJMAP-231o.8.1 references in place would have produced contradictory\ncomment blocks (sc1b.64 line saying 'covered' next to 231o.8.1 line saying\n'tracked under follow-up bead'). Updated both for consistency.\n\nQuality gates green:\n- cargo test --workspace passes (4 new tests added, 13 across the 3 new\n  test files, plus 7 in the extended calendar_smoke_tests.rs).\n- cargo clippy --workspace --all-targets -- -D warnings clean.\n- cargo fmt --all --check clean.\n\nSibling beads JMAP-uuoi.{2..7} (filed during this triage) propagate the\ntest-file layout and helper pattern to the 6 sibling extension-client\ncrates per the workspace canonical-template rule.",
+  "closed_at": "2026-05-11T02:25:11Z",
+  "compaction_level": 0,
+  "content_hash": "46ccf01cf6d26947b7feea82752581fd072fb4c3eabd4762dc614fdaf946eba4",
+  "created_at": "2026-05-11T02:18:23Z",
+  "created_by": "bd-spin/bd-spin-20260511T021545Z-3955436",
+  "description": "Add wiremock smoke tests to crate-jmap-calendars-client/tests/ for the methods that lost vacuous-test coverage in JMAP-231o.8. This is the canonical bead of the per-crate decomposition; siblings cover mail-client, contacts-client, tasks-client, filenode-client, sharing-client.\n\nPattern: see crate-jmap-calendars-client/tests/availability_tests.rs::principal_get_availability_round_trip \u2014 wiremock setup + production call + body_json assertion. Each test ~40-60 LoC.\n\nMethods needing new smoke coverage:\n- calendar_set onDestroyRemoveEvents flag passthrough on wire\n- calendar_event_get extra params (expandRecurrences / reducedParticipants / fetchCalendars / recurrenceOverridesBefore / recurrenceOverridesAfter / timeZone) passthrough\n- calendar_event_query expandRecurrences flag + filter/sort serialization\n- calendar_event_query_changes since_query_state passthrough + comparator serialization\n- calendar_event_changes since_state + max_changes passthrough\n- calendar_event_copy success path: cross-account create map with fromAccountId\n- calendar_event_notification_set destroy-only enforcement (None vs Some(&['n1','n2']))\n- calendar_event_notification_get / changes / query / queryChanges basic shape\n- participant_identity_get / changes / set (incl. onSuccessSetIsDefault for /set)\n\nExisting tests/ already covers: calendar_get, calendar_event_set basic create, calendar_event_parse notParsable, calendar_event_copy empty-creation-id guard, principal_get_availability. Do not duplicate; extend.\n\nAcceptance:\n- ~10-15 new wiremock-backed tests in tests/*.rs files (split into per-method-family files where sensible).\n- cargo test -p jmap-calendars-client passes.\n- The dangling source comments 'See JMAP-sc1b.64' in src/methods/{event_notification,event_parse,participant_identity,principal_availability}.rs are updated to point to this bead.\n- README.md need not change for this bead.\n\nCookie-cutter rule (workspace AGENTS.md Canonical Templates): once this lands, the per-crate sibling beads under JMAP-uuoi mirror the file/test layout 1:1 to keep extension-client crates consistent.",
+  "ephemeral": 0,
+  "id": "JMAP-uuoi.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock smoke tests for jmap-calendars-client (canonical)",
+  "updated_at": "2026-05-11T02:25:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T19:18:22Z",
+      "created_by": "bd-spin/bd-spin-20260511T021545Z-3955436",
+      "depends_on_issue_id": "JMAP-uuoi",
+      "id": "f718a4be-43ea-5605-b71e-0bc5320e000a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

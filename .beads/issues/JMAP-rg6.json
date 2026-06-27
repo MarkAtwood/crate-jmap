@@ -1,0 +1,44 @@
+{
+  "acceptance_criteria": "cargo test -p jmap-mail-server --features sieve passes; all 17 integration tests pass; test oracles are spec examples not code output",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:19:36Z",
+  "compaction_level": 0,
+  "content_hash": "54e90a2b1596edba0e9e45836d27fd41aa58a4eba3473082d089423daf1e0eef",
+  "created_at": "2026-05-02T15:24:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Write integration tests in tests/sieve_integration.rs. Test oracles are spec JSON examples from draft-ietf-jmap-sieve-22 \u00a72.3\u2013\u00a72.6 \u2014 NOT the code under test.\n\nWHAT: Full integration test coverage for all four SieveScript methods.\n\nALGORITHM:\n1. Create tests/sieve_integration.rs with:\n   #![cfg(feature = \"sieve\")]\n   mod common;\n   use common::MemoryBackend;\n   use jmap_mail_server::{handle_sieve_get, handle_sieve_set, handle_sieve_query, handle_sieve_validate};\n   use jmap_types::Id;\n\n2. Test helper: async fn setup_sieve_account(backend: &MemoryBackend) -> Id\n   - Creates account \"sieve-account-1\"\n   - Uploads a valid script blob (e.g., b\"keep;\" \u2014 minimally valid Sieve per RFC 5228 \u00a78)\n   - Returns (account_id, blob_id)\n\n3. Individual test functions (all #[tokio::test] async):\n\n   sieve_get_no_scripts: fresh account, SieveScript/get returns empty list\n   Oracle: { \"list\": [], \"notFound\": [], \"state\": \"0\" }\n\n   sieve_set_create_basic: upload blob, create script with name \"my-filter\"\n   Oracle: created[\"A\"] has id, name==\"my-filter\", isActive==false (spec \u00a72.4.1 example 6 shape)\n\n   sieve_set_create_name_null: create with name=null, server assigns a name\n   Oracle: created[\"A\"].name is Some non-empty string (spec \u00a72.4.1 example 6)\n\n   sieve_set_create_and_activate: create + onSuccessActivateScript=\"#A\"\n   Oracle: created[\"A\"].isActive==true (spec \u00a72.4.1 example 6 explicitly shows this)\n\n   sieve_set_at_most_one_active: create two scripts S1 and S2, activate S2\n   Oracle: S1 appears in updated with isActive:false; S2 in created/updated with isActive:true\n\n   sieve_set_deactivate_only: on_success_deactivate_script=true, one active script\n   Oracle: updated[S1.id] = {\"isActive\": false} (spec \u00a72.4.1 example 8)\n\n   sieve_set_reactivate: on_success_activate_script=S1.id on inactive script\n   Oracle: updated[S1.id] = {\"isActive\": true} (spec \u00a72.4.1 example 9)\n\n   sieve_set_destroy_active_rejected: sieveIsActive error\n   Oracle: notDestroyed[S1.id][\"type\"] == \"sieveIsActive\"\n\n   sieve_set_duplicate_name: two creates with same name in same request OR create that conflicts with existing\n   Oracle: notCreated[\"B\"][\"type\"] == \"alreadyExists\"; notCreated[\"B\"][\"existingId\"] == S1.id\n\n   sieve_get_by_id: SieveScript/get with ids=[S1.id], returns list with one entry, notFound empty\n   Oracle: list[0] fields match stored script\n\n   sieve_get_not_found: SieveScript/get with ids=[nonexistent-id], list empty, notFound has the id\n   Oracle: notFound == [\"nonexistent-id\"]\n\n   sieve_query_all: SieveScript/query with no filter, all scripts in ids\n   Oracle: all inserted script ids appear in result\n\n   sieve_query_filter_active: filter {\"isActive\": true}, only active script in ids\n\n   sieve_validate_valid: blob = b\"keep;\", error==null\n   Oracle: spec \u00a72.6 response shape { accountId, error: null }\n\n   sieve_validate_invalid: blob = b\"this is not sieve\", error.type==\"invalidSieve\"\n   Oracle: spec \u00a72.6 response shape { accountId, error: {type: \"invalidSieve\", description: \"...\"}  }\n   Note: MemoryBackend validates as valid for non-empty UTF-8, so inject an empty blob to trigger the error path\n\n   sieve_get_unknown_account: accountNotFound\n   sieve_set_unknown_account: accountNotFound\n   sieve_validate_unknown_account: accountNotFound\n\nDEFENSIVE RULES (test code):\n- Test oracles come from spec examples, NOT from running the implementation and capturing output\n- .expect() is acceptable in test setup helpers (failure = bug in test environment)\n- Never modify tests to make them pass \u2014 fix the implementation instead\n- Valid Sieve script for tests: b\"keep;\" (RFC 5228 \u00a78 example, independent oracle)\n\nAGENT TEAM: Implementer (who writes tests) + Validator (who runs them and reports failures)\n\nTESTS: cargo test -p jmap-mail-server --features sieve -- --test sieve_integration passes; all 17 named tests pass",
+  "design": "Test file: tests/sieve_integration.rs (compiled only with cfg(feature=sieve)).\n\nTests to write:\n\nget_all_scripts: exercise draft \u00a72.3.1 example 1 \u2014 insert known script into MemorySieveBackend, call SieveScript/get with no ids, verify list and state fields match expected.\n\nget_by_id: fetch one script by id, verify all fields including blobId and isActive.\n\nget_not_found: fetch nonexistent id, appears in notFound not list.\n\nset_create_and_activate: create a script, set on_success_activate_script to its creation ref (#0), verify response has isActive: true in created entry (draft \u00a72.4.1).\n\nset_swap_active: with two scripts where A is active, set request creates/updates nothing but sets on_success_activate_script to B's id; verify A.isActive becomes false, B.isActive becomes true in updated map.\n\nset_deactivate: on_success_deactivate_script: true with no other mutations; verify active script is in updated with isActive: false.\n\nset_destroy_active_rejected: attempt to destroy the active script directly (without deactivating first); verify sieveIsActive SetError.\n\nset_name_collision: create two scripts with same name; verify alreadyExists SetError with existingId field.\n\nquery_all: query with no filter, verify all ids returned.\n\nquery_active_only: filter isActive: true, verify only active script id returned.\n\nquery_sort_by_name: multiple scripts, sort ascending by name, verify order.\n\nvalidate_valid: upload a minimal valid script blob (require []; keep;), call SieveScript/validate, verify error: null.\n\nvalidate_invalid: upload a blob with invalid Sieve content (e.g. garbled bytes), verify error.type == invalidSieve.\n\nvacationresponse_protected: mark a script as the VR-backed script, attempt destroy and content update, verify forbidden SetError both times.",
+  "ephemeral": 0,
+  "id": "JMAP-rg6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve: integration tests (draft RFC examples)",
+  "updated_at": "2026-05-04T19:19:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:24:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7uk",
+      "id": "0dae640c-a028-5f1e-a960-7bfb8a90f4a4",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T11:29:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-82ty",
+      "id": "8eac9742-dba5-5112-b817-0070678f759f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

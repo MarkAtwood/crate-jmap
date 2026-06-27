@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-j3u",
+  "title": "Review: jmap-mail-server pass 13",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T04:31:09Z",
+  "updated_at": "2026-05-01T04:33:40Z",
+  "closed_at": "2026-05-01T04:32:58Z",
+  "notes": "Confidence: 5% chance of missed bug. Least confident flags: none. All four update_object::<Email> call sites audited; all patched or server-generated. Uncertainty driven by: integration coverage of onSuccess* paths is now complete for immutable-field cases.\nRust idiom confidence: 5% chance of missed issue. find_immutable_patch_key pub(crate) visibility is correct. No new idiom issues introduced.\nIdiom rating: CLEAN \u2014 changes in pass 13 are minimal and idiomatic.\nMaintainer risk: LOW \u2014 both onSuccess* immutable-field bypasses are now fixed and tested. No open correctness issues remain."
+}

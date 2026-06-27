@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-sev.2",
+  "title": "SseEvent::StateChange carries raw HashMap while push::StateChange is a struct \u2014 no unification",
+  "description": "Round 3 introduced push::StateChange as the canonical WS type, but sse.rs SseEvent::StateChange is still an inline struct variant {changed: HashMap}. Extension crates handling both SSE and WS push must write duplicate destructuring code for what is conceptually the same event. The half-completed consolidation means push::StateChange is imported by ws/ but SseEvent in sse.rs has its own parallel representation with no From/Into bridge. Fix: change SseEvent::StateChange to be a tuple variant wrapping push::StateChange.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:30:14Z",
+  "updated_at": "2026-04-30T00:32:49Z",
+  "closed_at": "2026-04-30T00:32:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sev",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:30:14"
+    }
+  ]
+}

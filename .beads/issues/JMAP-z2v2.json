@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "023776376beece46d717e7e420cd97be416d22b6621bbb634699f055f23ab072",
+  "created_at": "2026-05-17T20:43:50Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace canonical-template propagation follow-up to bd:JMAP-ic0j.63 (calendars-server, closed 2026-05-15) and bd:JMAP-qz9v.31 (contacts-server, closed now).\n\nThe stability statement landed in calendars-server (commit e6ede77) was intended to propagate to every sibling that has the realistic-demo-ids feature. Audit at HEAD shows it's still missing from 4 of the 6 siblings:\n\n| Sibling | Has feature | Has stability statement |\n|---|---|---|\n| jmap-chat-server | yes | NO |\n| jmap-calendars-server | yes | yes (canonical) |\n| jmap-contacts-server | yes | YES (just landed) |\n| jmap-tasks-server | yes | NO |\n| jmap-metadata-server | yes | NO |\n| jmap-sharing-server | yes | NO |\n\nMail-server and filenode-server do NOT have the feature; the stability statement is the explicit not-to-be-propagated marker for them and does not apply.\n\nPROPAGATE: port both edits from calendars-server (canonical) verbatim:\n\n1. **Cargo.toml** \u2014 the '# Stability (bd:JMAP-ic0j.63):' paragraph and the 'do NOT propagate to extension-server siblings' paragraph in the realistic-demo-ids feature comment. Canonical: crate-jmap-calendars-server/Cargo.toml:29-42.\n\n2. **src/memory.rs demo_next_id rustdoc** \u2014 the '# Feature stability (bd:JMAP-ic0j.63)' section. Canonical: crate-jmap-calendars-server/src/memory.rs:619-646.\n\nSubstitute 'calendars-server' / 'CalendarsBackend' for the matching sibling's name in each rustdoc paragraph.\n\nThe contacts-server fix that just landed (commit landing alongside this bead) is a workable second template \u2014 it changes 'calendars-server' to 'contacts-server' and cites bd:JMAP-qz9v.14 (contacts-specific monotonic-counter bead) for the within-process collision guarantee instead of bd:JMAP-ic0j.2 (calendars-specific). Each sibling should cite its own equivalent bead if one exists, or drop the citation if not.\n\nNO code change \u2014 pure rustdoc and Cargo.toml comment. P3 because the failure mode is consumer-relies-on-unstable-format-then-blames-us, not runtime breakage.\n\nThe bead's bd:JMAP-qz9v.31 description identified additional concerns the workspace already explicitly accepts as deliberate trade-offs (cargo-feature vs runtime-constructor; no #[doc(cfg)] marker). The stability statement publishes those trade-offs to consumers; this propagation completes the publication.",
+  "ephemeral": 0,
+  "id": "JMAP-z2v2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Propagate realistic-demo-ids stability rustdoc to chat/tasks/metadata/sharing siblings (calendars + contacts canonical)",
+  "updated_at": "2026-05-17T20:43:50Z"
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed commit f2eb26c. handle_metadata_changes default-impl post-filter pass now does a single union get_objects round-trip instead of two per-array calls. Concrete shape: (1) compute the union of created + updated Id strings at the handler level with defensive dedup, (2) skip the round-trip entirely if both arrays are empty, (3) one get_objects::<Metadata> call, (4) build one id->Metadata lookup HashMap, (5) filter both response arrays inline from the same lookup via new pure-in-memory filter_array_via_lookup helper. The old filter_changes_array helper is removed; its rustdoc (TOCTOU policy + batch-size warning for default-impl backends) moves to the new helper. Override backends pay only one in-memory walk overhead instead of two empty round-trips. MockBackend gained get_objects_call_count() (Arc<AtomicU64> counter) so the two new oracle tests (changes_filter_uses_single_get_objects_round_trip, changes_filter_skips_get_objects_when_both_arrays_empty) can pin the new behaviour; the existing TOCTOU test (changes_filter_keeps_id_when_object_disappeared_mid_flight) continues to pass through the lookup path. Quality gates: cargo fmt, clippy --workspace -D warnings, doc -D warnings, test --workspace all green (155 suites, 0 failures). Not canonical-template propagation \u2014 handle_metadata_changes has no analog in jmap-mail-server (RFC 8621 Email/changes has no filterRelatedType/filterMetadataType args).",
+  "closed_at": "2026-05-17T05:37:21Z",
+  "compaction_level": 0,
+  "content_hash": "f604d21f8b0be90658e25db3236f853cfc14dad2662971e43ee9c99fb7099fc2",
+  "created_at": "2026-05-14T14:20:22Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:163-182 \u2014 handle_metadata_changes default-impl post-filter calls filter_changes_array twice, once for created, once for updated. Each call re-fetches its own subset of Ids via a separate get_objects::<Metadata> round-trip. In addition:\n\n- For backends overriding get_metadata_changes (e.g. MemoryBackend), these two calls are no-ops on already-pruned arrays \u2014 but the calls still happen, each performing an empty get_objects round-trip and building an empty HashMap.\n- For default-impl backends, this is O(2N) backend calls when O(N) would suffice (created and updated lists are disjoint per the dedup in get_changes, so a single get_objects on the union followed by an in-memory split would be one round-trip).\n\nHot-path concerns:\n- Real backends will have non-zero get_objects latency (DB hop, network hop). Doubling that for every /changes call with filter args is gratuitous.\n- A future filter (e.g. isPrivate) added to the same handler would trigger the same per-array re-fetch pattern.\n\nFix:\n1. Compute the union of created + updated Ids once.\n2. Single get_objects::<Metadata> call.\n3. In-memory: walk created, retain by lookup; walk updated, retain by lookup.\n\nBonus: short-circuit when both arrays are empty (skip the get_objects entirely). The current code already handles ids.is_empty() per-array (metadata.rs:205-207) but not the union-empty case.\n\nMagnitude: small constant factor in steady state \u2014 2x backend round-trips, not a complexity-class change. Worth fixing because the fix is mechanical and the win is per-/changes-call.\n\nOverride-backend cost: the no-op double round-trip on override backends is the irritating part. If the override returns a pre-filtered result, the handler shouldn't bother re-fetching at all. But the handler can't tell which path the backend took. One option: when filter_*_type is None, return early (already done at metadata.rs:154-156). When non-None, accept that the override path eats the post-filter cost as a wash.\n\nRecommend keeping the post-filter pass behind the existing has-filter-args guard, but switch to a single union-get_objects implementation.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "filter_changes_array does 2 separate get_objects round-trips (created then updated)",
+  "updated_at": "2026-05-17T05:37:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:20:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "67e26137-d03f-5a14-aedc-0d44fb6bcb1d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

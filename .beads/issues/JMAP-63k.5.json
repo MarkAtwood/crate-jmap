@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced 75-line handle_chat_query body with jmap_server::handlers::handle_query::<Chat, B>(backend, args).await. Updated chat_query_empty test to register account since generic handler now validates account_exists.",
+  "closed_at": "2026-05-04T15:43:37Z",
+  "compaction_level": 0,
+  "content_hash": "979c20636dd9e8bf9b4b104d1e1464d0a021e657887c6a5ca7cada8aadfc1250",
+  "created_at": "2026-05-02T06:45:43Z",
+  "created_by": "Mark Atwood",
+  "description": "File: /home/mark/PROJECT/JMAP/crate-jmap-chat-server/src/chat.rs:80-154\nIssue: handle_chat_query is a ~75-line near-verbatim copy of the generic jmap_server::handlers::handle_query. handle_chat_changes (line 70) already demonstrates the correct pattern: delegate to the generic handler in one line. handle_chat_query does not.\nFix: Replace the function body with jmap_server::handlers::handle_query::<Chat, B>(backend, args).await",
+  "ephemeral": 0,
+  "id": "JMAP-63k.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_chat_query duplicates generic handle_query",
+  "updated_at": "2026-05-04T15:43:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:45:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "c2a4e199-41f0-584d-87b7-54002ab19938",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

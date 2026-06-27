@@ -1,0 +1,33 @@
+{
+  "close_reason": "clippy::pedantic only (.map(|s| s.as_ref()) \u2192 method ref). Closure form is idiomatic and self-documenting; method-ref form requires explicit AsRef path that's noisier in test code. Won't fix in 0.1.x; revisit if/when workspace adopts clippy::pedantic in CI.",
+  "closed_at": "2026-05-09T07:29:31Z",
+  "compaction_level": 0,
+  "content_hash": "205c37ff87226386c6a9bff46a877d5050a1b3e7452a2c09b5c597bc223bcbab",
+  "created_at": "2026-05-08T03:05:46Z",
+  "created_by": "Mark Atwood",
+  "description": "Three call sites \u2014 src/sse.rs:151, src/sse.rs:172, src/ws/mod.rs:293 \u2014 use `.map(|s| s.as_ref())`. Clippy::pedantic redundant_closure suggests `.map(std::convert::AsRef::as_ref)` or, more readably for these, `.map(String::as_str)` since the closure is over State (which is String-backed). All three are in test code, not production. Filing as opinion-tagged because clippy default doesn't flag this and the closure form is arguably clearer to a test reader. Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": ".map(|s| s.as_ref()) closures that could be method references",
+  "updated_at": "2026-05-09T07:29:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:05:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "6998a2a1-cc2c-5d81-b8c1-a839c78ad5c0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

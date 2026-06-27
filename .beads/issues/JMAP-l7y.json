@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-l7y",
+  "title": "Review: jmap-client pass 2",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:47:35Z",
+  "updated_at": "2026-04-30T15:49:22Z",
+  "closed_at": "2026-04-30T15:49:22Z",
+  "notes": "Confidence: 5% chance of missed bug. All significant findings from pass 1 fixed. Remaining uncertainty: no live chunked-HTTP test for UTF-8 split-across-chunk behavior. Would raise confidence with: integration test streaming a response with codepoint split across exactly two HTTP chunks.\nIdiom rating: CLEAN \u2014 inject_auth eliminates the main repetition; no gratuitous clones, no unsafe, error handling is structured."
+}

@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-8kf",
+  "title": "Review round 2: Implement jmap-client crate",
+  "description": "Second review pass after fix wave from round 1. All P0/P1/P2 findings from round 1 are fixed.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:20:20Z",
+  "updated_at": "2026-04-30T00:28:30Z",
+  "closed_at": "2026-04-30T00:28:30Z",
+  "notes": "Maintainer risk round 2: HIGH \u2014 request_timeout silently not applied to blobs (documented but broken), upload response limit hardcoded outside ClientConfig, ClientConfig has no non_exhaustive (every new field is a breaking change), dual StateChange types in ws and sse fossilize as separate public API, zero-value limits silently accepted.\nCalibration: ~10% chance of missed bug. P0=2 unique (upload/download request_timeout ignored; SSE UTF-8 multi-byte split), P1=4 unique (two StateChange types; zero-value limits; mixed panic/Result in builder; upload response cap hardcoded), P2=2 (upload_blob Vec<u8> ergonomics; connect_ws auth param type mismatch), opinion=3 labeled. Several duplicates across sub-agents (request_timeout filed 3x; hardcoded cap filed 2x). Running out of real complaints: yes \u2014 the remaining unfiled issues are micro-allocations and style preferences."
+}

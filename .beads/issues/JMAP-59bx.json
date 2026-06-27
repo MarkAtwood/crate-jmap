@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T18:13:12Z",
+  "compaction_level": 0,
+  "content_hash": "7c05ff846d0bfb653afdac7b736df2ff802ab06ba2e031d13a0a62a9a0708bca",
+  "created_at": "2026-05-02T17:32:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Port jmap-test-suite email-query-filters.test.ts (35 tests) and email-query-paging.test.ts (10 tests) to Rust. Filters: inMailbox, inMailboxOtherThan, before/after (dates), minSize/maxSize, hasKeyword/notKeyword, hasAttachment, text/from/to/cc/subject/body, header (name+value), someInThreadHaveKeyword/noneInThreadHaveKeyword, AND/OR/NOT operators, nested operators. Paging: position 0/positive/negative, limit, anchor/anchorOffset, calculateTotal, anchorNotFound error, position-beyond-total returns []. Source: ~/GIT/jmap-test-suite/src/tests/email/",
+  "ephemeral": 0,
+  "id": "JMAP-59bx",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "test: Email/query (filters + paging) conformance",
+  "updated_at": "2026-05-02T18:13:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:32:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bhw5",
+      "id": "3ef76799-7c1f-5730-8f14-95a78b7e3a62",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:32:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glfw",
+      "id": "da292b9f-9e4f-5e74-a2a4-a1cde2af5779",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

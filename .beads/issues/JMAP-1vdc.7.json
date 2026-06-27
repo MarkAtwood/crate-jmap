@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: KNOWN_FILTER_KEYS and SERVER_SET have comments documenting sync requirement",
+  "closed_at": "2026-05-02T19:41:54Z",
+  "compaction_level": 0,
+  "content_hash": "ac96ff4bf15dfbd685ecb2e028efb50a52d6372f6d7c44130c8b13e0df5847c0",
+  "created_at": "2026-05-02T19:34:14Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs line 189 defines KNOWN_FILTER_KEYS as a hardcoded &[&str] that must match the fields of MailboxFilterCondition. No compile-time enforcement. If a new filter field is added to the struct (e.g. 'minSize'), it must also be added to KNOWN_FILTER_KEYS or valid client filter requests return unsupportedFilter silently. SERVER_SET in the same file (line 605) has the same pattern for server-set field protection on update. Maintenance consequence: struct additions are silently protocol-breaking without a compiler error.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "KNOWN_FILTER_KEYS must be manually synced with MailboxFilterCondition",
+  "updated_at": "2026-05-02T19:41:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "c78d2f12-fadb-5bbe-9891-5ca127db2502",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

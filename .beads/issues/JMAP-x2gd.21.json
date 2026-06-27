@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Duplicate of JMAP-x2gd.14 \u2192 JMAP-x2gd.87 (workspace-canonical reclassification, human-labeled, awaiting decision).",
+  "closed_at": "2026-05-18T02:19:12Z",
+  "compaction_level": 0,
+  "content_hash": "dbc95cd9cc2f1cc75f8bf266126702df6e4a4e45a173d9e28faf97968f4952c7",
+  "created_at": "2026-05-14T03:15:54Z",
+  "created_by": "Mark Atwood",
+  "description": "Sites (all in crate-jmap-chat-server/src/):\n- chat.rs:406 CHAT_READONLY\n- message.rs:514-522 MESSAGE_READONLY\n- space.rs:898-906 SPACE_READONLY\n- ban.rs:220 BAN_READONLY\n- emoji.rs:437 EMOJI_READONLY\n- position.rs:208 POSITION_READONLY\n- contact.rs:156 CONTACT_READONLY\n- presence.rs:161 PRESENCE_READONLY\n\nEach handler defines a hand-keyed list of wire field names that clients MUST NOT patch. Each list has the same shape and is checked the same way:\n    let bad_props: Vec<&str> = LIST.iter().copied().filter(|f| patch_val.get(f).is_some()).collect();\n    if !bad_props.is_empty() { not_updated.insert(id_str, json!({...})); continue; }\n\nThree problems:\n(1) String-keyed: a typo in the constant silently disables protection on that field. There's no spell-check.\n(2) Drift: as documented in JMAP-x2gd.14, future additions to jmap-chat-types data structs aren't tracked here. Eight type silos to remember.\n(3) Six pages of identical boilerplate that obscures the actually-interesting validation logic for each type (e.g. message.rs's reactions/burn-on-read handling is buried among the boilerplate).\n\nSuggested rewrite: extend the JmapObject (or SetObject) trait to include a const READONLY_FIELDS: &'static [&'static str], and provide a single helper:\n    fn reject_readonly_patch<T: SetObject>(patch_val: &Value) -> Result<(), Vec<&'static str>>\n\u2026that handlers call uniformly. The const is co-located with the type definition in jmap-chat-types, eliminating drift across crates.\n\nThis is an elegance/maintenance refactor, not a correctness fix; the current shape works, it just has surface area that grows with every type added.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Eight Space/Message/Chat readonly lists are duplicate boilerplate; consider extracting a trait-derived field set",
+  "updated_at": "2026-05-18T02:19:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:15:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "85bd2e33-ae90-52cf-a4bb-628fdca3b76a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8cc6925409188b6f4c42eb821003642b6eb8f85ec07362803dc711bb34bb9068",
+  "created_at": "2026-05-16T03:20:44Z",
+  "created_by": "Mark Atwood",
+  "description": "Follow-up to bd:JMAP-ly0n.16 (doc-only fix landed). The bead recommended option (a) \u2014 define typed enums for each of these vocabularies:\n\n1. SpaceRole.permissions, ChannelPermission.allow/deny, RolePatch.permissions\n   -> ChatPermission enum (9 known variants + Other(String)), backed by impl_string_enum!\n2. ChatMember.role -> ChatMemberRole enum ({Admin, Member, Other(String)})\n3. ChannelPermission.target_type -> ChannelPermissionTargetType enum ({Role, Member, Other(String)})\n   (also tracked as bd:JMAP-pbqe \u2014 close that bead as duplicate-of-this when this lands)\n4. ChatStreamEnable.data_types -> EphemeralDataType enum ({Typing, Presence, Other(String)})\n\nEach retype is wire-byte-equivalent via Other(_) preservation. Touches:\n- Type crate: new enum module(s) in jmap-chat-types, retyped fields, retyped serialise/deserialise tests.\n- jmap-chat-server: delete crate-jmap-chat-server/src/permissions.rs (currently a parallel const &str canon \u2014 the workspace AGENTS.md says the type crate is canon).\n- jmap-chat-client: delete or migrate crate-jmap-chat-client's parallel ChatMemberRole in src/types/ \u2014 the workspace AGENTS.md says the type crate is canon.\n- Update all consumer call sites in chat-server, chat-client, and chat-server integration tests.\n\nDecomposition recommendation: file one child bead per enum so each lands independently. Each child carries a small but real cross-crate sweep.\n\nDoc-only fix from bd:JMAP-ly0n.16 added crate-jmap-chat-types/src/vocabulary.rs as a const-canon for the four vocabularies. When the typed enums land, the vocabulary module can either:\n(a) be deleted (the enum's own variant list IS the canon), or\n(b) be retained as a public re-export of the wire strings for callers that want a Vec<&str> shape without pulling the enum\n\nDecide (a) vs (b) per-vocabulary at sweep time.",
+  "ephemeral": 0,
+  "id": "JMAP-do5p",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Sweep: retype 5 stringly-typed vocabulary fields in jmap-chat-types as impl_string_enum! enums",
+  "updated_at": "2026-05-16T03:20:44Z"
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Resolved together: all 6 FileNode/* handlers now consult supports_type::<FileNode>() at the top and return accountNotSupportedByMethod when the backend has opted out. Mirrors canonical jmap-mail-server snippet.rs:35 pattern. Regression test all_handlers_gate_on_supports_type_false uses a NoFileNodeBackend wrapper (mirroring NoSnippetBackend in mail-server tests/integration.rs:490).",
+  "closed_at": "2026-05-15T10:55:00Z",
+  "compaction_level": 0,
+  "content_hash": "86d5b3b563df9cfecde2a4ab48d139d08f26ddec97269629401a65192dfbdba6",
+  "created_at": "2026-05-14T20:04:39Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/lib.rs:75-116\n\n```rust\npub fn register_filenode_handlers<B>(\n    dispatcher: &mut Dispatcher<B::CallerCtx>,\n    backend: Arc<B>,\n)\nwhere\n    B: FileNodeBackend + 'static,\n{\n    // ... reg!(\"FileNode/get\", ...);\n    // ... reg!(\"FileNode/set\", ...);\n    // ... six method names registered unconditionally ...\n}\n```\n\nCompanion bead to JMAP-510h.34 (supports_type dead method). This\nfinding is the call-site half: even if a backend declares\n`fn supports_type<O: JmapObject>(&self) -> bool { false }` for\nFileNode (intent: this deployment does NOT support the FileNode\nextension), `register_filenode_handlers` will STILL register all\nsix method handlers. The dispatcher will route `FileNode/get` calls\ninto the handler, which will then call `backend.get_objects()` \u2014\na fully-typed call that succeeds in the type system but produces\nunspecified runtime results.\n\nThe function name and signature suggest \"register the handlers for\nthis extension\". It does not say \"register unconditionally\".\n\nCompare canonical sibling jmap-mail-server: `snippet.rs:35` performs\nthe gate check INSIDE the handler. That works because\n`SearchSnippet/get` is one method; for the six FileNode methods,\nchecking `supports_type::<FileNode>()` six times inside six handler\nbodies is duplication. The cleaner gate is at registration time.\n\nThree resolution paths:\n\n1. **Eager gate at registration:**\n   ```rust\n   pub fn register_filenode_handlers<B>(...)  -> Result<(), NotSupportedError>\n   where B: FileNodeBackend + 'static,\n   {\n       if !backend.supports_type::<FileNode>() {\n           return Err(NotSupportedError);\n       }\n       // ... registrations ...\n       Ok(())\n   }\n   ```\n   Breaking the signature change. The fix is principled but\n   propagates through every consumer of `register_filenode_handlers`.\n\n2. **Silent skip with diagnostic log line.** Less principled but\n   non-breaking.\n\n3. **Document the actual behaviour.** Add to the doc: \"This function\n   registers all six handler endpoints unconditionally. If the\n   backend's `supports_type::<FileNode>()` returns false, calls to\n   the registered methods will still execute against the backend\n   and produce whatever result the backend chooses to return.\"\n\nRight now the function is at #3 but with no doc \u2014 defensive-code-\nforcing on every consumer who has to read the source to know.\n\nPropagation note: this is the inverse of JMAP-510h.34. Either pair\nof resolutions must land together: if `supports_type` is removed,\nthis finding is moot; if `supports_type` is honored at the handler\nseam (canonical's pattern), this finding becomes \"do that for all\nsix FileNode handlers\"; if `supports_type` is honored at the\nregistration seam (my path 1), this finding becomes \"do it once\nfor the family\".\n\n`api-contract,defensive` because every backend implementor today\nmust implement a method that the registration call ignores. The\nasymmetry is the foot-gun.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.43",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "register_filenode_handlers registers all 6 methods even when backend.supports_type::<FileNode>() returns false",
+  "updated_at": "2026-05-15T10:55:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:04:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "fd27767b-0dc4-59dc-b733-1d5834e9926e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

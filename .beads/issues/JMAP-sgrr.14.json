@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in commit 4ec9135. Per parent sgrr.17 family decision (option (c) doc-only hardening), the kit does not adopt Pref(NonZeroU8) type-level newtypes. New crate-level rustdoc section 'Design: numeric-range bounds are not type-enforced' documents the 13 pref sites + list_as + PartialDate.month/day in one table; README Gotchas list gains a consolidating bullet for all four spec-bounds findings (.14 pref, .15 list_as, .22 PartialDate).",
+  "closed_at": "2026-05-17T14:55:59Z",
+  "compaction_level": 0,
+  "content_hash": "c4bca2f5736d68fa55722ae9660cd96caa2a3005e80fb3d57f55d4e9f499b80e",
+  "created_at": "2026-05-15T03:40:45Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 9553 \u00a71.5.3 defines the common 'pref' attribute as an integer in 1..=100\n(lower = more preferred). The crate types every pref field as Option<u32>:\nNickname.pref:185, Pronouns.pref:308, EmailAddress.pref:368,\nOnlineService.pref:414, Phone.pref:454, LanguagePref.pref:488,\nCalendar.pref:533, SchedulingAddress.pref:567, Address.pref:631,\nCryptoKey.pref:713, Directory.pref:761, Link.pref:816, Media.pref:864.\n\nA caller can construct Nickname { pref: Some(0), ... } or Some(101) or\nSome(u32::MAX) and serialize a wire-invalid JSContact object. Deserialize\naccepts the same. No type-level guarantee, no documented validation contract,\nno helper method that returns Result. Every consumer that cares about the bound\nwill write the same range check.\n\nThe same Rust newtype pattern as PrefValue(NonZeroU8) capped at 100 in a sealed\nconstructor would carry the contract at the type level, with serde\ndeserialize_into rejecting out-of-range values automatically. That is a\nbreaking change to ship later (every Option<u32> field becomes Option<PrefValue>),\nso it needs to happen before 1.0 or it cannot happen.\n\nSister concern to JMAP-sgrr.5 (which is about UnsignedInt width 2^32 vs 2^53).\nThat bead is about the upper bound of the JSON-safe-integer range; this bead\nis about the RFC's prescriptive narrower bound.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "pref fields are u32 but RFC 9553 \u00a71.5.3 specifies 1..=100 \u2014 no type-level bound, no validation",
+  "updated_at": "2026-05-17T14:55:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:06:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr.17",
+      "id": "6ab23023-6b46-5845-9a09-f48ecca7d3c6",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T20:40:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "979585ab-cdea-5890-b86e-c04d35b84611",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

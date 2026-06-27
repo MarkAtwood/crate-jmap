@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T16:57:16Z",
+  "compaction_level": 0,
+  "content_hash": "fdd6135655733dc990cf704fbeeae36f62db1fbef215c477fc5308805e5c4511",
+  "created_at": "2026-05-01T16:30:31Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs process_update returns Result<(), Value> where the Err variant is a serde_json::Value representing an error object. This discards the type-safety of the SetError type that the rest of the codebase uses. The caller (handle_submission_set) must treat it as an opaque Value. Idiomatic Rust: return Result<(), SetError> or Result<(), BackendSetError<B::Error>> and convert to Value at the callsite. The CreateError enum in the same file is the correct pattern \u2014 apply it to process_update too.",
+  "ephemeral": 0,
+  "id": "JMAP-wdy.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "process_update returns Result<(), Value> \u2014 stringly typed error",
+  "updated_at": "2026-05-01T16:57:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T09:30:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wdy",
+      "id": "4a21d543-4101-5fdc-a460-e6216ca0f063",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

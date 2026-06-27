@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Rewritten: SessionClient+5 methods+5 Params \u2192 pure helpers (constants, filter builders, /changes classifiers). Deps reduced to jmap-metadata-types+serde_json. 29 tests pass (20 unit + 9 doctests). Commit c449611.",
+  "closed_at": "2026-06-05T03:51:45Z",
+  "compaction_level": 0,
+  "content_hash": "886abb179fdbc348efd79ed702b32b15c435ac1124c4f297fa3f04adc58b8be0",
+  "created_at": "2026-06-05T02:25:44Z",
+  "created_by": "Mark Atwood",
+  "description": "Complete rewrite of jmap-metadata-client to align with draft-ietf-jmap-metadata-02.\n\n**What changes:**\n- DELETE: All 5 standalone client methods (metadata_get, metadata_set, metadata_query, metadata_query_changes, metadata_changes)\n- DELETE: MetadataChangesParams (standalone /changes filter args filterRelatedType + filterMetadataType no longer exist)\n- DELETE: SessionClient wrapper (no standalone Metadata/* capability to bind to)\n- ADD: MetadataSessionExt trait (or similar) \u2014 provides helpers for metadata-augmented requests on existing types. E.g. methods to include metadata/privateMetadata in properties lists, to build MetadataTextMatch filter conditions, to set ignoreMetadataOnlyChanges on /changes requests\n- ADD: Response helpers \u2014 parse updatedProperties from /changes responses when metadata capability is active\n\n**Spec reference:** draft-ietf-jmap-metadata-02 \u00a72.4, \u00a72.5\n\n**Architecture:** Since -02 metadata is accessed through existing type methods (Email/get, Mailbox/set, etc.), the client library becomes a helper layer rather than a standalone method provider. Consumers add metadata properties to their existing /get properties lists and metadata filters to their existing /query filter conditions. The client helpers make this ergonomic without requiring consumers to hand-build JSON.",
+  "ephemeral": 0,
+  "id": "JMAP-ua37.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Rewrite jmap-metadata-client for -02 architecture",
+  "updated_at": "2026-06-05T03:51:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-04T19:25:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ua37",
+      "id": "15c7f619-63b6-5f82-904c-d136991e2eee",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-06-04T19:26:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ua37.1",
+      "id": "2da33281-a065-5a54-b7b4-f10ff8ffb6d3",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

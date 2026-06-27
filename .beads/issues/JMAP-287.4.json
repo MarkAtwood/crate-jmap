@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T05:55:18Z",
+  "compaction_level": 0,
+  "content_hash": "d54a569ee9e8125924c120332e0d553aa7c35ce69f5559e1a557a73f4ee59499",
+  "created_at": "2026-05-02T05:35:57Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_space_join serializes members with serde_json::to_value(m).unwrap_or_else(|e| json!({'type':'serverFail',...})). If any SpaceMember fails to serialize, the garbage object is added to the members array and written back to the Space. Trigger: backend returns a SpaceMember whose Serialize impl fails (rare but possible if types change). Fix: return Err(JmapError::server_fail) if any member fails to serialize, instead of inserting a sentinel value.",
+  "ephemeral": 0,
+  "id": "JMAP-287.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "space.rs members serialization failure stored as garbage member",
+  "updated_at": "2026-05-02T05:55:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T22:35:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-287",
+      "id": "6752c6fc-40df-5747-a76a-708ecedcdc7d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

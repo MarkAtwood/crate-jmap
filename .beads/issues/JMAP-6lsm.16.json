@@ -1,0 +1,33 @@
+{
+  "close_reason": "Inlined positional args in two error format! sites. clippy/fmt/tests clean.",
+  "closed_at": "2026-05-09T07:29:18Z",
+  "compaction_level": 0,
+  "content_hash": "3397ce7258600b484ff40efacb594924b6ac25aab9a9c8f8b60fc0d177bd2edb",
+  "created_at": "2026-05-08T03:05:56Z",
+  "created_by": "Mark Atwood",
+  "description": "src/client.rs:673 (`format!(\"session URL has non-http/https scheme: {:?}\", url)`) and src/request.rs:68 (`format!(\"...duplicate call_id {:?}\", call_id)`) use positional args where Rust 2021 inline-args (`{url:?}` / `{call_id:?}`) work. clippy::uninlined_format_args (pedantic). Other format! calls in the crate already use inline args; these two are stragglers. Pure consistency. Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "format! used with non-inlined args in error paths",
+  "updated_at": "2026-05-09T07:29:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:05:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "f777976c-2d19-5b10-ab2f-bc2c550a897b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

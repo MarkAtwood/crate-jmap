@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added # Errors rustdoc sections to all 5 metadata-client builder methods. metadata_get carries the full transport-variant enumeration (Http/Parse/AuthFailed/MethodError/MethodNotFound/ResponseTooLarge/UnexpectedResponse with intra-doc links into jmap_base_client::ClientError::*) mirroring canonical email_get; the other 4 methods reference 'see the matching error list on Self::metadata_get'. metadata_changes documents the defence-in-depth empty-state InvalidArgument case + InvalidSession + transport-ref. metadata_set extended with all-None InvalidArgument case + InvalidSession + transport-ref + stateMismatch surfacing via MethodError + per-creation /set errors appearing in SetResponse.not_created/not_updated/not_destroyed as SetError values (not Err); the existing 3-4\u00d7 memory-peak buffering paragraph (the wzq9.35 corrected wording) is preserved. metadata_query adds RFC 8620 \u00a75.5 method-level errors (anchorNotFound, unsupportedFilter, unsupportedSort, tooManyChanges) as MethodError surfacing. metadata_query_changes adds cannotCalculateChanges. All four gates pass: cargo fmt, cargo clippy -p jmap-metadata-client --tests -- -D warnings, cargo test -p jmap-metadata-client (9 unit + 9 integration + 3 doctests pass), RUSTDOCFLAGS='-D warnings' cargo doc -p jmap-metadata-client --no-deps --all-features. Workspace clippy + test gate also clean. Canonical-template propagation already landed via JMAP-tjvm.33; this closes the metadata-client side that was explicitly out of scope of that closure.",
+  "closed_at": "2026-05-17T14:36:51Z",
+  "compaction_level": 0,
+  "content_hash": "94d713968214d2b4dced3c446b8adce16a5c244a109a78472fab516b393ca52d",
+  "created_at": "2026-05-15T02:45:51Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/metadata.rs \u2014 of the 5 async builder methods, only metadata_set (lines 185-196) has a # Errors rustdoc section. The other four return Result<_, jmap_base_client::ClientError> but lack a # Errors section:\n\n  - metadata_get          (lines 44-50  doc-comment, line 51 fn)    \u2192 no # Errors\n  - metadata_changes      (lines 81-93  doc-comment, line 94 fn)    \u2192 no # Errors\n  - metadata_query        (lines 233-281 doc-comment, line 282 fn)  \u2192 no # Errors\n  - metadata_query_changes (lines 314-322 doc-comment, line 323 fn) \u2192 no # Errors\n\nThis matters for two concrete reasons:\n\n1) Undocumented client-side validation paths. metadata_changes (line 104-108) and metadata_query_changes (line 330-334) include defence-in-depth empty-state checks that return Err(ClientError::InvalidArgument) with a method-specific message. A caller reading the doc-comment has no way to discover this. They would reasonably assume an empty &State round-trips to the server and produces some server-side error (e.g. cannotCalculateChanges); instead they get a client-side InvalidArgument with a specific string. The error path is silently invisible from the rustdoc.\n\n2) Rustdoc convention + clippy::missing_errors_doc. The standard rustdoc convention is that public fn returning Result documents each variant in a # Errors section. clippy::missing_errors_doc is a common downstream lint (workspace Cargo.toml does not currently enable it, but downstream consumers may). The pre-existing # Errors section on metadata_set demonstrates the in-crate style; the asymmetry across the 5 methods is a consistency gap.\n\nConcrete error variants each method should document:\n  - All five: ClientError::InvalidSession when self.session has no primary account for \"urn:ietf:params:jmap:metadata\" (via session_parts at mod.rs:248-258)\n  - All five: ClientError::HttpError / ParseError / ApiError from call_internal \u2192 upstream JmapClient::call\n  - metadata_changes: additionally ClientError::InvalidArgument when since_state is empty (line 104)\n  - metadata_query_changes: additionally ClientError::InvalidArgument when since_query_state is empty (line 330)\n  - metadata_set: already documented for the update map serialize failure path (line 185-196). Should be extended to mention InvalidSession + transport errors too.\n\nFix: add # Errors sections to all 5 builder methods, matching the existing metadata_set style. metadata_changes / metadata_query_changes need explicit mention of the empty-state InvalidArgument case.\n\nWorkspace-wide: same gap likely exists on canonical mail-client. Propagate from canonical.\n\nCross-ref: wzq9.11 (decision note approving the defence-in-depth guards), wzq9.16 (ClientError::InvalidArgument is string-typed and undispatchable \u2014 orthogonal but related).",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Missing # Errors rustdoc sections on metadata_get / metadata_changes / metadata_query / metadata_query_changes",
+  "updated_at": "2026-05-17T14:36:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:45:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "8d05e80f-7f04-58c4-92ad-4a117c145a45",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-14T20:20:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm.33",
+      "id": "d33c6898-5460-5daf-af0d-b3c4e5241958",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

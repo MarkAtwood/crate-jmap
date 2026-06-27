@@ -1,0 +1,33 @@
+{
+  "close_reason": "no-action: P3/P4 observation, not prioritized for JMAP-39s scope",
+  "closed_at": "2026-05-02T07:05:11Z",
+  "compaction_level": 0,
+  "content_hash": "047bb75e258155f80995b951dafed7a6325bf763bacfaf6ae610d77e8e2ce157",
+  "created_at": "2026-05-02T04:19:06Z",
+  "created_by": "Mark Atwood",
+  "description": "The match (invite_code, space_id_str) { (Some(_), Some(_)) | (None, None) => error, (Some, None) => invite path, (None, Some) => public path } is correct and exhaustive. Both arms produce (space_id: Id, current_members: Vec<Value>), giving a clean join point. A future contributor might be tempted to use an if-else chain which would be harder to audit for case completeness. The tuple match pattern makes the exclusivity of the two paths structurally enforced.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.51",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Space/join match (invite_code, space_id_str) restructure correctly handles all 4 cases",
+  "updated_at": "2026-05-02T07:05:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:19:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "46b4a407-999f-55db-ac68-25074017bc72",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

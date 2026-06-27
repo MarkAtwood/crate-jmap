@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in 299aff0: all 9 property selector enums in crate-jmap-chat-types/src/backend.rs now carry #[non_exhaustive]. Canonical propagation to jmap-mail-types tracked at bd:JMAP-nuf5.",
+  "closed_at": "2026-05-16T03:04:54Z",
+  "compaction_level": 0,
+  "content_hash": "1bd3d18134ebcf222a5ea619eaff0a681265504a9c1f45189c899e98d953805e",
+  "created_at": "2026-05-16T02:47:00Z",
+  "created_by": "Mark Atwood",
+  "description": "SECTION: Public surface immutability\n\nCONTRACT RISK\nThe 9 property selector enums in crate-jmap-chat-types/src/backend.rs all\nlack #[non_exhaustive]:\n\n  ChatProperty            (22 variants)\n  MessageProperty         (27 variants)\n  SpaceProperty           (12 variants)\n  ChatContactProperty     (11 variants)\n  ReadPositionProperty    ( 4 variants)\n  CustomEmojiProperty     ( 6 variants)\n  SpaceInviteProperty     ( 9 variants)\n  SpaceBanProperty        ( 7 variants)\n  PresenceStatusProperty  ( 7 variants)\n\nEvery one carries variants in one-to-one correspondence with a\nspec-defined property on its sibling data type. The JMAP Chat draft is\nat -00 and the chat-types crate's own AGENTS.md anticipates spec-driven\nproperty additions (\"Prefer non-breaking additions (new variants on\n#[non_exhaustive] enums, new methods, new accessors)\").\n\nWithout #[non_exhaustive], adding a variant to ChatProperty (because\ndraft-01 adds a new Chat property) is a BREAKING CHANGE for every\nexternal caller that matches exhaustively. With #[non_exhaustive], the\naddition is non-breaking.\n\nThe workspace AGENTS.md attribute-order rule is explicit (\"#[non_exhaustive]\n-> #[derive(...)] -> #[serde(...)] on every type\"). The chat-types\nAGENTS.md repeats it. The crate's own Settled Design Constraints table\nlists \"#[non_exhaustive] -> #[derive(...)] -> #[serde(...)] on every\ntype\" under \"Attribute order\".\n\nThese 9 enums are in violation. They were public-facing before this\ndiff (so the breaking-change risk pre-dates the review), but commit\nfdcfc76 explicitly touched the same lines (added doc comments) and\ncould have folded the attribute fix into the same commit.\n\nWHAT BREAKS FOR CALLERS\nA 0.x.y consumer of jmap-chat-types that pattern-matches on\nChatProperty (a natural usage for a property-projection helper or a\ntest asserting a property set is complete) gets a compile error on\nthe day the chat draft adds a new Chat field. With #[non_exhaustive]\nthey would have to add a `_ =>` arm but the existing arms keep\ncompiling.\n\nRECOMMENDED RESOLUTION\nAdd #[non_exhaustive] to all 9 enums. One-line fix per enum, no\nbehavior change, no wire-format change. Closes the breaking-change\nexposure on the entire property-enum surface in one commit.\n\nORACLE\nWorkspace AGENTS.md attribute-order rule; chat-types AGENTS.md Settled\nDesign Constraints; the workspace-level extras-and-forward-compat\nsection that mandates #[non_exhaustive] on every public result enum.",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Property selector enums in backend.rs lack #[non_exhaustive]",
+  "updated_at": "2026-05-16T03:04:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:47:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "934e7ed1-53ff-5992-870d-0191f91d4303",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

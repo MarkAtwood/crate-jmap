@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed: replaced has_on_success_destroy/has_on_success_update intermediate booleans with inlined condition: if (on_success_destroy_original || on_success_update_original.is_some()) && !copied_source_ids.is_empty().",
+  "closed_at": "2026-05-04T15:55:54Z",
+  "compaction_level": 0,
+  "content_hash": "f35ad12257ed6b83faeac1670bdcab9c58c521c5cf866755586a63f1342e0f88",
+  "created_at": "2026-05-02T06:46:00Z",
+  "created_by": "Mark Atwood",
+  "description": "File:/home/mark/PROJECT/JMAP/crate-jmap-mail-server/src/email.rs:2108\nIssue: has_on_success_destroy and has_on_success_update are defined on lines 2108-2110 solely to guard the if-block on line 2112. Inside the block, on_success_destroy_original is re-checked directly (line 2124) and on_success_update_original is matched again (line 2149). The two intermediate booleans add a naming layer that must be mentally reconciled with the re-checks, creating confusion about whether the guard and the inner checks are equivalent.\nFix: Either remove the intermediate booleans and inline the condition directly in the if guard, or use them consistently inside the block instead of re-checking the originals.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Unused booleans has_on_success_destroy/_update",
+  "updated_at": "2026-05-04T15:55:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:45:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "7063a92b-a3a3-5203-aede-91c01a7e8f84",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

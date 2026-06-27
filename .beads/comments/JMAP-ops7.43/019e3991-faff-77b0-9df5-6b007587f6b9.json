@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T05:32:09Z",
+  "id": "019e3991-faff-77b0-9df5-6b007587f6b9",
+  "issue_id": "JMAP-ops7.43",
+  "text": "Cross-references bd:JMAP-sgrr.27 (the workspace policy decision the chat-types AGENTS.md table is documenting). Recommended fix sequence: close 43 first (lift the row into mail-types canonical), then 34 (remove jscalendar constructors per the now-properly-canonical policy)."
+}

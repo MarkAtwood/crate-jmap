@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T17:34:21Z",
+  "compaction_level": 0,
+  "content_hash": "427b28e9b42c386e145a5ea20d5850ed4057f373de85654014ead431650114d5",
+  "created_at": "2026-05-15T16:55:12Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger (deterministic mode, the default; no realistic-demo-ids feature):\n\n  let b = MemoryBackend::new().with_account('a');\n  let (id1, _) = b.create_object::<Calendar>(&(), &Id::from('a'), 'c1', cal1).await?;  // 'calendar0000000000000001'\n  b.destroy_object::<Calendar>(&(), &Id::from('a'), &id1).await?;                       // map now empty, len=0\n  let (id2, _) = b.create_object::<Calendar>(&(), &Id::from('a'), 'c2', cal2).await?;  // re-mints 'calendar0000000000000001'\n\nmemory.rs:367-371 \u2014 demo_next_id computes\n  n = inner.objects_ref(type_name, account_id).map_or(0, |m| m.len())\n  new_id = format!('{}{:016x}', type_name.to_ascii_lowercase(), n + 1)\nAfter a delete, len() drops, the next create re-uses the destroyed id.\n\nConcrete downstream breakage:\n- The change_log keeps the destroyed id in entry K's 'destroyed' AND emits it in entry K+2's 'created'.\n- The dedup pass at memory.rs:494-510 sees 'destroyed' second, so a /changes call spanning K..K+2 reports the re-minted id ONLY as destroyed \u2014 the create is silently dropped.\n- This violates RFC 8620 \u00a75.2 'every distinct state MUST be reported correctly' for clients that calculate state diffs.\n- The debug_assert at memory.rs:372-379 does NOT catch this: it fires only when the new id is still in the map, but after destroy it is gone.\n\nThis is the same bug fixed in jmap-contacts-server by bd:JMAP-qz9v.14 (commit 0d14538) \u2014 a per-(type, account) monotonic counter in Inner.next_ids that only ever increments. The workspace sweep bd:JMAP-h7jp is already open and identifies this crate as in scope.\n\nFix: mirror contacts-server. Add 'next_ids: HashMap<(&'static str, String), u64>' to Inner; demo_next_id increments and never decrements. Three unit tests from contacts (id_not_recycled_after_destroy, id_namespace_is_per_type_and_account, ids_are_monotonic_within_namespace) should be ported.\n\nP0 because the breakage path is observable from any client doing /changes over a destroy+create round-trip on the same id. Demo-mode is the default mode (no realistic-demo-ids feature on by default), so this affects every test and every consumer who tries the reference impl without enabling the feature.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "demo_next_id len()-based mode recycles ids after destroy",
+  "updated_at": "2026-05-15T17:34:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T09:55:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "6613f3e2-fa8d-58cb-b6f1-440e8ce52080",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

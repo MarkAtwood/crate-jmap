@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:33Z",
+  "compaction_level": 0,
+  "content_hash": "f5a049dad82b03063ac1fbcd2912cc7007bc2bcf8085a0de2860535d827a8b0c",
+  "created_at": "2026-05-02T02:59:57Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs: validate_and_normalize_keywords(raw: HashMap<String, bool>) takes the raw keyword map by value (move). The caller at line 1413 constructs it from serde_json::from_value and immediately passes it, so the move is free there. However the function signature signals 'I consume and return a new map' when a &HashMap parameter with an owned return would express the same intent with less API surface pressure. More importantly: the function iterates the raw map and builds a new result: HashMap<Keyword, bool> \u2014 this is a collect() from an iterator, not a loop-with-push pattern. The idiomatic form is: raw.into_iter().filter(|(_, v)| *v).try_fold(HashMap::new(), |mut acc, (kw, _)| { validate_kw(&kw)?; acc.insert(Keyword::from(kw.to_ascii_lowercase()), true); Ok(acc) }) or equivalently .map(...).collect::<Result<HashMap<_,_>, _>>() which expresses the validation-and-collect in one pass.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "validate_and_normalize_keywords takes HashMap by value \u2014 callers must move or clone",
+  "updated_at": "2026-05-02T03:22:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:59:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "e2fb07bf-8117-509b-be85-c1db70aa6300",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

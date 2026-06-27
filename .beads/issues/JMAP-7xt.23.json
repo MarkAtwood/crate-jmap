@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.23",
+  "title": "base_url path error message shows what is wrong but not what to do",
+  "description": "client.rs JmapClient::new (lines 115-118): error message is 'base_url must not have a path component, got: \"/jmap\"'. User knows what they provided but not what the correct form is. A new user passing the full JMAP API URL (e.g. https://host/jmap/api) will not know from this message that base_url must be the server origin only. Suggested fix: append 'pass the server origin only, e.g. \"https://host\" or \"https://host:8080\"' to the message.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:49Z",
+  "updated_at": "2026-04-30T01:03:05Z",
+  "closed_at": "2026-04-30T01:03:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:48"
+    }
+  ]
+}

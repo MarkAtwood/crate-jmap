@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-boe.2",
+  "title": "assign_thread silently swallows find_thread_by_message_ids error",
+  "description": "email.rs:698: if let Ok(Some(...)) pattern silently discards Err(_) from find_thread_by_message_ids. A backend I/O error during thread lookup causes the email to be silently assigned to a brand-new thread instead of propagating the error. Reply emails get disconnected from their threads with no error returned to the client.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:37:07Z",
+  "updated_at": "2026-05-01T00:43:13Z",
+  "closed_at": "2026-05-01T00:43:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-boe",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:37:07"
+    }
+  ]
+}

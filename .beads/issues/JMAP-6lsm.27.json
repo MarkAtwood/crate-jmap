@@ -1,0 +1,33 @@
+{
+  "close_reason": "Opinion-tagged P4. Bead author noted '(c) keep as-is \u2014 the explicit form is most readable'. Six explicit if-blocks each producing InvalidArgument with the field name in the message is clearer than a const-array+fold or macro. The code is already maintained alongside ClientConfig field additions; no maintenance hazard. Won't fix.",
+  "closed_at": "2026-05-09T07:35:26Z",
+  "compaction_level": 0,
+  "content_hash": "0466f8121ec71f043494e16595fe52713f6b493f8221fe2a484580ea40b5866d",
+  "created_at": "2026-05-08T03:07:13Z",
+  "created_by": "Mark Atwood",
+  "description": "src/client.rs:82-115 \u2014 six near-identical if-blocks each producing an InvalidArgument with the field name in the message. Idiomatic alternatives: (a) a const array of (name, accessor) and a fold, (b) helper macro `require_nonzero!(self.field)`, (c) keep as-is \u2014 the explicit form is most readable and the repetition is bounded. Filing as opinion-tagged because all three options are defensible. Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClientConfig::validate uses six sequential if-blocks instead of a struct-driven check",
+  "updated_at": "2026-05-09T07:35:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:07:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "7d6c7f44-3f36-5930-b72b-50d575824894",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

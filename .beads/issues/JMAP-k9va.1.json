@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "169561016913bf281a1edd695a1a570a02e9c25b5a16ad34d6cfaaf3377affaf",
+  "created_at": "2026-05-17T05:28:26Z",
+  "created_by": "Mark Atwood",
+  "description": "## Canonical-first per workspace AGENTS.md\n\nThis is the canonical extension-server template (workspace AGENTS.md 'Canonical Templates'). Land the fix here FIRST, then propagate to the 7 sibling extension-server crates in subsequent child beads of bd:JMAP-k9va. Each sibling bead may not land until this one is closed.\n\n## Candidate sites (35 total \u2014 audit before fixing)\n\n```\ncrate-jmap-mail-server/src/identity.rs:304  (Identity/set update key)\ncrate-jmap-mail-server/src/identity.rs:396  (Identity/set destroy array)\ncrate-jmap-mail-server/src/email.rs:1137    (Email/set update key)\ncrate-jmap-mail-server/src/email.rs:1217    (Email/set destroy array)\ncrate-jmap-mail-server/src/mailbox.rs:490   (audit context)\ncrate-jmap-mail-server/src/mailbox.rs:711   (Mailbox/set update key)\ncrate-jmap-mail-server/src/mailbox.rs:780   (Mailbox/set destroy array)\ncrate-jmap-mail-server/src/mailbox.rs:904   (audit context)\ncrate-jmap-mail-server/src/sieve.rs:378     (SieveScript/set update key)\ncrate-jmap-mail-server/src/sieve.rs:496     (SieveScript blob_id field)\ncrate-jmap-mail-server/src/sieve.rs:635     (SieveScript/set destroy array)\ncrate-jmap-mail-server/src/sieve.rs:710     (audit context)\ncrate-jmap-mail-server/src/submission.rs:455 (EmailSubmission/set update key)\ncrate-jmap-mail-server/src/submission.rs:521 (EmailSubmission/set destroy array)\ncrate-jmap-mail-server/src/submission.rs:794 (EmailSubmission identityId arg)\ncrate-jmap-mail-server/src/submission.rs:826 (EmailSubmission emailId arg)\ncrate-jmap-mail-server/src/memory/mod.rs:1326 (INTERNAL \u2014 synthetic blob-part Id; out of scope)\ncrate-jmap-mail-server/src/memory/mod.rs:1558 (INTERNAL \u2014 synthetic blob-part Id; out of scope)\n```\n\n`grep -c` says 35 but the list shows 18 lines: `Id::from` matches per-line vs total occurrence count. Re-audit with `rg 'Id::from'` and confirm exact site count before edits.\n\n## Fix shape\n\nFor each wire-boundary site, replace:\n\n```rust\nlet id = Id::from(id_str.as_str());\n```\n\nwith:\n\n```rust\nlet id = match Id::new_validated(id_str.as_str()) {\n    Ok(id) => id,\n    Err(e) => {\n        // per-entry SetError for /set update or destroy entries\n        not_updated.insert(id_str.clone(), set_error_value(SetErrorType::InvalidProperties, &e.to_string(), Some(vec![\"id\".to_string()])));\n        continue;\n    }\n};\n```\n\nExact error mapping depends on call site:\n- `/set` update map key: invalidProperties into notUpdated\n- `/set` destroy array element: invalidProperties into notDestroyed  \n- Method-arg field (e.g. EmailSubmission.identityId): top-level invalidArguments error\n\n## Tests\n\nAdd at least one negative test per file: a request with an invalid Id (`'id with space'`, `'id\\\\nwith\\\\ncontrol'`, or 256-byte Id) is rejected with the appropriate error, not silently accepted.\n\n## Acceptance\n\n- All wire-boundary sites use `Id::new_validated`\n- Internal sites (synthetic Ids, backend-return Ids) carry an inline `// out of scope: <reason>` comment\n- `cargo test -p jmap-mail-server` green\n- `cargo clippy -p jmap-mail-server -- -D warnings` green\n- Negative tests landed\n- Bead closure prompts the next sibling propagation bead (chat-server)",
+  "ephemeral": 0,
+  "id": "JMAP-k9va.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Canonical: jmap-mail-server wire-boundary Id::new_validated migration (35 candidate sites)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T22:28:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-k9va",
+      "id": "06209e85-4c04-5472-917a-5e951896c468",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

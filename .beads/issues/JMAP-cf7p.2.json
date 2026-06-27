@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-12T06:01:26Z",
+  "compaction_level": 0,
+  "content_hash": "ca925a6b8bcc8c35bbea7851dce68ec9f50f4d25e3fceb297958d5f0fff4b7a0",
+  "created_at": "2026-05-12T05:46:56Z",
+  "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "description": "Mount the two foundation HTTP endpoints on the testjig's axum router.\n\n- POST /jmap: deserialize the request body as a JMAP request envelope, hand it to jmap_server::Dispatcher::dispatch, serialize the response envelope back as application/json. Honor RFC 8620 byte cap + JSON depth via the existing parse_request entrypoint (see warning in src/parse.rs).\n- GET /.well-known/jmap: return a hardcoded Session JSON with all 8 capability URIs advertised (urn:ietf:params:jmap:{core,mail,chat,calendars,tasks,contacts,filenode,sharing,metadata}). Single hardcoded account-id under the single hardcoded principal.\n\nThe Session JSON is hand-written for the testjig and pinned in a const so it doesn't drift. A future slice may make it dynamic if needed.\n\n## Acceptance\n\n- POST /jmap with a Core/echo request returns the echoed payload\n- GET /.well-known/jmap returns valid Session JSON with all 8 capability URIs\n- HTTP errors (400 on malformed JSON, 413 on byte-cap overrun) surface cleanly\n- cargo test --workspace clean (testjig may not have tests yet \u2014 that's slice .7)\n- cargo clippy clean\n\n## Depends on .1 (scaffold)",
+  "ephemeral": 0,
+  "id": "JMAP-cf7p.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Axum router: POST /jmap dispatcher + GET /.well-known/jmap session endpoint",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T22:46:56Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p.1",
+      "id": "3025c743-be46-5e5b-98e7-2d88aab4d4ef",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T22:46:56Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p",
+      "id": "8d6607f3-0042-5cb6-8960-a7c37b920c9d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

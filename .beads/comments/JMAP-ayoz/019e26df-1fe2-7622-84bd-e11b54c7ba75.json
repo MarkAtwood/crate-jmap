@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T14:23:37Z",
+  "id": "019e26df-1fe2-7622-84bd-e11b54c7ba75",
+  "issue_id": "JMAP-ayoz",
+  "text": "Maintainer risk: MEDIUM \u2014 two P0 correctness bugs in the /set path are wire-reachable (unknown-accountId silently mutates the backend and auto-creates phantom accounts); five P1 findings cover spec contract gaps (invalidProperties shape, per-user uniqueness scoping) and untested method coverage (/query, /queryChanges). The crate's foundation pattern (cookie-cutter from canonical mail-server) is sound, but the /set path diverged from the canonical at the account_exists check and the SetError construction style \u2014 both are propagation regressions, not novel bugs. The MemoryBackend reference impl is honestly demo-grade for /set + /changes but silently misleading for /query (filter/sort ignored)."
+}

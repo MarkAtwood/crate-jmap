@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit. Restructured destroy loop to validate-and-collect in one pass: walk destroy_arr once, push to Vec<String> on Some(s), return invalidArguments on None. The invariant is now in the type system (loop body processes Vec<String>) instead of in a comment-as-assertion. All 36 tests pass; clippy clean.",
+  "closed_at": "2026-05-14T14:55:16Z",
+  "compaction_level": 0,
+  "content_hash": "37d24e9a3d59b85020aaba0c37d3d53039bd3e904a1da2981668e277316030c7",
+  "created_at": "2026-05-14T14:31:57Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_metadata_set (src/metadata.rs:416-431), the destroy path pre-validates every element with:\n\n    if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {\n        return Err(...);\n    }\n    for id_val in destroy_arr {\n        let id_str = match id_val.as_str() {\n            Some(s) => s.to_owned(),\n            None => continue, // unreachable: validated above\n        };\n        ...\n    }\n\nAfter the find() pre-check, the None branch is provably unreachable. The author signals awareness with the comment 'unreachable: validated above'. Idiomatic Rust would either:\n\n(a) Use .expect() to make the invariant assertion explicit:\n\n    let id_str = id_val.as_str()\n        .expect('pre-validated as String by find() above')\n        .to_owned();\n\n(b) Restructure so the validation+iteration happens in one pass:\n\n    let mut id_strs = Vec::with_capacity(destroy_arr.len());\n    for id_val in &destroy_arr {\n        match id_val.as_str() {\n            Some(s) => id_strs.push(s.to_owned()),\n            None => return Err(JmapError::invalid_arguments(format!(\n                'destroy: every element must be a string Id; got {id_val}'\n            ))),\n        }\n    }\n\n(b) is the most idiomatic \u2014 one pass, no dead branch, no comment-as-assertion. (a) is acceptable too. As-written the dead 'None => continue' arm is a future-bug magnet: a future refactor that removes the find() pre-check leaves the silent skip in place.\n\nWhat goes wrong: the silent 'continue' branch is the worst possible recovery if the invariant ever breaks \u2014 it would convert 'malformed request' into 'partial success with no error reported'. The comment is load-bearing; the invariant should be in the type system, not in the comment.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_metadata_set destroy loop carries an unreachable 'None => continue' arm after find() validation",
+  "updated_at": "2026-05-14T14:55:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:31:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "ac87f8e9-9f2f-5622-a99b-f171763472af",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:41:17Z",
+  "compaction_level": 0,
+  "content_hash": "9571cb0b3605448d75a7728c51bb60cc3fa193b32cfd206ef849fc08fce3b590",
+  "created_at": "2026-05-02T03:26:18Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/common/mod.rs ChangeEntry derives Clone but not Debug. Any type stored in a data structure that may appear in test failure output should derive Debug so that assertion failures print meaningful diagnostics. The missing Debug means test failures that print change log contents produce opaque output. Also, IdFate derives neither Debug nor Clone; it is used in a HashMap which does not require Clone, but the absence of Debug makes test output less useful.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChangeEntry does not derive Clone or Debug",
+  "updated_at": "2026-05-02T03:41:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:26:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "164cffa0-264a-5403-ba08-0a5f87b33e52",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

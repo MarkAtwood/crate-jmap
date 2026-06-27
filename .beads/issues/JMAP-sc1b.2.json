@@ -1,0 +1,33 @@
+{
+  "close_reason": "WONTFIX. Workspace Cargo.toml already declares license = \"MIT OR Apache-2.0\" at the workspace level (Cargo.toml:34); every crate inherits via license.workspace = true. The TOML metadata is sufficient for crates.io and cargo deny. Adding LICENSE-MIT / LICENSE-APACHE files is unwanted \u2014 this convention is intentional. Recorded in AGENTS.md (Conventions and Key Rules sections) so future contributors do not re-file this.",
+  "closed_at": "2026-05-08T18:12:57Z",
+  "compaction_level": 0,
+  "content_hash": "42a8a14ae1f7931ee71110461dde2d715cf83f9030c71135d7d00a44e5af9c12",
+  "created_at": "2026-05-07T20:17:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace declares `license = \"MIT OR Apache-2.0\"` (dual license). Convention for dual-licensed Rust crates is to ship both LICENSE-MIT and LICENSE-APACHE text files inside each crate. Only `crate-jmap-types/LICENSE` exists (and is a single file, not the dual pair).\n\nAffected: all 24 other crates (every crate-jmap-*/ except crate-jmap-types).\n\ncrates.io accepts the SPDX identifier and will publish without LICENSE files, so this is not a hard publish blocker. But:\n- `cargo package --list` typically emits a warning when LICENSE files are absent for SPDX-only declarations\n- License text not bundled inside the crate tarball means downstream auditors / SBOM tools have to look elsewhere\n- Most established RustCrypto / tokio-rs / serde-rs crates ship both files\n\nAction: add LICENSE-MIT and LICENSE-APACHE (canonical text from https://spdx.org/licenses/) to each crate. Optionally, also update `crate-jmap-types/LICENSE` to the canonical pair.\n\nMark is the open-source-licensing expert per AGENTS.md, so confirm with him before bulk-applying.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: 24 of 25 crates missing LICENSE-MIT/LICENSE-APACHE files",
+  "updated_at": "2026-05-08T18:12:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:17:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "0e526185-ba6a-5d98-a59f-ea51a2625c5e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

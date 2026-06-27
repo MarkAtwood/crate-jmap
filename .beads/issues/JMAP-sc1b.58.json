@@ -1,0 +1,33 @@
+{
+  "close_reason": "Resolved 2026-05-10: installed cargo-machete; baseline run flagged 8 unused declarations (5 serde in servers, 2 serde in clients, 1 tokio in chat-client). All removed. Added new 'machete' CI job using bnjbvr/cargo-machete action so regressions are caught at PR time. cargo test --workspace clean; cargo clippy --workspace --tests -- -D warnings clean. Commit 46a8468.",
+  "closed_at": "2026-05-10T23:34:02Z",
+  "compaction_level": 0,
+  "content_hash": "32d69d4c36a08b2a0e4694600a6923a2db90706e19e31e35ebadf743dbc9c6da",
+  "created_at": "2026-05-07T20:43:29Z",
+  "created_by": "Mark Atwood",
+  "description": "14 of 25 crates declare thiserror in Cargo.toml but never use it (see JMAP-sc1b.X). cargo-machete or cargo-udeps would catch this automatically.\n\nSuggested: install cargo-machete and add to CI (also helps with the rest of the cargo hygiene findings).\n\nTied to JMAP-sc1b.X (no CI configured). Roll into the CI setup task.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.58",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: workspace lacks cargo-machete or unused-dep detection",
+  "updated_at": "2026-05-10T23:34:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "bd1870b3-468b-5580-b8e1-6d6275bb1f49",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

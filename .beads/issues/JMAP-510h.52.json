@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T10:47:06Z",
+  "compaction_level": 0,
+  "content_hash": "3836366970135bc378f004df1e43d1328118ee868024e75ad7f901149635cb20",
+  "created_at": "2026-05-14T20:15:43Z",
+  "created_by": "Mark Atwood",
+  "description": "13 sites in src/memory.rs construct MemoryError from a serde_json::Error (or other Display source) using bare .to_string(), losing the operation context that the canonical sibling preserves:\n\nsrc/memory.rs sites (count: 13):\n  Line 248: MemoryError(e.to_string()) \u2014 get_objects, list path, to_value\n  Line 250: MemoryError(e.to_string()) \u2014 get_objects, list path, from_value\n  Line 261: MemoryError(e.to_string()) \u2014 get_objects, by-ids path, to_value\n  Line 263: MemoryError(e.to_string()) \u2014 get_objects, by-ids path, from_value\n  Line 461: BackendSetError::Other(MemoryError(e.to_string())) \u2014 create_object, to_value(obj)\n  Line 464: BackendSetError::Other(MemoryError(e.to_string())) \u2014 create_object, from_value(node)\n  Line 479: BackendSetError::Other(MemoryError(e.to_string())) \u2014 create_object, to_value(result)\n  Line 481: BackendSetError::Other(MemoryError(e.to_string())) \u2014 create_object, from_value(result)\n  Line 507: BackendSetError::Other(MemoryError(e.to_string())) \u2014 update_object, to_value(patch)\n  Line 523: BackendSetError::Other(MemoryError(e.to_string())) \u2014 update_object, to_value(stored)\n  Line 532: BackendSetError::Other(MemoryError(e.to_string())) \u2014 update_object, from_value(merged)\n  Line 538: BackendSetError::Other(MemoryError(e.to_string())) \u2014 update_object, to_value(result)\n  Line 540: BackendSetError::Other(MemoryError(e.to_string())) \u2014 update_object, from_value(result)\n\nWhat is wrong: when a downstream caller sees 'memory backend error: missing field name at line 1 column 23' as the wire response, they have no idea WHICH of the 13 round-trips failed. The error_type strings 'create_object, to_value(obj)' vs 'update_object, from_value(merged)' would localize the bug instantly.\n\nCanonical comparison \u2014 jmap-mail-server src/memory.rs uses contextualized form everywhere:\n\n  Line 500:  MemoryError(format!(\"deserialize {}: {e}\", O::TYPE_NAME))\n  Line 510:  MemoryError(format!(\"deserialize {}: {e}\", O::TYPE_NAME))\n  Line 544:  MemoryError(format!(\"invalid state token: {since_state}\"))\n  Line 963:  MemoryError(format!(\"serialize: {e}\"))\n  Line 1011: MemoryError(format!(\"deserialize after create: {e}\"))\n  Line 1223: MemoryError(format!(\"serialize email: {e}\"))\n  Line 1388: MemoryError(format!(\"blob not found: {blob_id}\"))\n  Line 1470: MemoryError(format!(\"deserialize source email: {e}\"))\n  Line 1510: MemoryError(format!(\"serialize copied email: {e}\"))\n\nTotal: zero MemoryError(e.to_string()) sites in mail-server (except one solitary case at line 1045 which is also a divergence). The contextualized form IS the canonical idiom in this workspace.\n\nWhat idiomatic Rust would do, in order of effort:\n\n(a) Replace each site with a context-bearing format!:\n    .map_err(|e| BackendSetError::Other(MemoryError(format!(\"create_object: to_value: {e}\"))))?\n\n(b) Add a helper:\n    impl MemoryError {\n        fn ctx<E: std::fmt::Display>(op: &'static str) -> impl FnOnce(E) -> Self {\n            move |e| MemoryError(format!(\"{op}: {e}\"))\n        }\n    }\n    ...\n    .map_err(MemoryError::ctx(\"create_object: to_value\"))?\n\nThe .to_string() pattern in filenode-server is also tied to the existing finding JMAP-510h.37 (MemoryError::Display interpolates raw inner string \u2014 security contract violation): once the inner string carries 'description: \"PASSWORD123\" \u2014 invalid character at line 1 column 14', any logged error leaks the offending content. The context-prefix form does not eliminate that, but it makes it easier to scrub specific sites without scrubbing all of them.\n\nCanonical-template rule: this is a regression from canonical, so the fix is in this crate alone. Mail-server already has the right pattern. No propagation needed.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.52",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryError(e.to_string()) drops operation context \u2014 canonical mail-server uses MemoryError(format!(\"op: {e}\"))",
+  "updated_at": "2026-05-15T10:47:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:15:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "57cfbdff-9cf9-5755-9eee-3d16c55dc876",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

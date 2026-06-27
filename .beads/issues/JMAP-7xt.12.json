@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-7xt.12",
+  "title": "BlobUploadResponse sha256 is draft-only, not RFC 8620",
+  "description": "RFC 8620 section 6.1 does not define a sha256 field in the blob upload response. The sha256 field in BlobUploadResponse comes from draft-atwood-jmap-cid. Callers may assume it is standard and rely on it being populated. If the draft changes the field name the struct shape changes as a breaking API change. The field should be documented as draft-extension-only or gated behind a cargo feature.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:20Z",
+  "updated_at": "2026-04-30T01:08:01Z",
+  "closed_at": "2026-04-30T01:08:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:19"
+    }
+  ]
+}

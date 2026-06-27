@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Dropped the account_id: Option<&Id> override from search_snippet_get for consistency with every other SessionClient method (commit d6df733). Updated rustdoc to call out the removed override + bead reference; updated README method table; updated tests/search_snippet_smoke_tests.rs to remove the override-specific test and adjust the two surviving tests to the new signature. Session-account binding is still implicitly covered by the two surviving wiremock tests (both assert args[accountId] matches helpers::make_client's session binding). Not canonical-template propagation \u2014 search_snippet is mail-spec-specific. Workspace pre-commit gate passed: fmt clean, clippy clean workspace-wide, 2881/2881 tests passed, rustdoc -D warnings clean.",
+  "closed_at": "2026-05-18T03:27:45Z",
+  "compaction_level": 0,
+  "content_hash": "3bf132e0ebf94c8cc34c5b67f158fa3aa536cd627bbc08eb5d66ce3df7d4f569",
+  "created_at": "2026-05-15T01:56:24Z",
+  "created_by": "Mark Atwood",
+  "description": "search_snippet.rs:30-39\n\n  pub async fn search_snippet_get(\n      &self,\n      account_id: Option<&Id>,                       // \u2190 unusual\n      filter: serde_json::Value,\n      thread_ids: Option<&[Id]>,\n      email_ids: Option<&[Id]>,\n  ) -> Result<serde_json::Value, jmap_base_client::ClientError> {\n      let (api_url, session_account_id) = self.session_parts()?;\n      let effective_account_id: &str =\n          account_id.map(AsRef::as_ref).unwrap_or(session_account_id);\n\nThis is the ONLY method on SessionClient that allows the caller to override the session's bound account_id. Every other method (email_*, mailbox_*, thread_*, identity_*, email_submission_*, vacation_*) calls session_parts() and uses the returned account_id unconditionally.\n\nThree contract questions the docstring (line 19-29) does not answer:\n\n  1. WHY does search_snippet_get allow account_id override?\n     The RFC 8621 \u00a75.1 spec for SearchSnippet/get does not differ from\n     other /get methods in this regard \u2014 every JMAP method takes\n     accountId in its arguments. The override is not a spec-mandated\n     feature; it is a design choice of this crate.\n\n  2. WHEN should a caller pass Some(account_id) vs None?\n     Per the JMAP threading model (RFC 8621 \u00a71.4.2), an Email's account\n     is determined by the mailbox it's in, and email_ids in SearchSnippet\n     queries are scoped to ONE account. A caller searching across\n     accounts cannot use this method to do so; they must construct\n     separate SessionClients per account (since session.primary_account_id\n     can only return one account per capability). So the override is\n     useful only when:\n     \n     (a) The session has multiple accounts and SearchSnippet/get should\n         target a non-primary one. But session_parts() always returns the\n         primary, so the override is the only way to target a non-primary.\n\n     (b) The caller wants to construct an ad-hoc account_id for testing\n         or proxy scenarios.\n\n  3. WHAT happens when account_id is None but session has no primary\n     account for mail? Per session_parts() this returns\n     ClientError::InvalidSession. The docstring doesn't surface this.\n\nIf the override is intentional, it should be intentional everywhere \u2014 every /get and /set method should allow account override for the same reason. If it's inconsistent because search_snippet was written first or last without revisiting the pattern, it should be removed for consistency.\n\nRecommendation: pick one design and apply uniformly.\n\n  Option A \u2014 drop the override on search_snippet_get for consistency:\n    \n    pub async fn search_snippet_get(\n        &self,\n        filter: ...,\n        thread_ids: ...,\n        email_ids: ...,\n    ) -> Result<...>\n\n  Option B \u2014 add the override to every method (or rather, add a public\n  with_account_id method on SessionClient that returns a scoped variant):\n\n    sc.with_account_id(non_primary_id).email_get(...)\n\n  Option A is the minimal-surface fix. Option B is the \"right\" answer\n  for multi-account scenarios but requires a design pass on SessionClient\n  shape.\n\nCross-reference: JMAP-tjvm.22 (no public accessors for session/account_id) \u2014 option B is the natural follow-up if option B is chosen here.\n\nPriority P2 because this is an inconsistency that callers WILL notice and ask about. Not a bug, but a contract gap.\n\nMark says NO HUMAN \u2014 Recommendation: option A (remove the override). The current override is not documented as a multi-account feature, and the design tension surfaced by question 2 above (one session = one account) means the override is not in fact useful for the obvious use case.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "search_snippet_get takes account_id: Option<&Id> override \u2014 inconsistent with all other methods which derive from session",
+  "updated_at": "2026-05-18T03:27:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:56:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "75bdc038-d146-5b97-950b-87997f8c3ad4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

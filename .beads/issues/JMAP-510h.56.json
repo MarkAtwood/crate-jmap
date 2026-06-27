@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T21:14:35Z",
+  "compaction_level": 0,
+  "content_hash": "3a601632f4ff2ff1f7f98391fec1b6188de8affd1436ddcabb886ada5891ad45",
+  "created_at": "2026-05-14T20:55:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/filenode.rs:849-1248 (handle_filenode_copy).\n\nRFC 8620 \u00a75.4 defines the standard `Foo/copy` method shape. Among the\ntop-level arguments it mandates:\n\n- `onSuccessDestroyOriginal: Boolean` (default false). \"If true, an\n  attempt will be made to destroy the original records that were\n  successfully copied: after emitting the Foo/copy response, but\n  before processing the next method, the server MUST make a single\n  call to Foo/set to destroy the original of each successfully\n  copied record.\"\n- `destroyFromIfInState: String|null`. Passed as `ifInState` to the\n  implicit Foo/set call when destroying the originals.\n\ndraft-ietf-jmap-filenode-13 \u00a73.2.4 says \"This is a standard Foo/copy\nfunction with the same additional top-level arguments as FileNode/set,\nonDestroyRemoveChildren and onExists, with the same behaviour.\" The\n\"standard Foo/copy\" wording incorporates the RFC 8620 \u00a75.4 contract by\nreference, including the two arguments above.\n\nCurrent handler behaviour:\n\n- `onSuccessDestroyOriginal` is never read from `args`. A client that\n  sends `{ ..., \"onSuccessDestroyOriginal\": true }` gets the source\n  records LEFT IN PLACE despite the spec MUST. The client believes\n  the move was atomic-ish; the originals leak.\n- `destroyFromIfInState` is never read. Even if a consumer manually\n  wired an implicit Foo/set destroy as a follow-up `Invocation`,\n  there is no path to forward the from-side state guard.\n\nConcrete failure mode: a client uses FileNode/copy with\n`onSuccessDestroyOriginal: true` to move a node from account A to\naccount B. The handler ignores the flag, so the node exists in both\naccounts. Subsequent FileNode/changes calls on account A do not show\nthe node as destroyed because it never was. The client either\ndouble-handles or silently leaks N source records per Foo/copy call.\n\nRequired fix:\n\n1. Parse both args from the request envelope.\n2. When `onSuccessDestroyOriginal=true`, emit a follow-up `Invocation`\n   into the returned `tail` Vec carrying `FileNode/set` with `destroy:\n   [<successfully-copied-source-ids>]` and `ifInState:\n   destroyFromIfInState` (the per-RFC mandate to issue the\n   destruction as a real method call, not internally). The dispatcher\n   then processes that invocation as part of the same request.\n3. Document that the destroy is server-emitted (not client-emitted)\n   so consumers' middleware doesn't double-count.\n\nRisk: this is a real interop hazard. Any client built against the\nJMAP spec expects `onSuccessDestroyOriginal` to work; the current\nsilent-ignore is a wire-protocol compliance gap.\n\nLABELS: api-contract, underspecified, spec",
+  "ephemeral": 0,
+  "id": "JMAP-510h.56",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_filenode_copy ignores onSuccessDestroyOriginal and destroyFromIfInState (RFC 8620 \u00a75.4 standard Foo/copy args)",
+  "updated_at": "2026-05-14T21:14:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:55:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "0881c0cd-94b4-5b7b-9959-bbcef038a52f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

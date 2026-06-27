@@ -1,0 +1,23 @@
+{
+  "close_reason": "all steps complete",
+  "closed_at": "2026-05-05T18:34:35Z",
+  "compaction_level": 0,
+  "content_hash": "2db66dca15adb58c46ab8fdc218492cb809671cd81b012751048a3670dc5b909",
+  "created_at": "2026-05-05T17:28:27Z",
+  "created_by": "Mark Atwood",
+  "description": "ClosureHandler<B> in jmap-server receives CallerCtx in JmapHandler::call but does not forward it to the handler closure. BackendCallFn<B> is typed as Fn(Arc<B>, String, Value) -> HandlerFuture with no CallerCtx parameter. All seven register_*_handlers functions build closures with this shape and silently discard the caller context.\\n\\nFix: Add a CallerCtx-aware variant \u2014 either generalize ClosureHandler to ClosureHandler<B, C> with BackendCallFnWithCtx<B, C>, or add a parallel type. Then update all seven register_*_handlers functions to forward CallerCtx to each handler closure.\\n\\nThis is a breaking API change (changes the closure shape of all register_*_handlers). Ship all 8 crates simultaneously.\\n\\nAffected crates: jmap-server, jmap-mail-server, jmap-chat-server, jmap-contacts-server, jmap-calendars-server, jmap-sharing-server, jmap-tasks-server, jmap-filenode-server.",
+  "ephemeral": 0,
+  "id": "JMAP-exue",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CallerCtx forwarding through register_*_handlers",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

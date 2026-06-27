@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "776c4dcdef49c503f73949efd93e88d67590d4b8da1e30400f26175faa92ca4c",
+  "created_at": "2026-05-14T03:14:48Z",
+  "created_by": "Mark Atwood",
+  "description": "Two related kit-completeness gaps emerging from this review:\n\n(1) src/permissions.rs declares MANAGE_SPACE, MANAGE_ROLES, MANAGE_MEMBERS, MANAGE_CHANNELS. The spec lists more: ban (used by SpaceBan/set per draft line 1314), manage_emoji (referenced in the may_set_custom_emoji doc \u2014 but not actually defined here). When permission enforcement lands for those other ops, the constants need to live here for consistency, and required_permissions_for_op needs to map them.\n\n(2) SpaceInvite is registered with get/changes/set in lib.rs:242-250, but draft \u00a7SpaceInvite Methods (lines 1280-1298) does not actually define /query or /queryChanges \u2014 confirmed correct. SpaceBan is registered with get/changes/set in lib.rs:253-261, same coverage. These look right.\n\nBut: PresenceStatus is registered with get/changes/set (lib.rs:281-289). Per spec \u00a7PresenceStatus (if it exists), is /query supported? Need to check whether the kit's coverage matches the spec \u2014 this review didn't surface the answer.\n\nThe maintainer burden lens: the kit's lib.rs is the canonical registration surface. There's no compile-time check that 'every method the spec defines is registered' (and only those). A future spec edit that adds a method (e.g. SpaceInvite/redeem) would land in the spec, no one would notice, and the kit silently lacks the handler until someone discovers via integration test or end-user complaint.\n\nMitigation: add a spec-driven test that walks a canonical list of (type, method) tuples from draft-atwood-jmap-chat-00 and asserts dispatcher.has_handler(method_name) for each. The list lives in tests/spec_method_coverage.rs and is updated when the spec is updated. A future spec audit bead would file beads for each new (type, method) tuple that comes in.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "in_progress",
+  "timeout_ns": 0,
+  "title": "Spec compliance: SpaceInvite & SpaceBan have NO query/queryChanges; permissions module has no BAN constant \u2014 extension surface is incomplete",
+  "updated_at": "2026-05-14T04:54:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:14:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "b932f334-59f0-533f-8798-cf6dc020cfea",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

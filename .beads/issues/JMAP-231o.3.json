@@ -1,0 +1,34 @@
+{
+  "close_reason": "Subsumed by JMAP-6by7 (0.2.0 typed-Id epic). State-field migration is part of the broader typed-parameter pass; tracked in JMAP-6by7.1 (calendars-client reference impl).",
+  "closed_at": "2026-05-09T07:09:26Z",
+  "compaction_level": 0,
+  "content_hash": "f5aee54fa874c97d1814972580ff9185cc8b69936a90cbd250802f1dc2a5caf3",
+  "created_at": "2026-05-08T03:11:56Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:31,41,54,55,71,72,104,105 \u2014 every `state`, `old_state`, `new_state`, `query_state`, `old_query_state`, `new_query_state` field is typed `String`. jmap-types exports `State` (a transparent `#[non_exhaustive]` newtype over String, RFC 8620 \u00a71.2), specifically intended for these fields.\n\nSame for the method args: `since_state: &str`, `since_query_state: &str` in calendar.rs:47, event.rs:60, event.rs:162, event_notification.rs:48, event_notification.rs:153, participant_identity.rs:38. The PLAN.md (lines 113-115, 142, 195, 244, 264) explicitly typed these as `&State` \u2014 the implementation diverged from the plan.\n\nConsequence: callers cannot use type-system to prevent mixing up `Id` and `State` strings. Echoing back `response.state` to `since_state` round-trips through `String` losing semantic identity.\n\nCross-crate note: jmap-mail-client/src/methods/mod.rs has identical `String` typing. Same comment about lock state applies.\n\nThis is a Section 1 maintainer-burden flag, not a correctness flag \u2014 it works today, but the type system is not earning its keep on the most-handled tokens in the API.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Subsumed by JMAP-6by7 (the 0.2.0 typed-Id epic). Migration to State newtype is part of the broader typed-parameter pass across *-client crates. Will be addressed in JMAP-6by7.1 (calendars-client reference impl).",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "state fields are String, jmap-types provides State newtype",
+  "updated_at": "2026-05-09T07:09:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:11:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "76b0990e-ea32-52a1-8dad-1e780adf3d7e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-4xv.3",
+  "title": "QueryObject for Mailbox uses MailboxFilterCondition but handler never calls query_objects::<Mailbox>",
+  "description": "handle_mailbox_query calls get_objects::<Mailbox> (fetch all) and filters in-process. It never calls backend.query_objects::<Mailbox>. The QueryObject impl for Mailbox now specifies MailboxFilterCondition as Filter type, but no handler passes it to the backend. Backend implementors who implement query_objects::<Mailbox> with proper MailboxFilterCondition filtering will find their implementation dead code \u2014 the handler bypasses it entirely. This is a public trait method that leads implementors to invest in work that is never exercised.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:58:00Z",
+  "updated_at": "2026-05-01T03:07:28Z",
+  "closed_at": "2026-05-01T03:07:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-4xv",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:58:00"
+    }
+  ]
+}

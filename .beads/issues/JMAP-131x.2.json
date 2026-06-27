@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "compute_task_utc_times added. utcStart/utcDue wired into Task/get.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added compute_task_utc_times to TasksBackend with default (None,None) impl; expanded handle_task_get to call it when utcStart/utcDue in properties; 2 new utcStart tests; 19 tests pass; clippy clean",
+  "closed_at": "2026-05-05T04:08:11Z",
+  "compaction_level": 0,
+  "content_hash": "91adf971a363655f82bcea93c5a876e9e0ed506e6ec33615ef9cebf3e664284b",
+  "created_at": "2026-05-05T03:02:01Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Draft-tasks-06 \u00a74 lines 739-772 says utcStart and utcDue are computed at fetch time from start+timeZone and due+timeZone. Currently handle_task_get delegates wholesale to jmap_server::handlers::handle_get with no utcStart/utcDue computation.\n\n**Algorithm:**\n1. Add to TasksBackend:\n   fn compute_task_utc_times(&self, task: &Task, tz_hint: Option<&str>) -> (Option<String>, Option<String>);\n   Provided default impl returns (None, None) \u2014 backward compatible.\n2. Change handle_task_get from a one-liner to a full function:\n   a. Parse properties and timezone hint from args.\n   b. Call backend.get_objects::<Task>(&account_id, ids, properties).\n   c. If \"utcStart\" in requested properties (or properties is None \u2014 fetch all): call compute_task_utc_times for each task and set task.utc_start.\n   d. Similarly for \"utcDue\".\n   e. Return augmented list.\n3. Extend MockBackend: implement compute_task_utc_times returning a fixed test value.\n\n**Tests:**\n- get with properties not including utcStart \u2192 returned task has no utcStart.\n- get with properties including utcStart \u2192 compute_task_utc_times called and result in task. Oracle: \u00a74 'not included by default, must be requested explicitly'.\n- Default impl returns (None, None); fields absent from response.\n\n**Acceptance criteria:**\n- TasksBackend::compute_task_utc_times has default impl returning (None, None).\n- cargo test -p jmap-tasks-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-131x.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add compute_task_utc_times to TasksBackend; wire into Task/get",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:02:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-131x",
+      "id": "e6326e2c-1845-582b-8d37-6d550843dda5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

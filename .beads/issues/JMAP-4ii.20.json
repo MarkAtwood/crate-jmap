@@ -1,0 +1,33 @@
+{
+  "close_reason": "moved to helpers.rs, explicit import in both callers",
+  "closed_at": "2026-05-02T06:42:14Z",
+  "compaction_level": 0,
+  "content_hash": "7bc886b623d575b915db68c11a1fe99144b8b65e467e2a62cff267c0f6b3adf9",
+  "created_at": "2026-05-02T03:56:25Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs calls crate::email::find_immutable_patch_key \u2014 a pub(crate) function in email.rs. This creates an invisible dependency: the email module's patch validation logic must stay in sync with whatever submission.rs expects. If find_immutable_patch_key is renamed, its return type changes, or it moves, submission.rs breaks silently until compile time. This coupling should be made explicit: either move the function to helpers.rs where both modules can import it, or document it as part of the email module's stable internal interface.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_immutable_patch_key cross-module coupling without public interface",
+  "updated_at": "2026-05-02T06:42:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:56:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "109bdd33-6af6-5345-a6df-29b61ec93138",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already-done \u2014 anti-pattern 4 (might already be done) ratified.\n\nThe bead's recommended option (a) \u2014 'add Clone to the five canonical mail-client params structs \u2026 Document the policy in mail-client's PLAN.md or AGENTS.md' \u2014 shipped workspace-wide via:\n\n- commit b30ec78 (bd:JMAP-tjvm.35, closed): added Clone to 10 non-lifetimed Params structs across canonical mail-client (EmailGetParams, EmailCopyParams, MailboxSetParams, EmailSubmissionSetParams, EmailParseParams) plus 5 sibling extension-client crates.\n- commit 2152d17 (bd:JMAP-tjvm.39, closed): added Clone to the remaining 20 borrowed-lifetime *Input structs across chat-client and mail-client (EmailImportInput<'a> plus 19 chat *Input<'a>).\n\nVerified now: canonical EmailGetParams at crate-jmap-mail-client/src/methods/mod.rs derives Clone; CalendarEventGetParams at crate-jmap-calendars-client/src/methods/mod.rs also derives Clone (had it pre-existing, kept it). Workspace policy resolved in the calendars direction; canonical was brought into alignment; no divergence remains.\n\nClosed without human escalation per workspace AGENTS.md 'When NOT to file human' rule 4.",
+  "closed_at": "2026-05-17T21:07:55Z",
+  "compaction_level": 0,
+  "content_hash": "18ea9a6dc04886683e1de7f02df879ebf039e200fafd8cc972a599731f15838f",
+  "created_at": "2026-05-15T01:20:08Z",
+  "created_by": "Mark Atwood",
+  "description": "## What the code does\n\n`CalendarEventGetParams` carries `#[derive(Debug, Clone, Default)]` at crate-jmap-calendars-client/src/methods/mod.rs:102.\n\nThe canonical sibling `EmailGetParams` at crate-jmap-mail-client/src/methods/mod.rs:40 carries `#[derive(Debug, Default, serde::Serialize)]` \u2014 explicitly no `Clone`. Same pattern across the other canonical params structs: `EmailCopyParams` (mod.rs:67), `MailboxSetParams` (mod.rs:87), `EmailSubmissionSetParams` (mod.rs:111), `EmailImportInput` (mod.rs:147), `EmailParseParams` (mod.rs:253). None of them derive `Clone`.\n\n## What idiomatic Rust would do\n\nConsidering the signature side: `calendar_event_get` takes `params: Option<CalendarEventGetParams>` by value (consumes the struct). `email_get` takes `params: Option<EmailGetParams>` by value too. In both cases, a caller who wants to reuse the same params for multiple calls (e.g. a paginated fetch loop) needs `Clone` to avoid rebuilding the struct each time:\n\n```rust\nlet params = CalendarEventGetParams { expand_recurrences: Some(true), ..Default::default() };\nfor chunk in id_chunks {\n    let _ = sc.calendar_event_get(Some(&chunk), None, Some(params.clone())).await?;\n}\n```\n\nThe calendars-client `Clone` derive supports this. The canonical mail-client does NOT \u2014 callers must rebuild the struct each iteration, or move-and-return via a helper, or wrap the params in their own Clone-able newtype. So the calendars-client direction is the better idiom.\n\n## Why it matters\n\nThis is the canonical-template divergence direction that goes the *right* way \u2014 calendars-client made the better choice, and the divergence indicts the canonical, not the sibling. The workspace AGENTS.md propagation rule covers this: when a sibling diverges in a direction the canonical should adopt, the rule is \"change the canonical first, then propagate\".\n\nEngineering basis:\n\n1. Params structs are pure data \u2014 `Clone` is free, cheap, and zero-cost (the fields are `Option<bool>`-shaped, no allocations).\n\n2. Real callers DO want to reuse params across multiple `/get` calls in a paginated or fan-out scenario. The current canonical pattern forces a rebuild per call.\n\n3. Adding `Clone` to a public struct in a future canonical-template sweep is non-breaking. Removing it would be breaking. So the right time to settle the idiom is now, before the canonical ships at 0.1.x and the absence becomes the established contract.\n\n## Filing as opinion-adjacent but not opinion\n\nThis is borderline taste \u2014 the canonical's omission of `Clone` is defensible (don't pay for what you don't use, smaller derive footprint). The calendars-client direction is also defensible (data structs should be `Clone` by default). The engineering argument is the canonical-template consistency: pick a workspace-wide policy. Currently calendars-client diverges silently with no documented rationale.\n\n## Fix shape\n\nOption A (preferred \u2014 calendars direction wins): add `Clone` to the five canonical mail-client params structs (`EmailGetParams`, `EmailCopyParams`, `MailboxSetParams`, `EmailSubmissionSetParams`, `EmailParseParams`). Note `EmailImportInput<'a>` already cannot derive `Clone` cleanly because of the borrowed-slice field \u2014 leave that one. Document the policy in mail-client's PLAN.md or AGENTS.md.\n\nOption B: drop `Clone` from `CalendarEventGetParams` to match canonical. Lossier for callers but simpler propagation.\n\nEither way, decide once at the workspace level so the canonical-template propagation rule is honoured.\n\n## Source citations\n\n- crate-jmap-calendars-client/src/methods/mod.rs:102 (Clone derive)\n- crate-jmap-mail-client/src/methods/mod.rs:40, 67, 87, 111, 253 (canonical without Clone)",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "`CalendarEventGetParams` derives `Clone`; canonical `EmailGetParams` does not \u2014 direction is right but the divergence is undocumented",
+  "updated_at": "2026-05-17T21:07:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:20:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "b39f9881-0f52-5846-b0c9-5314b5af8f60",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

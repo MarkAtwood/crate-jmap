@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Backend-side isDraft re-check added to MemoryBackend.update_object at memory.rs:723-737: checks O::TYPE_NAME == Task + existing isDraft=false + patch isDraft=true, rejects with SetError(InvalidProperties, properties=[isDraft]) \u2014 same wire shape the handler produces. enforce_is_draft_atomically overridden to return true so the handler skips its pre-fetch fast-path. Integration test task_set_isdraft_revert_rejected_by_memory_backend in tests/tasks_tests.rs exercises the end-to-end Task/set\u2192backend enforcement path with the spec as oracle. 41 unit + 15 integration tests green. The reference impl now models the workspace-canonical 'backend-canonical' posture instead of teaching consumers the foot-gun shape.",
+  "closed_at": "2026-05-14T18:58:31Z",
+  "compaction_level": 0,
+  "content_hash": "dd5d8a572fac01fcba3c098dca0ec87d968ea9bd0ac4e4280355374740545f76",
+  "created_at": "2026-05-14T18:05:39Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:650-706 implements update_object as a generic JSON-merge-patch with no Task-specific invariants. The crate doc on memory.rs:9-12 explicitly positions it as 'a documented, complete, source-readable implementation of the TasksBackend trait to study when writing a real (database-backed) backend'. A consumer copying that pattern as a starting point will produce a backend that silently accepts {isDraft: true} on a published Task, because: (1) the reference impl returns enforce_is_draft_atomically() = false (default) \u2014 so a downstream backend inheriting that default expects the handler to pre-fetch; (2) the handler-side pre-fetch is the only defense; (3) the AGENTS.md 'Permission enforcement: backend canonical' section says 'a handler that trusts a handler-side check and skips the backend re-check is a bug' \u2014 that workspace policy is violated by the reference impl. Scenario triggering the cost: contributor X writes BackendY with a SQL UPDATE in update_object, ships it, the spec's \u00a74 'once set to false, isDraft cannot be updated to true' requirement is silently breached for any caller that races the pre-fetch with a concurrent /set. Filed as P1 because the public-API impact is to teach the wrong defensive shape \u2014 not a bug in this codebase per se but a foot-gun amplified by reference-impl status. Recommended remediation: either (a) add an isDraft re-check inside MemoryBackend.update_object<Task> (small specialization), or (b) add a prominent rustdoc on the method explaining that production backends MUST re-verify the isDraft invariant atomically and that this reference impl relies on the handler's pre-fetch path.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.update_object teaches consumers to skip isDraft enforcement",
+  "updated_at": "2026-05-14T18:58:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:05:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "25c2ade9-0dfa-5efc-893c-09c5af5cd2ce",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

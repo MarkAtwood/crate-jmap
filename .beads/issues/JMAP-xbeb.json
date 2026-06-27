@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b6abd92b9327aabc4ebdbf7dc2bb72dc64d81ca705816dd0055e4f14c6b2beaf",
+  "created_at": "2026-05-15T10:57:38Z",
+  "created_by": "Mark Atwood",
+  "description": "Consolidates the workspace-wide propagation work surfaced by JMAP-510h's review pass:\n\n- JMAP-510h.44 \u2014 FileNodeBackend trait doc lacks an auth-contract block (principal_id / shareWith semantics). Mail-server's trait doc has nothing equivalent either.\n- JMAP-510h.40 \u2014 handle_filenode_* public fns have one-sentence doc, no contract (arg shape, JmapError variants, return-envelope shape, permission-check ownership). Mail-server's handle_email_* is the same.\n- JMAP-510h.39 \u2014 top-level pub use re-exports of upstream jmap-server types lock jmap-server's major version into this crate's public surface. Includes types that no external consumer needs (AddedItem, ClosureHandler, FileNodeProperty). Mail-server has the same shape.\n\nPer workspace AGENTS.md 'Canonical Templates' rule, these are canonical-first fixes:\n\n1. Add to canonical jmap-mail-server:\n   - MailBackend trait header doc block: principal_id seam citation, per-method enforcement (create/update/destroy authorization against shareWith / myRights), handler-does-no-authz contract, jmap-sharing-server relationship.\n   - handle_email_* (8 handlers) docstring contract: arg shape pointer to RFC 8621 \u00a7X.Y, possible JmapError variants, return envelope, permission-check ownership.\n   - Audit top-level re-exports: keep what consumers of MailBackend actually need (trait bounds, error types). Move ClosureHandler / AddedItem / etc. behind #[doc(hidden)] or into a sub-module. Decide whether re-exports go to lib root or to a namespaced sub-module.\n\n2. Propagate the same shape to the 6 extension-server siblings: chat, calendars, tasks, contacts, filenode, sharing, metadata. Same trait header block, same handler doc contract template, same re-export audit per crate.\n\n3. Each sibling has the same three children:\n   .1 = trait doc auth-contract block\n   .2 = handler docstring contracts\n   .3 = re-export audit + sub-module reorganization\n\nDecomposition would produce 1 canonical + 7 siblings \u00d7 3 children = ~22 child beads. Workspace-coordinated change, P2.\n\nCross-references:\n- JMAP-510h.44 (filenode trait doc)\n- JMAP-510h.40 (filenode handler docs)\n- JMAP-510h.39 (filenode re-exports)\n\nThese three beads remain open under the JMAP-510h review epic and would close once their respective filenode-server children land under this propagation epic.",
+  "ephemeral": 0,
+  "id": "JMAP-xbeb",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace propagation epic: extension-server trait + handler + re-export contract sweep",
+  "updated_at": "2026-05-15T10:57:38Z"
+}

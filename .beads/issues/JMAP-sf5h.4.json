@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in 9eb89d7. Renamed Sha256::from_bytes to from_raw_digest with expanded docstring emphasising the input-vs-output distinction. Tests, PLAN.md, README.md, and lib.rs doc references updated. Workspace fmt/clippy/test/check all clean. Pre-v0.1.0 \u2014 no external consumers, no deprecation cycle needed. Note: related findings .19 (From<[u8; 32]> impl) and .20 (redundant conversion API with into_inner/From) remain open and may further reshape this surface; renaming first is forward-compatible with either resolution.",
+  "closed_at": "2026-05-16T04:08:29Z",
+  "compaction_level": 0,
+  "content_hash": "60fcffc5514683ecea6317563800cf3625d13293b61c83ce3b09e7750070e7fa",
+  "created_at": "2026-05-16T03:40:52Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-cid-types/src/digest.rs:133 defines pub fn from_bytes(b: &[u8; 32]) -> Self that formats 32 raw SHA-256 digest bytes into the lowercase-hex wire form. The name 'from_bytes' on a type called Sha256 is a footgun: a contributor or downstream user could plausibly read 'Sha256::from_bytes(&data)' as 'compute the SHA-256 of these bytes' \u2014 the same way reqwest, sha2, ring, and md5 crates expose their hashers. They would build it (the type signature forces &[u8; 32], so they cannot pass a blob), but a wrapper or helper they write next will silently truncate or pad. Once published this rename costs a deprecation cycle. Two better names: from_digest_bytes(&[u8; 32]) or from_raw_digest(&[u8; 32]). Either makes 'this is the OUTPUT of a digest function, not the INPUT' unambiguous. Doc on the function already says 'Format 32 raw digest bytes' \u2014 pull that distinction into the name. Spec text in lib.rs/digest.rs \u00a7'This crate intentionally carries no SHA-256 computation' reinforces the design intent. Worth doing in v0.1.x before consumers fossilize the call sites.",
+  "ephemeral": 0,
+  "id": "JMAP-sf5h.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sha256::from_bytes(&[u8; 32]) name is ambiguous \u2014 reads as 'compute digest of bytes'",
+  "updated_at": "2026-05-16T04:08:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T20:40:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sf5h",
+      "id": "0da6a7ac-d535-5225-91c0-83e76476482a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

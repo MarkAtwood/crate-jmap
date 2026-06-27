@@ -1,0 +1,42 @@
+{
+  "acceptance_criteria": "4 EmailSubmission/set wiremock tests pass. onSuccessUpdateEmail wire path verified.",
+  "close_reason": "Child JMAP-3cmx.4.1 completed \u2014 4 submission_set.rs wiremock tests done",
+  "closed_at": "2026-05-05T03:49:24Z",
+  "compaction_level": 0,
+  "content_hash": "235d405819aa75a8f579a2569c8b828eaeec7e165d45440e2a5ae56579d1785c",
+  "created_at": "2026-05-05T02:55:22Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-mail-client/tests/submission_set.rs. Key test: verifying onSuccessUpdateEmail wire path (RFC 8621 \u00a77.5, the unique feature of EmailSubmission/set). Oracle: RFC 8621 \u00a77.5.1 example (lines 4715-4732).\n\n**Tests:**\n1. email_submission_set_create_round_trip: assert resp.created[\"k1490\"].id correct.\n2. email_submission_set_on_success_update_email: pass onSuccessUpdateEmail = {\"#k1490\":{\"keywords/$draft\":null}}; assert request body contains onSuccessUpdateEmail key with creation reference \"#k1490\". Oracle: RFC 8621 \u00a77.5.\n3. email_submission_set_no_on_success_when_none: pass params=None; assert request body does NOT contain onSuccessUpdateEmail or onSuccessDestroyEmail keys.\n4. email_submission_set_destroy_with_guard: pass destroy with empty string; assert InvalidArgument before network call.\n\n**Acceptance criteria:** All 4 tests pass. onSuccessUpdateEmail with creation reference verified.",
+  "ephemeral": 0,
+  "id": "JMAP-3cmx.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: EmailSubmission/set with onSuccessUpdateEmail",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:55:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx.1",
+      "id": "86955dc6-f863-552f-bafb-c3100083d7b8",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:55:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx",
+      "id": "9aa21cf3-873d-5360-bf4a-c0672cc8183c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

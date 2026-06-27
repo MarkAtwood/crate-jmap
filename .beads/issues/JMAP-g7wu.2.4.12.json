@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T162003Z-2147161",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-12T16:25:45Z",
+  "compaction_level": 0,
+  "content_hash": "aef5efd7026fc9a182df60a6c9df5fb5f0d6d8b628b5365656f99280abda06db",
+  "created_at": "2026-05-12T16:11:43Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec author (Mark) reversed the previously-locked-in single-owner design for Space. The new spec direction: the JMAP Chat draft will NOT declare a normative ownership field on the `Space` object; \"who controls a Space\" is implementation-defined / out-of-band. The Space type, the `Space/set` create-arm, and the `SPACE_READONLY` list need to revert to the pre-cd89717 shape.\n\nSee JMAP-g7wu.2.4.11 NOTES for the 2026-05-11 lock-in and 2026-05-12 reversal trail.\n\n## What to revert (workspace commit cd89717)\n\n1. **jmap-chat-types** (`crate-jmap-chat-types/src/space.rs`):\n   - Remove the `owner_id: Id` field from `Space`.\n   - Revert `Space::new` from 11 args back to 10.\n   - Remove the `space_owner_id_round_trips` test.\n   - Revert the 3 existing test JSON fixtures that were updated to include `ownerId`.\n\n2. **jmap-chat-server** (`crate-jmap-chat-server/src/memory.rs`):\n   - Revert `handle_space_set` create-arm: remove the `B::principal_id(caller).cloned().unwrap_or_else(|| account_id.clone())` owner assignment.\n   - Remove `\"ownerId\"` from the `SPACE_READONLY` list.\n\n3. **crate-jmap-chat-server/PLAN.md**:\n   - Remove the \"Reserved for future spec work\" section that pointed at JMAP-pep4. Note: JMAP-pep4 was referenced in comment trails but was never actually created as a bead, so there is no bead to close.\n\n## Acceptance\n\n- Single revert commit named `revert: Space.ownerId per spec author redirect to implementation-defined ownership`.\n- `cargo test --workspace` passes.\n- `cargo clippy --workspace -- -D warnings` clean.\n- `RUSTDOCFLAGS='-D warnings' cargo doc --no-deps -p jmap-chat-types -p jmap-chat-server -p jmap-chat-client` clean.\n- `grep -ri 'owner_id\\|ownerId' crate-jmap-chat-types crate-jmap-chat-server crate-jmap-chat-client` returns zero matches (or only matches in PLAN.md / AGENTS.md that are explicit historical references with a \"removed per JMAP-...\" annotation).\n- bd:JMAP-g7wu.2.4.3's acceptance criteria no longer reference `owner_id` (re-scoped separately as part of this design pivot).\n\n## Out of scope\n\n- The spec-side edit (Mark hands a prompt to the spec-repo opencode separately).\n- Re-scoping bd:JMAP-g7wu.2.4.3 acceptance criteria (separate metadata change, lands as part of the design-pivot cleanup but is not part of this code revert).\n- Designing replacement \"server-defined destroy authorization\" and \"last-admin-removal protection\" hooks. Those are part of the re-scoped .4.3 work.\n",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.2.4.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Revert Space.ownerId workspace impl \u2014 spec author redirected to implementation-defined ownership",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-12T09:11:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4",
+      "id": "62c70086-5db9-5194-b2d5-19736a99f549",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

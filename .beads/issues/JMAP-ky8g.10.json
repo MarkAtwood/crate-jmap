@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed per recommendation across 12 jscalendar-types sub-types + CalendarAlert in calendars-types. Bare-String shape preserved (workspace canonical-template + RFC 8984 mandatory marker); each site gained a per-type serde-default fn supplying the RFC 8984-mandated literal so vendor input or partial fixtures missing @type no longer fail the parent object's deserialize. 14 new regression tests in jscalendar-types (12 per-type defaults + Participant explicit-value round-trip including validate_at_type Err path + Alert-wrapping-OffsetTrigger nested-parent) and 2 in calendars-types (CalendarAlert defaults + explicit-value round-trip). Acceptance grep clean: zero bare-String '@type' sites remain in either crate (workspace-wide one remaining hit is WsRequestFrame in jmap-base-client which is Serialize-only with &'static str \u2014 out of scope, hazard does not apply). AlertTrigger manual dispatch intentionally NOT touched \u2014 its missing-@type fallback to AlertTrigger::Unknown is correct per RFC 8984 \u00a74.5.2 preserve-mandate. Workspace gates: cargo fmt, clippy --workspace -D warnings, test --workspace, and RUSTDOCFLAGS=-D warnings cargo doc all clean. Commit c1d6520.",
+  "closed_at": "2026-05-17T15:51:47Z",
+  "compaction_level": 0,
+  "content_hash": "000aaa0e0672891295c6f09b737a8d71f44602bfc336bf00e54b2d163574d886",
+  "created_at": "2026-05-17T15:32:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace propagation follow-up from bd:JMAP-ky8g.1. Same hazard documented there exists on every JSCalendar sub-type that declares `@type` as bare `String` without a serde-default function. Confirmed sites:\n\n**jmap-jscalendar-types** (crate-jmap-jscalendar-types/src/lib.rs) \u2014 12 sub-types: NDay, RecurrenceRule, Location, VirtualLocation, Link, Relation, Participant, OffsetTrigger, AbsoluteTrigger, Alert, TimeZoneRule, TimeZone. All carry `#[serde(rename = \"@type\")] pub at_type: String` with no default. A vendor server (or partial fixture) shipping any of these sub-types without `@type` fails the whole parent JSCalendar object's deserialize.\n\n**jmap-calendars-types** (crate-jmap-calendars-types/src/notification.rs:134) \u2014 at least one CalendarNotification-adjacent sub-type carries the bare-String shape. Audit needed.\n\n**jmap-contacts-types / jmap-jscontact-types** \u2014 out of scope for this bead. jscontact-types AGENTS.md documents an intentional Option<String> divergence (RFC 9553 \u00a71.3.4 allows defaultType @type omission); the jscontact pattern already handles the missing-@type case.\n\n**Recommended fix** (mirror bd:JMAP-ky8g.1 landing): for each sub-type, keep `pub at_type: String` but add `default = \"<typename>_at_type_default\"` to the serde attr and provide a free-function `fn <typename>_at_type_default() -> String { \"<TypeName>\".to_owned() }`. Add one regression test per type asserting (a) deserialize succeeds when `@type` is absent and the field equals the literal; (b) explicit non-default values round-trip verbatim.\n\n**Out of scope**: Task / CalendarEvent / TaskList / Calendar top-level JMAP objects. Those use `Option<String> + skip_serializing_if` for RFC 8620 \u00a75.1 partial-response correctness \u2014 the policy is documented divergence, not a hazard.\n\n**Acceptance**: every `#[serde(rename = \"@type\")] pub at_type: String` site in jscalendar-types and calendars-types (excluding the top-level JMAP types) carries either an Option<String> wrapper OR a serde-default function. Workspace grep confirms zero remaining bare-String-no-default `@type` sites in JSCalendar sub-types. Regression tests added per type.",
+  "ephemeral": 0,
+  "id": "JMAP-ky8g.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Workspace sweep: required @type on JSCalendar sub-types fails partial responses",
+  "updated_at": "2026-05-17T15:51:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T08:32:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ky8g",
+      "id": "e0f37934-a77a-5729-adcb-04fc17f4d6b3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

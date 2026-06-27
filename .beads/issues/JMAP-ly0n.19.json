@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in ab4804f (batch). See commit message for per-bead details.",
+  "closed_at": "2026-05-16T03:27:42Z",
+  "compaction_level": 0,
+  "content_hash": "7a3f1a7b2d7cd38b805823b75519d5b9393a4f295bb33624969aaf7d310b940c",
+  "created_at": "2026-05-16T02:48:49Z",
+  "created_by": "Mark Atwood",
+  "description": "SECTION: Documentation as contract\n\nCONTRACT RISK\nThree fields on Message all encode some aspect of \"did this message\nget delivered?\":\n\n  src/message.rs  Message.delivery_state: DeliveryState\n                  required, enum: Pending / Delivered / Failed /\n                  Received / Other(String)\n\n  src/message.rs  Message.delivered_at: Option<UTCDate>\n                  optional timestamp\n\n  src/message.rs  Message.delivery_receipts: Option<HashMap<String, DeliveryReceipt>>\n                  optional per-recipient receipts, each carrying its\n                  own delivered_at / device_delivered_at / read_at /\n                  read_disposition\n\nEach field's doc says only \"The `<name>` property\n(draft-atwood-jmap-chat-00 \u00a74.11).\" There is no statement of which\nfield is authoritative when they disagree, or what the relationship\nbetween them is supposed to be:\n\n- If delivery_state == DeliveryState::Pending, can delivered_at still\n  be Some(...)? Should it be?\n- If delivery_receipts is Some(_) and one or more receipts have a\n  delivered_at, must delivered_at on the parent Message also be\n  Some(_)?\n- If delivery_state == Delivered but delivery_receipts is None, what\n  does the caller infer? \"We don't track per-recipient\" vs \"All\n  receipts are pending\"?\n- Same question stack for read_at vs delivery_receipts.read_at.\n\nWHAT BREAKS FOR CALLERS\nA caller writing a delivery-status UI must either:\n  (a) consult all three fields and decide its own primacy rules\n      (likely diverging from other implementations), or\n  (b) consult one field and ignore the others (silently mis-reporting\n      when they conflict).\n\nThis is doubly important because DeliveryState carries an\nOther(String) catch-all (JMAP-ly0n already covers forward-compat for\nresult enums) \u2014 a state the caller doesn't know how to interpret\ncombined with timestamps it doesn't know how to weight is a\ndefensive-code minefield.\n\nThe mode-prompt review did not flag this. None of JMAP-ly0n.1\nthrough JMAP-ly0n.13 addresses the multi-source-of-truth question\nfor Message delivery fields.\n\nRECOMMENDED RESOLUTION\nAdd a #[doc] block at the top of struct Message (or on\nDeliveryState) that establishes the contract:\n\n  /// # Delivery status fields\n  ///\n  /// Three fields encode delivery status; their relationship is:\n  ///\n  /// - `delivery_state` is the *summary* the server has computed\n  ///   (server-side aggregate). Consult this first.\n  /// - `delivered_at` is *the* time the server considers the message\n  ///   delivered to the recipient endpoint; absent until\n  ///   delivery_state >= Delivered.\n  /// - `delivery_receipts` is the per-recipient breakdown. When\n  ///   present, it is authoritative for per-recipient state and\n  ///   `delivered_at` is derived from it (e.g. earliest, latest, or\n  ///   majority \u2014 spec must say which).\n  ///\n  /// (Adjust to whatever the draft actually mandates.)\n\nThis belongs in the spec first; the API doc should track the spec\nonce the spec settles it. Until then, surface the question as a\ndraft-level open issue and document it on the type so callers know\nthe field semantics are not yet pinned down.\n\nORACLE\ndraft-atwood-jmap-chat-00 \u00a74.11 (Message); JMAP-ly0n.1 (SenderId\nsentinel) is the closest precedent for \"wire-shape ambiguity needs\nexplicit documentation\".",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Message delivery state has three sources of truth without doc-stated primacy (delivery_state, delivered_at, delivery_receipts)",
+  "updated_at": "2026-05-16T03:27:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:48:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "1413d68a-0903-56c3-a5a8-d4ae8c938865",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

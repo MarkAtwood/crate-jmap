@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed: cross-references changed to '(seed.rs: DAYS_AGO_N)' \u2014 colon-separated not module path",
+  "closed_at": "2026-05-02T21:44:16Z",
+  "compaction_level": 0,
+  "content_hash": "1ba27982f7a5dc26ca20d1c59b7f96d1759573a2247bea851d806cef876b3499",
+  "created_at": "2026-05-02T21:40:49Z",
+  "created_by": "Mark Atwood",
+  "description": "The oracle comments in seed_fixture_tests.rs say '(seed.rs ts::DAYS_AGO_30)' and '(seed.rs ts::DAYS_AGO_10)'. The 'ts' module is declared 'mod ts' (private) inside seed.rs; it is not pub and not re-exported. A reader in seed_fixture_tests.rs cannot navigate to that symbol: it is not in scope, not visible in rustdoc, and not findable by IDE go-to-definition from the test file. The reference gives the file but not the line, and the module is not pub. Either make 'ts' pub (so 'seed.rs ts::DAYS_AGO_30' is a real path that IDE tools resolve), or replace the reference with the actual ISO timestamp value that the reader can grep for.",
+  "ephemeral": 0,
+  "id": "JMAP-a81m.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ts:: oracle references in seed_fixture_tests.rs are non-navigable",
+  "updated_at": "2026-05-02T21:44:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:40:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a81m",
+      "id": "4adb7670-f4fd-5021-9c49-b978ac7c7432",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

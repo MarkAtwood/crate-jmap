@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in e55c256. ClientError::Parse(serde_json::Error) and ClientError::Serialize(serde_json::Error) variants reshaped to opaque ParseError/SerializeError wrappers, matching the existing HttpError/WebSocketError isolation pattern. The wrappers expose line/column/classify accessors that return workspace-local types (ParseCategory enum, not serde_json::error::Category), so callers are insulated from a future JSON-parser swap. Construction path is ClientError::from_parse(serde_json::Error)/from_serialize \u2014 extension client crates migrated from .map_err(ClientError::Parse) to .map_err(ClientError::from_parse) via sed across ~100 call sites in 8 extension-client crates (chat, mail, calendars, tasks, contacts, sharing, filenode, metadata). 5 new unit tests in error.rs cover the new accessor surface.",
+  "closed_at": "2026-05-18T04:09:07Z",
+  "compaction_level": 0,
+  "content_hash": "9ca8072efa5041a63757b3ca842c2fa5d0e20ec7aae99d803fbd1dbc276bf128",
+  "created_at": "2026-05-14T23:16:30Z",
+  "created_by": "Mark Atwood",
+  "description": "error.rs:249-250 \u2014 Parse(serde_json::Error)\nerror.rs:302-303 \u2014 Serialize(serde_json::Error)\nerror.rs:255-261 \u2014 BlobIntegrityMismatch { expected: String, actual: String }\n\nThe SemVer-isolation work (HttpError, WebSocketError, InvalidHeaderValueError wrappers) intentionally hides reqwest::Error and tungstenite::Error from the public surface. Excellent.\n\nBut ClientError::Parse(serde_json::Error) and ClientError::Serialize(serde_json::Error) directly expose serde_json::Error. If serde_json eventually goes to 2.0 (which is plausible \u2014 serde itself has been pre-1.0 forever for the same reason, but serde_json has had multiple discussions about a major bump), this crate's public API ships an unwrapped third-party error in a public variant.\n\nThe asymmetry is:\n- reqwest:    wrapped via HttpError \u2713\n- tungstenite: wrapped via WebSocketError \u2713\n- reqwest::header::InvalidHeaderValue: wrapped via InvalidHeaderValueError \u2713\n- serde_json::Error: bare \u2717\n\nThis pre-dates the SemVer-isolation work (the variant has always been bare); landing the wrapping today is a breaking change because callers matching on `ClientError::Parse(e) => e.line()` etc. would need to switch to a new wrapper-type accessor. But it's worth flagging now so the next major (perhaps the JMAP-6by7 typed-Id epic) can do all three asymmetric leaks at once.\n\nThe \"construct explicitly: `.map_err(ClientError::Parse)`\" pattern documented in error.rs:248 also commits the crate to letting external code construct Parse variants. A future wrapper would need to remain construction-compatible \u2014 or break that pattern (likely the latter).\n\nRecommendation: file follow-up bead to wrap serde_json::Error behind a ParseError wrapper type with accessor methods (e.g., `line()`, `column()`, `classify()`) in the next major bump. Document the SemVer policy in the crate-level docs so it's clear that serde_json is currently a \"leak\" while reqwest is not.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClientError::Parse and Serialize variants expose serde_json::Error as public payload \u2014 major-version lock on serde_json",
+  "updated_at": "2026-05-18T04:09:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T13:57:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-prpm",
+      "id": "a6da36db-67f1-5804-bf17-ec5a3b6c62f3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "wontfix: not a bug. The bead body itself concludes 'This is normal workspace-internal coupling. The workspace AGENTS.md propagation policy documents this: changes to jmap-types ripple. Not a bug in this crate per se.' Epic JMAP-6r7c explicitly flagged this as bikeshedding. The JmapRequest::new(_, _, None) signature is the public API of jmap-types::JmapRequest \u2014 if jmap-types adds a 4th param, every consumer of jmap_types::JmapRequest::new ripples, not just this crate. Workspace cookie-cutter discipline is the mitigation, not a per-call-site wrapper.",
+  "closed_at": "2026-05-17T20:58:02Z",
+  "compaction_level": 0,
+  "content_hash": "678623479f2da2e35b25e796fab804ffa0fecfe10a22f60a33968bfd6604c0b9",
+  "created_at": "2026-05-14T23:21:04Z",
+  "created_by": "Mark Atwood",
+  "description": "request.rs:86 \u2014 Ok(JmapRequest::new(self.using, self.method_calls, None))\n\nJmapRequestBuilder::build() calls jmap_types::JmapRequest::new(_, _, None). This commits the base-client crate to whatever signature jmap-types::JmapRequest::new has, including its current `None` 3rd parameter.\n\nIf jmap-types adds a 4th parameter to JmapRequest::new (e.g., a request-level timeout, a \"created\" id-allocator slot), this crate breaks at compile time, ripples to every consumer.\n\nThis is normal workspace-internal coupling. The workspace AGENTS.md propagation policy documents this: changes to jmap-types ripple. Not a bug in this crate per se.\n\nTwo small notes:\n1. The `None` 3rd argument is presumably the optional \"createdIds\" map (RFC 8620 \u00a75.2). The doc-comment on JmapRequestBuilder::build doesn't mention that the builder hardcodes None \u2014 so a caller who wants to use createdIds-mediated request batching cannot do so via this builder. They'd have to construct JmapRequest::new themselves and bypass the builder.\n\n2. If jmap-types stabilizes JmapRequest::new at 1.0, this crate can pin its dependency at 1.x and stay buildable. Today both are 0.x.\n\nRecommendation: add a builder method `JmapRequestBuilder::with_created_ids(mut self, map: HashMap<...>) -> Self` so callers can use the createdIds feature without bypassing the builder. Low priority because RFC 8620 \u00a75.2 createdIds is rarely used in practice (most clients don't batch dependent creates this way).",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.46",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JmapRequest is constructed via JmapRequest::new from jmap-types \u2014 request.rs:86 commits to that constructor",
+  "updated_at": "2026-05-17T20:58:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:21:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "825a5842-1cff-5183-b8cc-702bf6b5f3b8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.2",
+  "title": "blob upload: avoid extra copy of data bytes",
+  "description": "blob.rs:98 \u2014 .body(data.to_vec()) copies the full upload payload unconditionally. data is &[u8]; reqwest Body accepts Bytes or Vec<u8>. For a 50 MiB blob this doubles peak RSS. Change signature to accept Bytes or Vec<u8> to allow zero-copy hand-off to reqwest.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:11Z",
+  "updated_at": "2026-04-30T00:18:56Z",
+  "closed_at": "2026-04-30T00:18:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:11"
+    }
+  ]
+}

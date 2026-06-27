@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T17:20:21Z",
+  "id": "019e36f4-01f0-7458-a97a-9f9f593f0076",
+  "issue_id": "JMAP-ic0j.18",
+  "text": "Fixed via the bead's minimal-fix path (doc additions). Added a sub-section under the 'realistic-demo-ids enabled' branch of demo_next_id rustdoc covering:\n  1. The fallback value 1_000_000_000 and the clock-before-1970 trigger condition (with a recognizable id signature 0x...3b9aca01 for diagnostic purposes).\n  2. SystemTime non-monotonicity (NTP adjustments, cross-restart clock skew) per the std::time docs, scoped to a realistic explanation of when it actually bites a demo binary.\n  3. wrapping_add cycle behavior (584-year theoretical concern; flagged as cosmetic only).\n\nDid NOT apply the bead's optional 'use Instant::now().elapsed() relative to a process-start OnceLock<Instant>' refactor \u2014 Instant is not monotonic across processes either (Instant::now is monotonic only within one process), so swapping SystemTime for Instant trades one non-monotonicity flavor for another without genuine improvement. The bead labeled this 'optionally' / option (3); not pursuing it is consistent with the bead's verdict.\n\nThe demo nature of demo_next_id remains dominant; this is teach-by-example cleanup, not production-grade hardening. Verified: cargo fmt clean, RUSTDOCFLAGS=-D warnings cargo doc clean (both with and without --all-features), cargo test --all-features 120+13+1 passed."
+}

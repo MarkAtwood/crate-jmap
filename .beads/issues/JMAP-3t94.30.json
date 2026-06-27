@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:22:25Z",
+  "compaction_level": 0,
+  "content_hash": "9f5d7ece7b78c3adf4f9deeafe31f77ebbe5d5023fb53f82ea0100d3125af329",
+  "created_at": "2026-05-14T22:07:33Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/principal.rs:209-222 and notification.rs:105-118\n\nBoth /set handlers validate the destroy array in two passes:\n\n    if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {\n        return Err(JmapError::invalid_arguments(format!(\n            'destroy: every element must be a string Id; got {bad}'\n        )));\n    }\n    for id_val in destroy_arr {\n        let id_str = match id_val.as_str() {\n            Some(s) => s.to_owned(),\n            None => continue, // unreachable: validated above\n        };\n        ...\n    }\n\nThe first pass guarantees that every element is a string Value; the second pass then has a 'this cannot happen' continue arm that the comment explicitly admits is unreachable. The type system cannot prove the second arm is unreachable because the destroy_arr value type is unchanged between the two passes \u2014 both passes see Value, both have to handle the None case.\n\nTwo more idiomatic shapes:\n\n(a) Collect-then-iterate:\n\n    let ids: Vec<&str> = match destroy_arr\n        .iter()\n        .map(|v| v.as_str().ok_or(v))\n        .collect::<Result<Vec<_>, _>>()\n    {\n        Ok(ids) => ids,\n        Err(bad) => {\n            return Err(JmapError::invalid_arguments(format!(\n                'destroy: every element must be a string Id; got {bad}'\n            )));\n        }\n    };\n    for id_str in ids { ... }\n\nThis collapses the two passes into one fallible collect. The second loop has no unreachable arm because ids has type Vec<&str>, not Vec<Value>.\n\n(b) Single-pass with early return on the first non-string:\n\n    for id_val in &destroy_arr {\n        let id_str = match id_val.as_str() {\n            Some(s) => s.to_owned(),\n            None => return Err(JmapError::invalid_arguments(...)),\n        };\n        ...\n    }\n\nThis trades the two-pass guarantee for atomicity (no partial application before the validation error). Either shape removes the 'unreachable: validated above' comment.\n\nWhat goes wrong for callers when this stays as-is: nothing functional. The cost is reader cognitive load: 'why does this code defend against a case the comment says cannot happen?' is the question every careful reader asks. Defense-in-depth is sound engineering, but here the defense is enforced by another arm of the same function \u2014 the type system would be more convincing.\n\nSibling-scope: this is the exact shape filed by JMAP-3t94.11 from the policy angle (RFC 8620 \u00a73.6.2 enforcement). The idiom angle is separate: even granted the policy, the implementation has a structural flaw.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Replaced two-pass validation (find+early-return / loop+unreachable arm) with single-pass collect-then-iterate using as_str().ok_or(v).collect::<Result<Vec<_>, _>>(). The second loop now iterates over &str directly, no never-taken fallback arm. Applied in both principal.rs and notification.rs.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Destroy-array validation has redundant 'unreachable' continue arm \u2014 collect-or-validate is more idiomatic",
+  "updated_at": "2026-05-14T22:22:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T15:07:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "916039dc-1736-5710-bab2-26739ddb6e4f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

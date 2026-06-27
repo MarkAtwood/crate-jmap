@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Updated README 'How to use' example to include the missing JmapBackend supertrait impl block. The reader no longer needs to consult other docs to discover the supertrait requirement; example shape is now complete and runnable as-shown.",
+  "closed_at": "2026-05-15T09:14:49Z",
+  "compaction_level": 0,
+  "content_hash": "c2f37351d957d3ba2cd386383eb3faeb7c596b2a6dce642703cccbab9453f82f",
+  "created_at": "2026-05-14T17:57:26Z",
+  "created_by": "Mark Atwood",
+  "description": "README.md:34-44 shows:\n\n  struct MyBackend { /* db pool, etc. */ }\n  impl MetadataBackend for MyBackend { /* ... */ }\n\nThis compiles only if MyBackend also impls JmapBackend (the supertrait). The example is not runnable as written and a contributor following 'How to use' will hit a compile error and need to dig elsewhere.\n\nAudience: a new contributor reading the README to figure out how to integrate. The README's job is to be a step-by-step that works. The current state is 'do all the steps and also do this implicit other step we don't mention'.\n\nWhat would make it clear: either (a) show the JmapBackend impl too (long), or (b) reference the trait docs explicitly: '// You also need to impl JmapBackend (the supertrait). See [link to jmap-server::JmapBackend].'",
+  "ephemeral": 0,
+  "id": "JMAP-826m.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README.md 'How to use' example claims 'impl MetadataBackend for MyBackend { /* ... */ }' without showing the JmapBackend supertrait \u2014 reader cannot run the example without consulting other docs",
+  "updated_at": "2026-05-15T09:14:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:57:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "77b7abac-6512-50c6-854f-80b3194360bc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "6132e943634870dd65afb22bcc9bed1c1ddde465aac2d00100926c53c56f80c2",
+  "created_at": "2026-05-17T05:47:41Z",
+  "created_by": "Mark Atwood",
+  "description": "## Canonical-first per workspace AGENTS.md\n\nThis is the canonical extension-server template. Audit + fix lands here FIRST, then propagate to the 7 sibling extension-server crates in subsequent child beads of bd:JMAP-uqhn (.2-.8). Each sibling bead blocks on this one.\n\n## Candidate sites: 51 matches\n\nAudit via:\n\n```\nrg -n '\\b(as u64|as usize|as i64|as u32|as i32)\\b' crate-jmap-mail-server/src/\n```\n\nSeparate query/limit-path casts (in scope, vulnerable to truncation) from intentional/safe 'as' uses (serialise helpers, hash mixing, etc.).\n\n## Fix shape\n\n- u64 -> usize: `usize::try_from(n).unwrap_or(usize::MAX)`\n- i64 -> usize: explicit guard before try_from\n- usize -> u64: try_from with u64::MAX fallback OR keep as widening with clippy::cast_lossless escape if intentional\n\n## Acceptance\n\n- All query/limit-path 'as' casts replaced with checked conversions\n- Remaining 'as' uses carry inline rationale comment\n- At least one negative test landed (e.g. position = i64::MIN doesn't panic)\n- cargo test -p jmap-mail-server green\n- cargo clippy -p jmap-mail-server -- -D warnings green\n- Bead closure prompts next sibling (chat-server)",
+  "ephemeral": 0,
+  "id": "JMAP-uqhn.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Canonical: jmap-mail-server query/limit-path 'as' cast audit + fix (51 sites)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T22:47:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-uqhn",
+      "id": "c72d86b7-6c09-5e94-83fc-ea616ff064f3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

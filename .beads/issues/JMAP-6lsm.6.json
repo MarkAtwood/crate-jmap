@@ -1,0 +1,33 @@
+{
+  "close_reason": "Extracted classify_message() pure function. Binary frames now surface UnexpectedResponse immediately per RFC 8887 \u00a74.1. Ping/Pong/other still silently skipped but capped at MAX_CONSECUTIVE_NON_TEXT_FRAMES=64 to prevent server-side starvation. 5 new unit tests cover the classification policy. Workspace tests green.",
+  "closed_at": "2026-05-09T07:15:02Z",
+  "compaction_level": 0,
+  "content_hash": "117d5627d9f3120dac78ee7e343f1b45ee932fab1d42f3e310022d37b5806b37",
+  "created_at": "2026-05-08T03:04:52Z",
+  "created_by": "Mark Atwood",
+  "description": "src/ws/mod.rs:94 \u2014 `Ok(_) => continue, // Ping / Pong / Binary: silently skip`. RFC 8887 \u00a74.1 says JMAP only uses text frames; ignoring Ping/Pong is correct (tungstenite handles them at the protocol layer). But a misbehaving or hostile server that sends a continuous stream of Binary frames would cause this loop to spin forever inside a single `next_frame` call. There is no bound on iterations, and no timeout. Fix options: (a) cap consecutive Binary skips and yield an UnexpectedResponse error, (b) document the loop bound is governed by tungstenite's max_message_size (which is 1 MiB and would close the connection on oversized frames), (c) yield Unknown for Binary so the caller sees them. Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "WsSession::next_frame silently skips Binary frames; can starve a caller indefinitely",
+  "updated_at": "2026-05-09T07:15:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:04:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "55046bd8-64f2-53a0-a0a1-23b5c5d0de7b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

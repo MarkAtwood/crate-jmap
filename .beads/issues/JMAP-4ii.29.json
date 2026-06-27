@@ -1,0 +1,33 @@
+{
+  "close_reason": "documented O(n) as intentional design choice",
+  "closed_at": "2026-05-02T06:29:32Z",
+  "compaction_level": 0,
+  "content_hash": "9928f4a529bf0b32c4804e5c7c52f59e5aacab81a25b74f008529cc8577dd73e",
+  "created_at": "2026-05-02T03:56:57Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs handle_mailbox_query calls backend.get_objects::<Mailbox>(&account_id, None, None) to fetch all mailboxes and filters in-process. For an account with thousands of mailboxes (IMAP migration), this loads all mailbox metadata per query. The in-process approach is explicitly chosen because Mailbox/query is implemented here rather than delegated to the backend; the comment notes this. The efficiency issue is real but inherent to the design decision. Filed for tracking: if the account size grows this will be a bottleneck.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/query fetches all mailboxes in-process \u2014 O(n) on every query",
+  "updated_at": "2026-05-02T06:29:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:56:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "df698cea-58be-5c26-8318-fbba2a340b77",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

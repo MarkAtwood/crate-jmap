@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:44:11Z",
+  "compaction_level": 0,
+  "content_hash": "2ddba53564e63839175348a21da0229174d9d546028e8080c26eb942400a5a1b",
+  "created_at": "2026-05-04T18:28:49Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-82ty",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Review converged after 3 rounds. Final review: JMAP-fg8q. Round 3 SEC7: 10% chance of missed bug; approaching bottom of issue barrel. Remaining items are P3 (sort arg, maxSizeScriptName, Step-A notUpdated reporting).",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sieve scripting in jmap-mail-server",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

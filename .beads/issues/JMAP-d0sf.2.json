@@ -1,0 +1,33 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:46:24Z",
+  "compaction_level": 0,
+  "content_hash": "10c061d88b644ac08610158d527400e16e1297676a57085958e4921b055646b8",
+  "created_at": "2026-05-05T01:44:31Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-d0sf.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Write src/methods/addressbook.rs with AddressBook/* methods",
+  "updated_at": "2026-05-05T01:46:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:44:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-d0sf",
+      "id": "d5b3152f-e326-5ea8-bb1c-e1cf3a9a6ce1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

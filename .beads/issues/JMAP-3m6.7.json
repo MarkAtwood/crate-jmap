@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.7",
+  "title": "invalid AuthProvider header value: silently ignored on HTTP paths, panics on WS path",
+  "description": "On HTTP paths (fetch_session, call, blob), reqwest returns Err from .send() when a header value is invalid \u2014 this maps to ClientError::Http. On the WS path (connect_ws), http::HeaderValue::from_str() is called explicitly and returns ClientError::InvalidArgument. So the same invalid AuthProvider implementation produces two different error types for the same root cause (bad header value): ClientError::Http on HTTP code paths, ClientError::InvalidArgument on WS. Callers matching on error variants will need different code paths for the same root cause. This is a secondary concern vs JMAP-3m6.8 (which is the actionable doc fix); but the type asymmetry is still real.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:56:03Z",
+  "updated_at": "2026-04-30T02:08:53Z",
+  "closed_at": "2026-04-30T02:08:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:56:02"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Strengthened the comment block on the up-front non-string-element rejection at task.rs:335-342, task_list.rs:222-229, task_notification.rs:117-124. New wording: 'Two-pass validation is intentional', explicit causal note that the inner None=>continue is unreachable BECAUSE this pre-check ran, citation of workspace JMAP-wlip.1 silent-drop rule. cargo fmt + clippy + test green.",
+  "closed_at": "2026-05-14T19:03:35Z",
+  "compaction_level": 0,
+  "content_hash": "f4fd0f6dc5d79a91b0cf4f0ec6c28ca6a69467a6e2361be5fdd84d07fdf13e17",
+  "created_at": "2026-05-14T18:07:56Z",
+  "created_by": "Mark Atwood",
+  "description": "Each of task.rs:331-335, task_list.rs:231-234, task_notification.rs:120-123 inspects the destroy array up-front and returns invalidArguments if any element is not a JSON string. The alternative (silently skip non-string entries via the continue branch already in place) would let {destroy: [123, 'x']} attempt only 'x', leaving the client with no signal that '123' was dropped. A future contributor will be tempted to delete the up-front loop ('we already have the unreachable continue in the inner match'), missing the difference between 'unreachable because already validated' and 'silently skip'. The two-pass shape is intentional defensive depth.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Defend: non-string destroy element rejection across /set handlers",
+  "updated_at": "2026-05-14T19:03:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:07:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "c25be56c-d27f-55a7-a3c4-f779c187e071",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

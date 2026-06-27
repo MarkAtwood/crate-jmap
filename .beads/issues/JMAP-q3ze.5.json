@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "11 Principal integration tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/principal_tests.rs (4 tests: get all, create, destroy, changes after create); 23 total pass; clippy clean",
+  "closed_at": "2026-05-05T04:46:49Z",
+  "compaction_level": 0,
+  "content_hash": "de2d43dd2bb610f0a85adf836f9ac9b81859a37ba28234c8b3605fdd65c609a3",
+  "created_at": "2026-05-05T02:56:23Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-sharing-server/tests/principal_tests.rs with 11 integration tests dispatching through register_sharing_handlers with MemoryBackend. Oracle: RFC 9670 \u00a74.1 example, RFC 8620 \u00a75.1-5.5.\n\n**Tests:**\n1. principal_get_all_returns_list: pre-seed two Principals; get ids:null; assert list.len()==2.\n2. principal_get_partial_ids: get [\"P1\",\"P_missing\"]; assert list has only P1; notFound has \"P_missing\".\n3. principal_get_properties_filter: get with properties:[\"id\",\"name\"]; assert objects only have id and name.\n4. principal_set_create_succeeds: create one Principal; assert created[\"c1\"] has server-assigned id.\n5. principal_set_update_own_name: update name; assert updated[\"id\"] present; notUpdated empty.\n6. principal_set_ifInState_mismatch: pass ifInState:\"wrong-state\"; assert stateMismatch error.\n7. principal_set_destroy_succeeds: destroy one; assert destroyed contains id; subsequent get returns notFound.\n8. principal_query_filter_by_type: filter {\"type\":\"individual\"}; assert only individual principal returned. Oracle: RFC 9670 \u00a72.4.1.\n9. principal_query_filter_by_text_substring: filter {\"text\":\"Smith\"}; assert only Alice returned. Oracle: \u00a72.4.1.\n10. principal_changes_after_create: record state, create Principal, call changes; assert created contains new id. Oracle: RFC 8620 \u00a75.2.\n11. principal_query_filter_by_accountIds: Principal A has accounts with acc2; filter {\"accountIds\":[\"acc2\"]}; assert only A matches. Oracle: RFC 9670 \u00a72.4.1 accountIds semantics.\n\n**Acceptance criteria:** All 11 tests pass. Each has spec citation comment.",
+  "ephemeral": 0,
+  "id": "JMAP-q3ze.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Integration tests: Principal/* happy paths with MemoryBackend",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:56:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze",
+      "id": "05b44913-6a1b-51cc-82af-6abdf25b5f9b",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:56:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze.4",
+      "id": "6f2f6fc1-100b-5dd1-b9ff-49b1bda0361a",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

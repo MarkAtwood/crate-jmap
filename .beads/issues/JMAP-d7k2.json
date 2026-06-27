@@ -1,0 +1,23 @@
+{
+  "close_reason": "Obsolete \u2014 decision was made de facto by shipping. Both consumers landed with option (a) polling: cf7p.4 (SSE GET /events, src/sse.rs, 200ms polling tick over snapshot_all_states/diff_snapshots) and cf7p.5 (WS GET /ws, src/ws.rs, reuses the same sse::* polling helpers). The 'do option (b) subscribe API later' follow-up is tracked as cf7p.9 (testjig SSE: replace polling with signal-driven push, workspace-architectural canonical-template propagation across all 8 reference MemoryBackends). cf7p.10 (SSE Last-Event-ID) and cf7p.12 (WS pushState) are related polish beads in the same family. No further action on this decision bead \u2014 closing for housekeeping.",
+  "closed_at": "2026-05-13T02:50:18Z",
+  "compaction_level": 0,
+  "content_hash": "486d364a026f00ad58cedcc6d7fdf7265c0298fc1914f66c6aaede30a90aed47",
+  "created_at": "2026-05-12T06:15:04Z",
+  "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "description": "JMAP-cf7p.4 (SSE GET /events) and JMAP-cf7p.5 (WS GET /ws) both need to broadcast RFC 8620 \u00a77.4 StateChange events when the mounted MemoryBackends mutate. None of the 8 reference MemoryBackends currently expose a subscribe/notify API \u2014 grep for 'subscribe' / 'broadcast' / 'tokio::sync::broadcast' across mail/chat/calendars/tasks/contacts/filenode/sharing/metadata memory.rs files returns zero matches.\n\nTwo design forks, both surfaced at the boundary of the cf7p.4 bead body itself:\n\n  (a) **Polling fallback**: testjig spawns a tokio interval task per backend that calls get_state for each tracked type every N ms (say 250 ms), diffs against the last seen state token, emits StateChange when anything changed. Pros: zero changes to any kit crate, fully self-contained in the testjig. Cons: 250 ms latency for state-change visibility (acceptable for tests, painful for interactive demos); per-type get_state calls scale O(types \u00d7 backends \u00d7 1/interval) \u2014 for 8 backends \u00d7 ~5 types each \u00d7 4 Hz = 160 calls/s on an idle jig.\n\n  (b) **Subscription API on all 8 reference MemoryBackends**: add  (or similar) to each MemoryBackend, called once at registration; backends fire-and-forget broadcast on every state-counter increment. Pros: zero polling overhead, instant state change visibility. Cons: workspace-architectural decision per the canonical-templates rule \u2014 the change would land in jmap-mail-server (canonical) first and propagate to all 7 siblings; touches the cookie-cutter discipline.\n\nRecommendation: option (a) for cf7p.4 + .5. The testjig posture is 'NOT FOR PRODUCTION'; 250 ms polling is fine for tests. Option (b) is a much larger change that should be scoped as its own workspace epic if anyone has a use case for it (downstream consumers that want push-grade latency from a real backend).\n\nThis bead exists to record the decision point. cf7p.4 + cf7p.5 should not be claimed by /do-beads until either (a) Mark explicitly authorizes the polling-fallback design (no human needed beyond the authorization) or (b) Mark files a sibling epic to add the subscribe API across all 8 backends.\n\nFiling as human-labeled because it's a design fork the autonomous loop should not pre-decide.",
+  "ephemeral": 0,
+  "id": "JMAP-d7k2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Decision: SSE (cf7p.4) + WS (cf7p.5) need MemoryBackend subscribe API or polling",
+  "updated_at": "2026-05-13T02:50:18Z"
+}

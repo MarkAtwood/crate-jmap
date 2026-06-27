@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T08:19:07Z",
+  "compaction_level": 0,
+  "content_hash": "1556719c1b1386101fc4a53aba6699a494607f458fb3e5d1b4d1d33819a08076",
+  "created_at": "2026-05-14T17:53:52Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: Repeated create then destroy on the same account. memory.rs:340 computes next_id from inner.objects_ref(type_name, account_id).map_or(0, |m| m.len()) + 1. After creating object1 (len=1, id=metadata...001), destroying object1 (len=0), and creating object2, the new id is metadata...001 \u2014 same as the destroyed object's id. The debug_assert at memory.rs:344-351 catches it ONLY in debug builds; release builds silently overwrite or collide.\n\nWait \u2014 re-reading: the assertion checks contains_key on the FINAL id, so if id1 was destroyed (removed from the map), contains_key returns false, the assertion holds, but the NEW object gets the same id as the destroyed one. So the assertion is not catching the actual problem (id reuse across the destroy boundary).\n\nLooking at the integration tests: tests/metadata_tests.rs:226 destroys an existing id. If a subsequent test in the same MemoryBackend instance created another object, that new object would get the same id as the destroyed one. The tests do not chain create-destroy-create on the same backend, so this never trips.\n\nThe comment at memory.rs:334-339 explicitly calls out 'collides after deletes (count goes down, next id re-uses)'. So this is a known, documented behavior. The disclosure is appropriate: 'CARGO-CULT WARNING: do NOT copy this into a production backend'.\n\nBut \u2014 and here is the maintainer-burden concern \u2014 the change-log records ChangeRecord references the recycled id. If a /changes call returns 'destroyed: [metadata...001]' followed later by 'created: [metadata...001]', a client treating ids as unique across the lifetime of the account sees the destroyed/created as the same record (which by id is correct) and treats the second create as a 'resurrection' instead of a new record. RFC 8620 \u00a75.2 does not address this case; the spec assumes ids are unique forever.\n\nMaintenance consequence: under the default feature flag, this MemoryBackend silently recycles ids across destroy events. Tests do not catch it (no chained create-destroy-create coverage). A test that ran end-to-end with /changes asserting unique ids would catch it.\n\nFix direction: either:\n(i) Switch the default to use a strictly-monotonic counter (Atomic counter or similar, but the rationale at memory.rs:333-339 is that this is intentional demo behavior).\n(ii) Add a regression test: create object1, destroy object1, create object2, assert object1.id != object2.id.\n(iii) Document explicitly in the rustdoc what happens to /changes when ids are recycled, so the implications are loud.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "demo_next_id deterministic mode at memory.rs:340-343 uses HashMap.len() \u2014 silently collides after destroys",
+  "updated_at": "2026-05-15T08:19:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:53:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "275230e8-e9c6-5809-bf35-3fa6319db021",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

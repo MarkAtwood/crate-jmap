@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:36:32Z",
+  "compaction_level": 0,
+  "content_hash": "b0fdc8d217ae3c6f8e2383021473a0cc602a0aae2a420044ee4537766497825d",
+  "created_at": "2026-05-02T19:18:30Z",
+  "created_by": "Mark Atwood",
+  "description": "SeedData.thread map is keyed by logical names (thread-alpha, plain-simple, etc.) but the doc comment on SeedData says only 'Logical name -> assigned thread Id' without explaining the naming convention. It is not obvious that single-email fixtures get a thread entry under the same name as the email, while multi-email threads use a separate name ('thread-alpha'). A contributor adding a new thread fixture will not know which convention to follow. Document the naming rules on SeedData.thread.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "seed.rs: email-fixture to thread mapping undocumented in return struct",
+  "updated_at": "2026-05-02T22:36:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "c51accc1-3752-5ba1-b7d3-6eb1a41b1eab",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

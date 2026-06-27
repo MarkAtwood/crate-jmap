@@ -1,0 +1,34 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:15:22Z",
+  "compaction_level": 0,
+  "content_hash": "f828b708fed9728e5f86718723a4344069e0ce844aea90b556bbcf15ab39c3ab",
+  "created_at": "2026-05-02T03:55:40Z",
+  "created_by": "Mark Atwood",
+  "description": "chat-server (chat.rs:24,144, ban.rs:28, space.rs:24,140, message.rs:24,155, contact.rs:24,279, emoji.rs:24,140, invite.rs:27, presence.rs:29, position.rs:29) and jmap-server (handlers.rs:30,146,153,231,238) all do serde_json::from_value(v.clone()) when args is a borrowed &Value. The clone is unnecessary; serde_json::from_value takes the Value by value, but it could be avoided by cloning at a higher level once (e.g. with args.get(\u2026).and_then(|v| serde_json::from_value(v.clone()))) or, better, by restructuring to consume args (Value::Object destructure). mail-server fixed this in mailbox.rs/submission.rs by doing args.remove(...) which avoids the clone. The chat-server and jmap-server handlers should adopt the same pattern. Gratuitous clone forces an allocation on every request.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "handlers.rs fixed (jmap-server); chat-server still pending",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "gratuitous v.clone() in serde_json::from_value calls",
+  "updated_at": "2026-05-02T04:15:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:55:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "43148642-054c-52a4-8cd3-ff2e45f22273",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

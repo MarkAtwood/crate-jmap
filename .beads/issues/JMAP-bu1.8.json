@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-bu1.8",
+  "title": "connect_ws lowercase-only scheme check \u2014 correct for SSRF prevention",
+  "description": "connect_ws checks starts_with('ws://') || starts_with('wss://') (lowercase only). This is intentional: the comment explains that accepting only lowercase ensures the guard and tungstenite see the same string \u2014 no risk of tungstenite rejecting an uppercase scheme after the guard passes. RFC 3986 \u00a73.1 says schemes are case-insensitive, so WS:// would be technically valid. However, no real JMAP server will advertise WS://, and case-folding the input before checking would require allocating a normalized string. The strict check is the right tradeoff.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:26:22Z",
+  "updated_at": "2026-04-30T01:31:38Z",
+  "closed_at": "2026-04-30T01:31:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-bu1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:26:21"
+    }
+  ]
+}

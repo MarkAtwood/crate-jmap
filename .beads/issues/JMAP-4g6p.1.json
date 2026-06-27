@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:53:33Z",
+  "compaction_level": 0,
+  "content_hash": "86464ac4e64b8ff543b7191a987712c0e8b164a9a4c71aa8365f26155a0c08b0",
+  "created_at": "2026-05-04T23:52:28Z",
+  "created_by": "Mark Atwood",
+  "description": "message_create returns Ok(SetResponse) for ALL server responses including non-rateLimited rejections. Callers must check not_created on Ok, but the doc only mentions rateLimited handling. Fix: add doc note: for other server-side rejections, inspect set_resp.not_created.",
+  "ephemeral": 0,
+  "id": "JMAP-4g6p.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "message_create: doc gap \u2014 Ok return does not mean created",
+  "updated_at": "2026-05-04T23:53:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T16:52:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4g6p",
+      "id": "d31392ef-dbff-56ee-8878-e8c422b7ed88",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

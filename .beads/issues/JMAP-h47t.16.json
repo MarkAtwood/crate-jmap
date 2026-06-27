@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e1a966509dfb16e2c56644c752dda77f54126eda04b5de4d3c4c13b346d95ac8",
+  "created_at": "2026-05-14T18:16:35Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-tasks-server/src/backend.rs:92-104:\n\n    fn is_per_user_property(prop: &str) -> bool {\n        matches!(\n            prop,\n            \\\"keywords\\\" | \\\"color\\\" | \\\"freeBusyStatus\\\" | \\\"useDefaultAlerts\\\" | \\\"alerts\\\"\n        )\n    }\n\nThree contract issues:\n\n1. STATIC, NOT INSTANCE: the method has no \\`&self\\` receiver. A consumer who wants to vary per-user-property classification per-account (\\\"this account is on the per-channel feature flag, treat property X as per-user\\\") cannot. Once the trait ships, adding a self receiver is a breaking change because every override site needs updating.\n\n2. HARDCODED LIST IN A TRAIT DEFAULT: the default impl bakes in the draft-tasks-06 \u00a74.5.1 list. The draft is not yet RFC; a draft-07 revision that adds, renames, or removes a per-user property requires this crate to ship a new version. Consumers who do not override and stay pinned to a stale crate version silently mis-route patches. The matches!(...) shape also offers no programmatic way for a consumer to ask \\\"what is the canonical list\\\" without re-reading the source.\n\n3. DIVERGES FROM CANONICAL SIBLING SHAPE: the calendars-server equivalent is structured as a FREE FUNCTION in the types crate:\n\n    crate-jmap-calendars-types/src/backend.rs:118:\n    pub fn is_per_user_calendar_event_property(name: &str) -> bool { ... }\n\n\u2026which has the following advantages over the trait-default-method shape:\n\n    - Single source of truth lives next to the type definition.\n    - Backends do not have to override (cannot accidentally diverge from spec).\n    - Caller code can use it directly without a trait import / generic bound.\n    - Type-crate evolution is independent of server-crate evolution.\n\nThe calendars-types pattern is what the workspace canonical-template (jmap-mail-types / jmap-mail-server) shape would predict for new properties as well. This is a divergence in the tasks crate that the propagation-rule sweep should converge.\n\nAdditionally \u2014 and this is the contract footgun \u2014 the handler routing at task.rs:255-261 uses B::is_per_user_property(k) to decide whether to call update_task_per_user OR update_object. If a consumer overrides is_per_user_property to add a vendor property but forgets to extend update_task_per_user to handle it (or vice versa), the backend silently does the wrong thing. The two contract surfaces are not type-system-linked.\n\nRecommended convergence (matches sibling calendars):\n\n  - Move classification to jmap-tasks-types as a pub free fn is_per_user_task_property(name: &str) -> bool.\n  - Remove the trait default method.\n  - Handler calls the free fn directly.\n  - Backends that need vendor-extension per-user classification add a sibling fn AND override update_task_per_user \u2014 both opt-ins, both visible to type-system review.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "TasksBackend::is_per_user_property is a static method with hardcoded 5-property list \u2014 diverges from sibling calendars (free fn in types crate), cannot evolve per-account, breaks symmetry with update_task_per_user routing",
+  "updated_at": "2026-05-14T18:16:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:16:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "f046939a-87f6-5128-8778-f6dfa651a9d2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

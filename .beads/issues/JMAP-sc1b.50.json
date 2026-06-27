@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:46:17Z",
+  "compaction_level": 0,
+  "content_hash": "2ce66e3fc32942c0fc066a3a2677e902a48574ea741eb00403318d72cef91838",
+  "created_at": "2026-05-07T20:43:24Z",
+  "created_by": "Mark Atwood",
+  "description": "Same kind of constant has two names depending on which crate defines it:\n\n| Crate | Pattern |\n|---|---|\n| jmap-mail-server | JMAP_MAIL_URI, JMAP_SUBMISSION_URI, JMAP_VACATION_RESPONSE_URI |\n| jmap-mail-types | JMAP_MDN_URI, JMAP_SIEVE_SCRIPTS_URI |\n| jmap-{tasks,calendars,contacts,sharing,filenode}-types | JMAP_TASKS_URI, etc. |\n| jmap-tasks-server | CAPABILITY_TASKS (duplicates JMAP_TASKS_URI string) |\n| jmap-calendars-server | CAPABILITY_CALENDARS (duplicates JMAP_CALENDARS_URI) |\n| jmap-contacts-server | CAPABILITY_CONTACTS (duplicates JMAP_CONTACTS_URI) |\n| jmap-sharing-server | CAPABILITY_PRINCIPALS, CAPABILITY_PRINCIPALS_OWNER |\n| jmap-filenode-server | (correctly) re-exports JMAP_FILENODE_URI from filenode-types |\n\nFour of the seven extension servers redefine the URI string locally as CAPABILITY_*, even though the corresponding JMAP_*_URI exists in their types crate. Two issues:\n\n1. Naming inconsistency: CAPABILITY_X vs JMAP_X_URI for the same kind of value\n2. Duplication: if the URI changes upstream (e.g. RFC publication renames a draft), the server crate's constant goes stale\n\nFix: define each URI exactly once in the types crate as JMAP_<X>_URI. Have the server crate re-export it (the jmap-filenode-server pattern). Remove the four CAPABILITY_* constants.\n\nAffected: jmap-tasks-server, jmap-calendars-server, jmap-contacts-server, jmap-sharing-server.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.50",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: capability URI constants follow two competing conventions",
+  "updated_at": "2026-05-07T21:46:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "422e0975-469b-5dad-9809-c171a78f7ceb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

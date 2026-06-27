@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-u2e.4",
+  "title": "deserialize_header uses format\\! for static error prefix",
+  "description": "In crate-jmap-mail-types/src/query.rs lines 172-175, the error message is constructed via format\\!() which allocates a String. The error text 'header must have 1 or 2 elements (RFC 8621 \u00a74.4.1), got {}' could be written without format\\! using a string concat or by using serde::de::Error::invalid_length() which is the purpose-built method: serde::de::Error::invalid_length(h.len(), &\"array of 1 or 2 strings\"). Using invalid_length provides a structured, internationalization-friendly error that integrates better with serde's error reporting. The custom format string is functional but misses the semantic serde error type. Priority: minor style issue since tests verify the error text directly.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:27:15Z",
+  "updated_at": "2026-04-30T04:35:19Z",
+  "closed_at": "2026-04-30T04:35:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-u2e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:27:15"
+    }
+  ]
+}

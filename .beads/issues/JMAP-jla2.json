@@ -1,0 +1,33 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Epic complete: sole open child JMAP-jla2.1 landed.",
+  "closed_at": "2026-05-16T16:49:15Z",
+  "compaction_level": 0,
+  "content_hash": "c5ad1044a059dae690fed9d9c29d1d26cc68fbe8d8133e17685d7db1acc1151d",
+  "created_at": "2026-05-16T03:37:19Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-jla2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {
+    "dispatcher": "bd-review-loop",
+    "dispatcher_run": "bd-review-loop-20260516T163903Z-1885462",
+    "final_failures": 0,
+    "final_iter": 1,
+    "final_verdict": "genuine_convergence",
+    "log_dir": "/home/mark/.local/state/bd-review-loop/crate-jmap/20260516T163903Z",
+    "model": "anthropic/claude-opus-4-7",
+    "variant": "max"
+  },
+  "no_history": 0,
+  "notes": "bd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; ",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Review: crate-jmap-metadata-types since 9c0d34f",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

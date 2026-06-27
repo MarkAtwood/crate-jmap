@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T11:02:03Z",
+  "compaction_level": 0,
+  "content_hash": "5fcac8d584f219969eb5fff684b026746f60d6ca9a024cab2f978dbe59c810df",
+  "created_at": "2026-05-14T19:51:30Z",
+  "created_by": "Mark Atwood",
+  "description": "src/memory.rs:617-654: BFS that for each frontier id, scans all store.nodes.values() looking for nodes whose parent_id matches. With N total nodes and a subtree of depth D, the total work is O(N * D).\n\nWorkspace integration tests have <10 nodes per account, so this never matters in tests. But the MemoryBackend is documented (src/memory.rs:5-13) as 'a documented, complete, source-readable implementation' and 'reference implementation' for contributors writing real backends. A reader studying this code will see O(N*D) and conclude the tree-traversal pattern is acceptable.\n\nFix is trivial: build a parent_id \u2192 children map once per call (or maintain it as an invariant on insert/destroy):\n\n  let mut by_parent: HashMap<Option<&Id>, Vec<&FileNode>> = HashMap::new();\n  for n in store.nodes.values() {\n      by_parent.entry(n.parent_id.as_ref()).or_default().push(n);\n  }\n  // then BFS using by_parent.get(&Some(current)).\n\nTime becomes O(N + descendants). Same complexity class as a real backend would use.\n\nReference-impl quality justifies the small extra code. Without the fix, contributors copying the MemoryBackend pattern will introduce N*D blowups into production backends.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend get_descendant_ids: O(N * D) where N is total nodes and D is tree depth",
+  "updated_at": "2026-05-17T11:02:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:51:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "32a3399e-a320-54ed-9fa9-a4bc2a8fec49",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

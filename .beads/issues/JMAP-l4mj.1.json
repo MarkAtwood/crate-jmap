@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:38:06Z",
+  "compaction_level": 0,
+  "content_hash": "970ecc3a49942898b902f4d130253e3b5d04c059f989bcb22525d6df969c3a50",
+  "created_at": "2026-05-04T19:33:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec \u00a72.4: if onSuccessActivateScript id is nonexistent, MUST be silently ignored. Instead, update_object returns NotFound which is inserted into notUpdated. Fix: after resolving bare id, verify script exists first; if not found, skip activation silently.",
+  "ephemeral": 0,
+  "id": "JMAP-l4mj.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve_set: nonexistent bare activation ID produces spurious notUpdated error",
+  "updated_at": "2026-05-04T19:38:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T12:33:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-l4mj",
+      "id": "f177e1e6-930e-5595-bea0-78b9a551f6bb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "All 12 jmap-server re-exports + 3 jmap-tasks-types property selectors + PatchObject + ClosureHandler now have individual one-line rustdoc at the re-export site explaining their role in this crate, with RFC 8620 / draft-tasks-06 section refs where applicable. Bulk import split into separate pub use lines. cargo doc -D warnings + clippy + test green.",
+  "closed_at": "2026-05-14T18:55:48Z",
+  "compaction_level": 0,
+  "content_hash": "c71af38ff83eba00ef32ce20c22e02642fc0431f91a8c66e388f7c96e0925306",
+  "created_at": "2026-05-14T18:18:01Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-tasks-server/src/lib.rs:\n\n    47: pub use backend::{\n    48:     AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,\n    49:     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,\n    50:     TasksBackend,\n    51: };\n    ...\n    155: pub use jmap_server::ClosureHandler;\n\nbackend.rs:10-15:\n\n    pub use jmap_server::{\n        AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,\n        JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,\n    };\n    pub use jmap_tasks_types::backend::{TaskListProperty, TaskNotificationProperty, TaskProperty};\n    pub use jmap_types::PatchObject;\n\nA consumer landing on docs.rs/jmap-tasks-server sees these items in the crate's prelude with no docstring at the re-export site. \\`cargo doc\\` will link through to the upstream crate, but only the type signature is visible at a glance. A reader cannot tell:\n\n  - Which of these types they should USE in their TasksBackend impl vs which are internal-protocol types.\n  - Whether SetError is the wire-format SetError (yes, but no doc) vs a different kind of error.\n  - Why ClosureHandler is exposed at the crate root (because consumers may want to register custom handlers via dispatcher.register(method, Arc::new(ClosureHandler::new(...))) \u2014 but this is documented nowhere in this crate).\n\nThese are re-exports the crate is committed to maintaining (per the api-contract,versioning section of the supplement template, locking the upstream major), but they offer zero help to a consumer.\n\nRecommended fix: every re-export gets a one-line docstring explaining its role IN THIS CRATE. Pattern:\n\n    /// JMAP wire-format SetError; emitted by TasksBackend write methods as\n    /// BackendSetError::SetError(...) and serialised into notCreated /\n    /// notUpdated / notDestroyed maps by the /set handlers.\n    pub use jmap_server::SetError;\n\n    /// Handler-wrapper type used to register custom JMAP method handlers on\n    /// a Dispatcher without writing a JmapHandler impl from scratch. Most\n    /// consumers should not need this \u2014 `register_tasks_handlers` registers\n    /// all 14 method names automatically.\n    pub use jmap_server::ClosureHandler;\n\nThis finding is labelled `opinion` because it is style-grade \u2014 the contract is sound, the crate just makes the consumer hunt a bit more than necessary. Filing because the supplement template asks for it (api-contract,docs); willing to drop if the maintainer disagrees.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Re-exports of ClosureHandler / SetError / SetErrorType / BackendSetError / JmapBackend / etc. have no docstring at the re-export site \u2014 consumer must hunt cross-crate to discover surface",
+  "updated_at": "2026-05-14T18:55:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:18:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "1c418f2d-6ac9-5595-a95b-f76d36ca976c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:55:01Z",
+  "compaction_level": 0,
+  "content_hash": "c0ac044c5bc17b4876c060abc6a4ee91d51c7ca871915e0ef5a15b7c896489fb",
+  "created_at": "2026-05-02T00:43:57Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs find_immutable_patch_key (~line 1218): for every patch key, iterates all 21 IMMUTABLE_EMAIL_FIELDS entries linearly. O(patch_keys \u00d7 21) per Email/set update call. At scale (batch updates with many patch keys) this is quadratic in the patch map size. A static phf::Set or a lazily-initialized HashSet would make each key lookup O(1), reducing the whole function to O(patch_keys). The static list is already a compile-time constant so this is straightforward.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_immutable_patch_key: O(n*m) double loop vs HashSet",
+  "updated_at": "2026-05-02T00:55:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "50ff1734-41cd-549d-9cb2-3975bfb65ea3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

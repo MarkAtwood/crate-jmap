@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T21:38:23Z",
+  "compaction_level": 0,
+  "content_hash": "86d0859788570588f4243d854e64b9520717048e77d8c0fe0d624dd699e8d65e",
+  "created_at": "2026-05-14T19:50:02Z",
+  "created_by": "Mark Atwood",
+  "description": "src/memory.rs:718-741 (node_matches_filter).\n\nThe function explicitly notes 'Only the filters used by integration tests are implemented: parentId, isTopLevel. All other fields are ignored (pass-through \u2014 node still matches).'\n\nMemoryBackend is declared in PLAN.md and lib.rs as both an integration-test harness AND a 'reference impl' for downstream contributors to study. The 'silently pass through' default for the other FileNodeFilterCondition fields (ancestor_id, descendant_id, node_type, role, has_any_role, blob_id, type, name) makes the reference behavior wrong:\n\n- A test that uses filter { 'role': 'inbox' } gets ALL nodes back, looking like a passing filter when in fact the filter was ignored.\n- A downstream contributor reading the reference impl to understand FileNode/query semantics will copy the 'pass-through' shape into their real backend, introducing a security/data-leak bug (filter saying 'role=public' returns all roles).\n\nTrigger for the test-oracle failure: any integration test that filters on a field other than parentId/isTopLevel. Bad behavior: test passes against MemoryBackend but the real query semantics are not exercised.\n\nTrigger for the reference-impl footgun: a contributor adds a Postgres-backed FileNodeBackend, sees MemoryBackend treat unknown filter conditions as match-all, follows that shape. Result: filter evasion bug in the real impl.\n\nRequired: implement the missing conditions correctly (use the FileNodeFilterCondition fields from src/filter.rs:55-76: ancestor_id, descendant_id, node_type, role, has_any_role, blob_id, type, name). If selected conditions are genuinely out of scope, return Err on the unsupported condition rather than silently match-all.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend filter only matches parentId and isTopLevel; other conditions are silently passed through",
+  "updated_at": "2026-05-14T21:38:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:50:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "d74e2fba-e57c-5e37-8570-2c45a215ac6b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T17:26:31Z",
+  "id": "019e2cac-ec3d-7ca4-9e7d-ae8bfad37e92",
+  "issue_id": "JMAP-ic0j",
+  "text": "Rust idiom confidence: 30% chance of missed issue. Least confident flags: JMAP-ic0j.44 (TYPE_NAME string dispatch \u2014 there may be a foundation-trait-method shape in the workspace that I missed; the canonical mail-server has the same pattern, suggesting the maintainer accepts it as-is), JMAP-ic0j.43 / .47 / .48 / .52 (labeled opinion \u2014 the engineering basis is thin and I am marking them with the opinion label so triage can defer or close as bikeshedding). Uncertainty driven by: did not run cargo clippy --workspace -- -D warnings to see which idioms clippy already enforces and which it ignores; did not check the workspace MSRV to confirm Option::is_some_and (1.70+) is available; did not enumerate the entire jmap-mail-server diff history to see if any of the workspace-wide patterns have been deliberated and accepted before. Would raise confidence if: (a) ran cargo clippy --all-features against both calendars-server and mail-server to see which findings clippy already catches, (b) confirmed MSRV vs is_some_and, (c) searched the bead history for prior idiom-pattern decisions on TYPE_NAME-dispatch or tuple-key-allocation \u2014 those workspace-wide patterns may have been considered and chosen deliberately."
+}

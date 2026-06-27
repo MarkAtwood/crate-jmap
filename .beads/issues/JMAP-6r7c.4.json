@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T00:09:49Z",
+  "compaction_level": 0,
+  "content_hash": "cae55c06a11eec89e9de6c126c3460c9419dd564b60c08e036cf9aa5b6e83afc",
+  "created_at": "2026-05-14T23:08:35Z",
+  "created_by": "Mark Atwood",
+  "description": "README.md lines 548-563 lists the ClientError variants but omits RateLimited { retry_after: UTCDate } which is defined in error.rs:367-371.\n\nThe variant is part of the public contract (the rustdoc on error.rs:346-365 explicitly notes 'The variant is part of the public contract so [...] callers that want to handle rate limiting via this typed variant have a stable target to match on'). A caller wanting to handle 429 via exhaustive match against a #[non_exhaustive] enum needs to know the variant exists.\n\nThe variant rustdoc also notes that today the base crate does not produce this variant (HTTP 429 surfaces as ClientError::Http), which is itself useful context for the README to mention as a 'currently-unused-public-variant' note rather than silently omitting.\n\nFix: add the RateLimited row to the README error table, and mention the 'currently surfaces via ClientError::Http' caveat from error.rs:346-365.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README error variants table missing RateLimited",
+  "updated_at": "2026-05-15T00:09:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:08:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "8c6c9015-d065-5bde-8edb-2a7c02fc78f2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T19:37:09Z",
+  "id": "019e3771-3e31-74c3-bd09-62ba720b0807",
+  "issue_id": "JMAP-x2gd.105",
+  "text": "Closing partially-completed. Bead's premise (all 17 #[allow] dead) was incorrect: clippy fires on 15 of 17 today under default settings. The bead's verification command 'cargo clippy -p jmap-chat-server --all-features' shows 0 warnings ONLY because the #[allow] attrs are present \u2014 stripping them surfaces 15 firings (Err-variant ~200 bytes, lint threshold 128 bytes).\n\nAction taken: deleted the 2 truly-dead attrs (on check_count_caps which returns Option<SetError> and hierarchy_error which returns plain SetError \u2014 neither is a Result type so the lint never fires there).\n\nLeft the 15 load-bearing attrs in place. The workspace-canonical fix (Box BackendSetError / shrink SetError) is filed as bd:JMAP-s9xo (P3).\n\nAsymmetry with canonical jmap-mail-server: mail-server fires 0 such warnings because its MemoryBackend uses trait-impl methods (returning Self::Error associated type), and clippy's result_large_err lint behavior differs between inherent fn return types and trait-impl return types. Closing the divergence requires the canonical workspace decision in JMAP-s9xo, not per-crate cleanup."
+}

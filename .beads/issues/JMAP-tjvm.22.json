@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added 3 accessors to SessionClient across all 8 extension-client crates: client() (borrows JmapClient), session() (borrows Session), and {capability}_account_id() (returns Result<&str, ClientError>). The per-capability name is mail_account_id / chat_account_id / calendars_account_id / tasks_account_id / contacts_account_id / filenode_account_id / principals_account_id / metadata_account_id. All return borrows so callers don't pay clone cost unless they need owned handles. Backward-compatible expansion. Existing pub(crate) session_parts() is kept untouched for internal use.",
+  "closed_at": "2026-05-17T13:12:33Z",
+  "compaction_level": 0,
+  "content_hash": "b51665e586c3d904ff7a49b17fde8bc0a591988bf58a3943ece3a6ffbdfbc88b",
+  "created_at": "2026-05-15T01:53:32Z",
+  "created_by": "Mark Atwood",
+  "description": "mod.rs:373-376\n\n  #[non_exhaustive]\n  #[derive(Clone)]\n  pub struct SessionClient {\n      pub(crate) client: jmap_base_client::JmapClient,\n      pub(crate) session: jmap_base_client::Session,\n  }\n\nNeither field has a public accessor. The Debug impl prints `<JmapClient>` for client and the full Session for session, but Debug output is not a programmatic API.\n\nConsequence: a caller who has a SessionClient cannot:\n\n  - Look up the bound account_id without already knowing the capability URI to query (and they would need a copy of the Session anyway).\n  - Get the api_url for ad-hoc HTTP calls outside the JMAP method surface (e.g. to construct an EventSource subscription URL).\n  - Detect that the session may have changed and they should re-create the SessionClient.\n  - Pass the SessionClient and the Session as separate args to a helper without cloning the Session via Drive's session field (which they don't have access to).\n\nThe doc-comment on SessionClient says (line 354-359):\n\n  \"SessionClient captures the Session at construction time. After re-fetching\n   the session via JmapClient::fetch_session, construct a new SessionClient\n   with the updated session. Reusing a stale SessionClient after session\n   expiry will result in unknownAccount or similar errors from the server.\"\n\n\u2026but does not give the caller any way to inspect the captured Session to detect staleness or to share session-scoped state.\n\nThree accessors are missing:\n\n  pub fn client(&self) -> &jmap_base_client::JmapClient\n  pub fn session(&self) -> &jmap_base_client::Session\n  pub fn mail_account_id(&self) -> Result<&Id, ClientError>     // wrapping session_parts()\n\nThe third already exists internally as pub(crate) fn session_parts (line 395). The first two are trivial getters.\n\nCross-reference: SessionClient holds two fields by value despite being Clone. The Clone derive comment says JmapClient is \"cheap-to-clone (it already implements Clone and with_mail_session clones one internally)\". That cost is hidden from callers; an accessor returning &JmapClient gives them the cheap-borrow path.\n\nRecommendation: add the three accessors. Backward-compatible expansion of the public surface \u2014 no existing caller breaks. Same finding applies to the six sibling extension-client crates (canonical-template propagation).\n\nMark says NO HUMAN \u2014 Recommendation: add session() and client() borrowing accessors, and a public mail_account_id() that mirrors session_parts() with a more focused contract. No design ambiguity, low-risk addition.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SessionClient: no public accessors for session, account_id, or api_url \u2014 fields are pub(crate)",
+  "updated_at": "2026-05-17T13:12:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:53:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "b16384fa-3908-5049-8e95-f6292c8f0378",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

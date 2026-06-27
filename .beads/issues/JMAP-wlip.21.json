@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Renamed jmap-server's opaque pub fn ser to serialize_value. Added a #[deprecated] alias 'ser \u2192 serialize_value' that delegates to the new name so existing callers compile-warn rather than break immediately; the alias is documented as scheduled for removal in the next major. Swept all consumer call sites across the workspace: 6 *-server crates' helpers.rs reexports updated to import serialize_value, ~30 source files' use crate::helpers::{... ser ...} imports updated, ~20 ser(x)? call sites and ~15 map(ser).collect sites converted. cargo build/test/clippy/fmt/doc --workspace --all-features all clean.",
+  "closed_at": "2026-05-14T14:06:41Z",
+  "compaction_level": 0,
+  "content_hash": "ddd8c539bf48cfe9c13ca709f13d4cb9dd145d4edc38e2d46d8dc99c94261338",
+  "created_at": "2026-05-14T13:04:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Path: crate-jmap-server/src/helpers.rs:8. Signature `pub fn ser<T: serde::Serialize>(val: T) -> Result<serde_json::Value, JmapError>`. The function is a thin wrapper around serde_json::to_value that maps the error to JmapError::server_fail.\n\nVerified consumers (rg confirms):\n- crate-jmap-chat-server/src/helpers.rs:`pub(crate) use jmap_server::{... ser};`\n- crate-jmap-mail-server/src/helpers.rs:`pub(crate) use jmap_server::{... ser};`\n\nBoth treat it as part of jmap-server's public API. So changes here ripple.\n\nThe name \"ser\" is opaque. A reader of consumer code seeing `let v = ser(x)?;` cannot tell whether ser is:\n- a project-local serializer,\n- a re-export from serde,\n- a re-export from serde_json,\n- this thin JmapError wrapper.\n\nIt's also a common short name developers reach for when they need a local serializer (\"let ser = ...\"), so `use jmap_server::*` could collide invisibly with a consumer's local definition.\n\nRight shape: rename to `serialize_value` or `to_jmap_value`, keep `pub use ser as serialize_value` for one release as a deprecated alias.\n\nReviewer note: this critique IS about clarity-cost-to-callers, not style for its own sake. The cost shows up the first time a new contributor reads consumer code and has to grep three crates to learn what `ser(x)` does. The fix is one-line; the cost compounds across every consumer for the lifetime of the crate.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "pub fn ser has opaque 3-letter name in jmap-server's public surface \u2014 actively used by every extension server crate",
+  "updated_at": "2026-05-14T14:06:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:04:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "0bf7c4ef-711b-5397-860a-937fbf7b54ba",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

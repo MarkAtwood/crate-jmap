@@ -1,0 +1,33 @@
+{
+  "close_reason": "Superseded by JMAP-7a8b.17 (same issue, higher-priority framing)",
+  "closed_at": "2026-05-03T13:02:48Z",
+  "compaction_level": 0,
+  "content_hash": "fade0d1b32fb8875826a3818c986857e207aad486052fe160feac1c51d0f04d1",
+  "created_at": "2026-05-03T13:00:36Z",
+  "created_by": "Mark Atwood",
+  "description": "MemoryBackend send_mdns lines 2331-2339: 'if dnt_address.is_none() { ...; continue; } let dnt_address = dnt_address.unwrap();'. The .unwrap() is provably safe but uses the anti-pattern of is_none() guard + unwrap. Idiomatic Rust: 'let Some(dnt_address) = dnt_address else { not_sent.insert(...); continue; };'. This uses let-else, which is both shorter and makes the control flow explicit.",
+  "ephemeral": 0,
+  "id": "JMAP-7a8b.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "dnt_address.unwrap() after is_none() check in MemoryBackend send_mdns \u2014 should use let-else",
+  "updated_at": "2026-05-03T13:02:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:00:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7a8b",
+      "id": "fdd227e4-74bf-5d9f-a40f-d6f54d4bea60",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

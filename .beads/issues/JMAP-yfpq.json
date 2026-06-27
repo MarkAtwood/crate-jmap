@@ -1,0 +1,34 @@
+{
+  "close_reason": "all steps complete",
+  "closed_at": "2026-05-11T18:44:44Z",
+  "compaction_level": 0,
+  "content_hash": "1ff619897551c47b2adf3d002f1117a4d2b6d9bc6273d0452aa30fd51a9cfa45",
+  "created_at": "2026-05-09T00:40:50Z",
+  "created_by": "Mark Atwood",
+  "description": "Give `jmap-tasks-types` callers typed access to the 13 sloppy-Value fields whose wire shapes are RFC 8984 JSCalendar sub-types, by consuming the new `jmap-jscalendar-types` crate (extracted under the parallel epic).\n\n## Strategy decision (resolved 2026-05-10)\n\nThe original epic offered three strategies. The decision is **Strategy 3 (extract to a new shared crate)**. See the parallel extraction epic for the full rationale.\n\nSummary:\n- Option 1 (duplicate jscalendar.rs as jstask.rs) \u2014 rejected: 559 lines duplicated, errata require parallel patches, weakens cookie-cutter pattern.\n- Option 2 (jmap-tasks-types depends on jmap-calendars-types) \u2014 rejected: spec-inverted dependency. Tasks and Calendars are parallel JMAP capabilities, neither depends on the other in the spec.\n- **Option 3 (extract to new jmap-jscalendar-types crate) \u2014 chosen**: spec-aligned, single source of truth, pre-publish window keeps the breaking-API cost at zero.\n\nAfter Strategy 3 lands (via the extraction epic), this epic shrinks dramatically. Almost all the work moves to the extraction epic; what's left here is: add a path-dep, write the consumer-side tests, document the pattern.\n\n## Scope (post-strategy-resolution)\n\nIn scope:\n- Add `jmap-jscalendar-types = { path = \"../crate-jmap-jscalendar-types\" }` to `crate-jmap-tasks-types/Cargo.toml`.\n- Optional re-export: `pub use jmap_jscalendar_types::*;` (or selective list) in `crate-jmap-tasks-types/src/lib.rs` so callers can do `jmap_tasks_types::Location` symmetrically with `jmap_calendars_types::Location`. Recommend the re-export for symmetry with calendars-types.\n- Round-trip tests for each of the 13 sloppy fields against RFC 8984 example JSON, demonstrating `serde_json::from_value::<jmap_jscalendar_types::Location>(task.locations.unwrap())` etc.\n- Update `crate-jmap-tasks-types/PLAN.md` \"JSCalendar complex sub-objects are serde_json::Value\" section: replace \"a future crate provides typed JSCalendar types\" with \"JSCalendar typed sub-types are available via the `jmap-jscalendar-types` crate, re-exported here for symmetry with `jmap-calendars-types`.\"\n\nOut of scope:\n- Changing the public Task / TaskList / TaskNotification structs or their Sloppy-Value fields (those stay as the wire-format anchor per workspace policy).\n- Changing the JMAP wire format.\n- Creating new typed sub-types (that work is done in jmap-jscalendar-types via the extraction epic).\n\n## Sloppy fields newly accessible as typed sub-types\n\nAfter this epic, callers of jmap-tasks-types can use `serde_json::from_value` to obtain typed views of:\n\nTask (src/task.rs): related_to, locations, virtual_locations, links, recurrence_rules, excluded_recurrence_rules, recurrence_overrides, participants, alerts, localizations, time_zones (11 fields).\nTaskList (src/task_list.rs): default_alerts_with_time, default_alerts_without_time (2 fields).\n\nThe wire-format storage stays as `Option<serde_json::Value>` per workspace policy; typed access is opt-in via `from_value`.\n\n## Acceptance criteria\n\n- `jmap-tasks-types` has a path-dep on `jmap-jscalendar-types`.\n- Optional but recommended: top-level re-export so `jmap_tasks_types::Location` and `jmap_calendars_types::Location` both work, mirroring the cookie-cutter symmetry between the two crates.\n- `crate-jmap-tasks-types/PLAN.md` updated to remove the \"future crate\" wording and document the actual consumer pattern.\n- Round-trip tests added for each of the 13 sloppy fields using RFC 8984 example JSON. Tests use independent oracle (hand-written from RFC examples), NOT derived from the code under test.\n- `cargo doc -p jmap-tasks-types --all-features --no-deps` clean.\n- `cargo clippy -p jmap-tasks-types --tests -- -D warnings` clean.\n- `cargo test -p jmap-tasks-types --all-features` clean.\n\n## Decomposition\n\nTrivial after Strategy 3 lands \u2014 likely a single PR. Possible split if needed:\n- .1: Add path-dep, re-export, update PLAN.md.\n- .2: Add round-trip tests against RFC 8984 examples (13 fields).\n\nBut .1 + .2 are small enough to land in one bead.\n\n## Dependency\n\nThis epic is **blocked by the jmap-jscalendar-types extraction epic**. Cannot start until the new crate exists.\n\n## Source material\n\n- crate-jmap-jscalendar-types (after extraction epic lands) \u2014 the typed sub-types.\n- crate-jmap-tasks-types/PLAN.md \u2014 current sloppy-Value rationale, needs update.\n- RFC 8984 (JSCalendar) full text: ~/PROJECT/jmap-chat-spec/references/rfc8984.txt \u2014 test-vector source.\n\n## Companion epic\n\nJMAP-sehw is the parallel epic for jmap-contacts-types. Its strategy is being updated 2026-05-10 to mirror this one: extract typed RFC 9553 sub-types to a new `jmap-jscontact-types` crate from the start (since the types don't exist yet, this is \"create\" not \"extract\", but the crate-boundary shape is the same).\n",
+  "ephemeral": 0,
+  "id": "JMAP-yfpq",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "2026-05-09: BLOCKS JMAP-lbdy (extras-preservation policy epic). Per Mark's decision, this epic lands BEFORE JMAP-lbdy so the new typed sub-types get the extras policy applied in one sweep rather than retroactively. When implementing this epic's typed sub-types, do NOT pre-emptively add the extras pattern \u2014 leave that to JMAP-lbdy.6 which will sweep across after this lands.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "EPIC: jmap-tasks-types consumes jmap-jscalendar-types (Strategy 3 resolved)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T14:46:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x59i",
+      "id": "4d7dec10-d63a-58f0-85cf-f73376fee703",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

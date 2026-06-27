@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-c6k.8",
+  "title": "Mailbox::new has 9 parameters with #[allow(clippy::too_many_arguments)]",
+  "description": "Mailbox::new takes 9 positional arguments and suppresses the clippy warning with #[allow]. Since Mailbox is #[non_exhaustive], callers outside the crate cannot use struct literal syntax or functional record update, so the constructor is the only API. A builder pattern (MailboxBuilder) or a typed wrapper for the count/rights args would make call sites self-documenting. Alternatively, a MailboxCounts struct grouping the four u32 fields (total_emails, unread_emails, total_threads, unread_threads) would reduce it to 6 args without a full builder. Suppressing the lint without explanation is a pattern new contributors will copy.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:25:18Z",
+  "updated_at": "2026-04-30T05:29:15Z",
+  "closed_at": "2026-04-30T05:29:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-c6k",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:25:18"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "c97c7262f57b3b6308fab8638b22f747f04ef44efcdac8735b39b7abd2f9df1e",
+  "created_at": "2026-05-18T02:09:20Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace-architectural feature request: expose a public test-harness module (gated behind feature='test-harness') for each *-server crate, exporting contract-compliance test suites parameterised over any backend implementation.\n\n## Background\n\nbd:JMAP-x2gd.45 (chat-server review) raised this for ChatBackend. The same shape applies to every backend trait in the workspace:\n- MailBackend (jmap-mail-server)\n- ChatBackend (jmap-chat-server)\n- CalendarsBackend (jmap-calendars-server)\n- TasksBackend (jmap-tasks-server)\n- ContactsBackend (jmap-contacts-server)\n- FileNodeBackend (jmap-filenode-server)\n- SharingBackend (jmap-sharing-server)\n- MetadataBackend (jmap-metadata-server)\n\nEach trait has 10-20 methods. Implementing one correctly \u2014 particularly with the contract nuances flagged by review (per-target atomicity, state-token bump rules, memberCount invariants, expire_message idempotency, blob-not-found surface, etc.) \u2014 is a substantial undertaking. A downstream consumer writing their own backend (kith, stoa, third-party) has no way today to verify they got the contract right without running each crate's integration tests as a manual exercise.\n\n## Proposed shape\n\n```rust\n#[cfg(feature = \"test-harness\")]\npub mod test_harness {\n    /// Run the full ChatBackend contract suite against any backend.\n    pub async fn run_contract_suite<B: ChatBackend>(backend: B);\n\n    /// Run just the Space/set atomicity tests.\n    pub async fn run_space_set_atomicity_suite<B: ChatBackend>(backend: B);\n\n    /// Run just the invite-redemption tests.\n    pub async fn run_invite_redemption_suite<B: ChatBackend>(backend: B);\n\n    // ...\n}\n```\n\nThe kit's own integration tests would refactor to call `test_harness::run_*_suite(MemoryBackend::new()).await`. Third-party backends opt in by adding the same calls in their test suite. The feature gate keeps the test infrastructure out of production dep graphs.\n\n## Why deferred\n\n- Multi-bead epic across 8 *-server crates.\n- Test infrastructure refactor is substantial (extracting tests/integration.rs into reusable suites).\n- No external consumer demand signal yet \u2014 the kit's two known consumers (kith, stoa) share the maintainer, who has the integration test suite available.\n- Per workspace AGENTS.md 'Canonical Templates', this should land on jmap-mail-server canonical first, then propagate to all 7 extension-server siblings in the same pass.\n\n## Trigger to un-defer\n\n- A third-party requests this on the issue tracker.\n- A second internal consumer (calendars-client, tasks-client) ships and the maintainer wants to test against MemoryBackend conformance.\n- A workspace-wide refactor of integration tests is planned for a different reason and this can ride along.\n\n## Related\n\n- bd:JMAP-x2gd.45 (chat-server review original, superseded by this epic)\n- bd:JMAP-eedw (workspace handler-size decision, similar 'workspace-arch decision' shape)\n- bd:JMAP-ljr6 (workspace const fn sweep, similar canonical-template propagation)",
+  "ephemeral": 0,
+  "id": "JMAP-78ng",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Deferred: workspace-wide test-harness public modules for all *-server backend traits",
+  "updated_at": "2026-05-18T02:09:20Z"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-7i9",
+  "title": "Review: jmap-mail-server pass 12",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T04:24:20Z",
+  "updated_at": "2026-05-01T04:31:06Z",
+  "closed_at": "2026-05-01T04:31:06Z",
+  "notes": "Maintainer risk: LOW \u2014 one exploitable bypass of immutable-field validation in Email/copy onSuccessUpdateOriginal, one undocumented backend contract in search_snippets. No structural issues. Clippy clean, all 41 tests pass.\nIdiom rating: CLEAN \u2014 no ownership, error handling, iterator, or type design issues. All .expect() calls have documented justification (Serialize derives cannot fail). No unsafe code (forbidden at crate level). Internal reg! macro is justified. Clippy passes -D warnings.\nConfidence: 10% chance of missed bug. Least confident flags: onSuccessUpdateOriginal is the only real correctness issue found; it survived 11 prior passes likely because Email/copy is a less-exercised path. Uncertainty driven by: integration tests do not cover onSuccessUpdateOriginal with immutable-field patches. Would raise confidence if: a test explicitly tried to set messageId via onSuccessUpdateOriginal and verified rejection.\nRust idiom confidence: 5% chance of missed issue. Least confident flags: none. Uncertainty driven by: could not verify MailboxRole Display vs serde serialization match without reading jmap-mail-types, but 11 prior passes and all tests passing give high confidence."
+}

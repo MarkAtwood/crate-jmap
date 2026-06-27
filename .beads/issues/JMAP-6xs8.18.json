@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b10531bf903ac9d63d9101772f8f2090cf9d90df537587d78f1f9e6e3e4107d4",
+  "created_at": "2026-05-15T05:43:25Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-types/src/methods.rs and src/wire.rs add a `pub extra: serde_json::Map<String, serde_json::Value>` field (with `#[serde(flatten, default, skip_serializing_if = ...)]`) on:\n\n- GetResponse<T> (methods.rs:60-61)\n- ChangesResponse (methods.rs:121-122)\n- SetError (methods.rs:197-198)\n- SetResponse<T> (methods.rs:291-292)\n- QueryResponse (methods.rs:330-331)\n- AddedItem (methods.rs:354-355)\n- QueryChangesResponse (methods.rs:384-385)\n- JmapRequest (wire.rs:28-29)\n- JmapResponse (wire.rs:50-51)\n\nThe workspace AGENTS.md elevates this `extra` pattern to the workspace's\n*central* forward-compat mechanism, mandates it on every in-scope public\nDeserialize struct, and propagates it across the 30-crate family\n(canonical-template rule). The choice committed at 0.1.1 has two\nproperties no future patch release can change:\n\n1. **`pub` direct-mutation access.** External callers will write\n   `resp.extra.insert(\\\"acmeCorpAuditTrail\\\", json!({\\\"sequence\\\": 42}))`\n   today. Once that pattern is in the wild, the maintainer cannot wrap\n   `extra` behind accessor methods that enforce invariants (e.g. reject\n   keys that collide with typed wire fields \u2014 the very collision risk\n   that JMAP-6xs8.4 already filed). Hardening the API later is a\n   breaking change.\n\n2. **`serde_json::Map<String, serde_json::Value>` is the inner type\n   *and* it is `pub`.** Every consumer transitively depends on\n   `serde_json` to so much as read `resp.extra.get(\\\"k\\\")`. If\n   serde_json ever cuts a major version, the entire workspace API\n   surface breaks. There is no insulation layer.\n\nThe maintainer-burden version of this finding (JMAP-6xs8.4 covers\ncollision-shadowing) is filed separately. This finding is the\nupstream cause: **the type was made `pub` rather than wrapped behind\na method**.\n\nFix candidates (breaking changes \u2014 better done before 0.2):\n- Make `extra` private with `pub fn extras(&self) -> &serde_json::Map<...>`\n  and `pub fn insert_extra(&mut self, k: String, v: serde_json::Value)`.\n  The setter is the natural place to reject typed-field-shadowing keys.\n- Introduce a workspace newtype `pub struct Extras(pub serde_json::Map<...>)`\n  in `jmap-types` and use it as the inner type. A future replacement of\n  the storage strategy then doesn't break consumers.\n- Accept the lock and document explicitly in the workspace AGENTS.md\n  that `pub extra` is a forever commitment.\n\nA caller depending on this API in production accepts: (a) `serde_json`\nmajor-version coupling for the entire `jmap-*` family lifetime;\n(b) the inability of the maintainer to ever harden the extras layer\nwithout a major version bump.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Public extra: serde_json::Map field on 8 wire types locks workspace forward-compat to serde_json forever",
+  "updated_at": "2026-05-17T16:29:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:43:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "74b62857-0554-5235-aa75-b0263a77d31f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

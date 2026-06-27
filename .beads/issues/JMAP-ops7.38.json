@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "325a37473629d541f395226be3b9bfd1c3d2975e29d118a605e4c0657905c0af",
+  "created_at": "2026-05-18T05:29:10Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence** \u2014 architectural surface present in one shared-foundation crate, absent in its sibling:\n- jscalendar-types exposes `pub trait TypeDiscriminator` (src/lib.rs:134) with associated const `TYPE_TAG: &'static str` and method `validate_at_type() -> Result<(), TypeTagMismatch>`, implemented for 11 of its types (:434, 563, 646, 711, 916, 970, 1235, 1289, 1333, 1506, ...). Also exposes 4 validation-error types: `TypeTagMismatch` (:101), `LinkSourceError` (:826), `ParticipantRolesError` (:1154), `RecurrenceOverridesError` (:1615).\n- jscontact-types exposes nothing analogous \u2014 no `TypeDiscriminator` trait, no validator method on any type, no error types.\n\n**Caller-observable cost**: a consumer that wants strict spec-validation hooks in JSContact (e.g. \"is this `@type` actually `Name`?\") has no API for it; the analogous JSCalendar operation has a trait-driven path.\n\n**Maintainer cost on future sibling type crates**: the canonical-template rule has no clear answer to \"do new type crates copy jscalendar (expose validators) or jscontact (don't)?\". This is the kind of decision that should be settled at the workspace level and applied to both crates either way \u2014 either both expose the trait, or neither does.\n\n**Decision required**: this is a workspace-architecture call, not a quick-fix sweep. Options:\n(a) Propagate jscalendar's pattern: add `TypeDiscriminator` impl and validator-error types to jscontact-types' typed sub-shapes (`Name`, `Address`, `Organization`, ...).\n(b) Retire jscalendar's pattern: deprecate `TypeDiscriminator` + the 4 validation errors in jscalendar-types, drop the impls, document that validation is the consumer's job and lives outside the kit.\n\nEither resolves the divergence. The \"neither expose\" path (b) aligns with the kit-posture documented in the workspace AGENTS.md \"What this workspace builds\" section (no spec-enforcement opinion in the wire-types crates).",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "jscalendar-types exposes TypeDiscriminator trait + 4 validation error types; jscontact-types exposes neither \u2014 workspace has no canonical answer for 'should new type crates ship a validator trait'",
+  "updated_at": "2026-05-18T05:29:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:29:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "4205ee94-2fa5-5f7e-a6ed-fccf5d6ba0bd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

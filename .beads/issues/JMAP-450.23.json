@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-450.23",
+  "title": "filter_properties takes &[String] forcing callers to deref \u2014 should take &[impl AsRef<str>]",
+  "description": "email.rs:536, snippet.rs uses filter_properties \u2014 fn filter_properties(obj: &Value, properties: &[String]) copies string slices from the properties argument. The function only needs to compare strings, not own them. The parameter should be &[impl AsRef<str>] or &[&str] to avoid forcing callers to maintain a Vec<String> instead of a Vec<&str> or an array of string literals. Low-impact now but establishes a better pattern.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:36:45Z",
+  "updated_at": "2026-04-30T23:40:57Z",
+  "closed_at": "2026-04-30T23:40:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-450",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:36:44"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-xx7.13",
+  "title": "request.rs uses inline std::collections::HashSet and crate::error::ClientError paths \u2014 missing use imports",
+  "description": "request.rs imports HashMap via 'use std::collections::HashMap' at the top, but uses std::collections::HashSet and crate::error::ClientError inline throughout the file. Clippy will flag these: 'use of full path when a use import would suffice'. Fix: add 'use std::collections::HashSet;' and 'use crate::error::ClientError;' to the use block at the top of request.rs. This is inconsistent with the rest of the codebase (other modules import their deps at the top).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T14:52:31Z",
+  "updated_at": "2026-04-30T14:54:22Z",
+  "closed_at": "2026-04-30T14:54:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-xx7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 07:52:31"
+    }
+  ]
+}

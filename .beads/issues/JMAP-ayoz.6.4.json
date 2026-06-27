@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added /queryChanges standard-cycle integration test query_changes_standard_cycle_reports_removed_and_added in crate-jmap-metadata-server/tests/metadata_tests.rs.\n\nThe test mirrors the spec contract:\n1. Seed 2 Metadata objects via direct backend create_object.\n2. /query \u2014 capture initial queryState and id list.\n3. /set \u2014 create one new + destroy one of the seeded.\n4. /queryChanges from the captured queryState.\n5. Assert:\n   - oldQueryState echoes sinceQueryState (RFC 8620 \u00a75.6).\n   - newQueryState differs from oldQueryState after mutation.\n   - removed contains the destroyed id.\n   - added contains an {id, index} entry for the created id.\n   - added array is sorted by index ascending (RFC 8620 \u00a75.6 MUST).\n   - The untouched seed id appears in neither removed nor added.\n\nMis-attribution note: my staged tests/metadata_tests.rs change was bundled with an unrelated chat-server commit (aad35c1) by a workspace auto-commit hook. The test content is correct and passes; per workspace AGENTS.md Git/Destructive-Action rules I did not rewrite the commit history without explicit user permission. The audit trail for this work is this bead close reason. Suite passes: 27 integration tests + 50 inline unit tests + 3 doc tests, cargo clippy --workspace --all-features -D warnings clean.",
+  "closed_at": "2026-05-17T19:56:35Z",
+  "compaction_level": 0,
+  "content_hash": "0a45d3084d6911e4a2397319337d6ce4a3d03509840990b17564e05a0bf4630e",
+  "created_at": "2026-05-14T14:50:22Z",
+  "created_by": "Mark Atwood",
+  "description": "Add integration test in tests/metadata_tests.rs exercising the /queryChanges cycle:\n\n1. /query (state s0, capture queryState s0).\n2. Mutate (create + destroy).\n3. /queryChanges from s0 \u2014 assert removed/added correctness and that the new query state differs from s0.\n\nDecomposed from JMAP-ayoz.6.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.6.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Integration test: Metadata/queryChanges standard cycle",
+  "updated_at": "2026-05-17T19:56:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:50:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.6",
+      "id": "bb171533-11c0-5b1a-bb0f-ec7e00213f9e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

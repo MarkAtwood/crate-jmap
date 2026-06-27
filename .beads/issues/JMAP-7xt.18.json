@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-7xt.18",
+  "title": "expand_url_template silently leaves unknown placeholders unexpanded",
+  "description": "expand_url_template substitutes only the variables listed in the vars slice. If the template contains a placeholder that has no corresponding entry in vars (e.g. caller passes 'account_id' instead of 'accountId'), the placeholder is left as a literal '{accountId}' in the resulting URL. The request then goes to a URL with a literal brace in it, which is either a 404 or a server error, with no diagnostic at the call site. The function should return an error (or at least document and test) if any placeholder in the template remains unexpanded after all substitutions.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:34Z",
+  "updated_at": "2026-04-30T01:07:56Z",
+  "closed_at": "2026-04-30T01:07:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:33"
+    }
+  ]
+}

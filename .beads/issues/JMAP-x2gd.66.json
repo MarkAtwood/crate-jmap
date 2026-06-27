@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T02:24:24Z",
+  "compaction_level": 0,
+  "content_hash": "d345d162fa9c909774cd4e74212690ddf81dea47c6604e0e494e889a096dd800",
+  "created_at": "2026-05-14T12:30:06Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\n\\`getrandom = { version = \\\"0.3\\\", optional = true }\\` is declared\ndirectly in crate-jmap-chat-server/Cargo.toml as a version dep,\nrather than being hoisted to the workspace's\n\\`[workspace.dependencies]\\` table and inherited via\n\\`getrandom = { workspace = true, optional = true }\\`.\n\nEvery other dep in chat-server's Cargo.toml flows through\n\\`workspace = true\\`. \\`getrandom\\` is the only outlier.\n\n## What goes wrong\n\nTwo soft issues:\n\n1. **Version inconsistency risk if a second crate picks up\n   \\`getrandom\\`.** Today chat-server is the only consumer of\n   \\`getrandom\\` in the workspace, so there is no concrete drift.\n   If a future crate (e.g. a federation-token generator or a\n   blob-id helper) adds \\`getrandom\\` and pins to a different\n   minor version, cargo unification papers over the difference\n   but version-tracking discipline is harder to audit.\n\n2. **Cargo.toml audit friction.** The workspace AGENTS.md\n   describes \\\"path-AND-version dual declaration via workspace =\n   true\\\" as the canonical pattern. A consistency sweep across\n   crates needs to special-case chat-server's getrandom line,\n   which is a small maintenance tax.\n\n## Recommendation\n\nHoist \\`getrandom = \\\"0.3\\\"\\` to\n\\`[workspace.dependencies]\\` in the root \\`Cargo.toml\\`, and change\nchat-server's line to \\`getrandom = { workspace = true, optional = true }\\`.\n\nZero functional impact, satisfies the consistency convention.\n\n## Engineering basis\n\n- Verified \\`getrandom\\` line in\n  \\`crate-jmap-chat-server/Cargo.toml\\` is a direct version dep.\n- Verified no \\`getrandom\\` entry exists in the workspace root\n  \\`Cargo.toml\\`'s \\`[workspace.dependencies]\\` table (by absence;\n  the workspace dep table was reviewed).\n- Verified \\`getrandom\\` is not used by any other workspace\n  crate today (sole consumer is chat-server's invite-code CSPRNG\n  per the existing \\`.36\\` resolution).\n\n## Priority rationale\n\nP4 because no caller experiences this today; it's a\nconsistency tax that becomes a real ordering risk only when a\nsecond crate adopts \\`getrandom\\`. Filing here so the consistency\nsweep is visible alongside other versioning concerns.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.66",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: getrandom is a direct (non-workspace) dep, breaks consistent [workspace.dependencies] pattern",
+  "updated_at": "2026-05-18T02:24:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:30:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "527284ba-8e30-5052-9294-21cfcd941203",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

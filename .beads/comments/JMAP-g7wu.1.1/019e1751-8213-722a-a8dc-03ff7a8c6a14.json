@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-11T13:54:38Z",
+  "id": "019e1751-8213-722a-a8dc-03ff7a8c6a14",
+  "issue_id": "JMAP-g7wu.1.1",
+  "text": "[2026-05-11 scope refinement] Foundation work (JmapBackend trait reshape + read-side handle_* in jmap-server) split into sibling bead JMAP-g7wu.1.9 for cleaner per-crate scope tracking, matching the pattern established by closed JMAP-g7wu.1.4 (which earlier split off the ClosureHandler foundation work). The 'jmap-server | JmapBackend associated-type + method signatures + handle_get/changes/query/query_changes' row of the design-lock comment's implementation-scope table is now tracked in .1.9 rather than here. This bead (.1.1) is now scope-limited to the MailBackend canonical reshape only. All beads still land atomically in one mega-PR per the 5c decision; the split is organizational, not a delivery-boundary change."
+}

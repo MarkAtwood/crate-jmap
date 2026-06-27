@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T03:00:28Z",
+  "compaction_level": 0,
+  "content_hash": "a44644a60fc5655fe2e20532872d26459830de7fc6bfef74b952d45cd2f622b0",
+  "created_at": "2026-05-14T19:36:38Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/src/lib.rs:59-60\n\n    /// Capability URI for `urn:ietf:params:jmap:contacts`.\n    pub use jmap_contacts_types::JMAP_CONTACTS_URI;\n\nPROBLEM:\nThe doc string for a public constant intended for inclusion in JMAP\nsession capability advertisements has one sentence. A reader who\nencounters this constant \u2014 likely while wiring up their HTTP transport\nand trying to figure out which capabilities to advertise \u2014 gets no\nguidance on:\n\n1. **Where to put it.** Goes in the Session object's `capabilities`\n   map (RFC 8620 \u00a72.1). The README mentions this at line 199 but the\n   constant itself doesn't link.\n\n2. **What it advertises.** RFC 9610 defines exactly one capability\n   URI for the contacts extension, covering AddressBook and\n   ContactCard. A reader should not have to fetch RFC 9610 to learn\n   what enabling this capability means.\n\n3. **What other URIs combine with it.** Most consumers will also\n   want `urn:ietf:params:jmap:core` (RFC 8620 \u00a72). The doc doesn't\n   point at where those constants live.\n\n4. **Versioning.** Is this URI stable across RFC revisions? Yes, but\n   the doc doesn't say so, and a careful reader would have to RFC-\n   hunt.\n\nThe README \u00a7\"Capability URI\" at lines 192-200 has some of this\ncontent but it's not visible from rustdoc.\n\nWHAT CALLERS CANNOT DEPEND ON:\nThat `cargo doc` output for this constant tells them what to do with\nit.\n\nRECOMMENDED:\nExpand the doc to a paragraph:\n\n    /// Capability URI for the JMAP for Contacts extension (RFC 9610).\n    ///\n    /// Include this string in your Session object's `capabilities` map\n    /// (RFC 8620 \u00a72.1) to advertise support for AddressBook and\n    /// ContactCard objects to clients. Typically combined with\n    /// `urn:ietf:params:jmap:core` from `jmap-server`.\n    ///\n    /// Example:\n    /// ```\n    /// # use jmap_contacts_server::JMAP_CONTACTS_URI;\n    /// assert_eq!(JMAP_CONTACTS_URI, \"urn:ietf:params:jmap:contacts\");\n    /// ```\n    pub use jmap_contacts_types::JMAP_CONTACTS_URI;\n    // (or local pub const \u2014 see JMAP-qz9v.32)\n\nP3 because the constant works as-is; the documentation gap is cost-\nof-discovery, not a runtime concern. Pairs with JMAP-qz9v.32 (the\nre-export-vs-local-const finding).",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.41",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JMAP_CONTACTS_URI re-export carries a one-line doc \u2014 no where-to-put-it guidance, no RFC \u00a7 anchor, no advertised-types list",
+  "updated_at": "2026-05-18T03:00:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:36:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "f8865d99-969b-5b84-9a22-e0080b08a8c0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

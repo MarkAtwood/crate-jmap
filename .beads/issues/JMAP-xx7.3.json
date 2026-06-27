@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-xx7.3",
+  "title": "call() / subscribe_events() / upload_blob() / download_blob() accept unchecked URLs",
+  "description": "The public methods call(api_url: &str), subscribe_events(event_source_url: &str), upload_blob(upload_url_template: &str), and download_blob(download_url_template: &str) accept any string. validate_session_urls() guards against bad URLs when the Session is fetched via fetch_session(), but these methods can also be called directly with any URL \u2014 extension crates or test harnesses could pass non-http schemes or file:// paths accidentally. The docstrings say 'pass URLs from the Session document' but do not enforce it. A first-call scheme check (the same http/https guard used in validate_session_urls) would make each method self-defending without adding significant complexity. reqwest will reject unknown schemes at send() time rather than at construction time, giving a confusing Http error instead of InvalidArgument.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T14:49:37Z",
+  "updated_at": "2026-04-30T14:57:02Z",
+  "closed_at": "2026-04-30T14:57:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-xx7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 07:49:37"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Defensive bead, no action required. The typed-Id / typed-State parameter pattern across the method API is correct and intentional, established by the JMAP-6by7.2 refactor. The bead documents the reasoning to defend against a future contributor proposing 'let's accept &str because it's simpler'. The in-tree comment trail (e.g. email.rs:340-342 noting which tests became impossible to express under typed Id and were deleted) already captures this. Nothing to add; nothing to remove. Closing as 'documented in-tree, no code action needed'.",
+  "closed_at": "2026-05-17T14:13:12Z",
+  "compaction_level": 0,
+  "content_hash": "76b114360885d73cb9520051621e3a92c04c310dd0b8d3044127e7e8d4d0e7aa",
+  "created_at": "2026-05-15T01:47:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Every method signature uses `&Id`, `&[Id]`, `Option<&[Id]>` for id-shaped\nparameters and `&State` for state tokens, rather than `&str` / `&[&str]`.\nThe typed API at the call site eliminates an entire class of bug that the\npre-typed shape was vulnerable to (empty-id strings, malformed Ids, state\ntokens swapped with arbitrary strings).\n\nA contributor who has not internalized this might propose \"let's accept\n`&str` because it's simpler\" \u2014 that proposal is wrong because:\n  - It re-introduces the empty-id failure mode the JMAP-6by7.2 refactor was\n    designed to eliminate.\n  - It puts validation back at the bottom of the call stack instead of at\n    construction time.\n  - It breaks the Email/parse vs Email/get composition where blob ids and\n    email ids are distinguishable at the type level.\n\nDefend by pointing to the comment trail in the test files (e.g.\nemail.rs:340-342) which document exactly which tests became impossible to\nexpress under typed Id and were deleted.\n\nThe typed-Id refactor cost something \u2014 verbose call sites \u2014 but the\ncorrectness payoff is large. Do not unwind.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Typed Id / State parameters across the method API \u2014 defend against weakening",
+  "updated_at": "2026-05-17T14:13:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:47:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "9737470c-9d78-50ef-88c8-3e8a4f0c231f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

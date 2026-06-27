@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:55:00Z",
+  "compaction_level": 0,
+  "content_hash": "0a37cc5da91b19637f7bb693b88443891c30dd4b36355a6c86fb885b9d56d91b",
+  "created_at": "2026-05-02T00:44:04Z",
+  "created_by": "Mark Atwood",
+  "description": "build_email_from_create sets blobId to Id::from(\"placeholder-blob\") as a sentinel. If a backend's create_object forgets to replace it, clients receive blobId: \"placeholder-blob\" in Email/set and Email/get responses with no error or warning from the framework. The contract is only in a comment; there is no assertion or type-system enforcement.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "placeholder-blob sentinel can escape to clients if backend forgets to replace it",
+  "updated_at": "2026-05-02T00:55:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:44:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "57bc8306-86ee-5ed4-a71a-1776cec70b2b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

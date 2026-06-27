@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added Participant.schedule_status: Option<Vec<String>> with skip_serializing_if; updated absent_when_none test; added schedule_status_roundtrip test; 57 tests pass; clippy clean",
+  "closed_at": "2026-05-05T14:44:05Z",
+  "compaction_level": 0,
+  "content_hash": "cc6f75762de924589bbfcb8dd91570b842c58c731214b97e6555d7efc8a10ebf",
+  "created_at": "2026-05-05T03:54:24Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8984 \u00a74.4.6 defines scheduleStatus: String[] (optional) on Participant \u2014 a list of ITIP status codes returned from the most recent scheduling message sent to this participant. This is server-set and persisted. The crate does not have this field; it is silently dropped on round-trip for events that have gone through server-side scheduling. Add: pub schedule_status: Option<Vec<String>> with skip_serializing_if. Also add a test.",
+  "ephemeral": 0,
+  "id": "JMAP-z2cy.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add Participant.scheduleStatus field (RFC 8984 \u00a74.4.6)",
+  "updated_at": "2026-05-05T14:44:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:54:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-z2cy",
+      "id": "17197210-700b-5f22-b085-35479895910f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

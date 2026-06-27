@@ -1,0 +1,33 @@
+{
+  "close_reason": "Won't fix: opinion-tagged. RFC 8620 \u00a75.2 mandates these fields are present (even when empty), so strict deserialization correctly catches non-conformant servers. Adding #[serde(default)] would silently mask server bugs that should surface as errors. Reopen if a real-world server is observed omitting the fields and we need to interop with it.",
+  "closed_at": "2026-05-10T05:31:09Z",
+  "compaction_level": 0,
+  "content_hash": "866db29a2ffe06b057fc029bdcab2e7bcd30c2fd6a818376f1c1b50f0d65e480",
+  "created_at": "2026-05-08T03:22:57Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:52-60 ChangesResponse has `created: Vec<Id>`, `updated: Vec<Id>`, `destroyed: Vec<Id>` (no Option, no #[serde(default)]).\n\nRFC 8620 \u00a75.2 says these fields are required and present even when empty. So the current shape is correct \u2014 but it relies on the server obeying the spec. A buggy server that omits e.g. `destroyed` when nothing was destroyed will fail deserialization with 'missing field destroyed.'\n\nA defensive choice: `#[serde(default)] pub destroyed: Vec<Id>` \u2014 spec-compliant servers send the empty array (no change), broken servers that omit get an empty Vec instead of a runtime error. Costs nothing.\n\nThis is the inverse of finding .27 \u2014 there, the over-Option-ed fields propagate uncertainty; here, the under-Option-ed fields refuse to forgive minor server bugs. The defaultable choice gives both: optional-on-the-wire, present-in-the-type.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChangesResponse fields like created/updated/destroyed not Option \u2014 but spec says they may be empty arrays",
+  "updated_at": "2026-05-10T05:31:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:22:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "7282a504-1397-5bbe-b438-af776871b990",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

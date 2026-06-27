@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-bnw.3",
+  "title": "Mailbox/queryChanges: total field missing from response",
+  "description": "mailbox.rs handle_mailbox_query_changes response (lines 315-325) does not include total. RFC 8620 \u00a75.6 defines total as a response field. Email/queryChanges, Submission/queryChanges both include it from result.total. Mailbox backend provides total via QueryChangesResult but the handler discards it.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:47:28Z",
+  "updated_at": "2026-05-01T03:50:09Z",
+  "closed_at": "2026-05-01T03:50:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-bnw",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:47:28"
+    }
+  ]
+}

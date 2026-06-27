@@ -1,0 +1,76 @@
+{
+  "acceptance_criteria": "cargo check -p jmap-mail-server --features sieve passes; MemoryBackend implements SieveBackend; all sieve methods have working stub implementations",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:16:06Z",
+  "compaction_level": 0,
+  "content_hash": "e778a3f268057cdf255b5de34896edead8f9198e37d5cbca7895992fa4c1f636",
+  "created_at": "2026-05-02T15:23:58Z",
+  "created_by": "Mark Atwood",
+  "description": "Add SieveBackend impl for MemoryBackend in tests/common/mod.rs.\n\nWHAT: The test harness backend for sieve integration tests. Follows exact MdnBackend pattern.\n\nALGORITHM:\n1. Add cfg(feature=\"sieve\") use imports near top of common/mod.rs (alongside existing mdn imports):\n   #[cfg(feature = \"sieve\")] use jmap_mail_server::SieveBackend;\n2. Add impl block at end of common/mod.rs (after the MdnBackend impl):\n   #[cfg(feature = \"sieve\")]\n   impl SieveBackend for MemoryBackend {\n     type Error = MemoryError;\n\n     fn get_sieve_blob(&self, _account_id: &Id, blob_id: &Id) -> impl Future<...> + Send {\n       // Same pattern as MdnBackend::get_blob_bytes:\n       // lock inner, clone blobs.get(blob_id), drop lock, return async move { Ok(bytes) }\n       let bytes = self.inner.lock().unwrap().blobs.get(blob_id).cloned();\n       async move { Ok(bytes) }\n     }\n\n     fn validate_sieve_script(&self, _account_id: &Id, blob_id: &Id) -> impl Future<...> + Send {\n       // For the memory backend: fetch the blob bytes, do a trivial check.\n       // Valid if bytes exist and content is non-empty UTF-8.\n       // If blob missing: return Ok(Some(\"blob not found\"))\n       // If not valid UTF-8: return Ok(Some(\"script is not valid UTF-8\"))\n       // If empty: return Ok(Some(\"script must not be empty\"))\n       // Otherwise: Ok(None) (valid)\n       // This is sufficient for the integration tests; a real backend would call a Sieve parser.\n       let bytes = self.inner.lock().unwrap().blobs.get(blob_id).cloned();\n       async move {\n         match bytes {\n           None => Ok(Some(\"blob not found\".to_owned())),\n           Some(b) => {\n             if b.is_empty() { return Ok(Some(\"script must not be empty\".to_owned())); }\n             match std::str::from_utf8(&b) {\n               Err(_) => Ok(Some(\"script is not valid UTF-8\".to_owned())),\n               Ok(_) => Ok(None),\n             }\n           }\n         }\n       }\n     }\n   }\n3. Also add MemoryBackend::query_objects<SieveScript> support (query_objects is generic via MailBackend supertrait). The MemoryBackend implements query_objects via a match on O::TYPE_NAME. Add a \"SieveScript\" arm that:\n   - Loads all scripts for the account\n   - Applies filter (name substring + isActive exact)\n   - Sorts by name (then isActive)\n   - Returns QueryResult\n\nDEFENSIVE RULES:\n- NEVER hold MutexGuard across .await (same rule as MdnBackend)\n- Lock, clone needed data, drop lock, then do async work\n- test only: mutex is never poisoned in tests \u2014 .unwrap() on lock() is acceptable in tests/\n\nAGENT TEAM: Implementer + Tester (Tester verifies the SieveBackend impl compiles and basic operations work before integration tests run)\n\nTESTS: cargo check --test sieve_integration --features sieve passes; MemoryBackend implements SieveBackend; get_sieve_blob returns bytes for known blob and None for unknown blob; validate_sieve_script returns Ok(None) for non-empty UTF-8 content",
+  "design": "Location: tests/memory_backend.rs (or a new tests/sieve_backend.rs alongside the existing MemoryMailBackend).\n\nStorage: Arc<Mutex<SieveStore>> where SieveStore holds:\n  - scripts: HashMap<Id, SieveScript>\n  - state: String (incremented on any mutation)\n  - blobs: HashMap<Id, Vec<u8>> (shared with MemoryMailBackend or separate \u2014 reuse existing blob store)\n\nget_sieve_scripts: filter by ids, return list + notFound.\n\nset_sieve_scripts:\n  - create: generate Id, check name uniqueness (alreadyExists), check maxNumberScripts, check maxSizeScript (blob size), run sieve validation (see below). Insert. Apply on_success_deactivate/activate after all mutations.\n  - update: apply patch, re-validate if blobId changed, re-check name uniqueness.\n  - destroy: reject if isActive == true (sieveIsActive), remove.\n  - Activation state machine: at most one script has isActive == true at any time.\n\nvalidate_sieve_script: for MemorySieveBackend, use a minimal Sieve validator:\n  - Accept any non-empty UTF-8 blob that starts with require or does not start with a clearly invalid token.\n  - Alternatively, always return valid (null error) for test purposes, unless the blob content is exactly the test constant INVALID_SIEVE_CONTENT. Document this limitation clearly.\n\nquery_sieve_scripts: filter on name substring and/or isActive; sort by name or isActive; apply position/limit/anchor.\n\nVacationResponse compatibility: if a script has id matching a reserved VR id, reject content update and destroy with forbidden SetError.\n\nSpec ref: draft-ietf-jmap-sieve-22 \u00a72.3.1, \u00a72.4.1 for test fixture data.",
+  "ephemeral": 0,
+  "id": "JMAP-7uk",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve: MemorySieveBackend for tests",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T12:00:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3qw",
+      "id": "4444658f-640b-50c2-b34d-24ca5e2478f0",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T12:00:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-46i",
+      "id": "451bccb0-8b85-5118-bcda-6159f32b92a3",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T11:29:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-82ty",
+      "id": "5aaac882-477c-5caa-a1d3-010a31d1128d",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T12:00:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-irj",
+      "id": "67c8dafd-e9d3-5a83-a714-c330f2ce9de7",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T12:00:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ogt",
+      "id": "9afa4236-2a2c-52b2-94c7-e965fe700c3b",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T08:24:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-589",
+      "id": "a827cc26-c6a6-560d-9d3a-8e0e60a6e729",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

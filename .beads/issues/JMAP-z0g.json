@@ -1,0 +1,11 @@
+{
+  "id": "JMAP-z0g",
+  "title": "Test BackendSetError::Other paths in all handlers",
+  "description": "Every match backend.some_op() in a handler has a branch for BackendSetError::Other(e) that routes the error into the not_* response map. Currently these branches are mostly untested \u2014 the MemoryMailBackend only exercises SetError paths. A bug in mailbox.rs (Other routed to early return instead of not_created/not_updated/not_destroyed) survived to pass 12 review because no test triggered it. Add tests where some_op returns Other(e) for each handler that has set operations: mailbox.rs (create/update/destroy), email.rs (create/update/destroy/import), submission.rs (create), identity.rs (create/update/destroy). The MemoryMailBackend or a thin wrapper needs to support injecting BackendSetError::Other for specific operations.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T05:06:27Z",
+  "updated_at": "2026-05-01T05:06:27Z"
+}

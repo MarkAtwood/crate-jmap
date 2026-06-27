@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T07:27:58Z",
+  "compaction_level": 0,
+  "content_hash": "526eed8c6b54c631bfe2551d05f5c4e0eb45436cca2cab5550f6cbf9d1194a0e",
+  "created_at": "2026-05-11T07:05:35Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Location: crate-jmap-base-client/src/auth.rs (BearerAuth, BasicAuth, ClientError)\n\nBACKGROUND\nBearerAuth (auth.rs:183-189) and BasicAuth (auth.rs:233-239) both have\nmanually-written Debug impls that redact their credential fields:\n  f.debug_struct(\"BearerAuth\").field(\"token\", &\"[REDACTED]\").finish()\n  f.debug_struct(\"BasicAuth\").field(\"credentials\", &\"[REDACTED]\").finish()\n\nThis is the correct hygiene. The AuthProvider trait doc-comment (auth.rs:100-101)\nalso instructs:\n  /// Implementations **must not** log the return value of [`auth_header`];\n  /// it contains credentials.\n\nCONCERN\nNone of these invariants are enforced by a test. A maintainer who later\nadds #[derive(Debug)] to BearerAuth (clearing the manual impl), or who\nadds a new AuthProvider impl that prints its credentials in Debug, will\nbreak the hygiene silently. The only thing catching that today would be\na manual code review.\n\nPROPOSED FIX\nAdd a regression test under crate-jmap-base-client/src/auth.rs (or in\nthe existing #[cfg(test)] mod) that:\n\n1. Constructs a BearerAuth with a known, distinctive token literal\n   (e.g. 'CANARY-TOKEN-DO-NOT-LEAK-123').\n2. Calls {:?}.format on the BearerAuth and asserts the literal\n   substring 'CANARY-TOKEN-DO-NOT-LEAK-123' does NOT appear in the\n   output.\n3. Same for BasicAuth with a canary password.\n4. Same for the auth_header()-returning AuthProvider trait object \u2014\n   formatted with {:?} (via Box<dyn AuthProvider>).\n\nA few-line test that nails the contract. The cost is trivial; the\nbenefit is that any future refactor that exposes credentials via Debug\nfails CI immediately rather than silently leaking into a docker-log\nshipping pipeline somewhere downstream.\n\nRISK CLASSIFICATION\nP3 (hygiene / defense-in-depth). Today's code is correct. This is a\ntripwire against future regressions, in the same spirit as the existing\nconsecutive_skip_cap_matches_documented_value test in ws/mod.rs.\n\nORACLE\nThe canary string is the independent oracle \u2014 it is a literal under the\ntest's control, not derived from BearerAuth's internal state. The\nassertion checks a property (absence of substring) rather than a value\nderived from the code under test.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.79",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security: workspace lacks a regression test asserting Authorization tokens never appear in Debug/Display output",
+  "updated_at": "2026-05-11T07:27:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T00:05:34Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "1f873e61-2832-5a63-aab3-a8dad892ad86",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

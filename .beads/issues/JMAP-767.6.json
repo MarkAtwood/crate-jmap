@@ -1,0 +1,33 @@
+{
+  "close_reason": "reviewed pass 23: loop converged; no P0/P1/P2 found in current code",
+  "closed_at": "2026-05-01T12:39:50Z",
+  "compaction_level": 0,
+  "content_hash": "aedc63500a86195644ed03c4cf207b74abfed5b6b179753686c0f332e25b60ba",
+  "created_at": "2026-05-01T11:48:59Z",
+  "created_by": "Mark Atwood",
+  "description": "Across email.rs, mailbox.rs, identity.rs, submission.rs the BackendSetError::Other arm uses json!({\"type\":\"serverFail\",...}) in per-item error maps. 'serverFail' is not defined in RFC 8620 \u00a75.3 or RFC 8621. The correct mapping for an unexpected server error in a /set response is either to propagate as a method-level JmapError::server_fail() (which causes the entire /set to fail) or to use 'serverFail' if the implementor chooses to continue other operations. The wire type 'serverFail' will cause conforming clients to treat it as an unknown error type. This is a fossilized API surface \u2014 once deployed, clients will depend on this string. Either promote it to SetErrorType::ServerFail in the enum (non_exhaustive helps) or convert Backend::Other to a method-level error. Maintenance consequence: the SetErrorType enum and Display impl will diverge from what the wire actually emits.",
+  "ephemeral": 0,
+  "id": "JMAP-767.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "serverFail used in notCreated/notUpdated/notDestroyed is non-standard",
+  "updated_at": "2026-05-01T12:39:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:48:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "13b8d17a-51de-5c0e-9de3-786809b76e67",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

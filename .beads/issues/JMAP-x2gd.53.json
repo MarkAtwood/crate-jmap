@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Primary concerns (i64\u2192usize, u64\u2192usize) addressed by JMAP-qz9v.48 / .47. Remaining usize\u2192u64 casts are lossless and match canonical mail-server pattern.",
+  "closed_at": "2026-05-18T02:06:09Z",
+  "compaction_level": 0,
+  "content_hash": "63db164e19898ea965e1ce7eaba9b97d8cfd1e769d8b8b87ca6d8f390c4a969d",
+  "created_at": "2026-05-14T04:24:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/memory.rs:596-618 (MemoryBackend::query_objects). Same shape recurs in query_changes (line 625+).\n\nCurrent code:\n\n    let total = ids.len() as u64;                                  // L596\n    let start = if position >= 0 {\n        (position as usize).min(ids.len())                         // L604: i64 -> usize\n    } else {\n        let neg = position.saturating_neg() as usize;              // L606: i64 -> usize\n        ids.len().saturating_sub(neg)\n    };\n    ids = ids[start..]\n        .iter()\n        .take(limit.map_or(usize::MAX, |n| n as usize))            // L612: u64 -> usize\n        .cloned()\n        .collect();\n    Ok(QueryResult::new(ids, start as i64, ...))                   // L618: usize -> i64\n\nFive 'as' casts across a 25-line span, each one a different signed/unsigned boundary:\n- L596 usize -> u64: lossless on 32-bit, lossless on 64-bit (usize is always <= u64); safe in practice but as-cast loses the intent.\n- L604 i64 -> usize: on 32-bit pointers, an i64 position of 2^33 silently truncates to a small usize. position was already validated as >= 0 above so the sign-cast is fine, but the truncation isn't.\n- L606 i64 -> usize: after saturating_neg(), value is in [0, i64::MAX]; on 32-bit pointers same truncation problem.\n- L612 u64 -> usize: limit comes off the wire as u64; on 32-bit a wire-supplied limit of 2^33 silently becomes a small number.\n- L618 usize -> i64: lossless on 32-bit, lossless-ish on 64-bit (usize > i64::MAX is the underflow boundary but ids.len() is bounded by available memory). Acceptable but not idiomatic.\n\nWhat idiomatic Rust does: use usize::try_from(i64_val).unwrap_or(usize::MAX) for the i64 -> usize conversions (this gives saturating behavior at the platform-pointer-size boundary instead of silent truncation). For usize -> i64, i64::try_from(usize_val).expect('len fits in i64 \u2014 total memory < 8 EiB') with a load-bearing comment. The pattern across the file should be that any size_t-style crossing uses try_from explicitly.\n\nWhat goes wrong if left: on 64-bit hosts (the workspace's only test target today), nothing \u2014 every value fits. On 32-bit (not a current target but the kit's downstream-consumer story explicitly says 'consumers bring everything', so consumers might build for 32-bit Linux / wasm32 / embedded), a malicious or buggy client that sends a multi-gigabyte position or limit gets silently truncated to a small number, which is the kind of off-by-orders-of-magnitude bug that produces spec-incorrect results without panic. The reference impl shouldn't model this casual approach to numeric boundaries for downstream copy-paste.\n\nThis is a clippy::pedantic finding (cast_possible_truncation, cast_sign_loss, cast_possible_wrap fire on every site) that the previous rusty pass flagged as a confidence gap: 'cargo clippy --workspace -- -W clippy::pedantic was run against this diff to surface lints I'd miss by eyeball.' This pass ran it and these are the highest-signal hits in chat-server scope.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.53",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "memory.rs query_objects: i64/u64/usize as-casts on position/limit are non-idiomatic and lossy on 32-bit targets",
+  "updated_at": "2026-05-18T02:06:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T21:24:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "970d8022-751a-5aff-921b-035dd97ef3c3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

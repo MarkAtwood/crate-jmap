@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T05:19:56Z",
+  "compaction_level": 0,
+  "content_hash": "96c6652489f6b6b0b8adf55b252b447b73e71e68837221f1fe512829906963ff",
+  "created_at": "2026-05-08T03:31:48Z",
+  "created_by": "Mark Atwood",
+  "description": "draft-ietf-jmap-calendars-26 \u00a75.9.2 (line 1925 onward) and \u00a710.7.2 (line 3303 onward) define:\n\n- sendSchedulingMessages: Boolean argument on CalendarEvent/set controlling whether the server sends iTIP REQUEST/CANCEL/REPLY messages on event mutation\n- noSupportedScheduleMethods SetError: when sendSchedulingMessages is true and at least one recipient has no calendarAddress URI the server can send to, the change MUST be rejected with this SetError\n\nsrc/event.rs:80-325 (handle_calendar_event_set): sendSchedulingMessages is never read from args. noSupportedScheduleMethods is never produced. grep -n 'sendSchedulingMessages\\|noSupportedScheduleMethods' src returns nothing.\n\nPLAN.md \u00a73 describes recurrenceOverrides patch semantics but does not call out sendSchedulingMessages explicitly. It is part of the \u00a75.9 set semantics that PLAN.md row 'CalendarEvent | set | \u00a75.9 | standard set + sendSchedulingMessages' (line 91) flagged for implementation.\n\nAcceptable simplification: the handler can reasonably pass sendSchedulingMessages through to the backend as part of an optional arg struct, since iTIP delivery is fundamentally a backend concern (requires SMTP, address book, etc.). But the SetError mapping is handler-level \u2014 when a backend returns 'no schedule method available for recipient X', the handler must produce noSupportedScheduleMethods, not serverFail.\n\nWire impact: clients that set sendSchedulingMessages:false to suppress invitations on bulk imports will have invitations sent anyway (because the backend never sees the flag and falls back to its default). For the inverse case \u2014 client sets true and backend can't deliver \u2014 the client gets serverFail instead of noSupportedScheduleMethods, losing the ability to react meaningfully.\n\nFix: add sendSchedulingMessages to a CalendarEventSetArgs struct or pass directly to backend create/update/destroy as part of a context. Add a noSupportedScheduleMethods variant to BackendSetError or extend SetErrorType so backends can signal it.\n\nTest gap: no test.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CalendarEvent/set sendSchedulingMessages arg unimplemented; noSupportedScheduleMethods SetError never produced",
+  "updated_at": "2026-05-08T05:19:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:31:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "44fb34f1-4cfd-5879-9280-c37898f5dfd0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

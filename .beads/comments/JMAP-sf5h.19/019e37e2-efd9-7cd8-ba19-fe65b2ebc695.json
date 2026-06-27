@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T21:41:20Z",
+  "id": "019e37e2-efd9-7cd8-ba19-fe65b2ebc695",
+  "issue_id": "JMAP-sf5h.19",
+  "text": "Recommendation ratified after no pushback in ~41 hours: option (a) \u2014 drop from_raw_digest, add impl From<&[u8; 32]> for Sha256 (and optionally From<[u8; 32]>). With .18=(A) ratified (keep String), the inner-repr concern is gone but the trait-shape idiom still holds: infallible conversion = From impl. Workspace canonical-templates rule favors using From for infallible conversion."
+}

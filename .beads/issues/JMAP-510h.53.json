@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T10:44:50Z",
+  "compaction_level": 0,
+  "content_hash": "978f2eeb8bfbf4115b5ad9522aa9805a00200b66da77ccd0c159250593616ef7",
+  "created_at": "2026-05-14T20:16:08Z",
+  "created_by": "Mark Atwood",
+  "description": "Two sites use the .ok().and_then(...).ok() chain to silently drop serde errors during filter parsing \u2014 a classic error-masking anti-pattern that the supplement flags under error-handling.\n\nSite 1 \u2014 src/memory.rs:378-384 (MemoryBackend::query_objects):\n\n    let fc: Option<jmap_filenode_types::FileNodeFilterCondition> = if let Some(f) = filter {\n        serde_json::to_value(f)\n            .ok()                                                    // <- drops to_value error\n            .and_then(|v| serde_json::from_value(v).ok())            // <- drops from_value error\n    } else {\n        None\n    };\n    ...\n    let mut ids: Vec<Id> = store.nodes.values()\n        .filter(|node| node_matches_filter(node, fc.as_ref()))\n        .map(...).collect();\n\nIf to_value or from_value errors, fc becomes None. node_matches_filter at memory.rs:721-725 returns 'true' when fc is None (the 'no filter' case). Net effect: the client asked for a filter, the filter could not be parsed, the response is 'all nodes match' \u2014 silently treated as an unfiltered query.\n\nSite 2 \u2014 src/lib.rs:312-318 (MockBackend::query_objects, in test_support):\n\n    if let Ok(json_val) = serde_json::to_value(filter_ref) {        // <- drops to_value error\n        if let Ok(fc) = serde_json::from_value::<\n            jmap_filenode_types::FileNodeFilterCondition,\n        >(json_val)                                                 // <- drops from_value error\n        {\n            ...\n        }\n    }\n\nSame pattern, same semantic: silent drop. In a test backend the impact is lower, but the same code is being copied into a future real backend.\n\nWhat idiomatic Rust would do \u2014 two options:\n\n(a) Propagate the error. The fn already returns Result, so:\n\n    let fc: Option<jmap_filenode_types::FileNodeFilterCondition> = match filter {\n        None => None,\n        Some(f) => {\n            let v = serde_json::to_value(f)\n                .map_err(|e| MemoryError(format!(\"serialize filter: {e}\")))?;\n            Some(serde_json::from_value(v)\n                .map_err(|e| MemoryError(format!(\"parse filter: {e}\")))?)\n        }\n    };\n\n(b) If best-effort is genuinely intended, document it in the function doc AND make the silent-drop visible: log a warning, or return Err with a 'filter could not be parsed' diagnostic. Currently neither is true.\n\nThe .ok() chain reads to a casual reviewer as 'parse if possible, ignore on error'. The supplement specifically calls this out: '\\.unwrap_or(default_value) where the failure is genuinely an error (malformed input) is non-idiomatic \u2014 you want .parse()? or match to propagate.' The .ok().and_then(.ok()) shape is the same anti-pattern wearing a hat.\n\nWorkspace context: the silent-error policy is already documented in workspace AGENTS.md (Filter algebra exclusion section, reason #1): 'Silent-drop is a server-side query-correctness bug.' This finding is consistent with that policy.\n\nCross-reference: JMAP-510h.9 (MemoryBackend filter only matches parentId and isTopLevel; other conditions are silently passed through) flags the DOWNSTREAM side of the same bug \u2014 node_matches_filter's incomplete coverage. The current finding flags the UPSTREAM side \u2014 the filter never gets a chance to be applied because the parse silently fails. They are different defects in the same call chain.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.53",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Filter introspection uses .ok().and_then(.ok()) chain \u2014 silent-drops serde errors in node_matches_filter setup",
+  "updated_at": "2026-05-15T10:44:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:16:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "220b1840-1b7a-5ae5-96a1-12ceb6cd6e4f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

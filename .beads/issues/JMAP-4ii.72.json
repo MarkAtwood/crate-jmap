@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T05:01:32Z",
+  "compaction_level": 0,
+  "content_hash": "684092df390e09760995dc3e90f065d3718f1df1d34ad95f73e1a4d741c71cb1",
+  "created_at": "2026-05-02T04:58:55Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_identity_set (identity.rs), the create loop iterates 'for (create_id, obj_val) in create_map' where obj_val is owned (Value). However, the loop body uses obj_val.get(\"replyTo\") and obj_val.get(\"bcc\") which borrow obj_val, forcing serde_json::from_value(rt.clone()) and serde_json::from_value(bcc.clone()) at lines ~166 and ~183. The clone is avoidable: change the loop binding to 'for (create_id, mut obj_val) in create_map' and use if let Some(rt) = obj_val.as_object_mut().and_then(|m| m.remove(\"replyTo\")) to take ownership. This eliminates the clone for both replyTo and bcc fields. Same pattern applies if other Value fields are extracted with .get() rather than .remove(). All other set handlers in mail-server already use the remove-to-own pattern for field extraction.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.72",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "identity.rs create loop: obj_val.get() borrow forces rt.clone()/bcc.clone()",
+  "updated_at": "2026-05-02T05:01:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:58:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "11a4f605-bdf4-56cb-a682-d4474ffb12a3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed: collapsed 10 if-else blocks into a single boolean iterator expression with is_some_and",
+  "closed_at": "2026-05-03T13:07:15Z",
+  "compaction_level": 0,
+  "content_hash": "4ea515e9515a8d1e07a350ad42bfe0d3c4391f228f2329aefdf68450a3f44bbe",
+  "created_at": "2026-05-03T13:00:30Z",
+  "created_by": "Mark Atwood",
+  "description": "The 10 consecutive 'if !crlf_bad { if let Some(ref s) = mdn.X { if !check_no_crlf(s) { crlf_bad = true; } } }' blocks in handle_mdn_send step 4 are repetitive and obscure the intent. Suggested rewrite: define a helper fn opt_has_crlf(s: &Option<String>) -> bool { s.as_deref().is_some_and(|s| !check_no_crlf(s)) } and collapse to: let crlf_bad = opt_has_crlf(&mdn.subject) || opt_has_crlf(&mdn.text_body) || ... || mdn.error.as_ref().is_some_and(|errs| errs.iter().any(|e| !check_no_crlf(e))) || mdn.extension_fields.as_ref().is_some_and(|f| f.iter().any(|(k,v)| !check_no_crlf(k) || !check_no_crlf(v))); This makes the field list readable and the intent clear.",
+  "ephemeral": 0,
+  "id": "JMAP-7a8b.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CRLF validation chain in handle_mdn_send should be a single iterator expression",
+  "updated_at": "2026-05-03T13:07:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:00:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7a8b",
+      "id": "99bf5d2e-3071-5006-b502-223ad416037b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

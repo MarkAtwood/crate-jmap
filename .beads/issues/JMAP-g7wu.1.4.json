@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed: ClosureHandler in jmap-server now takes a CallerCtx type parameter and forwards it to the wrapped closure. The previous ClosureHandlerWithCtx sibling has been deleted (its capabilities merged into bare ClosureHandler, which is what the workspace AGENTS.md canonical-template idiom prefers). All 7 extension server crates (mail/chat/calendars/contacts/filenode/sharing/tasks) updated to use the unified name in both their re-exports and their register_*_handlers macros. Doc-comments and README caveats refreshed to match. Workspace is pre-publication so the API break has zero ecosystem cost; coordinates with JMAP-g7wu.1's planned 0.2 bump.\n\nQuality gates green: cargo check --workspace --all-targets, cargo test --workspace, cargo clippy --workspace --all-targets -- -D warnings, cargo fmt --all --check, RUSTDOCFLAGS=-D warnings cargo doc --no-deps --workspace.\n\nPre-existing --all-features failure in jmap-mail-server's sieve module (8x E0004 non-exhaustive patterns) spotted in passing; filed separately as JMAP-6i06, NOT addressed here.",
+  "closed_at": "2026-05-11T01:32:55Z",
+  "compaction_level": 0,
+  "content_hash": "a9c3c163d1b218ae191de99864a192e58b9982135d249da02102eaf77308d168",
+  "created_at": "2026-05-11T00:06:35Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-server/src/lib.rs:271\n\nClosureHandler in the jmap-server foundation crate doesn't take CallerCtx. Forwarding it requires changing the closure signature. Adopt the shape from JMAP-g7wu.1's MailBackend canonical pass.\n\nSince jmap-server is the foundation crate the *-server crates depend on, this either lands first or co-lands with the canonical.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.1.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CallerCtx forwarding through ClosureHandler in jmap-server (foundation)",
+  "updated_at": "2026-05-11T01:32:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:06:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.1",
+      "id": "f6b4d3de-6bd0-5728-b982-59e55d15f2cc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

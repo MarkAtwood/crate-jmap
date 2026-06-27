@@ -1,0 +1,33 @@
+{
+  "close_reason": "Belongs in jmap-types, not metadata-server. The PatchObject deserialize contract is a foundation-crate concern.",
+  "closed_at": "2026-05-14T17:50:59Z",
+  "compaction_level": 0,
+  "content_hash": "75b043c4a1b45344145363b167a692912d8221aac6533da0f5adb958495e40dc",
+  "created_at": "2026-05-14T17:50:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: handle_metadata_set's update branch deserialises patch_val as PatchObject (metadata.rs:410). The PatchObject type lives in jmap-types. If PatchObject deserializes from anything non-object permissively (e.g. accepts an empty object), the test at metadata.rs:856-871 ('non-object patch returns invalidPatch') passes for the 'string' case but does not exercise the 'object with non-string keys' or 'null' edge.\n\nThis is a defensive-coding concern about the broader PatchObject deserialize contract, not metadata-server-specific. Filing here to track but the fix likely belongs in jmap-types.\n\nClosing \u2014 not metadata-server's job to police PatchObject's deserialize contract. Confirmed below.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.update_object enforces RFC 8620 \u00a75.3 'patch-on-non-Object value' weakly: PatchObject deserialize at metadata.rs:410 catches the top-level non-object case, but no test asserts the wire shape of resulting SetError",
+  "updated_at": "2026-05-14T17:50:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:50:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "071f637e-9014-541a-be45-804d49e061d6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

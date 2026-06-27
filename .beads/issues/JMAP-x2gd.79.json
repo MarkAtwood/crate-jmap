@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T01:45:52Z",
+  "compaction_level": 0,
+  "content_hash": "b42ec7f91da61417a5c54657735d7ea98370a727eb65f05cdc0e3cd6dfb304a7",
+  "created_at": "2026-05-14T15:53:15Z",
+  "created_by": "Mark Atwood",
+  "description": "clippy::nursery flags missing_const_for_fn on these public chat-server constructors and builder methods:\n\n- backend.rs:75 `OpResult::ok(op_index: usize, id: Option<Id>) -> Self` \u2014 struct-literal construction, trivially const-able\n- backend.rs:87 `OpResult::err(op_index: usize, error: SetError) -> Self` \u2014 same shape\n- backend.rs:172 `ChatLimits::new() -> Self` \u2014 Default-shaped, all-fields-known\n- backend.rs:188 `ChatLimits::with_max_roles_per_space(self, n) -> Self`\n- backend.rs:195 `ChatLimits::with_max_space_members(self, n) -> Self`\n- backend.rs:202 `ChatLimits::with_max_channels_per_space(self, n) -> Self`\n- backend.rs:209 `ChatLimits::with_max_categories_per_space(self, n) -> Self`\n- backend.rs:275 `SlowModeError::new(retry_after: Duration) -> Self` \u2014 struct-literal\n\nIdiomatic Rust: any constructor or builder that does pure field assignment with no method calls on inputs should be `const fn`. The change is strictly additive \u2014 non-breaking for callers \u2014 and enables consumers to build these values in `const` contexts (e.g., `const DEFAULT_LIMITS: ChatLimits = ChatLimits::new().with_max_roles_per_space(64);` in a downstream backend's config module).\n\nEngineering basis: zero cost, real benefit. A library kit's public surface should not gratuitously deny callers the const path. The Rust stdlib has been adding `const fn` to constructors of stable types for several editions for exactly this reason; library crates that build on top of stdlib idioms are expected to do the same.\n\nPer the workspace AGENTS.md \"Canonical Templates\" rule, the same lint should be run on jmap-mail-server's analogous constructors (Mailbox limits, Email construction helpers, etc.) and the fix propagated workspace-wide. Likely a workspace-sweep, not chat-server-local.\n\nTwo pure-switch internal helpers (memory.rs:3069 variant_name, permissions.rs:112 required_permissions_for_op, space.rs:189 json_value_kind) are also clippy::nursery missing_const_for_fn candidates but the internal-helper question is lower-leverage and could be folded in or skipped depending on workspace policy.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.79",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API surface: 5+ public constructor / builder methods could be const fn to enable const consumers",
+  "updated_at": "2026-05-18T01:45:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:53:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "504bc541-3c5d-5fe8-9092-144c07db8fde",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

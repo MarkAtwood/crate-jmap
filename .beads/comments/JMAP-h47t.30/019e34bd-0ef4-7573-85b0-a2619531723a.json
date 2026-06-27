@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T07:01:06Z",
+  "id": "019e34bd-0ef4-7573-85b0-a2619531723a",
+  "issue_id": "JMAP-h47t.30",
+  "text": "Session checkpoint: decomposed scope into 6 sibling-crate children (.1 chat, .2 calendars, .3 contacts, .4 filenode, .5 metadata, .6 sharing). This parent bead is now scoped to the canonical sibling jmap-mail-server (32 handle_* fns across src/email.rs, mailbox.rs, identity.rs, email_submission.rs, vacation.rs, search_snippet.rs, thread.rs, mdn.rs, and search.rs).\n\nCanonical-template propagation rule applies: do mail-server first, then each sibling-crate child can apply the same pattern verbatim. Session ran out of budget after closing the three tasks-server beads (.14, .5, .17); leaving this open for the next /do-beads session against this epic or against workspace scope.\n\nThe pattern is fully demonstrated in commit 216cc61 on JMAP-h47t.17 (tasks-server) \u2014 three module-level Wire-shape contract sections + 14 per-handler wire-shape paragraphs + Returns trailers. Same shape lifts to mail-server with the spec section refs swapped from draft-tasks-06 \u00a73-\u00a75 to RFC 8621 \u00a71-\u00a77.\n\nReleasing claim so the next /do-beads session can pick up."
+}

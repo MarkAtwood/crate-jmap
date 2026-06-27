@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "6e871f4f59c37ad72e06d91d27cde82c9964742dda4c5ecef8f1d7da6ab5b8f4",
+  "created_at": "2026-05-17T04:53:43Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-sharing-server/src/principal.rs:36 and :303 reference [`BackendChangesError::CannotCalculate`] in rustdoc without a path qualifier. The type lives in `jmap_server::backend` (re-exported as `jmap_server::BackendChangesError`) but principal.rs does not bring it into scope, so the intra-doc link fails to resolve.\n\nThis is a pre-existing breakage that has been in the workspace since before bd:JMAP-ayoz.41.1 (per the bd-prime kb note). Running `RUSTDOCFLAGS='-D warnings' cargo doc -p jmap-sharing-server --no-deps` fails with:\n\n    error: unresolved link to `BackendChangesError::CannotCalculate`\n       --> crate-jmap-sharing-server/src/principal.rs:36 (and :303)\n\nWorkspace `cargo doc --workspace` fails on these. Other workspace crates do not have analogous issues.\n\nFix: either (a) qualify the link to `[`jmap_server::BackendChangesError::CannotCalculate`]`, or (b) bring `BackendChangesError` into scope via `use jmap_server::BackendChangesError;` at the top of principal.rs.\n\nDiscovered while running rustdoc gate for bd:JMAP-x2gd.48 (register_account doc-hidden sweep).",
+  "ephemeral": 0,
+  "id": "JMAP-m1yd",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "jmap-sharing-server: pre-existing broken intra-doc links to BackendChangesError::CannotCalculate",
+  "updated_at": "2026-05-17T04:53:43Z"
+}

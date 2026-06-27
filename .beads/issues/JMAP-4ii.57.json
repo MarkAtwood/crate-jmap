@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:35:07Z",
+  "compaction_level": 0,
+  "content_hash": "ea08911b708e51f0017fbc7edcaa029243eb03e4555f88f081a9f98e2ae8c7e7",
+  "created_at": "2026-05-02T04:29:44Z",
+  "created_by": "Mark Atwood",
+  "description": "chat.rs, contact.rs, message.rs, position.rs, presence.rs /set handlers extract the update map via args.as_object_mut().and_then(|m| m.remove(\"update\")), which requires args to stay typed as Value throughout the function. The identity.rs fix correctly destructures Value::Object(mut args_map) at function entry and calls args_map.remove(\"update\") directly \u2014 no as_object_mut() indirection. A serious Rust practitioner would prefer the destructuring form: it removes the Option layering, communicates that args is always an Object (which is true at the dispatch level), and makes every subsequent args.get/remove call one level cleaner. The current chat-handler form was chosen to avoid refactoring extract_account_id, which takes &Value \u2014 but once destructured, extract_account_id can receive &Value::Object(&args_map) or the function can be updated. As written, it is a borrow-checker workaround disguised as a method chain.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.57",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat-server /set handlers: as_object_mut().and_then() for update-map removal",
+  "updated_at": "2026-05-02T04:35:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:29:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "e9d928da-1b8d-5362-ab8e-55ad17476ad6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in 044b4f2: urgency and mention_urgency are now Option<UrgencyLevel> using the canonical impl_string_enum! pattern with Other(_) forward-compat. Wire-byte-equivalent.",
+  "closed_at": "2026-05-16T03:33:29Z",
+  "compaction_level": 0,
+  "content_hash": "9e6d79415f54dd69c6253c53d78e60f64309f32f544f3db68142ac9a245dc01d",
+  "created_at": "2026-05-16T02:39:14Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: a downstream consumer reads draft-atwood-jmap-chat-push-00 \u00a74.1 and learns that urgency takes 'very-low' | 'low' | 'normal' | 'high'. They write ChatPushConfig { urgency: Some(\"hgih\".to_owned()), .. } and the typo is not caught at compile time.\n\nBad behavior: crate-jmap-chat-types/src/push.rs:24-28 declares urgency: Option<String> and mention_urgency: Option<String>. The spec wire vocabulary is enumerable. The crate already uses impl_string_enum! for similar cases (ChatKind, DeliveryState, ReadDisposition, Presence) \u2014 each pairs a typed enum with an Other(String) forward-compat arm.\n\nThe string-typed declaration here:\n- Lets typos pass compile and surface only as silently-ignored push config at runtime (server side does not validate; server discards unknown urgency strings).\n- Diverges from the canonical-template pattern used elsewhere in this crate.\n- Makes the ChatPushConfig wire docs less discoverable: a reader has to read the spec to learn the allowed values, instead of reading the rustdoc of an UrgencyLevel enum.\n\nFix: define UrgencyLevel as a string-enum with the four spec variants plus Other(String), update both fields. Non-breaking deserialize-wise \u2014 Other(String) absorbs anything not in the four. The break is on the Rust API but the crate is pre-1.0 and the type is #[non_exhaustive].\n\nPriority P3 because the failure mode is 'config string silently ignored' rather than 'incorrect security decision', which is a reasonable real-world cost but not a P0/P1 footgun.",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChatPushConfig.urgency and mention_urgency: stringly-typed wire fields with enumerable wire vocab",
+  "updated_at": "2026-05-16T03:33:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:39:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "f9d7c289-6385-5bd2-967b-e4c7404e0edc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

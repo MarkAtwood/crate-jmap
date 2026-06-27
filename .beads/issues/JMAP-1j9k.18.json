@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T12:21:28Z",
+  "compaction_level": 0,
+  "content_hash": "5779ef179990060d3d64188f8a10851df1e57378e1582a570cc81caeb5fd92d1",
+  "created_at": "2026-05-15T01:19:40Z",
+  "created_by": "Mark Atwood",
+  "description": "## What the code does\n\nThree `_set` methods in calendars-client use the `ref` binding-mode pattern inside an `if let Some(...)` to avoid moving the optional create map:\n\n```rust\n// crate-jmap-calendars-client/src/methods/calendar.rs:96\nif let Some(ref m) = create {\n    for k in m.keys() { ... }\n}\n// ... later in the same function:\nif let Some(c) = create {\n    args[\"create\"] = serde_json::to_value(&c).map_err(...)?;\n}\n```\n\nThe `ref` binding-mode is the older Rust spelling for \"bind `m` as `&T` instead of moving `T`\". The modern (since edition 2018) idiom is to take a reference to the scrutinee:\n\n```rust\nif let Some(m) = &create {\n    for k in m.keys() { ... }\n}\n```\n\nSame shape in event.rs:105, participant_identity.rs:79.\n\n## What idiomatic Rust would do\n\n`if let Some(m) = &create` is the standard 2018+ form. It reads left-to-right as \"borrow create, match Some, bind contents as m\". The `ref` form (\"bind as borrowed\") is a relic of pre-NLL Rust when the compiler couldn't always infer the binding mode from the scrutinee. Modern style guides and the standard library both prefer `&pattern`.\n\nThis is the kind of thing rust-analyzer or rustfmt-style tools will eventually rewrite automatically. Clippy itself doesn't flag it \u2014 `clippy::redundant_pattern_matching` and `clippy::needless_borrow` are about different patterns \u2014 but it's covered under the \"language idioms\" subsection of the review prompt explicitly as drive-by readability rot.\n\n## Why it matters\n\nLow stakes individually. The argument for filing is the canonical-template propagation rule: this code is about to (potentially) be copy-pasted into six more sibling crates if the empty-creation-id validation pattern propagates. Settling the idiomatic form before the spread is materially cheaper than chasing it across siblings later.\n\nThe canonical `crate-jmap-mail-client` does NOT have this code at all (no empty-creation-id validation on `email_set`), so there's no canonical-template comparison to make \u2014 the pattern was added in calendars-client without a sibling reference. Fix it here to set the right precedent for the future sibling sweep.\n\n## Why not just leave it\n\nIt is plausibly leave-able. `ref m` works, the wire output is identical, the function is correct. The reason to flag it is workspace consistency: of the three sites in calendars-client (calendar.rs:96, event.rs:105, participant_identity.rs:79), all use `ref` \u2014 so the project has not yet decided this is OK. A drive-by contributor adding a fifth method that follows event_copy.rs:28 (which does NOT need `ref` because the function consumes `create` by value \u2014 `pub async fn calendar_event_copy(..., create: HashMap<...>)`, not Option) won't be sure which pattern to adopt.\n\n## Fix shape\n\n`if let Some(ref m) = create` \u2192 `if let Some(m) = &create` at three sites.\n\n## Source citations\n\n- crate-jmap-calendars-client/src/methods/calendar.rs:96\n- crate-jmap-calendars-client/src/methods/event.rs:105\n- crate-jmap-calendars-client/src/methods/participant_identity.rs:79",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "`if let Some(ref m) = create` is stale pre-2018-edition pattern; modern idiom is `if let Some(m) = &create`",
+  "updated_at": "2026-05-17T12:21:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:19:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "6eb662e4-2ee0-55a0-925a-7e8f4ba720db",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "all steps complete",
+  "closed_at": "2026-05-05T14:35:05Z",
+  "compaction_level": 0,
+  "content_hash": "9d9cadf8b8e8229cefe1ef4f16a015d92da7bcf59237bef38177fc51b9eaf0da",
+  "created_at": "2026-05-05T00:47:04Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement RFC 9670 (JMAP Sharing) extension trait over jmap-base-client. JmapSharingExt adds 10 typed methods: principal_get, principal_changes, principal_set, principal_query, principal_query_changes, share_notification_get, share_notification_changes, share_notification_set (takes &[Id], destroy-only), share_notification_query, share_notification_query_changes. Spec: RFC 9670. Pattern: follow jmap-chat-client (per-method modules, wiremock tests). Blocked by: jmap-sharing-types epic.",
+  "ephemeral": 0,
+  "id": "JMAP-wwvy",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-sharing-client: RFC 9670 client methods",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:47:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qet4",
+      "id": "d819423b-f179-55b4-918e-8d876e7e60e8",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

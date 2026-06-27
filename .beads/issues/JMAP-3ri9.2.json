@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "3 FileNode set/copy wiremock tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/integration_set_copy.rs (3 tests: set-with-params, nodeHasChildren error, copy-with-rename); bug bead JMAP-3ri9.4 filed for missing onDestroyRemoveChildren in copy; clippy clean",
+  "closed_at": "2026-05-05T04:30:36Z",
+  "compaction_level": 0,
+  "content_hash": "e4f975c401c77c3ae2a7c0f166f9f12353c684a3f86936673f8e775ea69a07ac",
+  "created_at": "2026-05-05T02:53:48Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-filenode-client/tests/integration_set_copy.rs with 3 async wiremock tests. Oracle: \u00a73.2.3 (set params, onExists, nodeHasChildren error), \u00a73.2.4 (copy).\n\n**Tests:**\n1. file_node_set_create_with_params: call with onDestroyRemoveChildren=true, onExists=Replace; mock returns created node; assert request body has onDestroyRemoveChildren:true and onExists:\"replace\". Oracle: \u00a73.2.3 params are top-level args.\n2. file_node_set_destroy_with_error: call destroy [\"node-abc\"]; mock returns notDestroyed {\"node-abc\":{\"type\":\"nodeHasChildren\"}}; assert resp.not_destroyed[\"node-abc\"].error_type==\"nodeHasChildren\". Oracle: \u00a73.2.3 nodeHasChildren error type.\n3. file_node_copy_with_on_exists_rename: call with from_account_id=\"source-account\", onExists=Rename; mock returns created node with name \"report (1).pdf\"; assert request body has fromAccountId==\"source-account\" and onExists==\"rename\". Oracle: \u00a73.2.4 rename causes server to pick non-colliding name.\n\n**Also:** File a separate bug bead flagging that file_node_copy is missing onDestroyRemoveChildren param (\u00a73.2.4 says copy accepts same params as set). Do NOT fix the bug in this bead \u2014 just file it.\n\n**Acceptance criteria:** All 3 tests pass. Bug bead filed.",
+  "ephemeral": 0,
+  "id": "JMAP-3ri9.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: FileNode/set and /copy",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:53:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3ri9",
+      "id": "a7255a64-a972-562f-a68d-3f30876ca52b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

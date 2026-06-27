@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T05:55:19Z",
+  "compaction_level": 0,
+  "content_hash": "9a76f68e581c2a2d904e34ce04d8d8d6b5decb87858c563223c41ce71d6708bc",
+  "created_at": "2026-05-02T05:35:10Z",
+  "created_by": "Mark Atwood",
+  "description": "space.rs line 626: new_uses = invite.uses + 1 \u2014 if uses == u64::MAX, this overflows in debug mode (panic) or wraps in release (wrapping to 0), bypassing the max_uses guard. Uses saturating_add(1) instead. Trigger: invite used u64::MAX times.",
+  "ephemeral": 0,
+  "id": "JMAP-287.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SpaceInvite uses counter: u64 wrapping add in release",
+  "updated_at": "2026-05-02T05:55:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T22:35:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-287",
+      "id": "c2cafcc2-7881-5a75-b52a-0125411854ea",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Re-scoped to workspace-canonical-first sweep at JMAP-pgj7. This bead's complaint is correct but its scope is wrong per the workspace canonical-template propagation rule, AND the proper architectural fix is foundation helpers on jmap-server rather than per-crate inline conversions.",
+  "closed_at": "2026-05-15T08:50:53Z",
+  "compaction_level": 0,
+  "content_hash": "593527c4223a681452b79bfb1cd8e206ddd403256aae7afa8102742cfa7b629f",
+  "created_at": "2026-05-15T07:36:57Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:596 (`position as usize`), :598 (`position.saturating_neg() as usize`), and :604 (`n as usize` on the limit) are all silent lossy casts. The i64\u2192usize casts are flagged by `clippy::cast_possible_truncation` (32-bit targets) and `clippy::cast_sign_loss` (positive-i64 reading). The u64\u2192usize cast on `limit` is also `cast_possible_truncation` on 32-bit. \u2014 Idiomatic Rust uses `usize::try_from(...)` with explicit fallback (saturating_to_usize-style helpers, or a single `#[allow(clippy::cast_possible_truncation)]` with a // SAFETY: comment justifying the platform assumption). Even on 64-bit-only deployments, these casts read as 'author skipped the check' rather than 'author considered the check'. Engineering impact: a 32-bit consumer of this reference impl gets silent wrong results on positions/limits over 2^31.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.45",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Lossy as-cast cluster in query_objects: i64\u2192usize, u64\u2192usize without try_from",
+  "updated_at": "2026-05-15T08:50:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T00:36:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "fe95fd56-c398-5797-9662-c992cfa269d3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

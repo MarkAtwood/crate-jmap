@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Five .map(...).unwrap_or(false) sites converted to .is_some_and(...) in task.rs (2), memory.rs (2), lib.rs (1). The bead's recommendation to also convert the two .and_then(|v| v.as_bool()).unwrap_or(false) bool-arg-parsing sites was incorrect for canonical-template parity: jmap-mail-server email.rs:521-532 uses the exact same .and_then chain, so converting them in tasks-server would CREATE divergence rather than close it. Left intact. cargo fmt + clippy + test green.",
+  "closed_at": "2026-05-14T18:47:56Z",
+  "compaction_level": 0,
+  "content_hash": "6fb3d008494ab8ef94d6a9db0ab5b97e54877a743150fa3b06c39436faaabbda",
+  "created_at": "2026-05-14T18:27:32Z",
+  "created_by": "Mark Atwood",
+  "description": "Five+ sites use `.map(...).unwrap_or(false)` or `.and_then(...).unwrap_or(false)` where the canonical sibling jmap-mail-server consistently uses `Option::is_some_and` (stable since 1.70, workspace MSRV is 1.88).\n\nSites in tasks-server:\n- `lib.rs:486-489` \u2014 `.map(|lid| lid == task_list_id).unwrap_or(false)` \u2192 `is_some_and(|lid| lid == task_list_id)`\n- `memory.rs:506-509` \u2014 `.map(|s| s == target.as_str()).unwrap_or(false)` \u2192 `is_some_and(|s| s == target.as_str())`\n- `memory.rs:801-803` \u2014 `.map(|a| a.task_lists_with_tasks.contains(...)).unwrap_or(false)` \u2192 `is_some_and(|a| a.task_lists_with_tasks.contains(...))`\n- `task.rs:33-37` \u2014 `.map(|s| s == \"utcStart\" || s == \"utcDue\").unwrap_or(false)` \u2192 `is_some_and(|s| ...)`\n- `task.rs:258-261` \u2014 `.map(|m| m.iter().all(...)).unwrap_or(false)` \u2192 `is_some_and(|m| m.iter().all(...))`\n- `task_list.rs:73-74` \u2014 `.and_then(|v| v.as_bool()).unwrap_or(false)` \u2192 `.is_some_and(|v| v.as_bool().unwrap_or(false))` (less clean here; alternative `== Some(true)` after `.and_then(|v| v.as_bool())`)\n\nWhat goes wrong if it stays as-is: tasks-server is a cookie-cutter sibling of jmap-mail-server per AGENTS.md. The canonical-template propagation rule says siblings must mirror canonical idiom. `rg is_some_and crate-jmap-mail-server/src/ -c` shows ~14 hits across four files; tasks-server has 1 hit (`memory.rs`). The two siblings now diverge on a workspace-wide convention.\n\nWhat idiomatic Rust would do: `Option::is_some_and` is the canonical way to express 'matches a predicate, default false' since the 1.70 release. The serious-Rust reader expects it, not the legacy two-combinator chain \u2014 which was the only option pre-1.70 and which clippy flags as `unnecessary_map_or` under sufficient pedanticness.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "is_some_and not adopted \u2014 5+ sites diverge from canonical jmap-mail-server",
+  "updated_at": "2026-05-14T18:47:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:27:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "022ef5d3-86ff-5fb4-81aa-fcf4f436ddf7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

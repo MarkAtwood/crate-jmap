@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "MemoryError reshape landed: struct MemoryError { msg: String } with pub fn new(impl Into<String>) and pub fn message(&self) -> &str. Display impl preserved (uses self.msg). Five internal MemoryError(format!(...)) call sites migrated to MemoryError::new(format!(...)). cargo doc -D warnings + clippy + test green. Workspace-wide propagation across 7 sibling MemoryBackends not yet filed; will fold into a single broader 'MemoryBackend tightening' sweep when the related .19 follow-up sweep is filed.",
+  "closed_at": "2026-05-14T18:54:23Z",
+  "compaction_level": 0,
+  "content_hash": "b69ccf7cbde705a0e523f35730042b84c5b13de6f90e77b2530efa16db0b5c38",
+  "created_at": "2026-05-14T18:17:17Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-tasks-server/src/memory.rs:81-91:\n\n    /// A simple string error for \\`MemoryBackend\\` failures.\n    #[derive(Debug)]\n    pub struct MemoryError(pub String);\n\nThe pub String field is part of the public API. Once this ships in 0.1.x, callers can:\n\n  - Match on it: \\`if let MemoryError(msg) = err { ... }\\`\n  - Construct it directly: \\`MemoryError(\\\"foo\\\".to_owned())\\`\n  - Use it in pattern bindings: \\`let MemoryError(msg) = err;\\`\n\nEach of these locks the maintainer out of evolving the error to structured form. Realistic future shapes that all become breaking changes:\n\n    pub struct MemoryError { msg: String, kind: ErrorKind }\n    pub struct MemoryError { msg: Cow<'static, str> }\n    pub enum MemoryError { Deserialize(String), Storage(String), ... }\n\nAll three are common refactors when a backend error type grows. None is reachable from the current shape without a breaking change.\n\nThe trait it implements (std::error::Error, Display, Debug) only requires opaqueness. The pub field gives consumers more access than the trait contract needs. Conventional fix:\n\n    pub struct MemoryError {\n        msg: String,\n    }\n\n    impl MemoryError {\n        pub fn new(msg: impl Into<String>) -> Self {\n            Self { msg: msg.into() }\n        }\n        pub fn message(&self) -> &str {\n            &self.msg\n        }\n    }\n\nThis preserves the existing Display impl (uses self.msg), keeps construction available via ::new(), exposes the message via a getter, and leaves room for adding kind/source fields without breaking callers.\n\nAlso relevant: the constructor pattern (MemoryError(format!(...))) is used throughout memory.rs (lines 365, 619, 627, 680, 769, 778). Internal usage migrates to MemoryError::new(format!(...)) \u2014 minor diff.\n\nThe MemoryBackend module-level doc already disclaims API stability (\\\"may break across minor versions while the crate is pre-1.0\\\"). Even so, fixing this BEFORE 0.2 is cheaper than after.\n\nWorkspace propagation: this also applies to sibling backend error types. A quick check shows the canonical mail-server MemoryBackend may have the same pattern \u2014 recommend a workspace-wide sweep bead before the propagation rule catches it.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryError(pub String) tuple-struct field is public \u2014 maintainer cannot evolve to structured error data without a breaking change",
+  "updated_at": "2026-05-14T18:54:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:17:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "0df925ab-5541-52fe-9ef6-d7099ece9667",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

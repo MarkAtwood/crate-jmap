@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T05:32:09Z",
+  "id": "019e3991-fd5d-7ed6-8eeb-1de7979b1007",
+  "issue_id": "JMAP-ops7.44",
+  "text": "Per-crate finding: bd:JMAP-ic0j is the calendars-server review epic in_progress; bd:JMAP-ops7 is the canonical workspace home for this divergence. Fix spans crate-jmap-calendars-server/Cargo.toml and crate-jmap-metadata-server/Cargo.toml. /do-beads must verify with cargo check --workspace."
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in bf895d2: switched jscontact_module_alias_is_jmap_jscontact_types test from runtime assert_eq! to compile-time type-identity assertion via const fn pointers (const _ASSERT_ALIASED_SAME_AS_DIRECT, const _ASSERT_TOP_LEVEL_SAME_AS_DIRECT). The const items fail to typecheck if paths diverge \u2014 zero runtime cost. The deserialize calls survive as a runtime smoke-test.",
+  "closed_at": "2026-05-15T23:05:27Z",
+  "compaction_level": 0,
+  "content_hash": "b0b4d5b8eb926f4d9d25c2d8ee97fa46b202d6fd5eb9946c4de82a3772a15510",
+  "created_at": "2026-05-15T22:50:51Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs:1144 `jscontact_module_alias_is_jmap_jscontact_types` is\nwritten as:\n\n```rust\nlet direct: jmap_jscontact_types::Name = serde_json::from_value(v.clone()).unwrap();\nlet aliased: crate::jscontact::Name = serde_json::from_value(v).unwrap();\n// Both paths resolve to the same type; equality is well-defined.\nassert_eq!(direct, aliased);\nlet top_level: Name = direct.clone();\nassert_eq!(direct, top_level);\n```\n\nThe comment says 'Both paths resolve to the same type'. The runtime\nassert_eq! tests value equality, not type identity. The type-identity\ncheck is already done at compile time by the type ascription\n(`let aliased: crate::jscontact::Name = ...` would fail to compile\nif the alias and the direct path resolved to different types \u2014 the\ndeserialize would still succeed for any `T: Deserialize`, but the\nascription would only typecheck if the path resolves correctly).\n\nIdiomatic Rust for proving type identity at compile time:\n\n```rust\n// Compile-time-only \u2014 zero runtime cost, fails the build if the\n// paths diverge.\nconst _ASSERT_SAME: fn(jmap_jscontact_types::Name) -> crate::jscontact::Name =\n    |x| x;\nconst _ASSERT_TOP_LEVEL: fn(jmap_jscontact_types::Name) -> Name = |x| x;\n```\n\n\u2026or, more conventionally, use `static_assertions::assert_type_eq_all!`.\n\nWhat goes wrong: the current test passes for two distinct reasons:\n(a) the paths resolve to the same type (the thing the test name\nimplies it's checking), and (b) the value happens to equal itself\nafter a round-trip through Deserialize. If a future refactor made\nthe alias re-export a thin newtype wrapper around the original Name\n(implementing PartialEq with the original), the type-identity check\nwould silently regress to 'they're equal-valued' instead of 'they\nare the same type'.\n\nMitigating factors (why this is opinion, not engineering):\n1. The test name and comment together do communicate intent to a\n   reader, even if the assert is not the right tool.\n2. The cost of being wrong (test passes when alias diverges) is\n   bounded \u2014 downstream callers using `crate::jscontact::Name` would\n   notice a type mismatch at their use site.\n3. The runtime assert is also incidentally exercising serde, which\n   has independent value.\n\nIf kept as is, label is opinion. If acted on, the const-fn or\nstatic_assertions form is the idiomatic Rust replacement and would\nalso let the test be removed from the `#[test]` set entirely (it\nbecomes a compile-time check).",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jscontact_module_alias test uses runtime assert_eq! where compile-time type assertion is idiomatic Rust",
+  "updated_at": "2026-05-15T23:05:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:50:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "a4d59acf-fd7a-57b1-8aa8-37d9310c0c89",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

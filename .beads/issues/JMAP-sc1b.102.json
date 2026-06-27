@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T000441Z-1660907",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-12T00:50:46Z",
+  "compaction_level": 0,
+  "content_hash": "083de62517a4d343492e7e3ee7d8ab16d6ac6dcc09dd671f825428531ed2a10e",
+  "created_at": "2026-05-11T14:26:50Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Location: workspace-wide. Grep of every `Cargo.toml` finds no `tracing-test`, `tracing-subscriber` (with `fmt::Layer` capture), `env_logger`, `slog-async-test`, or equivalent.\n\nCONCERN\nToday the workspace has zero log emission paths \u2014 no `tracing::*`, `log::*`, `info!`, `warn!`, `error!`, `debug!`, `trace!` call sites in any `crate-jmap-*/src/` file. The closed JMAP-sc1b.79 added a Debug-redaction canary test for BearerAuth and BasicAuth that asserts the token literal does not appear in `{:?}` output. That test catches static Debug-derive regressions on those two types.\n\nIt does NOT catch:\n1. A future `tracing::debug!(\"sending auth: {}\", auth_header)` call site that interpolates a secret-bearing argument via its `Display` impl rather than its `Debug` impl.\n2. A new type that derives `Debug` with sensitive fields \u2014 only the two BearerAuth/BasicAuth tests guard, no general-purpose suite.\n3. A `tracing::info!` call whose format string is benign but whose arguments cascade through to expose secret material (e.g. logging a whole Request whose body includes credentials).\n4. The cases newly filed in this review: SpaceInvite, SpaceJoinInput, PushSubscriptionPatch, Session, WsFrame::Unknown.\n\nWhen the workspace adds its first `tracing::*` instrumentation (any pre-1.0 production deployment will want some), the contributor has no scaffold to write a 'log line never contains the literal Bearer token value' assertion against. They will have to invent the harness from scratch and either skip the test or build a one-off.\n\nWHAT GOES WRONG\nFuture logging-level secret leaks land unguarded. The risk is conditional on someone wiring tracing into the workspace \u2014 when that happens, there's no in-repo test pattern to copy.\n\nPROPOSED FIX\n1. Add a workspace-level `dev-dependencies.tracing-subscriber` with the `fmt` feature and a test-only helper crate or module that:\n\n       struct LogCapture {\n           buffer: Arc<Mutex<Vec<u8>>>,\n           _guard: tracing::subscriber::DefaultGuard,\n       }\n       impl LogCapture {\n           fn new() -> Self { ... }\n           fn contents(&self) -> String { ... }\n           fn assert_does_not_contain(&self, needle: &str) { ... }\n       }\n\n   Place it in a new crate `crate-jmap-test-support` or as a sibling module to the existing test helpers.\n\n2. Write a representative-canary test using the harness:\n\n       #[test]\n       fn auth_token_never_appears_in_tracing_output() {\n           let capture = LogCapture::new();\n           let auth = BearerAuth::new(\"CANARY-LOG-TOKEN-DO-NOT-LEAK\")?;\n           // exercise every code path that touches auth (build a request, fail it, format it, etc.)\n           ...\n           capture.assert_does_not_contain(\"CANARY-LOG-TOKEN-DO-NOT-LEAK\");\n       }\n\n3. Document the pattern in workspace AGENTS.md under a 'Security testing' subsection so future tracing additions land with a matching log-capture test.\n\nORACLE\n- Closed JMAP-sc1b.79 \u2014 the type-level Debug canary precedent. This bead extends the same pattern to the log-capture level.\n- `tracing-test` crate docs (https://docs.rs/tracing-test) \u2014 a third-party shortcut for this exact pattern, if rolling our own is too heavy.\n\nRISK CLASSIFICATION\nP3. Forward-looking gap. No live exposure; the bead exists to ensure the harness is in place before logging is added, not after.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.102",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "De-labeling human (2026-05-11, Mark): the embedded design choices (tracing-subscriber vs tracing-test dev-dep; helper placement) are reversible and small \u2014 autonomous loop should pick reasonable defaults. Suggested defaults: workspace dev-dependency on tracing-subscriber with the 'fmt' feature; helper module under each crate's tests/common/ as initial sibling-module placement; promote to a shared crate-jmap-test-support crate only if duplication emerges across 3+ crates. Document the chosen pattern in workspace AGENTS.md as part of the acceptance.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security: workspace has no log-capture test harness \u2014 no dev-dep can assert blacklist absence in captured tracing output",
+  "updated_at": "2026-05-12T00:50:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:26:50Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "9077434a-1273-5df1-85c2-3bab306c73e4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T00:17:28Z",
+  "compaction_level": 0,
+  "content_hash": "506d6a230d641d0e5da25949253a8614b540e0ad79520185d931edc01e279029",
+  "created_at": "2026-05-03T00:11:31Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mdn_send builds a Vec<String> sent_creation_ids by pushing creation IDs in the result-processing loop, then immediately uses the vec only for .is_empty() and iteration. Both uses are covered by sent_mdns: the existing HashMap. Idiomatic Rust: use sent_mdns.is_empty() and for creation_id_str in sent_mdns.keys(). The extra Vec allocation and push loop would trigger clippy::needless_collect in some linting configurations. Note: JMAP-o68r.6 tracks this as a P2 efficiency issue; this is the same finding from the Rust idiom angle.",
+  "ephemeral": 0,
+  "id": "JMAP-o68r.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sent_creation_ids: Vec<String> should use sent_mdns.keys() directly (iterator idiom)",
+  "updated_at": "2026-05-03T00:17:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:11:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o68r",
+      "id": "b468c0a4-a075-5aa1-9bd4-f9cb83bf2d17",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

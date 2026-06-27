@@ -1,0 +1,33 @@
+{
+  "close_reason": "reviewed pass 23: loop converged; no P0/P1/P2 found in current code",
+  "closed_at": "2026-05-01T12:39:51Z",
+  "compaction_level": 0,
+  "content_hash": "c820b5bb7a3f1bd7f7db7ecbff0a8736f343b61306560a21210939552a9f4396",
+  "created_at": "2026-05-01T11:49:13Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_mailbox_set (mailbox.rs:682 and 696), when onDestroyRemoveEmails=true the cascade loop that destroys or patches emails uses 'Err(BackendSetError::SetError(_)) => {}' \u2014 swallowing the per-email error without any logging or reporting. If the backend rejects the email destroy/update (e.g. returns Forbidden), the error is silently dropped, the mailbox destroy then proceeds, and the response claims success. This leaves the data in a partially-mutated state with no client-visible indication. Maintenance consequence: impossible to diagnose cascade failures in production; partial mutations are invisible.",
+  "ephemeral": 0,
+  "id": "JMAP-767.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "onDestroyRemoveEmails cascade silently ignores SetError from email ops",
+  "updated_at": "2026-05-01T12:39:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:49:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "8d637d9a-08b6-5d7b-99ee-2ab589f97d01",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T20:32:17Z",
+  "id": "019e18bd-9233-7ab1-adf9-db8f30d806c2",
+  "issue_id": "JMAP-sc1b.88",
+  "text": "Adding 'human' label so do-beads autonomous loop skips this. Same rationale as JMAP-sc1b.77: bead-author explicitly tagged 'opinion / stylistic' and parent JMAP-sc1b is 'human'-labeled. The 'opinion' tag works for bd-review-loop convergence but do-beads only filters on 'human'."
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-8kf.19",
+  "title": "upload_blob and download_blob do not set request timeout from ClientConfig",
+  "description": "blob.rs upload_blob and download_blob build their requests without .timeout(self.config.request_timeout), while fetch_session and call both set it. The inconsistency means blob operations can hang indefinitely. Either apply the timeout (using the existing request_timeout field) or document why blob operations are intentionally timeout-free \u2014 the current silence is misleading.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:22:12Z",
+  "updated_at": "2026-04-30T00:22:35Z",
+  "closed_at": "2026-04-30T00:22:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-8kf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:22:12"
+    }
+  ]
+}

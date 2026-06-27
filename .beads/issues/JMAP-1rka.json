@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "cargo test --workspace -- read_disposition passes all 6 tests; no existing tests regress",
+  "close_reason": "4 integration tests for readDisposition default/explicit/extension/no-readAt; all pass",
+  "closed_at": "2026-05-02T21:01:26Z",
+  "compaction_level": 0,
+  "content_hash": "cea4a61cf08c026648a4350ff3bcabf206b0d8b586510d8f36a9b9a36c81d601",
+  "created_at": "2026-05-02T15:46:54Z",
+  "created_by": "Mark Atwood",
+  "description": "Add and update tests covering ReadDisposition serialization and the Message/set default-injection behavior.",
+  "design": "In crate-jmap-chat-types/src/message.rs \u2014 update existing test + add new:\n\n1. Update delivery_receipt_roundtrip (existing):\n   Add readDisposition field to the hand-crafted JSON fixture:\n   { \"deliveredAt\": \"...\", \"readAt\": \"...\", \"readDisposition\": \"displayed\" }\n   Assert dr.read_disposition == Some(ReadDisposition::Displayed).\n   Re-serialize and assert round-trip fidelity.\n\n2. New test read_disposition_roundtrip:\n   Test all three named values (\"displayed\", \"deleted\", \"processed\") deserialize to\n   their variants and re-serialize to the same string.\n   Test an unknown value \"voice-listened\" deserializes to Other(\"voice-listened\")\n   and re-serializes to \"voice-listened\" \u2014 not rejected, not mangled.\n\nIn crate-jmap-chat-server (integration tests \u2014 follow the existing test harness pattern):\n\n3. New test message_set_read_at_defaults_disposition:\n   Create a message in MemoryBackend. Call Message/set update with { readAt: <now> } only.\n   Assert the stored message has readDisposition == \"displayed\".\n\n4. New test message_set_explicit_disposition:\n   Same but patch includes { readAt: <now>, readDisposition: \"deleted\" }.\n   Assert stored message has readDisposition == \"deleted\".\n\n5. New test message_set_extension_disposition:\n   Patch includes { readAt: <now>, readDisposition: \"voice-listened\" }.\n   Assert stored message has readDisposition == \"voice-listened\" (stored as-is).\n\n6. New test message_set_no_read_at_no_disposition:\n   Patch does not include readAt. Assert readDisposition is NOT injected\n   (stored message readDisposition remains None).",
+  "ephemeral": 0,
+  "id": "JMAP-1rka",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat: tests for ReadDisposition roundtrip and Message/set defaults",
+  "updated_at": "2026-05-02T21:01:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:46:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ypc1",
+      "id": "bedd573b-56a0-568a-9b30-59cbba23a608",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

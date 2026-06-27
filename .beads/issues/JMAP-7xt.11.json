@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.11",
+  "title": "RFC 8887 @type:Request injection in send_request: spec compliance fix absent from reference impl",
+  "description": "send_request serializes JmapRequest then mutates the JSON object to inject '@type':'Request' before transmission. RFC 8887 \u00a74.3.2 mandates this field in every outgoing WebSocket request frame. The base JmapRequest struct does not carry it (it is HTTP-only and WebSocket-only fields differ). The reference implementation omitted this injection. A contributor might suggest removing the post-serialization mutation as 'ugly' or propose adding @type to JmapRequest itself (which would incorrectly pollute the HTTP path). The current approach \u2014 inject only in the WS send path \u2014 is the correct, minimal fix. The test send_request_includes_at_type_request verifies it.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:18Z",
+  "updated_at": "2026-04-30T01:01:37Z",
+  "closed_at": "2026-04-30T01:01:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:18"
+    }
+  ]
+}

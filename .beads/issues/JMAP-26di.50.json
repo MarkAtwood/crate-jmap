@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied option 1 (Result<Option<UTCDate>, MalformedField>). Added ServerRetryAfterError #[non_exhaustive] enum with Malformed(serde_json::Value) variant preserving the raw JSON. Implements Display + Error for thiserror / anyhow / std::error::Error composability.\n\nThree semantic outcomes are now distinct:\n- Ok(None) \u2014 absent\n- Ok(Some(t)) \u2014 present and valid\n- Err(ServerRetryAfterError::Malformed(raw)) \u2014 present but malformed (raw preserved for diagnostics)\n\nOnly existing caller (message.rs handle_message_set rate-limit detection) updated to match all three explicitly. Malformed arm surfaces as ClientError::UnexpectedResponse with the raw JSON in the message.\n\nAPI break is pre-1.0 acceptable. Migration is mechanical: 'opt.ok_or(...)' becomes 'match server_retry_after(err) { Ok(Some(t)) => t, _ => return Err(...) }'.\n\ncargo test green, clippy --all-targets -- -D warnings clean, RUSTDOCFLAGS='-D warnings' cargo doc clean. Committed as 03d9f86.",
+  "closed_at": "2026-05-15T21:54:24Z",
+  "compaction_level": 0,
+  "content_hash": "1f2c2ae50e0c02b98ac3efc5daf9412e83b3ac3369be723fbf716c653bc6c6cf",
+  "created_at": "2026-05-15T20:43:35Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-client/src/methods/mod.rs:1303-1307.\n\n```rust\npub fn server_retry_after(err: &SetError) -> Option<jmap_types::UTCDate> {\n    err.extra\n        .get(\"serverRetryAfter\")\n        .and_then(|v| jmap_types::UTCDate::deserialize(v).ok())\n}\n```\n\nThe doc states: \"Returns `None` when the field is absent or not parseable as a `UTCDate`.\"\n\nCaller impact: a caller writing rate-limit retry logic wants to distinguish:\n- **Absent**: the server is using `rateLimited` without providing a retry hint \u2192 caller may use a default backoff.\n- **Malformed**: the server provided a `serverRetryAfter` field but it doesn't parse \u2192 caller should log this as a server bug AND use a default backoff.\n- **Present and valid**: caller should respect the timestamp.\n\nThe current API conflates the first two into a single `None`. The caller cannot detect a server bug, and a logged-but-malformed value silently degrades to default backoff with no warning surface.\n\nTwo fix options:\n1. **Return `Result<Option<UTCDate>, MalformedField>`**: distinguish absent (Ok(None)) from malformed (Err) from present (Ok(Some)). Adds one variant to the contract.\n2. **Add a sibling `server_retry_after_raw(err: &SetError) -> Option<&serde_json::Value>`**: lets the caller see \"field was there but I couldn't parse it\" by checking the raw value separately.\n\nOption 1 is cleaner. Option 2 is non-breaking but adds API surface.\n\nCaller impact is mostly diagnostic \u2014 for retry behaviour the conflation is benign. Filed at P3 because it's a real underspecification but unlikely to bite a typical retry loop.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.50",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "server_retry_after cannot distinguish absent field from malformed UTCDate",
+  "updated_at": "2026-05-15T21:54:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:43:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "aebcc6a5-4bfa-50d5-bf51-a3b7d38d5a85",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

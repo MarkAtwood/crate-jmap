@@ -1,0 +1,33 @@
+{
+  "close_reason": "Same fix as JMAP-510h.19: refactor landed in d402218. The leaky-abstraction smell was the extract-then-reconstitute round-trip; the fix is to read accountId back from the response shape rather than parsing it upfront. No foundation API change needed (the bead suggested option (b) or (c) upstream changes). Workspace consistency: filenode-server now matches the pass-through pattern of every other extension-server sibling using the generic handlers.",
+  "closed_at": "2026-05-14T20:49:11Z",
+  "compaction_level": 0,
+  "content_hash": "8358ffe76ebd7f56ce4b154cf399d9dc0c9180c329f2b637b6e99969a807f82b",
+  "created_at": "2026-05-14T20:15:22Z",
+  "created_by": "Mark Atwood",
+  "description": "Locations: src/filenode.rs:38-50 (handle_filenode_get), src/filenode.rs:904-918 (handle_filenode_query).\n\nThe repeated pattern:\n\n    let (account_id, args_map) = extract_account_id(args)?;\n    // ... use account_id for backend.get_ancestors / depth handling ...\n\n    // Reconstitute the args object for the generic handler. The generic helper\n    // re-parses accountId itself, which is fine \u2014 the duplicate parse is cheap.\n    let mut reconstituted = args_map;\n    reconstituted.insert(\n        \"accountId\".to_owned(),\n        Value::String(account_id.as_ref().to_owned()),\n    );\n    let (mut response, tail) = jmap_server::handlers::handle_get::<FileNode, B>(\n        backend,\n        caller,\n        Value::Object(reconstituted),\n    )\n    .await?;\n\nWhat is wrong with this:\n\n1. extract_account_id (defined in jmap-server/src/helpers.rs:125) consumes the args Value, returning (Id, Map) where accountId has been REMOVED from the Map. The caller needs to use account_id locally for fetchParents / depth handling, AND wants to pass the original args through to handle_get. The reconstitute is purely to undo extract_account_id's destructive parse.\n\n2. The String allocation in 'Value::String(account_id.as_ref().to_owned())' allocates the accountId again every call, just to re-stuff it into a Map where it was already living.\n\n3. The comment 'the duplicate parse is cheap' is a confession that the abstraction is wrong, not a justification.\n\nWhat idiomatic Rust would do \u2014 a few options, in increasing order of API change:\n\n(a) Add a sibling helper to jmap-server::helpers: peek_account_id(&args) -> Result<Id, JmapError> that does not consume args. Use it in handlers that need account_id BEFORE delegating to handle_get. Existing extract_account_id is the destructive variant.\n\n(b) Change extract_account_id to NOT strip accountId \u2014 it is the only caller that wants stripping, and stripping costs every other caller a reconstitute.\n\n(c) Refactor handle_get to accept (Id, Map) instead of Value, sidestepping the question.\n\nThe supplement-level point: the strip-then-restore round-trip is the symptom of an abstraction mismatch. Two handlers in this crate go through the dance; no other extension-server sibling does. The fix is one upstream helper change, not eight in-handler workarounds across the workspace.\n\nCanonical comparison: jmap-mail-server does NOT use the generic jmap_server::handlers::handle_get<...> at all \u2014 it writes per-method handlers inline. So mail-server never hits this round-trip. filenode is the only consumer of the generic handler, and it is the only crate that pays the reconstitute cost.\n\nWorkspace propagation: if option (b) is taken, every other call site of extract_account_id (13+ in mail-server alone) needs verification. The 'cheap fix' is option (a) \u2014 pure addition, no migration.\n\nFiled under idiomatic-rust,clippy (priority 2) since this is an abstraction-smell finding, not a strict idiom violation. The code works; the shape is non-idiomatic.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.51",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Strip-then-restore-accountId 'reconstituted' dance is a leaky-abstraction smell unique to filenode-server",
+  "updated_at": "2026-05-14T20:49:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:15:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "31ffe39e-ef94-54ee-b670-27d45205253a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

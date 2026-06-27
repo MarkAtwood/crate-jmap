@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:34:14Z",
+  "compaction_level": 0,
+  "content_hash": "3229e54d5277bcd9779c889d8f6b83463245c4e6fcfdfd8e22c131342c22f00e",
+  "created_at": "2026-05-02T03:25:09Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs handle_email_copy: get_state is called unconditionally after the copy loop (line ~2193) and included in the response. RFC 8620 \u00a75.4 says oldState and newState must be the actual states. When every copy entry fails (all land in notCreated), state did not change, so oldState==newState is correct \u2014 but the code still calls get_state() on success. The more subtle issue: if copies partially succeed, newState is correct. However the backend get_state call happens even when created.is_empty(), unlike Email/set and Email/import which optimise this away. This is an efficiency issue that could silently produce a wrong newState if a concurrent request mutated state between the copy loop and the get_state call \u2014 returning a newState that reflects changes not caused by this request. Correct fix: only call get_state if !created.is_empty(), and return old_state otherwise.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/copy fetches newState even when all copies fail",
+  "updated_at": "2026-05-02T03:34:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:25:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "8cafd947-b8bc-5ceb-87f5-bba558a6af84",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

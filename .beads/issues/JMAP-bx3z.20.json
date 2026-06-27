@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:36:32Z",
+  "compaction_level": 0,
+  "content_hash": "35a9ae1dabcab144622fc628516db89311ad52049b26f0794981543bc166b9a7",
+  "created_at": "2026-05-02T19:18:42Z",
+  "created_by": "Mark Atwood",
+  "description": "Many conformance_* tests in integration.rs have no doc comment at all (e.g. conformance_email_get_by_id, conformance_mailbox_get_total_emails, conformance_email_body_plain_text_body, conformance_mailbox_set_state_changes). A failing test gives no indication of which RFC section the expected behaviour comes from or what the authoritative value is. The earlier-written tests follow the pattern '// Oracle: RFC 8620 \u00a7x.y \u2014 ...' which is sufficient. The conformance_ section should be consistent: each test needs at minimum a one-line doc comment citing the RFC section that mandates the behaviour.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "integration.rs: conformance_* tests lack oracle source in doc comment",
+  "updated_at": "2026-05-02T22:36:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "c8e6a250-50d9-55d5-b93e-40832ae26668",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Stale: code uses a plain const &[&str] linear scan with no HashSet pre-check. The described two-step HashSet+linear-scan issue does not exist. Existing doc comment at helpers.rs:83 already explains the linear scan choice.",
+  "closed_at": "2026-05-04T15:42:23Z",
+  "compaction_level": 0,
+  "content_hash": "07764df9a415337d4917b8ea9ee6599aca219d1ab711b8b0dd6a96bf68eb14e5",
+  "created_at": "2026-05-02T06:45:39Z",
+  "created_by": "Mark Atwood",
+  "description": "File: /home/mark/PROJECT/JMAP/crate-jmap-mail-server/src/helpers.rs:66-72\nIssue: After a successful O(1) HashSet lookup (line 66), the function discards the result and immediately does a second O(n) linear scan through IMMUTABLE_EMAIL_FIELDS (lines 69-72) to retrieve the same &'static str. The HashSet already confirmed membership; storing &'static str values in the set (HashSet<&'static str>) allows set.get(key.as_str()).copied() to return the canonical pointer directly, eliminating the redundant scan.\nFix: Change IMMUTABLE_SET to HashSet<&'static str> and replace the find() call with set.get(key.as_str()).copied() to collapse the two-step lookup into one.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_immutable_patch_key redundant linear scan after HashSet hit",
+  "updated_at": "2026-05-04T15:42:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:45:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "76827c40-7353-5767-9bd5-037a7a60b8d5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

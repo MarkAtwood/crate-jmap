@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Default query_subtree impl now propagates query_objects errors via '?'. Filter construction uses Default + field mutation (no fallible deserialise path). New regression test query_subtree_default_impl_propagates_query_objects_err uses MockBackend::set_query_objects_err to inject a backend error and asserts both that Err is returned and the message is carried through. Committed in eec6d59. Gates: fmt/clippy/test/doc green.",
+  "closed_at": "2026-05-14T20:23:52Z",
+  "compaction_level": 0,
+  "content_hash": "1c97df7d2bf28850e2cd31f1446c7fc1d38dd110988f51605cf2ea3dd7da9353",
+  "created_at": "2026-05-14T19:49:32Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs:170-188 (the default query_subtree impl): 'if let Ok(result) = self.query_objects(...) { ... } // non-fatal on Err: skip this node's children'.\n\nThe default trait impl is the only impl available unless the consumer overrides it. The trait doc at src/backend.rs:128-130 says 'The default implementation calls query_objects with a parentId filter once per level \u2014 O(max_depth) backend calls.' The doc does NOT say errors are swallowed.\n\nTrigger: any transient backend error (DB timeout, connection drop, lock contention) on the per-level query_objects call. Bad behavior: the descendant set is silently truncated. Two visible consequences in the handlers that call query_subtree:\n\n1. FileNode/query with depth > 0: response 'ids' is missing the descendant nodes that should have been returned. Client sees a partial subtree with no indication it is partial.\n\n2. (Indirectly) any future consumer using query_subtree to enumerate a subtree for cascade-destroy will under-report the descendants and leave orphans in the tree.\n\nRequired: propagate the Err via '?' (Result<Vec<Id>, Self::Error>) \u2014 the signature already returns Result. The silent-skip pattern at backend.rs:188 is also incompatible with the workspace 'No silent-drop is a server-side query-correctness bug' policy (workspace AGENTS.md, Filter algebra exclusion section, reason #1).\n\nIf the design intent is truly best-effort, the trait doc must say so and the handler call sites must surface partiality to the client (e.g., a 'truncated: true' field on the response). Currently neither is true.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "FileNodeBackend::query_subtree default impl silently swallows query_objects errors",
+  "updated_at": "2026-05-14T20:23:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:49:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "85461c5b-ee1b-5811-8ed6-355c947ab592",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

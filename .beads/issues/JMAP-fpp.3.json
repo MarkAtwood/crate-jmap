@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-fpp.3",
+  "title": "BearerAuth accepts tokens containing spaces",
+  "description": "BearerAuth::new checks token.trim().is_empty() but does not reject tokens with embedded spaces. RFC 6750 \u00a72.1 defines the bearer token as a b64token (base64url chars only; no spaces). A token like 'abc def' passes trim(), HeaderValue::from_str allows spaces (0x20 is valid in field-value), and gets sent as 'Authorization: Bearer abc def'. Servers that strictly parse RFC 6750 will reject this. The whitespace-only rejection exists but a token with an embedded space (not whitespace-only) slips through. Should also reject tokens containing whitespace anywhere.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:15:00Z",
+  "updated_at": "2026-04-30T01:23:20Z",
+  "closed_at": "2026-04-30T01:23:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-fpp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:14:59"
+    }
+  ]
+}

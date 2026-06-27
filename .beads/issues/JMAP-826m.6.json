@@ -1,0 +1,48 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "f0597052551a5722a94bf9d43026809fbadbfaa2aa876c620ad6705648d5384f",
+  "created_at": "2026-05-14T17:50:41Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: client calls /set update modifying any property of an existing Metadata object. The MemoryBackend (memory.rs:856) returns Ok(None) for every successful update. The MetadataBackend trait doc on update_object (backend.rs:85-88) defines Some(obj)/None as a signal of whether the backend modified server-set properties beyond what the client requested (RFC 8620 \u00a75.3 server-set field echo).\n\nBecause the MemoryBackend never returns Some(obj), the handle_metadata_set handler at metadata.rs:436-439 always writes Value::Null into the updated[id_str] slot. This is correct for the 'no server-set fields changed' case, which is in fact what's true for the MemoryBackend (it has no server-set fields beyond id).\n\nBut the integration tests have no coverage of the Some(obj) path. The handler's branch at metadata.rs:428-435 (Ok(Some(obj)) \u2192 serialize obj into updated map) is dead code under the current test suite. A future MetadataBackend impl that DOES modify server-set fields on update has no test demonstrating the wire shape it should produce.\n\nLess acute than the filter no-op. Filing as P2 efficiency/test-coverage gap, not P0 correctness.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.6",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "blocked",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.update_object reports Ok(None) for every successful patch \u2014 never the (Some(obj)) server-set-fields path",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T01:59:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m.14",
+      "id": "64b5c90a-0252-53d4-a47c-47d27d983dcd",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-17T02:19:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m.55",
+      "id": "6bfb740e-2fb0-5ff7-a493-a77324fd3707",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T10:50:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "f5022f8d-cc70-5c70-ab17-a5b1ba68f286",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

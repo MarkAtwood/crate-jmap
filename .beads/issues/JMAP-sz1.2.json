@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T01:06:23Z",
+  "compaction_level": 0,
+  "content_hash": "86731429f1252540ec4a45407053bc2ba190e64c2b555e2c55623764708998be",
+  "created_at": "2026-05-02T01:05:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Round 3 convergence check after all P0+P1+P2 fixes",
+  "ephemeral": 0,
+  "id": "JMAP-sz1.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Review round 3: JMAP-sz1",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T18:05:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sz1",
+      "id": "a4f1b754-6610-57a4-a965-63f809352c9e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

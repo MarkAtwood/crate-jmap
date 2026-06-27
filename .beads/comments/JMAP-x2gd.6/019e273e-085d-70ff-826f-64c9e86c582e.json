@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T16:07:17Z",
+  "id": "019e273e-085d-70ff-826f-64c9e86c582e",
+  "issue_id": "JMAP-x2gd.6",
+  "text": "Same workspace-architectural family as .2/.3/.4/.10 \u2014 fix requires adding a new typed atomic method to ChatBackend (read_and_maybe_burn or similar) that performs the readAt write and the hard-delete in a single transaction. Alternative: handler-side reorder (expire first, then skip the readAt write) \u2014 but that requires backend cooperation to surface as 'destroyed' rather than 'updated' in the change log.\n\nRecommendation: Path A (new typed method on ChatBackend) for the same reasons as .2 \u2014 backend is canonical for atomicity, downstream consumers can use their native storage primitives (PG transaction, FoundationDB transaction, etc.), and the reference MemoryBackend implements it under a single mutex acquisition. Default impl: returns 'not supported' so backends MUST opt in, OR falls back to the legacy split-call path with the documented gap.\n\nAdding dependency on JMAP-x2gd.2 (the closest architectural sibling \u2014 also requires an atomic typed method) so .6 stays off the ready frontier until the family decision lands. Not labeling .6 as human \u2014 the architectural decision lives on .2."
+}

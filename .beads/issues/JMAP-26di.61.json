@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:39:44Z",
+  "compaction_level": 0,
+  "content_hash": "ab3042f01f049e9c28f6442c85d2ce540fd91bf357084afb41907685da39bff6",
+  "created_at": "2026-05-15T20:52:28Z",
+  "created_by": "Mark Atwood",
+  "description": "types.rs:60-219 \u2014 QuotaScope (RFC 9425), ChatMemberRole (draft-atwood-jmap-chat-00), and BodyType (draft-atwood-jmap-chat-00) each carry the same ~50-line block: enum decl + as_str() + Display + Serialize + Deserialize, all matching the same pattern (typed variants + Other/Unknown(String) catch-all, hex-string-equivalent serde behaviour). All three are JMAP-native wire enums, so they correctly use the typed-enum-with-catch-all pattern (workspace policy excludes only RFC 9553/8984 externally-owned classifier strings, not these). The pattern duplication is ~150 lines that an internal macro would collapse to ~30. The Rust review guide explicitly approves of internal macros that replace repetition. A 'wire_enum! { QuotaScope { Account => \"account\", Domain => \"domain\", Global => \"global\", Other(_) }, ChatMemberRole { ... }, BodyType { ... } }' macro would generate all four impls. Engineering basis: every future wire enum added to this crate (or sibling crates) is currently a copy-paste with a different variant set \u2014 the macro removes that copy-paste burden and centralises the catch-all-naming policy. Workspace consideration: if sibling crates use the same pattern, the macro belongs in jmap-types as a re-exported macro_rules!.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.61",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Three near-identical wire-enum impl blocks for QuotaScope/ChatMemberRole/BodyType",
+  "updated_at": "2026-05-17T17:39:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:52:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "da4755c0-c0af-57fa-a335-7ad03ff03e13",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

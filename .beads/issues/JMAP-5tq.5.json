@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-5tq.5",
+  "title": "hex_digit bool parameter unclear at call site",
+  "description": "hex_digit(nibble: u8, uppercase: bool) is called as hex_digit(byte >> 4, true) and hex_digit(byte >> 4, false). At the call site, true/false carry no semantic meaning \u2014 the reader must look up the function to understand. Idiomatic Rust: replace with two functions hex_nibble_upper(nibble: u8) -> char and hex_nibble_lower(nibble: u8) -> char, or inline the match expression. The bool parameter is the canonical example of a parameter that should be two functions.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:43:03Z",
+  "updated_at": "2026-04-30T06:50:50Z",
+  "closed_at": "2026-04-30T06:50:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-5tq",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:43:02"
+    }
+  ]
+}

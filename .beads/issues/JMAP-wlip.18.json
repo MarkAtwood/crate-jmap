@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added a '# Version coupling with jmap-types' section to the crate-level docstring documenting that this crate's public API is coupled to jmap-types' public API via the re-exports, and that consumers depending on both must keep the jmap-types version pinned to the exact version jmap-server resolves to (or prefer not depending on jmap-types directly and using jmap_server::{Id, JmapError, ...} instead). Pure doc change.",
+  "closed_at": "2026-05-14T14:00:44Z",
+  "compaction_level": 0,
+  "content_hash": "8df9a59f2c413dbe60c8daf8494c24971732fd1592cf6871e9915805524d6e0a",
+  "created_at": "2026-05-14T13:03:20Z",
+  "created_by": "Mark Atwood",
+  "description": "Path: crate-jmap-server/src/lib.rs:9-11 and src/backend.rs:7. These bring 13 jmap-types items into jmap-server's public surface verbatim:\n  pub use jmap_types::{Argument, Id, Invocation, JmapError, JmapRequest, JmapResponse, ResultReference, State, UTCDate};\n  pub use jmap_types::{GetObject, JmapObject, QueryObject, SetObject};\n\nWhen jmap-types cuts a major version with a breaking change to ANY of those \u2014 e.g. Id gains a typestate parameter, or JmapError changes its serde shape \u2014 every jmap-server consumer's code breaks transitively, even if jmap-server's own changes are additive. A consumer pinning `jmap-server = \"0.X\"` and floating `jmap-types` (or pinning a different `jmap-types` version directly because they also use it for non-server code) ends up with two incompatible Id types in the same crate (\"expected `jmap_types::Id`, found `jmap_types::Id`\" with two different version hashes from cargo).\n\nThe crate doesn't document this. The README and lib.rs preamble talk about \"request parsing, ResultReference resolution, HTTP response helpers\" but not \"this crate's public types ARE jmap-types' public types\".\n\nMinimum fix: a \"Version coupling\" section in the README + a doc note at lib.rs that says:\n  // SemVer pin discipline: consumers that depend on both `jmap-server` and\n  // `jmap-types` directly MUST keep the `jmap-types` version pinned to the\n  // exact version `jmap-server` resolves to. The simplest path is to NOT\n  // depend on `jmap-types` directly and use `jmap_server::{Id, JmapError, ...}` instead.\n\nStronger fix: wrap the re-exports in a `pub mod types { pub use jmap_types::{...}; }` so the coupling is visible at the use-site (`use jmap_server::types::Id` rather than `use jmap_server::Id`). Then a doc on the `types` module spells out the version-lockstep rule.\n\nProduction-impact path: a consumer writes `use jmap_server::{Id, ...}` and also `use jmap_types::Id` somewhere else. cargo resolves to a single jmap-types version OK at first. When jmap-types ships 0.4 with a renamed field on Id and the consumer's `Cargo.toml` had `jmap-types = \"0.3\"` while jmap-server = \"0.X\" already updated its dep to \"0.4\", the build fails with the \"two Id types\" error above. Without doc guidance the consumer can spend an hour figuring out the resolution before realising the rule.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "pub use jmap_types::* re-exports lock jmap-server's major version to jmap-types's major version without documenting the coupling",
+  "updated_at": "2026-05-14T14:00:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:03:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "f9cda94e-037b-5b2c-a807-6ae5d76d4cf4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

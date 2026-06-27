@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-7xt.46",
+  "title": "AUTHORIZATION.as_str().to_string() allocates on every auth_header call",
+  "description": "auth.rs lines 159 and 212: AUTHORIZATION.as_str().to_string() is called inside auth_header() on every HTTP request. AUTHORIZATION is a reqwest::header::HeaderName constant; its as_str() returns &'static str \"authorization\". Using a string literal constant or storing it in the struct at construction would avoid the per-call allocation. Idiomatic fix: return (\"authorization\".to_owned(), self.header_string.clone()) or better, change the return type to borrow from self as described in the AuthProvider issue.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:48:20Z",
+  "updated_at": "2026-04-30T00:56:25Z",
+  "closed_at": "2026-04-30T00:56:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:48:20"
+    }
+  ]
+}

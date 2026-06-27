@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "c13cf25c19454b7d19454ddca9ed7c64543f03b447fdc0b3f0fa979996cf555f",
+  "created_at": "2026-05-18T05:31:26Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence** \u2014 3 cookie-cutter regressions in tasks-server's MemoryError plus 1 in metadata-server's Display impl:\n\n| Axis | mail-server (canonical) | tasks-server | metadata-server |\n|---|---|---|---|\n| `#[non_exhaustive]` | yes | NO (src/memory.rs:88-91) | yes |\n| inner field name | `description` | `msg` (src/memory.rs:90) | `description` |\n| read accessor | `description()` | `message()` (src/memory.rs:100) | `description()` |\n| Display impl prefix | `\"MemoryBackend error: {description}\"` | NO prefix (src/memory.rs:105-109) | NO prefix (src/memory.rs:649-653) |\n\nThe 5 other extension-server siblings (chat, calendars, contacts, filenode, sharing) match the canonical mail-server shape byte-identical, with a rustdoc line \"Mirrors the canonical jmap-mail-server MemoryError shape\" referencing the canonical-template propagation rule.\n\n**Caller-observable / maintainer cost**:\n- A SemVer-major in tasks-server would be required if tasks-server ever needs to add a `kind`/`source` field to its MemoryError, where the same change in any of the other 7 siblings would be a non-breaking minor (because of `#[non_exhaustive]`).\n- Cross-crate code that wants to extract diagnostic text from a MemoryError (e.g. shared test helpers) cannot use the same accessor name on tasks-server's variant.\n- Log scraping / observability tooling that filters on `\"MemoryBackend error:\"` silently misses metadata-server and tasks-server failures.\n\n**Fix sequence**:\n(a) tasks-server src/memory.rs:88-91: add `#[non_exhaustive]`, rename `msg` to `description`, rename `message()` to `description()`, add `\"MemoryBackend error: \"` prefix to Display impl. Add a rustdoc line matching the 5 siblings.\n(b) metadata-server src/memory.rs:649-653: add `\"MemoryBackend error: \"` prefix to Display impl.\n\nTwo-file mechanical sweep. cargo test --workspace verifies no caller breakage (no current caller depends on the divergent shapes).",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.46",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "tasks-server's MemoryError diverges from canonical mail-server's MemoryError on three axes; metadata-server's Display impl drops the canonical 'MemoryBackend error:' prefix",
+  "updated_at": "2026-05-18T05:31:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:31:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "e8c63705-3ada-5451-a3e3-7874f521133b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

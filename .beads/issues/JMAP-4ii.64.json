@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:55:07Z",
+  "compaction_level": 0,
+  "content_hash": "b61d72ba86a3192cedbc698bcd5038c5166a7d72b5e140d07214438368b1fbf2",
+  "created_at": "2026-05-02T04:47:10Z",
+  "created_by": "Mark Atwood",
+  "description": "vacation.rs update loop at line 138 uses args.get(\"update\").and_then(|v| v.as_object()) (borrow), making patch: &Value throughout the loop. This forces patch.clone() at lines 148 and 178 even though the function takes args: Value by ownership and could use args-consuming removal (args.remove(\"update\")) to take ownership instead. Not covered by existing issues: JMAP-4ii.26 is mailbox, JMAP-4ii.53 is chat/identity, JMAP-4ii.59 is submission/onSuccessUpdateEmail.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.64",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "vacation.rs update loop borrow forces patch.clone()",
+  "updated_at": "2026-05-02T04:55:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:47:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "8d13f6ae-fb9c-5c3f-9476-40d015472a26",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

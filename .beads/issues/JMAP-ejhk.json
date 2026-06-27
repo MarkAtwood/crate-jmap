@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed by commit 35e56eb: all 6 sibling extension-server crates (chat/calendars/tasks/contacts/filenode/sharing) now carry both (A) reworded Arc paragraph and (B) Re-registration semantics rustdoc block.",
+  "closed_at": "2026-05-18T02:15:43Z",
+  "compaction_level": 0,
+  "content_hash": "434d474291865363cc23b530ef6d0e7e4834131f5590f7b500ad5f39e68fb710",
+  "created_at": "2026-05-17T05:31:47Z",
+  "created_by": "Mark Atwood",
+  "description": "## Scope\n\nWorkspace canonical-template propagation. The 'Re-registration semantics' rustdoc block and the reworded 'Pass the same Arc<B>' line now live in:\n\n- bd:JMAP-jfia.4 \u2014 original `Dispatcher::register` doc + `try_register` precedent\n- jmap-mail-server (canonical extension-server) \u2014 re-registration block added pre-existing, Arc reword landed in bd:JMAP-ayoz.26\n- jmap-metadata-server \u2014 both landed in bd:JMAP-ayoz.26\n\nSix extension-server siblings still lack the workspace canonical text and need the propagation:\n\n1. jmap-chat-server (`register_chat_handlers`)\n2. jmap-calendars-server (`register_calendars_handlers`)\n3. jmap-tasks-server (`register_tasks_handlers`)\n4. jmap-contacts-server (`register_contacts_handlers`)\n5. jmap-filenode-server (`register_filenode_handlers`)\n6. jmap-sharing-server (`register_sharing_handlers`)\n\n## Two changes per crate\n\n### (A) Reword the misleading 'Pass the same Arc<B>' phrase\n\nCurrent text (paraphrased \u2014 exact wording varies slightly per crate):\n\n> Pass the same Arc<B> to both this function and any application-level code that needs the backend directly.\n\nThis implies a single `Arc` identity matters when it does not (Arc::clone semantics \u2014 separate Arc<B> instances pointing at the same backend work fine). Replace with the canonical wording landed in jmap-mail-server/src/lib.rs and jmap-metadata-server/src/lib.rs:\n\n> You may pass any Arc<B> \u2014 the function clones it internally into each registered handler closure. Sharing the same Arc<B> across this call and other application-level uses of the backend is a memory optimization, not a correctness requirement; separate Arc<B> instances pointing at the same underlying backend would also work.\n\n### (B) Add the '# Re-registration semantics' rustdoc block\n\nMirror the canonical paragraph from jmap-mail-server/src/lib.rs lines ~130-148 / jmap-metadata-server/src/lib.rs lines ~83-104. The exact text per crate substitutes the spec citation (e.g. 'draft-ietf-jmap-calendars-XX method name' instead of 'RFC 8621 method name') and the method-name example in the 'Custom overrides go LAST' bullet (e.g. 'Calendar/get' instead of 'Metadata/get').\n\nThe closing line about concurrent calls is identical across crates:\n\n> Concurrent calls to this function on the same dispatcher are forbidden at the type-system level by the &mut Dispatcher argument; the borrow checker rejects them at compile time.\n\n## Acceptance\n\n- All 6 sibling `register_*_handlers` functions carry both (A) the reworded Arc line and (B) the '# Re-registration semantics' rustdoc block\n- `cargo doc -D warnings` green on each affected crate\n- No code change \u2014 pure doc edits\n- Workspace test suite still green\n- Bead can be split into 6 children if desired, or landed as a single commit\n\n## Why P3 not P2\n\nAPI-contract clarity, no behavior change. The bead .26 that drove this was P2 because it surfaced a real foot-gun (callers writing defensive code against undocumented semantics); the 5-7 propagation work is mechanical and the foot-gun risk is already mitigated by the canonical mail-server having the paragraph.\n\n## Cross-references\n\n- Driving bead: bd:JMAP-ayoz.26 (closed)\n- Foundation precedent: bd:JMAP-jfia.4 (Dispatcher::register vs try_register)\n- Workspace AGENTS.md 'Canonical Templates' (mail-server is canonical, this is propagation)",
+  "ephemeral": 0,
+  "id": "JMAP-ejhk",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Propagate register_*_handlers re-registration semantics doc + Arc reword to 6 extension-server siblings",
+  "updated_at": "2026-05-18T02:15:43Z"
+}

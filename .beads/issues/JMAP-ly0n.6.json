@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in ab4804f (batch). See commit message for per-bead details.",
+  "closed_at": "2026-05-16T03:27:39Z",
+  "compaction_level": 0,
+  "content_hash": "1d14a5a481938adcf907a057aaa062f561fac086f3cd52cf6969f63b36507b77",
+  "created_at": "2026-05-16T02:37:49Z",
+  "created_by": "Mark Atwood",
+  "description": "What is awkward: crate-jmap-chat-types/src/push.rs:366-382 (chat_message_push_preserves_vendor_extras) asserts that a vendor field 'acmeCorpBatchId' round-trips, but does NOT assert that the '@type' wire tag does NOT end up in the .extra map. The combination of #[serde(tag = \"@type\", rename = \"ChatMessagePush\")] on a struct AND #[serde(flatten)] for extra is exactly the kind of serde corner where the test commit message's claim 'works correctly with the #[serde(tag)] tag rename' is plausible but not proven.\n\nIf a future serde release (or refactor) regressed the tag-vs-flatten interaction such that '@type': 'ChatMessagePush' leaked into extra, the test would still pass \u2014 both the typed accountId/state/messages fields and the vendor acmeCorpBatchId field deserialize fine, and on re-serialize the extra would dump '@type' alongside the tag-emitted '@type', producing duplicate keys or a corrupted payload. Neither failure shows up under the current assertions.\n\nSuggested rewrite: add explicit negative assertions to this test (and to the parallel EphemeralMessage Enable/Disable/Typing/Presence preserves_vendor_extras tests in ephemeral.rs):\n\n    assert!(!push.extra.contains_key(\"@type\"),\n        \"the discriminant tag must not leak into extras\");\n\nSame pattern applies to ChatStreamEnable / ChatStreamDisable / ChatTypingEvent / ChatPresenceEvent extras tests \u2014 they all assert positive vendor-field round-trip but none negatively assert that the enum's @type discriminant didn't bleed through serde flatten.\n\nCost is one extra assertion per affected test (5-6 sites). Benefit is a real serde-regression tripwire for one of the explicitly-novel combinations introduced by 2957e6e.",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChatMessagePush '@type' extras-preservation test does not verify @type is excluded from extra",
+  "updated_at": "2026-05-16T03:27:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:37:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "c031b2b5-2538-5b6d-968d-15afefbc0c6a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

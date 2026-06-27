@@ -1,0 +1,33 @@
+{
+  "close_reason": "Test-backend stringly-typed dispatch; not public API, not worth abstracting.",
+  "closed_at": "2026-05-02T03:40:10Z",
+  "compaction_level": 0,
+  "content_hash": "261507a38e187d16782a153da308c83d39b572f8a3d2ae2a2a585d5f4df08d4b",
+  "created_at": "2026-05-02T03:26:12Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/common/mod.rs query_objects: dispatches on O::TYPE_NAME == 'Email' / 'EmailSubmission' as runtime string comparisons to select the right filter type. This defeats the generic type parameter \u2014 the correct approach is to add filter-application as a method to the QueryObject or GetObject trait (or a separate FilterApplicable trait), so each concrete type carries its own filter logic. As-is, adding a new type requires modifying query_objects with another if O::TYPE_NAME == 'NewType' branch, which is an open/closed violation in a test harness that is meant to serve as the canonical MailBackend example.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "query_objects type-name string comparison is stringly-typed dispatch",
+  "updated_at": "2026-05-02T03:40:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:26:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "4d55f857-a96a-5bab-a70d-16fc6ad971cb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

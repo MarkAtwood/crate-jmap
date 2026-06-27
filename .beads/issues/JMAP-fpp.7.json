@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-fpp.7",
+  "title": "SSE buf: split_off on every frame allocates a new String",
+  "description": "client.rs subscribe_events: on each frame, buf.split_off(pos + delim_len) allocates a new String for the suffix and leaves buf as the frame. Then buf = suffix reassigns. This means every frame boundary triggers a heap allocation. For high-throughput SSE streams (many small state-change frames), this is an allocation per frame. An alternative is to maintain a single buffer with a read cursor and drain the consumed prefix periodically, avoiding per-frame allocation. Not critical for typical JMAP usage (low frame rate) but worth noting.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:15:32Z",
+  "updated_at": "2026-04-30T01:18:46Z",
+  "closed_at": "2026-04-30T01:18:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-fpp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:15:31"
+    }
+  ]
+}

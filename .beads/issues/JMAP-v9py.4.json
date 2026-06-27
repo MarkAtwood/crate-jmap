@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T161839Z-2683045",
+  "close_reason": "Landed in commit c77e28c. handle_space_get now parses /get properties argument (previously ignored) and applies the bd:JMAP-v9py.4 non-member field-projection trim: member or anonymous (single-user) callers see full Space with properties filter honored; non-members of an isPubliclyPreviewable=true Space see the 8-field restricted view, intersected with properties as a hard cap; non-members of an isPubliclyPreviewable=false Space currently fall through unchanged (TODO marker for bd:JMAP-v9py.20). 7 tests in tests/space_get_projection.rs cover all four branches plus the TODO marker.",
+  "closed_at": "2026-05-13T16:42:58Z",
+  "compaction_level": 0,
+  "content_hash": "68df08d5f72e845aeae70fcbc2636c371cf7d9a504f8cc42f65fd76fe8e3a90a",
+  "created_at": "2026-05-12T23:34:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec source: draft-atwood-jmap-chat-00 \u00a7Space/get (after JMAP-v9py.19 lands).\n\n## Background\n\nThis bead was originally written to target `handle_space_query` and to perform a field-projection trim on /query response objects. The implementing agent (do-beads session, 2026-05-13) found two problems:\n\n1. The bead's premise was factually wrong about the current code: `handle_space_query` in `crate-jmap-chat-server/src/space.rs:319-325` already returns the RFC 8620 \u00a75.5 standard shape (only `ids`). There were no \"fields\" to trim.\n\n2. The spec text on line 1182 of draft-atwood-jmap-chat-00 conflated /query (which returns ids per \u00a75.5) and /get (which returns objects + applies the `properties` filter per \u00a75.1). Implementing the bead literally would have forced a non-standard objects-bearing response field on /query.\n\nDecision (Mark, 2026-05-13): pick Option B from the agent triage \u2014 split the rule cleanly. Discovery stays on `Space/query` (which ids non-members may see); field-trim moves to `Space/get` (which fields non-members receive). This matches the JMAP idiom used everywhere else (`Foo/query \u2192 #ids \u2192 Foo/get`).\n\nThe matching spec edit is tracked by JMAP-v9py.19 (this bead is now blocked by it). The companion notFound enforcement is split into JMAP-v9py.20.\n\n## Acceptance\n\n- `handle_space_get` in `crate-jmap-chat-server/src/space.rs` performs a non-member field-projection trim:\n  * When caller is a member of the requested Space \u2192 return the full Space object subject to the standard JMAP `/get` `properties` filter (existing behavior, regression guard).\n  * When caller is NOT a member of the requested Space AND `isPubliclyPreviewable: true` \u2192 return a restricted view containing ONLY the fields `id`, `name`, `description`, `iconBlobId`, `memberCount`, `createdAt`, `isPublic`, `isPubliclyPreviewable`. All other fields MUST be omitted from the returned object, even if explicitly requested via `properties`. The Space id MUST appear in `list`, MUST NOT appear in `notFound`.\n- The non-member-vs-non-previewable case (caller not a member AND `isPubliclyPreviewable: false`) is left as a TODO marker in this bead's code drop, to be filled by JMAP-v9py.20. The TODO MUST be clearly commented so the follow-up bead's claimant lands on the right path.\n- `handle_space_query` is unchanged from its current RFC 8620 \u00a75.5 shape. The discovery rule (which ids non-members may see when filtering `isPublic: true`) is implementation-level work that already lives in the backend's query path; no handler change is required for that surface \u2014 the backend already filters based on caller-membership when applying the filter.\n\n## Test plan\n\nTests live in `crate-jmap-chat-server/tests/` using the `MemoryBackend` + a `TestCallerCtx` pattern that returns a caller principal id. (The `TestCallerCtx` plumbing is in scope of this bead \u2014 it's been blocked on the JMAP-v9py.4 architectural decision; it lands here.)\n\n- Member caller, /get of a fully-populated Space \u2192 response carries the full Space object (all spec fields present); the `properties` filter is honored if present. Regression guard.\n- Non-member caller, /get of a Space with `isPubliclyPreviewable: true` \u2192 response carries the Space in `list` with only the 8 allowed fields; no other fields present even when caller passes `properties: [\"roles\", \"members\", ...]`. The id is NOT in `notFound`.\n- Non-member caller, /get with `properties: [\"id\", \"roles\"]` of a Space with `isPubliclyPreviewable: true` \u2192 response includes `id` (in the allowed set) and OMITS `roles` (outside the allowed set), even though the caller asked for it. Sanity-check the projection is a hard cap, not a min.\n\n## Out of scope\n\n- The notFound classification for non-previewable Spaces (split to JMAP-v9py.20; blocked by JMAP-v9py.19).\n- Caching membership decisions across multiple ids in a single /get call (deployment optimization, not normative).\n- Changing the backend trait shape \u2014 `principal_id` already exists per the foundation-seam decision (JMAP-ga0q); the handler uses it directly.\n\n## Blocked on\n\nJMAP-v9py.19 (the matching spec edit must land first; until then the handler would diverge from the published spec).\n",
+  "ephemeral": 0,
+  "id": "JMAP-v9py.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Layer A: Space/get non-member field projection (isPubliclyPreviewable restricted view)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T08:31:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py.19",
+      "id": "1c1f521d-174a-547f-948f-7e2e14ffc461",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-12T16:34:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py",
+      "id": "ff33c49c-3079-5429-87fb-17d907331bee",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

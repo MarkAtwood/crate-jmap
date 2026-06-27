@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed in ee6b41e via doc-contract tightening (Path B from the bead description). The trait method's rustdoc now pins 4 output-shape requirements: fixed length, >= 128 bits CSPRNG entropy, ASCII-safe encoding (no /, +, =, whitespace, no non-ASCII), and sufficient lifespan. The reference MemoryBackend impl already satisfies all four (16 bytes getrandom + lowercase hex = 32 chars) so no impl change was needed; the contract makes the existing invariants explicit. Items 3 (sync) and 4 (infallible) from the bead description were filed as follow-up bd:JMAP-x2gd.36.1 (human-labeled, recommended to defer until .50 / .46.1 / .43 sync-vs-async + per-account-args family is taken as a single workspace-architectural pass). The full async-fallible rewrite (Path A from the bead body) was deferred because the parent epic's own confidence note hedged on that direction ('a senior reviewer might prefer documenting the length contract and keeping sync').",
+  "closed_at": "2026-05-14T04:48:16Z",
+  "compaction_level": 0,
+  "content_hash": "42d9288bcf2ed61629238f2640bd70db321ba3d84ea787b4d33a35e79ee5f0a7",
+  "created_at": "2026-05-14T03:39:16Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/backend.rs:284-310\n\n  fn generate_invite_code(&self) -> String;\n\nThe trait doc correctly mandates CSPRNG entropy (per\nworkspace AGENTS.md 'secret-minting methods require CSPRNG'). It\nalso names the constant-time-compare contract for consumers of\nthe code (handle_space_join). What it does NOT pin:\n\n1. LENGTH. The handle_space_join site (space.rs:1305-1310)\n   comments: 'canonical generator emits fixed-length (32 hex\n   chars) codes, so the length is effectively public \u2014 only the\n   content needs constant-time protection.' This invariant is\n   load-bearing for the constant-time argument: ConstantTimeEq's\n   ct_eq returns Choice(0) cheaply on length mismatch, so a\n   backend that emits variable-length codes leaks a length\n   oracle through the timing channel that ct_eq cannot mask. A\n   consumer reading the trait doc has no way to know they must\n   produce fixed-length output.\n\n2. CHARSET / ENCODING. The string could be base64, base64url,\n   hex, base58, raw bytes interpreted as UTF-8, etc. The kit\n   does not constrain what shape the code takes. If a backend\n   produces base64 codes with embedded slashes, downstream URL-\n   encoded redemption flows break. If it produces non-ASCII, the\n   helpers::iso8601_before slicing pattern panics on non-ASCII\n   input (JMAP-x2gd.20 already flagged the helper's brittleness).\n\n3. FALLIBILITY. The signature is -> String, not -> io::Result<String>\n   or Result<String, E>. A backend that wants to call out to an HSM,\n   KMS, or any other potentially-failing entropy source has no way\n   to surface failure \u2014 the trait forces panicking on entropy\n   starvation (getrandom errors are rare but real on container\n   startup and on hardened sandboxes).\n\n4. SYNC, not async. Backends backed by a remote KMS cannot await.\n   They have to .block_on() inside a sync trait method \u2014 never\n   acceptable in a tokio context.\n\nFix shape:\n\n  /// Must be at least 32 bytes of CSPRNG entropy, encoded as\n  /// ASCII-safe (RECOMMENDED: lowercase hex, 64 chars output).\n  /// Length MUST be deterministic across calls.\n  fn generate_invite_code(&self) -> impl Future<Output = Result<String, Self::Error>> + Send;\n\nPlus a documented \"if you can't pin length, the constant-time\ncompare in handle_space_join is broken for you and you must\neither pin or use a different redemption path\" note.\n\nThe kit-versus-consumer split lets the kit commit to its constant-\ntime invariant only when the backend honors the length / encoding\ncontract. Today the kit assumes the contract without naming it.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: generate_invite_code has no length / charset / fallibility contract",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:39:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "21615b26-289a-5b86-a479-86d34fef69a3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

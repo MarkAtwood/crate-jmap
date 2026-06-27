@@ -1,0 +1,23 @@
+{
+  "close_reason": "Completed: src/memory/seed.rs migrated. All 16 import_email and 5 create_object call sites now pass &() as caller parameter. cargo check -p jmap-mail-server --all-targets compiles clean.",
+  "closed_at": "2026-05-11T16:23:50Z",
+  "compaction_level": 0,
+  "content_hash": "50dd56bb134e246a91b303aad72fa4fea4e2fdcbbb88fc3fbbdc3b346c8b8bd6",
+  "created_at": "2026-05-11T16:08:01Z",
+  "created_by": "bd-spin/bd-spin-20260511T151456Z-658525",
+  "description": "src/memory/seed.rs has 34 errors after the MailBackend CallerCtx migration:\n\n  16 \u00d7 E0061: 6-arg method takes 5 args (import_email calls)\n   5 \u00d7 E0061: 4-arg method takes 3 args (create_object calls)\n  13 \u00d7 E0308: mismatched types (cascade)\n\nAll call sites in seed.rs (lines 218, 236, 254, 273, 292, 314-810) call MailBackend methods directly:\n  .create_object(account_id, create_id, obj)        # missing &() first arg\n  .import_email(account_id, blob_id, mailbox_ids, keywords, received_at)   # missing &() first arg\n\nThe fix is mechanical: prepend &() to every call to a MailBackend or JmapBackend method.\n\nThis blocks 'cargo check -p jmap-mail-server --tests' (and therefore the test suite). Tests are otherwise migrated and the test side has zero errors.\n\nSuggested fix: apply /tmp/fix_method_calls.py to crate-jmap-mail-server/src/memory/seed.rs \u2014 same script used for the tests sweep on JMAP-z4cz.",
+  "ephemeral": 0,
+  "id": "JMAP-5tkw",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mail-server: migrate src/memory/seed.rs to new CallerCtx convention",
+  "updated_at": "2026-05-11T16:23:50Z"
+}

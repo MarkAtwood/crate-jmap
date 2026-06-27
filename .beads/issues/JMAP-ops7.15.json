@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7cbec0fe5e3fe5aebcc67d10fdc03a740b7714072c95621705e837980f1fc94c",
+  "created_at": "2026-05-17T22:03:45Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**:\n- crate-jmap-mail-types/src/query.rs:232 \u2014 \\`pub enum ComparatorProperty { ReceivedAt, Size, ..., Other(String) }\\`\n- crate-jmap-calendars-types/src/lib.rs \u2014 \\`pub struct CalendarEventComparator { property: String, ... }\\` (plain String)\n- crate-jmap-tasks-types/src/lib.rs \u2014 \\`pub struct TaskComparator { property: String, ... }\\` (plain String)\n- crate-jmap-contacts-types/src/lib.rs \u2014 \\`pub struct ContactCardComparator { property: String, ... }\\` + a \\`prop::*\\` const module of sort-key strings\n- crate-jmap-filenode-types/src/lib.rs \u2014 no Comparator type (uses generic from jmap-types presumably)\n- crate-jmap-sharing-types/src/lib.rs \u2014 no Comparator type\n- crate-jmap-metadata-types/src/lib.rs \u2014 no Comparator type\n\n**Divergence (three shapes)**:\n1. **Typed enum with Other(String) round-trip** \u2014 mail's \\`ComparatorProperty\\`. The rustdoc at query.rs:200 explicitly walks through the policy: \\`Other(String)\\` exists ONLY for client-side round-trip preservation; servers cannot meaningfully sort by an unrecognised property without a registered extension. Named variants give discoverability.\n2. **Plain String** \u2014 calendars/tasks/contacts. Maximum forward-compat for new RFC-defined sort properties, but zero discoverability (you have to know what strings are valid) and no compile-time check against typos. Contacts goes halfway with a \\`prop::*\\` const module of literal strings.\n3. **Comparator type absent** \u2014 filenode/sharing/metadata. Implies callers use jmap-types' generic \\`Comparator { property: String, ... }\\`.\n\n**What goes wrong**:\n1. A consumer porting query-construction code between sibling extensions has to switch idiom (enum variant in mail vs literal string in calendars vs \\`prop::CREATED\\` const in contacts vs jmap-types generic in filenode/sharing/metadata).\n2. The workspace has no documented policy on which approach is right. The mail-types rustdoc DOES document the rationale for its typed-enum-plus-Other shape (and explicitly notes the rationale is opinion-on-tradeoffs, not a workspace rule). The other crates haven't documented why they chose plain String.\n3. A new extension author has no canonical answer.\n\n**Fix**: file a workspace-architectural decision bead to pick ONE Comparator shape and propagate. The three plausible policies:\n- (A) Typed enum + Other(String) (mail's shape) \u2014 best discoverability, modest forward-compat cost.\n- (B) Plain String everywhere (calendars/tasks/contacts shape) \u2014 minimum surface, maximum forward-compat.\n- (C) Plain String + sibling \\`prop::*\\` const module per crate (contacts' shape) \u2014 typo-safety via named consts, discoverability via the module.\n\nPolicy (A) is the most informative; (B) is the simplest; (C) is the compromise. The workspace's AGENTS.md 'Filter algebra and control enums are explicitly EXCLUDED' policy explicitly says control enums should NOT receive \\`Other(String)\\` \u2014 which seems to argue against (A). The mail-types rustdoc carved out a narrow exception for ComparatorProperty (round-trip only, not dispatch). So policy (A) is consistent with workspace policy but is ALSO an exception that needs explicit ratification per crate.\n\n**Priority**: P2 \u2014 workspace-architectural decision, not a runtime bug. The current state is internally consistent within each crate but the cross-crate inconsistency creates the new-extension-author confusion.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Comparator-property type divergence: mail-types uses typed enum `ComparatorProperty`+`Other(String)`; calendars/tasks/contacts use plain `String`; filenode/sharing/metadata define no Comparator at all",
+  "updated_at": "2026-05-17T22:03:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:03:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "9d838139-09af-54e0-ac8d-b67cff8bbfce",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T00:46:08Z",
+  "compaction_level": 0,
+  "content_hash": "bec07fde49f9b229a85098a25094c0e6672b923e763009c9652817c14b040ca1",
+  "created_at": "2026-05-10T00:31:58Z",
+  "created_by": "Mark Atwood",
+  "description": "Pattern \u03b2 with shape change. Currently typed as opaque Option<Value>; should match tasks-types canonical Option<HashMap<String, PatchObject>>.\n\nFile: crate-jmap-calendars-types/src/event.rs:193\n\n  // Before\n  pub recurrence_overrides: Option<serde_json::Value>,\n  // After\n  pub recurrence_overrides: Option<HashMap<String, jmap_types::PatchObject>>,\n\nDoc-comment already says 'Map of LocalDateTime string \u2192 PatchObject for per-occurrence overrides.' PLAN.md:150 corroborates 'PatchObject map; keys are LocalDateTime strings'.\n\nCookie-cutter rationale: tasks-types Task::recurrence_overrides is already shaped as Option<HashMap<String, Value>> (sibling bead migrates the value type). Calendars-types is currently divergent \u2014 using Option<Value> as an opaque carrier. The canonical shape for the family is Option<HashMap<String, PatchObject>>; this bead unifies calendars to match.\n\nWire format byte-identical (the JSON serialization is the same regardless of whether the outer map is typed or Value-wrapped).\n\n## Scope\n\n- Shape change + value-type change in calendars-types/src/event.rs (1-2 lines + import).\n- Consumer code: any code that constructs CalendarEvent literals OR pattern-matches on recurrence_overrides as Value will break and need migration. Survey before doing the work.\n- PLAN.md \u00a71 Sloppy-Value justification: this field WILL stop being Sloppy-Value at the outer envelope (the inner PatchObject leaves remain Value, which preserves the existing rationale for per-leaf flexibility). Update PLAN.md row.\n- Cross-check: jscalendar.rs hybrid typed module may have a parallel typed shape worth referencing in a doc-comment.\n\n## Acceptance criteria\n\ncargo test --workspace clean, lib clippy clean, wire format byte-identical, PLAN.md updated.",
+  "ephemeral": 0,
+  "id": "JMAP-ezlq",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Migrate CalendarEvent::recurrence_overrides to PatchObject (\u03b2, with shape change)",
+  "updated_at": "2026-05-10T00:46:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T17:32:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-trmz",
+      "id": "346ef5dd-89e5-5553-937d-2a078a5c98b3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

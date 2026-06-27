@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T005608Z-3899568",
+  "close_reason": "Implemented email_import(&HashMap<String, EmailImportInput>, Option<&State>) -> EmailImportResponse and email_parse(&[Id], Option<EmailParseParams>) -> EmailParseResponse in crate-jmap-mail-client/src/methods/email.rs.\n\nAdded typed input/response structs in methods/mod.rs:\n- EmailImportInput<'a> with serde_serialize_with helpers for the {id: true} mailboxIds and {keyword: true} keywords maps required by RFC 8621 \u00a74.8\n- EmailImportCreated (per-creation success: id, blob_id, thread_id, size)\n- EmailImportResponse (accountId, oldState, newState, created, notCreated)\n- EmailParseParams (properties, body_properties, fetch_*, max_body_value_bytes) parallel to EmailGetParams\n- EmailParseResponse (accountId, parsed: Option<HashMap<Id, Email>>, notParsable, notFound)\n\nDefence-in-depth guards: empty emails map, empty mailboxIds per creation key, empty blob_ids for parse. ifInState handled when Some.\n\nUpdated README:\n- Added email_import / email_parse rows to the method table\n- Dropped the 'not yet implemented' callout\n- Reframed the Known Limitations entry to describe the blob-upload-first dependency rather than missing implementation\n\ncargo fmt + clippy -p jmap-mail-client --tests + test + RUSTDOCFLAGS='-D warnings' cargo doc -p jmap-mail-client --no-deps all green. Workspace clippy/test also green.",
+  "closed_at": "2026-05-11T01:13:28Z",
+  "compaction_level": 0,
+  "content_hash": "80826079af68c4b2a9673e3d0cebc7eb1487d2023825e040d0357566713108b5",
+  "created_at": "2026-05-11T00:06:01Z",
+  "created_by": "Mark Atwood",
+  "description": "Sites: crate-jmap-mail-client/README.md:85 and :186\n\nREADME currently says: 'Email/import' and 'Email/parse' are not yet implemented as typed methods; callers must use JmapClient::call directly. The README frames this as 'deferred to a future version'.\n\nBringing into active work. Pattern to follow: any existing typed *_set / *_get method in jmap-mail-client.\n\nAfter implementation, the README needs updating to drop the 'not yet implemented' section and the 'deferred to a future version' boilerplate.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add typed Email/import and Email/parse method wrappers to jmap-mail-client",
+  "updated_at": "2026-05-11T01:13:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:06:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu",
+      "id": "89dc4f3e-dcab-5f63-a8c9-60bd238df5dc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

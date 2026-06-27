@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done: expanded inline comment to explain WHY byte-level check is used \u2014 documents the false-positive risk of bare starts_with(field) and the allocation cost of format!(\"{field}/\"). Committed in 31df1b9.",
+  "closed_at": "2026-05-02T22:33:26Z",
+  "compaction_level": 0,
+  "content_hash": "d25babbd0e17c555bddf2e8b74ab1fe8fa03e735b90024b6e42e43e024cf9063",
+  "created_at": "2026-05-02T19:18:39Z",
+  "created_by": "Mark Atwood",
+  "description": "In find_immutable_patch_key, the sub-path check is: key.starts_with(field) && key.as_bytes().get(field.len()) == Some(&b'/') \u2014 checking that the byte after the field name is exactly '/'. A contributor might simplify this to key.starts_with(&format\\!(\"{field}/\")) or just key.starts_with(field), but the former allocates and the latter would incorrectly block 'messageIdX' (a custom field sharing a prefix with 'messageId'). The byte-index check is the only correct O(0)-allocation way to distinguish 'messageId' (exact match, handled by HashSet), 'messageId/0' (sub-path, immutable), and 'messageIdX' (coincidental prefix, allowed).",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_immutable_patch_key uses byte-level slash check to distinguish exact prefix from sub-path",
+  "updated_at": "2026-05-02T22:33:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "da04c909-4462-556b-b6e9-fde2847ec3c9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

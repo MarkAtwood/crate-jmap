@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a5395786df079bc0be191711e803a8dead4ba95eeb224252f365a44769e868ae",
+  "created_at": "2026-05-15T02:04:32Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/metadata.rs:72-80 and 211-216 contain the same defence-in-depth empty-State guard with hand-edited error messages naming the method. Cookie-cutter copies the canonical mail-client which does the same thing per-method (mailbox.rs:54-57, 156-159, etc.), so this matches workspace shape. Suggested rewrite: a small helper 'fn ensure_non_empty_state(s: &State, who: &'static str) -> Result<(), ClientError>' on SessionClient, called from both metadata_changes and metadata_query_changes. Cuts ~10 lines, removes the per-method-renamed error-message footgun, and improves the audit trail (one place to edit if the validation logic changes). However: this is a canonical-template change. Per crate-jmap-mail-client/AGENTS.md propagation rule, the helper would have to land in mail-client first, then propagate to every extension-client sibling. So this is a deliberately-deferred elegance flag \u2014 file the helper-extraction bead against mail-client, not here. Listed in this review as 'taste, no immediate action'.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "blocked",
+  "timeout_ns": 0,
+  "title": "metadata_query / metadata_query_changes share verbatim copy of metadata_changes's sinceState empty-check",
+  "updated_at": "2026-05-15T02:37:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:04:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "a0ce262a-eb41-54e7-b7e9-bf00e6a57e5e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

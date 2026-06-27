@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-9gp.12",
+  "title": "SetErrorType Display impl duplicates serde rename_all=camelCase",
+  "description": "backend.rs SetErrorType has both #[serde(rename_all='camelCase')] AND a manual Display impl that repeats every camelCase string. The two must be kept in sync by hand. If a variant is added and Display is forgotten the wire format diverges from the string representation. Fix: derive serde with rename_all, and implement Display by serializing to a JSON string via serde_json::to_value(self).unwrap().as_str() \u2014 or use a const array approach that is DRY.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:45:26Z",
+  "updated_at": "2026-05-01T01:51:27Z",
+  "closed_at": "2026-05-01T01:51:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9gp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:45:25"
+    }
+  ]
+}

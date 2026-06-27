@@ -1,0 +1,22 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-05T01:49:34Z",
+  "compaction_level": 0,
+  "content_hash": "e4ec03fc5cfe6acfedc0f39fb684277ae7fdcce5da1532a8e618a6cfb9aed5a9",
+  "created_at": "2026-05-05T01:44:48Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-gzed",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wire up lib.rs + helpers.rs",
+  "updated_at": "2026-05-05T01:49:34Z"
+}

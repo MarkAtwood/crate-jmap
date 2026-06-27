@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T12:07:18Z",
+  "compaction_level": 0,
+  "content_hash": "c2c1a3fcc02be7ee774bdba03f6607bb3291563dcfef4acf4af7099b13b9d011",
+  "created_at": "2026-05-01T12:04:21Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/common/mod.rs highlight() uses lower_needle.len() (byte count of lowercase needle) to slice into the original haystack. For Unicode chars where to_lowercase() changes the byte count (e.g. \u03a9 U+2126 is 3 bytes but lowercases to \u03c9 U+03C9 which is 2 bytes), the slice &haystack[abs..abs+lower_needle.len()] cuts at a non-char-boundary and panics. Reproducer: highlight(\"\u03a9\", \"\u03c9\"). This is test code only, but panics abort the test process rather than failing gracefully.",
+  "ephemeral": 0,
+  "id": "JMAP-epj.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "highlight() panics on Unicode chars with different lowercase byte width",
+  "updated_at": "2026-05-01T12:07:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T05:04:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-epj",
+      "id": "1375099a-2e5d-5306-94dc-567ec5345ee3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

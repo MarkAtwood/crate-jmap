@@ -1,0 +1,33 @@
+{
+  "close_reason": "Public-API change: ClientError::InvalidArgument from free-form String to structured data. Variant shape change requires major version. Coordinate with bd:JMAP-6lsm.21 (same shape concern in base-client errors) \u2014 both deferred to 0.2.0.",
+  "closed_at": "2026-05-09T07:37:21Z",
+  "compaction_level": 0,
+  "content_hash": "5e878d35a68e9565b30036455b1b14ef1527462a4130d1145976c73aaff6f699",
+  "created_at": "2026-05-08T03:22:05Z",
+  "created_by": "Mark Atwood",
+  "description": "Every guard returns:\n```\nreturn Err(jmap_base_client::ClientError::InvalidArgument(\n    \"calendar_get: ids element may not be empty\".into(),\n));\n```\n\nThe `InvalidArgument(String)` variant of ClientError (defined in LOCKED jmap-base-client/src/error.rs) wraps a free-form description. Callers cannot:\n- Distinguish 'empty id' from 'bad UTF-8 in token' from 'colon in BasicAuth username'\n- Programmatically test which argument was bad\n- Do anything other than match the variant and log/show the string\n\nThis is a downstream library limitation (jmap-base-client is locked). Inside calendars-client we can mitigate by being consistent about error message format \u2014 every guard already prefixes with `<method>: <field> <constraint>`. Good. But callers who want to handle 'invalid because of empty id list' specifically cannot.\n\nNot actionable as a calendars-client fix without changing locked base-client. Flag for the eventual base-client review/unlock cycle: split InvalidArgument into a structured variant with field name + reason.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClientError::InvalidArgument carries free-form String, not structured error data",
+  "updated_at": "2026-05-09T07:37:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:22:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "94b19c8e-6455-55f2-b288-8031e39c01b0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

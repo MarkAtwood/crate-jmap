@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Resolved per the finding's alternative path: docstring decision record locks in Option<UTCDate> as correct. Three failure modes are all 'corrupted clock' \u2014 physically unreachable on a sane host, one operational bucket, three physical mechanisms. Workspace's typed-variant-per-mode shape (SetError, BackendChangesError, MergePatchError) is for modes that DO occur in normal operation; clock corruption is different in kind. Zero current callers of now_utc_string_checked outside the helper itself, so the migration cost is hypothetical. Future per-mode telemetry can be added non-breakingly as a parallel helper. Commit b160214.",
+  "closed_at": "2026-05-15T07:20:46Z",
+  "compaction_level": 0,
+  "content_hash": "9b6e6613d82eb2050b577b6aab0653149db395727b3a9f763c369900e46cf8b3",
+  "created_at": "2026-05-14T17:36:59Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/helpers.rs:228 \u2014 now_utc_string_checked returns Option<UTCDate>, with three distinct failure modes collapsed into None:\n\n  /// Returns `None` when:\n  /// - `SystemTime::now().duration_since(UNIX_EPOCH).as_secs()`\n  ///   exceeds `i64::MAX` (only reachable on a corrupted clock \u2014\n  ///   approx \u00b1292 billion years from epoch).\n  /// - The negation of a pre-epoch duration overflows `i64`\n  ///   (unreachable on a `try_from`-validated input but checked\n  ///   defensively).\n  /// - `civil_from_days` reports a year outside `i32`\n  ///   (bd:JMAP-jfia.2 \u2014 between the i32-year boundary and the\n  ///   i64::MAX-secs cap).\n\nThe Option shape is correct in spirit (replaces the sentinel String from .30) but erases the discriminator. A caller that wants to react differently to each failure mode \u2014 e.g. an audit logger that reports 'clock skewed pre-1970' vs 'clock skewed past year 5.7M' for different alerting paths \u2014 cannot distinguish from Option<UTCDate>::None.\n\nThe .30 finding correctly migrated *away* from sentinel String to typed-Option. But the same reasoning that argued Option > sentinel argues Result<UTCDate, ClockError> > Option<UTCDate>: structured-failure-information > 'something went wrong'.\n\nThe cost of the bigger change is symmetric:\n\n  pub enum ClockError {\n      SecsExceedI64,\n      NegationOverflow,\n      YearOutsideI32,\n  }\n  // #[non_exhaustive], with Display + Error impls.\n\n  pub fn now_utc_string_checked() -> Result<UTCDate, ClockError>;\n\nMigration cost: every caller of now_utc_string_checked.is_none() pattern flips to .is_err(); every caller using `?` becomes `.map_err(/* some adapter */)?`. The bd:JMAP-jfia.30 commit just landed and there's no third-party caller yet, so the cost is borne entirely inside this crate.\n\nWorkspace argument FOR keeping Option: the failure modes are all 'corrupted clock' \u2014 one logical bucket, multiple physical mechanisms. The doc-comment already lists the three modes. An audit logger wanting per-mode telemetry can grep the helper's internals to know what fired. This is a weak argument because it requires the caller to read implementation, not the contract.\n\nWorkspace argument AGAINST keeping Option: the kit is the foundation; every *-server extension will compose this helper. Audit logging is the second-most-common consumer for now_utc_string. Erasing the discriminator at the foundation forces every consumer to duplicate the read-the-internals reasoning.\n\nThe api-contract concern is in the 'underspecified' bucket: Option<UTCDate> documents WHAT can fail but the API itself doesn't carry the discriminator. A Result<UTCDate, ClockError> is the additive shape \u2014 adding variants to a #[non_exhaustive] enum at a later date is non-breaking.\n\nFiled P2. Borderline opinion-vs-engineering: the failure modes are rare enough that operationally erasing them is acceptable, but the pattern of 'one typed error variant per failure mode' is the workspace's own preferred shape (see SetError, BackendChangesError, BackendSetError, MergePatchError \u2014 all use typed variants with non_exhaustive). This helper breaks that pattern.\n\nIf the verdict is that Option is correct, this should be added to the docstring as an explicit decision record: 'three failure modes are intentionally collapsed because they all signal \"abandon timestamping\" rather than \"react conditionally\".'",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "now_utc_string_checked Option<UTCDate> erases failure-mode discriminator \u2014 Result<UTCDate, ClockError> preserves observability",
+  "updated_at": "2026-05-15T07:20:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:36:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "b9bb56fe-c8c2-50da-8dbe-c1f77853460e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

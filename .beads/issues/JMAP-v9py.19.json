@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-13T15:37:50Z",
+  "compaction_level": 0,
+  "content_hash": "d5ac41d69d91129b185a7413fae62242bdbe886cc62b5fb3a0706accc08b41f5",
+  "created_at": "2026-05-13T15:30:40Z",
+  "created_by": "Mark Atwood",
+  "description": "External tracker for a spec edit being authored in a separate session against ~/PROJECT/jmap-chat-spec/draft-atwood-jmap-chat-00.md.\n\n## Background\n\nThe implementation team found that draft-atwood-jmap-chat-00 line 1182 places a non-member field-trim rule inside the Space/query section, but RFC 8620 \u00a75.5 defines /query as returning only ids \u2014 field projection is a /get concern (\u00a75.1). The previous spec text required servers to either deviate from \u00a75.5 by adding a non-standard objects-bearing field on /query, or to silently apply the trim somewhere that no longer reads as the standard wire shape.\n\nDecision (Mark, 2026-05-13): pick Option B from the agent triage on JMAP-v9py.4 \u2014 split the rule cleanly. Discovery stays on Space/query (which ids non-members may see); field-trim moves to Space/get (which fields non-members receive, plus the notFound classification for non-previewable spaces).\n\n## What lands in the spec\n\nThree edits to draft-atwood-jmap-chat-00.md:\n\n1. Field definition of isPubliclyPreviewable (currently lines 723-724) \u2014 point at Space/get for the restricted-view definition instead of Space/query.\n2. Space/get section (currently lines 1104-1106, one-liner) \u2014 grow a non-member-trim paragraph + a notFound rule for non-previewable spaces.\n3. Space/query section (currently lines 1175-1182) \u2014 rewrite line 1182 to describe id-visibility only; remove the field-list (since trim moves to /get).\n\nFull prompt was handed to the spec-editing session on 2026-05-13.\n\n## Acceptance\n\n- The spec commit lands in ~/PROJECT/jmap-chat-spec on a branch or main; Mark confirms the commit hash.\n- grep verification gates from the handoff prompt pass:\n  * Literal text 'Standard JMAP `/get`.' as a one-line section no longer occurs.\n  * 'all other fields MUST be omitted' occurs exactly once, inside Space/get.\n  * The Space/query section contains no occurrence of 'field' / 'fields' after the edit.\n- File line-count delta is +20 to +25 lines (anything outside that band indicates over-editing).\n\n## Out of scope\n\n- The implementation bead JMAP-v9py.4 (re-targeted at handle_space_get; blocked by this bead).\n- The notFound enforcement bead (filed separately under JMAP-v9py; blocked by this bead).\n- Any other Space-related spec change (Space/changes, Space/set, Space/queryChanges, Space/join, Space/destroy).",
+  "ephemeral": 0,
+  "id": "JMAP-v9py.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Spec edit (external repo): move non-member field trim from Space/query to Space/get in draft-atwood-jmap-chat-00",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T08:30:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py",
+      "id": "9238f875-0c7a-5df3-95c1-16ca4d8c5344",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

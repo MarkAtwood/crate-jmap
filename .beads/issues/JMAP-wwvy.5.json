@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "3 ShareNotification/get and /changes wiremock tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/notification_get_changes_tests.rs (2 tests: get via fixture, changes sinceState); clippy clean",
+  "closed_at": "2026-05-05T14:34:45Z",
+  "compaction_level": 0,
+  "content_hash": "65980898d1b4200ec6a4b63f405a399dea1043fe34ef2e1a3b0528e58e373f29",
+  "created_at": "2026-05-05T02:53:30Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create tests/share_notification_get_changes.rs with 3 async wiremock tests. Oracle: RFC 9670 \u00a73.1 fields.\n\n**Tests:**\n1. share_notification_get_round_trip: mock returns fixture; assert resp.list[0].object_type == \"Mailbox\", changed_by.name == \"Alice Smith\", old_rights.is_none(); assert request ids is JSON null and using contains principals URI.\n2. share_notification_get_specific_ids: assert request ids == [\"notif1\"].\n3. share_notification_changes_round_trip: assert old/new states, created, destroyed.\n\n**Acceptance criteria:** All 3 tests pass.",
+  "ephemeral": 0,
+  "id": "JMAP-wwvy.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: ShareNotification/get and /changes",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:53:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wwvy.1",
+      "id": "08a8579a-94d7-5d70-a643-277a5976b13d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:53:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wwvy",
+      "id": "e72e1cba-925d-536a-b526-c0b838bf394b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

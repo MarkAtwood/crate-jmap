@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-51b.4",
+  "title": "two-phase atomic resolve_args correctly handles partial failure",
+  "description": "resolve_args does a full read-only Phase 1 (resolve all #-keys) before mutating args in Phase 2. This means either all references resolve and args is updated, or args is returned unchanged with an error. A future contributor might suggest simplifying to single-pass (resolve-and-replace in-place). That would break the atomicity guarantee and violate RFC 8620 \u00a73.7 which says 'the whole method MUST be rejected' if any RR fails \u2014 implying no partial mutation.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:53:38Z",
+  "updated_at": "2026-04-30T17:57:06Z",
+  "closed_at": "2026-04-30T17:57:06Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-51b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:53:38"
+    }
+  ]
+}

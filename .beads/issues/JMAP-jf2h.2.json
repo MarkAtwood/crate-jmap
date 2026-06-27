@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "Guard condition implemented. Oracle: \u00a72.3. Tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added main_ops_all_succeeded guard: onSuccessSetIsDefault skipped when any notCreated/notUpdated/notDestroyed is non-empty; 1 new test; 18 total pass; clippy clean",
+  "closed_at": "2026-05-05T14:53:26Z",
+  "compaction_level": 0,
+  "content_hash": "4d2f54a4fe6548b24cb62960c33c8014096613116f1effdeb16c8ab63f9ac570",
+  "created_at": "2026-05-05T02:59:49Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Spec contacts-10 \u00a72.3 says onSuccessSetIsDefault runs only 'if all creates, updates and destroys (if any) succeed without error'. Currently it runs unconditionally.\n\n**Algorithm:**\n1. After the main create/update/destroy loops and before the onSuccessSetIsDefault block, add:\n   let main_ops_all_succeeded = not_created.is_empty() && not_updated.is_empty() && not_destroyed.is_empty();\n   if main_ops_all_succeeded { /* run onSuccessSetIsDefault block (from J1) */ }\n2. Add test set_on_success_skipped_when_create_fails: create map with one entry that fails; assert onSuccessSetIsDefault is NOT applied (verified by MockBackend call count or by asserting updated does not contain the target).\n3. cargo test -p jmap-contacts-server.\n\n**Acceptance criteria:**\n- onSuccessSetIsDefault not applied when any main op failed. Oracle: \u00a72.3.\n- When all main ops succeed, onSuccessSetIsDefault is applied.\n- cargo test exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-jf2h.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix: skip onSuccessSetIsDefault when any main set op failed",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:00:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h.1",
+      "id": "46d0c1f1-1b58-5552-bd1e-f3bd48cbaccc",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:59:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h",
+      "id": "ee2e6e6e-f745-5e7d-9657-12c4c28d8656",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

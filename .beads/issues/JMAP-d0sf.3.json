@@ -1,0 +1,33 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:47:22Z",
+  "compaction_level": 0,
+  "content_hash": "fb99263ecb4c2c832b0d73caeb0149716ad6507587c250d5601fd507a32d71eb",
+  "created_at": "2026-05-05T01:44:32Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-d0sf.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Write src/methods/card.rs with ContactCard/* methods",
+  "updated_at": "2026-05-05T01:47:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:44:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-d0sf",
+      "id": "9f30c239-30f4-5093-8933-cd7209987500",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

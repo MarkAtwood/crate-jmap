@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in c430f73 (paired with .5). Decision record now lives in two places: (1) inline comment block above the PartialEq impls in digest.rs, (2) PLAN.md 'Sibling-of-Id newtype, fallible construction only' section. Both cite: Id's SAFE-CHAR set is open (RFC 8620 \u00a71.2) and admits opaque From<String>; Sha256's ABNF is closed (draft-atwood-jmap-cid-00 \u00a72, exactly 64 lowercase hex chars) and demands strictly fallible construction.",
+  "closed_at": "2026-05-16T04:22:02Z",
+  "compaction_level": 0,
+  "content_hash": "64a68b288985869986d12104be705e6b6ddf52b9135407dcb7d70282fdc1b527",
+  "created_at": "2026-05-16T03:41:33Z",
+  "created_by": "Mark Atwood",
+  "description": "DEFEND ON REVIEW: jmap-types::Id implements infallible From<String> and From<&str> (crate-jmap-types/src/id.rs macro at line 72), treating the value as opaque per RFC 8620 \u00a71.2. jmap-cid-types::Sha256 deliberately does NOT \u2014 only TryFrom<String>, TryFrom<&str>, FromStr (all fallible) are provided. The asymmetry is correct because draft-atwood-jmap-cid-00 \u00a72 defines sha256-value with a tight ABNF () \u2014 exactly 64 lowercase hex chars, not opaque. Allowing infallible construction would let arbitrary garbage round-trip through serialize and emerge as a malformed wire field. A future contributor who reads jmap-types::Id and proposes 'add From<String> to Sha256 for consistency with sibling newtypes' should be told: Id's character set is open (URL-safe base64 alphabet, server-assigned, no client-side parse rule), Sha256's is closed (ABNF fixed-length lowercase hex, both sides validate). The TryFrom-only construction is the right shape. Keep this decision.",
+  "ephemeral": 0,
+  "id": "JMAP-sf5h.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sha256 deliberately rejects infallible From<String>/From<&str> vs sibling Id newtype \u2014 defend this asymmetry",
+  "updated_at": "2026-05-16T04:22:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T20:41:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sf5h",
+      "id": "560b1c82-5264-51f1-8322-35e1c64acdd9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

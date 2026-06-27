@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-636.8",
+  "title": "validate_session_urls prevents SSRF via malicious server session",
+  "description": "fetch_session calls validate_session_urls before returning, rejecting non-http/https scheme URLs (file://, ftp://, data:, etc.). This is defense-in-depth: without it, a MITM or malicious server could inject a file:// URL into download_url and cause the client to exfiltrate local files on the first blob download. The require_http_url per-method check is secondary protection. Keep both.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:54:35Z",
+  "updated_at": "2026-04-30T16:02:37Z",
+  "closed_at": "2026-04-30T16:02:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-636",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:54:35"
+    }
+  ]
+}

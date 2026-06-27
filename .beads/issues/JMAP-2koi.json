@@ -1,0 +1,23 @@
+{
+  "closed_at": "2026-05-12T02:19:59Z",
+  "compaction_level": 0,
+  "content_hash": "4f7f0e33fde660b0359ea0e7317db71b68d4bc36438fb71b0918e3c76035cb57",
+  "created_at": "2026-05-12T00:21:20Z",
+  "created_by": "bd-spin/bd-spin-20260512T000441Z-1660907",
+  "description": "Currently only crate-jmap-mail-server/ has an AGENTS.md among the eight server crates (mail, chat, calendars, tasks, contacts, filenode, sharing, metadata). The mail one self-describes as the canonical extension-server template.\n\nDiscovered during JMAP-ga0q.2 (identity-seam policy doc sweep): that bead instructed adding a 'Permission enforcement: backend canonical' section to crate-jmap-chat-server/AGENTS.md. The file does not exist.\n\nTwo coherent paths forward:\n\n  A. Sibling-crate AGENTS.md is optional. Permission-policy notes go in lib.rs module doc or in the existing canonical mail-server AGENTS.md. Close JMAP-ga0q.2 partial-conformance on the chat-server site.\n\n  B. Every extension-server crate gets a cookie-cutter AGENTS.md mirroring mail-server's. File a sweep bead under JMAP-sc1b (or a new epic) to create the seven missing files. Then close JMAP-ga0q.2 once chat-server's is added.\n\nThe workspace AGENTS.md 'Canonical Templates' table implies (B) is the intended cookie-cutter posture \u2014 the lack of files in 7 of 8 server crates may itself be a publish-readiness gap.\n\nThis bead exists because /do-beads hit the question during JMAP-ga0q.2 work and cannot pick a path without explicit user direction. Recommendation: pursue (B) under JMAP-sc1b, schedule a sweep bead; in the meantime, close JMAP-ga0q.2 noting partial conformance on the chat-server site.\n\n## Acceptance\n\n  - User picks (A) or (B), recorded in a comment here.\n  - If (B), a sweep bead is filed listing the seven missing AGENTS.md sites.\n  - JMAP-ga0q.2 is closed (either way; the question above unblocks its final site).",
+  "ephemeral": 0,
+  "id": "JMAP-2koi",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Decision (2026-05-11, Mark): B \u2014 cookie-cut AGENTS.md into all 7 missing extension-server siblings.\n\nSweep bead filed: JMAP-sc1b.109 (parent JMAP-sc1b publish-readiness epic, P3).\n\nJMAP-ga0q.2's chat-server site is now functionally covered by the sweep bead (lib.rs module-doc stopgap from ga0q.2's close-message remains in place; sweep will move that text into chat-server/AGENTS.md and remove the lib.rs duplicate).",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Decide policy: should each extension *-server crate have an AGENTS.md?",
+  "updated_at": "2026-05-12T02:19:59Z"
+}

@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-445",
+  "title": "feat(jmap-mail-server): implement RFC 8621 mail handlers",
+  "description": "Implement the jmap-mail-server crate: MailBackend trait, 26 RFC 8621 method handlers across 7 object types, MemoryBackend test harness, and integration tests. Reference: crate-jmap-mail-server/PLAN.md. Source material: RFC 8621 (normative), jmapchat-server (copy pattern), Stalwart ~/GIT/stalwart-jmap-server (AGPL \u2014 read only).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:01:15Z",
+  "updated_at": "2026-04-30T21:21:26Z",
+  "closed_at": "2026-04-30T21:21:26Z"
+}

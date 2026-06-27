@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7fdb66d15891bb3d2aab587f264eb4ea27293cbe0adc2a77b9ed31c707e36dfe",
+  "created_at": "2026-05-14T16:01:16Z",
+  "created_by": "Mark Atwood",
+  "description": "## Reclassification\n\nJMAP-x2gd.14 (P1) finds that `chat-server` carries 8 hand-maintained\n`*_READONLY: &[&str]` lists keyed by wire-string name, each gated\nby a `MAINTENANCE: when adding a server-set field to <Type> in\njmap-chat-types, add its wire name here too` comment. The\nmaintenance invariant is silently violable: a future field\naddition that doesn't update the list lets clients overwrite a\nserver-set field, and tests don't fail.\n\nA grep of `jmap-mail-server` (the canonical extension-server\ntemplate) confirms the same pattern with the same MAINTENANCE\ncontract:\n\n- `crate-jmap-mail-server/src/mailbox.rs:661-663`: byte-equivalent\n  `MAINTENANCE: This list must match all server-set fields of the\n  Mailbox struct... If a new server-set field is added to Mailbox,\n  add its wire name here. Drift...` comment.\n- `crate-jmap-mail-server/src/identity.rs:323`: `const\n  IDENTITY_READONLY: &[&str] = &[\"email\", \"id\", \"mayDelete\"]`.\n\nPer workspace AGENTS.md \"Canonical Templates\" propagation rule,\nfixing chat-server in isolation creates divergence from the\ncanonical. Whatever mechanism replaces the hand-maintained list\n(trait method, proc-macro, serde-attribute) MUST land on\njmap-mail-server first then propagate.\n\n## Scope of the workspace sweep\n\nTwo flavors of fix-site:\n\n(A) **Per-server-crate READONLY lists**: 8 sites in chat-server,\nplus mailbox.rs + identity.rs in mail-server, plus presumed\nanalogs in calendars-server / contacts-server / tasks-server /\nfilenode-server / metadata-server / sharing-server. Each\nextension-server crate has its own pile of these.\n\n(B) **The underlying types crates**: jmap-chat-types,\njmap-mail-types, jmap-calendars-types, etc. The mitigations\nJMAP-x2gd.14 proposes (move the readonly list to a\n`JmapObject`/`ReadOnlyFields` trait, or generate via a proc-macro\nthat lives in the types crate, or per-field `#[serde]` attributes\non the patch type) ALL require changes to the types crate, not\njust the server crate.\n\n## Mitigations from JMAP-x2gd.14\n\n1. Move readonly list to a marker-trait method on each\n   `JmapObject` \u2014 compiler enforces every type names its\n   server-set fields once. Handler reads from the trait.\n2. Derive readonly list from a struct attribute via a proc-macro\n   in the types crate.\n3. Tag fields with `#[serde(skip_deserializing)]` on the\n   patch type (separate from the get type).\n\nEach option has cross-extension implications. Option 1 is most\nconsistent with the workspace's hand-written-trait posture and\nneeds no new crates. Option 2 introduces a proc-macro dependency\nwhich the workspace currently avoids. Option 3 requires every\ntype's patch-shape to be wholly separate from its get-shape,\nwhich the workspace has not committed to.\n\n## Precedent\n\nThis reclassification mirrors:\n- **JMAP-x2gd.67** \u2014 7 prior api-contract findings reclassified as\n  workspace-canonical via mail-server cross-walk.\n- **JMAP-x2gd.69** \u2014 JMAP-x2gd.64 reclassified.\n- **JMAP-x2gd.86** \u2014 JMAP-x2gd.59 reclassified (foundation methods\n  doc gap).\n\n## What this bead does NOT decide\n\nThe mitigation choice (option 1 vs 2 vs 3) is workspace-architectural\nand likely requires its own design discussion when the sweep is\nworked. Adopting any of the three propagates across ~15 crates\n(8 server crates + 8 types crates).\n\n## Recommendation\n\nWhen this sweep is worked:\n1. Workspace-architectural discussion: pick option 1 vs 2 vs 3.\n   File the decision as its own bead with the workspace-architecture\n   label.\n2. Audit every extension-server crate's `*_READONLY` lists.\n3. Implement the chosen mitigation on the canonical pair\n   (jmap-mail-types + jmap-mail-server) first.\n4. Propagate to all 7 other type+server pairs in the same pass.\n5. Close JMAP-x2gd.14 (and any analogous beads filed for the\n   other siblings) when the propagation lands.\n\n## Engineering basis\n\n- chat-server: 8 `*_READONLY` sites (per JMAP-x2gd.14).\n- mail-server: mailbox.rs:661-663 + identity.rs:323 (this bead).\n- Workspace AGENTS.md \"Canonical Templates\" propagation rule.\n- Precedent: JMAP-x2gd.67, JMAP-x2gd.69, JMAP-x2gd.86.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.87",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace-canonical reclassification of JMAP-x2gd.14: per-type READONLY string lists are a workspace-wide maintainer-burden pattern",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:01:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "49c01b53-3c94-584d-a21e-84b2fd31dd17",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

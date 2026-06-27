@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T00:02:07Z",
+  "compaction_level": 0,
+  "content_hash": "e3dc6a62b07bbb67894d9b0b4fe62a3e9e29fd9a8aafcd8deb6eb13318a8cc72",
+  "created_at": "2026-05-14T23:25:59Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-base-client/src/blob.rs:419-426 builds the hex string with hash.iter().fold(String::with_capacity(64), |mut s, b| { s.push(...); s.push(...); s }) \u2014 the fold-with-mut-accumulator pattern that clippy flags under clippy::manual_fold / unused_self_for_fold-style discussions. Iterator::fold is the right tool when you fold to a new value at each step; mutating the accumulator and returning it is a code smell that uses fold's name without its semantics. Idiomatic Rust here is a for loop into a pre-sized String: let mut s = String::with_capacity(64); for b in hash.iter() { s.push(hex_nibble_lower(*b >> 4)); s.push(hex_nibble_lower(*b & 0x0f)); } s. Reads in one direction, no closure noise, same performance. (The alternative \u2014 std::fmt::Write \u2014 paid format-machinery cost we don't want on the upload hot path, so the for loop is the right destination.) Low priority because it works correctly; flagged because the pattern is copied into every cookie-cutter sibling crate and propagates the wince.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.49",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "compute_sha256_hex uses fold-with-mut-accumulator anti-idiom",
+  "updated_at": "2026-05-15T00:02:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:25:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "7b46850a-f22a-5838-9af0-e28a8acdcfe5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

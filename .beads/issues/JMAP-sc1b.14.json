@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:58:34Z",
+  "compaction_level": 0,
+  "content_hash": "3ff94ef5a908880e38016e7339055a1e61d08526a9bd2d8ba4d927bc9f65b01c",
+  "created_at": "2026-05-07T20:29:07Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-client exports significant push-transport surface:\n\n- pub mod ws \u2014 `ChatWsExt`, `ChatWsFrame`\n- pub mod sse \u2014 `ChatSseEvent`, `ChatSseFrame`, `parse_chat_sse_block`\n- pub mod session \u2014 `ChatSessionExt`, `ChatCapability`, `ChatPushCapability`\n\nThe README only lists the typed JMAP method calls \u2014 there is no mention of WebSocket or SSE support. For a chat client, push transport is a headline feature.\n\nFix: add a 'Push transport' section covering both WebSocket (RFC 8887 binding) and Server-Sent Events. Likely warrants a worked example showing how to upgrade a session to WS / start an SSE stream.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: chat-client README doesn't mention WebSocket or SSE support",
+  "updated_at": "2026-05-07T21:58:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "c933e8a3-07a7-5e8d-9b9d-43fb801485d8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

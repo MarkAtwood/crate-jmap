@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:48:57Z",
+  "compaction_level": 0,
+  "content_hash": "ec5011e927252bb035915700a6f71774dd89d7963b6ae2d2ecf6b58c898deda2",
+  "created_at": "2026-05-07T20:43:31Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mime/Cargo.toml: `mime-tree = \"0.1\"` (literal version pin in [dependencies]) while `serde_json = { workspace = true }` (inheritance in [dev-dependencies]).\n\nPick one style per crate.\n\nMarked opinion. Cosmetic only.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.61",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: jmap-mime mixes inheritance styles in dev-deps",
+  "updated_at": "2026-05-07T21:48:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "bcaa46ad-60c3-514a-af88-54d20df9ea87",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "bd remember note recorded. No isActive in source code.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Recorded in beads memory: RFC 9670 Principal has no isActive field; isActive is only in draft-ietf-jmap-sieve-22 SieveScript; no code change needed",
+  "closed_at": "2026-05-05T04:39:30Z",
+  "compaction_level": 0,
+  "content_hash": "07dd96cbc44236b3dca759e2171399340e6d80693af7cfa529e8a56980f448e5",
+  "created_at": "2026-05-05T02:50:45Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Document that isActive does NOT exist in RFC 9670. The field exists only in draft-ietf-jmap-sieve-22 on SieveScript (unrelated type). No code change is needed.\n\n**Algorithm:**\n1. Run: bd remember \"RFC 9670 Principal has no isActive field. isActive exists only in draft-ietf-jmap-sieve-22 on SieveScript. The JMAP-qet4 epic premise about isActive was incorrect; no code change needed.\"\n2. Verify no isActive field exists in Principal or PrincipalProperty enum.\n3. Run cargo test --workspace.\n\n**Acceptance criteria:**\n- bd memories isActive returns the note.\n- No isActive in crate-jmap-sharing-types source.\n- cargo test --workspace exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-qet4.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Record isActive non-gap in beads memory",
+  "updated_at": "2026-05-05T04:39:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:50:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qet4",
+      "id": "e01099b4-3515-58b9-9677-96c100db4515",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8e49398164eee618b0abfe1eb0d2e456433e224bbfdb0d711a0dbf930727bc1f",
+  "created_at": "2026-05-14T12:44:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Commit 869f7fb changed MailboxFilterCondition.parent_id from Option<Id> to Option<serde_json::Value> at crate-jmap-mail-types/src/mailbox.rs:238. The struct is #[non_exhaustive] (construction-side break is mitigated) but read-side access (cond.parent_id matching, destructuring) goes from one type to another \u2014 any consumer that did 'if let Some(id) = cond.parent_id { ... }' assuming Id will fail to compile, and consumers that pattern-matched will silently change behaviour.\n\nTwo problems:\n\n1. The commit subject is 'refactor(mail-server): push Mailbox/query filter+sort into backend' \u2014 no exclamation mark, no warning about a type-crate public-API break. SemVer convention (and the workspace cookie-cutter rule) is to use 'refactor!' or 'feat!' when public types break.\n\n2. jmap-mail-types is currently at version 0.1.1 on crates.io. The next published version will silently carry a public type change. Pre-1.0 SemVer permits this but downstream consumers using ^0.1 ranges will pull the breaking change without warning. The version should bump to 0.2 (pre-1.0 breaking-change convention) and CHANGELOG/release-notes should call out the break.\n\nThe type-change itself is justified: serde's default Option<T> Deserialize collapses JSON null to None, which would defeat the three-way absent/null/string parentId distinction required by RFC 8621 \u00a72.3. The fix is correct. The packaging story is the gap.",
+  "ephemeral": 0,
+  "id": "JMAP-j7pa.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "MailboxFilterCondition.parent_id public API break not flagged",
+  "updated_at": "2026-05-14T12:44:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:44:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-j7pa",
+      "id": "bf6334c6-d453-53f3-8d20-0ef10c101c14",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

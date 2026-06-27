@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-gyb.3",
+  "title": "properties hint in collapse_by_thread is the right API-level hook",
+  "description": "Passing Some(&[EmailProperty::Id, EmailProperty::ThreadId]) to get_objects is the correct pattern: signals intent, allows column-store backends to optimize, requires no new trait method, and is harmless for backends that ignore properties. A contributor might remove it as 'no-op for MemoryBackend' \u2014 it should be kept.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:18:51Z",
+  "updated_at": "2026-05-01T02:19:40Z",
+  "closed_at": "2026-05-01T02:19:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-gyb",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:18:51"
+    }
+  ]
+}

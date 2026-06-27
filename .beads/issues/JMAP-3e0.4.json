@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3e0.4",
+  "title": "blob.rs download_blob: Vec allocation for vars \u2014 use inline array slice",
+  "description": "blob.rs lines 202-210: download_blob builds vars as let vars = vec![...] then immediately passes it as &[(&str, &str)] to expand_url_template. Since the count is known at compile time, an inline array borrow avoids the heap allocation: expand_url_template(template, &[(\"accountId\", account_id), ...]). upload_blob already uses this pattern correctly on line 124.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:14:42Z",
+  "updated_at": "2026-04-30T01:23:38Z",
+  "closed_at": "2026-04-30T01:23:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3e0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:14:41"
+    }
+  ]
+}

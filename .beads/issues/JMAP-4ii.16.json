@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:12:27Z",
+  "compaction_level": 0,
+  "content_hash": "c059fba70fc808876d41495132575e5b5f270be5f45f146dd3b61af1424d0d91",
+  "created_at": "2026-05-02T03:56:08Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src/backend.rs: SetErrorType::Display uses a wildcard arm '_ => return write\\!(f, \"{:?}\", self)' guarded by #[allow(unreachable_patterns)]. The comment explains this is because the type is #[non_exhaustive]. However, this wildcard arm means any new variant added without a corresponding match arm silently falls back to Debug format instead of failing to compile, defeating the purpose of the explicit match. The idiomatic approach for a #[non_exhaustive] Display impl in the defining crate is to simply add the new variant's arm \u2014 the crate that defines the enum is not subject to non_exhaustive restrictions. The allow suppresses a warning that would catch missing arms. crate-jmap-chat-server/src/backend.rs does NOT have this pattern (its SetErrorType Display is exhaustive and correct); the mail-server should match that style.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetErrorType::Display match with #[allow(unreachable_patterns)] workaround",
+  "updated_at": "2026-05-02T04:12:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:56:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "1ec1990f-5925-502d-a76f-fe3758ccb282",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T21:36:22Z",
+  "compaction_level": 0,
+  "content_hash": "8681941a8399f5ad66f4540c4e5b4dd586fe46de1027df19dd472c8b10b9d83d",
+  "created_at": "2026-05-17T17:15:03Z",
+  "created_by": "Mark Atwood",
+  "description": "Discovered while porting Vec::contains dedup to HashMap+IdFate (bd:JMAP-ic0j.50). RFC 8620 \u00a75.2 permits three behaviors when an id is created AND destroyed within a single /changes window:\n\n  1. SHOULD: 'the server SHOULD remove the id from the response entirely'\n  2. MAY: 'it MAY include it in just the destroyed list'\n  3. MAY: 'or in both the destroyed and created lists'\n\ncalendars-server (and the test at memory.rs:1419 dedup_pass_does_not_panic_on_distinct_recreated_ids) chose path (2). The canonical jmap-mail-server at crate-jmap-mail-server/src/memory/mod.rs:670-680 chose path (1) (the SHOULD-preferred path).\n\nThe cookie-cutter consistency target is path (1). Switching calendars-server to path (1) is a one-line change in the new IdFate-based dedup loop (the destroyed-arm becomes 'fates.remove(id)' with 'Some(IdFate::Created) => {}' instead of the current unconditional 'fates.insert(IdFate::Destroyed)'), plus an update to the assertion at memory.rs:1459-1463 with explicit RFC 8620 \u00a75.2 SHOULD oracle citation.\n\nThis was NOT done in JMAP-ic0j.50 because the bead was scoped to idiom-rust (Vec::contains O(n\u00b2) \u2192 HashMap O(1)) and not to semantic behavior. Switching paths is a separate scope-bounded decision.\n\nShould also propagate to any other extension-server sibling whose dedup chose path (2) \u2014 at minimum jmap-contacts-server, jmap-chat-server (verify per-sibling).",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.75",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend get_changes uses RFC 8620 \u00a75.2 MAY-path (create+destroy in window \u2192 destroyed-only); canonical uses SHOULD-preferred (omit from both)",
+  "updated_at": "2026-05-17T21:36:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T10:15:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "2b2ab73a-79fd-5bd5-9eb7-95f47b3c0bd3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

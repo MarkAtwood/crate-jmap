@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e3e7748f925ae272e78293d9c91833924d4ae06f66611871347454b9e951e604",
+  "created_at": "2026-05-14T20:02:57Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/memory.rs:165-168\n\n```rust\n#[derive(Clone)]\npub struct MemoryBackend {\n    inner: Arc<Mutex<MemoryState>>,\n}\n```\n\n`#[non_exhaustive]` is missing. The single field is private so\nstruct-literal construction is already blocked from outside the\ncrate, but `#[non_exhaustive]` is the documented signal of\nforward-compatibility intent in Rust public types. Without it, a\nlinter or human reviewer cannot tell at-a-glance whether the type\nis locked or evolvable.\n\nAdding a field like `config: MemoryConfig` (for the bd:JMAP-510h.16\nconfigurable rename-suffix cap) or\n`max_change_log_entries: Option<usize>` (for the \"change log grows\nwithout bound\" issue in the canonical sibling docstring) is\nSemVer-safe right now because the field is private, but the annotation\nmakes that intent explicit and survives a future refactor where\nsomeone adds a `pub` field.\n\nPropagation note: canonical sibling\n`crate-jmap-mail-server/src/memory.rs:251` (also a private-field\nstruct) has the same omission. Both should land the annotation in\nthe same pass \u2014 mail-server canonical first.\n\nThis is `api-contract,immutability` because the convention for the\nworkspace (\"`#[non_exhaustive]` on every public struct\" \u2014 per the\ncrate-jmap AGENTS.md \"Key Rules\" and \"Conventions & Patterns\" lists)\nis missed here. The repair is mechanical and the cost is one line\nper struct.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "pub struct MemoryBackend lacks #[non_exhaustive] \u2014 future field additions are SemVer breaking",
+  "updated_at": "2026-05-17T10:56:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:02:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "d775bcd3-6edd-5f6c-a621-9cd288dacf44",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

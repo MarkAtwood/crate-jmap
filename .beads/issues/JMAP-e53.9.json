@@ -1,0 +1,33 @@
+{
+  "close_reason": "Added comment to reg! macro explaining that _ci (ignore) is used for most handlers, and ci (capture) is only needed for handlers that emit onSuccess* extra invocations.",
+  "closed_at": "2026-05-04T16:02:07Z",
+  "compaction_level": 0,
+  "content_hash": "7726537c17fdc3d4a2f74dfb512a9f1c38554dbeeb1bb32fb15faee156d72984",
+  "created_at": "2026-05-02T00:43:40Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs lines 85-97: the reg\\! macro exposes a ci/call_id parameter. Most handlers use _ci (ignoring it), but Email/copy and EmailSubmission/set use ci. The invariant \u2014 'only handlers that emit onSuccess* extra invocations need call_id' \u2014 is nowhere documented. A contributor adding a new handler must guess whether to use ci or _ci. Add a comment to the macro or its usage sites explaining which handlers need call_id and why.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "reg\\! macro ci vs _ci invariant undocumented",
+  "updated_at": "2026-05-04T16:02:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "a17be1bd-705f-55b3-b36a-231224f5b6e5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

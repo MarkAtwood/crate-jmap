@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T23:44:39Z",
+  "compaction_level": 0,
+  "content_hash": "3420f563c26668d4a4bec141e8f5eff4f8d0e2ac88211a889363265ee9f856a0",
+  "created_at": "2026-05-01T23:01:42Z",
+  "created_by": "Mark Atwood",
+  "description": "Space/set currently delegates all mutations to backend with no permission checking. Spec requires: manage_space for top-level fields; manage_roles for addRoles/removeRoles/updateRoles (only roles with position < actor's highest role); manage_channels for channel mutations; manage_members for member mutations; ban permission for SpaceBan operations. Role hierarchy: a member cannot modify roles at or above their own highest role position.",
+  "ephemeral": 0,
+  "id": "JMAP-9xe",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Space/set: enforce permissions and role hierarchy",
+  "updated_at": "2026-05-01T23:44:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T16:31:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qkw",
+      "id": "6cb5dd13-8818-5b7a-ada2-7b306b52ec5b",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-01T16:10:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x09",
+      "id": "aa041902-5176-5b85-9cdd-f34b9108760b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

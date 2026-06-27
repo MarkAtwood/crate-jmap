@@ -1,0 +1,33 @@
+{
+  "close_reason": "Documented loudly that calendar_event_notification_set always makes a network call, with the caller-side filter pattern shown explicitly. Did NOT short-circuit because synthesizing oldState/newState tokens without a network call would be wrong for optimistic concurrency. Rationale captured in the docstring so future maintainers don't 'optimize' the call out.",
+  "closed_at": "2026-05-09T07:38:16Z",
+  "compaction_level": 0,
+  "content_hash": "5d94eb630212d354c19ec2d379f71925bae6cd68406218d48ba2716044cb7a85",
+  "created_at": "2026-05-08T03:12:59Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/event_notification.rs:80-113: when caller passes `destroy: None`, the method still sends `\"destroy\": []` in the args. The doc-comment (line 79) explicitly says 'Pass destroy: None to send an empty destroy list (no-op).'\n\nTwo concerns:\n\n1. Per RFC 8620 \u00a75.3, `destroy` is OPTIONAL (\"may be supplied\"). Sending `destroy:[]` is server-legal but distinct from omitting the key. Some servers may behave differently (e.g. log a no-op vs. nothing).\n\n2. More importantly: the API gives the caller no way to express 'this is a no-op, do not call the server.' `None` and `Some(vec![])` are intentionally collapsed in production code. A caller who has a list of ids to destroy and ends up with an empty Vec (legitimate edge case after filtering) sends a useless network round-trip. That round-trip costs latency, may rate-limit, and the response is uninteresting (oldState == newState).\n\nSuggested fix: short-circuit when `destroy.as_ref().is_none_or(|v| v.is_empty())` \u2014 return a synthesized empty SetResponse without making the call. Or document loudly that this method always makes a network call.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "calendar_event_notification_set always sends destroy:[] even for None",
+  "updated_at": "2026-05-09T07:38:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:12:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "94d14cff-fdc5-5f3b-8414-b86e37db328b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

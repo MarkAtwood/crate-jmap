@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Comment at message_smoke_tests.rs:405-407 rewritten to correctly identify the workspace canonical source (chat-server/src/message.rs:457 emission site) as oracle. The assert_eq!'s literal '2024-06-15T09:00:07Z' is already an independent oracle matching the hand-crafted wire payload at line 374; only the misleading comment needed fixing. Comment now explicitly names serverRetryAfter as workspace convention (not spec-mandated, not in draft-atwood-jmap-chat-00, not in RFC 8620) and pins the wire contract pending IETF stabilisation. Verified zero spec matches for 'serverRetryAfter' in ~/PROJECT/jmap-chat-spec. Verified test still passes. Verified cargo fmt + cargo clippy -p jmap-chat-client --tests -- -D warnings clean. Committed as 81a1f9c.",
+  "closed_at": "2026-05-15T20:59:19Z",
+  "compaction_level": 0,
+  "content_hash": "5e7a18be3733a0891219e07529b2095cac48f8ee18875fd7a65f6028965ec840",
+  "created_at": "2026-05-15T20:27:46Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/message_smoke_tests.rs:357-417 (message_create_rate_limited_surfaces_as_error). The test comment at lines 405-407 explicitly names its oracle as 'src/methods/mod.rs:1161 (server_retry_after parser)' \u2014 the code under test parsing its own output. `grep serverRetryAfter draft-atwood-jmap-chat-00.md` returns no matches; the field shape is currently workspace-pinned, not spec-mandated. If production were changed to parse retryAfter as numeric seconds and the test response were updated to match, the test would still pass and the spec would still be unsourced. Fix: either (a) cite a normative source if one exists (slow-mode draft, kith reference impl), or (b) document explicitly in the test that the field shape is workspace-defined pending IETF stabilization and that this test pins the local-policy decision, not spec conformance.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "serverRetryAfter test uses production parser as its own oracle",
+  "updated_at": "2026-05-15T20:59:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:27:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "fc9914fb-f5f3-5214-82ce-79e6e81c27f2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

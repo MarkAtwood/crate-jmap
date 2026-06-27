@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T06:50:04Z",
+  "compaction_level": 0,
+  "content_hash": "5b83d116b9f795b83fdb654fe4108cb7e815927169850e151ad37412cb952855",
+  "created_at": "2026-05-02T06:46:40Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/chat.rs:194-200\nIssue: handle_chat_query_changes parses no filter or sort from the request args and hard-codes None, None in the backend call. The generic handle_query_changes in jmap-server does parse and forward these fields. The Chat-specific implementation was written without the generic handler having existed at the time, and was not updated to delegate or document the omission.\nRisk: Clients sending filter or sort fields in Chat/queryChanges will have them silently ignored \u2014 the query returns results as if no filter was given. If a future backend adds filter support for Chat/queryChanges, the handler layer will never pass the filter through. The inconsistency with handle_query_changes (which does pass filter/sort) means different object types behave differently with no visible documentation of the difference.\nFix: Either delegate to jmap_server::handlers::handle_query_changes::<Chat, B>(backend, args) (the same pattern used for handle_chat_changes), or explicitly reject filter/sort with an error if Chat/queryChanges is intentionally filterless, with a doc comment explaining why.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_chat_query_changes silently drops filter and sort",
+  "updated_at": "2026-05-02T06:50:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:46:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "da55e516-55b3-58e3-bc12-7901adb49451",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

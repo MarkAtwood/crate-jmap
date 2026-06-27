@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T02:37:04Z",
+  "id": "019e297e-9df3-75a7-bb50-3588fab34d35",
+  "issue_id": "JMAP-wzq9.9",
+  "text": "Blocked on canonical mail-client propagation. The 'five-step' / six-step mismatch in the module docstring is verbatim from canonical mail-client (email.rs, identity.rs, mailbox.rs, submission.rs, etc. \u2014 all carry the same identically-worded docstring with the same off-by-one). Fixing here alone would diverge from canonical. Needs a canonical-mail-client side bead + propagation sweep to all 8 extension-client crates (mail + 7 siblings) in one pass."
+}

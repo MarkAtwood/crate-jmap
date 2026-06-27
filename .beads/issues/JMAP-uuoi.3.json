@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T021545Z-3955436",
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T02:56:15Z",
+  "compaction_level": 0,
+  "content_hash": "59a0c4a499ee00d07973ac094b5d171e03213400b74d796c20da516834e788b2",
+  "created_at": "2026-05-11T02:18:35Z",
+  "created_by": "bd-spin/bd-spin-20260511T021545Z-3955436",
+  "description": "Mirror the canonical JMAP-uuoi.1 (calendars-client) wiremock smoke-test layout into crate-jmap-chat-client/tests/.\n\nPattern oracle: crate-jmap-calendars-client/tests/availability_tests.rs (wiremock + production call + body_json assertion, ~40-60 LoC per test).\n\nMethods needing new smoke coverage in jmap-chat-client:\nround-trip smoke tests for chat_get / chat_set / message_get / message_set / message_query / space_get / space_set core paths (verify which methods lost vacuous coverage in JMAP-231o.8 \u2014 notes say chat-client was 'already conformant' so this may close as zero-work)\n\nAcceptance:\n- New wiremock-backed tests in crate-jmap-chat-client/tests/*.rs.\n- cargo test -p jmap-chat-client passes.\n- File layout mirrors calendars-client (split per method-family where the canonical splits).\n- Per workspace AGENTS.md Canonical Templates rule, do NOT diverge from the canonical's file layout, helper-pattern, or assertion shape without also changing the canonical first.",
+  "ephemeral": 0,
+  "id": "JMAP-uuoi.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock smoke tests for jmap-chat-client (propagate from canonical)",
+  "updated_at": "2026-05-11T02:56:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T19:18:35Z",
+      "created_by": "bd-spin/bd-spin-20260511T021545Z-3955436",
+      "depends_on_issue_id": "JMAP-uuoi",
+      "id": "32475785-a97b-5cbf-a184-fbf53bc099cc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

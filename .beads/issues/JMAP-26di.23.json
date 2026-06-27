@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "54df8f012d73019b75b01fa8df848d4da356eaa8f9737729b47a037aa1e34f1d",
+  "created_at": "2026-05-15T20:29:53Z",
+  "created_by": "Mark Atwood",
+  "description": "Two cases of identifier strings that misrepresent their purpose:\n\n1. chat_smoke_tests.rs:119 \u2014 `let ids = [Id::from(\"chat-1\"), Id::from(\"chat-missing\")];` The second id name only makes sense if the test asserted on notFound. The test never asserts on resp.not_found. Either add the notFound assertion (preferable \u2014 it's the test's stated intent per the name) or rename the literal.\n\n2. message_smoke_tests.rs:478 message_update_reaction_add_uses_json_pointer_patch_key uses sender_reaction_id: \"react-ulid-1\". A ULID is a 26-character Crockford-base32 string; this string is neither. If the chat draft or production code imposes ULID-shape validation, this test wouldn't catch a regression on that. If it doesn't, the literal name misleads readers. Rename to e.g. \"react-1\" or use a real ULID like \"01H7XKJZQ8N5A2BCDEFGHIJKMN\".",
+  "ephemeral": 0,
+  "id": "JMAP-26di.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Misleading id literals in tests: chat-missing never asserted, react-ulid-1 isn't a ULID",
+  "updated_at": "2026-05-15T20:29:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:29:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "302a005f-4cbe-5b29-95e9-27e75df50e32",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

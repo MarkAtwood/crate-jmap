@@ -1,0 +1,33 @@
+{
+  "close_reason": "P4 readability finding in convergence territory. The bead correctly identifies a test-form choice: byte-equal-against-input (current) vs structural-equality-plus-separate-wrapper-key-assertion (proposed). Both prove that #[serde(transparent)] is in effect. The current form has inline comments documenting the BTreeMap-alphabetical-key constraint (task.rs lines 237-242 explain it explicitly). The proposed refactor would not strictly improve correctness; it would relocate the assertion shape. Per /do-beads convergence rule, P4 stylistic refactors that don't change tested behavior or correctness are bikeshed territory. Closing without code action; the next contributor adding a similar test should use the inline comment block as the convention guide.",
+  "closed_at": "2026-05-17T15:41:46Z",
+  "compaction_level": 0,
+  "content_hash": "7c3241cc45d1698ce5385240be6b752767b1926187a2fc31de82d08e0488d982",
+  "created_at": "2026-05-15T05:06:50Z",
+  "created_by": "Mark Atwood",
+  "description": "In tests/types_test.rs, both `task_recurrence_overrides_patch_object_transparent` (line 244) and `task_localizations_patch_object_transparent` (line 280) construct fixtures with alphabetically-sorted inner keys and assert byte-equal round-trip after serialize.\n\nThe tests carry inline comments explaining why (\"without the preserve_order feature on serde_json \u2014 is a BTreeMap and emits keys in alphabetical order\"), but a future contributor copying this pattern for a new test type may not notice the constraint until their byte-equal assertion fails on a non-alphabetical fixture.\n\nWhat would make it clear: a tiny helper in the test module that documents and applies the constraint, e.g. `fn assert_byte_equal_roundtrip_alphabetical_keys(json: &str)` \u2014 and a more prominent module-level doc comment near the top of the test file. Alternatively, the tests could assert `serde_json::from_str(&serialized) == serde_json::from_str(json)` (structural equality) instead of byte-equal, which is the actual semantic intent and is robust to map ordering.\n\nThe byte-equal form does prove that `#[serde(transparent)]` is in effect (which is its stated purpose), but a structural-equality + separate \"must not have wrapper keys\" assertion would prove the same thing without the ordering trap.",
+  "ephemeral": 0,
+  "id": "JMAP-ky8g.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "PatchObject transparent round-trip test relies on alphabetical key ordering",
+  "updated_at": "2026-05-17T15:41:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:06:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ky8g",
+      "id": "90db3632-6bfa-584c-9785-c75ecdf5d8ff",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T15:27:43Z",
+  "compaction_level": 0,
+  "content_hash": "8110ca07ec8c2d3d3e86d36b70814c08ac4537cbe705b4561140f6b5aca9692c",
+  "created_at": "2026-05-08T03:06:43Z",
+  "created_by": "Mark Atwood",
+  "description": "src/error.rs:12 (`Http(reqwest::Error)`) and :97 (`WebSocket(tungstenite::Error)`) embed third-party error types directly. The doc comments correctly warn this is a semver hazard: any caller matching the inner reqwest::Error or tungstenite::Error is locked to the same major version this crate uses. The note says 'pre-1.0 limitation' but the crate is at 0.1.1 and intends to publish. RustCrypto convention and most well-maintained Rust libraries either: (a) wrap third-party errors in #[non_exhaustive] private variants with only a Display impl, hiding the inner type, (b) re-export the crate's error type so callers can match without a separate dep on reqwest/tungstenite. Right now downstream crates (jmap-mail-client, jmap-chat-client) that surface ClientError to their users also leak reqwest. The fix is non-trivial and the impact is real once 1.0 ships. Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClientError variants Http and WebSocket leak third-party error types in public API",
+  "updated_at": "2026-05-08T15:27:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:06:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "63d75ff5-4ea4-5de0-aa9a-50be267ffee5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

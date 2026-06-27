@@ -1,0 +1,33 @@
+{
+  "close_reason": "Done. Added '# Panics' rustdoc section to extract_response (client.rs:874) documenting that T's Deserialize panics propagate: 'This function does not catch panics from T's serde::Deserialize implementation. If a custom T type's deserialize impl panics \u2014 e.g. because of an .unwrap() on a sub-field \u2014 the panic propagates through extract_response to the caller's await point. The standard derived Deserialize impls in the workspace type crates do not panic; this caveat only affects hand-rolled Deserialize impls outside the workspace.' Pre-commit gate green.",
+  "closed_at": "2026-05-17T21:01:44Z",
+  "compaction_level": 0,
+  "content_hash": "c2ba9442d3888b2fb14e4d941de4e58aade86962799480348b15be4ec22bacd3",
+  "created_at": "2026-05-14T23:20:38Z",
+  "created_by": "Mark Atwood",
+  "description": "client.rs:614-646 \u2014 pub fn extract_response<T: serde::de::DeserializeOwned>\n\nThe function calls `T::deserialize(&inv.1)` at line 645. If T's Deserialize impl panics (e.g., a user-defined struct whose deserialize calls .unwrap() on a sub-field), the panic propagates up through extract_response and out to the caller's await point.\n\nThe doc-comment promises:\n\"Returns ClientError::MethodNotFound if no invocation with the given call_id exists. Returns ClientError::MethodError if any invocation with the matching call_id is a JMAP 'error' response.\"\n\nIt does NOT promise that the function is panic-free. For a public foundation library, callers may reasonably assume:\n- \"All errors return Err\" \u2014 false if their T panics\n- \"Calling this in a join handle won't crash the runtime\" \u2014 false\n\nThis is mostly a documentation gap. The function's behavior is correct (it propagates T's panics, which is the right thing \u2014 T's contract is the caller's responsibility). But the doc-comment doesn't say so.\n\nRecommendation: add to the doc-comment: \"Panics: this function does not catch panics from T's Deserialize implementation. Custom T types whose deserialize may panic will propagate the panic to the caller.\"\n\nSame applies to JmapRequestBuilder::add_call where args: serde_json::Value can be constructed by the caller \u2014 if the caller passes a Value that resulted from a panic-on-conversion, the panic happens at construction time before reaching this crate. Less of an issue.\n\nLow priority. Documentation fix only.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.44",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extract_response<T> panic on T's deserialize boundary undocumented \u2014 what if T's impl panics",
+  "updated_at": "2026-05-17T21:01:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:20:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "7533b22d-f895-586a-b7f0-5ff93d540e56",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

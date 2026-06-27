@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in 752e009 with followup bd:JMAP-6r7c.63 for the typed-newtype migration. Added \u26a0 PII leak-path warnings to Session.username and AccountInfo.name rustdocs enumerating Display, tracing %, Serialize, and similar accidental-leak paths. Pointed callers at primary_accounts account-IDs as the non-PII session-scoped identifier alternative. The typed newtype migration (recommendation #3 in the bead) is API-breaking and is filed separately as JMAP-6r7c.63 for the next API-break cycle.",
+  "closed_at": "2026-05-17T11:35:09Z",
+  "compaction_level": 0,
+  "content_hash": "ad042a81a8c6f7e17f72d0f190ae069abcf6b3f3a42cbbaed010aa0409aeed34",
+  "created_at": "2026-05-14T23:18:36Z",
+  "created_by": "Mark Atwood",
+  "description": "request.rs:116 \u2014 pub username: String\nrequest.rs:244 \u2014 pub name: String (on AccountInfo)\n\nBoth fields contain PII (typically email addresses, RFC 8620 \u00a72). The Debug impls correctly redact them (bd:JMAP-sc1b.99 / .104). But the fields are `pub String` \u2014 meaning callers who write:\n\n  println!(\"User: {}\", session.username);          // Display, not redacted\n  format!(\"Account: {}\", account.name);             // Display, not redacted\n  serde_json::to_string(&session)?;                 // Serialize re-emits the raw value\n  log::info!(\"session has username {}\", session.username);  // Display path\n\n\u2026silently leak. The Debug redaction only catches `{:?}`-format paths. Any Display, any to_string(), any explicit serialize, leaks the PII verbatim.\n\nThe same defense-in-depth tripwire test pattern documented in workspace AGENTS.md (\"Security testing\" section) covers Debug-via-tracing-?, but does NOT cover:\n- format!(\"{}\", session.username)\n- session.username.to_string() passed to log::info!\n- to_string()-equivalent paths like println!(\"{}\", value)\n- serde_json::to_value(&session) (which round-trips the raw field)\n\nFor a public-API foundation client, the correct shape would be:\n  pub username: Username  // a newtype wrapping String\n\n\u2026with a manual Display impl that redacts unless an explicit `.expose_unredacted()` method is called. The current `pub String` design forces the caller to know which fields are PII, which they will not \u2014 until a CI log surfaces the leak.\n\nDefense-in-depth recommendation:\n1. Add unit tests that exercise format!(\"{}\", session.username) and assert the canary is present (positive control) \u2014 the test documents \"if you write this code, you are leaking PII; the helper to redact is X\".\n2. Add a doc-warning on Session.username and AccountInfo.name pointing callers at the redacting accessor pattern.\n3. Future minor: introduce a Username newtype for these two fields, with manual Display that redacts to \"<user>@...\" or similar.\n\nThe Debug-only redaction is half a solution. The other half is preventing accidental Display.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Session.username and AccountInfo.name are pub String fields \u2014 PII leak via accidental Display/serialize",
+  "updated_at": "2026-05-17T11:35:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:18:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "10f18938-493a-5c03-9122-1ea0c72a1e84",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit (just landed). memory.rs:612 limit cast now uses the saturating form n.min(usize::MAX as u64) as usize, mirroring canonical mail-server/src/memory.rs:356. Closes the 32-bit drift; chat-server is back in line with the canonical extension-server template.",
+  "closed_at": "2026-05-14T16:10:28Z",
+  "compaction_level": 0,
+  "content_hash": "7c2dac95b23a2c15c28c3bdb7505640e027a23a3dd04edac39a44f0723458371",
+  "created_at": "2026-05-14T15:53:00Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/src/memory.rs:612 \u2014 `take(limit.map_or(usize::MAX, |n| n as usize))` where `n: u64`. On 32-bit targets, `n as usize` is a value-changing truncation: any limit > u32::MAX silently wraps to a smaller usize. The canonical sibling crate-jmap-mail-server/src/memory.rs:356 uses the safe form: `take(limit.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize))` \u2014 saturates rather than truncates, and is explicitly documented in the surrounding code (see mail-server:350-353 comment on saturating_neg).\n\nPer the workspace AGENTS.md \"Canonical Templates\" rule (jmap-mail-server is the canonical extension-server template, jmap-chat-server is a sibling that mirrors it), this is chat-server-local drift: chat-server is wrong relative to canonical. The fix is to copy mail-server's saturating form into chat-server.\n\nIdiomatic Rust: any `u64 as usize` cast on caller-controlled input is suspect; the saturating form makes the cast lossless on every platform Rust supports. The non-saturating form here is also flagged by clippy::cast_possible_truncation under -W clippy::pedantic.\n\nEngineering basis is small (the bug only fires on 32-bit with limit > 4GiB, which is unrealistic for chat) but the fix is a 12-character edit that brings chat-server back in line with canonical mail-server and removes the divergence. No reason to keep the unsafe form.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.78",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat-server memory.rs query limit cast truncates on 32-bit where canonical mail-server saturates",
+  "updated_at": "2026-05-14T16:10:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:52:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "0ee7bc48-5424-5a16-ae9f-69408a6e8078",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

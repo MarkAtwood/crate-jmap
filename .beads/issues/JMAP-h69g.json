@@ -1,0 +1,23 @@
+{
+  "close_reason": "Verified in code \u2014 implementation matches decision exactly.",
+  "closed_at": "2026-05-03T13:34:36Z",
+  "compaction_level": 0,
+  "content_hash": "09fa1992f366e709465077c58926a6714e60943c7980fa626e601fae75bda12c",
+  "created_at": "2026-05-02T23:38:18Z",
+  "created_by": "Mark Atwood",
+  "description": "The Mdn struct uses the field name extensionFields (matching draft-ietf-jmap-mdn-17 \u00a72, the normative definition). The \u00a73.1 example in the same draft incorrectly uses 'extension'. The choice is explicitly documented in both the field's doc comment and a dedicated unit test (extension_fields_wire_name) that asserts the serialized key is 'extensionFields'. Without this deliberate choice, code derived from the \u00a73.1 example would silently produce uninteroperable wire output.",
+  "ephemeral": 0,
+  "id": "JMAP-h69g",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DECISION: extensionFields uses \u00a72 normative wire name, not \u00a73.1 example",
+  "updated_at": "2026-05-03T13:34:36Z"
+}

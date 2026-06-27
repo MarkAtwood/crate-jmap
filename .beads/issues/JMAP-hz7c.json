@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "00ca8bc81d63d7b2620faf0c13f8a380bc330a254f76c0ea0784c31ee7d5038d",
+  "created_at": "2026-05-16T03:25:09Z",
+  "created_by": "Mark Atwood",
+  "description": "Surfaced by bd:JMAP-ly0n.8. The workspace AGENTS.md 'Security testing' section mandates two complementary canary patterns for credential-grade secret literals:\n\n1. Per-type Debug redaction canary \u2014 covers {:?} / format!(\"{value:?}\") leaks. SpaceInvite has this at crate-jmap-chat-types/src/space.rs (test: space_invite_debug_does_not_leak_code).\n\n2. Log-capture canary \u2014 covers Display / tracing::* leaks. Required when the crate emits tracing::* events with arguments that interpolate a secret-bearing type. SpaceInvite.code is currently NOT covered by pattern 2 anywhere in the workspace.\n\nReference harness: crate-jmap-base-client/tests/common/log_capture.rs and crate-jmap-base-client/tests/log_redaction.rs.\n\nScope:\n- crate-jmap-chat-server/tests/common/log_capture.rs (mirror the base-client harness)\n- crate-jmap-chat-server/tests/space_invite_log_redaction.rs:\n  - Install thread-local buffering tracing subscriber\n  - Exercise the Space/join code path (the canonical site for SpaceInvite.code interpolation) including success and failure variants\n  - Assert the captured buffer contains no canary code literal regardless of which level / format the future contributor used\n\nIf chat-server does not currently emit tracing::* events on the Space/join path, the canary is still required: it tripwires against a future contributor adding instrumentation that includes the code in the captured argument set. Workspace AGENTS.md framing: 'When adding a new type or a new logging call site that crosses these boundaries, file a follow-up bead if the canary test cannot land in the same commit.'\n\nOut of scope: redacting Display impls in chat-types itself. SpaceInvite has no Display impl by design \u2014 Display formatting on the whole struct fails to compile, which is fine. The risk is access to .code as a String, not Display on the struct.",
+  "ephemeral": 0,
+  "id": "JMAP-hz7c",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add log-capture canary for SpaceInvite.code in jmap-chat-server (pattern 2 per workspace security policy)",
+  "updated_at": "2026-05-16T03:25:09Z"
+}
