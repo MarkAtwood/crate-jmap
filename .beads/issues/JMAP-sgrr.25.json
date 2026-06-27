@@ -1,0 +1,41 @@
+{
+  "close_reason": "Moot after sgrr.4 dropped the JsContactId newtype (commit 6cf54bc). No type exists to debate the redundant #[non_exhaustive] attribute on.",
+  "closed_at": "2026-05-17T14:49:46Z",
+  "compaction_level": 0,
+  "content_hash": "941eb520ee8e5d67d2f9f26d1e0cdd6325f7630128100f5d8eaa434e934efcd9",
+  "created_at": "2026-05-15T03:43:09Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs:60-63 declares JsContactId as\n\n    #[non_exhaustive]\n    #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]\n    #[serde(transparent)]\n    pub struct JsContactId(String);\n\nThe single field is private (no pub before String). Callers outside the crate\nalready cannot construct JsContactId(s) directly because the field is private;\nthey go through From<String> or From<&str>. Adding #[non_exhaustive] on top\ngives\u2026 exactly nothing extra. It does forbid pattern-binding with a refutable\npattern that does not destructure: 'match id { JsContactId { .. } => ... }'\nalready works on a private-field tuple-struct, and 'match id { JsContactId(_)\n=> ... }' is blocked by both privacy and non_exhaustive.\n\nThe maintainer cost is zero today but the readability cost is non-zero:\ncontributors see #[non_exhaustive] and assume there is a story about future\nfields. There is not.\n\nFix is two characters: delete '#[non_exhaustive]'. Alternative is to keep it\nbut add a doc-comment saying 'Reserved for future variants such as a\nTypedJsContactId(JsContactId, JsContactCardClass) shape.'\n\nThis is a P4 readability quibble more than a contract risk. Filed because the\nattribute travels in the public API surface; once 1.0 ships, removing\n#[non_exhaustive] is technically non-breaking but adding fields is, and the\nattribute is a forever signal of intent.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "#[non_exhaustive] on JsContactId tuple struct is redundant \u2014 field is already private",
+  "updated_at": "2026-05-17T14:49:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:56:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr.4",
+      "id": "015b90d6-2498-582a-89c0-eb7564b65478",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T20:43:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "0c795cca-0503-5978-976d-0ac6ffd1939e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

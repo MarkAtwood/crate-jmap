@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T07:48:08Z",
+  "compaction_level": 0,
+  "content_hash": "cb2850af7a0787baaf0453f173f3b7886c8c2f789e505d69225243ff02bbe8c1",
+  "created_at": "2026-05-14T17:49:19Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: client sends { \"filter\": { \"unknownField\": \"x\" } } or { \"filter\": { \"foo\": 1, \"relatedIds\": [\"EM1\"] } }. MetadataFilterCondition has all-Option fields and no deny_unknown_fields, so the second value deserializes to Default::default(). The cross-field validate_metadata_filter() (metadata.rs:553-565) sees a Condition with related_ids=None, related_type=None and returns Ok(()) \u2014 passing validation. The generic handle_query then re-parses the same filter, which also succeeds, and queries with an empty filter \u2014 returning ALL objects.\n\nActual bad behavior: when a client sends a deliberately mistyped filter clause (typo, vendor extension, future spec field), the server silently returns all objects instead of either: (a) honoring the relatedIds + relatedType constraint check, or (b) returning unsupportedFilter. The \u00a73.4.1 invariant the validator was added to enforce can be bypassed by also misspelling another field \u2014 relatedIds will deserialize but be silently dropped in the round-trip because field name 'relatedIds' is camelCase-correct, but a typo'd 'related_ids' would be eaten as 'unknown field'.\n\nSpecifically dangerous: { \"filter\": { \"related_ids\": [\"EM1\"] } } (Rust-style snake_case) deserializes to MetadataFilterCondition::default() (all None) \u2014 no constraint violation detected. Client thinks it filtered; server returns all.\n\nProbe (do not run): assert that handle_metadata_query rejects { \"filter\": { \"related_ids\": [\"EM1\"] } } with either unsupportedFilter or invalidArguments. Currently it will succeed and return all objects.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Filter dispatch validation skipped when malformed filter deserializes successfully as default MetadataFilterCondition",
+  "updated_at": "2026-05-15T07:48:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:49:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "8a068046-c06f-55ba-868b-4610eaa95761",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

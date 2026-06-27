@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T07:26:29Z",
+  "compaction_level": 0,
+  "content_hash": "26c1515175148ad80137b289d57a5c944c82ac061facba519ae72a587bb5fbd4",
+  "created_at": "2026-05-11T07:05:47Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Location: crate-jmap-base-client/src/client.rs:551-574 (connect_ws_session)\n          crate-jmap-base-client/src/ws/mod.rs:310-399 (connect_ws / connect_ws_with_limit)\n\nBACKGROUND\nJmapClient::connect_ws_session accepts an Option<(&str, &str)> auth_header\nparameter. It is wired through to tokio_tungstenite's\n`into_client_request` and `HeaderValue::from_str`. If the value fails\nheader validation, the underlying tungstenite InvalidHeaderValue error is\nconstructed at ws/mod.rs:363-365.\n\nCONCERN\nTwo issues, both P3:\n\n1. The connect_ws_session docstring (client.rs:551-574) does NOT warn\n   that auth_header is the credential and must not be logged by callers.\n   The trait-level AuthProvider doc (auth.rs:100-101) does carry that\n   rule, but connect_ws_session takes its own bare tuple \u2014 a caller\n   reading just the connect_ws_session signature wouldn't see the\n   trait-level warning.\n\n2. The InvalidHeaderValue path at ws/mod.rs:363-365 maps the inner\n   tungstenite error to:\n     ClientError::InvalidArgument(\"invalid auth header value\".to_owned())\n   That's good \u2014 the original credential bytes are NOT included in the\n   error message. But the inner-name path at ws/mod.rs:360-362 maps\n   to:\n     ClientError::InvalidArgument(format!(\"invalid auth header name: {e}\"))\n   The header NAME is interpolated via the http::InvalidHeaderName\n   Display, which (per the http crate) does NOT include the\n   offending byte sequence verbatim \u2014 but a future http-crate version\n   could change that. The name path is symmetric to the value path\n   for risk; recommend the same string-constant treatment for\n   defense-in-depth.\n\nPROPOSED FIX (two changes)\n(a) Add a line to connect_ws_session and connect_ws_with_limit\n    docstrings:\n      /// The `auth_header` value is a credential and must not be\n      /// logged or echoed back to other systems. Treat it with the\n      /// same care as a BearerAuth token.\n\n(b) Change ws/mod.rs:360-362 from\n      `format!(\"invalid auth header name: {e}\")`\n    to\n      `\"invalid auth header name\".to_owned()`\n    matching the value-path treatment. Loses some diagnostic but\n    eliminates any future risk that the http crate begins surfacing\n    bytes through its Display impl.\n\nRISK CLASSIFICATION\nP3 (hygiene / defense-in-depth). The http crate does not currently\nleak bytes via either Display impl; this is a tripwire against\nupstream behaviour change.\n\nORACLE\nhttp crate documentation: InvalidHeaderName Display contract.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.80",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security: connect_ws_session and connect_ws_with_limit docstrings omit warning that auth_header values may surface in transport error messages",
+  "updated_at": "2026-05-11T07:26:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T00:05:46Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "45f69337-5407-547f-92d9-24ea769fb068",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

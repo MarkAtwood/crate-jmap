@@ -1,0 +1,52 @@
+{
+  "acceptance_criteria": "All 5 named tests pass; cargo test -p jmap-mail-server --features sieve passes; cargo clippy --features sieve -- -D warnings passes",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:14:43Z",
+  "compaction_level": 0,
+  "content_hash": "54bfa2d4bfd348a494b0e5f9b4559e9a08a90513e086adff1c95b066dd4f2233",
+  "created_at": "2026-05-02T15:23:11Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement handle_sieve_get in src/sieve.rs (SieveScript/get handler).\n\nWHAT: Standard RFC 8620 \u00a75.1 /get handler for SieveScript objects.\n\nALGORITHM:\n1. Parse args: extract account_id via extract_account_id(&args)?. Extract optional ids (Option<Vec<Id>>) and properties (Option<Vec<String>>) from the Value::Object.\n2. account_exists check (exact pattern from mdn.rs):\n   if !backend.account_exists(&account_id).await.map_err(|e| JmapError::server_fail(e.to_string()))? { return Err(JmapError::account_not_found()); }\n3. Fetch scripts: backend.get_objects::<SieveScript>(&account_id, ids.as_deref(), None).await \u2192 (list, not_found)\n4. Property filtering: if properties is Some, build HashSet<&str> and call filter_properties(&serialized_obj, &prop_set) for each object. id MUST always be included (RFC 8620 \u00a75.1).\n5. Get state: backend.get_state::<SieveScript>(&account_id).await\n6. Build response JSON:\n   json!({ \"accountId\": account_id.as_ref(), \"state\": state.as_ref(), \"list\": list_json, \"notFound\": not_found_json })\n   where not_found_json is [] not null when empty (RFC 8620 \u00a75.1 says notFound MUST be present).\n7. Return Ok((resp, vec![]))\n\nDEFENSIVE RULES:\n- No .unwrap() or .expect() in production code\n- id MUST always be included even if not in properties filter (RFC 8620 \u00a75.1)\n- not_found is [] not null (RFC 8620 \u00a75.1 specification)\n- Return server_fail for storage errors, accountNotFound for unknown accountId\n\nAGENT TEAM: Implementer + Tester (Tester derives expected values from spec \u00a72.3 JSON example, not from implementation)\n\nTESTS:\n- sieve_get_all_returns_list: insert 2 scripts into MemoryBackend, call handle_sieve_get with no ids, verify list has 2 entries with correct fields (oracle: spec \u00a72.3 example 2 shape)\n- sieve_get_by_id: fetch one script by id, verify all four fields\n- sieve_get_not_found: fetch nonexistent id, appears in notFound not list\n- sieve_get_unknown_account: accountNotFound JmapError\n- sieve_get_property_filter: request only [\"name\", \"isActive\"], verify id still present and blobId absent",
+  "design": "Shape: async fn handle_sieve_get<B: SieveBackend>(backend: &B, args: Value) -> Result<Value, JmapError>\n\nParse: account_id (required), ids (optional \u2014 null means fetch all), properties (optional \u2014 subset of SieveScript fields).\n\nDelegate to backend.get_sieve_scripts(account_id, ids.as_deref()).\n\nBuild response: { accountId, state, list: [...], notFound: [...] }.\n\nProperty filtering: if properties is Some, strip unrequested fields from each object. If properties is None, return all fields. id is always included (RFC 8620 \u00a75.1).\n\nError path: unknown accountId \u2192 accountNotFound. Invalid id format \u2192 treat as notFound (not an error).\n\nSpec ref: draft-ietf-jmap-sieve-22 \u00a72.3, RFC 8620 \u00a75.1.",
+  "ephemeral": 0,
+  "id": "JMAP-irj",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve: SieveScript/get handler",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:24:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3uh",
+      "id": "03c6f177-617c-5823-9d72-d73d0dd4da1c",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T12:01:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-589",
+      "id": "7a4bab99-0860-53a0-8d85-db04d933c55d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T11:29:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-82ty",
+      "id": "f201f633-737a-5204-8c5a-a28d2770fb42",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decision recorded: extend mime-tree to expose typed header values (MIME-vy5), then consume from jmap-mail-server. JMAP-g7wu.5 now waits on MIME-vy5 instead of on this bead.",
+  "closed_at": "2026-05-11T02:15:04Z",
+  "compaction_level": 0,
+  "content_hash": "27f522f94b297489e2fa8fdc9aa6d3c34ca4885e06298c8d4648c56e2c8b8e82",
+  "created_at": "2026-05-11T02:11:36Z",
+  "created_by": "Mark Atwood",
+  "description": "JMAP-g7wu.5 needs to implement five RFC 8621 header-form parsers (AsAddresses, AsGroupedAddresses, AsDate, AsMessageIds, AsURLs) in jmap-mail-server/src/email.rs. The mime-tree crate at ~/PROJECT/MIME/mime-tree contains internal parsers that match the required RFC 5322 ABNF, but does NOT expose them as public functions. Three non-equivalent strategies:\n\n## (a) Add a new parser dep to jmap-mail-server Cargo.toml\n\nCandidate crates:\n- `mailparse` \u2014 popular, MIT, parses RFC 5322 headers; has been around since 2015; ~1.6k stars; covers address/group/date/message-id; URL forms need separate handling\n- `email-encoding` \u2014 RustCrypto-adjacent; smaller; less complete for the 5 As* forms\n- `email-address-parser` or similar focused crates \u2014 only cover one or two of the 5 forms\n\n**Pros:** Smallest code change in jmap-mail-server. Existing well-tested implementation. No cross-repo work.\n**Cons:** Adds an external dep to a workspace that has been deliberately minimal on parser deps (currently relies on mime-tree as the single MIME/header parser). Increases supply-chain attack surface. Doubles parser-implementation surface (two implementations of RFC 5322 in the same dep tree).\n\n## (b) Extend mime-tree to make its internal parsers public\n\nCross-repo change at ~/PROJECT/MIME/mime-tree \u2014 promote the existing internal parser functions to `pub` (or expose via a new sub-module `mime_tree::headers::parse`). Then consume them from jmap-mail-server.\n\n**Pros:** Single source of truth for RFC 5322 parsing in the workspace family. No new external dep. mime-tree already has these parsers \u2014 just an API-visibility change.\n**Cons:** Requires a coordinated change to a sister repo (mime-tree is not in this workspace). Mark owns mime-tree but it has its own release cadence. May want a mime-tree minor-version bump.\n\n## (c) Implement the 5 parsers from scratch in jmap-mail-server\n\nWrite RFC 5322 ABNF-compliant parsers directly in jmap-mail-server/src/email.rs (or a sibling module).\n\n**Pros:** Zero new external deps. No cross-repo coordination. Tight control over error reporting and corner cases.\n**Cons:** Hundreds of LoC. Real correctness risk on RFC 5322 ABNF edge cases (comments in addresses, obs-* productions, RFC 6532 internationalisation). Reinvents what (a) or (b) already provide. Needs an independent oracle for tests (probably OpenSSL or pyca/cryptography output, but those do not directly cover all 5 header forms).\n\n## Recommendation\n\n**(b)** if mime-tree changes are cheap to ship in the next month \u2014 this is the architecturally clean answer.\n**(a) with `mailparse`** if mime-tree changes are not on the near-term roadmap \u2014 `mailparse` is the most mature option and the dep cost is acceptable for this scope.\n**(c)** is the worst option \u2014 accept it only if (a) and (b) are both unavailable.\n\n## What to do to resolve\n\n1. Comment on this bead with the chosen strategy and rationale.\n2. Close this bead \u2014 that unblocks JMAP-g7wu.5.\n3. The autonomous loop will then pick up JMAP-g7wu.5 and execute the chosen strategy.\n\nNote: the `human` label here is informational \u2014 bd-spin will not stop on it until the autonomous frontier is exhausted (see JMAP-j6td). It surfaces in `bd list --label human --status open` so the human can find it.\n",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Decide parser strategy for the 5 RFC 5322 As* header forms (blocks JMAP-g7wu.5)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T19:11:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu",
+      "id": "c2bf1817-cc58-52ef-a07f-723ba41ad7b3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8b5e8df069a1e1614011409ea0c081f44e487035dd1d875ad73852154de7b994",
+  "created_at": "2026-05-15T00:00:32Z",
+  "created_by": "Mark Atwood",
+  "description": "Follow-up to bd:JMAP-6r7c.57: the trust-scope fix to CustomCaTransport (replace bundled webpki-roots with the private CA only) should have a defense-in-depth integration test that proves the behavior.\n\nApparatus:\n\n- rcgen 0.13+ to generate test certificates at runtime.\n- Two test TLS servers (axum + axum-server with rustls):\n  1. Server A: certificate signed by a 'fake public CA' that we then install into webpki-roots-like position OR a wiremock-rustls setup that presents a webpki-rooted cert.\n  2. Server B: certificate signed by a private CA we generate and pass to CustomCaTransport.\n- Assertions:\n  - JmapClient with CustomCaTransport(server B's CA) connecting to server B succeeds.\n  - JmapClient with CustomCaTransport(server B's CA) connecting to server A fails with TLS handshake error surfacing as ClientError::Http(HttpError) whose source chain contains a CertificateUnknown / UnknownIssuer rustls error.\n\nThe test stays under tests/, uses rcgen as a dev-dep (no production-runtime dep), and runs offline.\n\nOut of scope for the bug fix bead because spinning up real-rustls test servers is a meaningful infrastructure addition (the workspace currently uses wiremock 0.6 which does NOT speak TLS \u2014 wiremock has an https feature on a fork but is not in the current Cargo.lock).\n\nAlternative if the rustls-server apparatus is too heavy: a unit-style assertion that reads the reqwest::ClientBuilder configuration the function generates (without actually making a request), checking the tls_built_in_root_certs flag. reqwest's ClientBuilder is mostly opaque, so this may require a thin wrapper that the test can inspect.",
+  "ephemeral": 0,
+  "id": "JMAP-xh47",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "test: rcgen-based integration test for CustomCaTransport trust scope",
+  "updated_at": "2026-05-15T00:00:32Z"
+}

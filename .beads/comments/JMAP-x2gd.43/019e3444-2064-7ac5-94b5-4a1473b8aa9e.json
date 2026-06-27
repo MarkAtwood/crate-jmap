@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T04:49:01Z",
+  "id": "019e3444-2064-7ac5-94b5-4a1473b8aa9e",
+  "issue_id": "JMAP-x2gd.43",
+  "text": "Resolved by the same commit as JMAP-x2gd.51 (commit a189141). The trait-level 'Async vs sync method convention' rustdoc now documents the carve-up explicitly; the limits() rustdoc carries a '# Why sync, not async' section. Closing \u2014 if a future production deployment trips on limits() being sync, file a new bead with concrete numbers (tenant count, refresh cadence) rather than reopening this one."
+}

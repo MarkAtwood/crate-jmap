@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-ez5.3",
+  "title": "Email::keywords doc says 'HashMap<Id, bool> shape' but key type is String, not Id",
+  "description": "email.rs line ~194: doc comment says 'Same HashMap<Id, bool> shape as mailbox_ids'. The actual field is HashMap<String, bool> not HashMap<Id, bool>. Keywords start with '$' which is not valid in a JMAP Id (RFC 8620 \u00a71.2 allows only A-Za-z0-9). The 'shape' language refers to JSON structure but a reader scanning the doc for the Rust type gets the wrong type. Suggested fix: 'Same JSON object shape (string-keyed, bool values) as mailbox_ids, but keys are String not Id \u2014 keywords may contain \\'$\\' which is not valid in a JMAP Id.'",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:44:23Z",
+  "updated_at": "2026-04-30T04:52:14Z",
+  "closed_at": "2026-04-30T04:52:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-ez5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:44:23"
+    }
+  ]
+}

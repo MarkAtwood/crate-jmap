@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T02:20:56Z",
+  "id": "019e38e2-eb3f-7554-b6f8-bf2f01536fc8",
+  "issue_id": "JMAP-x2gd.18",
+  "text": "Deferred pending production-backend consumer demand. The bead itself explicitly says 'MemoryBackend doesn't notice (HashMap reads are cheap), but a production SQL-backed implementation processing a 100-emoji destroy batch issues 100 round-trips today vs 1 batched.'\n\nThe kit has no SQL-backed reference impl today; the only consumer of the per-entry pre-fetch is the in-memory backend where the cost is negligible. Implementing the batched pre-fetch adds ~50 lines of code and new tests for the batched path, against no measurable benefit today.\n\nRe-open when a SQL-backed CustomEmoji consumer (stoa, kith, or third-party) reports the N-round-trip latency in real workloads.\n\nThe same N\u21921 batched-pre-fetch optimization applies to several other handlers (Space/set update gate, Message/set reaction-author check, etc.); a future workspace-wide perf-tuning epic should sweep them together rather than this bead in isolation."
+}

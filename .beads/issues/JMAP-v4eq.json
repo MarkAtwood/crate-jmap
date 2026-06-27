@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "dba12b7b2ccefb06440f4bd48ca5f114a670c28a1cfe7359976c0ed8f71cc94d",
+  "created_at": "2026-05-15T07:47:49Z",
+  "created_by": "Mark Atwood",
+  "description": "**Pattern source**: bd:JMAP-826m.1 fixed a P0 query-correctness bug in jmap-metadata-server's validate_metadata_filter: a snake_case typo like {\"filter\": {\"related_ids\": [...]}} would silently deserialize to MetadataFilterCondition::default() and return ALL objects. The fix added a raw-JSON pre-walk (walk_filter_for_unknown_keys + KNOWN_CONDITION_KEYS allowlist) that rejects unknown keys at every filter-tree node with unsupportedFilter per RFC 8620 \u00a75.5.\n\n**Workspace divergence**: This is a workspace canonical-template violation in the OTHER direction \u2014 metadata-server is now stricter than mail-server. The canonical mail-server has:\n- crate-jmap-mail-server/src/mailbox.rs:224-238: FLAT unknown-key check on Mailbox/query (works because Option<MailboxFilterCondition>, no operator support).\n- crate-jmap-mail-server/src/email.rs (line ~681): NO unknown-key check on Email/query (Filter<EmailFilterCondition> with operator support \u2014 same vulnerability as metadata had).\n\nPer crate-jmap-mail-server/AGENTS.md canonical-template rule, the canonical must change first then propagate. The metadata-server fix landed first because the bead was metadata-scoped; this follow-up sweeps the rest.\n\n**Vulnerable types** (all use Filter<T> with all-Option T fields and no deny_unknown_fields):\n- EmailFilterCondition (jmap-mail-types, used by Email/query)\n- jmap-mail-types::EmailSubmissionFilterCondition (Email/submissions queries)\n- Chat / Message / Space / Contact / Emoji filter types (jmap-chat-types, 5 of them)\n- CalendarEventFilterCondition (jmap-calendars-types) + EventNotification\n- TaskFilterCondition (jmap-tasks-types) + TaskNotification\n- ContactCardFilterCondition (jmap-contacts-types)\n- FileNodeFilterCondition (jmap-filenode-types)\n- PrincipalFilterCondition + NotificationFilterCondition (jmap-sharing-types)\n\n**Fix shape** (cookie-cut from JMAP-826m.1):\n1. Define KNOWN_CONDITION_KEYS const in each server crate matching the per-type wire fields.\n2. Add walk_filter_for_unknown_keys recursive walker before typed deserialize in each /query and /queryChanges handler.\n3. Add unsupported_filter_unknown_key helper returning a JmapError with description carrying the offending key name.\n4. Test pattern per server crate: snake_case typo, unknown leaf field, unknown operator-node field, deeply-nested unknown key, all-known-fields-pass negative control, /queryChanges sibling test.\n\n**Cross-references**:\n- Workspace AGENTS.md \"Filter algebra and control enums are explicitly EXCLUDED\" \u2014 silent-drop of unknown clauses is a query-correctness bug.\n- crate-jmap-mail-types/src/query.rs:32-33 \u2014 explicit comment forbidding #[serde(deny_unknown_fields)] on FilterCondition because it breaks #[serde(untagged)] Filter<T>.\n- bd:JMAP-826m.1 \u2014 the metadata-server fix that established this pattern.\n\n**Suggested decomposition**: child beads per server crate (.1 mail-server canonical, .2 chat-server, .3 calendars-server, .4 tasks-server, .5 contacts-server, .6 filenode-server, .7 sharing-server). Land .1 first; the rest can land in parallel after .1's pattern is canonical.\n\n**Out of scope**: changing the FilterCondition types themselves (they MUST NOT get deny_unknown_fields). The fix is in the server-side handler shim, not in the types crates.",
+  "ephemeral": 0,
+  "id": "JMAP-v4eq",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Sibling sweep: propagate filter unknown-key rejection from metadata-server to mail-server (canonical) and remaining 6 *-server siblings",
+  "updated_at": "2026-05-15T07:47:49Z"
+}

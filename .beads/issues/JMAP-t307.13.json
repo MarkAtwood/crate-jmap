@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in b091273 as side-effect of JMAP-t307.1. When the assert_large_fixture helper was moved from benches/mime_pipeline.rs to tests/common/mod.rs, the 'loop { match ... { Some/None } }' pattern was rewritten to 'while let Some(c) = ... .find(...)' as described in the bead. Verified no remaining 'loop {' constructs in the crate.",
+  "closed_at": "2026-05-15T06:33:06Z",
+  "compaction_level": 0,
+  "content_hash": "980121f447a31212856f82cea5bcaf675031f2876b01372dc75dd465348ffd95",
+  "created_at": "2026-05-15T06:07:00Z",
+  "created_by": "Mark Atwood",
+  "description": "What the code does: `crate-jmap-mime/benches/mime_pipeline.rs:240-251` walks down the deepest multipart child chain using:\n\n```rust\nlet mut depth = 1usize;\nlet mut node = &msg.part_index;\nloop {\n    let multipart_child = node.children.iter().find(|c| !c.children.is_empty());\n    match multipart_child {\n        Some(c) => {\n            depth += 1;\n            node = c;\n        }\n        None => break,\n    }\n}\n```\n\nWhat idiomatic Rust would do:\n\n```rust\nlet mut depth = 1usize;\nlet mut node = &msg.part_index;\nwhile let Some(c) = node.children.iter().find(|c| !c.children.is_empty()) {\n    depth += 1;\n    node = c;\n}\n```\n\nWhy it matters: the `loop { match ... { Some(...) => ..., None => break } }` shape is the canonical anti-pattern that `while let` was introduced to replace. A Rust practitioner reading the original immediately reaches for `while let` \u2014 the `loop`+`match` form signals either pre-1.0 code or someone unfamiliar with the idiom. The transformation is mechanical, shaves five lines, and produces strictly more idiomatic Rust with zero semantic change. Clippy will eventually flag this under `clippy::while_let_loop` (currently stable but only triggers on a tighter pattern; the present case slips through, which is exactly when human review matters more than the linter).\n\nOut of scope: same file's `build_*` functions use `while s.len() < target { ... }` loops, which are correct `while` loops over a non-iterator condition \u2014 those are fine and not subject to this finding.",
+  "ephemeral": 0,
+  "id": "JMAP-t307.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "`assert_large_fixture` uses `loop { match Option { Some/None } }` \u2014 should be `while let Some(...)`",
+  "updated_at": "2026-05-15T06:33:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T23:07:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-t307",
+      "id": "db36502b-234f-50a2-a3a8-c8ba96eefa07",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

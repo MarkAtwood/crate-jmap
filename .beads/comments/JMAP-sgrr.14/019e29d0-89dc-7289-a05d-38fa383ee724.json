@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T04:06:33Z",
+  "id": "019e29d0-89dc-7289-a05d-38fa383ee724",
+  "issue_id": "JMAP-sgrr.14",
+  "text": "Blocked on bd:JMAP-sgrr.17. Same family (spec-value-bounds the type does not capture). Holding pending sgrr.17's policy decision."
+}

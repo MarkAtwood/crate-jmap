@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already fixed. memory.rs:192-196 already uses the idiomatic .copied().unwrap_or(0) form; the deref-of-unwrap-or-ref-zero pattern the bead flagged is gone. Likely landed in an earlier sweep \u2014 possibly bd:JMAP-qz9v.49 (recompute clone) or one of the broader contacts-server canonical-template alignment commits. Confirmed by reading current state: no clippy::pedantic violation remains at the site.",
+  "closed_at": "2026-05-18T02:56:31Z",
+  "compaction_level": 0,
+  "content_hash": "81ae77853ff8cd8d2a33d63427d281323a4e7348a3793eef9f4491337e0a6cc6",
+  "created_at": "2026-05-14T19:43:48Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:133-138:\n\n    fn current_state(&self, type_name: &'static str, account_id: &str) -> u64 {\n        *self\n            .states\n            .get(&(type_name, account_id.to_owned()))\n            .unwrap_or(&0)\n    }\n\nThe `.unwrap_or(&0)` returns &u64, then `*` deref. The idiomatic Rust form for Option<&Copy> is:\n\n    self.states.get(...).copied().unwrap_or(0)\n\n\u2026or, since Option::copied exists since Rust 1.35, this is just standard. The `&0` is a clippy-flagged taste violation (option_as_ref_deref / unnecessary_lazy_evaluations adjacent).\n\nSame pattern at line 422 with `unwrap_or(&[])`:\n\n    let log = inner.change_log.get(&(...))\n        .map(Vec::as_slice)\n        .unwrap_or(&[]);\n\n\u2026is fine because Vec::as_slice returns &[], not &&[]. The Option<&Vec<_>> \u2192 Option<&[_]> via .map(Vec::as_slice) is idiomatic. Only line 134 is non-idiomatic.\n\nEngineering cost: trivial. Flagged as idiomatic-rust,clippy. Not a bug, but a `.copied()` makes the intent (\"read a u64\") visible in the call chain.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.50",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Inner::current_state uses *self.states.get().unwrap_or(&0) instead of .copied().unwrap_or(0)",
+  "updated_at": "2026-05-18T02:56:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:43:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "0746a8a3-2239-59e5-8b34-5a99aec2d4cf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

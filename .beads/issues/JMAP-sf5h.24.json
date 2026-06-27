@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in ed75b38 (paired with .17). Threat-model section explicitly scopes safe (public-blob integrity, the in-scope CID draft use case) vs unsafe (MAC verification, commitment opening, capability-token comparison) uses. Explains why no ct_eq helper ships from this crate (workspace policy: MAC/HMAC verification belongs on a separate type so constant-time equality is part of the type contract).",
+  "closed_at": "2026-05-16T04:19:58Z",
+  "compaction_level": 0,
+  "content_hash": "7f4054d05749ac01fec40dfe1001c85f135444ca84b405dc367dc907baee07b5",
+  "created_at": "2026-05-16T03:59:15Z",
+  "created_by": "Mark Atwood",
+  "description": "Crypto-security supplement complementary to JMAP-sf5h.17 (which flags that the variable-time `PartialEq` is undocumented). This finding scopes the workspace decision rather than just the docs gap.\n\ndraft-atwood-jmap-cid-00 uses SHA-256 of public blobs for integrity verification \u2014 the digest is server-published and broadcast to anyone with read access to the blob. In that threat model, variable-time `PartialEq` is **fine**: there is no secret value being compared against the digest, so the timing channel reveals nothing an attacker doesn't already have.\n\nHowever, consumers may repurpose `Sha256` for use cases where the timing channel **does** matter:\n\n1. **MAC-style verification** \u2014 comparing an expected digest (delivered out-of-band, possibly as a secret commitment) against a computed digest. Per-byte short-circuit compare reveals how many leading bytes match, enabling secret recovery in the classic Bleichenbacher-class pattern.\n2. **Commitment opening** \u2014 comparing a presented preimage's digest against a committed digest where the commitment is secret-derived.\n3. **Capability tokens** \u2014 using a digest as an unforgeable bearer credential.\n\nThe `Sha256` type derives `PartialEq` (digest.rs:99), which does byte-by-byte short-circuit compare via `String`'s `PartialEq`. This is exploitable for use cases (1)-(3) but irrelevant for the in-scope JMAP CID use case.\n\n**Fix** \u2014 choose one:\n\n(a) **Document narrow scope**. Add a rustdoc `# Threat model` section to `Sha256` stating: \"This type carries a SHA-256 digest of a public blob. `PartialEq` is variable-time and is appropriate for integrity verification of public data. Consumers performing MAC verification, commitment opening, or any comparison where the expected digest is secret-derived MUST use a constant-time compare via `subtle::ConstantTimeEq` on the underlying bytes \u2014 extract via `.as_str().as_bytes()` or via a `to_bytes(&self) -> [u8; 32]` helper if added.\" This is the minimum-cost option; aligns with JMAP-sf5h.17 framing.\n\n(b) **Provide a `ct_eq` method gated on `subtle`**. Add an optional `subtle` dep and a `ct_eq(&self, other: &Self) -> subtle::Choice` method that compares the underlying 32 raw bytes (not the hex string \u2014 comparing hex would compare 64 bytes and is still constant-time but doubles the work). Requires a `to_bytes()` accessor that parses the hex back to `[u8; 32]`, which depends on JMAP-sf5h.18 (the inner-representation question) being settled.\n\n(c) **Defend the do-nothing posture**. Cite that the JMAP CID draft has no MAC-style usage, no consumer in this workspace will ever use `Sha256` for secret comparison, and any future need would warrant a separate type (`MacTag`, `SecretDigest`).\n\nRecommend (a) for now \u2014 minimal cost, scopes the existing JMAP-sf5h.17 docs gap to a specific threat model. Re-evaluate (b) when the .18 inner-representation question is decided and the byte-level API exists naturally.\n\nWhat goes wrong if left as-is: a downstream library that imports `jmap-cid-types` to express \"a SHA-256 wire value\" \u2014 entirely reasonable given the crate's general name \u2014 and uses it for MAC verification, will leak its expected digest one byte at a time to a remote attacker. The crate's docs currently give no signal that this is a misuse.",
+  "ephemeral": 0,
+  "id": "JMAP-sf5h.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Filed by /review-crypto-security supplement on JMAP-sf5h.\nComplementary to JMAP-sf5h.17 (variable-time PartialEq docs gap).\nSection B (side-channel hygiene) \u2014 only section in scope for this crate.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sha256 threat-model documentation gap: variable-time PartialEq is OK for public-blob integrity but unsuitable for MAC verification",
+  "updated_at": "2026-05-16T04:19:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T20:59:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sf5h",
+      "id": "50384c0d-3a5e-5bd6-b76d-c2ef4720e9f5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

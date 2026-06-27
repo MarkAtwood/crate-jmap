@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260512T000441Z-1660907",
+  "created_at": "2026-05-12T01:10:17Z",
+  "id": "019e19bc-13f3-7941-a81b-1ccdb095844d",
+  "issue_id": "JMAP-sc1b.17",
+  "text": "/do-beads run 2026-05-12 progress:\n\nClosed this session: .17.2 (session_fetch.rs for jmap-base-client), .17.3 (dispatcher_minimal.rs for jmap-server). Both follow the canonical .17.1 (parse_eml.rs for jmap-mime) template: tight narrative, ~80-140 LOC, README ## Examples section, quality gates green.\n\nOpen: .17.4 + .17.5, both now labeled `human` after discovering the design gap they share \u2014 neither `jmap-mail-server` nor `jmap-chat-server` has an axum/hyper/SSE/WS integration surface to wrap. See each bead's comment for options A/B/C and recommendation.\n\nRe-labeling this meta-tracker `human` because:\n- bd doesn't auto-close parents when children close (3 of 5 done, 2 paused on human-decision).\n- Without a label, /do-beads keeps surfacing it as a P2 ready bead even though it's not directly actionable.\n- Drop `human` once .17.4 and .17.5 resolve so the parent closes naturally on the next pass.\n\nNote: the inverted `blocks` edges this bead used to carry (parent \u2192 children via blocks, which made all children spuriously appear blocked in `bd blocked`) were removed at the start of this session. The parent-child links remain. The 4 children now correctly appear in `bd ready` when not human-labeled."
+}

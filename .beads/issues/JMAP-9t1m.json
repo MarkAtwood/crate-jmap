@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T18:13:13Z",
+  "compaction_level": 0,
+  "content_hash": "feba27f157f205fc96daa782a5acf916b961ad66b448bad4a7e184ee6d8039d8",
+  "created_at": "2026-05-02T17:32:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Port jmap-test-suite thread-get.test.ts (6), thread-changes.test.ts (4), email-changes.test.ts (4), mailbox-changes.test.ts (already in mailbox issue). Thread/get: thread-by-id, emailIds ordered by receivedAt asc, not-found, single-email-thread, response-structure. Thread/changes: no-changes, after-new-email (thread in created), after-destroy (thread in destroyed). Email/changes: no-changes, after-keyword-change (email in updated), after-create-and-destroy, response-structure. Source: ~/GIT/jmap-test-suite/src/tests/thread/ + email/email-changes.test.ts",
+  "ephemeral": 0,
+  "id": "JMAP-9t1m",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "test: Thread/get + all /changes conformance",
+  "updated_at": "2026-05-02T18:13:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:32:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bhw5",
+      "id": "4a4aa142-22dc-54aa-9e60-5e77c7b3395b",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:32:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-58zd",
+      "id": "d2b24e0d-2750-5c64-8dcc-b0679b3c1052",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

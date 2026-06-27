@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decomposed into workspace execution epic bd:JMAP-uqhn with 8 per-crate children (canonical jmap-mail-server at .1 with 51 sites, 7 siblings .2-.8 with 5-12 sites each, all blocking on .1). Per workspace AGENTS.md 'Canonical Templates' rule and 'Planning' rule (workspace-architectural scope needs an epic with per-issue decomposition before code touch). Total ~114 cast sites across 8 extension-server crates. Per-crate audit will separate query/limit-path 'as' casts (in scope, vulnerable to 32-bit truncation) from intentional/safe 'as' uses (serialise helpers, hash mixing). Fix shape recommended in epic body: usize::try_from(n).unwrap_or(usize::MAX) for u64->usize, explicit-guard + try_from for i64->usize, intentional widening 'as' with rationale comment allowed. Companion epic to JMAP-grs0 (HashMap allocation, same shape, derived from same review pass). No code change made under this bead \u2014 execution moves to uqhn.*.",
+  "closed_at": "2026-05-17T05:48:18Z",
+  "compaction_level": 0,
+  "content_hash": "d3ce799098095f732af405797662915e8d96eef166308f49f2375e094cf77e7e",
+  "created_at": "2026-05-14T14:32:47Z",
+  "created_by": "Mark Atwood",
+  "description": "src/memory.rs:484-532 (query_objects impl) uses 'as' casts across signed/unsigned/width boundaries:\n\n    let total = ids.len() as u64;                              // line 504 \u2014 usize -> u64\n    let start = if position >= 0 {\n        (position as usize).min(ids.len())                     // line 513 \u2014 i64 -> usize\n    } else {\n        let neg = position.saturating_neg() as usize;          // line 515 \u2014 i64 -> usize\n        ids.len().saturating_sub(neg)\n    };\n    ids = ids[start..]\n        .iter()\n        .take(limit.map_or(usize::MAX, |n| n as usize))        // line 521 \u2014 u64 -> usize\n        .cloned()\n        .collect();\n    Ok(QueryResult::new(ids, start as u64, ...))                // line 527 \u2014 usize -> u64\n\nPlus memory.rs:443 and :862:\n    if relevant.len() as u64 > max { ... }                     // usize -> u64\n\nIdiomatic Rust on 64-bit and 32-bit targets behaves differently for u64 -> usize: on a 32-bit target, 'limit as usize' silently truncates. usize -> u64 widening is fine on any current target. i64 -> usize truncates and reinterprets negatives. 'as' silently lossy-converts in all these cases.\n\nThe cookie-cutter sibling jmap-mail-server uses the same 'as' pattern (memory.rs same construct, ~line equivalents), so this is a canonical-template issue \u2014 fix at the canonical and propagate.\n\nWhat goes wrong:\n- u64-to-usize on 32-bit targets: a request with limit > 4GB elements silently truncates the limit. For an in-memory demo backend this is theoretical; for a production backend implemented from the same template, it's a request-truncation bug.\n- i64-to-usize negative cast: position.saturating_neg() pivots i64::MIN to i64::MAX, then 'as usize' on that is target-dependent (truncates on 32-bit). Already partially flagged by JMAP-ayoz.14 as 'unusual'; this finding extends it to the broader cast pattern.\n\nIdiomatic alternatives:\n- u64 -> usize: usize::try_from(n).unwrap_or(usize::MAX) \u2014 caps cleanly at the architecture limit.\n- usize -> u64: u64::from(n.try_into().unwrap_or(u64::MAX)) or simply 'n as u64' is widening-safe on supported targets, but a clippy::cast_lossless lint can be enabled to force From::from.\n- i64 -> usize: explicit guard 'if position < 0 { 0 } else { usize::try_from(position).unwrap_or(usize::MAX) }'.\n\nThis is a clippy-priority finding (P3, type=chore) because the targets shipped today are 64-bit; the canonical-template question is the real issue. The metadata-server sibling inherits the cast pattern from jmap-mail-server.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "memory.rs query_objects uses unchecked 'as' casts between usize/u64/i64; prefer try_from",
+  "updated_at": "2026-05-17T05:48:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:32:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "40cf95a7-5ca6-526e-987d-ad6272987db7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

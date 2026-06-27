@@ -1,0 +1,33 @@
+{
+  "close_reason": "Completed in same pass as JMAP-g7wu.1.1: MdnBackend and SieveBackend now inherit from JmapBackend, dropped their own type Error (inherited), and added caller: &Self::CallerCtx to every account-scoped method. MemoryBackend impls updated correspondingly. register_mdn_handlers / register_sieve_handlers macros forward ctx through. handle_mdn_*, handle_sieve_* signatures all reshape with caller: &B::CallerCtx as second positional param.",
+  "closed_at": "2026-05-11T16:23:49Z",
+  "compaction_level": 0,
+  "content_hash": "4996805ac05f1f02ee164224ed106b070dcd3e7f5cee5a0ad0e25a88bf198e17",
+  "created_at": "2026-05-11T15:54:35Z",
+  "created_by": "bd-spin/bd-spin-20260511T151456Z-658525",
+  "description": "While threading CallerCtx through MemoryBackend in crate-jmap-mail-server/src/memory.rs, the JmapBackend and MailBackend traits had been updated to take caller: &Self::CallerCtx as the first parameter after &self, but the sibling MdnBackend (src/mdn.rs) and SieveBackend (src/sieve.rs) traits had NOT been updated. Per the design-lock comment on JMAP-g7wu.1.1 (5b), every MemoryBackend reference impl needs type CallerCtx = (); and _caller: &() on every method \u2014 which implies the MdnBackend and SieveBackend traits themselves must also grow the caller parameter (they live in the same crate as the canonical MailBackend trait and are activated by feature flags mdn / sieve).\n\nAlso: the register_mdn_handlers and register_sieve_handlers macros in src/lib.rs (around lines 274 and 322) reference B::CallerCtx and Dispatcher<B::CallerCtx>, but the trait methods they call do not currently take caller \u2014 so those macros will fail to forward ctx into the backend once the trait grows the parameter.\n\nScope:\n- Add caller: &Self::CallerCtx parameter to every MdnBackend method (get_blob_bytes, get_blob_header_bytes default impl, send_mdns, parse_mdns).\n- Add caller: &Self::CallerCtx parameter to every SieveBackend method (get_sieve_blob, validate_sieve_script, max_sieve_script_bytes default, vacation_response_script_id default).\n- Update the corresponding MemoryBackend impls in crate-jmap-mail-server/src/memory.rs (lines 2099 MdnBackend, 2475 SieveBackend) to thread _caller through.\n- Update internal self-calls (memory.rs:2301 self.get_blob_header_bytes and memory.rs:2318 self.get_blob_bytes) to pass _caller.\n- Update register_mdn_handlers and register_sieve_handlers macros in lib.rs to forward ctx into the backend calls.\n- Update the handlers (handle_mdn_send / handle_mdn_parse / handle_sieve_*) to take caller and pass it to backend calls.\n\nThis work falls naturally under JMAP-g7wu.1.1 (canonical MailBackend reshape) since the mdn and sieve trait files live in the same crate.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.1.1.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MdnBackend + SieveBackend traits need CallerCtx forwarding (JMAP-g7wu.1.1 follow-up)",
+  "updated_at": "2026-05-11T16:23:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T08:54:34Z",
+      "created_by": "bd-spin/bd-spin-20260511T151456Z-658525",
+      "depends_on_issue_id": "JMAP-g7wu.1.1",
+      "id": "c3dd569e-fd31-562a-b273-a15707759142",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

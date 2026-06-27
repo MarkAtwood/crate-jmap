@@ -1,0 +1,33 @@
+{
+  "close_reason": "resolved: handle_chat_get delegates to generic handle_get (JMAP-63k)",
+  "closed_at": "2026-05-02T07:05:03Z",
+  "compaction_level": 0,
+  "content_hash": "461d6ff6938e700d8a8a3fafed19221809551c1dfa016f5c587ec2ed65de07a2",
+  "created_at": "2026-05-02T03:57:13Z",
+  "created_by": "Mark Atwood",
+  "description": "jmap-server/handlers.rs exports handle_get<O,B> which is a fully generic /get implementation. chat-server/chat.rs handle_chat_get and space.rs handle_space_get are verbatim copies of that same 35-line pattern (ids parse, get_objects, get_state, serialize, build json). Neither calls handle_get. mail-server handlers follow the same copy pattern. If handle_get is updated (e.g. to pass properties to the backend), every copy must be updated separately. Suggested rewrite: have domain-specific /get handlers call handle_get<O, B>(backend, args).await and return that result directly, unless they need domain-specific property filtering beyond what the generic handles.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Cross-crate divergence: /get handler not reusing generic handle_get",
+  "updated_at": "2026-05-02T07:05:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:57:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "e5b14595-05ff-57f3-aadf-29adb0381d7a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

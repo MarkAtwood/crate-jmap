@@ -1,0 +1,48 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "af915471884745b34d16b13d90034be51a35260f91ba81370eaa73e03c8cf522",
+  "created_at": "2026-05-14T17:56:03Z",
+  "created_by": "Mark Atwood",
+  "description": "What is awkward: tests like changes_filter_related_type_drops_non_matching_created (metadata.rs:881) and changes_filter_related_type_drops_non_matching (tests/metadata_tests.rs:344) exercise the same behavior with different setup mechanics:\n- The inline test uses MockBackend with state_for_test() shenanigans to seed change records directly into the change log.\n- The integration test uses MemoryBackend with normal create_object calls that flow through the real change log.\n\nThese are testing the same code paths with different fixtures. The integration version is more authentic (uses the production backend). The unit version is more isolated. The cost is doubled maintenance.\n\nWhen the cross-field validator was added, three new unit tests were added for argument-validation (changes_filter_related_type_non_string_returns_invalid_arguments etc., metadata.rs:1101-1146). These ARE valuable as isolated tests because they exercise pure parsing logic, not backend behavior. Keep these.\n\nThe behavior tests (filter result content) duplicate. Suggested cleanup:\n- Keep MockBackend for VALIDATION tests (cross-field constraint, argument shape, missing required args).\n- Move BEHAVIOR tests entirely to tests/metadata_tests.rs (uses MemoryBackend).\n- Delete the inline behavior tests that duplicate integration tests.\n\nThis is a P3 elegance because it doesn't break anything; it's just duplication.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.28",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "blocked",
+  "timeout_ns": 0,
+  "title": "metadata.rs::tests has 9 different #[tokio::test] async fns plus 6 more in tests/metadata_tests.rs \u2014 duplicated test of changes_filter_metadata_type, changes_filter_related_type with slightly different oracles",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T02:19:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m.55",
+      "id": "0e0aad69-6e25-5efe-b6f3-5c61313cb046",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-15T02:07:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m.14",
+      "id": "3ca8aafe-29ac-534c-b4ee-44f4db119120",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T10:56:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "bfe88f08-bde1-5d48-9b26-bc6c7f9b730c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

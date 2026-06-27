@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed by commits 2761dea (add jmap_types::methods module) + 4bf3a25 (migrate 7 client crates). SetError now has all 8 RFC 8620 \u00a75.3 fields plus a serde-flatten 'extra' map for extension fields. The 5 response shapes are defined once in jmap-types and re-exported by all 7 jmap-*-client crates. Net -697 LOC across the client crates. 1424 workspace tests pass.",
+  "closed_at": "2026-05-08T06:28:45Z",
+  "compaction_level": 0,
+  "content_hash": "e91110562be3bd61df3ad2883ae7b8ee920dfbedc14d17e9838087e23273827a",
+  "created_at": "2026-05-07T20:43:17Z",
+  "created_by": "Mark Atwood",
+  "description": "All 7 client crates' `pub struct SetError` is a lossy 2-field stub:\n\n```rust\n// crate-jmap-mail-client/src/methods/mod.rs:90 (and 6 sister crates)\npub struct SetError {\n    #[serde(rename = \"type\")]\n    pub error_type: String,\n    pub description: Option<String>,\n}\n```\n\nThe server-side `SetError` (jmap-server/src/backend.rs:20) has 8 fields: `error_type`, `description`, `properties`, `existing_id` (RFC 8621 \u00a75.7 `alreadyExists`), `max_recipients` (RFC 8621 \u00a77.5 `tooManyRecipients`), `invalid_recipients` (RFC 8621 \u00a77.5), `not_found` (RFC 8621 \u00a75.5 `blobNotFound`), `max_size` (RFC 8621 \u00a77.5 `tooLarge`).\n\nWhen a JMAP server returns a SetError with any of these fields populated (a normal case for failed Email/set or EmailSubmission/set calls), the client deserializes into the 2-field struct and silently drops:\n- existingId \u2014 caller can't determine which existing object caused the collision\n- notFound \u2014 caller can't tell which blob ids were missing\n- maxRecipients / invalidRecipients \u2014 caller can't show user the limit / bad addrs\n- maxSize \u2014 caller can't show the message-size limit\n\nAffected crates: all 7 `crate-jmap-*-client/src/methods/mod.rs`:\n- jmap-mail-client\n- jmap-chat-client\n- jmap-contacts-client\n- jmap-calendars-client\n- jmap-tasks-client\n- jmap-filenode-client\n- jmap-sharing-client\n\nFix options:\n1. Add the missing fields to each client crate's SetError. Maintenance hazard (7 crates drift independently).\n2. Move SetError to a single shared location \u2014 either jmap-types (locked, needs approval) or a new `jmap-base-client::SetError` re-exported by the 7 client crates. PREFERRED.\n3. Make the client's SetError generic over a `#[serde(flatten)] extra: serde_json::Value` field to preserve the wire data even when not statically typed. Compromise.\n\nTied to JMAP-sc1b.X (5 generic response shapes duplicated). Both should be fixed together by promoting RFC 8620 \u00a75 wire shapes to a single home.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P1: Client SetError silently drops 6 of 8 RFC 8620 \u00a75.3 fields on deserialize",
+  "updated_at": "2026-05-08T06:28:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "ac8dfe09-82d6-50f1-a59d-a726f24609ef",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "reviewed pass 23: loop converged; no P0/P1/P2 found in current code",
+  "closed_at": "2026-05-01T12:39:53Z",
+  "compaction_level": 0,
+  "content_hash": "8a100ae09e1e7b7a28f91762373d8e0975bc2028b645467417dc65d2cc40df48",
+  "created_at": "2026-05-01T11:49:44Z",
+  "created_by": "Mark Atwood",
+  "description": "find_immutable_patch_key (email.rs:700-716) iterates over all patch keys and for each key iterates over all 23 IMMUTABLE_EMAIL_FIELDS entries. This is O(P\u00d7F) where P is the number of patch keys and F=23. For bulk keyword updates (e.g., a patch with 50 keyword entries), this is 50\u00d723=1150 comparisons. A one-time LazyLock<HashSet<&str>> for the immutable fields would make the set lookup O(1) per key, reducing to O(P). The prefix check (starts_with + byte check) cannot be done with a plain HashSet, but the exact-match case can; the prefix case requires at most O(P) prefix comparisons regardless. Expected impact: measurable on accounts that batch many email updates.",
+  "ephemeral": 0,
+  "id": "JMAP-767.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_immutable_patch_key is O(keys \u00d7 fields); use HashSet instead",
+  "updated_at": "2026-05-01T12:39:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:49:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "56e4676e-b48c-5355-9ce4-49c44d9ee5ea",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

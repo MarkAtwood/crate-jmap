@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed: Email 14 comment now says '100-byte body, mid-range size' instead of 'smallest'",
+  "closed_at": "2026-05-02T21:44:12Z",
+  "compaction_level": 0,
+  "content_hash": "a2897760120713e412844019057918260447308612fa859ff51b42901734d25f",
+  "created_at": "2026-05-02T21:40:01Z",
+  "created_by": "Mark Atwood",
+  "description": "Email 14 comment introduced in f11d14b says 'smallest of three sort-test emails' but Email 14 body is 100 bytes while Email 16 is 50 bytes \u2014 the comment is factually wrong on introduction. A contributor reading the comment to understand sort ordering will be misled about which email represents the size floor.",
+  "ephemeral": 0,
+  "id": "JMAP-a81m.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "seed.rs: Email 14 comment says 'smallest' but is wrong",
+  "updated_at": "2026-05-02T21:44:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:40:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a81m",
+      "id": "ece5ae37-edd9-520b-8ea2-d004891c2c65",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

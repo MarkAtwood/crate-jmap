@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260510T221713Z-3712501",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T22:18:30Z",
+  "compaction_level": 0,
+  "content_hash": "4c8cefb484eed35f23e17808e2bd4a83b11d9a496000f91a56be9dadfef760ab",
+  "created_at": "2026-05-10T21:31:49Z",
+  "created_by": "Mark Atwood",
+  "description": "Add rustdoc to the filter algebra types in crate-jmap-types documenting their exclusion from the workspace extras-preservation policy (JMAP-lbdy \"Decision: filter algebra excluded\", 2026-05-10).\n\n## Types in scope\n\n`crate-jmap-types/src/query.rs`:\n- `Filter<T>` (line 32)\n- `FilterOperator<T>` (line 42)\n- `Operator` (line 13)\n\n## Required rustdoc content\n\nEach type gets a doc comment (or appended paragraph if one already exists) covering:\n\n1. **Exclusion notice** \u2014 this type is OUT of scope for the workspace extras-preservation policy. No `extra` field; no `Unknown(String)` variant on `Operator`.\n2. **Rationale** \u2014 silent-drop foot-gun at server (unknown filter clause silently round-tripping is a query-correctness hazard); `Operator` is a control enum that backends must dispatch on, so `Unknown(String)` would be meaningless.\n3. **Future hook \u2014 IETF-track path**: vendors needing both capability-level declaration AND filterability for custom fields should use `draft-ietf-jmap-metadata` (currently draft-01, capability URI `urn:ietf:params:jmap:metadata`). It defines a `Metadata`/`Annotation` companion object keyed by `(relatedType, relatedId)` with schema discovery via the capability's `metadataTypes` / `maxDepth` properties and a `Metadata/query` filter (currently `textMatch` over vendor string properties). Workspace implementation tracker: JMAP-06zp.\n4. **Future hook \u2014 pre-IETF escape**: vendors who can't wait for the metadata draft can use the sloppy-value escape (`serde_json::Value` for the filter tree) or fork the per-crate `FilterCondition` type. See `crate-jmap-calendars-types/PLAN.md` for the hybrid sloppy-value pattern.\n5. **Cross-reference** \u2014 link or reference JMAP-lbdy.\n\n## Cookie-cutter consistency\n\nThis is the **canonical foundation** for filter algebra types per workspace AGENTS.md \"Canonical Templates\". The wording chosen here MUST propagate to sibling extension-types crates (children .2-.7 of this epic) in the same pass or with a follow-up sweep bead before merging. Use clear, neutral phrasing that survives re-use across siblings.\n\n## Acceptance criteria\n\n- All three types (`Filter<T>`, `FilterOperator<T>`, `Operator`) carry the exclusion notice with both future-hook paths.\n- `cargo doc --no-deps -p jmap-types` clean (no `missing_docs` regressions, no broken intra-doc links).\n- `cargo clippy -p jmap-types -- -D warnings` clean.\n- `cargo test -p jmap-types` clean (no behavioural change).\n\nNo code changes beyond doc comments. No public API additions or removals.\n",
+  "ephemeral": 0,
+  "id": "JMAP-9wh7.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add filter-algebra exclusion rustdoc to jmap-types (canonical foundation)",
+  "updated_at": "2026-05-10T22:18:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T14:31:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-9wh7",
+      "id": "d18c96c3-c7a4-51a1-a5bd-d278dcaf1f62",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

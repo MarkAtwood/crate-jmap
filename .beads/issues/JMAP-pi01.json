@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T00:46:07Z",
+  "compaction_level": 0,
+  "content_hash": "d6426d968ea1c210c4b7ebf71408fb36e0c5ab4e4d6d0829c869f98c56795926",
+  "created_at": "2026-05-10T00:31:47Z",
+  "created_by": "Mark Atwood",
+  "description": "Pattern \u03b2: value-type tightening on already-\u03b2-shaped field.\n\nFile: crate-jmap-tasks-types/src/task.rs:375\n\n  // Before\n  pub localizations: Option<HashMap<String, serde_json::Value>>,\n  // After\n  pub localizations: Option<HashMap<String, jmap_types::PatchObject>>,\n\nDoc-comment already says 'Map of BCP 47 language tag \u2192 patch object for localised property values.'\n\nWire format unchanged. Same migration shape as the parallel CalendarEvent::localizations field (which also needs an outer-shape change separately \u2014 see sibling bead).\n\n## Scope\n\n- 1 line change + import in tasks-types.\n- PLAN.md: update \u00a7X row referencing this field.\n\n## Acceptance criteria\n\ncargo test --workspace clean, lib clippy clean, wire format byte-identical.",
+  "ephemeral": 0,
+  "id": "JMAP-pi01",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Migrate Task::localizations value type to PatchObject (\u03b2, shape preserved)",
+  "updated_at": "2026-05-10T00:46:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T17:32:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-trmz",
+      "id": "566417fc-23ea-5d9a-81a1-9be56bab01d6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

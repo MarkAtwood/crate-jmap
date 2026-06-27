@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "3 queryChanges edge case tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/query_changes_tests.rs (3 tests: principal/notification queryChanges with invalid state \u2192 cannotCalculateChanges, accountIds filter); all pass; clippy clean",
+  "closed_at": "2026-05-05T04:51:00Z",
+  "compaction_level": 0,
+  "content_hash": "940e32f9656226a9276489136f6a7cf07121ad786133ffb9a69a2b28ae5496c5",
+  "created_at": "2026-05-05T02:56:39Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-sharing-server/tests/query_changes_tests.rs with 3 integration tests. Oracle: RFC 9670 \u00a72.5, \u00a73.5, \u00a72.4.1.\n\n**Tests:**\n1. principal_query_changes_cannot_calculate: use a CannotCalculateChangesBackend stub (wraps MemoryBackend, overrides get_changes to always return BackendChangesError::CannotCalculateChanges); assert response type==\"cannotCalculateChanges\". Oracle: RFC 9670 \u00a72.5.\n2. notification_query_changes_cannot_calculate: same stub; assert cannotCalculateChanges for ShareNotification. Oracle: \u00a73.5.\n3. principal_query_filter_by_accountIds_edge: Principal with accounts:null does NOT match {\"accountIds\":[\"acc2\"]}. Oracle: \u00a72.4.1 accountIds matches only if acc2 is a key in the accounts map.\n\n**Acceptance criteria:** All 3 tests pass.",
+  "ephemeral": 0,
+  "id": "JMAP-q3ze.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Integration tests: queryChanges cannotCalculateChanges and accountIds filter",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:56:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze",
+      "id": "c762d240-82fc-5159-bb2a-99a43c293881",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:56:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze.4",
+      "id": "ee3926d8-d07b-59ac-8d59-2cfb272fa313",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

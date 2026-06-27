@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T10:57:02Z",
+  "id": "019e2b48-5955-727a-88e6-628efec188a9",
+  "issue_id": "JMAP-510h.40",
+  "text": "Same shape as JMAP-510h.44 (just commented on). Mail-server's canonical handler docs are equally minimal \u2014 e.g. handle_email_get's doc is just 'Returns (response_args, extra_invocations). The extra list is always empty.'\n\nSo upgrading filenode-server's handler docs to a real contract block would diverge from canonical mail-server. Per workspace AGENTS.md 'Canonical Templates' rule:\n\n- Option (a): file a workspace-wide propagation epic. Add a contract block to mail-server (canonical) first \u2014 documenting arg shape, JmapError variants, return-envelope shape, permission-check ownership \u2014 then propagate to filenode-server and the other 5 extension-server siblings.\n\n- Option (b): mark the public handler fns #[doc(hidden)] in filenode-server (the bead's other suggestion). Treat them as register_filenode_handlers implementation detail. Same divergence concern: mail-server's are #[doc(visible)].\n\nRecommendation: option (a), folded into the same workspace propagation epic as JMAP-510h.44 (both are workspace-wide doc-contract gaps). The /do-beads session was invoked with --epic JMAP-510h, so the workspace sweep exceeds session scope.\n\nThe decision needs human judgment because it determines (i) which epic this bead lives under and (ii) commits the workspace to a multi-crate doc upgrade."
+}

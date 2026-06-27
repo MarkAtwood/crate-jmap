@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Rewrote Inner::recompute_calendars_with_events as the iterator chain proposed by the reviewer. No more .cloned() on the CalendarEvent map; the immutable borrow of self.objects ends at the .collect() so the mutable borrow via self.aux_mut() proceeds cleanly. cargo test/clippy/doc all green. Scoped to calendars-server only \u2014 no other sibling has an analogous derived-index path, so no propagation needed.",
+  "closed_at": "2026-05-15T18:39:35Z",
+  "compaction_level": 0,
+  "content_hash": "7ca29aaf7a99fe929ef486ed24cc195d769d80cfc7496860b0d63ef07e8b5040",
+  "created_at": "2026-05-15T17:22:09Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:198-214 \u2014 recompute_calendars_with_events:\n\n  fn recompute_calendars_with_events(&mut self, account_id: &str) {\n      let events = self\n          .objects\n          .get(&(\"CalendarEvent\", account_id.to_owned()))\n          .cloned()         // <-- clones the entire HashMap<Id, serde_json::Value>\n          .unwrap_or_default();\n\n      let mut set: HashSet<Id> = HashSet::new();\n      for value in events.values() {\n          if let Some(map) = value.get(\"calendarIds\").and_then(|v| v.as_object()) {\n              for k in map.keys() {\n                  set.insert(Id::from(k.as_str()));\n              }\n          }\n      }\n      self.aux_mut(account_id).calendars_with_events = set;\n  }\n\nThe .cloned() at line 202 is exactly the 'clone-to-escape-borrow-checker' pattern that AGENTS.md flags. The clone exists because we cannot hold an immutable borrow of self.objects while also taking a mutable borrow via self.aux_mut(). The fix is to restructure as a two-phase build:\n\n  fn recompute_calendars_with_events(&mut self, account_id: &str) {\n      let set: HashSet<Id> = self\n          .objects\n          .get(&(\"CalendarEvent\", account_id.to_owned()))\n          .into_iter()\n          .flat_map(|m| m.values())\n          .filter_map(|v| v.get(\"calendarIds\").and_then(|c| c.as_object()))\n          .flat_map(|map| map.keys().map(|k| Id::from(k.as_str())))\n          .collect();\n      self.aux_mut(account_id).calendars_with_events = set;\n  }\n\nThis drops the immutable borrow at the end of the chain expression, then takes the mutable borrow. No cloning of the event map. CalendarEvent payloads carry full JSON bodies (recurrence rules, participant lists, alerts, attachments) \u2014 cloning them just to read keys from one nested map is real, observable work.\n\nThe call site (memory.rs:701, 759, 789) runs this on every CalendarEvent create/update/destroy, so this is per-mutation overhead in the reference impl that contributors will read as 'this is how a MemoryBackend re-indexes derived state'.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.40",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "recompute_calendars_with_events clones the full CalendarEvent map to escape the borrow checker",
+  "updated_at": "2026-05-15T18:39:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:22:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "05d6ae22-62b7-5cfb-a94e-3c7c16e9060f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

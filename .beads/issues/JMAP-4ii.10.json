@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed by JMAP-0c9",
+  "closed_at": "2026-05-02T06:30:21Z",
+  "compaction_level": 0,
+  "content_hash": "647c4f2d084a71b025eaa38f1d8caa86b81d72cbe962f1bf144920dd6c1669bd",
+  "created_at": "2026-05-02T03:55:48Z",
+  "created_by": "Mark Atwood",
+  "description": "chat.rs handle_chat_set: for each Direct create, calls backend.get_objects::<Chat>(&account_id, None, None) to fetch all chats and scan for a duplicate contactId. Two problems: (1) O(n*m) where n = existing chats, m = creates in this request \u2014 on a large account with many creates this fetches the entire chat list m times; (2) the snapshot is taken inside the loop so two concurrent Chat/set requests with the same contactId can both pass the check and both succeed, creating duplicate direct chats. The dedup check should be done once before the create loop on a single fetched snapshot, and even then a concurrent race is only avoidable at the storage layer.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Chat/set direct-chat dedup fetches all chats per create \u2014 O(n*m) and races",
+  "updated_at": "2026-05-02T06:30:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:55:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "b6e213d5-0c00-5bf0-8689-7f50286f3dfa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

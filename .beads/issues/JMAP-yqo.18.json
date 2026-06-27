@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added inline comment at retain() call explaining the mechanism: when all fetch flags are false, text_part_ids and html_part_ids are empty HashSets, so retain() removes every entry \u2014 clarifying the 'cleared to empty' outcome in the doc.",
+  "closed_at": "2026-05-04T16:00:16Z",
+  "compaction_level": 0,
+  "content_hash": "01968bfb4d3718b8c2963b7086fb728c06e73c6d1007eb0dd3584a23ad02b358",
+  "created_at": "2026-05-02T02:56:11Z",
+  "created_by": "Mark Atwood",
+  "description": "The doc comment at email.rs:1099-1101 says 'When none of the three flags are set, bodyValues is cleared to an empty object'. The code achieves this via the retain() call on an empty union of part IDs \u2014 which retains nothing. This is correct but non-obvious: a reader has to trace that text_part_ids and html_part_ids are empty HashSets when the flags are false, then reason that retain() drops everything. The doc describes the outcome but not the mechanism; a contributor who adds a new code path (e.g. clearing bodyValues explicitly) might introduce a double-clear. Suggested: add inline comment explaining the mechanism.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "apply_body_value_args: bodyValues not cleared when all fetch flags false \u2014 misleading doc",
+  "updated_at": "2026-05-04T16:00:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:56:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "0ccf4dca-6ccb-5a4c-b6dc-9d51a1092bdf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

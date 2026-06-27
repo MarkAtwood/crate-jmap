@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-12T05:20:52Z",
+  "compaction_level": 0,
+  "content_hash": "c9e7b27bc2f8baf51b1fd8a2afad9f17ded35f6630e149a8ce5cab22c2e79553",
+  "created_at": "2026-05-11T07:22:57Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Child of JMAP-sc1b.17. Add two examples in crate-jmap-chat-client/examples/:\n- sse_listen.rs (~80\u2013120 LOC): spins up jmap_chat_server::memory::MemoryBackend behind an in-process push-capable server, subscribes via SSE, prints incoming events.\n- ws_loop.rs (~80\u2013120 LOC): same shape but using the WebSocket transport.\n\nDepends on the public MemoryBackend extraction (landed) and on jmap-chat-server's SSE/WS integration.\n\nAcceptance:\n- Both examples compile and produce sane output.\n- README.md gains links to examples/.\n- cargo build --workspace --examples clean.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.17.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Decision (2026-05-11, Mark): option (A) \u2014 adapted per the bot's analysis since wiremock doesn't support text/event-stream chunked responses and has no WS equivalent.\n\nRationale: same as .17.4 \u2014 server crates are deliberately transport-agnostic (audit confirmed); the bigger 'should workspace own transport?' question is filed as JMAP-l99e (epic). Examples ship now via hand-rolled stubs.\n\nImplementation hint:\n  - sse_listen.rs: hand-rolled tokio TcpListener serving one text/event-stream block with synthetic StateChange frames. JmapChatClient (or jmap-base-client::sse::SseConnection) consumes and prints. ~120 LOC.\n  - ws_loop.rs: hand-rolled tokio-tungstenite accept loop replying with one Response frame + one StateChange frame. JmapChatClient (or jmap-base-client::ws::WsConnection) consumes and prints. ~120 LOC.\n  - tokio-tungstenite added to jmap-chat-client/Cargo.toml [dev-dependencies] for ws_loop.rs.\n  - README ## Examples section gets a one-liner pointing to each.\n  - No new feature flags on the client crate \u2014 examples are dev-only.\n\nIf JMAP-l99e resolves Yes-own-transport, these examples can be retroactively rewritten to wrap jmap-chat-server::serve_sse() / serve_ws() and drop the hand-rolled listeners.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sub: examples/sse_listen.rs + ws_loop.rs for jmap-chat-client",
+  "updated_at": "2026-05-12T05:20:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T00:22:56Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b.17",
+      "id": "b14d0229-01ad-5123-9036-1911e541db77",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

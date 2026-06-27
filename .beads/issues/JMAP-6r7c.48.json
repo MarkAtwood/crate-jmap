@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in 0714edb. DownloadBlobParams.expected_sha256 now Option<&jmap_cid_types::Sha256>; the typed wrapper enforces the 64-char lowercase-hex ABNF at construction, eliminating the runtime is_valid_sha256_hex check, the to_ascii_lowercase normalize step, and the ClientError::InvalidArgument(\"expected_sha256 is not 64-char hex\") branch at compile time. Two new integration tests in tests/client_tests.rs cover the typed-match-succeeds and typed-mismatch-returns-BlobIntegrityMismatch paths, oracles independent (NIST FIPS 180-4 Appendix A SHA-256(\"abc\") and RFC 6234 SHA-256(\"\")).",
+  "closed_at": "2026-05-18T03:57:07Z",
+  "compaction_level": 0,
+  "content_hash": "3ec67e060506c339879ba6f3cf91f68b950a2b58a22bc41d35ce571f0a2ed4b5",
+  "created_at": "2026-05-14T23:25:52Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-base-client/src/blob.rs:43-44 declares pub expected_sha256: Option<&'a str> on the public DownloadBlobParams struct. After bd:JMAP-v9py.13 promoted BlobUploadResponse.sha256 from Option<String> to Option<jmap_cid_types::Sha256> precisely to make non-canonical digest values unrepresentable at the type level, this download-side counterpart is now the asymmetric exception: a caller can pass ANY string here and the function will fall back to runtime validation via is_valid_sha256_hex (blob.rs:387-403). The right shape is Option<&'a Sha256> (or perhaps Option<&'a jmap_cid_types::Sha256>) \u2014 then the constructor of Sha256 has already enforced the 64-lowercase-hex ABNF, the to_ascii_lowercase normalize step in download_blob disappears, the is_valid_sha256_hex helper becomes dead code, and the ClientError::InvalidArgument(\"expected_sha256 is not 64-char hex\") branch is eliminated at compile time. The current design forces every caller to either carry a String through their code and risk a downstream InvalidArgument, or to construct a Sha256 and then call .as_str() at the call site \u2014 exactly the as_str-then-revalidate dance the typed wrapper exists to eliminate. Type-design: parse-don't-validate. This is a stronger argument than the upload-side typed change because download_blob's expected_sha256 is exclusively caller-supplied input (no server-side parse), so the typed shape eliminates the entire runtime-validation branch.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.48",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DownloadBlobParams.expected_sha256 is Option<&str>, not Option<&Sha256> \u2014 primitive obsession",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T13:57:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-prpm",
+      "id": "17caa130-08b8-5174-a443-37a905218cc2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ae8a9f7a751fd9a5f2aa385b26590754db21357c7e0434ccc52c79acdc0f4fb6",
+  "created_at": "2026-05-17T22:56:38Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**:\n- crate-jmap-chat-client/src/methods/mod.rs:850+, :894+, :977+, :1063+, :1187+ \u2014 multiple `pub fn new()` constructors on `*QueryInput` types\n- crate-jmap-chat-client/src/methods/ (per-object files) \u2014 all `_query` methods take `input: &XxxQueryInput<'_>`\n- crate-jmap-mail-client/src/methods/email.rs and analogs \u2014 canonical positional shape\n- crate-jmap-calendars-client/src/methods/*.rs, crate-jmap-tasks-client, crate-jmap-contacts-client, crate-jmap-filenode-client, crate-jmap-sharing-client, crate-jmap-metadata-client \u2014 all follow positional\n\n**Divergence**:\n\nThe 8 extension clients implement `_query` methods with two distinct shapes:\n\n| Crate | `_query` shape |\n|---|---|\n| **chat (outlier)** | `fn chat_query(input: &ChatQueryInput<'_>)` \u2014 struct input |\n| mail | `fn email_query(filter: Option<serde_json::Value>, sort: Option<serde_json::Value>, position: Option<u64>, limit: Option<u64>, ...)` \u2014 positional |\n| calendars | same as mail (one outlier inside calendars: `calendar_event_query` uses typed filter+sort \u2014 see below) |\n| tasks | same as mail |\n| contacts | same as mail |\n| filenode | same as mail + trailing `depth: Option<u64>` |\n| sharing | same as mail |\n| metadata | similar to mail, with trailing `params: Option<MetadataQueryParams>` |\n\nChat is internally consistent (5 `_query` methods all use `XxxQueryInput`). It is the lone outlier vs the 7 other extension clients.\n\n**What goes wrong** (each direction):\n\nIf chat is right (struct input is canonical-going-forward):\n- 7 other extension clients have undocumented prior art that's about to be obsoleted.\n- A consumer pattern-matches from chat-client and finds inconsistent prior art everywhere else.\n\nIf positional is right (the 7 others' shape is canonical):\n- chat's `pub fn new()` constructors (15+) and `*QueryInput` struct types (5+) are dead weight that consumers must learn separately.\n- chat divergence is opaque without a documented rationale in chat-client's PLAN.md.\n\n**Engineering arguments for each direction**:\n\nStruct input (chat's shape) pros:\n- Forward-compat: a new RFC-spec field for `_query` is a struct-field add, not a method-signature change.\n- Pairs naturally with `pub fn new()` mandatory-arg pattern.\n- Lifetime-parametric (`<'a>`) lets the struct borrow filter / sort by reference rather than owning serde_json::Value.\n\nPositional input (other 7's shape) pros:\n- Caller doesn't need to import `XxxQueryInput` separately.\n- Matches the RFC 8620 method-args layout textually (the spec uses positional args in JSON, not nested objects).\n- All 7 other clients agree, so the cookie-cutter rule favors keeping them as-is.\n\n**Recommendation**: this is a workspace-architecture decision, not a mechanical fix. Surface as `human` for the workspace maintainer to decide direction, then propagate.\n\nFlag: this overlaps semantically with JMAP-ops7.7 (chat-types lacks FilterCondition / Comparator). The current chat-client `*QueryInput` shape may be *because* chat-types has no typed FilterCondition (so chat-client uses `serde_json::Value` inside the input struct anyway) \u2014 in which case the question is whether the workspace direction is \"typed filters in jmap-types, plain method args\" or \"vendor-extensible input structs\". The two beads should likely be decided together.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "chat-client `_query` methods take `input: &XxxQueryInput` struct; every other extension client takes positional `(filter, sort, position, limit)` \u2014 workspace-architecture choice not resolved",
+  "updated_at": "2026-05-17T22:56:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:56:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "a33623f6-9c00-5a63-97aa-1a77d9bc65ef",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

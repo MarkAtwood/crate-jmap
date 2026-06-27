@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "8 wiremock tests pass. Clippy and fmt clean.",
+  "assignee": "Mark Atwood",
+  "close_reason": "35 total filenode-client tests pass; clippy clean; all 6 FileNode methods covered by integration tests",
+  "closed_at": "2026-05-05T04:37:48Z",
+  "compaction_level": 0,
+  "content_hash": "f6bbe199a91ddf8dae5295d33014af84befd0caa75a0e490f5919cc4f6ac8352",
+  "created_at": "2026-05-05T02:53:52Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Final quality gate for jmap-filenode-client.\n\n**Algorithm:**\n1. cargo test -p jmap-filenode-client: all pass including 8 new integration tests.\n2. cargo clippy -p jmap-filenode-client -- -D warnings: zero warnings.\n3. cargo fmt --all -- --check: no diff.\n4. Close epic JMAP-3ri9.\n\n**Acceptance criteria:** All commands exit 0.",
+  "ephemeral": 0,
+  "id": "JMAP-3ri9.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Done signal: filenode-client wiremock coverage complete",
+  "updated_at": "2026-05-05T04:37:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:53:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3ri9",
+      "id": "a5dc6ddc-552f-5b4c-8ab2-4b333287d8e7",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:53:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3ri9.2",
+      "id": "d24217b5-61fc-5cc4-b59e-b55b88c8066c",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:53:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3ri9.1",
+      "id": "f53ed580-fcad-5810-8dbe-c50c4675bd31",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

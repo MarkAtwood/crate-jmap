@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "002cc098ca97696539fdb549692b0fa112690695a85bbef1bb88000572274b58",
+  "created_at": "2026-05-14T03:12:53Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/message.rs:669-688 (forbidden-reaction check).\n\nCode:\n    for (_, suffix) in &decoded {\n        if let Some(existing) = msg.reactions.get(suffix) {\n            if existing.sender_id != SenderId::Owner {\n                bad.push(suffix.clone());\n            }\n        }\n    }\n\nSpec context (draft-atwood-jmap-chat-00 \u00a7Reaction): only the original sender of a reaction may modify it. The handler's intent is to enforce that.\n\nProblem: SenderId::Owner is a tag meaning 'the account that owns this mailbox', not 'this specific caller'. In any deployment with:\n- shared mailboxes (multiple users authenticating to the same account)\n- delegated access (admin/assistant access)\n- multi-user JMAP accounts\n\n\u2026the check 'existing.sender_id != SenderId::Owner' returns false for ANY reaction tagged Owner, regardless of which user actually authored it. That lets user A modify user B's reactions whenever both share an account.\n\nThe correct check requires caller-identity comparison: a reaction has a specific authoring principal (or a 'self' marker resolved against B::principal_id(caller)). The kit's foundation seam provides principal_id; the type system stores SenderId::Owner|Peer (no principal id discriminator).\n\nTwo fix paths:\n1. Extend Reaction to carry an authoring principal id at storage time; compare on read.\n2. Resolve principal_id at modify time, and the backend per-reaction maintains an authoring map; if absent, reject (fail closed).\n\nEither way, the current implementation collapses 'original sender' to 'this account' and breaks the spec rule in multi-user deployments.\n\nSingle-user-mode tests pass because the check trivially holds; the bug is invisible until a real identity backend is wired.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Message/set reaction modification check uses sender-tagging not caller identity",
+  "updated_at": "2026-05-14T03:12:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:12:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "8f530e0f-13c8-56e6-98e0-e5b93a52804e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

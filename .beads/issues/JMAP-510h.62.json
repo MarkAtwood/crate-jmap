@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T21:07:25Z",
+  "compaction_level": 0,
+  "content_hash": "dd59ae0fb8adddc8bd9ed2c6d9c3ca55671afb3064c900caaec707eacdde7811",
+  "created_at": "2026-05-14T21:03:51Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-filenode-server/src/memory.rs:294 \u2014 'let since: u64 = since_state.as_ref().parse().unwrap_or(0);' silently maps an unparseable State token to 0, which means a client sending a corrupt/forged/version-mismatched state gets a fresh-stream-from-the-beginning response rather than the RFC 8620 \u00a75.2-mandated 'cannotCalculateChanges' error.\n\nCross-walk against the other 6 extension-server siblings (canonical mail-server plus 5 cookie-cut siblings) confirms this is FILENODE-ONLY, NOT canonical-first:\n\n  jmap-chat-server/src/memory.rs:521        .map_err(|_| BackendChangesError::CannotCalculate)?;\n  jmap-calendars-server/src/memory.rs:468   .map_err(|_| BackendChangesError::CannotCalculate)?;\n  jmap-contacts-server/src/memory.rs:413    .map_err(|_| BackendChangesError::CannotCalculate)?;\n  jmap-tasks-server/src/memory.rs:483       .map_err(|_| BackendChangesError::CannotCalculate)?;\n  jmap-sharing-server/src/memory.rs:328     .map_err(|_| BackendChangesError::CannotCalculate)?;\n  jmap-mail-server/src/memory.rs:543        .map_err(|_| BackendChangesError::Other(MemoryError(...)))  [also wrong shape \u2014 returns serverFail instead of cannotCalculateChanges, separate workspace-canonical issue]\n  jmap-filenode-server/src/memory.rs:294    .unwrap_or(0);   [this bug]\n\nThe prior /review-rusty pass's calibration note cited 'mail-server memory.rs:198 same shape' as justification for deferring this as canonical-first. That cross-reference was wrong: mail-server line 198 is 'rfc3339_to_epoch_secs(...).unwrap_or(0)' on a Thread receivedAt sort key, an entirely different shape and call site. Mail-server's actual since_state.parse() at line 543 does map_err (albeit to the wrong variant; that is a separate canonical-first finding).\n\nFix is filenode-only:\n    let since: u64 = since_state.as_ref().parse().map_err(|_| {\n        BackendChangesError::CannotCalculate\n    })?;\n\nIdiom category: error-handling \u2014 a silent unwrap_or fallback on a parse where the caller-meaningful error is well-defined and supported by the workspace's existing typed error enum.\n\nNote: BackendChangesError variants need a quick re-confirm that ::CannotCalculate is the right variant for filenode-server (its Other(Self::Error) variant exists but is wrong for this case).",
+  "ephemeral": 0,
+  "id": "JMAP-510h.62",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "since_state parse silently falls back to 0 \u2014 only filenode-server has this; mail/chat/calendars/contacts/tasks/sharing all correctly return cannotCalculateChanges",
+  "updated_at": "2026-05-14T21:07:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:03:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "bee7780f-5834-51cb-972a-efe8e7ca75c9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

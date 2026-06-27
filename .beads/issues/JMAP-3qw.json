@@ -1,0 +1,52 @@
+{
+  "acceptance_criteria": "All 6 named tests pass; cargo test -p jmap-mail-server --features sieve passes",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:14:44Z",
+  "compaction_level": 0,
+  "content_hash": "153bae2bd1f505ded5b8940c02212f2029d96dd9c77425badaf1677a6661ba9f",
+  "created_at": "2026-05-02T15:23:31Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement handle_sieve_query in src/sieve.rs (SieveScript/query handler).\n\nWHAT: Standard RFC 8620 \u00a75.5 /query handler. Filter by name (substring) and isActive (exact).\n\nALGORITHM:\n1. Parse args: extract account_id, filter (Option<SieveScriptFilter>), sort (Option<Vec<Comparator>>), position (default 0i64), anchor (Option<Id>), anchor_offset (default 0i64), limit (Option<u64>), calculate_total (default false).\n   SieveScriptFilter: { name: Option<String>, is_active: Option<bool> } \u2014 derive Deserialize.\n2. account_exists check.\n3. Call backend.query_objects::<SieveScript>(&account_id, filter.as_ref(), sort.as_deref(), limit, position).await.map_err(|e| JmapError::server_fail(e.to_string()))?\n4. Handle anchor: if anchor is Some, find its index in ids vec; if not found \u2192 JmapError::anchor_not_found(). Apply anchor_offset. Use same anchor logic as existing email query handler.\n5. Build response: { accountId, queryState, canCalculateChanges: result.can_calculate_changes, position: result.position, ids: result.ids, total: result.total (only if calculate_total is true) }\n6. Return Ok((resp, vec![]))\n\nMemoryBackend query_objects for SieveScript must:\n- Load all SieveScript objects for the account.\n- Apply name filter: script.name.as_deref().map(|n| n.contains(filter.name.as_str())).unwrap_or(false).\n- Apply isActive filter: script.is_active == filter.is_active.\n- Apply sort: by name (alphabetic), by isActive (true before false or vice versa).\n- Return QueryResult with ids in sorted order.\n\nDEFENSIVE RULES:\n- anchorNotFound when anchor id not in result set\n- total only included when calculate_total is true (RFC 8620 \u00a75.5)\n- position must never be negative in response\n- No .unwrap() or .expect()\n\nAGENT TEAM: Implementer + Tester\n\nTESTS:\n- sieve_query_all: no filter, all scripts returned\n- sieve_query_filter_active: isActive:true filter returns only active scripts\n- sieve_query_filter_name: name substring filter\n- sieve_query_anchor: anchor to second script, verify position and ids\n- sieve_query_anchor_not_found: JmapError anchorNotFound\n- sieve_query_unknown_account: accountNotFound",
+  "design": "FilterCondition (SieveScriptFilter):\n- name: String \u2014 script name contains this string (substring match)\n- is_active: bool \u2014 exact match on isActive\n\nSort properties supported: name, isActive (both MUST be supported per spec \u00a72.5).\n\nStandard query args: account_id, filter (optional), sort (optional), position (default 0), anchor (optional), anchor_offset (default 0), limit (optional), calculate_total (default false).\n\nDelegate to backend.query_sieve_scripts(...) which returns QueryResult { ids, position, total }.\n\nResponse shape: { accountId, queryState, canCalculateChanges, position, ids, total? }.\n\nNo /queryChanges method defined in draft \u2014 do not implement it.\n\nSpec ref: draft-ietf-jmap-sieve-22 \u00a72.5, RFC 8620 \u00a75.5.",
+  "ephemeral": 0,
+  "id": "JMAP-3qw",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve: SieveScript/query handler",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:24:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3uh",
+      "id": "203534f5-2253-5b95-9135-5c1a907ccaf4",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T12:01:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-589",
+      "id": "4c05cd82-0f8f-558e-9637-2aa1abf9b081",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T11:29:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-82ty",
+      "id": "88b58189-33e8-545a-aa4b-c6ade6ba6197",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

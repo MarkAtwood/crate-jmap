@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-4xv.1",
+  "title": "Email/set create silently swallows malformed keywords",
+  "description": "build_email_from_create uses .and_then(|v| serde_json::from_value(v.clone()).ok()).unwrap_or_default() for keywords \u2014 deserialization errors are swallowed and the keyword map is silently empty. Email/import (fixed in pass 6) returns invalidProperties for malformed keywords. Trigger: Email/set create with {\"keywords\":{\"invalid!kw\":true}} \u2192 email created with empty keywords instead of notCreated/invalidProperties.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:57:53Z",
+  "updated_at": "2026-05-01T03:05:10Z",
+  "closed_at": "2026-05-01T03:05:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-4xv",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:57:53"
+    }
+  ]
+}

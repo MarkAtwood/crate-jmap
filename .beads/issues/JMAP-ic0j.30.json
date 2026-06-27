@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T20:04:25Z",
+  "compaction_level": 0,
+  "content_hash": "97c4a354bcdd4d594ac930378e1f8e7ee4625d40ba5494b1e0342e041ca221f3",
+  "created_at": "2026-05-15T17:12:54Z",
+  "created_by": "Mark Atwood",
+  "description": "Two re-exports lock the upstream major version of dependency crates into\njmap-calendars-server's public API:\n\n  src/backend.rs:18 \u2014 `pub use jmap_types::PatchObject;`\n  src/lib.rs:72    \u2014 `pub use jmap_calendars_types::JMAP_CALENDARS_URI;`\n\nOnce jmap-calendars-server is published with these re-exports, a consumer\nwrites `use jmap_calendars_server::backend::PatchObject` or\n`use jmap_calendars_server::JMAP_CALENDARS_URI` and depends on the upstream\ncrate's type/const shape via this crate's API surface. If `jmap_types` cuts\na 0.2.0 (rename `PatchObject` \u2192 `JmapPatch`, add `#[non_exhaustive]`, etc.)\nor `jmap_calendars_types` cuts a 0.2.0 (move the const, rename it), then\njmap-calendars-server's API surface is broken too \u2014 even if the calendars-\nserver crate code itself didn't change.\n\nThe canonical mail-server (crate-jmap-mail-server) takes two divergent\npositions on this:\n\n  - PatchObject: NOT re-exported in mail-server's backend.rs (lines 35-38\n    re-export only the jmap_server items). A caller writes\n    `use jmap_types::PatchObject;` directly. Mail's backend.rs does not\n    take a major-version lock on jmap_types::PatchObject.\n\n  - Capability URIs: defined as LOCAL `const`s in mail-server's lib.rs:44-52\n    (e.g. `pub const JMAP_MAIL_URI: &str = \"urn:ietf:params:jmap:mail\";`),\n    not re-exported. The MDN and Sieve URIs ARE re-exported from types,\n    but they're feature-gated:\n    `#[cfg(feature = \"mdn\")] pub use jmap_mail_types::mdn::JMAP_MDN_URI;`\n\nWhat goes wrong for the caller:\n\n  1. A jmap_types 0.2.0 (breaking change to PatchObject) bumps every\n     consumer of `jmap_calendars_server::backend::PatchObject`, even\n     consumers who never directly used jmap_types. Without the re-export,\n     they could've pinned jmap_types and stayed on calendars-server 0.1.x.\n\n  2. A jmap_calendars_types 0.2.0 that renames or moves\n     JMAP_CALENDARS_URI breaks\n     `use jmap_calendars_server::JMAP_CALENDARS_URI;` even if the URI\n     STRING itself (\"urn:ietf:params:jmap:calendars\") never changes.\n\n  3. The asymmetry with mail-server (which uses local const for the URI\n     and no re-export for PatchObject) means a contributor cookie-cutting\n     import patterns across the two crates writes different `use` lines\n     for what conceptually is the same construct.\n\nFix:\n\n  (a) PatchObject re-export at backend.rs:18 \u2014 delete. Callers import\n      from jmap_types directly. Matches canonical mail-server position.\n\n  (b) JMAP_CALENDARS_URI at lib.rs:72 \u2014 replace the `pub use` with a\n      local `pub const JMAP_CALENDARS_URI: &str = \"urn:ietf:params:jmap:calendars\";`\n      Doc-comment it. Matches mail-server's JMAP_MAIL_URI pattern at\n      crate-jmap-mail-server/src/lib.rs:44-52.\n\n  Both are SemVer-breaking removals if published as-is. File the change\n  before the first 0.x release that consumers will pin, or coordinate\n  with a major-version bump.\n\nP2 \u2014 published-API design concern, not a present-day bug.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Upstream re-exports (PatchObject, JMAP_CALENDARS_URI) lock the upstream major version of dependency crates",
+  "updated_at": "2026-05-15T20:04:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:12:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "48b071d8-f796-51fb-bbeb-2273ecfa2122",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

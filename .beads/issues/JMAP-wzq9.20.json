@@ -1,0 +1,41 @@
+{
+  "close_reason": "Added Clone derive to MetadataChangesParams (and the 4 sibling metadata-client params structs from bd:JMAP-wzq9.34) in commit a4334d6. The stale 'blocked on JMAP-tjvm.16' dependency was wrong \u2014 tjvm.16 was about #[non_exhaustive] (a different policy), not Clone. The real canonical-template blocker for Clone was JMAP-tjvm.35 (closed 2026-05-17 with the canonical mail-client Clone-derive sweep). Both gates clean, workspace tests pass.",
+  "closed_at": "2026-05-17T14:40:03Z",
+  "compaction_level": 0,
+  "content_hash": "8dc0d6aaaa6b8e68ed794663d5a3681ac5ce7f5501fb6451ee04a6fe718bb658",
+  "created_at": "2026-05-15T02:10:27Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:40 \u2014 MetadataChangesParams derives only Debug, Default, Serialize. A caller running a paginated change-fetching loop:\n\n    let params = MetadataChangesParams { filter_related_type: Some(\\\"Email\\\".into()), .. Default::default() };\n    let mut state = since_state;\n    loop {\n        let resp = sc.metadata_changes(&state, Some(256), Some(params.clone())).await?;\n        //                                                          ^^^^^^^^ does not compile\n        if !resp.has_more_changes { break; }\n        state = resp.new_state;\n    }\n\n\u2026cannot reuse the params because metadata_changes takes 'params: Option<MetadataChangesParams>' (by value, line metadata.rs:70). The caller must construct a fresh MetadataChangesParams every iteration, which means materialising the filter_metadata_type Vec<String> from scratch each time.\n\nThe contract claim (in metadata_changes's doc-comment, line 60-65) that 'clients that use these filters MUST re-use the same filter values across subsequent calls' is undermined when the only ergonomic way to do that is to clone \u2014 and the type doesn't support clone.\n\nFix: add Clone to the derive. Cost: filter_metadata_type clone is O(n) on the type names, but n is bounded by the number of @type values the caller cares about (typically small \u2014 Annotation, ImapMetadata, WebDavMetadata are the only three currently defined). Acceptable.\n\nWorkspace-wide: canonical EmailGetParams in mail-client also lacks Clone. Propagate.\n\nLower-priority note: also missing PartialEq, Eq, Hash \u2014 but those are taste, mark as opinion if added. Clone is the only one with an engineering basis.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MetadataChangesParams not Clone \u2014 callers paginating cannot reuse params",
+  "updated_at": "2026-05-17T14:40:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:37:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm.16",
+      "id": "24546712-aed9-5d55-bc72-42a102f4f8c0",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T19:10:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "7a757c94-8efe-5ce5-9163-8f72831f889e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

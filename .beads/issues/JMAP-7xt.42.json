@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.42",
+  "title": "Session URL fields are String instead of url::Url",
+  "description": "Session.api_url, upload_url, download_url, and event_source_url are all typed as String. validate_session_urls() in client.rs does a string-split scheme check instead of calling url::Url::parse(). The URL templates (upload_url, download_url, event_source_url) contain RFC 6570 placeholders like {accountId} and cannot be parsed as url::Url directly \u2014 so String is correct for those three. However api_url has no placeholders and could be url::Url, which would eliminate the validate_session_urls scheme-split heuristic for that field. A minimal improvement: parse api_url with url::Url at fetch_session time and store it typed. The RFC 6570 template fields must remain String.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:47:52Z",
+  "updated_at": "2026-04-30T00:52:44Z",
+  "closed_at": "2026-04-30T00:52:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:47:52"
+    }
+  ]
+}

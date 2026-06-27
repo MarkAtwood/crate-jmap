@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "json_pointer_ext_inner uses strip_prefix('/'). Clippy's question_mark lint further suggested ? over let-else; applied. Workspace clippy passes.",
+  "closed_at": "2026-05-14T17:18:52Z",
+  "compaction_level": 0,
+  "content_hash": "ca1a0c4c625da71c2a00c58c78a33db64d80b9c7250c0b965970e1ad54f8eed4",
+  "created_at": "2026-05-14T16:54:42Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/parse.rs:223-243 \u2014 json_pointer_ext_inner walks JSON Pointer paths via direct byte-index slicing:\n\n  if !path.starts_with('/') {\n      return None;\n  }\n\n  // Split off the first token.\n  let after_slash = &path[1..];\n  let (token, remaining) = match after_slash.find('/') {\n      Some(pos) => (&after_slash[..pos], &after_slash[pos..]),\n      None => (after_slash, \"\"),\n  };\n\nThe `&path[1..]` immediately after `starts_with('/')` is the classic \"check-then-slice\" anti-pattern that `strip_prefix` exists to replace:\n\n  let Some(after_slash) = path.strip_prefix('/') else {\n      return None;\n  };\n  let (token, remaining) = match after_slash.find('/') {\n      Some(pos) => (&after_slash[..pos], &after_slash[pos..]),\n      None => (after_slash, \"\"),\n  };\n\nBoth shapes work and produce identical results \u2014 `'/'` is ASCII so the byte index is safe. The reason a serious Rust practitioner prefers `strip_prefix`:\n\n  1. The intent is communicated at the type level. `strip_prefix` returns `Option<&str>` and lets the compiler enforce \"we only proceed if the prefix was present\". The `starts_with(...) ; &path[1..]` shape says the same thing in two operations, with the slicing implicitly relying on the prior check.\n  2. The slice `&path[1..]` is only safe-by-byte-index because `'/'` happens to be one ASCII byte. If a future contributor changes the prefix character to something multi-byte (unlikely here but the pattern propagates), the byte-index assumption silently breaks. `strip_prefix('/')` and `strip_prefix(\"/\")` are both char-aware.\n  3. Avoids a clippy::manual_strip lint flag in CI configurations that enable extended lint groups.\n\nThe sibling `find('/')` returning a byte position and slicing on `[..pos]` / `[pos..]` is correct and idiomatic for the rest of the function (because `pos` is the byte position of an ASCII `/`). Only the initial prefix-strip is the anti-pattern.\n\nClippy-class P2 chore. Fix is two-line:\n\n  -    if !path.starts_with('/') {\n  -        return None;\n  -    }\n  -    let after_slash = &path[1..];\n  +    let Some(after_slash) = path.strip_prefix('/') else {\n  +        return None;\n  +    };\n\nExisting tests cover prefix-missing (`json_pointer_ext` with paths missing the leading `/`) and the full ResultReference round-trip; no test changes required.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "json_pointer_ext_inner uses raw &path[1..] byte slicing instead of strip_prefix('/')",
+  "updated_at": "2026-05-14T17:18:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:54:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "930de167-73e2-5c2f-87df-0c7ac97ff28b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

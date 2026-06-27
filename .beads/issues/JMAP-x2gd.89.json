@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T08:55:33Z",
+  "compaction_level": 0,
+  "content_hash": "e14d2f1e227588ff8efe57ded836651fc362650913edb9842deb09a4237a51b9",
+  "created_at": "2026-05-16T17:22:37Z",
+  "created_by": "Mark Atwood",
+  "description": "Sites in chat-server (clippy::single_match_else, 13 hits in src/):\n- ban.rs:130, ban.rs:141, ban.rs:182, ban.rs:233, ban.rs:247\n- chat.rs:402\n- contact.rs:164, contact.rs:187\n- emoji.rs:448, emoji.rs:462\n- message.rs:530\n- position.rs:226\n- presence.rs:165\n- space.rs:896, space.rs:931, space.rs:949 (already cited in JMAP-x2gd.55 for items_after_statements; the match-shape is the separate complaint)\n\nMail-server has 7 hits of the same pattern in its lib (canonical sibling).\n\nShape:\n\n    let space_id = match obj_val.get(\"spaceId\").and_then(|v| v.as_str()) {\n        Some(s) => Id::from(s),\n        None => {\n            not_created.insert(create_id, SetError::invalid_properties()...);\n            continue;\n        }\n    };\n\nThis is the classic 'let-else with side-effecting else' shape. Pure let-else handles the trivial Some(s) => s case (which is what JMAP-x2gd.54 / manual_let_else covers), but here the else arm contains a side effect (insert + continue), so let-else doesn't apply directly.\n\nWhat idiomatic Rust does for this shape: two equivalent rewrites, both clearer than match:\n\n(a) Early-return / continue via let-else:\n    let Some(s) = obj_val.get(\"spaceId\").and_then(|v| v.as_str()) else {\n        not_created.insert(create_id, SetError::invalid_properties()...);\n        continue;\n    };\n    let space_id = Id::from(s);\n\n(b) if-let-else (clippy's preferred suggestion):\n    let space_id = if let Some(s) = obj_val.get(\"spaceId\").and_then(|v| v.as_str()) {\n        Id::from(s)\n    } else {\n        not_created.insert(create_id, SetError::invalid_properties()...);\n        continue;\n    };\n\n(a) is the more modern Rust shape (stable since 1.65, same as let-else for the no-side-effect case in JMAP-x2gd.54).\n\nWhat goes wrong as-is: same as .54's complaint \u2014 readability + paragraph-of-arm-bodies obscures the early-exit control flow. The pattern is dense in /set handlers because they validate 5-10 fields per object before committing the create, so the cumulative cost is real.\n\nWorkspace-canonical: 13 chat + 7 mail = 20 sites total. File against the canonical mail-server first per AGENTS.md propagation rule. After mail-server lands, propagate to all extension-server siblings as a single sweep.\n\nCross-references JMAP-x2gd.54 (manual_let_else for the trivial Some=>s, None=>continue case \u2014 9 sites still open) and JMAP-x2gd.55 (items_after_statements in the same /set handlers).\n\nclippy::pedantic verified 2026-05-16 against current HEAD.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.89",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Workspace-canonical: single_match_else pattern (match for destructuring single pattern) \u2014 13 sites in chat-server + 7 in mail-server",
+  "updated_at": "2026-05-17T08:55:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T10:22:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "0680dc21-7e08-56d2-89bc-d87015ed5be8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

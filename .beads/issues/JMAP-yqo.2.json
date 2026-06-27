@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:26Z",
+  "compaction_level": 0,
+  "content_hash": "32aeca44d5c1426d850e6922d282bea358c922ff2b9cb1564d9226d577e525b6",
+  "created_at": "2026-05-02T02:54:17Z",
+  "created_by": "Mark Atwood",
+  "description": "Every handler calls update_object and matches Ok(_), discarding the Option<O> that may contain server-modified fields. RFC 8620 \u00a75.3 requires those fields to appear in the updated map. The MailBackend::update_object doc explicitly warns about this but all 8+ call sites ignore it anyway. Any backend that returns Some(O) from update_object will silently produce a non-conformant response. Trigger: backend returns Some(O) with a server-modified field (e.g. updatedAt) \u2192 client never sees the echo, believes the field was not changed.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "update_object return value universally discarded \u2014 RFC 8620 \u00a75.3 server-set echo broken",
+  "updated_at": "2026-05-02T03:22:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:54:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "8455d771-8bc5-5ca2-b3f1-c04e95b55628",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

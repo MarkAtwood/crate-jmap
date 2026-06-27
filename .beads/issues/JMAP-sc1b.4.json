@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:36:06Z",
+  "compaction_level": 0,
+  "content_hash": "5c01d61171f3907fcb955192d026c9e8c434f865baad79a942f28fee30860381",
+  "created_at": "2026-05-07T20:17:30Z",
+  "created_by": "Mark Atwood",
+  "description": "crates.io uses `categories` and `keywords` for search and category browsing. The 7 RFC-aligned data type crates have them (mail-types, chat-types, contacts-types, calendars-types, tasks-types, filenode-types, sharing-types \u2014 all use `categories = [\"encoding\", \"network-programming\"]`).\n\nMissing on 18 crates:\n- crate-jmap-types\n- crate-jmap-mime\n- crate-jmap-server\n- crate-jmap-mail-server, jmap-chat-server, jmap-contacts-server, jmap-calendars-server, jmap-tasks-server, jmap-filenode-server, jmap-sharing-server (7 server crates)\n- crate-jmap-base-client\n- crate-jmap-mail-client, jmap-chat-client, jmap-contacts-client, jmap-calendars-client, jmap-tasks-client, jmap-filenode-client, jmap-sharing-client (7 client crates)\n\nSuggested values per role:\n- foundation/types: categories=[\"encoding\",\"network-programming\"], keywords=[\"jmap\",\"rfc8620\",\"types\"]\n- *-server: categories=[\"network-programming\",\"web-programming\"], keywords=[\"jmap\",\"<rfc>\",\"server\",\"<topic>\"]\n- *-client: categories=[\"network-programming\",\"asynchronous\",\"api-bindings\"], keywords=[\"jmap\",\"<rfc>\",\"client\",\"<topic>\"]\n\ncrates.io has a max of 5 keywords and 5 categories. Pick from the published list at https://crates.io/category_slugs.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: 18 of 25 crates missing categories and keywords",
+  "updated_at": "2026-05-07T21:36:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:17:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "a7f63bc9-7568-5397-9578-8723609e2de0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

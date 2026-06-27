@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-8kf.10",
+  "title": "Two parallel StateChange types: ws::StateChange and SseEvent::StateChange",
+  "description": "ws::StateChange is a named struct (pub in lib.rs). SseEvent::StateChange is a struct enum variant with identical field shape. Both are public API. Callers handling both SSE and WebSocket push must write duplicate match arms with identical logic. Contributors will file PRs to unify them; those PRs are risky (any unification is a breaking API change). The right fix is to define StateChange once in jmap-types or at the top of jmap-client and reference it from both ws and sse paths \u2014 but that change becomes harder after callers have imported ws::StateChange directly.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:21:48Z",
+  "updated_at": "2026-04-30T00:27:51Z",
+  "closed_at": "2026-04-30T00:27:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-8kf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:21:47"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T14:45:34Z",
+  "id": "019e3666-491d-79d4-9302-64a17dd5db8d",
+  "issue_id": "JMAP-sgrr.27",
+  "text": "Recommendation ratified after no human pushback in ~58 hours (committed 2026-05-15T04:00Z, ratified 2026-05-17T13Z): option (c) \u2014 status quo + workspace AGENTS.md paragraph. Close this with reason citing the workspace kit posture (deserialize-from-JSON is the spec-aligned construction path), and add a paragraph to workspace AGENTS.md ('Public-API construction: prefer deserialize-from-JSON over struct-literal or constructor on public wire-format types; constructor methods are a deliberate omission'). De-labeling for the autonomous frontier."
+}

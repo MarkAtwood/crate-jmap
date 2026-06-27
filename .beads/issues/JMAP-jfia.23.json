@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "72b734fa176657ae6bba6ab774011d893f4739ddef326389aa7582b1901de4f4",
+  "created_at": "2026-05-14T16:46:28Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/helpers.rs:159-198 \u2014 now_utc_string returns a\njmap_types::UTCDate whose underlying string is the 24-character\n\"YYYY-MM-DDTHH:MM:SS.mmmZ\" form (with millisecond fraction).\n\njmap-types/src/id.rs:404-407 shows UTCDate::new_validated rejects this\nform:\n\n    fn utcdate_new_validated_wrong_length_fails() {\n        assert!(UTCDate::new_validated(\"2014-10-30\").is_err());\n        // \u2193 This is the same shape now_utc_string emits today:\n        assert!(UTCDate::new_validated(\"2014-10-30T06:12:00.000Z\").is_err());\n    }\n\nThe function doc (helpers.rs:131-137) acknowledges this:\n\n> The string the UTCDate wraps does not pass UTCDate::new_validated\n> because that validator requires exactly the 20-char\n> YYYY-MM-DDTHH:MM:SSZ form (no millis) and this helper emits the\n> 24-char form with millis. The workspace convention is to use the\n> 24-char form on the wire \u2014 consumers wanting strict validation\n> should construct their own UTCDate::new_validated value from a\n> chrono-formatted source.\n\nWhat callers cannot depend on:\n\n1. That UTCDate values produced by jmap-server pass UTCDate's own\n   validator. The newtype's name and dedicated `new_validated`\n   constructor strongly imply \"this type's instances are validated\";\n   today they are not.\n\n2. That a future contributor who tightens UTCDate to enforce its\n   invariant won't break every now_utc_string call site. Right\n   now, the only thing preventing a UTCDate(String) from being\n   malformed is the absence of validation on the unsafe-ish\n   `UTCDate::from(impl Into<String>)` constructor.\n\n3. That RFC 8620 \u00a71.4 conformance is what UTCDate guarantees.\n   RFC 8620 \u00a71.4 explicitly permits both the 20-char and the\n   millisecond-fraction form; UTCDate::new_validated is stricter\n   than the RFC. This is a jmap-types problem, but it surfaces\n   through now_utc_string here.\n\nWhat goes wrong when this stays as-is:\n\n- A consumer writes a contract test asserting `for every UTCDate\n  the kit emits, UTCDate::new_validated(d.as_ref()).is_ok()` and\n  it fails. They file a bug against jmap-server.\n- A future hardening pass on jmap-types tightens the `From<&str>`\n  impl to validate; every now_utc_string call site newly produces\n  invalid values and the wire format breaks.\n- Type-level guarantees are weaker than they appear \u2014 the\n  `new_validated` naming convention is broken in spirit.\n\nResolution paths (one is sufficient):\n\n- Update UTCDate::new_validated in jmap-types to accept both the\n  20-char and 24-char forms per RFC 8620 \u00a71.4. This is the\n  spec-faithful fix; now_utc_string then produces validated values.\n  Workspace-impact: medium \u2014 touches jmap-types and adds two test\n  cases.\n\n- Rename now_utc_string to make the contract clear:\n  `now_utc_date_with_millis() -> UTCDate` \u2014 but the name still\n  invokes UTCDate, so this only partially helps.\n\n- Add a `UTCDate::from_str_lax(&str)` constructor that explicitly\n  accepts both forms, and have now_utc_string use it. Tightens the\n  type's API surface.\n\n- Document the discrepancy on UTCDate's own type doc, not just on\n  now_utc_string's function doc, so consumers reading UTCDate's\n  docs know the invariant is not enforced.\n\nThe current state is a docs-only contract crack between two\nadjacent crates. Closing it makes the type story honest.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "now_utc_string returns UTCDate but value fails UTCDate::new_validated \u2014 newtype invariant silently broken",
+  "updated_at": "2026-05-14T17:29:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:46:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "50d290b9-f0c9-5c81-adf7-e0b05864f4a9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

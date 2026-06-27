@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Removed ChatCreateInput::Channel variant and its match arm in chat_create. Spec verified independently:\n- draft-atwood-jmap-chat-00 \u00a7Chat line 436: Channel Chats are created via addChannels in Space/set\n- \u00a7Chat/set lines 905-924: only direct + group kinds are documented as user-creatable\n- \u00a7Space/set line 1161: server creates kind:\"channel\" Chat itself when processing addChannels\n\nDoc comments on the enum and chat_create rewritten to redirect callers to SessionClient::space_update + SpacePatch::add_channels (already supported). Intra-doc-links use super::SessionClient / super::SpacePatch paths so rustdoc resolves them.\n\nPublic API break is acceptable: pre-1.0 + non-existent compliant server target for the removed variant. No tests, docs, examples, README, or PLAN.md referenced the variant \u2014 workspace grep clean.\n\nVerified:\n- cargo build -p jmap-chat-client clean\n- cargo test --workspace (all green)\n- cargo clippy --workspace -- -D warnings clean\n- cargo fmt --all -- --check clean\n- RUSTDOCFLAGS='-D warnings' cargo doc -p jmap-chat-client --no-deps clean\n\nCommitted as a4278ca.",
+  "closed_at": "2026-05-15T21:09:56Z",
+  "compaction_level": 0,
+  "content_hash": "aa27aea511ddf01a48b771332a509ce695dcdaed61b710ed3ad8736e783127a7",
+  "created_at": "2026-05-15T20:27:36Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/chat.rs:227-249 (and mod.rs:828-837 for the variant decl): `ChatCreateInput::Channel` builds a `Chat/set` create with `kind: \"channel\"`. Per draft-atwood-jmap-chat-00 \u00a7Chat (line 436): 'Channel Chats are created as part of a Space via the addChannels patch key in Space/set. Their chatId is assigned by the server at that time.' Spec line 1161 confirms the server creates the kind:\"channel\" Chat record itself when addChannels is processed. Spec line 901-924 (Chat/set) only describes direct and group as user-creatable kinds. A spec-compliant server WILL reject this request (likely invalidProperties). Fix: remove the Channel variant from ChatCreateInput and the corresponding match arm; channel creation belongs in space_update via SpacePatch.add_channels (which the client already supports per commit 4915cdf). This is a public-API breaking change, but the variant produces wire requests no compliant server can accept.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChatCreateInput::Channel emits Chat/set request the spec forbids",
+  "updated_at": "2026-05-15T21:09:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:27:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "c649315a-61df-5be3-a9ec-48441107ef6c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

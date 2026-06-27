@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T23:50:57Z",
+  "compaction_level": 0,
+  "content_hash": "f656048d3db2a669659de63f9f875522715570560c016e79602888a56358eff0",
+  "created_at": "2026-05-17T23:33:17Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence**: every extension-server sibling carries an AGENTS.md with the canonical-template banner. Almost no extension-types or extension-client sibling does.\n\n**Missing per-crate AGENTS.md** (extension siblings only, ignoring testjig which is publish=false):\n- chat-client\n- calendars-client, calendars-types\n- tasks-client, tasks-types\n- contacts-client, contacts-types\n- filenode-client, filenode-types\n- sharing-client, sharing-types\n- metadata-client, metadata-types\n\n**Have one** (canonical and the only-sibling-with-banner):\n- All 8 extension-server crates (mail-server canonical + 7 siblings with 'Sibling of the canonical jmap-mail-server' banner block at lines 3-21)\n- mail-types and mail-client (canonical extension-types and extension-client templates)\n- chat-types (sibling; acknowledges canonical at lines 12-16; also self-canonical for the JMAP Chat draft)\n\n**Caller-observable / maintainer effect**: the workspace AGENTS.md 'Canonical Templates' rule says 'when you change a non-canonical sibling and the change diverges from the canonical template, the rule is: change the canonical first, then propagate' and 'Each canonical crate's AGENTS.md carries a short canonical-template banner reminding contributors of the propagation rule'. A contributor (or agent) opening calendars-types or filenode-client without a per-crate AGENTS.md has no in-tree reminder that the crate is bound to a canonical template. The propagation rule is meaningless against a sibling that has no AGENTS.md to carry the 'mirror this one' acknowledgement.\n\n**Asymmetry is striking**: extension-server crates (which already have heavyweight backend traits and the most complex public surface) are uniformly well-templated. Extension-types and extension-client crates (which have simpler surfaces but where the workspace's cookie-cutter consistency matters MORE because there are more analogous types to keep aligned) are uniformly under-templated. The opposite of the priority that the propagation rule suggests.\n\n**Fix**: cookie-cut a per-crate AGENTS.md into each of the 13 missing siblings, modeled on the 7 server-sibling banners. The clean reference is crate-jmap-tasks-server/AGENTS.md:3-21. The acknowledgement template is roughly:\n\n  ## \ud83e\uddec Sibling of the canonical {jmap-mail-types | jmap-mail-client}\n  \n  Every change that touches this crate's public-API shape, test layout, or convention\n  must either come FROM a corresponding change to the canonical, or come WITH a\n  follow-up sweep bead to propagate to the canonical and the other 6 siblings.\n  Differences from the canonical are differences mandated by the relevant RFC,\n  draft, or this crate's role in the dep graph \u2014 nothing else.\n\n**Recommended priority**: P2. Not blocking any specific bug but progressively undermines the rule's enforceability with every new sibling change.\n\n**Cross-references**: JMAP-76wm (README convention sweep \u2014 similar workspace-wide consistency epic; was the prior pass that converged all 32 crates onto the six-section README shape).",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Workspace: 15 of 32 crates lack a per-crate AGENTS.md \u2014 propagation rule cannot apply against missing files (extension-types and extension-client siblings)",
+  "updated_at": "2026-05-17T23:50:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T16:33:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "4d7d2b92-4fd6-5d65-b94e-60f35efd127b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

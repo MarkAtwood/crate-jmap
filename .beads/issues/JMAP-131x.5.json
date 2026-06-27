@@ -1,0 +1,67 @@
+{
+  "acceptance_criteria": "Quality gates pass. No dead code. Epic closed.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Quality gates pass: 27 tests, clippy clean, no TODO/FIXME. All 4 gaps (isDraft, utcStart, per-user routing, integration tests) closed.",
+  "closed_at": "2026-05-05T04:22:31Z",
+  "compaction_level": 0,
+  "content_hash": "900f965a818e8ea8cb6d606704889b2359f5f3b8fe107c3fe16b33a3c0ae6326",
+  "created_at": "2026-05-05T03:02:03Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Final quality gate for jmap-tasks-server.\n\n**Algorithm:**\n1. cargo test -p jmap-tasks-server: all pass. No dead code.\n2. cargo clippy -p jmap-tasks-server -- -D warnings: zero warnings.\n3. No TODO or FIXME in crate-jmap-tasks-server/src/.\n4. Close epic JMAP-131x.\n\n**Acceptance criteria:** All commands exit 0. No dead code.",
+  "ephemeral": 0,
+  "id": "JMAP-131x.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Done signal: tasks-server all gaps closed",
+  "updated_at": "2026-05-05T04:22:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:02:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-131x",
+      "id": "20450bbc-d009-5836-8b5a-4f3e413438d2",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T20:02:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-131x.2",
+      "id": "639d7824-63ec-561d-9ff3-399d5d3fb090",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:02:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-131x.1",
+      "id": "80e097b0-629c-5ad3-ba9a-dd6e466b896d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:02:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-131x.3",
+      "id": "aead7310-f363-56c7-80f0-810e8de5fd3a",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:02:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-131x.4",
+      "id": "b98fee4b-5cc9-5a1a-8a17-26ded49e568f",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "acceptance_criteria": "All quality gates pass. 20 methods registered. Epic closed.",
+  "assignee": "Mark Atwood",
+  "close_reason": "All handlers complete (get/set/copy/changes/query/queryChanges/parse/getAvailability); per-user routing; compute_utc_times; docs; 37 tests; clippy clean",
+  "closed_at": "2026-05-05T15:47:36Z",
+  "compaction_level": 0,
+  "content_hash": "06eab0a3cfc31a3d045630b715173dd8458bcf4432ef2dcbfe1e91ddcef1b03e",
+  "created_at": "2026-05-05T03:02:12Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Final quality gate for jmap-calendars-server.\n\n**Algorithm:**\n1. register_calendars_handlers comment updated from 18 to 20 methods.\n2. cargo test --workspace: all pass.\n3. cargo clippy --workspace -- -D warnings: zero warnings.\n4. cargo fmt --all: no diff.\n5. Close epic JMAP-qksw.\n\n**Acceptance criteria:** All commands exit 0. Comment reflects 20 methods.",
+  "ephemeral": 0,
+  "id": "JMAP-qksw.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Done signal: calendars-server all handlers complete",
+  "updated_at": "2026-05-05T15:47:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:02:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw.7",
+      "id": "02632aa1-3490-5c40-92f7-9567fb5c98df",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:02:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw.5",
+      "id": "44cb881e-3875-5806-86e4-e8d04fc5c870",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:02:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw",
+      "id": "49c84f59-330e-5bba-bf6a-05623f43af12",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T20:02:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw.1",
+      "id": "5a283739-27b8-5100-adc4-dc6d6d01004f",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:02:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw.6",
+      "id": "5bd13625-53ca-5360-9531-62e96b83ee0a",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:02:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw.2",
+      "id": "b40dd0d0-6608-5e22-91dc-a1117c1f04fd",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:02:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw.4",
+      "id": "b848e5be-2a09-50b9-a491-7a80b6c1f9c7",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:02:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw.3",
+      "id": "d229f57e-2188-5cab-bb3c-defdf5a406d7",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

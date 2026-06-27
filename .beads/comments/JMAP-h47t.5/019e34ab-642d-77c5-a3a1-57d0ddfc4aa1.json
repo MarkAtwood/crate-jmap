@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T06:41:48Z",
+  "id": "019e34ab-642d-77c5-a3a1-57d0ddfc4aa1",
+  "issue_id": "JMAP-h47t.5",
+  "text": "Ratifying committed recommendation after 72h+ with no human reply. Per workspace AGENTS.md 'Stale committed recommendation' anti-pattern: rec is option (a) rustdoc for query_changes + option (b) fail-loud for query_objects with narrow carve-out preserving the existing inTaskList filter path. Removing 'human' label so the autonomous frontier can claim it."
+}

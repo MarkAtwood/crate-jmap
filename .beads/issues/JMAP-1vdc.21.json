@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: successful destroys removed from snapshot so subsequent has_child checks see updated state",
+  "closed_at": "2026-05-02T19:42:54Z",
+  "compaction_level": 0,
+  "content_hash": "76ea6e645acdc9bcb71ed04aeada18db2a9a38dc7cef2d3a55dd011315b4eb90",
+  "created_at": "2026-05-02T19:34:36Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_mailbox_set (mailbox.rs lines 795-798), a single 'mailboxes_after_mutations' snapshot is taken ONCE before the entire destroy loop. When a destroy request contains multiple IDs (e.g. [child, parent]), the child is successfully destroyed but the parent's has_child check still uses the same snapshot, which still shows the (now-destroyed) child. The parent destruction is blocked with MailboxHasChild even though the child no longer exists. RFC 8620 \u00a75.3 requires each destroy to apply sequentially and see prior effects. The fix is to either refresh the snapshot after each successful destroy or explicitly track which IDs were successfully destroyed in this batch before the has_child check.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/set destroy uses stale post-mutation snapshot across multiple destroys",
+  "updated_at": "2026-05-02T19:42:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "36b67559-5dba-57bf-9f8a-daee0a5bd4a1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

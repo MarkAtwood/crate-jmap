@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed: removed the bare {} scope \u2014 it was a no-op since the inner if block already scopes the variables. Code is now flat and readable.",
+  "closed_at": "2026-05-04T16:02:06Z",
+  "compaction_level": 0,
+  "content_hash": "89670305752f123829e254dfe2194c291f03f9573339622de360f133432034af",
+  "created_at": "2026-05-02T00:43:30Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs lines 353-398: the pre-fetch block for submission_email_id_map is wrapped in a bare { } scope with a comment explaining what the block does but not why it is a block at all. The scope exists to limit the borrow lifetime of args so the borrow checker does not flag later uses of args after the block. Without this explanation a contributor will either delete the scope (breaking compilation) or be confused by the unusual style. Add a one-line comment: '// Scoped to drop the borrow of args before args is used below.'",
+  "ephemeral": 0,
+  "id": "JMAP-e53.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "submission_email_id_map pre-fetch scope unexplained",
+  "updated_at": "2026-05-04T16:02:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "38b78912-7fdf-523d-8ca1-2d6c8311732d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

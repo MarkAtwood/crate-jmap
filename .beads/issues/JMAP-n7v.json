@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T23:48:48Z",
+  "compaction_level": 0,
+  "content_hash": "b9ce039cfe10caa703f4217b412586f948dbf1e8fd9ed1cd94bf68e52bfe5768",
+  "created_at": "2026-05-01T23:01:46Z",
+  "created_by": "Mark Atwood",
+  "description": "No quota/limit enforcement anywhere. Spec defines limits via capability fields: maxBodyBytes (message body size), maxAttachmentsPerMessage, maxAttachmentBytes (per attachment), maxGroupMembers, maxSpaceMembers, maxRolesPerSpace, maxChannelsPerSpace, maxCategoriesPerSpace. Handlers should check these limits and return overQuota or invalidProperties SetErrors. Also: emoji name must match /^[a-z0-9_-]+$/ (spec line ~691), mention offset+length must not exceed body byte length.",
+  "ephemeral": 0,
+  "id": "JMAP-n7v",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Enforce quota and capability limits",
+  "updated_at": "2026-05-01T23:48:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T16:10:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x09",
+      "id": "fab27ef4-9db2-5574-adbb-05f9ebb4f4c2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

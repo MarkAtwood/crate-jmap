@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T000911Z-2258131",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-13T00:50:10Z",
+  "compaction_level": 0,
+  "content_hash": "940934e795d7f1e6da7512fa0020333528f28be361950ad0c47be1f29d092f07",
+  "created_at": "2026-05-12T23:35:19Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec: draft-atwood-jmap-chat-00 commit d68b4e3 (\"close blocked-sender suppression gaps for typing/presence\").\n\nSpec text: \"The server MUST check whether the requesting account corresponds to a ChatContact whose blocked: true on the recipient's contact list; if so, MUST silently drop for that recipient. Sender not informed. Per-recipient (not per-call) check.\" Applies to:\n- Chat/typing handler (this bead)\n- Push typing event (transport-layer; out of kit scope but the predicate is the hook)\n- Push presence event (same)\n\nCurrent state: ChatContact has a `blocked: bool` field but there is no ChatBackend hook to query it on the typing fan-out path. handle_chat_typing in chat-server/src/chat.rs has no blocked-check.\n\n## Acceptance \u2014 kit side only (enforcement is impl's job)\n\n- New ChatBackend method:\n  ```rust\n  fn is_contact_blocked(\n      &self,\n      _caller: &Self::CallerCtx,\n      _account_id: &Id,\n      _contact_id: &Id,\n  ) -> impl Future<Output = Result<bool, Self::Error>> + Send {\n      // Default: not blocked. Reference MemoryBackend overrides to consult ChatContact.blocked.\n      async { Ok(false) }\n  }\n  ```\n- handle_chat_typing in chat-server/src/chat.rs consults is_contact_blocked for the requesting caller's identity vs. each direct-chat recipient (group/channel: skip blocked-check since per-recipient fan-out is out-of-kit-scope, see \"Notes\")\n- For direct chats: the recipient is derivable from Chat.contact_id; the handler calls is_contact_blocked(caller, account_id, contact_id). If true, handler returns the spec-required \"success\" response (echo accountId) WITHOUT calling whatever notification path the consumer plugged in.\n- MemoryBackend (feature = \"memory\") implements is_contact_blocked by reading ChatContact.blocked\n- Test (uses MemoryBackend): owner has ChatContact { contact_id: X, blocked: true }. owner sends Chat/typing for direct chat with X. Handler returns success but a Tracking helper observes no notification call. [This may require a new test-only TrackingBackend or use of the existing TrackingBackend if present.]\n\n## Notes\n\nThe kit does NOT implement typing fan-out. It is a handler-library; transport (SSE/WS push of typing events) lives in the consumer. So \"silently drop for that recipient\" is enforced by:\n1. Kit handler returns success\n2. Kit handler does NOT call any push-notification hook (because there isn't one in the kit)\n3. Consumer's typing-event publisher MUST consult is_contact_blocked before fanning out (consumer's responsibility, but the predicate is provided)\n\nFor group/channel chats (n recipients), per-recipient suppression is entirely the consumer's transport-layer job \u2014 the handler has no way to enumerate recipients. The kit hook supports it; the kit handler doesn't drive it.\n\nAdd a doc-comment on handle_chat_typing explaining this contract.\n\n## Out of scope\n\n- Push presence-event suppression (transport-layer; consumer integrates)\n- Federation Peer/typing suppression (Layer E federation work)",
+  "ephemeral": 0,
+  "id": "JMAP-v9py.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Layer B: ChatBackend::is_contact_blocked + Chat/typing handler integration",
+  "updated_at": "2026-05-13T00:50:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-12T16:35:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py",
+      "id": "9e1be8c8-4eb7-5444-a349-867222613d1c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

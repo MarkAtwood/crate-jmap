@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3e0.9",
+  "title": "ws/mod.rs send_request: String::from on literals \u2014 use into() or literal.to_owned()",
+  "description": "ws/mod.rs lines 104 and 108 (test) call .to_string() and .to_owned() on string literals interchangeably. Lines 104 and 328 in tests also call .to_string() on string literals to produce serde_json map keys. This is a minor inconsistency: .to_owned() is idiomatic for &str-to-String; .to_string() on a literal dispatches through Display. Not a bug, but a Rust practitioner reviewing the code would notice the inconsistency within the same file.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:15:17Z",
+  "updated_at": "2026-04-30T01:23:41Z",
+  "closed_at": "2026-04-30T01:23:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3e0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:15:16"
+    }
+  ]
+}

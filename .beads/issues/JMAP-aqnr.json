@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "db504c50c2e016f4cb125e5a7574c16b7b47cc99f7786b304ade63293ed79100",
+  "created_at": "2026-05-17T20:06:25Z",
+  "created_by": "Mark Atwood",
+  "description": "Surfaced during bd:JMAP-ayoz.41.7 (maxObjectsInSet wire-up in filenode-server).\n\nThe canonical extension-server template (jmap-mail-server) places a backend.account_exists(caller, &account_id) call immediately after extract_account_id in every /set handler, returning JmapError::account_not_found() if the account is unknown. The jmap-filenode-server /set handler at crate-jmap-filenode-server/src/filenode.rs:218-237 does NOT have this check \u2014 it goes straight from extract_account_id to get_state.\n\nComparison:\n\n  // jmap-mail-server/src/mailbox.rs (canonical)\n  let (account_id, mut args) = extract_account_id(args)?;\n  if !backend.account_exists(caller, &account_id).await\n      .map_err(|e| server_fail_from_backend(&e))?\n  {\n      return Err(JmapError::account_not_found());\n  }\n  enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;\n  let current_state = backend.get_state::<Mailbox>(...).await?;\n\n  // jmap-filenode-server/src/filenode.rs (divergent)\n  let (account_id, mut args) = extract_account_id(args)?;\n  enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;\n  let old_state = backend.get_state::<FileNode>(...).await?;\n\nWhat goes wrong: an unknown accountId can reach backend.get_state \u2014 depending on the backend implementation, this either returns a default/empty state (silently treating an unknown account as empty) or surfaces as some non-accountNotFound error. The canonical accountNotFound failure mode is not produced.\n\nNote: handle_filenode_copy at line 939-950 DOES have the account_exists check for both fromAccountId and accountId. The divergence is isolated to handle_filenode_set.\n\nFix: add the account_exists block matching the canonical pattern. Verify FileNode/copy's pattern can be reused.\n\nScope check:\n- handle_filenode_set: missing account_exists (this bead).\n- handle_filenode_get / handle_filenode_changes / handle_filenode_query / handle_filenode_query_changes: route through the generic jmap_server::handlers::handle_* foundation handlers, which have their own account-validation semantics. Out of scope here.\n- handle_filenode_copy: already correct.\n\nWorkspace propagation: check whether the canonical mail-server check is also missing on any other extension-server sibling's /set handler. If yes, escalate to a small canonical-consistency sweep bead.",
+  "ephemeral": 0,
+  "id": "JMAP-aqnr",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Pre-existing: jmap-filenode-server handle_filenode_set lacks account_exists pre-check (canonical-template divergence from jmap-mail-server)",
+  "updated_at": "2026-05-17T20:06:25Z"
+}

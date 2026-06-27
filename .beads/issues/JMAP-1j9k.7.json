@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "3c97803a72a434f475a2c82528649570c89dfb96d7d4074d706323943913c448",
+  "created_at": "2026-05-15T01:10:33Z",
+  "created_by": "Mark Atwood",
+  "description": "## Contract risk\n\ncalendars-client `calendar_set`, `calendar_event_set`, and `participant_identity_set` take:\n\n- `create: Option<HashMap<String, FooType>>`  (typed)\n- `destroy: Option<&[Id]>`                    (borrowed slice)\n\nCanonical mail-client (workspace AGENTS.md + crate-jmap-mail-client/AGENTS.md\nboth name jmap-mail-client as the canonical extension-client template) uses:\n\n- `create: Option<serde_json::Value>`  (untyped)         crate-jmap-mail-client/src/methods/email.rs:106\n- `destroy: Option<Vec<Id>>`           (owned)          crate-jmap-mail-client/src/methods/email.rs:108\n\nSame shapes recur in `mailbox_set` and `identity_set`.\n\n## Why this matters for a caller\n\nA caller wiring up jmap-mail-client and jmap-calendars-client in the same app\nsees two different Rust patterns for the same underlying JMAP concept:\n\n```rust\nsc_mail.email_set(Some(json!({...})), None, Some(vec![id]), None).await?;\nsc_cal.calendar_set(Some(hashmap), None, Some(&[id][..]), None).await?;\n```\n\nThe typed-HashMap create map also locks in the wire-shape defect already filed\nas JMAP-1j9k.1 (every `Calendar` value carries a required `id` field that gets\nserialized into the create-map value, violating RFC 8620 \u00a75.3). The canonical\nuntyped `serde_json::Value` create lets the caller construct create-map values\nthat omit `id` properly.\n\nThe borrowed `&[Id]` destroy forces the caller to keep the `Vec<Id>` alive\nacross the `.await` point. The canonical `Vec<Id>` takes ownership. For\ncomposed async code this matters in practice.\n\n## What goes wrong if this stays\n\nOnce shipped at 0.x.y, the divergence is locked in: changing `create` from\n`Option<HashMap<String, Calendar>>` to `Option<serde_json::Value>` and\n`destroy` from `Option<&[Id]>` to `Option<Vec<Id>>` are both breaking changes\nrequiring a major version bump and migration on every caller.\n\nPer the workspace canonical-template propagation rule, the divergence is\nitself the regression \u2014 either jmap-mail-client should change to match the\ncalendars typed-map shape (with all six other extension-client siblings\nsweeping in the same pass), or calendars-client should change to match the\ncanonical. The current state is a divergent sibling without a matching change\nto the canonical, which the workspace AGENTS.md explicitly calls out as\n\"a regression of the cookie-cutter intent\".\n\n## Fix shape\n\nOption A (preferred per canonical-template rule): change calendars-client to\nmatch the canonical untyped shapes.\n\nOption B: change jmap-mail-client first and propagate to all siblings.\n\nEither way, no API contract decision should ship in 0.x.y until the\nworkspace-level decision is recorded somewhere (PLAN.md or a workspace-design\nbead) so all siblings stay aligned.\n\n## Source citations\n\n- crate-jmap-calendars-client/src/methods/calendar.rs:89-94\n- crate-jmap-calendars-client/src/methods/event.rs:98-103\n- crate-jmap-calendars-client/src/methods/participant_identity.rs:72-77\n- crate-jmap-mail-client/src/methods/email.rs:104-109\n- crate-jmap-mail-client/src/methods/mailbox.rs:82-87\n- crate-jmap-mail-client/src/methods/identity.rs:77-81",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "calendars-client *_set create/destroy parameter shapes diverge from canonical mail-client without documented rationale",
+  "updated_at": "2026-05-15T01:10:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:10:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "0888c9e6-3e8c-5c1a-bc19-a7393db18df6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

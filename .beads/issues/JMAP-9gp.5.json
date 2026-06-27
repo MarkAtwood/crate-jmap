@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-9gp.5",
+  "title": "Mailbox/set: create+destroy in same request can destroy newly-parented mailbox",
+  "description": "mailbox.rs handle_mailbox_set fetches all_mailboxes once BEFORE the create loop. The destroy loop uses this stale snapshot for child-mailbox checks. If a single request creates a child mailbox AND destroys its parent, the destroy child-check will not see the new child (it wasn't in the pre-create snapshot) and the parent will be destroyed. Fix: re-fetch mailboxes (or build an updated list from the create results) before the destroy loop's child check.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:44:48Z",
+  "updated_at": "2026-05-01T01:51:13Z",
+  "closed_at": "2026-05-01T01:51:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9gp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:44:47"
+    }
+  ]
+}

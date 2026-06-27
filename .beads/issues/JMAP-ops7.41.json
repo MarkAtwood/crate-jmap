@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "47344a2369b487b5ef566bada521bf019b0e30cc6b7a74fcab7fe35f2c93dbbf",
+  "created_at": "2026-05-18T05:30:11Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence** \u2014 spec-reference path style in AGENTS.md \"Source Material\" / \"Specs\" sections:\n- crate-jmap-mail-server/AGENTS.md L50-L51 \u2014 both files in `~/PROJECT/jmap-chat-spec/references/`\n- crate-jmap-chat-server/AGENTS.md L52-L57 \u2014 5 `draft-atwood-jmap-chat-*` paths NOT in references/ (`~/PROJECT/jmap-chat-spec/draft-atwood-jmap-chat-00.md`), 1 `references/rfc8620.txt`\n- crate-jmap-chat-types/AGENTS.md L65-L70 \u2014 same non-references/ paths for the 5 draft-atwood files\n\n**Background**: the chat draft sources live in the top level of `~/PROJECT/jmap-chat-spec/`, not in `references/`. This is intentional (Mark authors the chat draft; `references/` holds upstream specs). The drift is correct \u2014 but it's undocumented.\n\n**Maintainer cost**: a contributor without context might \"fix\" the chat-server path by moving the draft-atwood files into `references/` to \"match the others\", or by editing the AGENTS.md paths to match the canonical `references/` form.\n\n**Fix**: add a one-sentence note to chat-server and chat-types AGENTS.md explaining: \"draft-atwood-* paths intentionally live in the top level of jmap-chat-spec/ rather than references/, because this workspace authors that draft. references/ contains only upstream specs.\" Pure doc sweep.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.41",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "chat-server and chat-types AGENTS.md cite spec paths outside references/ subdirectory; mail-server uses references/ \u2014 undocumented intentional path drift",
+  "updated_at": "2026-05-18T05:30:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:30:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "cfbf73cc-19f3-545b-8408-41c3a502137f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

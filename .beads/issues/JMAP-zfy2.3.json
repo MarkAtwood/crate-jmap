@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "fetchParents expansion implemented. No duplicate ancestors. Tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Implemented fetchParents ancestor expansion in handle_filenode_get; calls get_ancestors, deduplicates; +2 tests; 19 total pass; clippy clean",
+  "closed_at": "2026-05-05T04:18:58Z",
+  "compaction_level": 0,
+  "content_hash": "f917088885d84288d2e51c6ada50b6e8005633540fffd363a81028d68477478c",
+  "created_at": "2026-05-05T02:57:18Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Replace the one-liner handle_filenode_get with a real implementation that handles fetchParents. Oracle: \u00a73.2.1.\n\n**Algorithm:**\n1. Extract fetch_parents: bool from args (default false).\n2. Call generic handle_get as before \u2192 (mut resp, sub_calls).\n3. If fetch_parents:\n   a. Parse the list array from resp to extract returned node ids.\n   b. Call backend.get_ancestors(&account_id, &collected_ids).\n   c. Filter out ancestors already in the list (dedup).\n   d. Serialize remaining ancestors and append to resp list array.\n4. Return modified (resp, sub_calls).\n5. Update MockBackend: add set_ancestor(node_id, ancestor_node) helper.\n\n**Tests:**\n- fetchParents=false \u2192 response identical to before (regression).\n- fetchParents=true with top-level node \u2192 list unchanged (no parent).\n- fetchParents=true with one parent \u2192 parent appended exactly once.\n- fetchParents=true with two nodes sharing same parent \u2192 parent appears exactly once (no dup). Oracle: \u00a73.2.1 ancestor nodes not duplicated.\n\n**Acceptance criteria:** All 4 tests pass. cargo test -p jmap-filenode-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-zfy2.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement fetchParents ancestor expansion in FileNode/get",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:57:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zfy2",
+      "id": "34659cda-1fe0-5d26-bfd2-0d5481163769",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:58:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zfy2.1",
+      "id": "f6128d81-655a-5fb1-ac6c-dcca8969886a",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

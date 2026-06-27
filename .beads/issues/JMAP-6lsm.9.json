@@ -1,0 +1,33 @@
+{
+  "close_reason": "connect_ws_with_limit and url_scheme both rewritten to use split_once + eq_ignore_ascii_case instead of to_ascii_lowercase. Zero-alloc scheme checks. Behaviour preserved (case-insensitive scheme matching per RFC 3986 \u00a73.1). Also cleaned up a stray duplicate docstring from the JMAP-6lsm.23 rename.",
+  "closed_at": "2026-05-09T07:27:24Z",
+  "compaction_level": 0,
+  "content_hash": "9459553b5e81271775fdb1e38453e92eccb01aad41cfbe143f11f8cb8ba6b514",
+  "created_at": "2026-05-08T03:05:11Z",
+  "created_by": "Mark Atwood",
+  "description": "src/ws/mod.rs:207 \u2014 `let ws_url_lc = ws_url.to_ascii_lowercase();` allocates a new String the size of the full URL just to run two `.starts_with(\"ws://\")` / `\"wss://\"` checks against the prefix. Allocation grows with URL length and runs on every connect. Idiomatic alternative: `ws_url.split_once(\"://\").is_some_and(|(s, _)| s.eq_ignore_ascii_case(\"ws\") || s.eq_ignore_ascii_case(\"wss\"))` \u2014 zero allocation, more direct, restricts the case-insensitivity to the scheme component (RFC 3986 \u00a73.1 only says schemes are case-insensitive; path/query are not). Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "connect_ws lowercases entire URL just to check the scheme",
+  "updated_at": "2026-05-09T07:27:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:05:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "b00c3cec-7cb7-582b-936c-72f0d6fa262b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

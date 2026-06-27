@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-636",
+  "title": "Review: jmap-client crate \u2014 base client RFC 8620",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:53:52Z",
+  "updated_at": "2026-04-30T16:02:39Z",
+  "closed_at": "2026-04-30T16:02:39Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 two API footguns (non_exhaustive missing, download_blob positional params) and one inconsistent configuration surface (SSE limit hardcoded). No security or correctness bugs found.\nConfidence: 5% chance of missed bug. Least confident flags: none \u2014 the P0 section is clean. Uncertainty driven by: not running the code, not seeing the extension crates that call pub(crate) fields. Would raise confidence if: integration test against a real JMAP server, or reviewing jmap-mail-client/jmap-chat-client to confirm pub(crate) field usage pattern.\nIdiom rating: ACCEPTABLE \u2014 no unsafe, no unwrap in non-test code, ownership model is sound. Two real idiom issues: missing non_exhaustive on ClientError (breaking-change risk), and gratuitous args.clone() in extract_response (avoidable with &Value Deserializer). Both are fixable without API breakage.\nRust idiom confidence: 10% chance of missed issue. Least confident flags: JMAP-636.10 (args.clone) \u2014 need to verify &Value Deserializer impl is in the serde_json version pinned in Cargo.toml. Uncertainty driven by: not verifying serde_json &Value Deserializer at the pinned version."
+}

@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "0d1fa450078c873417927271e24fead36c8023200b9d3a8152f11532c552381a",
+  "created_at": "2026-05-14T14:27:38Z",
+  "created_by": "Mark Atwood",
+  "description": "backend.rs:64-70 \u2014 create_object's rustdoc states:\n\n  '# Invariant\n  The returned O MUST have its id field set to the server-assigned Id returned as the first element of the tuple. The handler relies on this to populate the created response map per RFC 8620 \u00a75.3.'\n\nThe handler at metadata.rs:324-330 then does:\n\n    Ok((_new_id, created_obj)) => {\n        mutated = true;\n        created.insert(\n            create_id,\n            serde_json::to_value(&created_obj)\n                .expect('derive(Serialize) on plain data is infallible'),\n        );\n    }\n\nThe handler discards _new_id (the first tuple element) and serializes only created_obj. A buggy backend that returns (assigned_id, an_object_with_id_field_None_or_wrong) produces a created map entry whose 'id' is null or wrong, and the wire response silently misleads the client (RFC 8620 \u00a75.3 requires the response to include the server-assigned id in created[create_id].id).\n\nTwo failure modes left to backend authors to avoid via discipline:\n1. Backend returns Ok((id, obj)) with obj.id = None \u2014 wire response has 'id': null.\n2. Backend returns Ok((id, obj)) with obj.id = Some(different_id) \u2014 wire response has a wrong id, silently inconsistent with the state the backend stored under 'id'.\n\nRecommendation:\n- Either tighten the handler to inject _new_id into created_obj before serialization (canonical cookie-cut pattern from jmap-mail-server's analogous handler \u2014 verify the mail-server handler also has this gap or already has the injection), OR add a debug_assert!(created_obj.id() == Some(&new_id)) that catches the contract violation in dev builds, OR strengthen the trait method signature to return Result<(Id, O), _> where O is guaranteed to carry the id (e.g. return only the JSON Value with the id field already injected, like the canonical MockBackend already does at lib.rs:408-411 in this crate).\n\nWhat goes wrong if this stays:\n- Backend bugs surface as silently-wrong wire responses (`id: null`) rather than as either a Rust-side panic or a serverFail. The 'plain data Serialize is infallible' expect at metadata.rs:329 documents that the JSON construction cannot fail \u2014 but says nothing about whether the resulting JSON is correct.\n\nCaller test discipline alone cannot guard against this: the in-tree integration tests at tests/metadata_tests.rs use MemoryBackend which DOES correctly inject the id (memory.rs:632), so the contract violation is invisible to anyone copying the test layout.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "API: MetadataBackend::create_object id-must-be-set invariant is documented but unenforced",
+  "updated_at": "2026-05-17T09:03:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:27:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "a8f3f964-a16d-5cb7-9f32-68cc0f06d866",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

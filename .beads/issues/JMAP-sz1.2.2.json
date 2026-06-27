@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T01:06:11Z",
+  "compaction_level": 0,
+  "content_hash": "1c667f087cf3666c8f7131fb0f54cfeb65712ecc7d3ad2f7685a44e4a03cd305",
+  "created_at": "2026-05-02T01:05:10Z",
+  "created_by": "Mark Atwood",
+  "description": "The mailbox.rs non-string destroy validation (lines 711-715) has no dedicated test. Email/set and EmailSubmission/set both have tests (email_set_destroy_non_string_returns_invalid_arguments, submission_set_destroy_non_string_returns_invalid_arguments). Mailbox/set is missing the corresponding mailbox_set_destroy_non_string_returns_invalid_arguments test. The code fix is correct and present; only the test is absent. All other round-2 fixes verified correct.",
+  "ephemeral": 0,
+  "id": "JMAP-sz1.2.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Round 3 CLEAN \u2014 missing mailbox non-string destroy test",
+  "updated_at": "2026-05-02T01:06:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T18:05:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sz1.2",
+      "id": "b0a7fc10-90d5-548b-8028-1d02767fd30d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

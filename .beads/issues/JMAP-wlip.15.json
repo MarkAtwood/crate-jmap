@@ -1,0 +1,33 @@
+{
+  "close_reason": "No-op resolution: defense of the existing parse_request contract \u2014 the function operates on pre-parsed serde_json::Value so it physically cannot enforce byte-size caps. The transport-less posture is intentional and consistent with workspace PLAN.md. The new doc block on parse_request already enumerates the three caps the HTTP integration MUST apply. Closing as a no-op; the defended shape stays.",
+  "closed_at": "2026-05-14T13:54:28Z",
+  "compaction_level": 0,
+  "content_hash": "59b1194162426261d3563dbae4fbcbdacaf5b528b127cb16d3699adac61d8eef",
+  "created_at": "2026-05-14T12:55:27Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this choice is correct: parse_request operates on a pre-parsed serde_json::Value, so it cannot enforce byte-size or JSON-nesting-depth caps. Rather than silently inheriting unbounded input, the new doc block (parse.rs:28-55 from commit 3aad685) explicitly enumerates the three caps the HTTP integration MUST apply: body size, JSON nesting depth, and per-pointer recursion (which IS enforced internally, lines 197-208).\n\nWhat a future contributor might incorrectly suggest changing: 1) Add a byte-size cap parameter to parse_request \u2014 but the function takes Value, not bytes, so it physically cannot enforce byte size after the JSON parse has already allocated. The right place is the HTTP layer (axum / hyper / warp), and the doc names each idiomatic mechanism for the three popular options. 2) Refactor parse_request to take raw bytes and own the JSON parse \u2014 but that couples the JMAP-protocol layer to serde_json::from_slice, defeats users who want to feed pre-parsed Values (e.g. WebSocket frame consumers), and duplicates the body-size enforcement that the HTTP framework already has.\n\nThe contract-as-doc shape is the right kit-vs-product line. The kit defines the JMAP protocol surface; the product (kith, stoa, jmap-testjig, or third-party consumer) brings the HTTP framework and the body-size config. The PLAN.md and workspace AGENTS.md repeatedly state this transport-less posture. parse_request explicitly defending the line with three named limits is defensive engineering, not laziness.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "parse_request DoS-limit contract documented as caller-responsibility rather than enforced",
+  "updated_at": "2026-05-14T13:54:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:55:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "9d5cd2b2-241a-5203-9e60-5b13ca3086bb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

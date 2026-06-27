@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "0b6e370105cf8007c99e6e1382f098f7b4b88ea6f1cee41dbbe4810c36614865",
+  "created_at": "2026-05-17T12:20:00Z",
+  "created_by": "Mark Atwood",
+  "description": "Discovered while resolving JMAP-1j9k.20 (calendars-client got the cleanup, 4 sites). The same hand-rolled iter chain exists across at least 24 sites in 7 other extension-client crates including the canonical jmap-mail-client:\n\n- jmap-mail-client (CANONICAL): email.rs:46, thread.rs:34, mailbox.rs:39, identity.rs:36, submission.rs:47\n- jmap-chat-client: chat.rs:41, custom_emoji.rs:32, message.rs:46, misc.rs:227, misc.rs:302, space.rs:40, space.rs:450, space_invite.rs:28, space_ban.rs:28, contact.rs:30\n- jmap-tasks-client: task.rs:28, task_list.rs:40, task_notification.rs:30\n- jmap-contacts-client: card.rs:36, addressbook.rs:40\n- jmap-filenode-client: filenode.rs:105\n- jmap-sharing-client: principal.rs:40, notification.rs:39\n- jmap-metadata-client: metadata.rs:70\n\nThe pattern:\n\n  args[\"properties\"] = serde_json::Value::Array(\n      props.iter().copied().map(serde_json::Value::from).collect(),\n  );\n\nThe idiomatic two-line replacement:\n\n  args[\"properties\"] = serde_json::to_value(props).expect(\"&[&str] Serialize is infallible\");\n\nWire output is byte-identical (serde_json::to_value on &[&str] uses the str Serialize impl). The replacement is mechanical.\n\nPer workspace AGENTS.md 'Canonical Templates' propagation rule, fix the canonical (jmap-mail-client) first, then propagate to the 6 sibling extension-client crates in the same pass. calendars-client was fixed in JMAP-1j9k.20; this epic catches up everything else.\n\nChildren:\n.1 jmap-mail-client (canonical, 5 sites)\n.2 jmap-chat-client (10 sites)\n.3 jmap-tasks-client (3 sites)\n.4 jmap-contacts-client (2 sites)\n.5 jmap-filenode-client (1 site)\n.6 jmap-sharing-client (2 sites)\n.7 jmap-metadata-client (1 site)\n\nAcceptance per child:\n- All hand-rolled iter chains replaced with serde_json::to_value() one-liner\n- cargo test -p <crate> green\n- cargo clippy -p <crate> --all-targets -- -D warnings green\n\nWorkspace level after all 7 land:\n- rg 'iter\\(\\)\\.copied\\(\\)\\.map\\(serde_json::Value::from\\)\\.collect\\(\\)' returns no matches\n- cargo test --workspace green\n- cargo clippy --workspace --all-targets -- -D warnings green",
+  "ephemeral": 0,
+  "id": "JMAP-fkve",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace sweep: replace hand-rolled props.iter().copied().map(Value::from).collect() with serde_json::to_value(props) across extension-client crates",
+  "updated_at": "2026-05-17T12:20:00Z"
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "5ea7516473e24dbb1900be9c36b0534f76b19d1b9b8a54e6de8b5dffa4735d9b",
+  "created_at": "2026-05-18T05:29:09Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence** \u2014 crate-level rustdoc \"Design:\" section naming pattern:\n- jscalendar (src/lib.rs:18, 30): one section `## Design: newtype wrappers for scalar temporal values`, then one section `## Spec-driven divergences (deliberate, do not \"fix\")` listing three items\n- jscontact (src/lib.rs:16, 60, 96, 114, 127): five separate sections each titled `## Design: X` \u2014 `## Design: optional fields and Option<...>`, `## Design: cross-field invariants are not type-enforced`, `## Design: numeric-range bounds are not type-enforced`, `## Design: @type discriminator`, `## Design: Resource-derived types`\n\n**Caller-observable cost**: none directly.\n\n**Maintainer cost**: a future sibling type crate copying one or the other copies a different pattern. The aggregated `## Spec-driven divergences` style is more compact but harder to grep for individual items; the per-item `## Design: X` style is more discoverable. Neither is wrong, but the canonical-template propagation rule requires one to be picked.\n\n**Fix**: pick a workspace convention (probably the jscontact per-item style, since the workspace's `bd remember` discipline favors granular discoverable items) and propagate to jscalendar-types. Small doc rewrite; no code changes.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "jscalendar-types AGENTS.md uses one 'Spec-driven divergences' rustdoc section; jscontact-types uses five separate 'Design: X' sections \u2014 divergent doc-organization for canonical-template propagation",
+  "updated_at": "2026-05-18T05:29:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:29:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "fde05447-1a3d-5faa-b746-84e5692c6859",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

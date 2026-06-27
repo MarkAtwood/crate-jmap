@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.19",
+  "title": "blob.rs uses crate::client::JmapClient::check_auth_status instead of Self::",
+  "description": "In blob.rs lines 141 and 226, check_auth_status is called as crate::client::JmapClient::check_auth_status(status) from within an impl JmapClient block. Inside an impl block, Self:: is the idiomatic reference; it is shorter, more resilient to type renames, and clearer to readers that this is a method on the same type. Clippy::use_self catches this.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:02:21Z",
+  "updated_at": "2026-04-30T02:09:14Z",
+  "closed_at": "2026-04-30T02:09:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:02:20"
+    }
+  ]
+}

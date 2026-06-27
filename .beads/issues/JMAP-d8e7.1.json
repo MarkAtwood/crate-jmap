@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "Three account-level capability structs added. cargo test exits 0.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added TasksAlertsAccountCapability, TasksMultilingualAccountCapability, TasksCustomTimeZonesAccountCapability; all 3 exported; serialize to {}; 31 tests pass; clippy clean",
+  "closed_at": "2026-05-05T03:59:22Z",
+  "compaction_level": 0,
+  "content_hash": "9d44d12888de62df3c36185d58a1593a02effca24b0666b5b1115646acdc1c5d",
+  "created_at": "2026-05-05T02:51:41Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Add TasksAlertsAccountCapability, TasksMultilingualAccountCapability, and TasksCustomTimeZonesAccountCapability to crate-jmap-tasks-types/src/capability.rs. Per draft-ietf-jmap-tasks-06 \u00a71.6.4-1.6.6, the alerts, multilingual, and customtimezones extensions each have both a session-level and an account-level capability, both empty objects. The session-level structs exist; the account-level structs are missing.\n\n**Algorithm:**\n1. In capability.rs, after each existing session-level capability struct (TasksAlertsCapability, TasksMultilingualCapability, TasksCustomTimeZonesCapability), add a corresponding account-level struct:\n   - pub struct TasksAlertsAccountCapability {} with #[non_exhaustive], #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)], doc citing \u00a71.6.4\n   - Same pattern for TasksMultilingualAccountCapability (\u00a71.6.5) and TasksCustomTimeZonesAccountCapability (\u00a71.6.6)\n2. Add pub use for all three in lib.rs.\n3. Add serde tests: each struct serializes to {} and deserializes from {}.\n4. Run cargo test -p jmap-tasks-types and cargo clippy -p jmap-tasks-types -- -D warnings.\n\n**Acceptance criteria:**\n- All three structs are #[non_exhaustive], derive Default, and serialize to {}.\n- Each has a doc comment citing its spec section.\n- All three re-exported from lib.rs.\n- cargo test -p jmap-tasks-types exits 0. Clippy clean.",
+  "ephemeral": 0,
+  "id": "JMAP-d8e7.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add 3 missing account-level empty capability structs",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:51:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-d8e7",
+      "id": "136f5243-4c7a-58c6-a817-1da0d1d25a9f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

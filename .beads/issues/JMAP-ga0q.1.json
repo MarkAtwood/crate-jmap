@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T000441Z-1660907",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-12T00:15:10Z",
+  "compaction_level": 0,
+  "content_hash": "83a6508a1aa5c5bf3418cbeace310016c2e831f4235a554cdbfc13d335176816",
+  "created_at": "2026-05-11T22:27:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Add a new method on the `JmapBackend` trait that exposes the caller's stable identity to JMAP method handlers and backends. Default impl returns `None` so existing backends (with `type CallerCtx = ()`) compile unchanged.\n\nSite: crate-jmap-server/src/backend.rs in the `JmapBackend` trait definition (around line 555-700).\n\nMethod signature:\n\n    /// The caller's stable identity within this account namespace.\n    ///\n    /// Returns `None` for deployments that have not wired identity\n    /// (test fixtures, single-user dev servers). A `None`-returning\n    /// backend CANNOT honor JMAP semantics that depend on caller\n    /// identity \u2014 chat role-hierarchy, calendar ACLs, sharing/myRights,\n    /// per-user $seen on shared mailboxes, metadata isPrivate\n    /// visibility scoping, etc. Authentication is still the HTTP\n    /// layer's job; this method exposes the result of that\n    /// authentication to the JMAP layer for in-method semantics.\n    ///\n    /// Implementations MUST NOT mint identity \u2014 they MUST read it\n    /// from the `CallerCtx` populated by the HTTP/auth middleware\n    /// before `dispatch()` was called.\n    ///\n    /// Backends that honor identity-dependent semantics MUST override\n    /// this method. Handlers and downstream backend traits MAY rely on\n    /// it being correct when it returns `Some`.\n    fn principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id> {\n        let _ = caller;\n        None\n    }\n\n## Acceptance\n\n  - Method added to `JmapBackend` trait with the doc comment above (verbatim).\n  - `cargo test --workspace` clean (default impl preserves current behavior; no existing backend needs changes).\n  - `cargo clippy --workspace -- -D warnings` clean.\n  - `cargo doc -p jmap-server --no-deps` clean (RUSTDOCFLAGS='-D warnings').\n  - One unit test in jmap-server confirming the default impl returns `None` for `type CallerCtx = ()`.\n  - No changes to any extension server crate (mail, chat, calendars, tasks, contacts, sharing, filenode, metadata) \u2014 verified by clippy + test passing across the workspace.\n\n## Out of scope\n\n  - AGENTS.md updates (\u2192 JMAP-ga0q.2)\n  - Any consumer overriding the default (chat-server backend gating lives in JMAP-g7wu.2.4.3)\n  - PrincipalId newtype \u2014 explicitly rejected in the design discussion. `Id` is the JMAP wire identifier; principal_id is just an Id with a doc-comment-defined role.\n\n## Depends on\n\n  None. Foundation-only change.",
+  "ephemeral": 0,
+  "id": "JMAP-ga0q.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add JmapBackend::principal_id method with default impl returning None",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T15:27:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ga0q",
+      "id": "630eddd0-73f9-5f96-87d4-3eb0ec841575",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

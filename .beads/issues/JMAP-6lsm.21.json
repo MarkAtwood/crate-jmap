@@ -1,0 +1,33 @@
+{
+  "close_reason": "Public-API change to ClientError::Parse / ClientError::Serialize variants (add context field). Variants are part of the locked SemVer surface; reshaping requires a major version. Deferred to 0.2.0 cleanup pass.",
+  "closed_at": "2026-05-09T07:36:46Z",
+  "compaction_level": 0,
+  "content_hash": "c232adecc9d02503abbac99118c3f431072100bc11b51afb52f60fec0980e8a4",
+  "created_at": "2026-05-08T03:06:33Z",
+  "created_by": "Mark Atwood",
+  "description": "src/error.rs:32 (Parse) and :76 (Serialize) wrap serde_json::Error directly. When a caller sees ClientError::Parse, they know JSON parsing failed but not which response (fetch_session vs call vs upload_blob upload_resp vs SSE frame state-data). serde_json::Error gives line/column but no context within the response stream. Pattern fix: error variants with a context field \u2014 `Parse { context: &'static str, source: serde_json::Error }` where context is a static string like \"session document\", \"JMAP method response\", \"BlobUploadResponse\". The HTTP error similarly conflates connect/handshake/body-read into one variant. Idiomatic Rust libraries (e.g. reqwest itself) annotate context. Trade-off: changing the variant shape is breaking; could add a separate `#[non_exhaustive]` ParseContext enum and grow it in minor versions. Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClientError::Parse and ClientError::Serialize lose context on which call site failed",
+  "updated_at": "2026-05-09T07:36:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:06:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "f89286e9-5919-5479-89b4-a7d2dfba553f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

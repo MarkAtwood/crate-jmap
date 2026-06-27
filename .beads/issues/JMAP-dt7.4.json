@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.4",
+  "title": "blob download: avoid extra copy of response bytes",
+  "description": "blob.rs:193 \u2014 bytes.to_vec() copies the full download response (up to 64 MiB) from a Bytes into a Vec<u8>. Changing the return type of download_blob to Bytes eliminates this copy entirely and lets callers slice or pass the buffer without further copies.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:15Z",
+  "updated_at": "2026-04-30T00:18:59Z",
+  "closed_at": "2026-04-30T00:18:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:15"
+    }
+  ]
+}

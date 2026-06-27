@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Single-site fix in lib.rs:758: args[\"list\"].as_array().unwrap_or(&vec![]) \u2192 args[\"list\"].as_array().into_iter().flatten(). Same behaviour, no temporary Vec allocation. Only site of the idiom in the workspace; canonical jmap-mail-server does not have it (rg confirmed).",
+  "closed_at": "2026-05-14T19:03:35Z",
+  "compaction_level": 0,
+  "content_hash": "35f386c34356de4882168ae7ae29aa817797312a1956d431e18618ad3f4cfd4d",
+  "created_at": "2026-05-14T18:28:08Z",
+  "created_by": "Mark Atwood",
+  "description": "`lib.rs:750`:\n\n    for item in args[\"list\"].as_array().unwrap_or(&vec![]) {\n\n`vec![]` constructs a fresh `Vec<Value>`; `&vec![]` takes a reference to that temporary. The reference is valid because the temporary lives for the full statement (Rust temporary-lifetime extension), but the construction is wasteful and clippy::useless_vec flags exactly this shape \u2014 every call allocates an empty Vec just to satisfy the `unwrap_or` type.\n\nIdiomatic:\n\n    for item in args[\"list\"].as_array().into_iter().flatten() {\n\n`Option::into_iter()` plus `Iterator::flatten` produces zero items when the Option is None and the inner Vec's iterator items when Some \u2014 without ever materialising a Vec for the empty case. Same observable behaviour, no allocation, reads as 'iterate the array if present'.\n\nAlternative: `args[\"list\"].as_array().map(Vec::as_slice).unwrap_or(&[]).iter()` \u2014 also avoids the temporary but is wordier.\n\nScope: one site in test code (lib.rs:750 in `utcstart_not_in_default_properties`). Not present in canonical jmap-mail-server (`rg 'unwrap_or\\(&vec!' crate-jmap-` returns this one site only). Low priority but the only site of this idiom in the workspace \u2014 fixing it prevents the pattern from spreading via copy-paste.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "`unwrap_or(&vec![])` takes a reference to a freshly-created Vec in test loop",
+  "updated_at": "2026-05-14T19:03:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:28:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "87ee11d4-01ff-589b-ae9e-784b200b232f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-d3q",
+  "title": "Review pass 2: jmap-client",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T07:05:53Z",
+  "updated_at": "2026-04-30T07:06:56Z",
+  "closed_at": "2026-04-30T07:06:56Z",
+  "notes": "Maintainer risk: LOW \u2014 no new findings from second pass. All P1/P2 issues from first pass have been resolved. Remaining open items: none (decisions closed).\nConfidence: 5% chance of missed bug. Uncertainty driven by: not running against a real JMAP server.\nIdiom rating: CLEAN \u2014 auth_header now returns &str, blob.rs uses imports, no per-request allocations in credential path."
+}

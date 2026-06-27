@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-sf2.7",
+  "title": "SetErrorType::Display uses serde_json roundtrip",
+  "description": "backend.rs:153-162: Display impl calls serde_json::to_value(self) to get the camelCase string, then matches on Value::String. This allocates a JSON Value and String on every Display call, which happens in every error message path. A &'static str lookup or a match directly on the enum variants would be O(1) with no allocation. Low impact in practice (error paths are cold), but the pattern is fragile: if serde serialization ever fails, Display silently outputs 'unknown' instead of panicking, which masks bugs.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:29:14Z",
+  "updated_at": "2026-05-01T02:46:09Z",
+  "closed_at": "2026-05-01T02:46:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sf2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:29:13"
+    }
+  ]
+}

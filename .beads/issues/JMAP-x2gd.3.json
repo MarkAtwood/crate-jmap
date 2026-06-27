@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "718f33ac11c6a6327b9df34b4433bf375e2187d7eaee3ad37d65f83b77bc60d3",
+  "created_at": "2026-05-14T03:12:31Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/invite.rs:115-247 (handle_invite_set create branch). MemoryBackend create_object<SpaceInvite> in src/memory.rs:681-714 (the generic create_object) also performs zero permission check.\n\ndraft-atwood-jmap-chat-00 \u00a7SpaceInvite/set (line 1290-1294): 'create accepts: spaceId (String, required), defaultChannelId (String, optional), expiresAt (UTCDate, optional), maxUses (UnsignedInt, optional). **Requires `\"manage_members\"` permission.**'\n\nThe same applies to destroy (line 1296): 'destroy revokes an invite. Requires manage_members permission or ownership of the invite.'\n\nPer workspace AGENTS.md backend-canonical permission policy, permission enforcement lives in the backend. But the reference MemoryBackend's create_object<SpaceInvite> is the generic path \u2014 no SpaceInvite-specific gate, no caller_effective_permissions lookup, no consultation of required_permissions_for_op. ANY caller with JMAP access to the account can mint an invite for ANY Space whose id they can guess.\n\nThe handler also does no defense-in-depth pre-check.\n\nConcrete trigger: in a deployment where account A has guest access to Space S, A calls SpaceInvite/set create with spaceId=S. Spec REQUIRES this to fail with forbidden (A lacks manage_members in S). Today it succeeds and yields a valid invite code that anyone can redeem.\n\nFix sketch:\n1. Add ChatBackend::create_space_invite(&self, caller, account_id, space_id, ...) -> Result<SpaceInvite, BackendSetError> with the manage_members gate atomic with the create.\n2. OR: keep the generic create_object surface and add a separate gate method may_create_space_invite(&self, caller, account_id, space_id) that handle_invite_set calls.\n3. OR: extend apply_space_patch with an AddInvite variant gated via the existing pre-validation pass.\n\nWhichever approach is chosen, both handler-side pre-check (defense in depth) and backend atomic enforcement must land \u2014 the workspace policy explicitly requires the backend re-verify, but the handler should fail-fast on obviously-unauthorized requests when identity is resolvable.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "SpaceInvite/set create has no manage_members permission enforcement",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:12:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "66180555-a5de-5fad-b943-f2a4ae7c3bad",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

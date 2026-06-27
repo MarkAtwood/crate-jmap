@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "4 TaskList wiremock tests pass. Fixture created.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/helpers.rs and tests/task_list_tests.rs (4 tests: get wire request, changes since_state, set onDestroyRemoveTasks round-trip, set omits field when None); 5+17=22 total pass; clippy clean",
+  "closed_at": "2026-05-05T04:30:36Z",
+  "compaction_level": 0,
+  "content_hash": "a61cfdc458a9cd6cdecd6ef96f110850dad78fe5db345c55a4fdd6a827ba1c0b",
+  "created_at": "2026-05-05T02:54:36Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-tasks-client/tests/task_list_tests.rs plus tests/fixtures/tasks/session.json. 4 async wiremock tests. Oracle: draft-ietf-jmap-tasks-06 \u00a73 (TaskList, TaskRights wire names); RFC 8620 \u00a75.1 \u00a75.2 \u00a75.3.\n\n**Step 1:** Create tests/fixtures/tasks/session.json with urn:ietf:params:jmap:tasks in capabilities, primaryAccounts[\"urn:ietf:params:jmap:tasks\"] = \"A13824\", apiUrl as placeholder.\n\n**Tests:**\n1. task_list_get_sends_correct_wire_request: mock returns GetResponse<TaskList> with one list (id=list1, name=My Tasks, myRights with all 7 booleans); assert resp.list[0].id==\"list1\" and name==\"My Tasks\" and my_rights.may_rsvp==false; assert request has methodCalls[0][0]==\"TaskList/get\" and ids==null. Oracle: \u00a73 TaskRights field names.\n2. task_list_changes_sends_since_state: mock returns ChangesResponse; assert old_state==\"state-1\", created==[\"list2\"]; assert request has sinceState==\"state-1\" and maxChanges==50.\n3. task_list_set_on_destroy_remove_tasks_round_trip: call with onDestroyRemoveTasks=Some(true), destroy [\"list1\"]; assert resp.destroyed==[\"list1\"]; assert request has onDestroyRemoveTasks:true and destroy==[\"list1\"]. Oracle: \u00a73.3 onDestroyRemoveTasks.\n4. task_list_set_without_on_destroy_omits_field: call with onDestroyRemoveTasks=None; assert request does NOT contain onDestroyRemoveTasks key.\n\n**Acceptance criteria:** All 4 tests pass. session.json created.",
+  "ephemeral": 0,
+  "id": "JMAP-06rw.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: TaskList/get /changes /set",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:54:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-06rw",
+      "id": "a25b1545-e6ad-5d92-a930-1eeef69674ce",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

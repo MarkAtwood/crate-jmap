@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-bnw.2",
+  "title": "Email/import: keywords deserialized as Vec<Keyword> instead of HashMap<Keyword,bool>",
+  "description": "email.rs:898 deserializes keywords as Vec<jmap_mail_types::Keyword>. Keyword is a string newtype. RFC 8621 \u00a75.7 keywords wire format is String[Boolean] \u2014 a JSON object like {'$seen': true}. serde_json::from_value::<Vec<Keyword>>(object) fails, so any client sending valid JMAP keywords gets invalidProperties. Email/set create correctly uses HashMap<Keyword,bool>.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:47:27Z",
+  "updated_at": "2026-05-01T03:50:08Z",
+  "closed_at": "2026-05-01T03:50:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-bnw",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:47:26"
+    }
+  ]
+}

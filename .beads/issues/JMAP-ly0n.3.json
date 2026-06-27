@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in 331a8ee: ChatPresenceEvent.presence is now Presence, in parity with ChatContact and PresenceStatus. Forward-compat Other(_) preserves unknown wire values byte-equivalently. Parallel ChannelPermission.target_type defect tracked at bd:JMAP-pbqe.",
+  "closed_at": "2026-05-16T03:09:44Z",
+  "compaction_level": 0,
+  "content_hash": "138f072fe9397a7153f6d0a071bd97142366eccc6a32768c97965e812ecbc2c8",
+  "created_at": "2026-05-16T02:37:04Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: a contributor (or future-you in 12 months) writes server code that matches on ChatContact.presence against the Presence enum and then tries to do the same for an incoming ChatPresenceEvent.\n\nBad behavior: ChatPresenceEvent.presence is typed as String (crate-jmap-chat-types/src/ephemeral.rs:74), while the parallel field on ChatContact (contact.rs:67-68) is Option<Presence>, and on PresenceStatus (presence.rs:42) is Presence \u2014 the typed enum with 'online' / 'away' / 'busy' / 'invisible' / 'offline' / Other(String) forward-compat.\n\nThe mismatch matters for two reasons:\n1. WebSocket ephemeral handlers cannot exhaustively dispatch on the enum and instead must string-match \u2014 including reimplementing the wire vocabulary inline. That's the exact pattern that breaks when impl_string_enum! gains a new variant; both sites have to be updated and there is no compile-time tripwire forcing the second update.\n2. It quietly violates the canonical-template rule. The workspace AGENTS.md anoints jmap-chat-types as canonical for the JMAP Chat wire format, and this is a presence value on the wire \u2014 it should use the Presence enum like every other use of the same value.\n\nFix: change ChatPresenceEvent.presence to Presence (the typed enum). It is non-breaking deserialize-wise because Presence already has an Other(String) forward-compat arm, and Presence already round-trips the wire form. The break is on the Rust struct API, but ChatPresenceEvent is #[non_exhaustive] and the crate has not yet shipped a 1.0, so this is a 0.x-version-bump-acceptable change.\n\nSame issue, smaller scale, on ChannelPermission.target_type (chat.rs:59) \u2014 String where the spec enumerates 'role' / 'user'. Worth fixing in the same sweep but lower priority because the consumer surface is smaller.",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChatPresenceEvent.presence is String; everywhere else it is the Presence enum",
+  "updated_at": "2026-05-16T03:09:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:37:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "674f6227-01ca-5aa2-8e48-6a48cc640e9d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

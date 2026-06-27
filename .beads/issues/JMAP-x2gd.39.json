@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T05:21:14Z",
+  "compaction_level": 0,
+  "content_hash": "0e36129d2f53c0432b7213c7b860c1061a44c1f68c103e7cb13b921b36e6b3a1",
+  "created_at": "2026-05-14T03:40:13Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/backend.rs:469-477\n\n  fn apply_space_metadata_patch(\n      &self,\n      caller: &Self::CallerCtx,\n      account_id: &jmap_types::Id,\n      space_id: &jmap_types::Id,\n      patch_map: serde_json::Map<String, serde_json::Value>,\n  ) -> impl ...;\n\nserde_json::Map<String, serde_json::Value> appears verbatim in the\ntrait method signature, locking jmap-chat-server's public API to\nserde_json's major version. If serde_json cuts 2.0 with any\nreshape of Map or Value (the type-pair is unusually stable, but\nnot contractually guaranteed), every ChatBackend implementor\nbreaks.\n\nCompare with apply_space_patch (backend.rs:399-405) which takes\nVec<SpacePatchOp> \u2014 a workspace-owned type. The two trait methods\ndo similar work but use different shapes for the patch payload.\nThat asymmetry is itself a contract gap; the kit could pick one.\n\nAggravating factors:\n\n1. The doc says 'The handler builds patch_map by walking the\n   wire patch and keeping only the keys in METADATA_FIELDS.'\n   That set is tiny \u2014 name, description, iconBlobId, isPublic,\n   isPubliclyPreviewable. A typed struct (5 Option fields) would\n   capture it precisely AND give consumers compile-time evidence\n   of what they need to handle.\n\n2. With serde_json::Map, a consumer's apply_space_metadata_patch\n   impl has to:\n   - Look up keys by string (no compile-time spelling check).\n   - serde_json::from_value each cell individually.\n   - Handle unrecognized keys defensively (the handler is\n     supposed to strip them, but a consumer calling this method\n     directly has no such guarantee).\n   Every consumer writes the same boilerplate.\n\nFix options:\n\nA. Define a workspace-owned typed shape:\n     #[non_exhaustive]\n     pub struct SpaceMetadataPatch {\n         pub name: Option<Clearable<String>>,\n         pub description: Option<Clearable<String>>,\n         pub icon_blob_id: Option<Clearable<Id>>,\n         pub is_public: Option<bool>,\n         pub is_publicly_previewable: Option<bool>,\n     }\n\n   Clearable from jmap-chat-types preserves the 'absent vs null\n   vs set' three-way distinction. The handler decodes the wire\n   patch into this struct; the backend gets a typed view.\n\nB. Reuse jmap_chat_types::space_set::SpaceMetadataPatch if one\n   exists (a quick glance suggests space-set.rs is structural-\n   ops focused, but worth checking before designing a new type).\n\nEither option drops the serde_json type from the trait surface.\nWorkspace AGENTS.md 'Implementation leakage' is explicit on this:\n'Trait bounds on public methods that constrain callers to specific\nupstream implementations.'",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: apply_space_metadata_patch leaks serde_json::Map into trait signature",
+  "updated_at": "2026-05-17T05:21:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:40:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "87bf894d-6b31-530a-b17a-e26a8c6d133e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

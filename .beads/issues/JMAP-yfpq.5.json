@@ -1,0 +1,42 @@
+{
+  "close_reason": "duplicate",
+  "closed_at": "2026-05-11T04:44:59Z",
+  "compaction_level": 0,
+  "content_hash": "1707c1c6b8b544fbb8f3fdf031af45cf220f50fbed11fcddfcccf2366731f6e7",
+  "created_at": "2026-05-11T04:41:08Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Add round-trip tests demonstrating that the 13 sloppy-Value fields in jmap-tasks-types deserialize cleanly into the typed sub-types from jmap-jscalendar-types.\n\nTask fields (11): related_to, locations, virtual_locations, links, recurrence_rules, excluded_recurrence_rules, recurrence_overrides, participants, alerts, localizations, time_zones.\nTaskList fields (2): default_alerts_with_time, default_alerts_without_time.\n\nFor each field:\n- Construct RFC 8984 example JSON (oracle = hand-written from RFC examples; NOT derived from code under test).\n- Deserialize into Task / TaskList via serde_json.\n- Extract the field's serde_json::Value.\n- Call serde_json::from_value::<TypedSubType>(value) to confirm the wire shape matches the typed sub-type.\n- Round-trip back to JSON and compare structurally (canonical form via serde_json::Value comparison).\n\nTest fixture data lives under crate-jmap-tasks-types/tests/ alongside any existing integration tests. Use the same hand-written JSON style as the existing jscalendar-types round-trip tests for symmetry.\n\nAcceptance:\n- 13 new round-trip tests, one per sloppy-Value field, all passing.\n- cargo test -p jmap-tasks-types clean.\n- Each test cites its RFC 8984 source section in a code comment.\n- No expected values derived from the code under test (independent oracle rule per workspace AGENTS.md).",
+  "ephemeral": 0,
+  "id": "JMAP-yfpq.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Field-count discrepancy in this bead's acceptance criteria. Bead description lists 13 sloppy-Value fields but the actual code in crate-jmap-tasks-types has only 11 Option<...serde_json::Value...> fields, plus 2 PatchObject fields that don't round-trip into jscalendar typed sub-types:\n\nACTUAL sloppy-Value (round-trippable to jmap-jscalendar-types) - 11 fields:\n  Task: related_to, locations, virtual_locations, links, recurrence_rules, excluded_recurrence_rules, participants, alerts, time_zones (9)\n  TaskList: default_alerts_with_time, default_alerts_without_time (2)\n\nPatchObject (NOT sloppy-Value; no jscalendar typed counterpart) - 2 fields:\n  Task: recurrence_overrides: Option<HashMap<String, PatchObject>>  (per-instance PatchObject overrides, draft-tasks-06)\n  Task: localizations: Option<HashMap<String, PatchObject>>  (i18n PatchObjects keyed by language tag)\n\nThe bead's listed 13 count appears to come from the parent epic JMAP-yfpq description which inadvertently included the two PatchObject fields.\n\nQuestion: should the test bead cover only the 11 actual sloppy-Value fields, or should it also include 2 round-trip-via-PatchObject tests (which would NOT use jmap-jscalendar-types - they would round-trip Task -> PatchObject -> Task, an entirely different concern)?\n\nRecommendation: scope this bead to the 11 actual sloppy-Value fields and file a separate small bead for PatchObject round-trip coverage if that's wanted, since the test pattern, oracle source, and dependency set are different.\n\nFiled per workspace AGENTS.md 'Turn questions into beads' rule rather than guessing. Marking this bead 'human' so /do-beads loop doesn't claim it until the scope is settled.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Round-trip tests for jmap-tasks-types sloppy-Value fields against jmap-jscalendar-types (13 fields)",
+  "updated_at": "2026-05-11T04:44:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T21:41:07Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-yfpq",
+      "id": "ae7e3045-257b-5432-b2a2-d0080dfe53f6",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-10T21:41:07Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-yfpq.4",
+      "id": "f782b15d-ac4b-50a7-9d51-37ee11da0e6d",
+      "metadata": {},
+      "type": "blocked-by"
+    }
+  ]
+}

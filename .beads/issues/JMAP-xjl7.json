@@ -1,0 +1,23 @@
+{
+  "close_reason": "Verified in code \u2014 implementation matches decision exactly.",
+  "closed_at": "2026-05-03T13:34:36Z",
+  "compaction_level": 0,
+  "content_hash": "fc0dbdd324856c571253211c35a7a67c6552bb308c1969b17c1e5ff51304af87",
+  "created_at": "2026-05-02T23:38:05Z",
+  "created_by": "Mark Atwood",
+  "description": "The MDN/send handler validates that onSuccessUpdateEmail is present and sets keywords/$mdnsent: true for every entry in send, before invoking the backend. This means no MdnBackend implementation can accidentally send an MDN without the keyword being stamped \u2014 the invariant is enforced in one place regardless of how many backends exist. Oracle: draft-ietf-jmap-mdn-17 \u00a72.1 (server MUST reject if patch is absent or wrong).",
+  "ephemeral": 0,
+  "id": "JMAP-xjl7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DECISION: Handler enforces onSuccessUpdateEmail/ before calling backend",
+  "updated_at": "2026-05-03T13:34:36Z"
+}

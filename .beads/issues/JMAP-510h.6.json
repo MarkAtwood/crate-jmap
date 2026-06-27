@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced silent if-let-Ok with map_err(server_fail_from_backend)?. Required adding two test hooks to MockBackend: set_get_ancestors_err (failure injection on the trait method) and add_get_objects_node (seed a FileNode-shaped JSON value so get_objects returns a non-empty list, which is the precondition for the fetchParents branch to fire). Regression test get_fetch_parents_propagates_get_ancestors_err exercises the full handler path with both hooks armed. Committed in b7eded9. Gates: fmt/clippy/test/doc green; full workspace test suite green.",
+  "closed_at": "2026-05-14T20:28:25Z",
+  "compaction_level": 0,
+  "content_hash": "8d6e2dd6d76ea2934f4df3c28317a88149721e890d19c5ee94e211456696d6f2",
+  "created_at": "2026-05-14T19:49:33Z",
+  "created_by": "Mark Atwood",
+  "description": "src/filenode.rs:70-84: 'if let Ok(ancestors) = backend.get_ancestors(...) { ... } // Non-fatal: if ancestors cannot be fetched, return the list without parent nodes. Clients should handle this.'\n\nThe fetchParents argument is the *only* signal the client gets that ancestors were requested; the response shape does not indicate failure to expand. If get_ancestors errors, the client gets back a list that looks like a successful fetchParents=true response but contains only the requested nodes \u2014 the same shape it would get if every requested node were at depth 0 (root).\n\nTrigger: any get_ancestors backend error (DB timeout, missing index, etc.). Bad behavior: client believes the nodes are at root level when they may have ancestors. Building 'reconstruct the full path' UX (the spec's stated use case at \u00a73.2.1 lines 511-518) produces wrong paths.\n\nRequired: propagate the error via server_fail_from_backend, same as the rest of the handlers in this file (e.g., filenode.rs:147). The 'clients should handle this' rationale in the comment is unactionable: clients have no way to detect this case from the wire response.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_filenode_get: fetchParents backend error silently dropped, partial result returned",
+  "updated_at": "2026-05-14T20:28:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:49:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "c517d277-f848-598a-be84-ab45edd1ebeb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

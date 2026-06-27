@@ -1,0 +1,23 @@
+{
+  "close_reason": "Removed tautological assert!(start <= usize::MAX) at helpers.rs:1206. Option (a) from bead description.",
+  "closed_at": "2026-06-05T03:22:45Z",
+  "compaction_level": 0,
+  "content_hash": "0a9bd329f26c124660d0092a5373b51286bcd78779767bae3214f6e96d11d5f0",
+  "created_at": "2026-05-17T21:25:15Z",
+  "created_by": "Mark Atwood",
+  "description": "Pre-existing clippy warning in crate-jmap-server/src/helpers.rs:1206:17 fails 'cargo clippy --workspace --tests -- -D warnings':\n\n```\nerror: this comparison involving the minimum or maximum element for this type contains a case that is always true or always false\n    --> crate-jmap-server/src/helpers.rs:1206:17\n     |\n1206 |         assert!(start <= usize::MAX);\n```\n\nThe assertion is tautological \u2014 usize values are by definition <= usize::MAX. The test's intent appears to be 'no overflow / no panic, and start <= total' per the comment two lines above. The right fix is one of:\n\n  (a) Remove the line entirely (no-op assertion).\n  (b) Replace with a meaningful invariant: `assert_eq!(start, usize::MAX - (i64::MAX as usize));` (the next line) is already asserting the same thing more precisely.\n  (c) Cast to a wider type for the comparison (not idiomatic).\n\nLikely (a) \u2014 the line is dead-code-equivalent.\n\nDiscovered while running pre-commit gate for JMAP-tjvm.37 (queryChanges wire-shape regression tests sweep). The file was NOT touched by that work \u2014 this is pre-existing. Likely added by JMAP-qz9v.48 (resolve_query_offset foundation helper landing on 2026-05-17 \u2014 see workspace memory).\n\nCompanion clippy beads from the same workspace run: JMAP-79qy / JMAP-taw2 (needless_borrows in metadata_types test), JMAP-l35v (type_complexity in jscontact-types lib test), JMAP-z26e (doc_list_item_without_indentation in email.rs), JMAP-23pi (fallible_conversions in mdn.rs).",
+  "ephemeral": 0,
+  "id": "JMAP-arwx",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "(BUG) clippy absurd_extreme_comparisons in jmap-server helpers.rs resolve_query_offset test",
+  "updated_at": "2026-06-05T03:22:45Z"
+}

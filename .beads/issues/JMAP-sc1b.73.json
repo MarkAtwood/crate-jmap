@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T07:10:00Z",
+  "compaction_level": 0,
+  "content_hash": "03c50ffaf8a4cb6c27bfb3a649485de97056ef653b0422604945186193ea32c6",
+  "created_at": "2026-05-11T06:59:39Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Sites:\n- crate-jmap-jscalendar-types/src/lib.rs:42   pub struct LocalDateTime(pub String);\n- crate-jmap-jscalendar-types/src/lib.rs:66   pub struct Duration(pub String);\n- crate-jmap-jscalendar-types/src/lib.rs:91   pub struct SignedDuration(pub String);\n- crate-jmap-jscontact-types/src/lib.rs:62    pub struct JsContactId(pub String);\n\nEach of these crates' AGENTS.md declares a settled design constraint:\n\n> All public structs: #[non_exhaustive]\n\n(See crate-jmap-jscalendar-types/AGENTS.md \"Design constraints (settled)\" and the parallel section in crate-jmap-jscontact-types/AGENTS.md.)\n\nEvery named-field public struct in both crates correctly carries `#[non_exhaustive]` \u2014 the violation is restricted to the 4 tuple newtypes above.\n\nWorkspace precedent (`jmap-types`) has these as `#[non_exhaustive] pub struct Foo(String)`:\n- crate-jmap-types/src/id.rs:59-60   #[non_exhaustive] pub struct Id(String);\n- crate-jmap-types/src/id.rs:66-67   #[non_exhaustive] pub struct State(String);\n- crate-jmap-types/src/id.rs       #[non_exhaustive] pub struct UTCDate(String);\n\ni.e. the precedent applies `#[non_exhaustive]` even to tuple newtypes with private inner fields. The non_exhaustive on a unit/tuple struct prevents pattern-matching with destructuring outside the crate (`let Foo(s) = foo` becomes a hard error), forcing all access through accessor methods. That's the lock the design constraint is buying.\n\nThe fix is one-line per type (add `#[non_exhaustive]` above each `pub struct` line). Couples with bead .72 (above) to keep the public-field problem and the non_exhaustive problem fixed together.\n\nWhy P2: SemVer-affecting if/when these crates publish to crates.io. Adding `#[non_exhaustive]` later is itself a breaking change. The crates haven't published yet; fix now is cheap, fix later is expensive.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.73",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: 4 jscalendar-types/jscontact-types newtypes lack #[non_exhaustive] despite crate-level design constraint",
+  "updated_at": "2026-05-11T07:10:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T23:59:39Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "2d252bb3-e022-5b9e-a90b-468db524c0ce",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

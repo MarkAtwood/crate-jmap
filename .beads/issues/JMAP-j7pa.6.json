@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Mail-server AGENTS.md corrected: Async row now describes impl Future + Send + dev-only tokio (per JMAP-tco1); Dependencies row reflects actual Cargo.toml (serde, serde_json, mime-tree + memory-gated uuid/jmap-mime; no thiserror); Test harness row points to src/memory.rs with feature='memory' gate; Reference Pattern section restored to canonical-template stance. Canonical-template propagation: same 'Async | Always async (tokio)' misleading row corrected in all 7 extension-server siblings (chat, calendars, tasks, contacts, filenode, metadata, sharing) in the same commit.",
+  "closed_at": "2026-05-16T18:46:55Z",
+  "compaction_level": 0,
+  "content_hash": "bc82dc11d8be5f3b74f44a20402f364a54dd03c9f3eac1ea80cf278ae4a58385",
+  "created_at": "2026-05-14T12:45:18Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/AGENTS.md 'Restrictions' section line: 'Do not add dependencies beyond: jmap-types, jmap-mail-types, jmap-server, tokio, thiserror'. The 'Design Constraints (Settled)' table line: 'Dependencies | jmap-types, jmap-mail-types, jmap-server, tokio, thiserror only'.\n\nThe current Cargo.toml diverges from this list in three ways:\n\n1. mime-tree is now a hard dep (added by commit e99c3dc to implement RFC 8621 \u00a74.1.2 As* header forms). Justified in the Cargo.toml comment but not reflected in AGENTS.md.\n\n2. serde and serde_json are workspace deps used pervasively, but not in the AGENTS.md list (probably implicit).\n\n3. tokio is now a DEV dep only (commit a6210dc 'drop tokio from runtime deps in all 7 server crates'). The AGENTS.md list still has it as a runtime dep alongside jmap-types etc.\n\n4. thiserror is NOT in Cargo.toml at all \u2014 neither runtime nor dev. The AGENTS.md list still names it.\n\nPlus the 'Async | Always async (tokio)' design-constraint row is misleading: the crate now uses 'impl Future + Send' return types (no tokio runtime hard dep), as a deliberate choice per JMAP-tco1 / commit a6210dc.\n\nThis is exactly the 'documented only in your head, not in code' pattern AGENTS.md itself flags. A new contributor reading the dep list would (a) reject a legitimate mime-tree-based feature on the grounds it's not in the list, or (b) be confused why tokio is allowed-but-only-in-dev. The AGENTS.md needs an update to reflect the current settled state of:\n\n- mime-tree as the workspace's RFC 5322 gateway (cross-reference bd:JMAP-g7wu.11)\n- tokio as dev-only (cross-reference JMAP-tco1)\n- serde, serde_json as runtime\n- async via Future returns, not async fn (no tokio runtime requirement)",
+  "ephemeral": 0,
+  "id": "JMAP-j7pa.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AGENTS.md dependency restriction list now stale",
+  "updated_at": "2026-05-16T18:46:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:45:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-j7pa",
+      "id": "a33bbd2a-dbf0-5118-969c-04d68842cb2d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

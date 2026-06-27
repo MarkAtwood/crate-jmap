@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2bbbf6719cfe945533eafe1ebd5d7d8bb403b002623ecb16f25f6d7e55508a9c",
+  "created_at": "2026-05-17T05:47:42Z",
+  "created_by": "Mark Atwood",
+  "description": "## Sibling propagation of canonical bd:JMAP-uqhn.1\n\nDepends on bd:JMAP-uqhn.1 (mail-server canonical fix) landing first. Mirror the canonical fix shape.\n\nAudit via:\n\n```\nrg -n '\\b(as u64|as usize|as i64|as u32|as i32)\\b' crate-jmap-chat-server/src/\n```\n\n12 candidate sites as of 2026-05-16. Apply same fix shape as canonical.\n\n## Acceptance\n\n- Mirror canonical fix\n- query/limit-path 'as' casts replaced with checked conversions\n- Remaining 'as' uses carry inline rationale comment\n- cargo test -p jmap-chat-server green\n- cargo clippy -p jmap-chat-server -- -D warnings green",
+  "ephemeral": 0,
+  "id": "JMAP-uqhn.2",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Propagate: jmap-chat-server query/limit-path 'as' cast audit + fix (12 sites)",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T22:47:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-uqhn",
+      "id": "16c5984c-899d-578b-9dc8-a72186875af5",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-16T22:47:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-uqhn.1",
+      "id": "e37ff0da-68a6-5fb8-9ac8-51a89f1e44c8",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

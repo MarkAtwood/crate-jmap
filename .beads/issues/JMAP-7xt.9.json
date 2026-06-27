@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.9",
+  "title": "ClientConfig is #[non_exhaustive]: preserves minor-version field additions",
+  "description": "ClientConfig carries #[non_exhaustive] so callers outside the crate must write ..ClientConfig::default() rather than a struct literal. This means adding a new field (e.g. max_sse_frame_body or proxy_url) is a non-breaking minor-version change. A contributor might 'simplify' this by removing the attribute to allow direct struct literal construction in user code, but that would make every new field a semver-breaking change. The attribute is load-bearing for forward compatibility and must be kept.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:10Z",
+  "updated_at": "2026-04-30T01:02:15Z",
+  "closed_at": "2026-04-30T01:02:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:10"
+    }
+  ]
+}

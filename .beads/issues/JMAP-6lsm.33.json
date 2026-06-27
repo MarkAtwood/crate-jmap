@@ -1,0 +1,33 @@
+{
+  "close_reason": "Design-validated: review confirmed the existing shape is correct. No code change required. Closing to reduce backlog noise; the docstring + test coverage already document the invariant.",
+  "closed_at": "2026-05-09T07:25:37Z",
+  "compaction_level": 0,
+  "content_hash": "c8c4940a2959190db248922895ca01b896dea11be9f20d2ee6b8612e08b8950e",
+  "created_at": "2026-05-08T03:07:50Z",
+  "created_by": "Mark Atwood",
+  "description": "src/auth.rs:152-162, 200-212 \u2014 both fallible constructors validate header-value legality (HeaderValue::from_str), reject empty/whitespace tokens (RFC 6750 \u00a72.1), reject colon in BasicAuth username (RFC 7617 \u00a72). Stored as a fully-formed header_string. Result: auth_header() in the hot path is infallible \u2014 no panic, no Result, no per-request validation cost. A contributor might suggest 'why not validate lazily on first use' \u2014 the answer is: invalid credentials should fail at the test or startup site, not 30 minutes into a long-running session. Defend the fallible-constructor pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BearerAuth and BasicAuth pre-validate at construction; auth_header is infallible",
+  "updated_at": "2026-05-09T07:25:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:07:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "dafad288-a9fc-5be4-97b0-b4f11f01ac8a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

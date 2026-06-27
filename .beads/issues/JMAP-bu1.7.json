@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-bu1.7",
+  "title": "BearerAuth/BasicAuth pre-validate at construction, not per-request \u2014 correct design",
+  "description": "BearerAuth and BasicAuth pre-validate the credential and store the final header string at construction time. This means invalid tokens fail early (at new()) rather than silently on the first request. The comment explaining the design is present and correct. A contributor might 'simplify' this to lazy evaluation, which would push failures into async request paths where they are harder to diagnose. The pre-validation approach is right.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:26:15Z",
+  "updated_at": "2026-04-30T01:31:37Z",
+  "closed_at": "2026-04-30T01:31:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-bu1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:26:15"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-4so.1",
+  "title": "WsFrame missing Clone derive",
+  "description": "WsFrame is #[non_exhaustive] and derives PartialEq but not Clone. All three current variants (StateChange, Response, Unknown) contain only Clone types (StateChange: Clone, JmapResponse: Clone, String: Clone). Missing Clone forces callers who want to store, log, or pass a received frame to multiple consumers to resort to Debug output or manual pattern matching and reconstruction. A caller receiving a WsFrame::Response over WebSocket cannot hand it to two consumers without re-parsing the wire data. Adding Clone matches the pattern used by SseFrame, SseEvent, and StateChange (all added in the previous review pass) and is consistent with the crate's design.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:46:27Z",
+  "updated_at": "2026-04-30T01:48:39Z",
+  "closed_at": "2026-04-30T01:48:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-4so",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:46:27"
+    }
+  ]
+}

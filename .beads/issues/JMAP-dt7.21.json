@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.21",
+  "title": "base_url validation: four structural checks instead of one named invariant",
+  "description": "client.rs lines 54-80: JmapClient::new validates base_url with four separate if-blocks (scheme, path, query, fragment). A reader must work through all four to reconstruct the invariant: 'must be an origin-only URL.' Extract fn require_origin_url(url: &Url) -> Result<(), ClientError> that checks all four conditions and names the constraint in one place, making new() read as: parse -> require_origin_url -> build.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:13:08Z",
+  "updated_at": "2026-04-30T01:02:41Z",
+  "closed_at": "2026-04-30T01:02:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:13:08"
+    }
+  ]
+}

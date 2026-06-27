@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Already done at HEAD (commit 0963e6d or earlier). Verified 2026-05-17:\n\n$ grep -rE 'args\\.remove\\([^)]+\\)\\.unwrap_or\\(Value::Null\\)' crate-jmap-chat-server/src/\n(no output)\n\nAll 26 sites enumerated in the bead description (space.rs:343/356/607/619/626/631, presence.rs:58, position.rs:69, message.rs:58/68/177/189/196/216, invite.rs:56, emoji.rs:55/169/181/188/193, contact.rs:54/370/382/389/394, ban.rs:56) now use the canonical mail-server form 'match args.remove(\"X\") { None | Some(Value::Null) => None, Some(v) => Some(...) }'. Mail-server (canonical extension-server template) also has zero remaining old-form sites: grep returns 0. The propagation completed before this bead was claimed; no code change required.",
+  "closed_at": "2026-05-17T19:40:37Z",
+  "compaction_level": 0,
+  "content_hash": "cd2a70c8850c51fd302cf9a2f0cfa814ab87b54cadd0aa32aa691d046e2e314c",
+  "created_at": "2026-05-17T19:17:04Z",
+  "created_by": "Mark Atwood",
+  "description": "chat-server uses match args.remove(key).unwrap_or(Value::Null) { Value::Null => None, v => Some(...) } across 26 sites in space.rs / message.rs / chat.rs / etc., while canonical jmap-mail-server (email.rs) uses match args.remove(key) { None | Some(Value::Null) => None, Some(v) => Some(...) } across 48 sites.\n\nThe mail-server idiom is one step cleaner: serde_json::Map::remove already returns Option<Value>, and the absent-vs-null distinction is irrelevant for JMAP optional argument parsing per RFC 8620 \u00a73.4 (both surface as 'argument not supplied'). The chat-server form materializes a synthetic Value::Null intermediate that the immediately-following match then discards.\n\nEngineering basis: this is a canonical-template divergence per workspace AGENTS.md propagation rule. Mail-server has the better shape; chat-server should propagate. The fix is mechanical (s/match args.remove(\"X\").unwrap_or(Value::Null) { Value::Null /match args.remove(\"X\") { None | Some(Value::Null)/, s/v => Some/Some(v) => Some/) and improves readability + removes a no-op allocation step.\n\nSites: space.rs:343, 356, 607, 619, 626, 631; message.rs and chat.rs similar (grep 'args.remove.*unwrap_or(Value::Null)' for full list \u2014 26 total in chat-server, 0 in mail-server).\n\nIdiomatic Rust would prefer matching directly on the Option<Value> rather than synthesizing a Value::Null inside it. The pattern 'None | Some(Value::Null)' reads as 'absent or explicitly null' which is what the JMAP optional-arg convention actually says.\n\nCanonical-template implication: since mail-server is already correct, the propagation direction is mail \u2192 chat (chat changes, mail unchanged). No mail-server work required.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.104",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "26 sites of args.remove(key).unwrap_or(Value::Null) diverge from canonical mail-server one-fewer-step idiom",
+  "updated_at": "2026-05-17T19:40:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T12:17:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "700b35e1-30b3-559d-9eea-8bc11e52690d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

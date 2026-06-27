@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added tests/blob_smoke_tests.rs with 4 smoke tests covering both Blob methods: blob_lookup (threads ids + typeNames + USING_BLOB capability assertion for the Blob/* family + typeNames:null when None + empty blob_ids rejected), blob_convert (ImageConvertRecipe wire shape with all four fields + CALL_ID-keyed response decode + USING_BLOB + width/height omitted when None + empty content_type rejected). All 4 pass; clippy -D warnings clean. Note: blob.rs already had unit tests for ImageConvertRecipe wire format, BlobConvertResponse deserialisation, and the extras-preservation policy across all four blob types \u2014 these new wiremock tests complement those by exercising the end-to-end SessionClient call path.",
+  "closed_at": "2026-05-16T02:03:52Z",
+  "compaction_level": 0,
+  "content_hash": "2377e1f2b4d0c5a68066dbfa0dbf336f78a29d9633a7d6d77c4c607b60ba9479",
+  "created_at": "2026-05-16T01:48:48Z",
+  "created_by": "Mark Atwood",
+  "description": "Create tests/blob_smoke_tests.rs covering: blob_lookup (threads ids, decodes BlobLookupResponse), blob_convert (creates conversion job, decodes converted blob via CALL_ID-keyed created map). Spec: RFC 9404 / urn:ietf:params:jmap:blob (verify the actual capability constant in mod.rs; could be USING_CHAT or a separate USING_BLOB).",
+  "ephemeral": 0,
+  "id": "JMAP-26di.6.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Blob/* smoke tests: 2 methods, no coverage",
+  "updated_at": "2026-05-16T02:03:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T18:50:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "0b787c03-3257-5a95-a119-775c1751536a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T21:49:36Z",
+  "compaction_level": 0,
+  "content_hash": "8d8136bebfb04d75708313873cb27520bdad2df1ccfdc4bfdf70055a2942fe62",
+  "created_at": "2026-05-16T03:53:07Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-cid-types/src/digest.rs:151 and :189 expose two paths to the same conversion: pub fn into_inner(self) -> String and impl From<Sha256> for String. Both consume self and yield the inner hex String.\n\nThe canonical sibling Id newtype (crate-jmap-types/src/id.rs:109) exposes into_inner only \u2014 it does NOT impl From<Id> for String. Workspace cookie-cutter rule says siblings mirror the canonical idiom modulo spec-mandated differences. The From<Sha256> for String impl is mandated only by the #[serde(into = String)] adapter on the type; that adapter could equally be written as into = String via a Serialize visitor or with a custom Serialize impl, eliminating the From impl from the public surface.\n\nWhat goes wrong by leaving both:\n- Two ways to do the same thing on the public API. Callers have to choose, with no guidance on which.\n- Diverges from the canonical Id template without a documented reason (see myoss .7 \u2014 that decision bead defends the TryFrom-vs-From asymmetry, but not the duplicate-conversion asymmetry).\n- API audit (cargo public-api) will show both; future consolidation requires a deprecation cycle.\n\nTwo paths forward, both idiomatic:\n(a) Keep From<Sha256> for String (for the serde adapter), drop into_inner. Callers write String::from(d).\n(b) Keep into_inner, make the serde adapter use a custom Serialize impl that writes self.0.as_str() directly. Drop From<Sha256> for String from the public surface.\n\n(b) matches the canonical Id template most closely. (a) is the smaller patch.",
+  "ephemeral": 0,
+  "id": "JMAP-sf5h.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sha256 exposes both into_inner(self) -> String and From<Sha256> for String \u2014 redundant conversion API",
+  "updated_at": "2026-05-17T21:49:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T20:53:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sf5h",
+      "id": "6dfe6835-2d3e-5c0d-a9ef-1e7042468ea0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

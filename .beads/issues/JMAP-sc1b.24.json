@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:48:51Z",
+  "compaction_level": 0,
+  "content_hash": "2d50f15ec728f4a016b2d3a799cd55a093da252e8a69162a6378329314b32d21",
+  "created_at": "2026-05-07T20:29:13Z",
+  "created_by": "Mark Atwood",
+  "description": "rustdoc warnings (not errors):\n- crate-jmap-chat-client/src/sse.rs:5,16\n- crate-jmap-chat-client/src/ws.rs:4,5,6\n\nLabels already resolve, so the explicit `(jmap_base_client::\u2026)` paths are noise. Mechanical cleanup.\n\nMarked opinion because the explicit paths might be intentional for clarity even though rustdoc doesn't need them.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: 5 redundant explicit link targets in chat-client (rustdoc::redundant_explicit_links warnings)",
+  "updated_at": "2026-05-07T21:48:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "3bd27631-f33f-5d2d-95d9-b10dee955001",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

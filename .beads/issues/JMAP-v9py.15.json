@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "9e4cecd22fd362dd80ac89f3e582154f660776993b81150c7be9f13e3510e3e0",
+  "created_at": "2026-05-12T23:37:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec: draft-atwood-jmap-chat-federation-00 at ~/PROJECT/jmap-chat-spec/.\n\nNOT WORKED in the JMAP-v9py compliance sweep; filed for a later session.\n\nCapability: extends urn:ietf:params:jmap:chat with a \"role\" field (\\\"owner\\\" | \\\"peer\\\"). No new capability URI of its own.\n\n## What needs to land\n\n- New crates jmap-chat-federation-types, jmap-chat-federation-server, jmap-chat-federation-client (or extension modules on the existing chat-* crates, decision pending)\n- 5 REQUIRED Peer/* methods: Peer/deliver, Peer/receipt, Peer/typing, Peer/retract, Peer/groupUpdate\n- 3 OPTIONAL Peer/* methods: Peer/subscribePresence, Peer/unsubscribePresence, Peer/presence\n- Extended ChatContact: serverUrl, directAddress (untrusted)\n- Outbound senderMsgId translation rules (server stores receiver-id, must translate to sender-id for outbound replyTo/threadRootId)\n- 10-step new-message validation procedure on Peer/deliver (auth, identity verification, blob fetch with SSRF guard, mention bounds, etc.)\n- Direct-chat simultaneous-initiation race resolution (min(X,Y) lex)\n- Session-object extension fields (ownerUserId, ownerDirectAddress)\n\n## Estimated scope\n\n- 3 new crates, ~2000-3000 LOC across types/server/client/tests\n- Multi-week effort; multiple focused sessions\n- Depends on the rest of the JMAP-v9py compliance sweep landing first (so chat-types is stable)\n\n## Open architecture questions\n\n- Place Peer/* methods in chat-server-extension or new crate?\n- How does CallerCtx model \"remote peer\" vs \"local user\"?\n- Blob fetch with SSRF guard: kit hook signature, or deployment-only?\n- mTLS / OAuth client-credentials authentication: kit doesn't ship transport, so this is deployment",
+  "ephemeral": 0,
+  "id": "JMAP-v9py.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Layer E: Implement draft-atwood-jmap-chat-federation-00 (new jmap-chat-federation-{types,server,client} crates)",
+  "updated_at": "2026-05-12T23:37:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-12T16:37:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py",
+      "id": "bbd2de90-40f3-5be2-af2e-47b672ada158",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

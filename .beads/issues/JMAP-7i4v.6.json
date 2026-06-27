@@ -1,0 +1,75 @@
+{
+  "acceptance_criteria": "All tests pass. Clippy clean. Epic closed.",
+  "assignee": "Mark Atwood",
+  "close_reason": "All calendars-client methods + tests complete: 32 unit + wiremock smoke tests; parse, getAvailability, all Calendar/CalendarEvent methods; clippy clean",
+  "closed_at": "2026-05-05T15:47:37Z",
+  "compaction_level": 0,
+  "content_hash": "847272ff464d3edab6baf61a5ca27e8f3f69a72cce9ef4f7e04cb74f772993bb",
+  "created_at": "2026-05-05T02:55:57Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Final quality gate for jmap-calendars-client.\n\n**Algorithm:**\n1. cargo test -p jmap-calendars-client: all pass.\n2. cargo clippy -p jmap-calendars-client -- -D warnings: zero warnings.\n3. lib.rs re-exports CalendarEventParseResponse, PrincipalGetAvailabilityResponse.\n4. Close epic JMAP-7i4v.\n\n**Acceptance criteria:** All commands exit 0.",
+  "ephemeral": 0,
+  "id": "JMAP-7i4v.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Done signal: calendars-client all methods and tests complete",
+  "updated_at": "2026-05-05T15:47:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:56:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v.2",
+      "id": "0a74e192-073c-5e61-a69c-a408bf7fca57",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:55:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v",
+      "id": "2c4721d8-2f84-5de6-bfa0-fbbca3ac241e",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:56:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v.5",
+      "id": "54162494-d8d7-52ff-880b-6e21da06be51",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:56:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v.3",
+      "id": "59e69c37-779b-5ff5-868d-54e76061768b",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:56:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v.4",
+      "id": "bc951352-89c3-5730-a0bc-45c1f7791037",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:56:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v.1",
+      "id": "f4510030-c304-5f63-8dde-1164546828e3",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

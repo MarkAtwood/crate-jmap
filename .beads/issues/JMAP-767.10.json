@@ -1,0 +1,33 @@
+{
+  "close_reason": "reviewed pass 23: loop converged; no P0/P1/P2 found in current code",
+  "closed_at": "2026-05-01T12:39:52Z",
+  "compaction_level": 0,
+  "content_hash": "4baba2b6de50e30bd9c1cddf2752906cc0670d34e0465b8e6faeeb66572f11ce",
+  "created_at": "2026-05-01T11:49:28Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mailbox_set (mailbox.rs:613-616) does a second full get_objects::<Mailbox> call to snapshot mailboxes_after_mutations before processing the destroy list. For accounts with many mailboxes this doubles the storage read. The data is only needed for the parent-child check (has_child). An alternative is to also check newly-created mailboxes' parentId values during the create loop and update the in-memory snapshot incrementally, avoiding the second backend round-trip. Expected impact: O(n) extra fetch on every Mailbox/set request that includes destroys, where n is total mailbox count.",
+  "ephemeral": 0,
+  "id": "JMAP-767.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/set destroy: redundant full mailbox fetch per request",
+  "updated_at": "2026-05-01T12:39:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:49:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "40e5f44e-deca-54b8-abfe-26bf8b907958",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

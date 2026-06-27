@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "3212bbb18109acca6561cf88ad0e62ed63d084fb45f81870ad99a800e32969d3",
+  "created_at": "2026-05-14T19:32:01Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/src/backend.rs:51-65\n\nDOC:\n    /// Apply a partial update (patch) to an existing AddressBook or\n    /// ContactCard.\n    ///\n    /// Returns `Some(updated_object)` if the backend modified any\n    /// properties beyond what the client requested (RFC 8620 \u00a75.3\n    /// server-set field echo), or `None` if the patch was applied\n    /// verbatim. Per-request auth context is available via the `caller`\n    /// parameter, which the `register_contacts_handlers` closures\n    /// forward unchanged from [`jmap_server::Dispatcher::dispatch`].\n    fn update_object<O: SetObject + Send + Sync>(\n        &self,\n        caller: &Self::CallerCtx,\n        account_id: &jmap_types::Id,\n        id: &jmap_types::Id,\n        patch: O::Patch,\n    ) -> impl std::future::Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;\n\nPROBLEM:\nThe `patch: O::Patch` parameter has an undocumented format contract.\nRFC 8620 \u00a75.3 specifies that JMAP `/set update` uses a \"PatchObject\"\nwhere keys are JSON Pointer paths (RFC 6901) \u2014 keys may contain `/`\nfor nested updates, `~0` for `~`, `~1` for `/`. The reference impl at\nmemory.rs:677 applies the patch via `jmap_server::json_merge_patch`,\nwhich is RFC 7396 (Merge Patch). These two semantics DIVERGE:\n\n- **JSON Pointer (RFC 8620 \u00a75.3, RFC 6901):** key \"addressBookIds/ab1\"\n  means \"set the ab1 field inside addressBookIds\". Setting a path to\n  null DELETES the leaf.\n- **Merge Patch (RFC 7396):** key \"addressBookIds/ab1\" is a literal\n  top-level field name. Setting a field to null DELETES the top-level\n  field.\n\nA backend implementor reading the trait doc has no way to know which\nsemantics they must implement. The PatchObject type (defined in\njmap-types) is a `Map<String, serde_json::Value>` \u2014 opaque shape.\n\nEVIDENCE FROM REFERENCE IMPL:\ncrate-jmap-contacts-server/src/memory.rs:677\n    if let Err(MergePatchError::DepthExceeded) = json_merge_patch(&mut current, patch_val) {\n\nuses RFC 7396 merge semantics. The handler at addressbook.rs:195\ndeserializes the wire-format Value into a `PatchObject` via serde \u2014\nwhich preserves the dotted/slashed key form but does NOT split or\napply the pointer.\n\nTHIS DIVERGES FROM RFC 8620 \u00a75.3.\n\nA backend impl that correctly implements RFC 8620 \u00a75.3 JSON Pointer\nsemantics will produce DIFFERENT results from the MemoryBackend\nreference impl on patches containing \"/\" in keys. Round-tripping a\nJMAP wire-format /set call through different backends yields\ndivergent state. JMAP-qz9v.10 / JMAP-qz9v.4 from the parent epic touch\non the same concern from the apply_jmap_patch helper angle; the\nTRAIT-LEVEL angle is that the patch-format contract is unspecified at\nthe API boundary.\n\nWHAT CALLERS CANNOT DEPEND ON:\n- That a backend's update_object behaves the same as the reference impl\n  on the same wire input.\n- That a deeply-nested patch like {\"addressBookIds/ab1\": null} applied\n  by the backend matches RFC 8620 \u00a75.3 expectations.\n- That null-valued patch keys delete the field rather than overwrite\n  with null.\n\nRECOMMENDED:\nDocument at the trait-method level which patch semantics the backend\nMUST implement, and reference RFC 8620 \u00a75.3. Add either:\n(a) \"The backend MUST apply `patch` as an RFC 7396 JSON Merge Patch.\n    The handler is responsible for converting RFC 8620 \u00a75.3 JSON-Pointer-\n    keyed wire values into a flat merge-patch shape before calling this\n    method.\" \u2014 and update the handler to do that conversion (today it\n    does not; PatchObject keys are forwarded as-is).\n(b) \"The backend MUST apply `patch` as an RFC 8620 \u00a75.3 PatchObject:\n    keys are JSON Pointer paths (RFC 6901); null values delete the\n    leaf; intermediate objects are created on demand.\" \u2014 and update\n    the MemoryBackend reference impl to use a pointer-aware apply\n    helper (consolidating with the apply_jmap_patch helper from\n    card.rs that JMAP-qz9v.10 flags).\n\nWorkspace canonical-template propagation rule: same gap exists in\njmap-mail-server. Decide which semantics rule, fix the canonical, then\nsweep the siblings.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "ContactsBackend::update_object doc does not specify patch format (RFC 7396 merge vs RFC 6901 JSON Pointer)",
+  "updated_at": "2026-05-17T10:08:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:32:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "d89c3f9e-2e3d-5bb8-9706-1b4fd516450b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

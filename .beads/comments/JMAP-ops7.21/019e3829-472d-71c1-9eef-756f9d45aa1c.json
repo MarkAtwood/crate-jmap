@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T22:58:10Z",
+  "id": "019e3829-472d-71c1-9eef-756f9d45aa1c",
+  "issue_id": "JMAP-ops7.21",
+  "text": "Adjacent to JMAP-ops7.18 (on_destroy_remove inline vs Params struct). Both findings concern _set shape divergence. Fixes are independent \u2014 resolving one doesn't affect the other \u2014 but a /do-beads pass actioning both together amortizes the cargo test --workspace cycle."
+}

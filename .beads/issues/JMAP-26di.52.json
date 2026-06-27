@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied option 3 (document the footgun) \u2014 per-variant rustdoc on QuotaScope::Other, ChatMemberRole::Other, and BodyType::Other warning about PartialEq vs serialize asymmetry and the canonical-variant absorption on round-trip. Systemic follow-up bd:JMAP-cfv1 tracks the workspace-wide question of lifting this protection into impl_string_enum! itself (19 invocations affected).",
+  "closed_at": "2026-05-17T17:41:33Z",
+  "compaction_level": 0,
+  "content_hash": "ae50085f213a6fdfe2292ec9a5f4281c330ea628f8e4076944b0d203ad374be0",
+  "created_at": "2026-05-15T20:44:05Z",
+  "created_by": "Mark Atwood",
+  "description": "Files:\n- crate-jmap-chat-client/src/types.rs:69 (`QuotaScope::Other(String)`)\n- crate-jmap-chat-client/src/types.rs:126 (`ChatMemberRole::Unknown(String)`)\n- crate-jmap-chat-client/src/types.rs:183 (`BodyType::Unknown(String)`)\n\nThese three forward-compat catch-all variants are pub tuple variants holding `String`. Callers can construct, e.g., `QuotaScope::Other(\"account\".to_string())` \u2014 a Rust value that is semantically the canonical variant `QuotaScope::Account` but compares unequal (and might Hash differently if Hash were derived).\n\nCustom serde impls (lines 73-115, 130-170, 188-230):\n- `Deserialize` always normalises canonical wire strings to their canonical Rust variant. So `\"account\"` from the wire produces `QuotaScope::Account`, not `QuotaScope::Other(\"account\")`.\n- `Serialize` re-emits whatever string is inside `Other(s)` verbatim. So `QuotaScope::Other(\"account\").serialize(...)` produces JSON `\"account\"`.\n\nThe asymmetry creates two failure modes for callers:\n\n1. **PartialEq collision**: `QuotaScope::Other(\"account\".into()) != QuotaScope::Account`, but both serialize to `\"account\"`. A defensive comparison that assumes wire-equality implies Rust-equality is wrong.\n\n2. **Wire round-trip non-idempotence at the type level**: round-trip `Account -> \"account\" -> Account` (lossless) but `Other(\"account\") -> \"account\" -> Account` (lossy: `Other(...)` is replaced with the canonical variant). A unit test that asserts `s == serde_json::from_str(&serde_json::to_string(&s)?)?` fails for `Other(\"account\")`.\n\nCaller impact: real but narrow. The most likely path is a downstream test fixture that constructs `Other(\"account\")` intentionally, fails its own round-trip check, and the developer wastes 20 minutes debugging.\n\nWorkspace policy context: `#[non_exhaustive]` on the enum prevents *external* construction of canonical variants like `QuotaScope::Account` \u2014 but tuple-variant `QuotaScope::Other(...)` is still constructible. The protection is one-sided.\n\nFix options:\n1. **Make the canonicalization at construction**: provide `QuotaScope::other(s: &str) -> Self` that checks if `s` matches a canonical wire string and returns `QuotaScope::Account` etc. instead. Then `Other(s)` is reserved for true unknowns.\n2. **Make `Other`'s payload private**: change to a private newtype `QuotaScope::Other(OpaqueOther)` with a single `OpaqueOther::new(s: &str) -> Self` that does the canonicalization check. More disruptive but airtight.\n3. **Document the footgun**: add rustdoc on each `Other`/`Unknown` variant warning callers not to use it for canonical strings.\n\nOption 1 (factory + manual `Debug`/`PartialEq`) is the least invasive. Option 3 is a doc-only minimum-viable change.\n\nThis is borderline-bikeshedding for most callers, but it is a real correctness gap that the type system fails to catch. Flagged at P3 with the `defensive` label.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.52",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Other(String) / Unknown(String) variants let callers forge wire-string collisions with canonical variants",
+  "updated_at": "2026-05-17T17:41:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:44:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "67b90ae7-d25a-5e9f-869d-fc8a6d76a35c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

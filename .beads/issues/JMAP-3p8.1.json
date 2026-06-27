@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3p8.1",
+  "title": "Email/copy: keywords deserialized as Vec<Keyword> instead of HashMap<Keyword,bool>",
+  "description": "email.rs:1140 deserializes copy keywords as Vec<Keyword>, identical to the Email/import bug fixed in pass 9. RFC 8621 \u00a76.1 keywords wire format is String[Boolean] (a JSON object); a valid client payload {'$seen': true} fails serde deserialization as Vec and produces a spurious invalidProperties error.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:53:19Z",
+  "updated_at": "2026-05-01T03:54:02Z",
+  "closed_at": "2026-05-01T03:54:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3p8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 20:53:18"
+    }
+  ]
+}

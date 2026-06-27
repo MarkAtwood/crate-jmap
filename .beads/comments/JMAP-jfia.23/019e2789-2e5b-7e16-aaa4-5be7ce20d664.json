@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T17:29:22Z",
+  "id": "019e2789-2e5b-7e16-aaa4-5be7ce20d664",
+  "issue_id": "JMAP-jfia.23",
+  "text": "Filing as human alongside JMAP-jfia.19 \u2014 now_utc_string returns UTCDate but the wire string (24-char YYYY-MM-DDTHH:MM:SS.mmmZ form with millis) does not pass UTCDate::new_validated (which requires 20-char no-millis form). The newtype invariant is silently violated; consumers that call .new_validated on the result fail.\n\nThree sub-options: (a) tighten UTCDate::new_validated to accept the 24-char form, (b) introduce a separate UTCDateMs newtype, (c) document the divergence prominently and accept the asymmetry. Option (a) is a jmap-types crate change with workspace propagation. Defer to major-bump decision."
+}

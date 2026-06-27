@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already defended: mailbox.rs:712-731 has extensive comments explaining the two-pass strategy and role-swap correctness invariants.",
+  "closed_at": "2026-05-04T15:48:25Z",
+  "compaction_level": 0,
+  "content_hash": "48bab865202b28f6c14bf72cbf1df7a4b75964b12f092089c21cd60119a01b2a",
+  "created_at": "2026-05-02T02:56:39Z",
+  "created_by": "Mark Atwood",
+  "description": "The two-pass update loop in handle_mailbox_set (vacating patches first, claiming patches second) is genuinely correct and non-trivial. It allows a client to atomically swap roles across mailboxes in a single request regardless of map iteration order. A naive single-pass would fail for the swap case (both A\u2192null and B\u2192'inbox' in the same request) because the role-taken check would see A still holding inbox during B's claim. The implementation correctly tracks roles_actually_vacated only from successful pass-1 updates, so a failed vacate does not erroneously free the role. A contributor might suggest simplifying to a single pass \u2014 do not do it.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/set two-pass role-swap correctly handles atomic role transitions within one request",
+  "updated_at": "2026-05-04T15:48:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:56:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "819c6206-923e-586e-a6e6-a268ff9d2078",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

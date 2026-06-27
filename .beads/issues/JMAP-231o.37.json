@@ -1,0 +1,33 @@
+{
+  "close_reason": "Won't fix: opinion-tagged. .expect() in test-helper construction is the standard idiom; failure shows up as a panic with a clear message identifying the helper. Refactoring to Result<_, _> would force every integration test to add ? plumbing. Section-3 paper-cut, defer.",
+  "closed_at": "2026-05-10T05:30:12Z",
+  "compaction_level": 0,
+  "content_hash": "175de7ada4d42d48f7e8efc146e852b074313141caaf38cb471a5dcf3edc01d2",
+  "created_at": "2026-05-08T03:24:36Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/helpers.rs:53-59:\n```\nlet client = jmap_base_client::JmapClient::new(...)\n    .expect(\"make_client: JmapClient construction must succeed\");\n```\n\nThis is a test helper, so `.expect` is acceptable in principle (review-rusty rules: 'unwrap/expect outside of tests, examples, or provably unreachable paths'). And tests are tests.\n\nBut the helper is used by every integration test \u2014 if construction ever fails (CA bundle problem on a CI machine, port already bound, etc.), the panic shows up in EVERY test name with a stack trace pointing at helpers.rs, not the test that called it. Returning Result and using `?` in callers (or letting the test framework render the failure) gives better localized output.\n\nLower priority \u2014 pure test ergonomics. Filing because it's a pattern that scales poorly.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "make_client uses .expect() \u2014 should propagate as test failure",
+  "updated_at": "2026-05-10T05:30:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:24:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "f7daade6-4145-584e-bf8e-2be49df6be89",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

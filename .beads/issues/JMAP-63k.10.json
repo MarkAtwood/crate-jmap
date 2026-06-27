@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already fixed by JMAP-yqo.15: build_email_from_create doc comment is now directly above the function, not merged with validate_and_normalize_keywords.",
+  "closed_at": "2026-05-04T15:56:35Z",
+  "compaction_level": 0,
+  "content_hash": "a3f89d82c21785cfcb0e79ab64b2589911f3d8d8249256ed0a08608c9acdd934",
+  "created_at": "2026-05-02T06:45:54Z",
+  "created_by": "Mark Atwood",
+  "description": "File:/home/mark/PROJECT/JMAP/crate-jmap-mail-server/src/email.rs:1198\nIssue: The doc comment on build_email_from_create (lines 1198-1215) contains two distinct doc blocks that were merged together: the first paragraph documents build_email_from_create, then mid-paragraph it pivots to describe validate_and_normalize_keywords (starting with 'Validate and normalize a raw keyword map...' at line 1205). This was introduced when find_immutable_patch_key and IMMUTABLE_EMAIL_FIELDS were moved to helpers.rs, leaving the FORBIDDEN_KEYWORD_CHARS/MAX_KEYWORD_LEN constants and validate_and_normalize_keywords function immediately after the build_email_from_create doc block.\nFix: Truncate the doc comment at line 1204 (end of the build_email_from_create description) and attach a separate doc comment to validate_and_normalize_keywords.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Merged doc comment on build_email_from_create",
+  "updated_at": "2026-05-04T15:56:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:45:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "ea126a16-a24b-5d4d-a777-2c4c210c84e7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

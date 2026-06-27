@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "Non-string destroy elements rejected. cargo test passes.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added pre-flight guard for non-string destroy elements in both principal.rs and notification.rs; 2 new tests; 12 unit tests pass; clippy clean",
+  "closed_at": "2026-05-05T04:43:44Z",
+  "compaction_level": 0,
+  "content_hash": "a15b5b96d4ff313db9a7d5f8cc96f8c03dbce4dc617d5332dca1645c4e1f8fee",
+  "created_at": "2026-05-05T02:55:45Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** In both handle_principal_set (principal.rs) and handle_share_notification_set (notification.rs), the destroy array iteration silently skips non-string elements. Replace with an upfront validation that returns JmapError::invalid_arguments if any element is not a string. Reference pattern: crate-jmap-mail-server/src/identity.rs lines 344-348.\n\n**Algorithm:**\n1. In both handlers, after extracting the destroy Value array, add:\n   if destroy_arr.iter().any(|v| !v.is_string()) {\n       return Err(JmapError::invalid_arguments(\"destroy array must contain only Id strings\"));\n   }\n2. Apply to both principal.rs and notification.rs.\n3. Add tests:\n   - Principal/set with destroy:[123] \u2192 top-level invalidArguments error.\n   - ShareNotification/set with destroy:[null] \u2192 top-level invalidArguments error.\n4. Verify existing tests still pass.\n\n**Acceptance criteria:**\n- Both handlers reject non-string destroy elements.\n- cargo test -p jmap-sharing-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-q3ze.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix: reject non-string destroy array elements with invalidArguments",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:55:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze",
+      "id": "f6c9e3e7-d023-5c06-9939-92353a03ac19",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

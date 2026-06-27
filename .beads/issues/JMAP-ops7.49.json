@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "382243ffb79d911fbd91e2f64e2f9a7d52dfda9bbd859fb368ab2d721897b4c7",
+  "created_at": "2026-05-18T05:31:28Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence** \u2014 typed-id discipline across foundation client (jmap-base-client) vs foundation server (jmap-server) + extension-server backend traits:\n\nClient side (jmap-base-client):\n- src/request.rs:519 \u2014 `pub fn primary_account_id(&self, capability: &str) -> Option<&str>`\n- src/request.rs:430, 433 \u2014 `accounts: HashMap<String, AccountInfo>`, `primary_accounts: HashMap<String, String>` (both keyed and valued as raw `String`, not `Id`)\n- src/blob.rs:54, 93, 118, 165 \u2014 `pub account_id: &'a str` in 4 request parameter structs\n- src/blob.rs:222, 224 \u2014 `pub account_id: Id`, `pub blob_id: Id` in `BlobUploadResponse` (INTERNAL asymmetry: request &str, response Id, within the same file)\n\nServer side (all 8 extension-server backend traits):\n- crate-jmap-mail-server/src/backend.rs:431 \u2014 `account_id: &jmap_types::Id`\n- crate-jmap-calendars-server/src/backend.rs:747 \u2014 `account_id: &jmap_types::Id`\n- crate-jmap-chat-server/src/backend.rs:611, 1018 \u2014 `account_id: &jmap_types::Id`\n- All 8 extension-client `*_account_id()` accessors return `Result<&str, ClientError>` (uniformly via the foundation seam; consistent on the sibling axis but inconsistent vs the server seam)\n\n**Caller-observable cost**: a consumer reading `BlobUploadResponse.blob_id: Id` and then wanting to download that blob has to call `.as_ref()` to convert `Id` \u2192 `&str` for the next call (within `blob.rs` alone, the request structs take `&'a str` while the response struct returns `Id`). The Session-derived `account_id: &str` value cannot be type-checked as the right account-id newtype before being substituted into URL templates.\n\n**Maintainer cost**: workspace-policy decision is unsettled. The server-side canonical seam uses `&jmap_types::Id`; the client-side canonical seam uses raw `&str`. Within blob.rs the asymmetry is plainly avoidable. Across the workspace this is a real but defensible boundary (Session deserializes JSON strings without an \"is-this-a-valid-Id\" gate). Sibling-client consistency itself is clean \u2014 all 8 do the same thing. The flag is against the foundation-client policy choice, not against any sibling.\n\n**Decision required**: should the client-side opt into typed `&Id` (with deserialize-time validation) or keep the permissive `&str` shape? The minimum cleanup, regardless of the policy direction, is the within-`blob.rs` asymmetry: request structs and response structs should agree on whether `account_id` is `&str` or `Id`.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.49",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "jmap-base-client Session and blob request structs use raw &str for account_id / blob_id; all 8 extension-server backend traits use &jmap_types::Id \u2014 typed-id boundary inverted between client foundation and server foundation",
+  "updated_at": "2026-05-18T05:31:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:31:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "7289f8f5-e010-5793-a05f-8c5525d5d414",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

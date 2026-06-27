@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T02:37:13Z",
+  "id": "019e297e-c027-7ea9-8b91-0c31b088ebce",
+  "issue_id": "JMAP-wzq9.22",
+  "text": "Blocked on canonical workspace policy. The 'pub extra: serde_json::Map<String, serde_json::Value>' pattern is mandated by the workspace extras-preservation policy at AGENTS.md and is identical across every extension-client params struct. serde_json::Map type-exposure is a workspace-wide policy property. Changing only metadata-client diverges from policy. Either workspace accepts the coupling (most likely \u2014 serde_json hasn't broken its API in years) or the policy itself changes."
+}

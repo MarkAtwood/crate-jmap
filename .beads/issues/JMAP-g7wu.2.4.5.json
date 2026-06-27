@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T151456Z-658525",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T16:48:13Z",
+  "compaction_level": 0,
+  "content_hash": "b688558d2bcd5a416b5332abf10885cf2e4bd466681361b443348c0dae43887c",
+  "created_at": "2026-05-11T13:58:28Z",
+  "created_by": "Mark Atwood",
+  "description": "Backend-impl slice of JMAP-g7wu.2.4: implement AddCategory/RemoveCategory/UpdateCategory variants in MemoryBackend::apply_space_patch.\n\nCascading semantics for RemoveCategory:\n- Channels currently in removed categories move to uncategorizedChannelIds (draft \u00a7Space/set line 1126).\n- For each removed CategoryId, find all Channels with that category and update their category reference to uncategorized.\n\nULID assignment for AddCategory: generate new CategoryId.\n\nDepends on .4.1 (SpacePatchOp enum) landing. Parallelizable with .4.3 (roles+members) and .4.4 (channels) \u2014 different match arms.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.2.4.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "apply_space_patch MemoryBackend: Category variants (with Channel reassignment cascade)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T06:58:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4.1",
+      "id": "13166eb3-8952-5d88-97bf-580ecfcd80b3",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T06:58:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4",
+      "id": "dd8e745b-e84b-5a67-96c1-7da2ede7297f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

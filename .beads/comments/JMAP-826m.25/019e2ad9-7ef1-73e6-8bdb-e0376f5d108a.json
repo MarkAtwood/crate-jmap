@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T08:55:57Z",
+  "id": "019e2ad9-7ef1-73e6-8bdb-e0376f5d108a",
+  "issue_id": "JMAP-826m.25",
+  "text": "Blocked on JMAP-826m.8. This bead's fix direction explicitly references mail-server's IdFate HashMap-based dedup algorithm as the correct pattern (per JMAP-826m.8's propagation analysis), but JMAP-826m.8 is currently human-labeled awaiting the propagation-direction decision (propagate canonical to siblings vs document the divergence vs propagate sibling shape back up to canonical).\n\nStandalone fix that swaps Vec::contains for HashSet without adopting mail-server's IdFate would solve the O(n^2) but would create another cookie-cutter divergence \u2014 exactly what JMAP-826m.8 is trying to resolve. The two beads must be addressed in lockstep.\n\nWill pick this up once .8 is decided."
+}

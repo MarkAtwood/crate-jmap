@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Updated test docstring at metadata.rs:1465-1471 to clarify that 'relatedType absent' and 'relatedType null' both deserialize to None per Option<String>'s default \u2014 matches the test fixture's omission rather than implying an explicit null.",
+  "closed_at": "2026-05-15T09:14:46Z",
+  "compaction_level": 0,
+  "content_hash": "90be9599c5d574f38bfe0d19b0f48740b50476c9ec19725e51d70cd6e844556c",
+  "created_at": "2026-05-14T17:58:06Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:1216-1222:\n\n  let args = json!({\n      \"accountId\": \"acc1\",\n      \"filter\": {\n          \"relatedIds\": [\"EM1\", \"EM2\"]\n          // relatedType deliberately omitted\n      }\n  });\n\nThe docstring at line 1213 describes relatedType: null. The test fixture omits the field. These are deserialize-equivalent (Option<T> with skip_serializing_if treats null and missing as both \u2192 None), but a contributor reading the docstring will look for an explicit null and not find it.\n\nWhat would make it clear: docstring says 'with relatedIds: [...] and relatedType absent (or null \u2014 both deserialize to None per Option<String> default)'.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "metadata.rs:1219 docstring 'Oracle: draft \u00a73.4.1' says 'relatedIds MUST only be specified when relatedType is also specified. A /query call carrying a leaf MetadataFilterCondition with relatedIds: [...] and relatedType: null...' \u2014 but the test sets relatedIds: [...] and OMITS relatedType, not sets it to null. Subtle inconsistency between the docstring narrative and the test fixture",
+  "updated_at": "2026-05-15T09:14:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:58:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "c01515fa-ea3f-5aad-b45d-96d488c37ae7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

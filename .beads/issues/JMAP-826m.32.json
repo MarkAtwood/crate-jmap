@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Rewrote test docstring at metadata.rs:859-869 to make clear the test validates handler error-routing plumbing, not backend \u00a73.1 uniqueness logic. Added cross-references to the real \u00a73.1 semantics tests at memory::tests::uniqueness_constraint_enforced and tests/metadata_tests.rs::set_create_duplicate_returns_already_exists.",
+  "closed_at": "2026-05-15T09:14:48Z",
+  "compaction_level": 0,
+  "content_hash": "3198a1b226b626e2434d6109fd3122d6eead94daea38e29e601f9854ecafcacd",
+  "created_at": "2026-05-14T17:56:50Z",
+  "created_by": "Mark Atwood",
+  "description": "What is unclear: metadata.rs:692 (set_create_uniqueness_violation_returns_already_exists) has the docstring 'Oracle: \u00a73.1 \u2014 uniqueness violation produces alreadyExists in notCreated. The handler is generic \u2014 the backend reports the constraint via BackendSetError::SetError.'\n\nThe test does NOT exercise uniqueness logic. It calls backend.force_create_error(...) to inject an alreadyExists SetError, then asserts the handler routes it to notCreated. This is a test of the HANDLER's error-routing plumbing, not of \u00a73.1 semantics. The \u00a73.1 reference in the docstring is misleading.\n\nAudience: contributor reading this test to understand how \u00a73.1 uniqueness works. They will conclude the handler enforces \u00a73.1, when actually the backend does \u2014 and this test is unable to validate the backend's logic.\n\nWhat would make it clear: rewrite the docstring as 'Oracle: RFC 8620 \u00a75.3 \u2014 when the backend reports alreadyExists via BackendSetError::SetError, the handler routes it into notCreated[create_id]. This test validates the handler's plumbing, not the backend's \u00a73.1 logic. See memory.rs::tests::uniqueness_constraint_enforced for the \u00a73.1 semantics test against the reference backend.'",
+  "ephemeral": 0,
+  "id": "JMAP-826m.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Test docstring 'Oracle: \u00a73.1 \u2014 uniqueness violation produces alreadyExists' is misleading \u2014 test uses force_create_error injection, not real uniqueness logic",
+  "updated_at": "2026-05-15T09:14:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:56:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "56fb65dc-0e55-5d8f-b3b1-017978ca7440",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

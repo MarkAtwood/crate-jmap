@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T21:41:08Z",
+  "id": "019e37e2-c237-79e2-b623-eb9dae85b1dd",
+  "issue_id": "JMAP-sf5h.18",
+  "text": "Recommendation ratified after no pushback in ~41 hours: option (A) \u2014 keep Sha256(String) inner repr. The recommendation argued: (1) only current consumer reads the value as &str (BlobUploadResponse.sha256 \u2192 as_str at blob.rs:631); (2) variable-time PartialEq concern addressed by docs-only fix per .24 (closed); (3) heap-alloc cost (32 vs 64 bytes) unmeasurable vs blob body size. Status quo stands. Closing without code change."
+}

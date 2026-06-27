@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in 5e18f72: chose option (a) \u2014 typed ContactCard.keywords as Option<HashMap<String, bool>> matching the sibling members and address_book_ids fields and the RFC 9553 \u00a72.8.2 String[Boolean] closed shape. PLAN.md was already aspirationally correct; code now matches. Updated the test (renamed keywords_roundtrips_as_string_bool_map) to operate on the typed field directly.",
+  "closed_at": "2026-05-15T22:55:09Z",
+  "compaction_level": 0,
+  "content_hash": "5c8348f1ea3f3a9921c4af56b4e9c7f478b7941815370cd5d6fe8bb4127997a0",
+  "created_at": "2026-05-15T22:35:42Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-contacts-types/PLAN.md line 244 documents 'pub keywords: Option<HashMap<String, bool>>' on ContactCard. crate-jmap-contacts-types/src/card.rs:170 actually declares 'pub keywords: Option<serde_json::Value>'. RFC 9553 \u00a72.8.2 defines keywords as String[Boolean] \u2014 a closed shape that could safely be typed. The sibling fields 'members' (card.rs:65) and 'address_book_ids' (card.rs:43) are typed as HashMap<_, bool>, so 'keywords' is the odd one out within the same struct for the same wire shape. Two options: (a) tighten code to match PLAN \u2014 promote keywords to HashMap<String, bool> for consistency with members; the localizations promotion at 06c9385 set the precedent. (b) loosen PLAN to match code \u2014 explain why keywords stays Value (round-trip fidelity vs spec extension). Either is fine, but the drift between PLAN and code is a maintainer trap: future-you will read PLAN, ship a sub-tle bug, and not know which is authoritative.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "PLAN.md ContactCard listing claims keywords: Option<HashMap<String,bool>>, code has Option<serde_json::Value>",
+  "updated_at": "2026-05-15T22:55:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:35:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "789b9780-34e4-5580-a91c-441ee4a580b7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.19",
+  "title": "Per-request response size cap enforced after actual read, not only Content-Length header",
+  "description": "client.rs and blob.rs: All four HTTP paths check Content-Length as fast-path AND re-check bytes.len() after actual read. A contributor might remove the post-read check as redundant. It is not: Content-Length can lie (chunked responses, server bugs, hostile servers). The post-read check is the actual security control; the header check is an optimization. Both checks are necessary. Defend both.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:36:38Z",
+  "updated_at": "2026-04-30T01:43:28Z",
+  "closed_at": "2026-04-30T01:43:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:36:38"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit 00cd261. Flipped filter_changes_array's not-in-lookup branch from return false (drop) to return true (keep). Per-function rustdoc now documents the TOCTOU policy and the trade with backends that override get_metadata_changes. Added regression test changes_filter_keeps_id_when_object_disappeared_mid_flight that seeds two Ids in the change log with only one's Metadata in the mock store \u2014 both Ids survive the filter pass. All 32 tests pass; clippy clean.",
+  "closed_at": "2026-05-14T14:48:17Z",
+  "compaction_level": 0,
+  "content_hash": "3e9c79c7829b4c851cd6c044c45d94caa5ebd7be12bf2e4006b7aa2f01bf5be0",
+  "created_at": "2026-05-14T14:18:54Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:228-247 \u2014 filter_changes_array is the default-impl post-filter path for Metadata/changes. It calls get_objects::<Metadata>(...ids_for_fetch...) and then filters:\n\n    let Some(meta) = lookup.get(id_str) else {\n        return false; // dropped \u2014 object disappeared\n    };\n\nIf the object was destroyed between the get_metadata_changes call and the get_objects call, the Id is silently dropped from the created/updated arrays. This is a TOCTOU race inherent to the post-fetch design.\n\nTrigger: any concurrent destroyer racing the /changes handler under a default-impl MetadataBackend (i.e. one that does NOT override get_metadata_changes). The MemoryBackend override does not have this issue because it pre-filters from the change log directly.\n\nBad behavior: the returned state token says \"this is the change set for the window\" but the arrays are missing entries that, at change-log time, were genuinely created/updated. A client diffing against the response will believe those objects don't exist, but the state token claims they would be included if they did. The next /changes call from the new state will not re-report them \u2014 they're just lost.\n\nThis is the wrong tradeoff at the spec layer: \u00a73.3 says the filter applies to which entries appear, not to which entries the server is allowed to forget. The correct fallback when the post-fetch can't determine related_type/type_name for an entry is to keep the Id (conservative), not drop it. Dropping silently is the worst of both worlds \u2014 wrong arrays + a state token that claims authority.\n\nTwo acceptable fixes:\n1. Keep the Id when re-fetch fails (conservative). Comment explains the trade.\n2. Document that the default-impl path is best-effort and not a strict \u00a73.3 conformance. README and rustdoc both already claim default-impl is non-strict for destroyed only \u2014 extend that caveat to created/updated, OR keep the Id.\n\nOption 1 is the lower-surprise choice. Option 2 is honest but the gap between \"strict \u00a73.3 (override)\" and \"silent data loss (default)\" is operationally too wide.\n\nRecommend option 1 \u2014 flip the drop branch from  to  so disappeared-object Ids survive the filter pass. Add a regression test that simulates a between-fetch destroy and asserts the Id stays in created.\n\nMaintainer cost if left: a contributor adding a fancier post-filter (e.g. matching on isPrivate) will copy the drop pattern and silently break a different invariant. The drop-on-failure idiom is a class of bug, not a one-off.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "filter_changes_array silently drops Ids whose objects disappeared between /changes and re-fetch",
+  "updated_at": "2026-05-14T14:48:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:18:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "4a898c6d-03a0-5d82-9f0b-3a8ecdbf86e7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

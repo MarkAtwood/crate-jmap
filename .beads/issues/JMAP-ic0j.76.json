@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "0eb714c8c5f752324043af6c0ad49300a423cc407056d450a642a6b24af63b89",
+  "created_at": "2026-05-17T21:35:57Z",
+  "created_by": "Mark Atwood",
+  "description": "Sibling of JMAP-ic0j.75. Calendars-server and contacts-server have been switched to the RFC 8620 \u00a75.2 SHOULD-preferred path (id created+destroyed in window \u2192 omit from BOTH lists) to align with the canonical jmap-mail-server. Chat-server still uses the MAY-path (path 2: 'destroyed' only) at crate-jmap-chat-server/src/memory.rs:606-612.\n\nDirect propagation conflicts with two existing chat-server integration tests that PIN the MAY-path behavior:\n\n- crate-jmap-chat-server/tests/integration.rs:1435-1449 (`message_set_burn_on_read_fires_on_read_at`): asserts that after creating a burn-on-read message and marking it read (which fires the hard-delete), `Message/changes` with `sinceState: \"0\"` MUST report the destroyed id. The test comment says 'Message/changes from \"0\" must report the id as destroyed'.\n\n- crate-jmap-chat-server/tests/integration.rs:1665-1679 (sibling message-expiry test): same MAY-path assertion structure for the senderExpiresAt cleanup path.\n\nBoth tests cite draft-atwood-jmap-chat-00 features (burn-on-read \u00a7Message/burnOnRead, message expiry \u00a7Message/senderExpiresAt). The draft text describes the deletion semantics ('permanently hard-delete (row removal, not tombstone)') but does NOT normatively say HOW Message/changes should report the deletion \u2014 RFC 8620 \u00a75.2 governs that, and \u00a75.2 permits BOTH paths under SHOULD/MAY.\n\nQuestion for the human: should chat-server switch to path (1) and the two tests be updated to assert 'omitted from both' (the SHOULD-preferred reading), or should chat-server stay on path (2) as a deliberate spec-test-driven divergence from the canonical?\n\nArguments for path (1) \u2014 switch:\n- Workspace cookie-cutter consistency: extensions should mirror canonical jmap-mail-server.\n- The chat draft does not normatively pin path (2); it only describes the hard-delete semantics.\n- Tests asserting 'MUST report destroyed' are test-author intent, not RFC normative.\n\nArguments for path (2) \u2014 stay:\n- Burn-on-read and message-expiry produce 'silent disappearances' under path (1) when client's since=0: the message goes 'poof' with no destroyed id to drive cache eviction.\n- The spec-test authors deliberately wrote the assertion to surface the destroyed id so clients learning about the message via push (which DOES happen between create and destroy in real deployments) can purge their local cache.\n- The MAY-path is RFC-compliant; path (1) is just SHOULD-preferred.\n\nRecommendation: defer to human. The semantic argument is genuine, not bikeshedding. Both choices are RFC-compliant. The decision affects observable client behavior for two production chat features (burnOnRead, senderExpiresAt).\n\nIf the human picks path (1): update both test assertions to 'destroyed.is_empty()' with rationale comments citing this bead and RFC 8620 \u00a75.2 SHOULD-preferred.\n\nIf the human picks path (2): document the deliberate canonical-template divergence in crate-jmap-chat-server/AGENTS.md under a new 'Documented divergence from canonical' subsection (the AGENTS.md already has one such subsection for the tests/common backend wrappers).\n\nIf the human picks 'add a new normative paragraph to the chat draft': file an upstream bead in jmap-chat-spec.\n\nDiscovered while completing bd:JMAP-ic0j.75 (calendars + contacts propagation). The original bead said 'propagate to ... jmap-chat-server (verify per-sibling)' \u2014 this is the verify-per-sibling find.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.76",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Mirror JMAP-ic0j.75 in chat-server: switch to RFC 8620 \u00a75.2 SHOULD-preferred path conflicts with existing burn-on-read tests",
+  "updated_at": "2026-05-17T21:35:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T14:35:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "615c179f-adf7-547b-8aea-abd714a5dda9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

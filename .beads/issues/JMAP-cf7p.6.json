@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-12T06:07:21Z",
+  "compaction_level": 0,
+  "content_hash": "e10ffce44d63f6eae87616aec21d76339496621dbcd30d9d360173589cf640fa",
+  "created_at": "2026-05-12T05:47:32Z",
+  "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "description": "Add an axum middleware layer that requires 'Authorization: Bearer test-token' on every request (or whatever the --token CLI flag overrides it to; default 'test-token').\n\n- 401 Unauthorized on missing or mismatched Authorization header.\n- /.well-known/jmap MAY skip auth (discovery is sometimes unauthenticated; choose one and document the choice).\n- /ws and /events require the token in either the Authorization header or as a query parameter (?token=...) for browsers that can't set Authorization headers on WebSocket / EventSource.\n- Constant-time compare for the token using subtle::ConstantTimeEq::ct_eq (the workspace's secret-comparison policy applies \u2014 see jmap-chat-server's invite-code precedent at space.rs:601).\n\n## Acceptance\n\n- POST /jmap without Authorization \u2192 401\n- POST /jmap with wrong token \u2192 401\n- POST /jmap with right token \u2192 normal dispatch\n- ws:// connections require the token\n- SSE connections require the token\n- cargo clippy clean (constant-time compare uses subtle, not ==)\n- cargo test workspace clean\n\n## Depends on .2 (router); can land in parallel with .3/.4/.5 since the auth layer wraps the whole router and is orthogonal to the per-endpoint logic.",
+  "ephemeral": 0,
+  "id": "JMAP-cf7p.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Bearer auth middleware (hardcoded token, 401 on mismatch)",
+  "updated_at": "2026-05-12T06:07:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T22:47:32Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p.2",
+      "id": "7ba398bf-ff10-589a-9ca9-21de6b48a309",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T22:47:32Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p",
+      "id": "a17f07e1-7804-5b67-aa51-f2bbdcb8e985",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

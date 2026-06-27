@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T18:13:12Z",
+  "compaction_level": 0,
+  "content_hash": "56e53de4db6fa381509a75e89e0dad2def088dce208a33868ab0bc7ad8ae9dba",
+  "created_at": "2026-05-02T17:32:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Port jmap-test-suite email-get.test.ts (13 tests) and email-get-headers.test.ts (20 tests) to Rust. Key cases: get-by-id, get-metadata-properties (types correct), get-not-found (notFound=[]), get-properties-filter (only requested props returned \u2014 depends on JMAP-ueat fix), get-has-attachment-true/false, get-thread-id-consistent, get-state-returned; header-from/to/cc/subject/sentAt/messageId/inReplyTo/references, header-raw-access (header:Subject:asText), header-as-addresses/as-date/as-urls, header-intl-from-decoded (RFC 2047). Source: ~/GIT/jmap-test-suite/src/tests/email/",
+  "ephemeral": 0,
+  "id": "JMAP-1aa5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "test: Email/get + Email/get headers conformance",
+  "updated_at": "2026-05-02T18:13:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:32:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bhw5",
+      "id": "9278c4ea-c651-51f2-87c5-62218a03e1fb",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T10:32:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ueat",
+      "id": "a639d2e9-2f67-59a4-b4c5-371439682649",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

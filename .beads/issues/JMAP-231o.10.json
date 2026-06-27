@@ -1,0 +1,33 @@
+{
+  "close_reason": "Four /get builders (calendar_get, calendar_event_get, calendar_event_notification_get, participant_identity_get) now omit ids/properties when None, matching the conditional-add idiom used by /set, /changes, /query. Avoids 'present-and-null vs absent' interop quirks. Workspace tests green (36/36 calendars-client, 96 results 0 failed). Note: vacuous test fixtures still use 'ids: null' \u2014 those exercise build_request only and are JMAP-231o.8's scope. Commit 0a8f24e.",
+  "closed_at": "2026-05-09T03:11:52Z",
+  "compaction_level": 0,
+  "content_hash": "65700fe114c0e607df4c8e258098407a18a28120142d7f1fbb79d4d1dcea42cf",
+  "created_at": "2026-05-08T03:19:11Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/calendar.rs:33-37, src/methods/event.rs:35-39, src/methods/event_notification.rs:30-34, src/methods/participant_identity.rs:24-28 \u2014 every /get builder uses:\n\n```\nlet args = serde_json::json!({\n    \"accountId\": account_id,\n    \"ids\": ids,            // serializes Option::None \u2192 JSON null\n    \"properties\": properties,\n});\n```\n\nWhen `ids: Option<&[&str]>` is None, this serializes `\"ids\": null` into the wire request. RFC 8620 \u00a75.1 specifies `ids` as `Id[]|null`, so null is technically legal \u2014 but the spec's PROSE convention everywhere else (and the conditional-add idiom used by calendar_set, calendar_changes, calendar_event_query) is to omit absent keys.\n\nThe /set, /changes, /query methods consistently use `if let Some(...) = x { args[...] = x.into(); }` to omit None fields. The /get methods break this pattern silently.\n\nTwo practical concerns:\n\n1. Inconsistency makes the codebase harder to maintain \u2014 a contributor adding a new method has two patterns to choose from with no rule.\n\n2. Some interop scenarios (proxies, audit loggers) treat 'present and null' differently from 'absent.' Always sending null forecloses on flexibility.\n\nSame applies to `properties`. Suggested fix: switch /get methods to the conditional-add idiom used elsewhere, OR document that null is intentional and apply it everywhere else too. Pick one.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "calendar_get/event_get/etc send 'ids: null' explicitly when None",
+  "updated_at": "2026-05-09T03:11:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:19:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "cc09ce15-5975-5d1c-8abf-0d7fd8889b3c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

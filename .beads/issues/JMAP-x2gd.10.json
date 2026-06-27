@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "3e58406fbe311e6846ddbc12f2308f8ae50e41ef7260b59dce423b9b97c1b32d",
+  "created_at": "2026-05-14T03:13:50Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/space.rs:1284-1314 (handle_space_join invite-code path).\n\nIn-code acknowledgement (lines 1285-1288): 'NOTE: The MemoryBackend stores objects per-account, so invite code lookup works only when the caller's account created the invite. A production backend must maintain a global invite code index. This is a known architectural limitation of the test backend.'\n\nBut the limitation isn't only in MemoryBackend \u2014 it's in the handler's API. The handler calls:\n    backend.get_objects::<SpaceInvite>(caller, &account_id, None, None)\n\n\u2026and account_id is the redeemer's account. Spec semantics: an invite code is a globally-redeemable handle; any user with the code joins any Space whose invite carries that code, regardless of which JMAP account created the invite.\n\nA production backend that maintains a global invite index can't even *receive* the relevant context here: the trait signature passes account_id, and the handler iterates the result of an account-scoped get_objects.\n\nThis is a JmapBackend/ChatBackend trait shape issue, not just a memory.rs limitation: ChatBackend has no method that means 'redeem this invite code from the global index'. Fix sketch:\n1. New ChatBackend method: redeem_invite_code(&self, caller, code) -> Result<(account_id, space_id, invite_id), BackendSetError>. The backend resolves which account+space owns the code.\n2. handle_space_join's invite branch calls redeem_invite_code; the returned account_id is what the membership write uses (and that may not equal the caller's-supplied accountId).\n3. Drop the account_id input from the invite branch path \u2014 or treat it as a hint that's ignored.\n\nWithout this, the only deployments that work correctly are single-account (every user has their own account that contains everything they care about); multi-tenant or multi-Space-per-account deployments cannot redeem invites that crossed account boundaries.\n\nNote: tests currently mask this because the integration tests create invites and redeem them within the same account. The bug would surface immediately in any deployment with cross-account invite sharing.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Space/join MemoryBackend invite lookup is account-scoped; spec semantics are global",
+  "updated_at": "2026-05-14T03:13:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:13:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "87eab5c6-c436-5d2e-b13b-b8e3cf0f5231",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "47b23ba5365dda43a622674915e20d1dba70e1b0b8d24f6f694bd0c64c3ae8f3",
+  "created_at": "2026-05-15T20:01:02Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-jscontact-types/src/lib.rs:1735 fails `cargo clippy --all-targets -- -D warnings` with:\n\n    error: very complex type used. Consider factoring parts into `type` definitions\n       --> crate-jmap-jscontact-types/src/lib.rs:1735:20\n        |\n    1735 |         let cases: &[(&str, serde_json::Value, fn(&AnniversaryDate) -> bool)] = &[\n\nThis was confirmed pre-existing (reproduces on `main` at 2eb8fdf without any uncommitted changes) and is independent of bd:JMAP-ic0j.71. The fix is either:\n\n  (a) Factor the tuple into a `type` alias (e.g. `type AnniversaryDateCase = (&'static str, serde_json::Value, fn(&AnniversaryDate) -> bool);`).\n  (b) `#[allow(clippy::type_complexity)]` on the test fn.\n\nOption (a) is the standard fix; the alias is reusable if other tests in the file have the same shape. Out of scope for JMAP-ic0j.71; filed as a separate cleanup.\n\nLikely surfaced by a recent clippy version bump (the `unnecessary_cast` error in id.rs:295 caught in the same workspace clippy run was also a 1.95+ lint, suggesting toolchain rev was the trigger).",
+  "ephemeral": 0,
+  "id": "JMAP-ztpc",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Pre-existing clippy::type_complexity error in jmap-jscontact-types test code at lib.rs:1735 (complex tuple type for AnniversaryDate test cases)",
+  "updated_at": "2026-05-15T20:01:02Z"
+}

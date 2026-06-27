@@ -1,0 +1,33 @@
+{
+  "close_reason": "Won't fix: P3-opinion-only cosmetic docs.rs concern. The re-export chain (jmap-types::backend -> jmap-server::backend with error types added -> extension-server::backend) is the standard facade pattern. Adding #[doc(inline)] would change docs.rs presentation but is purely cosmetic. Per AGENTS.md convergence rule, P3/opinion is at bikeshedding threshold.",
+  "closed_at": "2026-05-10T23:49:00Z",
+  "compaction_level": 0,
+  "content_hash": "974d3fc9e2fd7fcb3e1fb8be554d4b58da94135bf816777e0b2b33b1a2c0f383",
+  "created_at": "2026-05-07T20:43:28Z",
+  "created_by": "Mark Atwood",
+  "description": "JmapBackend, GetObject, JmapObject, QueryObject, SetObject are defined in jmap-types::backend, re-exported by jmap-server::backend (which adds error types and supertrait), then re-exported again by every extension server's backend module.\n\nConsumers running cargo doc see the same names appear in 3 crates' rustdoc with no indication of which is canonical. This works (it's the standard facade pattern) but loses canonical-source signal.\n\nMitigation options:\n1. Add `#[doc(inline)]` on the re-exports in extension server crates so docs.rs renders the actual definition (rather than a one-line redirect).\n2. Add a `/// Re-exported from [`jmap_server::JmapBackend`].` comment on each.\n\nMarked opinion \u2014 purely a cosmetic docs.rs concern.\n\njmap-server is the foundation server crate per workspace AGENTS.md; the extension server crates are greenfield siblings that follow the canonical jmap-mail-server template.\n",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.57",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: JmapBackend supertrait re-exports from jmap-types appear in 3 crates (cosmetic)",
+  "updated_at": "2026-05-10T23:49:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "a3bdad6f-b7d4-565e-837c-964b6f46445b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

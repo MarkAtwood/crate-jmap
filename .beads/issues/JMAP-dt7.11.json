@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.11",
+  "title": "download_blob 64 MiB cap is hardcoded with no caller override",
+  "description": "download_blob caps responses at 64 MiB with a hardcoded constant. The error returned is ResponseTooLarge with no indication it is a client-enforced limit. Callers downloading large attachments (video, archives) will hit this and file bugs; there is no workaround without forking. Adding a limit parameter later is a breaking API change. Consider either accepting an optional limit parameter at construction time or exposing the constant as a public API so callers know it exists.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:30Z",
+  "updated_at": "2026-04-30T00:19:34Z",
+  "closed_at": "2026-04-30T00:19:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:30"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced the misleading 'in the range 1969-12-31T... through 1970-01-01T00:00:00Z' sentence in now_utc_string's docstring with the accurate behaviour: the rem_euclid/div_euclid math handles arbitrarily-large negative offsets, not only sub-day drifts, so the pre-epoch result range extends through the BCE proleptic Gregorian range up to 1970-01-01. Pre-epoch correctness is best-effort and SystemTime is non-monotonic. Pure doc fix.",
+  "closed_at": "2026-05-14T13:59:13Z",
+  "compaction_level": 0,
+  "content_hash": "74cc34614e9a4b4416d6fff940f330950d03a49a137601f7df377412e0b71bd1",
+  "created_at": "2026-05-14T12:54:18Z",
+  "created_by": "Mark Atwood",
+  "description": "What is unclear and for whom: a contributor reading crate-jmap-server/src/helpers.rs:55-61 sees the doc claim 'Pre-epoch handling: if duration_since(UNIX_EPOCH) fails (system clock drifted before the epoch), this function uses the absolute duration from UNIX_EPOCH.duration_since(now) but negates the seconds \u2014 producing a timestamp in the range 1969-12-31T\u2026 through 1970-01-01T00:00:00Z.'\n\nThat range claim is wrong. The math at line 76-80 uses rem_euclid and div_euclid on negative seconds, which correctly handles any negative offset \u2014 a clock set to 1900-01-01 produces 1900-01-01T00:00:00.000Z, not anything in 1969-12-31. The comment writer was thinking of small drifts (a few hours behind epoch), but the implementation is general and works for any negative offset that civil_from_days handles.\n\nWhat would make it clear: replace the misleading 'in the range 1969-12-31T\u2026 through 1970-01-01T00:00:00Z' sentence with the actual behaviour: 'Pre-epoch handling: SystemTime::now().duration_since(UNIX_EPOCH) fails on clocks drifted before the epoch. The function uses Err::duration() to recover the magnitude and negates the seconds before formatting; the result is a correct RFC 3339 timestamp anywhere from the BCE proleptic Gregorian range up to 1970-01-01T00:00:00.000Z. Pre-epoch correctness is best-effort \u2014 SystemTime is non-monotonic and the JMAP spec does not require pre-epoch timestamps.'\n\nAnd: there is no test exercising the pre-epoch path. Worth adding a unit test that constructs a SystemTime via UNIX_EPOCH - Duration::from_secs(86400) and asserts now_utc_string equivalent on that input \u2014 except now_utc_string takes no parameter, so the math has to be factored into a private fn that takes SystemTime so the test can call it directly. Modest refactor; meaningful coverage gain.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "now_utc_string pre-epoch comment is incorrect for offsets > 1 day before epoch",
+  "updated_at": "2026-05-14T13:59:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:54:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "a72f3d92-ad21-5905-9884-1a5a4c42b4a2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

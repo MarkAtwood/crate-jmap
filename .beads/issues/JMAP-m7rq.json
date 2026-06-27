@@ -1,0 +1,23 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:57:49Z",
+  "compaction_level": 0,
+  "content_hash": "16e5a483692ba3ed2d6a6888016e9cc4f0ac460e3a0004e42aa1f64db2a39c6c",
+  "created_at": "2026-05-05T01:52:09Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-m7rq",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement jmap-mail-client crate (19 RFC 8621 methods)",
+  "updated_at": "2026-05-05T01:57:49Z"
+}

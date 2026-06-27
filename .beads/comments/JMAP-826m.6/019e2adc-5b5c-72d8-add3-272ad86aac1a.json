@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T08:59:05Z",
+  "id": "019e2adc-5b5c-72d8-add3-272ad86aac1a",
+  "issue_id": "JMAP-826m.6",
+  "text": "Blocked on JMAP-826m.14. The natural fix here \u2014 add a force_update_echo: Option<Metadata> field + setter to MockBackend, mirroring the existing force_create_error one-shot pattern, and write an integration test that exercises the Ok(Some(obj)) handler branch \u2014 is structurally entangled with the canonical-template question .14 is asking. If .14 resolves toward 'drop MockBackend entirely; move all tests to tests/ using MemoryBackend' (option i in .14's analysis), then force_update_echo is dead infrastructure before it even lands. If .14 resolves toward 'keep MockBackend' (option iii), force_update_echo is the right fix here.\n\nAlso notable: the Ok(Some(obj)) echo branch in the metadata-server handler is a future-extensibility placeholder. Metadata has no server-set fields beyond id, and /set update never changes id, so no real MemoryBackend code path will populate this branch. The test would pin down the wire shape for a hypothetical future MetadataBackend that echoes a server-mutated field. The canonical mail-server has the same structural shape (Ok(Some(obj)) handler branches in email.rs/identity.rs/vacation.rs with no integration test that exercises them via the MemoryBackend), so the test gap is workspace-wide, not metadata-server-specific.\n\nRecommend addressing this together with .14 once the human decides on the MockBackend disposition."
+}

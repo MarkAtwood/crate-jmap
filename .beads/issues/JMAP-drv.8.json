@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-drv.8",
+  "title": "scan_from 3-byte overlap in SSE frame detection \u2014 O(n) not O(n\u00b2)",
+  "description": "After appending bytes, scan_from = old_len.saturating_sub(3) rather than 0. This means frame delimiter scanning always starts 3 bytes before the new data, not at the beginning of buf. Without this, every new chunk causes a full re-scan of the entire accumulated buffer \u2014 O(n\u00b2) total work for a large frame. The 3-byte overlap is the minimum that covers all delimiter prefixes that could straddle a chunk boundary (\\r\\n\\r\\n at 4 bytes, \\n\\r\\n at 3, \\n\\n/\\r\\r at 2). A future contributor who sees the walk-back-to-char-boundary loop might 'simplify' it to scan_from = 0, which would be functionally correct but O(n\u00b2). The comment is correct and essential \u2014 keep it.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:37:08Z",
+  "updated_at": "2026-04-30T16:45:54Z",
+  "closed_at": "2026-04-30T16:45:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-drv",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:37:08"
+    }
+  ]
+}

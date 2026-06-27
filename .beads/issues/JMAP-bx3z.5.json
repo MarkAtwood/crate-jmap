@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Introduced BodyFetchArgs struct; both call sites updated",
+  "closed_at": "2026-05-02T22:41:13Z",
+  "compaction_level": 0,
+  "content_hash": "de7c1ee8d708b67ec68a49c68dac312299cb219e9883be72abbf7947ce159d0d",
+  "created_at": "2026-05-02T19:18:22Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs: apply_body_value_args takes fetch_text_body_values, fetch_html_body_values, fetch_all_body_values, max_body_value_bytes, and body_prop_set as five separate parameters. Two call sites must count positional booleans; a wrong-order transposition is a silent bug. Suggested rewrite: introduce a small BodyFetchArgs struct { fetch_text: bool, fetch_html: bool, fetch_all: bool, max_bytes: u64 } built once per handler invocation, and pass &body_prop_set separately. The call sites then read apply_body_value_args(&mut val, &fetch_args, &body_prop_set) with field-named construction instead of five positional literals.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "apply_body_value_args: 6-bool positional args hide call-site meaning",
+  "updated_at": "2026-05-02T22:41:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "148b7a0f-5100-54f2-99fb-e099d084c40d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

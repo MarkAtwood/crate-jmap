@@ -1,0 +1,33 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T15:28:01Z",
+  "compaction_level": 0,
+  "content_hash": "580521931247a5ea51e7121ae208363f3ec6c94efae3caab21c8c9ece6774a6a",
+  "created_at": "2026-05-11T14:11:10Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Canonical: crate-jmap-mail-server/src/memory.rs:292-296\n\n    #[derive(Debug)]\n    pub struct MemoryError(\n        /// Human-readable description of the underlying failure.\n        pub String,\n    );\n\nSibling drift (5 of 6 add Clone, 1 matches):\n\n  crate-jmap-calendars-server/src/memory.rs:73-74   #[derive(Debug, Clone)] pub struct MemoryError(pub String);\n  crate-jmap-chat-server/src/memory.rs:171-172      #[derive(Debug, Clone)] pub struct MemoryError(pub String);\n  crate-jmap-contacts-server/src/memory.rs:70-71    #[derive(Debug, Clone)] pub struct MemoryError(pub String);\n  crate-jmap-sharing-server/src/memory.rs:176-177   #[derive(Debug, Clone)] pub struct MemoryError(pub String);\n  crate-jmap-tasks-server/src/memory.rs:76-77       #[derive(Debug, Clone)] pub struct MemoryError(pub String);\n  crate-jmap-filenode-server/src/memory.rs:68-69    #[derive(Debug)] (matches canonical)\n\nWhy this matters even though Clone is cheap: per workspace AGENTS.md 'Canonical Templates', extension-server siblings cookie-cut from jmap-mail-server. Any divergence is a regression of the cookie-cutter intent and forces a future maintainer to wonder which one is right when the next backend is added. Error types in Rust idiomatically do NOT derive Clone unless callers explicitly need to copy them \u2014 std::io::Error doesn't, anyhow::Error doesn't. The canonical got the idiom right; the siblings drifted.\n\nWhy P3 not P2: Clone on a String-wrapping error is genuinely cheap and harmless at the call site; only the consistency angle bites.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.84",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: MemoryError derives Clone in 5 sibling MemoryBackends; canonical mail-server does not (cookie-cutter drift)",
+  "updated_at": "2026-05-11T15:28:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:11:10Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "203b531a-4e4e-5047-8d54-0f3ee32d2ef1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

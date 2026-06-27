@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in 2baf002. Added a 'Do not simplify the four-test structure' section to the module docstring of tests/log_redaction.rs naming workspace AGENTS.md Security-testing Pattern 2 and the failure mode of removing each test. Defense against the 'delete the scaffolding' refactor.",
+  "closed_at": "2026-05-17T11:21:46Z",
+  "compaction_level": 0,
+  "content_hash": "76c0ee7c6e44939f3768826458e42993b22d2f88ebd3fada5fef49dc3ae85d08",
+  "created_at": "2026-05-14T23:11:06Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/log_redaction.rs has FOUR test functions where a naive reader sees only one as the 'real' test:\n\n1. log_capture_captures_traced_output \u2014 harness self-test (proves the capture mechanism works)\n2. log_capture_detects_a_leak_when_one_exists \u2014 negative control with a deliberately-leaky type\n3. auth_token_never_appears_in_tracing_capture \u2014 the actual BearerAuth canary\n4. basic_auth_credentials_never_appear_in_tracing_capture \u2014 the actual BasicAuth canary\n\nA contributor reviewing this file may suggest 'tests #1 and #2 are scaffolding \u2014 delete them, keep only #3 and #4.' This is the wrong simplification.\n\nDefense: without #1, a future regression in LogCapture (subscriber install fails, MakeWriter misroutes) silently makes #3 and #4 pass vacuously \u2014 no log output means the canary needle is not found means the assertion passes. Without #2, a regression in the negative-assertion plumbing (e.g. a future refactor that filters output before contents() returns it) silently makes #3 and #4 pass without actually defending anything.\n\n#3 and #4 internally also assert that ['constructed auth provider'] and ['[REDACTED]'] appear in the capture (lines 105-106 and 127-128), providing per-test proof-of-capture. This is correct paranoia.\n\nThe pattern (harness self-test + negative control + per-test proof-of-capture + the negative-assertion canary) is the workspace AGENTS.md 'Security testing' pattern #2 executed correctly. Do not simplify it.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Log-capture canary harness with negative control: defend against 'just delete the self-tests'",
+  "updated_at": "2026-05-17T11:21:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:11:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "68a9d720-46b1-5249-adef-5094dc92f019",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

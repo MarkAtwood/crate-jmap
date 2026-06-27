@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-13T15:37:51Z",
+  "id": "019e21fc-b93b-7b51-8952-814a601f1d46",
+  "issue_id": "JMAP-v9py.19",
+  "text": "Closing 2026-05-13. Spec edits landed in ~/PROJECT/jmap-chat-spec:\n\n  * ba6a5eb \u2014 spec: move non-member field trim from Space/query to Space/get (the prompt-driven AI commit)\n  * b2e88f4 \u2014 spec: tighten isPubliclyPreviewable field doc (Mark's follow-up clarifying dual-mode discovery: /get works for any non-member with the id, /query discovery requires isPublic:true filter)\n\nAll grep verification gates pass. Diff is +9 lines (vs. prompt's +20-25 estimate \u2014 the AI was efficient, no over-editing).\n\nThis unblocks JMAP-v9py.4 (Space/get non-member field projection) and JMAP-v9py.20 (notFound enforcement). Both bead acceptance criteria still match the as-shipped spec text."
+}

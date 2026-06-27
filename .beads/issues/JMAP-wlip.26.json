@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added a # Security docstring section to SetError::with_description that mirrors the JmapBackend::Error contract: credential / blob / PII MUST NOT appear in the description. Also notes that SetError paths are MORE leak-prone than serverFail because adversarial /set inputs can probe descriptions reliably. Points callers at server_fail_from_backend (introduced in bd:JMAP-wlip.2) for wrapping downstream errors safely. Pure doc change; rustdoc with -D warnings is clean.",
+  "closed_at": "2026-05-14T13:36:35Z",
+  "compaction_level": 0,
+  "content_hash": "e49c5065c85dac36955d34d5fabd3fd24c3c637658c580201c05e58f2541565d",
+  "created_at": "2026-05-14T13:05:42Z",
+  "created_by": "Mark Atwood",
+  "description": "Path: crate-jmap-server/src/backend.rs:89-93. `pub fn with_description(mut self, desc: impl Into<String>) -> Self` \u2014 docstring is one line:\n  /// Set the human-readable description.\n\nThe JmapBackend::Error security contract added in commit 8099de3 (backend.rs:618-645) is a long, detailed MUST-NOT list:\n  - Credential material (auth tokens, push verification codes, etc.)\n  - Blob content (email bodies, sieve scripts, etc.)\n  - PII shaped like an email address\n\nThat contract is on the trait's associated Error type because Error::Display is the value that flows through handle_get/handle_changes/handle_query/handle_query_changes \u2192 JmapError::server_fail(e.to_string()) \u2192 wire.\n\nSetError.description has the EXACT same threat surface but no warning:\n- It is serialized into wire-format SetError objects in /set responses (RFC 8620 \u00a75.3 `notCreated`/`notUpdated`/`notDestroyed` maps).\n- A handler/backend implementor writing `SetError::new(t).with_description(format!(\"{e}\"))` where `e` is a backend error, an internal exception, or any downstream service's error, recreates the same leak class.\n- It is in fact MORE leak-prone than serverFail.description, because SetError fires for every invalid input \u2014 adversarial clients can probe for SetError descriptions by sending crafted /set arguments.\n\nThe reference *-server crates emit SetError descriptions in many places. crate-jmap-mail-server/src/submission.rs has 3 SetError construction sites (rg confirms: SetErrorType::InvalidRecipients, NoRecipients, CannotUnsend). Each constructs a typed SetError, none currently leaks \u2014 but the API gives no signal that future contributors need to think about this.\n\nRight shape: add a parallel \"Security\" docstring section to SetError::with_description:\n\n  /// # Security\n  ///\n  /// `SetError.description` is serialized verbatim into the JMAP wire\n  /// response (RFC 8620 \u00a75.3) and is visible to any client that can\n  /// dispatch the failing /set call. The same MUST-NOT rules that apply\n  /// to `JmapBackend::Error::Display` (credential material, blob content,\n  /// PII shaped like an email address) apply to this string. Wrap\n  /// downstream errors with `JmapError::server_fail` (which has its own\n  /// description handling) rather than interpolating them here.\n\nThis is a 10-line doc-only change; no API surface change, no test change. The cost of leaving it as-is is: a future contributor doing the natural-looking `with_description(format!(\"{e}\"))` ships a leak class on a /set path with no review tripwire because the doc comment is silent.\n\nPair this finding with JMAP-wlip.2 (the parallel serverFail.description leak path). The Display contract on the backend trait is necessary; the matching warning on SetError::with_description is also necessary.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetError::with_description has no security warning despite being a wire-bound, client-visible leak path parallel to JmapBackend::Error::Display",
+  "updated_at": "2026-05-14T13:36:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:05:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "1d0e59e1-debc-5fa5-b6a8-d182ee4a5ac9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

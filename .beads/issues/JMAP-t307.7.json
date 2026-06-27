@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decision-type finding: ratifies the bench file's separation of bench_parse_* and bench_convert_* modes (with parse output hoisted out of the convert inner loop) for regression localization. The design is documented in the bench file structure itself and the file-level doc comment. No code change required; finding records the rationale for future contributors who might be tempted to collapse them.",
+  "closed_at": "2026-05-15T06:23:04Z",
+  "compaction_level": 0,
+  "content_hash": "bd48db0e3c20623130fac7f3bc5124da3a0451d73100358a0ae3166c648aa9ee",
+  "created_at": "2026-05-15T05:54:54Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this choice is correct: crate-jmap-mime/benches/mime_pipeline.rs deliberately runs parse and convert as separate bench functions (bench_parse_* and bench_convert_*) with the parse output hoisted out of the inner loop of the convert benches (lines 333-370). This lets a future regression be localized to one of two layers:\n\n- bench_parse_* regression \u2192 mime-tree's parse() got slower.\n- bench_convert_* regression \u2192 jmap-mime's message_to_jmap_body got slower.\n\nA naive bench design would only measure 'parse + convert end-to-end'. That measurement cannot tell the operator which layer regressed. The separation here is the difference between a bench that surfaces actionable information and one that just says 'something is slower'.\n\nA future contributor might suggest 'simplifying' by deleting bench_parse_* on the grounds that the pipeline mode covers the same ground. That suggestion should be rejected on the localization argument above. (Note: the sibling efficiency finding JMAP-t307.3 recommends deleting bench_pipeline_*, not the separated benches \u2014 those should stay.)\n\nAlso worth defending: convert_only's parse-once-outside-the-loop is the correct microbenchmark idiom for isolating the cost of just the adapter walk. Do not 'fix' that by moving parse back inside b.iter().",
+  "ephemeral": 0,
+  "id": "JMAP-t307.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Bench separates parse-only and convert-only modes for regression localization",
+  "updated_at": "2026-05-15T06:23:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:54:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-t307",
+      "id": "2dfd4d7b-61de-5968-95cd-e39a938a5a82",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

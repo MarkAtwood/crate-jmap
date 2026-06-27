@@ -1,0 +1,23 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:21:58Z",
+  "compaction_level": 0,
+  "content_hash": "3e85840401d62447f230c7ea05dac56225f61bfee811fb898dcecbd35af9c2f7",
+  "created_at": "2026-05-05T01:16:54Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-hcwv",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-tasks-types: implement all data types",
+  "updated_at": "2026-05-05T01:21:58Z"
+}

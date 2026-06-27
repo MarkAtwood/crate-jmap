@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:15:25Z",
+  "compaction_level": 0,
+  "content_hash": "fa898cb4431619ebdc52704821af0469a21cc38cbb00cbc4407e426fd97ed7ef",
+  "created_at": "2026-05-02T03:57:14Z",
+  "created_by": "Mark Atwood",
+  "description": "space.rs handle_space_changes does not include updatedProperties in its response (lines 81-92). chat.rs handle_chat_changes does include it. This is a copy-paste inconsistency within the same crate: one handler was written from the RFC-aware template, the other was not. Space/changes is therefore also missing updatedProperties \u2014 a P0 RFC bug in addition to an elegance issue. (Filed here to trace the root cause; the correctness fix should be tied to the reuse-handle_changes refactor.)",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Cross-crate divergence: Space/changes omits updatedProperties unlike Chat/changes",
+  "updated_at": "2026-05-02T04:15:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:57:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "8a6b8768-c5eb-5feb-81d7-3748d483a60c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

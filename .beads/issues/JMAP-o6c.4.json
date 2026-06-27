@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:36:18Z",
+  "compaction_level": 0,
+  "content_hash": "50553fe04c5cabe630a2ee357f83c24e2584d68c3289a93b55c0503f6ee5a991",
+  "created_at": "2026-05-02T03:25:02Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs handle_mailbox_query: filter_role_wire is pre-computed as Option<String> by calling s.to_owned() on the filter role. But the String that the role already lives in (inside the filter object on the stack) outlives the filter closure. The type should be Option<&str> with the lifetime tied to filter_role_wire's containing scope, avoiding the heap allocation. As-is every Mailbox/query call with a role filter allocates a redundant String.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "filter_role_wire returns Option<String> when Option<&str> suffices",
+  "updated_at": "2026-05-02T03:36:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:25:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "174fc923-08fc-5021-b0d6-bfde179954c8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

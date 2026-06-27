@@ -1,0 +1,33 @@
+{
+  "close_reason": "Ratified review observation. The empty-state guards on metadata_changes (metadata.rs:76-80) and metadata_query_changes (metadata.rs:212-216) are intentional defence-in-depth and mirror the canonical mail-client pattern. State is a transparent newtype over String with no type-level non-emptiness enforcement; the client-side InvalidArgument is strictly more actionable than the server-side cannotCalculateChanges that would result. No code change required. Documenting the intent here serves as the defence against any future 'simplify by deleting these guards' suggestion.",
+  "closed_at": "2026-05-15T02:33:15Z",
+  "compaction_level": 0,
+  "content_hash": "cddf404c56e3b48385f9b5b78bf2bbbeb868290e29ff73da2657908445c58dd6",
+  "created_at": "2026-05-15T02:05:12Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/metadata.rs:76-80 and 212-216 reject empty-string since_state/since_query_state with InvalidArgument before the network round-trip. A future contributor might propose removing these as 'redundant with the State type', but State is a transparent newtype over String \u2014 it does not enforce non-emptiness at the type system. Without these guards the server returns 'cannotCalculateChanges' or similar, which is far less actionable than the explicit client-side error. Mirrors the canonical mail-client pattern. Defend this against simplification.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Defence-in-depth empty-state guards on metadata_changes and metadata_query_changes are correct",
+  "updated_at": "2026-05-15T02:33:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:05:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "ccb1a8f1-b7fc-5fe9-9657-2eabac3bb1df",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

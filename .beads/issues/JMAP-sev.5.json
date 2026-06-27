@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-sev.5",
+  "title": "build() returns Result<JmapRequest, ClientError> \u2014 panic-free API is the right call",
+  "description": "Round 3 changed JmapRequestBuilder::build() from panic to Result. This is correct: add_call already returned Result for duplicate-id, making the panic on empty methodCalls an inconsistency. Now both error conditions surface at the same layer. Callers can handle empty-builder at compile-influenced locations rather than being surprised at runtime.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:30:33Z",
+  "updated_at": "2026-04-30T01:02:49Z",
+  "closed_at": "2026-04-30T01:02:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sev",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:30:32"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T21:42:00Z",
+  "compaction_level": 0,
+  "content_hash": "d50db0b6643b25e727bbbb68a00906dfece5633a111f73cea35a9cf5c08ffc48",
+  "created_at": "2026-05-14T20:56:06Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/filenode.rs:849-1248 (handle_filenode_copy, parent-id-override path).\n\nWhen `fromAccountId == accountId` (in-account copy, which RFC 8620\n\u00a75.4 explicitly allows), the FileNode/copy handler reads a source\nnode, optionally overrides `parentId` via the copy descriptor at\nlines 968-984, and then calls `create_object` with the (potentially\nnew-parent) clone. There is NO cycle check.\n\nTrigger: a user copies directory `dirA` (which contains a subtree\n`dirA \u2192 dirB \u2192 dirC`) and supplies `parentId: \"dirC\"` in the copy\ndescriptor. The handler:\n\n1. Fetches `dirA` from the source.\n2. Applies the override: source_node.parent_id = Some(Id(\"dirC\")).\n3. Calls find_sibling_by_name in destination, finds no collision.\n4. Calls create_object, which inserts dirA-copy under dirC.\n\nResult: a new node dirA-copy exists with parentId=dirC. Because\ndirC was a descendant of dirA, the resulting in-account tree has\na forest-with-cycle property: walking parent links from dirA-copy\ngets dirC \u2192 dirB \u2192 dirA (the ORIGINAL dirA, not dirA-copy), so\nstrictly there is no cycle on the new node \u2014 BUT subsequent\nmutations that try to move dirA under dirA-copy WOULD create one,\nand any iteration that mixes source nodes and copies will be\nsurprising.\n\nA stronger trigger: same as above but with onSuccessDestroyOriginal=true\n(which the handler ignores per bd:JMAP-510h.56, but assume that is\nfixed). Then dirA itself is destroyed AFTER the copy, and the\ndestroy fails because dirA has children (dirB) that were not in the\ndestroy set. The user sees a partial-success state: dirA-copy now\nexists under dirC, dirA still exists. The tree structure is\ninconsistent with the user's intent.\n\nCompare handle_filenode_set's update path (filenode.rs:580-627):\nit calls `get_descendant_ids(id)` and rejects if the proposed new\nparent is in the descendant set. The same check is missing on\ncopy when the source account == destination account.\n\nRequired fix:\n\n1. When fromAccountId == accountId AND the copy descriptor includes\n   a parentId override, fetch the descendants of the source node\n   via `get_descendant_ids(caller, &from_account_id, &source_id)`.\n2. If the proposed new parent is in the descendant set, place the\n   entry in `notCreated` with `invalidProperties: [\"parentId\"]`\n   and description \"copying this node under its own descendant\n   would create a cycle\".\n3. Document the same-account-copy semantics in the handler doc\n   comment so consumers know the guard exists.\n\nThis is `defensive` rather than `bug` because the cycle is not\nstrictly created \u2014 a fresh node is created \u2014 but the semantic\nintent of the user (a copy that mirrors the source as a subtree)\nis silently violated.\n\nLABELS: api-contract, defensive, spec",
+  "ephemeral": 0,
+  "id": "JMAP-510h.59",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_filenode_copy with fromAccountId == accountId can create a cycle (copy a directory under itself)",
+  "updated_at": "2026-05-14T21:42:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:56:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "563e3f0a-7546-5aef-9a75-119cf8d92b52",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

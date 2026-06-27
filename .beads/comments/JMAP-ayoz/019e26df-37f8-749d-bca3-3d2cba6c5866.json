@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T14:23:44Z",
+  "id": "019e26df-37f8-749d-bca3-3d2cba6c5866",
+  "issue_id": "JMAP-ayoz",
+  "text": "Confidence: ~85% chance no further missed bug in /set or /changes paths; ~50% in /query and /queryChanges because their handler paths are thin delegators and the MemoryBackend impls are stubs \u2014 there is essentially no test exercise of these paths, so a behavioral bug there would not surface in the current suite. Least confident flags: JMAP-ayoz.4 (silent-drop fix recommendation is one of two reasonable options; behavior change could surprise consumers that rely on current drop), JMAP-ayoz.7 (Comparator typing requires metadata-types change which I haven't read deeply). Uncertainty driven by: not having read jmap-server's handle_query / handle_query_changes source in depth to verify they handle MetadataFilterCondition's cross-field constraint (relatedIds-without-relatedType validation). Would raise confidence if: (a) /query and /queryChanges had real integration tests against MemoryBackend with non-trivial filters, (b) handle_query rustdoc or impl explicitly stated whether cross-field filter validation is the handler's or backend's responsibility, (c) the canonical jmap-mail-server's equivalent /query handler had a comparable cross-field validation case to compare against."
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-o0i.2",
+  "title": "Missing PartialEq on SseFrame, WebSocketCapability, ClientConfig",
+  "description": "SseFrame, WebSocketCapability, and ClientConfig are public types that lack PartialEq. All three could derive it: SseFrame { event: SseEvent (has PartialEq), id: Option<String> }; WebSocketCapability { url: String, supports_push: bool }; ClientConfig { request_timeout: Duration, and u64 fields }. Without PartialEq, callers and test code must compare field-by-field \u2014 this is an unnecessary burden for types that are naturally comparable. The review protocol flags missing derives as a maintainability issue (missing PartialEq/Eq on types used in assertions or sets). Add #[derive(PartialEq)] to these three types. Also add Eq where appropriate (all three qualify since all fields are Eq).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:34:13Z",
+  "updated_at": "2026-04-30T01:42:37Z",
+  "closed_at": "2026-04-30T01:42:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-o0i",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:34:13"
+    }
+  ]
+}

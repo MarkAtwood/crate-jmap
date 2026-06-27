@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T01:59:31Z",
+  "compaction_level": 0,
+  "content_hash": "a67e724f308f88f5525abae7f0eabb854f3b27182d2edca69a5e30957ed8789d",
+  "created_at": "2026-05-14T04:25:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/space.rs:898 (SPACE_READONLY), 933 (METADATA_FIELDS), 951 (STRUCTURAL_KEYS). All three are declared inside the body of the for-loop in handle_space_set's update branch (lines ~890-988).\n\nCurrent code:\n\n    pub async fn handle_space_set(...) {\n        ...\n        if let Some(Value::Object(update_map)) = args.remove(\"update\") {\n            for (id_str, patch_val) in update_map {\n                ...\n                const SPACE_READONLY: &[&str] = &[\"id\", \"createdAt\", ...];    // L898\n                ...\n                const METADATA_FIELDS: &[&str] = &[\"name\", \"description\", ...]; // L933\n                ...\n                const STRUCTURAL_KEYS: &[&str] = &[\"addRoles\", \"updateRoles\", ...]; // L951\n                ...\n            }\n        }\n    }\n\nclippy::pedantic fires items_after_statements on all three. These are not closure-captured locals; they're three module-scope-sized slice constants (7 + 5 + 12 entries respectively) buried deep inside a function that already triggers too_many_lines (363 lines).\n\nWhat idiomatic Rust does: hoist module-scope constants to module scope. A const that documents 'these are the spec-defined read-only fields of Space' is module-level vocabulary, not a loop-body local. Hoisted:\n\n    // Module top, near the use-declarations\n    const SPACE_READONLY: &[&str] = &[\"id\", \"createdAt\", \"memberCount\",\n        \"roles\", \"members\", \"categories\", \"uncategorizedChannelIds\"];\n    const SPACE_METADATA_FIELDS: &[&str] = &[\"name\", \"description\", \"iconBlobId\",\n        \"isPublic\", \"isPubliclyPreviewable\"];\n    const SPACE_STRUCTURAL_KEYS: &[&str] = &[\"addRoles\", \"updateRoles\", ...];\n\nWhat goes wrong if left: readability + grep-ability. A reviewer looking for 'what fields of Space are read-only?' has to grep into a 363-line function body to find SPACE_READONLY, instead of reading the module header. Worse, the same patch_val shape is exercised by Space/get's projection logic (which lives elsewhere in space.rs) \u2014 and the projection logic doesn't share the constant because the constant is locally scoped. This is the canonical case for hoisting.\n\nCross-references JMAP-x2gd.31 which is about how these constants are used (.iter().find() vs match); this finding is about where they are declared. They are complementary, not duplicate.\n\nItems_after_statements also fires on 11 other sites in the diff \u2014 most are smaller (use-statements, struct decls) and lower-impact. This is the biggest hit.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.55",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "space.rs handle_space_set: three module-scope-sized const arrays are declared inside a 363-line for-loop body",
+  "updated_at": "2026-05-18T01:59:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T21:25:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "87a7e2dc-4e58-5cee-89ae-0e008870d45f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

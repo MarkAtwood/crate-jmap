@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Stale \u2014 disclosure already present in memory.rs:94-133. The module-level rustdoc carries a dedicated '# Single-user limitation (per-caller scoping is NOT implemented)' heading that walks all three of the bead's missing-disclosure items:\n\n1. Per-user uniqueness scoping (memory.rs:102-109) \u2014 names find_uniqueness_conflict and the multi-user-rejection failure mode explicitly.\n2. isPrivate visibility scoping (memory.rs:110-115) \u2014 cites the workspace AGENTS.md 'Caller identity (foundation seam)' rule and states 'every caller sees every private record in the account'.\n3. principal_id default (memory.rs:128-133) \u2014 states the impl inherits the foundation default returning None, and that contributors copying into a multi-user backend MUST add the principal_id wiring.\n\nThe 'What a real backend MUST do' subsection at memory.rs:117-126 provides the action-side counterpart with a numbered list. The disclosure is more comprehensive than the bead's suggested 'CARGO-CULT WARNING' framing \u2014 it tells the reader what to do, not just what not to do.\n\nfind_uniqueness_conflict itself also carries an inline 'Single-user limitation' rustdoc at memory.rs:537-548 (closing also bd:JMAP-ayoz.10's separate warning, now adjacent to the new NOT A PRODUCTION PATTERN block).\n\nNo further code or doc change warranted. Closing as duplicate-of-already-done.",
+  "closed_at": "2026-05-17T09:14:18Z",
+  "compaction_level": 0,
+  "content_hash": "4b5741c197a02303536ba78ecd81511d211bb43b131d53fada5654a6926a1801",
+  "created_at": "2026-05-14T14:21:59Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:26-42 \u2014 the 'Metadata-specific behaviour' section enumerates:\n- Uniqueness (\u00a73.1): enforced\n- maySetPrivate gating (\u00a71.2.1): not enforced\n- Quota (\u00a76): not enforced\n- Related-object validation (\u00a73.1): not enforced\n\nThree things missing:\n1. Per-user uniqueness scoping. \u00a73.1 mandates that private metadata uniqueness is PER-USER, not per-account. MemoryBackend ignores principal_id and uses account-wide scoping. See JMAP-ayoz.5 for the correctness angle; this finding is just about the doc gap that would let a contributor copy the impl into a multi-user setting without noticing.\n\n2. isPrivate visibility scoping in /get and /query. AGENTS.md crate-level says: 'Every Metadata/get, Metadata/changes, Metadata/query, and Metadata/queryChanges response must be filtered by the backend against the caller's identity.' MemoryBackend's get_objects, get_changes, and query_objects don't consult caller at all \u2014 they return everything. The rustdoc should explicitly say 'this impl shows ALL metadata to ALL callers regardless of isPrivate'.\n\n3. principal_id default. The impl inherits the default  which returns None. AGENTS.md says this means the backend 'CANNOT correctly implement... isPrivate visibility scoping'. The rustdoc should say so.\n\nWhy P4 (readability): the *behavior* is correct for a single-user dev fixture. The *doc* doesn't say it's single-user-only. A contributor reading the rustdoc and using MemoryBackend behind a multi-user front end will not get a compile error or a runtime panic \u2014 they'll get a silent data-leak bug.\n\nThe 'cargo-cult warning' comment block convention already exists in this file (memory.rs:253-258 on demo_next_id, memory.rs:292-298 on the count-based id minter). Apply the same convention to MemoryBackend's struct rustdoc \u2014 make the single-user-only nature loud:\n\n    /// CARGO-CULT WARNING: this impl is SINGLE-USER ONLY. All callers\n    /// see all metadata. isPrivate is recorded but does not scope\n    /// visibility. Private uniqueness is account-wide, not per-user.\n    /// Multi-user production backends MUST override principal_id\n    /// and apply per-user scoping in get_objects / get_changes /\n    /// query_objects / find_uniqueness_conflict.\n\nFix: add the warning block to MemoryBackend's existing rustdoc. Cross-reference principal_id() in the warning so cargo-grep contributors find it.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend rustdoc fails to disclose single-user limitations on uniqueness / isPrivate / principal_id",
+  "updated_at": "2026-05-17T09:14:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:21:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "2a0f2882-4121-53cc-951c-80ae2516ab0e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

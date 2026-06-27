@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "21ca533c9c3c33c1e49e34b5b7cce3f8ee830dfe537e8f0942deb95a22951445",
+  "created_at": "2026-06-13T21:49:05Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/src/contact.rs has 136/225 lines covered (60.4%). Uncovered: handle_contact_set create/update/destroy bodies, handle_contact_get accountId extraction, blocked-contact enforcement branches, and notFound/serverFail error paths.",
+  "ephemeral": 0,
+  "id": "JMAP-w8fu.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Test coverage: chat-server contact.rs (60.4%)",
+  "updated_at": "2026-06-13T21:49:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:49:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w8fu",
+      "id": "4eb6a786-0e12-564f-99e9-c886b58cfdee",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

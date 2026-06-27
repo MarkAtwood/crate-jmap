@@ -1,0 +1,23 @@
+{
+  "close_reason": "Verified in code \u2014 implementation matches decision exactly.",
+  "closed_at": "2026-05-03T13:34:35Z",
+  "compaction_level": 0,
+  "content_hash": "714675de3942a700a7f7011f8340f503badb917421c9ca896bebd14a6a3a06ad",
+  "created_at": "2026-05-02T23:46:24Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_mdn_send (crate-jmap-mail-server/src/mdn.rs lines 191-198), a null forEmailId is caught at the handler level and placed in notSent as an invalidProperties SetError with a description quoting the spec (draft \u00a72: 'forEmailId MUST NOT be null for MDN/send'). This is a deliberate spec-conformance decision: the spec \u00a72 says the property MUST NOT be null for MDN/send, making it an invalid input, not a lookup failure. Using invalidProperties rather than notFound correctly distinguishes 'the client sent a prohibited value' from 'the email could not be found in the store'. The MemoryBackend send_mdns also has a fallback notFound check for None forEmailId (common/mod.rs line 2286-2293), which is dead code given the handler pre-check but is kept as a safety net for direct backend callers who bypass the handler.",
+  "ephemeral": 0,
+  "id": "JMAP-v6na",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DECISION: null forEmailId caught at handler level (invalidProperties), not backend (notFound)",
+  "updated_at": "2026-05-03T13:34:35Z"
+}

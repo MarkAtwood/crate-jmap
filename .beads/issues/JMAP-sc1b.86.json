@@ -1,0 +1,33 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T15:31:07Z",
+  "compaction_level": 0,
+  "content_hash": "b81fcf17d59be82b6de13fc18faaf93fd508e208dd9e60716c695e48b1f0fe14",
+  "created_at": "2026-05-11T14:11:34Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Canonical pattern (crate-jmap-mail-server/src/memory.rs:341-343):\n\n    let obj: O = O::deserialize(val).map_err(|e| {\n        MemoryError(format!(\"deserialize {}: {e}\", O::TYPE_NAME))\n    })?;\n\nSiblings strip the O::TYPE_NAME context (crate-jmap-calendars-server/src/memory.rs:355, :368, :600, :608, :654; same pattern in chat-server, contacts-server, sharing-server, tasks-server, filenode-server \u2014 ~30 sites in total):\n\n    Err(e) => return Err(MemoryError(e.to_string())),\n    .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))\n\nWhen a deserialize fails in production debugging or in CI test logs, the canonical's error reads 'deserialize Mailbox: missing field id at line ...' \u2014 the type that failed is immediately visible. The siblings' error reads 'missing field id at line ...' \u2014 the caller has to guess which of the 7+ object types in the backend triggered it, since the error type alone is 'MemoryError' for all of them.\n\nThis is idiomatic-rust error-handling territory: the AGENTS.md error-handling rule says 'error variants that wrap String for the message instead of structured fields ... loses the values; a structured variant keeps them accessible to callers who want to handle them.' Strictly speaking even the canonical does primitive-obsession with String \u2014 but the canonical at least preserves the contextual key (TYPE_NAME) inside the string, which is the most-useful piece for diagnosis. The siblings drop it.\n\nWhy P3 not P2: this is a reference-impl error path (feature-gated 'memory') that callers do not match on; only diagnostic value is lost. Cookie-cutter drift but not a functional bug.\n\nFix: replace MemoryError(e.to_string()) with MemoryError(format!(\"deserialize {}: {e}\", O::TYPE_NAME)) in the sibling memory.rs files. Mechanical.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.86",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: 5 sibling MemoryBackends discard error context in MemoryError(e.to_string()); canonical mail-server uses MemoryError(format!('deserialize {}: {e}', O::TYPE_NAME))",
+  "updated_at": "2026-05-11T15:31:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:11:33Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "ea66aa91-1721-5f45-bf63-c5c0111579d8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

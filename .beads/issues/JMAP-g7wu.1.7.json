@@ -1,0 +1,33 @@
+{
+  "close_reason": "Applied. TasksBackend trait gained caller: &Self::CallerCtx on create_object, update_object, destroy_object, copy_task, task_list_has_tasks, update_task_per_user (6 methods). supports_type, is_per_user_property, enforce_is_draft_atomically, compute_task_utc_times unchanged per universal-shape rule (no account context). register_tasks_handlers reshaped to <B> with Dispatcher<B::CallerCtx>, 4-arg reg! macro. All 14 handlers threaded with caller. extract_account_id transformed at 4 sites to new (Id, Map) tuple shape. MemoryBackend + MockBackend both gained type CallerCtx = () and _caller: &() params. Doctest in lib.rs constrained to B: TasksBackend<CallerCtx = ()> to match reshape (mail-server doctest has same pattern). cargo check, clippy -D warnings, fmt, and 43 tests (28 unit + 14 integration + 1 doc) all green.",
+  "closed_at": "2026-05-11T16:07:47Z",
+  "compaction_level": 0,
+  "content_hash": "10af59955a8aa276b49b1e5af42420ca517b913896c0b5263c6da8d3360ba63d",
+  "created_at": "2026-05-11T13:53:38Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-tasks-server/README.md:173-183 (CallerCtx section needs rewrite) + register_tasks_handlers macro in src/lib.rs + TasksBackend trait at src/backend.rs:32.\n\nMirror change from JMAP-g7wu.1.1 MailBackend canonical. Same shape, propagated per workspace AGENTS.md cookie-cutter rule.\n\nDesign locked under JMAP-g7wu.1.1 [2026-05-11 design-lock] comment:\n- TasksBackend inherits 'type CallerCtx' from JmapBackend (no redeclaration)\n- Every TasksBackend method gains 'caller: &Self::CallerCtx' as first parameter after &self\n- register_tasks_handlers signature: register_tasks_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>) where B: TasksBackend + 'static\n- Every reg!() invocation gains a 4th identifier slot for ctx\n- README CallerCtx section rewrites to describe caller-aware Backend methods\n- MemoryBackend reference impl (just landed JMAP-hwdv.7): type CallerCtx = ();\n\nRides on the JMAP-g7wu.1 mega-PR. Mechanical propagation once .1.1 lands its canonical shape.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.1.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CallerCtx forwarding through TasksBackend trait (jmap-tasks-server)",
+  "updated_at": "2026-05-11T16:07:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T06:53:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.1",
+      "id": "dc0219f5-14d7-52c4-b9ad-600715bb796c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

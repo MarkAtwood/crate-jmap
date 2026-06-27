@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in e57998a. Updated PLAN.md History (marked v9py.13/.14 closed with file:line citations), PLAN.md Public-API ('Still to come' now points at bd:JMAP-sf5h.6), PLAN.md Future-consumers (marked landed), README Gotchas (dropped 'skeleton' framing, cite the actual jmap-base-client bindings), and lib.rs (renamed '## What this crate is not (yet)' to '## Wiring into the rest of the kit' with concrete file:line cites). Workspace fmt/clippy/test/doc all clean.",
+  "closed_at": "2026-05-16T04:10:31Z",
+  "compaction_level": 0,
+  "content_hash": "e817ffe57c83212bc7dc35b2cefa29026adac4305f11794cf88e6a0235e43aa3",
+  "created_at": "2026-05-16T03:40:50Z",
+  "created_by": "Mark Atwood",
+  "description": "Crate docs lag reality. PLAN.md History (lines 157-160) says bd:JMAP-v9py.13 and .14 are '(open)' but both closed on 2026-05-13. README.md Gotchas (lines 91-101) reads: 'This crate is a skeleton...' and 'The sha256 typed wire shape is NOT yet plumbed through every blob-response shape across the workspace.' Both are FALSE \u2014 BlobUploadResponse.sha256 lands at crate-jmap-base-client/src/blob.rs:83 as Option<jmap_cid_types::Sha256>, and Session::supports_cid() lands at crate-jmap-base-client/src/request.rs:226. lib.rs \u00a7'What this crate is not (yet)' (lines 44-48) similarly defers to those closed beads. Scenario: future-self or third-party contributor reads the crate docs to find what is 'still to do', hunts down a closed bead, wastes time confirming the work already happened. Fix is a docs-only sweep across PLAN.md History, PLAN.md Public-API \u00a7'Still to come', README Gotchas, and lib.rs \u00a7'What this crate is not (yet)' to mark the wiring landed and cross-link the actual call sites.",
+  "ephemeral": 0,
+  "id": "JMAP-sf5h.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Stale 'follow-up bead' prose: PLAN.md/README.md/lib.rs say v9py.13/.14 are open; they are closed",
+  "updated_at": "2026-05-16T04:10:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T20:40:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sf5h",
+      "id": "851b5d90-3e42-5989-ae05-6b445b371825",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

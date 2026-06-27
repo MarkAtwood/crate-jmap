@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Self-parent guard added at filenode.rs:489+ with new regression test set_update_self_parent_returns_invalid_properties. Fix is cheap (id equality before backend call) and the test seeds no descendants so the guard, not the existing descendant-set check, is what the assertion exercises. Committed in 225603e. Gates: fmt/clippy/test/doc all green.",
+  "closed_at": "2026-05-14T20:20:39Z",
+  "compaction_level": 0,
+  "content_hash": "1c12a5a9cf8ababf4255baa24358ff02491f91dca59186c4f57bc70940f252a6",
+  "created_at": "2026-05-14T19:49:05Z",
+  "created_by": "Mark Atwood",
+  "description": "draft-ietf-jmap-filenode-13 \u00a73.2.3 (lines 527-529): 'an attempt to move a node to a parent for which this node is also an ancestor is an error, and an invalidProperties error will be returned'. A node is trivially an ancestor of itself, so setting parentId = id is the simplest cycle.\n\nThe current src/filenode.rs:489-515 calls get_descendant_ids(id) and checks whether the proposed new_parent_id appears in the descendant set. Per the FileNodeBackend trait doc (src/backend.rs:85-90 and PLAN.md): 'The return value includes the ids of all descendants at all depths, but NOT the id of the node itself.' Therefore the case new_parent_id == id is never caught by descendant_ids.iter().any(|did| did == &new_parent_id).\n\nTrigger: client sends FileNode/set update { 'node1': { 'parentId': 'node1' } }. Bad behavior: handler passes the patch to backend.update_object, which (depending on backend) either accepts the self-parent (data corruption: tree no longer well-founded) or rejects it for unrelated reasons.\n\nRequired fix: explicit guard 'if new_parent_id == id { return invalidProperties }' before or alongside the descendant set check at src/filenode.rs:494.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Cycle check misses self-parent (setting parentId = id)",
+  "updated_at": "2026-05-14T20:20:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:49:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "d39fb618-88b5-5d93-80a9-b3aeb68e1c3a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

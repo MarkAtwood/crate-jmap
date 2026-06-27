@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:58:31Z",
+  "compaction_level": 0,
+  "content_hash": "95cf45079131b5fb64a33c3fb6ef48eada3fd6ad2b15e0932a12f7ad47a19696",
+  "created_at": "2026-05-07T20:29:05Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-types/README.md claims it covers 'every object type defined by RFC 8621'. True for the always-on items, but the crate also exports:\n\n- `pub mod mdn` (Cargo feature `mdn`, RFC 9007: Message Disposition Notifications)\n- `pub mod sieve` (Cargo feature `sieve`, RFC 9661: Sieve Script management)\n\nBoth have substantial public API: `SieveScript`, `SieveCapability`, `SieveAccountCapability`, `JMAP_SIEVE_SCRIPTS_URI`, `SieveScriptProperty`, plus all `mdn::*` types.\n\nThe README's 'References' section also fails to cite RFC 9007 or RFC 9661.\n\nThe Cargo.toml `[features]` table declares `mdn` and `sieve` but they're undocumented in README.\n\nFix: add 'Optional Features' section to README listing mdn and sieve, with a one-liner per RFC and the import path / type list.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: mail-types README doesn't mention mdn (RFC 9007) or sieve (RFC 9661) modules",
+  "updated_at": "2026-05-07T21:58:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "a3e583d9-6a9b-55b5-9b78-2cb4707772fe",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

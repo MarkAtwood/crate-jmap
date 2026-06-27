@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ec14c7673a0803bd40081ebe09a9f3fa137aaad8bb407b95b07331f68819641e",
+  "created_at": "2026-05-12T23:37:44Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec: draft-atwood-jmap-chat-tasks-00.\n\nNOT WORKED in the JMAP-v9py compliance sweep; filed for a later session.\n\nCapability: urn:ietf:params:jmap:chat:tasks (meaningful only with both urn:ietf:params:jmap:chat AND urn:ietf:params:jmap:tasks).\n\n## Naming note\n\nWorkspace already has crate-jmap-tasks-* for the IETF draft-ietf-jmap-tasks-06 binding. This bead's crates would be named crate-jmap-chat-tasks-* to disambiguate.\n\n## What needs to land\n\n- Space extension: taskListId (optional; same account; at most one TaskList per Space)\n- Task extension: chatId (when mayBackReferenceChat advertised; back-reference to Chat)\n- No new methods. Reuses JMAP Tasks methods.\n- MessageAction \"urn:jmap:chat:cap:task\" semantics (uri forms, metadata keys: status, due, assigneeIds, priority)\n- Lifecycle: destroying Task doesn't auto-destroy Chat; destroying Chat clears Task.chatId\n- Cross-account validation (privilege-escalation risk)\n- Capability fields: mayBindTaskList, mayBackReferenceChat\n\n## Dependencies\n\n- crate-jmap-tasks-types must be stable (IETF binding; workspace already has it)\n- jmap-chat-types Space extension shape",
+  "ephemeral": 0,
+  "id": "JMAP-v9py.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Layer E: Implement draft-atwood-jmap-chat-tasks-00 (new jmap-chat-tasks-{types,server,client} crates)",
+  "updated_at": "2026-05-12T23:37:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-12T16:37:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py",
+      "id": "36e12c29-6bd0-5477-bd8f-581cd70d4218",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

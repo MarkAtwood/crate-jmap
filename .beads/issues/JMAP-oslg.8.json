@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed: MAINTENANCE comments added; Message/get now respects RFC 8620 \u00a75.1 properties parameter",
+  "closed_at": "2026-05-02T21:07:22Z",
+  "compaction_level": 0,
+  "content_hash": "325726cbb3de644e23a185692df39978865d6363bba50f866923c87ad4b5bc59",
+  "created_at": "2026-05-02T21:03:46Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_message_get (crate-jmap-chat-server/src/message.rs:17-59) passes None as the properties parameter to backend.get_objects() on line 39, completely ignoring the RFC 8620 \u00a75.1 properties field that clients may send.\n\nWhen a client sends:\n  Message/get { ids: ['m1'], properties: ['id', 'body'] }\n\nThey receive all fields instead of the requested subset. This is silent protocol deviation.\n\nPattern to follow: crate-jmap-mail-server/src/mailbox.rs lines 34-67 correctly implements property filtering with filter_properties().\n\nDrift risk: No compile error signals this behavior is missing. A future maintainer may not realize Message/get needs property filtering, leaving the handler incomplete against the spec.\n\nRelated: MessageProperty enum (crate-jmap-chat-types/src/backend.rs:65) exists but is unused.",
+  "ephemeral": 0,
+  "id": "JMAP-oslg.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Message/get silently ignores RFC 8620 \u00a75.1 properties parameter",
+  "updated_at": "2026-05-02T21:07:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:03:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-oslg",
+      "id": "143407a8-76bb-5e5f-896a-f972b7fbd2ea",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

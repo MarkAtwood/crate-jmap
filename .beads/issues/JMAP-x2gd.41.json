@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added explicit 'Argument semantics' section to ChatBackend::is_contact_blocked rustdoc naming each arg's role: caller = sender identity, account_id = recipient's account (owns the ChatContact list), contact_id = candidate ChatContact id within that list. Added single-user-mode guidance for the principal_id=None case (fail-safe to false). Chose option (a) doc fix over option (b) param rename to minimize churn \u2014 Rust param names are not SemVer-affecting for positional-call sites, the impl/test sites do not depend on the trait param names. Commit 326bde6. clippy --all-targets + rustdoc -D warnings + 21 lib tests all green.",
+  "closed_at": "2026-05-16T18:29:51Z",
+  "compaction_level": 0,
+  "content_hash": "3f3cb93edb7e5c82357cf8a659c05b6f4acf8817c7c635bc487a6543d04f87f9",
+  "created_at": "2026-05-14T03:40:54Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/backend.rs:563-605\n\n  /// Predicate consulted by typing/presence fan-out paths: is the\n  /// requesting caller blocked by the given contact?\n  ///\n  /// ...when the requesting account corresponds to a [ChatContact]\n  /// whose blocked is true on the recipient's contact list, the\n  /// server MUST silently suppress the ephemeral event...\n  fn is_contact_blocked(\n      &self,\n      _caller: &Self::CallerCtx,\n      _account_id: &jmap_types::Id,\n      _contact_id: &jmap_types::Id,\n  ) -> impl Future<Output = Result<bool, Self::Error>> + Send;\n\nThe trait doc and the argument list disagree about whose\nperspective `account_id` represents:\n\n- The first sentence says 'is the requesting caller blocked by\n  the given contact?' \u2014 so account_id is the caller's account,\n  and contact_id refers to the blocker.\n\n- The next sentence says 'when the requesting account corresponds\n  to a ChatContact whose blocked is true on the recipient's\n  contact list' \u2014 so the contact list to consult belongs to the\n  RECIPIENT, not the caller. Which account's contact list does\n  account_id refer to?\n\nJMAP-x2gd.16 (already filed) flags the related implementation\nbug: MemoryBackend.is_contact_blocked uses get_objects(account_id)\nbut ChatContact.id is global identity \u2014 which is exactly the\nsymptom of an unclear contract.\n\nThe kit's caller-identity foundation (workspace AGENTS.md 'Caller\nidentity (foundation seam)') gives the right vocabulary to write\nthis method's contract clearly:\n\n  /// Returns true when the sender corresponds to a ChatContact\n  /// (identified by caller's principal_id) whose `blocked` field\n  /// is `true` on the contact list owned by the account identified\n  /// by `account_id` (the recipient of the ephemeral event).\n  ///\n  /// The contact list to consult is the RECIPIENT's, not the\n  /// caller's. `contact_id` is the ChatContact id WITHIN the\n  /// recipient's account that corresponds to the sender.\n\nThat re-phrasing makes the data-flow direction explicit:\n'recipient's account_id' is the OWNER of the contact list, and\n'caller's identity' is the SUBJECT being checked for the blocked\nflag.\n\nCompounding gap: the doc does not say what\n'account_id corresponds to a ChatContact' means when\nJmapBackend::principal_id returns None (single-user mode). The\ndefault impl returns Ok(false), so it doesn't matter for the\nreference impl; but a production backend that wires identity\nneeds to know whether to fail-safe (treat None as unknown sender,\nblock conservatively) or fail-open (treat None as not-blocked).\n\nFix: rewrite the rustdoc to explicitly name each arg's role\n('account_id = contact-list owner', 'contact_id = candidate\nChatContact in that list', 'caller = identity to compare against\nthe ChatContact's principal binding'). Optionally rename\narguments to reflect their role:\n  fn is_contact_blocked(\n      &self,\n      sender: &Self::CallerCtx,\n      list_owner_account_id: &jmap_types::Id,\n      contact_id: &jmap_types::Id,\n  ) -> ...",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.41",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: is_contact_blocked direction is ambiguous in doc vs signature",
+  "updated_at": "2026-05-16T18:29:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:40:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "6248f01a-ae72-51d3-8519-5169a5a20645",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

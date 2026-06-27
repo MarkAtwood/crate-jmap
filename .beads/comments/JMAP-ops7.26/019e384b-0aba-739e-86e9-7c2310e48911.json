@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T23:35:03Z",
+  "id": "019e384b-0aba-739e-86e9-7c2310e48911",
+  "issue_id": "JMAP-ops7.26",
+  "text": "Fix spans crates: depending on resolution, either (a) move predicate from jmap-calendars-types \u2192 jmap-calendars-server trait (touches calendars-types, calendars-server) \u2014 or (b) move predicate from jmap-tasks-server trait \u2192 jmap-tasks-types (touches tasks-server, tasks-types). Either path is a 2-crate change. /do-beads must verify with cargo check --workspace."
+}

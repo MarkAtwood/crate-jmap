@@ -1,0 +1,23 @@
+{
+  "close_reason": "Reverted: user does not want structured types for JSContact sub-objects. The Value approach in jmap-contacts-types is correct. Only types shared with other crates need Rust structs.",
+  "closed_at": "2026-05-05T19:11:06Z",
+  "compaction_level": 0,
+  "content_hash": "b6067371bbb95235599a96cb6a4e08b384cee8c2b3b8b9b9ca410ad85157d50f",
+  "created_at": "2026-05-05T18:45:53Z",
+  "created_by": "Mark Atwood",
+  "description": "Create crate-jmap-jscontact/ as a new workspace member. Provides typed Rust structs for all RFC 9553 \u00a72 sub-objects that currently appear as serde_json::Value in ContactCard: Name, NameComponent, Nickname, Organization, Title, EmailAddress, Phone, OnlineService, LanguagePref, Calendar, SchedulingAddress, Address, AddressComponent, CryptoKey, Directory, Link, Media, Anniversary, Note, PersonalInfo, Pronouns, SpeakToAs, Relation.\\n\\nDesign: Option 3 \u2014 the ContactCard.name/.phones/.emails etc. fields STAY as serde_json::Value in jmap-contacts-types (locked crate, round-trip fidelity preserved). This new crate provides typed structs that callers use via explicit conversion: serde_json::from_value::<Name>(card.name.clone().unwrap()). Unknown extension fields are preserved via #[serde(flatten)] extra: HashMap<String, Value>.\\n\\nDependencies: jmap-types (for Id), serde, serde_json only. No async.\\n\\nSpec: RFC 9553 (~/PROJECT/jmap-chat-spec/references/rfc9553.txt).",
+  "ephemeral": 0,
+  "id": "JMAP-ld13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-jscontact: Typed Rust structs for RFC 9553 JSContact sub-objects",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

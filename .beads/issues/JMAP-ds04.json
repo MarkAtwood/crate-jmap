@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "cargo check --workspace passes; cargo test --workspace passes; no new warnings",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:18:40Z",
+  "compaction_level": 0,
+  "content_hash": "daf5d6f53ec528a91613f8068040a9a5280c42bfa5d75a93a8cfb476401eab72",
+  "created_at": "2026-05-04T15:05:52Z",
+  "created_by": "Mark Atwood",
+  "description": "WHAT: Wire jmap-chat-client Cargo.toml to use jmap-base-client, and make two approved changes to jmap-base-client.\n\nALGORITHM:\n1. crate-jmap-chat-client/Cargo.toml:\n   - Add: jmap-base-client = { path = \"../crate-jmap-base-client\" }\n   - Add: ulid = \"1\"\n   - Add: chrono = { version = \"0.4\", default-features = false, features = [\"std\", \"clock\"] }\n   - Keep: jmap-types, jmap-chat-types, serde, serde_json, thiserror, tokio\n   - Remove: reqwest, tokio-tungstenite, url (now transitive via jmap-base-client)\n   - Verify: cargo check -p jmap-chat-client compiles after changes\n\n2. crate-jmap-base-client/src/sse.rs \u2014 add raw data to Unknown variant:\n   Change: SseEvent::Unknown { event_type: String }\n   To: SseEvent::Unknown { event_type: String, data: String }\n   - Update parse_sse_block to capture the data: line into the new field\n   - Update all match arms that destructure Unknown to use { event_type, .. }\n   - Run existing tests to verify no regressions\n\n3. crate-jmap-base-client/src/ws/mod.rs \u2014 add raw JSON to Unknown variant:\n   Change: WsFrame::Unknown { type_name: String }\n   To: WsFrame::Unknown { type_name: String, raw: serde_json::Value }\n   - Update parse_ws_frame to deserialize the full JSON object and include raw\n   - Update all match arms that destructure Unknown\n   - Run existing tests\n\n4. crate-jmap-base-client/src/error.rs \u2014 add RateLimited variant:\n   Add to ClientError enum: RateLimited { retry_after: jmap_types::UTCDate }\n   - Ensure Display impl covers it\n   - Run existing tests\n\nDEFENSIVE RULES:\n- jmap-base-client changes: ONLY the listed variants and function \u2014 do not touch any other public API, type, or test\n- All existing tests in jmap-base-client must pass unchanged\n- #[non_exhaustive] means all match arms on ClientError/SseEvent/WsFrame already need wildcards \u2014 adding variants does not break existing code\n\nACCEPTANCE: cargo check --workspace passes; cargo test --workspace passes; cargo clippy --workspace -- -D warnings passes",
+  "ephemeral": 0,
+  "id": "JMAP-ds04",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Cargo.toml wiring + jmap-base-client unlock (raw SSE/WS, RateLimited)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T11:29:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w",
+      "id": "a909c3d0-3220-5b8d-8738-34c34102b0d8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

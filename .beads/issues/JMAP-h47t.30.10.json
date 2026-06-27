@@ -1,0 +1,33 @@
+{
+  "close_reason": "Duplicate of pre-existing sibling child bead \u2014 superseded. The .1-.6 children created 2026-05-17T07:00 already cover the same sibling-crate sweeps. This dup was filed in a /do-beads session that missed the pre-existing children. Mapping: .8 (chat) \u2261 .1, .9 (calendars) \u2261 .2, .10 (contacts) \u2261 .3, .11 (filenode) \u2261 .4, .12 (metadata) \u2261 .5, .13 (sharing) \u2261 .6.",
+  "closed_at": "2026-05-17T09:23:03Z",
+  "compaction_level": 0,
+  "content_hash": "93195e0e0c4d2c9350101b04d1274b8ade7cf7d627c9d77c74147cfed2ab8d79",
+  "created_at": "2026-05-17T09:22:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Sweep handle_* docstrings in jmap-contacts-server (sibling propagation of canonical from JMAP-h47t.30.7).\n\nPattern (per parent JMAP-h47t.30 and template tasks-server):\n\n1. Per-handler rustdoc on every `handle_*` fn:\n   - One-line title with type-specific spec ref (draft-ietf-jmap-contacts \u00a7X.Y).\n   - `args` shape + return-`Value` shape paragraph (RFC 8620 \u00a75.x refs).\n   - Optional type-specific notes.\n   - Trailer: `/// Returns `(response_args, extra_invocations)`. ...`\n\n2. Module-level `# Wire-shape contract` paragraph on every src/*.rs file with handlers.\n\nFiles to touch (2 files, 9 handlers): src/addressbook.rs (3), src/card.rs (6)\n\nNo API break. Pure docs. Verify with `cargo doc --no-deps -p jmap-contacts-server`.\n\nDepends on JMAP-h47t.30.7 landing first (canonical-template rule).",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.30.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-contacts-server: propagate handle_* wire-shape docstrings",
+  "updated_at": "2026-05-17T09:23:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T02:22:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t.30",
+      "id": "afb030df-4a19-5965-bb35-a0c63ae5b8c6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

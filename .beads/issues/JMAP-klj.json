@@ -1,0 +1,37 @@
+{
+  "acceptance_criteria": "Integration tests: parse valid MDN blob \u2192 correct Mdn object with all fields; parse non-MDN blob \u2192 notParsable; parse unknown blobId \u2192 notFound; forEmailId correctly set when originalMessageId matches known sent email",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:22:47Z",
+  "compaction_level": 0,
+  "content_hash": "823c9d76757c62da53105cae660463e1a70ae9f6eead6eace9c17d3191957f5e",
+  "created_at": "2026-05-02T15:32:29Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement handle_mdn_parse in src/mdn.rs. Parses raw RFC 5322 blobs as MDN messages and returns structured MDN objects.",
+  "design": "Request args: accountId, blobIds: Id[].\n\nPre-flight: verify accountId; reject with invalidArguments if not found. If blobIds count exceeds server maximum, reject with requestTooLarge.\n\nDelegate to backend.parse_mdns(account_id, blob_ids).\n\nBackend categorizes each blob id into one of:\n  - parsed: successfully parsed as MDN \u2192 Mdn object\n  - notParsable: blob found but not a valid multipart/report / message/disposition-notification\n  - notFound: blob id does not exist\n\nResponse: { accountId, parsed: Id[MDN]|null, notParsable: Id[]|null, notFound: Id[]|null }\nAll three response fields are null (not empty array/object) if the respective category is empty.\n\nforEmailId: backend sets this by looking up the originalMessageId (RFC 5322 Message-ID header from the MDN's Original-Message-ID field) against the account's sent mail. May be null if:\n  - originalMessageId field is absent in the MDN\n  - No matching message found\n  - Server cannot efficiently compute the correlation\n\nDisposition field normalization: actionMode, sendingMode, type MUST be lowercased \u2014 the underlying RFC 8098 format is case-insensitive but draft \u00a72 requires lowercase in JMAP responses.\n\nextensionFields: pass through any extension-field headers from the message/disposition-notification part as String[String] map.\n\nSpec ref: draft-ietf-jmap-mdn-17 \u00a72.2, \u00a73.3.",
+  "ephemeral": 0,
+  "id": "JMAP-klj",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "CORRECTIONS (from research phase):\n\n1. Blob size cap: before calling backend.parse_mdns, check blob count against server limit (requestTooLarge if exceeded). Additionally, within the backend parse_mdns impl, the per-blob size SHOULD be capped before parsing. Suggest: if blob bytes > 1 MiB, classify as notParsable with a comment noting the size limit.\n\n2. forEmailId correlation is best-effort: if originalMessageId from the parsed MDN cannot be correlated to a known email in the account, forEmailId is null. This is NOT an error \u2014 spec explicitly allows this to be null when correlation is unavailable.\n\n3. handler signature (no call_id needed \u2014 no extra invocations):\n   pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(backend: &B, args: Value) -> Result<(Value, Vec<Invocation>), JmapError>",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mdn: MDN/parse handler",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:33:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-m2l",
+      "id": "bcd275ed-77ca-5a6b-b7a5-b5b38c71d11a",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

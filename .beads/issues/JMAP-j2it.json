@@ -1,0 +1,22 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-05T01:49:56Z",
+  "compaction_level": 0,
+  "content_hash": "9e8668d8dd8f4e46f80906d6b4b662ea17d2012a291d9d0a757a4132edcddb00",
+  "created_at": "2026-05-05T01:44:48Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-j2it",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Write tests and verify quality gates",
+  "updated_at": "2026-05-05T01:49:56Z"
+}

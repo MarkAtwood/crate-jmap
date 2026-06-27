@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed commit 5162cef. metadata-server: added '# Re-registration semantics' rustdoc block mirroring canonical jmap-mail-server (silent-overwrite contract, double-call consequences, custom-overrides-go-LAST ordering rule, no-collision-diagnostic note, &mut-Dispatcher-forbids-concurrent-calls). Also reworded misleading 'Pass the same Arc<B>' line in BOTH metadata-server AND mail-server (canonical) to clarify that separate Arc instances pointing at the same backend work fine \u2014 single Arc identity is not a correctness requirement. Per workspace AGENTS.md canonical-template rule, mail-server reword landed first. Six remaining extension-server siblings (chat, calendars, tasks, contacts, filenode, sharing) need the same propagation \u2014 filed as bd:JMAP-ejhk (P3, doc-only). Quality gates: cargo fmt, clippy --workspace -D warnings, doc -D warnings, test --workspace all green.",
+  "closed_at": "2026-05-17T05:33:06Z",
+  "compaction_level": 0,
+  "content_hash": "6913c4c59b4f3fa23b9e777b9a3042a984fed901c340718a87e67b441c2c7196",
+  "created_at": "2026-05-14T14:27:14Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs:76:\n    pub fn register_metadata_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>) where ...\n\nWhat callers cannot depend on:\n- What happens if a caller calls register_metadata_handlers twice on the same dispatcher with two different backends? Does the second call replace the first, panic, no-op, or accumulate handlers? The doc says 'After this call the dispatcher handles: Metadata/get, Metadata/changes, ...' but is silent on prior registrations for those names.\n- The behavior depends on jmap_server::Dispatcher::register, which is not part of jmap_metadata_server's documented contract. A future Dispatcher behavior change (e.g. from 'last write wins' to 'panic on duplicate') is silently a behavior change here.\n- The doc does not say whether register_metadata_handlers is safe to call from multiple threads concurrently. The dispatcher takes &mut, so the borrow checker forbids it, but a sophisticated caller using interior-mutable dispatcher wrappers cannot tell from the docs whether the function itself is thread-safe.\n- The doc does not say whether the backend Arc must be the same one passed to every related crate. In a real consumer that registers Mail + Metadata + Chat handlers on one dispatcher, the question 'must I use the same Arc instance?' is answered (no \u2014 Arc::clone semantics) but the doc says 'Pass the same Arc<B> to both this function and any application-level code that needs the backend directly' which strongly implies a single Arc identity matters when it does not.\n\nRecommendation:\n- Add a paragraph: 'Calling register_metadata_handlers more than once on the same Dispatcher overwrites prior handlers for the five method names. Concurrent calls are not supported (the &mut Dispatcher argument enforces this at the type system level).'\n- Reword the 'Pass the same Arc<B>' line to 'You may pass any Arc<B> \u2014 the function clones it internally. Sharing the same Arc<B> across all your registrations is a memory optimization, not a correctness requirement.'\n\nWhat goes wrong if this stays:\n- A consumer wiring multiple capability families onto one Dispatcher cannot predict whether 'register everything, then mutate one' will work, will silently shadow, or will need a deregister-first dance. They will write defensive code that the contract does not require.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API: register_metadata_handlers idempotency / overwrite contract unspecified",
+  "updated_at": "2026-05-17T05:33:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:27:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "2fdb64c2-9f28-50d1-b1e4-47e6079de35d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

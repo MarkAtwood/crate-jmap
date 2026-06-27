@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed: collapsed (is_direct_create: bool, direct_contact_id_str: Option<String>) pair to single direct_contact_id_str: Option<String>. Some = direct create; if let Some branch replaces is_direct_create guard.",
+  "closed_at": "2026-05-04T15:55:55Z",
+  "compaction_level": 0,
+  "content_hash": "c1cdb0d39c022c25448b45fec5d0261d2d6aa1e1af47a711c0c5d651483413da",
+  "created_at": "2026-05-02T06:46:06Z",
+  "created_by": "Mark Atwood",
+  "description": "File:/home/mark/PROJECT/JMAP/crate-jmap-mail-server/src/chat.rs:313\nIssue: is_direct_create and direct_contact_id_str are declared uninitialized on lines 313-314 and then assigned in every match arm (ChatKind::Direct, ChatKind::Channel, _). The Rust compiler enforces initialization, but a reader must trace all three arms to be sure of the invariant. The paired variables are always used together: direct_contact_id_str is Some iff is_direct_create is true. This is a hidden coupling that is not expressed in the type.\nFix: Replace the two variables with a single Option<String> named direct_contact_id (Some = is a direct create, None = not). This collapses the boolean + Option pair into one type-safe value.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "is_direct_create/direct_contact_id_str late-init pattern",
+  "updated_at": "2026-05-04T15:55:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:46:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "65e59027-31b8-519c-ac74-d889941a07ca",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

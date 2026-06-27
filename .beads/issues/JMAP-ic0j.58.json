@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:21:36Z",
+  "compaction_level": 0,
+  "content_hash": "48ad4a62939269697775ab248b30ae4fc06f843cda10f5d1a659fca6507b3d94",
+  "created_at": "2026-05-15T18:07:57Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-calendars-server/src/backend.rs:364-373 defines:\n\n    fn compute_utc_times(...)\n        -> impl std::future::Future<Output = (Option<UTCDate>, Option<UTCDate>)>\n\nwith rustdoc at :351-357: \"Returns `(utc_start, utc_end)` as UTCDate values, or `None` for each if the corresponding data is absent or the time zone is unknown.\"\n\nThree semantically-distinct failure modes collapse into the same `(None, None)` return:\n\n1. The event has no `start` / `duration` (legitimate \"this floating event isn't placeable\").\n2. The tz database lookup failed transiently (transient backend error \u2014 should propagate as `serverFail`).\n3. The tz_hint string is malformed or refers to an unknown IANA zone (caller bug \u2014 should be `invalidArguments` if surfaced).\n\nA caller (the handler injecting utcStart/utcEnd in CalendarEvent/get at event.rs:118-128) cannot tell the cases apart and serves the wire response with absent fields in every case, including transient failures that the client could have retried on.\n\nCompare get_availability (backend.rs:551-563) which returns `Result<_, AvailabilityError<Self::Error>>` for the same class of failure (tz / availability lookup).\n\nWhat callers cannot rely on:\n- That a `(None, None)` means \"no utcStart/utcEnd for this event\" rather than \"backend hit a transient tz lookup failure\".\n- That tz_hint validation happens at any documented boundary (the trait permits the backend to silently ignore malformed input, or to error via some other channel the trait does not expose).\n- That two backend impls produce the same answer for the same input.\n\nFix options:\n- Return `Result<UtcTimes, ComputeUtcError<Self::Error>>` where `UtcTimes` is a named struct (`#[non_exhaustive] struct UtcTimes { start: Option<UTCDate>, end: Option<UTCDate> }`) and the error covers the transient-vs-bad-input distinction.\n- Or document explicitly that the trait contract is best-effort and transient errors MUST be propagated by some other backend channel (e.g. a side-channel logger), accepting the information loss at the trait boundary as deliberate.\n\nEither fix is a breaking change once the trait stabilises.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.58",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "compute_utc_times returns (Option<UTCDate>, Option<UTCDate>) with no Result; 3 failure modes collapse to None",
+  "updated_at": "2026-05-17T17:21:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T11:07:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "845d9ff0-8dd0-5627-b492-d89a0ec0b65e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

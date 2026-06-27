@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-11T02:08:08Z",
+  "id": "019e14ca-afd6-7b31-8ade-531326f3fc2e",
+  "issue_id": "JMAP-ltx4",
+  "text": "Demoted: bd-spin no longer halts on human-labeled beads (fixed in JMAP-j6td), so this bead's original purpose \u2014 gating the loop on a sequencing decision \u2014 is moot. Categories A/B/C are things the autonomous loop can drive in priority order with no human input. The two real pending human decisions embedded in this bead's analysis are:\n\n- Category D (JMAP-g7wu.5): pick parser strategy for the 5 RFC 5322 As* header-form parsers \u2014 (a) new dep [mailparse/email-encoding], (b) extend mime-tree, or (c) write from scratch.\n- Category E (JMAP-9i53): updatedProperties on /changes \u2014 already tracked as its own P4 bead.\n\nKeeping this open at P4 as a permanent record of the sequencing analysis. Human label removed so it does not gate the autonomous loop."
+}

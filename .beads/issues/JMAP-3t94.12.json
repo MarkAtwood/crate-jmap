@@ -1,0 +1,33 @@
+{
+  "closed_at": "2026-05-14T22:26:58Z",
+  "compaction_level": 0,
+  "content_hash": "89fe9f58ebf25578ba3adc112a146b3aca4c5f1b91b5160f42649e05a73aff92",
+  "created_at": "2026-05-14T21:52:26Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/Cargo.toml:21-28 introduces the realistic-demo-ids feature with an extensive comment ('Both modes are explicitly demonstration-quality; production backends must mint real ULIDs') and matching rustdoc on demo_next_id at memory.rs:175-192 ('NOT A PRODUCTION PATTERN'). The feature is off by default, gated on a single function's body, and the function itself is named 'demo_next_id' (the rename per bd:JMAP-x2gd.66 is the cargo-cult mitigation).\n\nWhy this should be defended: a contributor reading the rendered crate docs might say 'drop the feature gate, just pick one mode and remove the cfg' or 'rename it next_id since it's the only id minter'. Both moves erode the cargo-cult protection:\n  1. Single-mode without feature: a downstream copy-paster has no visible signal that the function is demo-grade.\n  2. Renaming demo_next_id \u2192 next_id: identifiers like next_id read as 'I am the standard id minter, copy me'. Identifiers like demo_next_id read as 'I am the demo impl, do not copy me'.\n\nThe two-mode + feature-gate + verbose-rustdoc + suspicious-name combination is the workspace's cargo-cult defense pattern at maximum strength. The associated open beads (bd:JMAP-qz9v.14, bd:JMAP-826m.18, bd:JMAP-qz9v.47, bd:JMAP-qz9v.46, bd:JMAP-ayoz.20, bd:JMAP-x2gd.63) propose various improvements \u2014 but the high-level shape should not be weakened on the path to fixing them.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Existing design defended \u2014 no code change needed. The realistic-demo-ids feature gate, the demo_next_id name, the dual-mode body with extensive cargo-cult-warning rustdoc, and the 'NOT A PRODUCTION PATTERN' header collectively form the workspace's cargo-cult defense pattern at maximum strength. This bead pre-emptively rejects a 'simplify the feature gate away' or 'rename to next_id' suggestion. (The separate .5 / bd:JMAP-qz9v.14 / bd:JMAP-826m.18 follow-ups address the deeper meta-question of whether the canonical mail-server should adopt this defense or whether sharing-server should revert to uuid \u2014 those are workspace-architectural decisions deferred to a sibling sweep.)",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Cargo.toml realistic-demo-ids feature is gated, defaulted off, and documented as demo-only",
+  "updated_at": "2026-05-14T22:26:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:52:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "e9211a5d-8f34-5008-aa45-7b2aaeb117f3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

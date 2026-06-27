@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "validate_broadcast_mentions helper wired into both create and update paths in handle_message_set. 6 unit tests: rejects unknown scope, rejects u64 overflow, rejects exceeds-body, rejects rich-body-nonempty, accepts valid, accepts empty. All 291 chat-server tests pass.",
+  "closed_at": "2026-06-13T21:27:54Z",
+  "compaction_level": 0,
+  "content_hash": "a748e35c0bc98ab18a25dc2d8d34c7df9f98c616fd949ce449d23b30c55cef76",
+  "created_at": "2026-06-13T21:12:24Z",
+  "created_by": "Mark Atwood",
+  "description": "In crate-jmap-chat-server/src/message.rs handle_message_set:\n\nCreate path: validate broadcastMentions on the create payload:\n(a) reject any entry whose scope is not one of 'everyone', 'here', 'admins' with invalidArguments\n(b) reject any entry where offset + length exceeds body byte length with invalidArguments\n(c) when bodyType is 'application/jmap-chat-rich', reject non-empty broadcastMentions with invalidArguments (rich body carries broadcast mentions inline as 'broadcast' spans)\n\nUpdate path: same validation applies when broadcastMentions is patched on an existing message.\n\nThis bead does NOT cover the mention_broadcast permission check (separate bead) \u2014 only structural validation.",
+  "ephemeral": 0,
+  "id": "JMAP-6kxh.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Server-side BroadcastMention validation in Message/set",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:12:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6kxh",
+      "id": "87a88241-5972-5575-ae24-cd851c6f3aba",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-06-13T14:12:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6kxh.1",
+      "id": "bbfc399d-38ce-56e3-a798-cb745a0ccf11",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

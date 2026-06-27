@@ -1,0 +1,33 @@
+{
+  "close_reason": "SystemTime subtraction can't fail in practice; fallback to timestamp 0 is safe and tested.",
+  "closed_at": "2026-05-02T03:40:08Z",
+  "compaction_level": 0,
+  "content_hash": "059016d6248ae256d3506d9a6074ec586ba7598876fcb37901cd127c67a48aa6",
+  "created_at": "2026-05-02T03:25:33Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs next_id() (line ~1647): BASE.get_or_init calls SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(1_000_000_000). The .unwrap_or silently falls back to a fixed nanosecond base, producing highly collision-prone IDs if the system clock is before the epoch (which can happen in containerized CI). The fallback constant should be documented with a comment explaining why 1_000_000_000 is chosen, or the code should propagate a detectable error rather than silently using a collision-prone base. This is library code that callers depend on for thread ID uniqueness.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "next_id() uses unwrap_or on SystemTime::duration_since",
+  "updated_at": "2026-05-02T03:40:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:25:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "e7d902a8-8e93-5963-b36b-2b9ca6907d4a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

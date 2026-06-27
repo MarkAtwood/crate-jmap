@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-450.16",
+  "title": "BackendSetError/BackendChangesError envelopes separate per-item errors from storage errors",
+  "description": "backend.rs:155-178 \u2014 the distinction between SetError (a JMAP-level per-item error placed in notCreated/notUpdated/notDestroyed) and Other(E) (a storage error that becomes a protocol-level serverFail) is correct. Future contributors might flatten these. The two are semantically different: one is a client error, one is a server error.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:35:36Z",
+  "updated_at": "2026-04-30T23:41:13Z",
+  "closed_at": "2026-04-30T23:41:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-450",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:35:36"
+    }
+  ]
+}

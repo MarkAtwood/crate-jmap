@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed as workspace policy observation. The hybrid re-export pattern (top-level + module alias) is canonical workspace practice \u2014 mirrors jmap-calendars-types::jscalendar. Adopting a stability contract is a workspace-wide policy decision filed as JMAP-84zs (P3): document the re-export stability contract in workspace AGENTS.md and decide on version-pin tightness at crates.io release time. No per-crate change needed.",
+  "closed_at": "2026-05-15T23:05:22Z",
+  "compaction_level": 0,
+  "content_hash": "1aa9cd15c336589dde4cae926057e9deddc2867dfab415892e9cd807edaed2b6",
+  "created_at": "2026-05-15T22:45:39Z",
+  "created_by": "Mark Atwood",
+  "description": "The diff added two pub-use surfaces from jmap-jscontact-types\n(lib.rs lines 78, 91-96):\n\n1. Module alias:\n   ```rust\n   pub use jmap_jscontact_types as jscontact;\n   ```\n   Exposes the entire upstream crate as `jmap_contacts_types::jscontact::*`.\n\n2. Top-level re-exports of 30+ types:\n   ```rust\n   pub use jmap_jscontact_types::{\n       Address, AddressComponent, Anniversary, AnniversaryDate, Author,\n       Calendar, CryptoKey, Directory, EmailAddress, JsContactId,\n       LanguagePref, Link, Media, Name, NameComponent, Nickname, Note,\n       OnlineService, OrgUnit, Organization, PartialDate, PersonalInfo,\n       Phone, Pronouns, Relation, SchedulingAddress, SpeakToAs,\n       Timestamp, Title,\n   };\n   ```\n\nBoth surfaces commit jmap-contacts-types to forward every breaking\nchange in jmap-jscontact-types to its own consumers:\n\n- If jscontact-types renames `Name` \u2192 `JsContactName`, contacts-types\n  breaks.\n- If jscontact-types adds a non-default field to any of these types,\n  match-arm exhaustiveness in downstream code breaks (#[non_exhaustive]\n  mitigates struct construction breakage but not match/destructure).\n- If jscontact-types cuts a major version (0.x \u2192 0.y) under semver,\n  all callers of contacts-types must update too.\n\nThe Cargo.toml dep is `jmap-jscontact-types = { workspace = true }`,\nso within the workspace this is fine \u2014 the workspace pins both crates\ntogether. But once contacts-types is published to crates.io, the\nre-exports become a public commitment. Adding to or removing from the\nre-export list is itself a breaking change.\n\nAdditional name-collision footgun: the re-export includes common names\n(`Calendar`, `Address`, `Name`, `Phone`, `Organization`, `Title`,\n`Note`, `Author`). A downstream that depends on both contacts-types\nAND calendars-types (a plausible mail-suite consumer) and writes\n`use jmap_contacts_types::*; use jmap_calendars_types::*;` gets a\nglob-import conflict on `Calendar` (RFC 9553 \u00a72.4 vs the JMAP\nCalendarObject). Glob-use is discouraged in practice, but the conflict\nis real.\n\nMissing safeguards:\n1. No `#[doc(hidden)]` on the re-exports to defer stability.\n2. No `serde-jscontact` Cargo feature gating the re-exports, so callers\n   cannot opt for the leaner surface.\n3. No rustdoc clause on either pub-use block documenting the\n   version-lockstep risk.\n4. No CHANGELOG entry pinning jmap-jscontact-types to a specific minor\n   range.\n\nRecommendation: leave the re-exports for ergonomic parity (callers\ngenuinely want `jmap_contacts_types::Name`), but:\n\n- Add a rustdoc clause on each re-export block documenting the\n  version-coupling.\n- Consider gating behind a `jscontact-reexports` feature for v0.x\n  callers who want to pin a narrower API surface.\n- Document the lockstep relationship in PLAN.md or AGENTS.md.\n\nCross-reference: AGENTS.md \u00a7\"Sloppy-Value pattern\" and \u00a7\"hybrid typed\nsub-types via jscalendar/jscontact aliases\".\n\nSibling parity: jmap-calendars-types follows the same re-export pattern\n(per workspace AGENTS.md). If this finding lands as a doc-clause\naddition, it should propagate to jmap-calendars-types as well.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Re-exporting 30+ types from jmap-jscontact-types locks public API to upstream with no stability contract",
+  "updated_at": "2026-05-15T23:05:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:45:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "b82b0757-1fb2-506b-96fc-11ca33cc4330",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

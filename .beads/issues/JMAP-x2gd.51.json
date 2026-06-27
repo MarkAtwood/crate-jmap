@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T04:48:59Z",
+  "compaction_level": 0,
+  "content_hash": "7716d57a849027c10155534e924e55601b253e4c0166053e5a468e650ce1e99c",
+  "created_at": "2026-05-14T04:18:33Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/backend.rs (4 additional sync hooks)\n\nJMAP-x2gd.43 ('ChatBackend::limits is sync') states in its\ndescription:\n\n  > The trait's other hooks (slow_mode_check, is_contact_blocked,\n  > may_set_custom_emoji, expire_message, apply_space_patch,\n  > apply_space_metadata_patch) are all async. limits is the odd\n  > one out.\n\nThat enumeration is incorrect. FOUR other ChatBackend methods are\nsync:\n\n1. supports_type<O: JmapObject>(&self) -> bool         (line 282)\n2. generate_invite_code(&self) -> String                (line 310)\n3. protect_last_admin(&self, caller, account_id) -> bool (line 517)\n4. retains_edit_history(&self) -> bool                  (line 559)\n\nAll four share the same contract risk that JMAP-x2gd.43 identifies\nfor limits():\n\n- Production backends that need to consult per-tenant DB / cache /\n  external policy service for the answer must block_on() or\n  block_in_place() inside the sync method. Both are runtime-pinning\n  hazards in a Send context.\n- Once the trait ships sync, flipping to async is a major-version\n  break. Backend implementors who built the sync shape are stuck.\n\nPer-method analysis:\n\n1. supports_type \u2014 covered separately in JMAP-x2gd.46 (the args\n   gap is the more pressing issue there; sync-ness compounds it).\n   A multi-tenant backend that wants 'Pro tier exposes\n   CustomEmoji' has to lazy-load and cache from a DB at startup\n   if forced sync.\n\n2. generate_invite_code \u2014 JMAP-x2gd.36 covers the length /\n   charset / fallibility contract, but not sync-ness. A backend\n   using an HSM-backed entropy source (security-critical\n   deployments use this) or one that needs to check the\n   generated code against an existing-codes table to dedupe\n   cannot do that async from this method.\n\n3. protect_last_admin \u2014 production backends may want to consult\n   the deployment's admin-tracking store (a separate\n   service-level identity backend). Sync rules that out.\n\n4. retains_edit_history \u2014 the doc-comment on this method\n   (lines 543-561) explicitly addresses the limitation: 'This is\n   a static deployment-policy flag, not a per-call decision \u2026\n   Production backends that need to vary retention per-account\n   would file a follow-up bead for a parallel\n   retains_edit_history_for_account hook rather than reshaping\n   this method.'\n   This admits the current shape cannot grow, and announces that\n   the fix will be an asymmetric parallel method. That is a\n   contract-level acknowledgement that the sync no-args shape is\n   wrong for multi-tenant production deployments.\n\nPattern conclusion: the workspace has FIVE sync hooks\n(limits + the four above) plus FIVE async hooks (slow_mode_check,\nis_contact_blocked, may_set_custom_emoji, expire_message,\napply_space_patch / apply_space_metadata_patch). The async hooks\nare the ones consumed on the hot mutation path; the sync hooks\nare the policy / capability hooks. That carve-up is plausible\nbut the workspace did not document it.\n\nRecommended fix (matching JMAP-x2gd.43's recommendation): convert\nall five policy hooks to async with default impls that simply\nreturn the current sync value. Or: explicitly document the\nsync-by-design carve-up so future contributors know not to\n'fix' it by making them all async.\n\nThis finding does NOT depend on JMAP-x2gd.43 being closed first;\nit's a correction to the enumeration of sync methods in the .43\ndescription and a scope expansion of the same complaint to four\nmore sites.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.51",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: four other ChatBackend methods are sync alongside limits (JMAP-x2gd.43 enumeration was wrong)",
+  "updated_at": "2026-05-17T04:48:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T21:18:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "7344f5b6-d9e9-5973-83aa-9868446001f0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "recorded as decision, no code change needed",
+  "closed_at": "2026-05-03T00:17:35Z",
+  "compaction_level": 0,
+  "content_hash": "9cce88912c2cbc796c5c1c4d4689c79d310ca8a8bc6804daf1854cfcf57a2c3d",
+  "created_at": "2026-05-03T00:10:45Z",
+  "created_by": "Mark Atwood",
+  "description": "The Mdn struct uses extensionFields (camelCase from the \u00a72 normative definition) rather than extension (the \u00a73.1 example typo). The doc comment explains the discrepancy. A future contributor who sees the \u00a73.1 example might 'fix' this to match. Defend: \u00a72 is the normative definition; \u00a73.1 is an illustrative example. When the two disagree, \u00a72 wins. The existing doc comment is correct and should not be changed.",
+  "ephemeral": 0,
+  "id": "JMAP-o68r.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extensionFields wire name follows \u00a72 not the \u00a73.1 typo \u2014 defend this choice",
+  "updated_at": "2026-05-03T00:17:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:10:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o68r",
+      "id": "a6e56be9-4fd9-548b-87e3-7dad6ee2c58e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

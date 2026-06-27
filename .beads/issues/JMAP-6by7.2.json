@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-09T13:40:02Z",
+  "compaction_level": 0,
+  "content_hash": "f3e88eddeb5f2a61e2d4054c0e05ee45795bf7b26616bd4a1e16b1d6acd34721",
+  "created_at": "2026-05-09T07:05:26Z",
+  "created_by": "Mark Atwood",
+  "description": "Mirror the calendars-client conversion in jmap-mail-client. NOTE: not currently locked per workspace AGENTS.md, so per-change approval may not be required \\u2014 verify before claiming. Same structural change: &str/&[&str] \\u2192 &Id/&[Id], &str (state) \\u2192 &State, remove half-measure guards.",
+  "ephemeral": 0,
+  "id": "JMAP-6by7.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "0.2.0 typed-Id: jmap-mail-client",
+  "updated_at": "2026-05-09T13:40:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T00:05:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6by7",
+      "id": "3d5cd898-9f4c-5a74-8acf-2a9120f01bb3",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-09T00:05:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6by7.1",
+      "id": "98b38a32-bc32-5288-850c-79a8d19fea0a",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

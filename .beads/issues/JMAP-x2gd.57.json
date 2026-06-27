@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T02:21:46Z",
+  "compaction_level": 0,
+  "content_hash": "38c582525f2d2c8f0bf97e18b75a42f1bb60d730bea5e6cc040167e4c2ece754",
+  "created_at": "2026-05-14T04:25:48Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/memory.rs:200-218 inside MemoryBackend::demo_next_id, in the #[cfg(feature = \"realistic-demo-ids\")] branch.\n\nCurrent code:\n\n    fn demo_next_id(inner: &mut Inner, type_name: &'static str, account_id: &str) -> Id {\n        #[cfg(feature = \"realistic-demo-ids\")]\n        {\n            use std::sync::atomic::{AtomicU64, Ordering};\n            use std::sync::OnceLock;\n            use std::time::{SystemTime, UNIX_EPOCH};\n\n            let _ = (inner, type_name, account_id);   // <-- this line\n            static COUNTER: AtomicU64 = AtomicU64::new(0);\n            ...\n        }\n\n        #[cfg(not(feature = \"realistic-demo-ids\"))]\n        { ... uses all three params ... }\n    }\n\nThe `let _ = (inner, type_name, account_id);` line is the \"suppress unused parameter warnings under this cfg\" hack: when the realistic-demo-ids feature is on, the timestamp+counter id-generator doesn't need the function parameters, so the line silently consumes them to keep the warning quiet.\n\nWhat idiomatic Rust does: prefix the parameters themselves with underscores under the cfg, either via:\n  (a) Two separate fn signatures inside the cfg arms (verbose but explicit), or\n  (b) #[cfg_attr(feature = \"realistic-demo-ids\", allow(unused_variables))] on the fn, or\n  (c) #[cfg(feature = ...)] on each parameter (works in fn bodies and is the cleanest), or\n  (d) the simplest in this case: just bind the unused params individually with _ = inner;, _ = type_name;, _ = account_id; rather than a tuple \u2014 readers don't expect a single-line tuple-discard to be load-bearing.\n\nThe tuple form works (and is technically idiomatic by some authorities) but reads as line noise; a reviewer scanning the function has to recognize the pattern before parsing the rest. The per-binding form telegraphs intent.\n\nWhat goes wrong if left: nothing functional. This is a readability nit, flagged as opinion because the tuple form has defenders in the Rust community and is conventional in some codebases. Included here so the rusty pass is honest about every site it noticed, not because it merits a fix on its own.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.57",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "memory.rs demo_next_id: 'let _ = (inner, type_name, account_id)' tuple-suppression is non-idiomatic for cfg-arm dead params",
+  "updated_at": "2026-05-18T02:21:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T21:25:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "f4d20ad1-953b-59e8-8bd6-4f24c7a0d42d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

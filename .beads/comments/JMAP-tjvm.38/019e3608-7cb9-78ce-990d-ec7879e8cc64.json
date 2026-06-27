@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T13:03:06Z",
+  "id": "019e3608-7cb9-78ce-990d-ec7879e8cc64",
+  "issue_id": "JMAP-tjvm.38",
+  "text": "Workspace-architecture decision needed before implementing. Recommendation B (proc-macro that generates Serialize stripping reserved keys before flatten) gives cookie-cutter consistency across all ~17 *Params/*Input structs and all data-object types \u2014 but it requires standing up a workspace-internal proc-macro crate (one doesn't exist yet). Option A (per-struct manual Serialize impl) avoids the new crate but multiplies the maintenance burden by ~17x and risks reserved-keys-list drift from typed-field-list. Option C (call-site validation in handlers) is lightweight but doesn't cover the type-crate data-object serialization paths and creates a per-method reserved-keys list. The right call depends on whether the workspace is willing to add a proc-macro crate or prefers a hand-coded Serialize impl pattern. No autonomous action until that decision is made."
+}

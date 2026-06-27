@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "12da6f0cdfa6f8816a6a4eae0d2942d2123e7996a4ea1f81058ea330b2a3334f",
+  "created_at": "2026-06-13T20:32:54Z",
+  "created_by": "Mark Atwood",
+  "description": "draft-atwood-jmap-chat-filenode-00 extends FileNode with spaceId (String, immutable) and defines role urn:jmap:chat:filenode:space for Space file tree roots. The filenode crate has no chat awareness. Need spaceId as extension field and register the role value.",
+  "ephemeral": 0,
+  "id": "JMAP-0x31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add FileNode.spaceId extension and chat-filenode role",
+  "updated_at": "2026-06-13T20:32:54Z"
+}

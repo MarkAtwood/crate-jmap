@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "757280be79df271cecf979640825d8d76827cb0047816ce601c5ffa3da9df6a8",
+  "created_at": "2026-05-15T01:51:48Z",
+  "created_by": "Mark Atwood",
+  "description": "src/lib.rs:24      pub use jmap_base_client::ClientError;\nsrc/methods/mod.rs:28-31  pub use jmap_types::{AddedItem, ChangesResponse, GetResponse,\n                            QueryChangesResponse, QueryResponse, SetError, SetResponse};\n\nEvery public method on SessionClient returns Result<..., jmap_base_client::ClientError>. Every /get and /set method returns a jmap_types::* type re-exported through this crate.\n\nContract consequence: once this crate ships to crates.io, jmap-mail-client 0.x.y's public surface is permanently tied to jmap-types and jmap-base-client major-version compatibility. If either crate cuts a 0.2.0 with a breaking change to ClientError or GetResponse, jmap-mail-client's API breaks transitively. Consumers cannot pin jmap-mail-client = \"0.1\" and stay buildable without also pinning compatible versions of the two upstream crates.\n\nThe same applies to the seven extension-client siblings via canonical-template propagation.\n\nToday path = \"../crate-jmap-*\" deps mask this \u2014 it cannot bite until publish. But the publishing handshake will be brittle: a coordinated bump of all 30 crates becomes mandatory, with no incremental escape.\n\nThree contract documentation gaps:\n\n  1. The crate's README and rustdoc do not warn callers that the error type and response types are re-exports.\n  2. The Cargo.toml does not document the version-pinning relationship.\n  3. There is no \"stability story\" docstring on the crate root explaining the re-export pattern.\n\nRecommendation:\n\n  (a) Document the re-export pattern explicitly in the crate-root docstring and Gotchas section, naming the upstream crates whose major versions are locked.\n\n  (b) When publishing, declare jmap-mail-client = \"0.1\" alongside the precise jmap-types and jmap-base-client versions it was built against, and document the pinning relationship in the Cargo.toml description or a per-crate stability comment.\n\n  (c) Consider whether GetResponse/SetResponse/ChangesResponse/QueryResponse should be re-exported from jmap-types or NEWTYPED in this crate (which would break callers but isolate the major-version surface). For 0.x.y a wrapping newtype is plausible; for 1.0 it is essentially mandatory. File a follow-up bead for the 1.0 stability cut deciding this.\n\nNote: this finding is a category-rather-than-line issue. It does not block any specific feature; it informs the 1.0 cut. Not high priority but important enough to capture.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Public re-exports of jmap-types and jmap-base-client items lock major-version compatibility",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:51:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "8f2627fd-00af-587f-9b83-dcd9c123e2bd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

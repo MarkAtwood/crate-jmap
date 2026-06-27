@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:29:28Z",
+  "compaction_level": 0,
+  "content_hash": "a3aa4f14723a86c42604b69c6c2a9b8241c7c087bf572b6b04c735ced0b3ed2b",
+  "created_at": "2026-05-14T21:51:51Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/lib.rs:362-383 inside test_support::MockBackend:\n\n    async fn destroy_object<O: SetObject + Send + Sync>(...) -> ... {\n        let mut guard = self.state.lock().unwrap();\n        if let Some(acct) = guard.get_mut(account_id.as_ref()) {\n            if acct.notifications.remove(id).is_some() {\n                acct.notification_state += 1;\n                return Ok(());\n            }\n            if acct.principals.remove(id).is_some() {\n                acct.principal_state += 1;\n                return Ok(());\n            }\n        }\n        Err(BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))\n    }\n\nThe function ignores the O type parameter and tries both maps. This is the shape you write when you've decided 'I'll figure out the type later' \u2014 but every call to destroy_object has a concrete O::TYPE_NAME at compile time. The function should dispatch on O::TYPE_NAME (compile-time-known constant string).\n\nSuggested rewrite:\n    match O::TYPE_NAME {\n        \"Principal\" => {\n            if acct.principals.remove(id).is_some() {\n                acct.principal_state += 1;\n                Ok(())\n            } else { ... NotFound ... }\n        }\n        \"ShareNotification\" => {\n            if acct.notifications.remove(id).is_some() {\n                acct.notification_state += 1;\n                Ok(())\n            } else { ... NotFound ... }\n        }\n        other => Err(BackendSetError::Other(MockError(format!(\"unsupported type: {other}\"))))\n    }\n\nThis is mock code and not on a hot path, but the current shape is the textbook 'try every possibility' anti-pattern that obscures intent. A reader looking for 'how does the mock destroy Principal vs ShareNotification' has to read the whole function to know there's no distinction.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Rewrote MockBackend::destroy_object to dispatch on O::TYPE_NAME explicitly: separate match arms for 'Principal' and 'ShareNotification' (operating on the correct map and incrementing the correct state counter), plus an explicit unsupported-type arm that returns BackendSetError::Other(MockError(...)) loudly instead of falling through to a generic NotFound. The unknown-account path is hoisted out of the match for early-return.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MockBackend::destroy_object dispatches across notifications and principals maps in one body",
+  "updated_at": "2026-05-14T22:29:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:51:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "93d1b16f-25cf-55d7-943c-2cfea66d96fb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Public-API change to AuthProvider::auth_header signature (return owned values). Should be coordinated with the 0.2.0 typed-Id epic JMAP-6by7 since both touch base-client public surface. Deferred to 0.2.0; revisit when JMAP-6by7 is in flight.",
+  "closed_at": "2026-05-09T07:36:45Z",
+  "compaction_level": 0,
+  "content_hash": "9c95462e5562eaec901c6a288d12bfb7ee3f9761824ba458c7e13ac595ef93f5",
+  "created_at": "2026-05-08T03:06:25Z",
+  "created_by": "Mark Atwood",
+  "description": "src/auth.rs:120 \u2014 `fn auth_header(&self) -> Option<(&str, &str)>;` borrows from self. The doc explicitly says implementations 'pre-compute the values at construction time' and return references. This precludes implementations that need to compute the header per-request: OAuth2 with token rotation, HMAC-signed requests, time-bounded credentials, etc. None of those can implement this trait. Idiomatic options: (a) return Option<(Cow<'_, str>, Cow<'_, str>)> \u2014 allows both borrowed (cheap) and owned (computed) values, (b) return Option<HeaderValue> directly, (c) make it async (`async fn auth_header_async`) with a sync default. The current API forces every dynamic credential scheme to be re-shaped around 'pre-validate at construction' which doesn't match how real OAuth2 refresh works. Filed as a maintainer-burden / extensibility concern: the contract is settled but it constrains future credential schemes. Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AuthProvider::auth_header signature returns (&str, &str); custom impls cannot return owned values",
+  "updated_at": "2026-05-09T07:36:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:06:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "d002e597-d31e-587d-b8d8-38a3c615d03e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

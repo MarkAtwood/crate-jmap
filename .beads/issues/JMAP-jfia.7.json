@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a67007cdbb36e76f82ab72d7fc8f674172edb94c0442361d5ab42648c5c24a92",
+  "created_at": "2026-05-14T16:36:43Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/lib.rs:256-257 \u2014 every dispatched method call performs:\n\n  let method_clone = method.clone();    // String alloc\n  let call_id_clone = call_id.clone();  // String alloc\n\nThese are required because the spawned task captures by move and task::spawn needs static.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "method/call_id clone-per-call: Arc<str> would shave allocations on hot path",
+  "updated_at": "2026-05-14T17:28:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:36:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "c3cbd1aa-e6ed-5190-8aa3-6b098101a20f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: unimplemented header forms (AsAddresses, AsGroupedAddresses, AsDate, AsMessageIds, AsURLs) marked with NOT IMPLEMENTED comments plus debug eprintln warnings; contributors can no longer accidentally overwrite them",
+  "closed_at": "2026-05-02T19:30:31Z",
+  "compaction_level": 0,
+  "content_hash": "3d98f91b1c8ae21ed4655eec9ba84e90937e6418ccf585cfee8fa5101b496952",
+  "created_at": "2026-05-02T19:18:14Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs apply_header_form returns Value::Null for AsAddresses, AsGroupedAddresses, AsDate, AsMessageIds, AsURLs. These are the forms callers are most likely to request by name. validate_header_form only rejects cross-type combinations; it does NOT warn that the form is not implemented. A client asking for header:from:asAddresses will silently receive null, which it may interpret as a missing header rather than an unimplemented feature. When a contributor implements one of these forms, they will change a previously-null field to non-null, which is technically a silent behaviour change that can break clients relying on the null. Maintenance consequence: issue reports for 'header:from:asAddresses returns null' will keep appearing.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "apply_header_form returns null for structured forms; callers see no error",
+  "updated_at": "2026-05-02T19:30:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "7a469fa5-5ca9-5c98-8708-cbb3749d9577",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

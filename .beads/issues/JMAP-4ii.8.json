@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:12:27Z",
+  "compaction_level": 0,
+  "content_hash": "f45149de98560bcf145351ebee1199db020e6d4f8f01588e2982c2bf0726066b",
+  "created_at": "2026-05-02T03:55:40Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs role_to_wire ends with '_ => unreachable!(\"unhandled MailboxRole variant; update role_to_wire\")'. MailboxRole is #[non_exhaustive] with an Other(s) catch-all; a future crate update that adds a named variant (e.g. MailboxRole::Scheduled) will hit this arm and panic in production without a compile error on the consumer side. The _ arm should map to 'other.as_str()' or call serde_json::to_value to obtain the wire string rather than panicking.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "role_to_wire unreachable! panics in production if MailboxRole gains new variant",
+  "updated_at": "2026-05-02T04:12:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:55:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "fbb946a9-552f-5450-83d3-b5470106ee4c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

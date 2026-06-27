@@ -1,0 +1,23 @@
+{
+  "close_reason": "Substantially done in jmap-chat-spec working text. Three commits fulfill the bead: a684b67 (spec: clarify deployment-policy latitude for group-chat admin role \u2014 adds the line 422 paragraph defining the admin/member wire enum and granting deployments latitude to designate additional admin-equivalent internal principals), 2fd3cf7 (spec: make group-chat bootstrap-role assignment impl-defined \u2014 server-defined whether/how creator gets admin role), and ad5d734 (spec: soften federation Peer/groupUpdate sender-side admin MUST to SHOULD).\n\nAcceptance check: definition of 'admin' for group Chat (line 414), creator-is-automatically-admin (server-defined per line 414 + 924), add/remove admins mechanism (line 942 updateMemberRoles), admin-vs-owner distinction (line 489 \u2014 direct=owner, group=admin role, channel=Space permissions), federation interactions (line 422), and the original line 459 'admins' reference (now line 489, resolved by line 414). \n\nLast-admin protection for group Chats and explicit group-Chat destroy permission are not normative in the current draft; both are deliberately consistent with line 422's deployment-policy latitude. If later judged to need MUST/SHOULD spec text (analogous to Space's last-admin protection at line 1155), that's a fresh spec-author bead, not residue under this one.",
+  "closed_at": "2026-05-13T17:39:30Z",
+  "compaction_level": 0,
+  "content_hash": "f6e87218de1b3836e084ed00494b43d69870dcff1680f30b3ebf02c216120cb0",
+  "created_at": "2026-05-12T00:04:04Z",
+  "created_by": "Mark Atwood",
+  "description": "Captured from the JMAP-g7wu.2.4.11 design conversation (2026-05-11, Mark).\n\nThe current draft-atwood-jmap-chat-00 has exactly one place where group-chat administration is referenced \u2014 \u00a7Chat pinned messages list, line 459: 'For group chats, only admins may modify this list.' The 'admins' concept is not defined elsewhere in the draft.\n\n## What is missing\n\n  - Definition of 'admin' for Chat with `kind: \"group\"`\n  - Whether the creator is automatically an admin\n  - Mechanism (if any) to add/remove admins\n  - Distinction (if any) between admin and owner\n  - Interaction with the federation draft (cross-server group chats: where does admin authority live, how do remote servers enforce it, what happens when the admin's home server is unreachable)\n  - Removal protection (analogous to Space's 'owner cannot be removed')\n  - Destroy semantics (who can destroy a group chat)\n\n## Why this was deferred\n\nThe JMAP-g7wu.2.4.11 conversation considered broadening the Space.ownerId pattern to Chat. The decision was NO because:\n\n  1. Group chat permission model is one off-hand reference \u2014 much less developed than Space's permission model\n  2. Industry-precedent split (WhatsApp multi-admin vs Discord single-creator vs Signal democratic) means the right shape needs design judgment, not a cookie-cutter from Space\n  3. Federation interactions (per draft-atwood-jmap-chat-federation) are unresolved for cross-server admin enforcement\n  4. Adding Chat.ownerId alone without resolving the 'admins' concept would create two parallel concepts that conflict\n\n## What this bead does NOT do\n\nIt does NOT block the JMAP crate workspace shipping. The line 459 'admins' reference will be tightened to an explicit 'implementation-defined' marker in the next draft revision (covered in JMAP-g7wu.2.4.11's spec text edits). The crate workspace's chat-types crate carries no group-chat admin field today; if the future spec adds one, the crate work follows.\n\n## Acceptance\n\n  - Next draft-atwood-jmap-chat revision (likely -01) contains a full definition of group chat permission semantics covering admins, ownership (if applicable), federation interactions, removal protection, and destroy semantics.\n  - Line 459 'admins' reference resolves to the new definition (or is replaced).\n  - Workspace JMAP-g7wu.2.4 chat Space/set work continues to ship in parallel against the current draft; no dependency on this bead.\n\n## Scope\n\nSpec-author work only. No code changes in this workspace until the spec lands.\n\nLABELS: human (Mark's spec-author task; not workspace code work)",
+  "ephemeral": 0,
+  "id": "JMAP-4ir7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Spec: specify group chat admin model for next draft-atwood-jmap-chat revision",
+  "updated_at": "2026-05-13T17:39:30Z"
+}

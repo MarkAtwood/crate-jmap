@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T07:08:33Z",
+  "compaction_level": 0,
+  "content_hash": "7f65a441251a21d077027593324bb9b38625d53de1ce89037add52fca86ed297",
+  "created_at": "2026-05-11T07:05:24Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Location: crate-jmap-chat-server/src/backend.rs:74-78\n\nThe ChatBackend::generate_invite_code trait doc currently reads:\n  /// Generate a cryptographically random invite code.\n  ///\n  /// Implementations MUST use a CSPRNG (e.g. `rand::thread_rng`, `getrandom`,\n  /// OS entropy). The returned string must be unguessable \u2014 do NOT use\n  /// timestamps or sequential counters.\n\nCONCERN\n`rand::thread_rng` is NOT documented as a CSPRNG. The rand crate\ndocumentation describes ThreadRng as 'an automatically-seeded, cryptographically\nsecure thread-local random number generator' starting in rand 0.9, but in older\nversions (and per the rand book) the explicit, stable, supported CSPRNG\nrecommendation for security-relevant work is OsRng / getrandom. The trait\ndocstring leads every implementor to a stdlib RNG that the rand crate's own\ndocs route around for cryptographic use cases. Worse, the historical\nThreadRng implementation has been changed before (StdRng \u2192 ChaCha) and is\nexplicitly described as implementation-defined; using it for an invite code\ninherits future churn risk for free.\n\nInvite codes are unguessable-secret material: an attacker who can predict\nthe code can hijack a Space invitation. This is exactly the class of use\ncase where the trait doc should point implementors at OsRng / getrandom,\nnot at thread_rng.\n\nThe default MemoryBackend impl at memory.rs:517 and the test backend at\ntests/common/mod.rs:136 BOTH explicitly note 'test-only: not a CSPRNG'\nand use nanosecond timestamps \u2014 they are correctly labeled as\ntest-only. The bug is only in the trait doc-comment that guides every\n*production* implementor.\n\nPROPOSED FIX\nChange the trait docstring to:\n  /// Implementations MUST use a CSPRNG. `rand::rngs::OsRng` or the\n  /// `getrandom` crate are the recommended choices. Do NOT use\n  /// `rand::thread_rng()` for security-relevant output \u2014 it is a\n  /// fast PRNG whose CSPRNG status is implementation-defined, and\n  /// the rand crate docs route security-sensitive callers to OsRng.\n\nRISK CLASSIFICATION\nP2 (defense-in-depth). No production code in this workspace actually\ngenerates invite codes \u2014 only test stubs. But this is a public trait\ndoc-comment guiding every downstream backend implementor, and the\nguidance is wrong. Better to fix before the first production\nimplementation lands.\n\nORACLE\n- rand crate documentation for OsRng vs ThreadRng (https://docs.rs/rand)\n- CFRG / IRTF guidance: cryptographic invite codes must come from a\n  CSPRNG with documented OS-level entropy seeding, not from a\n  thread-local PRNG with implementation-defined seeding semantics",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.78",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security: ChatBackend::generate_invite_code doc-comment falsely claims rand::thread_rng is a CSPRNG",
+  "updated_at": "2026-05-11T07:08:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T00:05:24Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "a3039d6a-3beb-5137-9b69-c1fa6ae6607c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "acceptance_criteria": "All 10 named tests pass; activation state machine correct; cargo test -p jmap-mail-server --features sieve passes",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:14:44Z",
+  "compaction_level": 0,
+  "content_hash": "85a8d1295c27f370539d6f5998df155a7fee8024f2fb85a6b1e46ab1050d8b24",
+  "created_at": "2026-05-02T15:23:22Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement handle_sieve_set in src/sieve.rs (SieveScript/set handler \u2014 the complex one).\n\nWHAT: SieveScript/set with creation, update, destruction, and the activation state machine.\n\nALGORITHM:\n1. Parse args: extract account_id, if_in_state (Option<State>), create (Option<Map>), update (Option<Map>), destroy (Option<Vec<Id>>), on_success_activate_script (Option<String> \u2014 may be creation ref), on_success_deactivate_script (Option<bool>).\n2. account_exists check.\n3. ifInState check: if if_in_state is Some(s), get_state::<SieveScript>; if s != current \u2192 JmapError::state_mismatch().\n4. Get old_state before mutations: backend.get_state::<SieveScript>(&account_id).await.\n5. Process destroys: for each id in destroy:\n   a. Fetch the script via get_objects::<SieveScript> \u2014 if isActive == true \u2192 notDestroyed with SetError::new(SetErrorType::custom(\"sieveIsActive\"))\n   b. Backend marks as VR-backed? \u2192 notDestroyed with SetError::new(SetErrorType::Forbidden)\n   c. destroy_object::<SieveScript>(&account_id, &id) \u2192 Ok \u2192 add to destroyed; SetError \u2192 notDestroyed; Other \u2192 notDestroyed with serverFail\n6. Process creates: for each (create_id, obj_val) in create:\n   a. Deserialize to SieveScript via serde_json.\n   b. blob_id must be Some and non-placeholder \u2014 else invalidProperties.\n   c. get_sieve_blob(account_id, blob_id) \u2014 None \u2192 invalidProperties (blob not found); Some(bytes) \u2192 proceed.\n   d. Validate script: backend.validate_sieve_script(account_id, blob_id) \u2014 Some(err) \u2192 notCreated with SetError::new(SetErrorType::custom(\"invalidSieve\")).with_description(err).\n   e. create_object::<SieveScript>(&account_id, &create_id, script) \u2192 Ok((id, obj)) \u2192 add to created; SetError (alreadyExists must include existingId) \u2192 notCreated; Other \u2192 notCreated serverFail.\n7. Process updates: for each (id_str, patch) in update:\n   a. If patch contains \"blobId\" update: get_sieve_blob + validate_sieve_script (same as create step c/d).\n   b. Check if target is VR-backed AND patch touches \"blobId\" \u2192 notUpdated with Forbidden.\n   c. update_object::<SieveScript>(&account_id, &id, patch) \u2192 Ok \u2192 updated[id] = null (or isActive value if changed); SetError \u2192 notUpdated; Other \u2192 notUpdated serverFail.\n8. Activation state machine (only if ALL creates/updates/destroys have not ALL failed):\n   a. If on_success_deactivate_script == Some(true): find current active script via get_objects::<SieveScript>(None) \u2192 filter isActive=true \u2192 update_object patch {\"isActive\": false}; if changed, add to updated map with {\"isActive\": false}.\n   b. Resolve on_success_activate_script: if starts with '#', look up in created map; else use as-is. If id is invalid/not found \u2192 skip silently (spec \u00a72.4). If found: update_object patch {\"isActive\": true}; deactivate the PREVIOUS active script first if different; add to updated map with {\"isActive\": true}.\n9. Get new_state after all mutations.\n10. Build and return response JSON (standard /set shape): oldState, newState, created, updated, destroyed, notCreated, notUpdated, notDestroyed, accountId.\n\nDEFENSIVE RULES:\n- sieveIsActive error: MUST fire when destroying active script\n- alreadyExists error: MUST include existingId property\n- invalidSieve error: MUST include description with line number from validator\n- forbidden error: for VR-backed script destroy or blobId update\n- on_success_deactivate before on_success_activate (spec \u00a72.4)\n- at-most-one-active: before activating new, deactivate old atomically\n- All activation state changes MUST be reported in created/updated with new isActive value\n- No .unwrap() or .expect() in production code\n- Blob must be validated BEFORE creating/updating the script record\n\nAGENT TEAM: Implementer + Tester (Tester uses spec \u00a72.4 JSON examples 6\u201310 as oracles)\n\nTESTS (oracles from spec \u00a72.4.1 examples):\n- sieve_set_create_basic: create script, verify created entry has id/name/blobId/isActive:false\n- sieve_set_create_and_activate: create + onSuccessActivateScript #A \u2192 isActive:true in created\n- sieve_set_at_most_one_active: two scripts exist, activate second \u2192 first deactivated (isActive:false in updated)\n- sieve_set_destroy_active_rejected: sieveIsActive error\n- sieve_set_destroy_inactive_ok: succeeds\n- sieve_set_duplicate_name: alreadyExists with existingId\n- sieve_set_deactivate_only: on_success_deactivate_script=true with no other ops \u2192 updated has isActive:false\n- sieve_set_reactivate: on_success_activate_script on existing id (spec example 9)\n- sieve_set_update_name: rename script, isActive unchanged\n- sieve_set_unknown_account: accountNotFound",
+  "design": "Extra request args (beyond standard SetRequest):\n- on_success_activate_script: Option<Id> \u2014 activate this script IFF all creates/updates/destroys succeed. Supports creation-reference (#id). Ignored if id is invalid or nonexistent.\n- on_success_deactivate_script: Option<bool> \u2014 if true, deactivate the currently active script IFF all mutations succeed. Processed BEFORE on_success_activate_script (per spec \u00a72.4).\n\nError types to enforce in handler (before delegating to backend):\n- alreadyExists: duplicate name; response must include existingId property\n- tooLarge: script size > maxSizeScript\n- overQuota: would exceed maxNumberScripts\n- invalidSieve: script content fails Sieve validation (backend validates on create/update since content is a blobId ref)\n- sieveIsActive: attempt to destroy the active script \u2014 MUST be rejected; backend should also enforce\n- forbidden: attempt to destroy or update content of the VacationResponse-backed script (\u00a74)\n\nActivation semantics (spec \u00a72.4):\n1. Apply all creates/updates/destroys; if any fail, stop and return errors \u2014 do NOT apply activation\n2. If on_success_deactivate_script == true: deactivate current active script; add to updated with isActive: false\n3. If on_success_activate_script is present and resolves to a valid id: deactivate current active (if different), activate target; add to created or updated with isActive: true\n4. All activation changes reported in created/updated response args\n\nName uniqueness: names must be unique per account. Server-set fields: id, isActive. blobId is client-supplied (blob must already exist).\n\nSpec ref: draft-ietf-jmap-sieve-22 \u00a72.4, RFC 8620 \u00a75.3.",
+  "ephemeral": 0,
+  "id": "JMAP-46i",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve: SieveScript/set handler",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:24:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3uh",
+      "id": "0c652e6b-cd1d-58be-9ca2-36eab3c3e809",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T11:29:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-82ty",
+      "id": "23bd7516-c866-561f-8399-0cef3bcc7b84",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T12:01:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-589",
+      "id": "d8368b8b-410c-5e99-bc08-059b417a0684",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

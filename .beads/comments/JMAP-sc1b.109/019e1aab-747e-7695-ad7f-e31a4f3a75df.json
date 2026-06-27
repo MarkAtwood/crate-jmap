@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "created_at": "2026-05-12T05:31:45Z",
+  "id": "019e1aab-747e-7695-ad7f-e31a4f3a75df",
+  "issue_id": "JMAP-sc1b.109",
+  "text": "First-of-7 chat-server AGENTS.md landed in commit ac5cdb8. Per the bead's acceptance criterion 'Spot-check by Mark on the chat-server one (highest-velocity sibling) before the others land', re-labeling 'human' and setting status open pending Mark's spot-check.\n\nThe remaining 6 siblings to land once approved:\n* crate-jmap-calendars-server/AGENTS.md\n* crate-jmap-tasks-server/AGENTS.md\n* crate-jmap-contacts-server/AGENTS.md\n* crate-jmap-filenode-server/AGENTS.md\n* crate-jmap-sharing-server/AGENTS.md\n* crate-jmap-metadata-server/AGENTS.md\n\nEach will mirror the chat-server shape with spec references and trait names swapped per each crate's actual spec / backend trait. The 'Permission enforcement: backend canonical' section in chat-server's AGENTS.md is a new section that mail-server (the canonical) does not yet have \u2014 once chat-server is approved as the sibling reference, a follow-up bead should propagate this section back into the canonical mail-server/AGENTS.md and across to the other 5 siblings to keep the family fully congruent.\n\nDrop the 'human' label once spot-check is done; /do-beads can then continue with the remaining 6 siblings."
+}

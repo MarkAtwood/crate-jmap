@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:41:32Z",
+  "compaction_level": 0,
+  "content_hash": "ffb90660b23585de14e10aefdd3b2be5face3dd2f8c68a16a6a91004477e2934",
+  "created_at": "2026-05-02T03:56:05Z",
+  "created_by": "Mark Atwood",
+  "description": "Both mail-server and chat-server lib.rs define ClosureHandler that receives caller: C in JmapHandler::call but does not forward it to the closure. mail-server documents this in a large block comment and the register_mail_handlers doc; chat-server has no corresponding warning on ClosureHandler or register_chat_handlers. A consumer who needs per-request tenant or auth context will call register_chat_handlers and discover at runtime that CallerCtx is unreachable. The divergence between the two crates' documentation also means contributors copy-paste the chat-server pattern without realizing the mail-server restriction applies equally to chat-server.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClosureHandler discards CallerCtx \u2014 undocumented API footgun",
+  "updated_at": "2026-05-02T04:41:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:56:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "b7551f4c-1e32-5745-a348-529b0dd30653",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

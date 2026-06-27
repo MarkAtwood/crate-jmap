@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T02:37:08Z",
+  "id": "019e297e-abbd-7e95-a911-f3daee315bc2",
+  "issue_id": "JMAP-wzq9.17",
+  "text": "Blocked on canonical workspace propagation. Canonical jmap-mail-client at lib.rs:24-31 also does NOT re-export Id, State, or PatchObject \u2014 callers must add jmap-types as a direct dep there too. Fixing in metadata-client alone diverges from canonical. Workspace-wide policy decision: either (a) every extension-client re-exports the jmap-types primitives it surfaces in its signatures (canonical-template change, propagation to all 7 siblings + mail), or (b) accept the dep on jmap-types as the documented contract. Either way, decision lands canonical-first."
+}

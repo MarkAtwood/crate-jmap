@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-ez5.4",
+  "title": "impl_string_enum_serde! is private to submission.rs \u2014 new string enum authors have no shared pattern",
+  "description": "A contributor adding a new string-enum type to mailbox.rs or any other module will not know about the macro in submission.rs (it is module-private). They will either (a) write the same macro again, (b) hand-code three impl blocks like MailboxRole does, or (c) discover the macro by accident. The maintenance consequence is continued divergence: some enums use the macro, some do not, with no discoverable rule. Fix: move to src/string_enum.rs, pub(crate), document that all new string enums must use it.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:44:33Z",
+  "updated_at": "2026-04-30T04:52:19Z",
+  "closed_at": "2026-04-30T04:52:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-ez5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:44:32"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-cbx",
+  "title": "Review pass 2: jmap-server crate",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:57:13Z",
+  "updated_at": "2026-04-30T17:58:32Z",
+  "closed_at": "2026-04-30T17:58:32Z",
+  "notes": "Maintainer risk: LOW \u2014 changes are additive (new constructor, new trait impls). No existing behavior changed. All tests pass.\nIdiom rating: CLEAN \u2014 new impls follow standard patterns (fmt::Display via write!, source() returns Some(&self.err)). No issues.\nConfidence: 5% chance of missed bug. No new logic introduced \u2014 pure trait implementations and a constructor. Would raise confidence with an integration test of a real JMAP client.\nRust idiom confidence: 2% chance of missed issue. Changes are mechanical trait impls; nothing complex."
+}

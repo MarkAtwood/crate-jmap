@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.3",
+  "title": "WsFrame::StateChange is raw Value while Response is typed \u2014 breaking asymmetry",
+  "description": "WsFrame::StateChange(serde_json::Value) is untyped while WsFrame::Response(JmapResponse) is fully deserialized. Every caller must manually deserialize the StateChange payload, and there is no canonical type to copy. When a typed StateChange struct is added later it will be a breaking enum variant change. Extension crates (jmap-chat-client, jmap-mail-client) will each likely write their own deserialization, diverging silently. The asymmetry should be resolved before this API fossilizes.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:13Z",
+  "updated_at": "2026-04-30T00:19:12Z",
+  "closed_at": "2026-04-30T00:19:12Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:13"
+    }
+  ]
+}

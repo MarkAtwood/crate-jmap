@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T12:11:58Z",
+  "compaction_level": 0,
+  "content_hash": "aadd1a16be0fc7719ae94775a4a605aadd24c3121dd1c42b03b62aab991ad9a7",
+  "created_at": "2026-05-01T12:10:11Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs line 1429 emits format!(\"{call_id}-implicit\") as the call-id for the implicit Email/set invocation. RFC 8621 \u00a76.1 is explicit: 'both with the same method call id'. The implicit Email/set MUST use the parent call's call-id verbatim. Clients that use methodResponses correlation by call-id will fail to match the implicit response.",
+  "ephemeral": 0,
+  "id": "JMAP-u80.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/copy implicit Email/set uses wrong call-id",
+  "updated_at": "2026-05-01T12:11:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T05:10:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-u80",
+      "id": "2257d16a-d65f-5e83-8ec9-6fd4c67a9cfc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

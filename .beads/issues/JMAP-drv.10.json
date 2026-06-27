@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-drv.10",
+  "title": "Malformed WsFrame degrades to Unknown \u2014 not a transport error",
+  "description": "In parse_ws_frame, a StateChange or Response frame that fails to deserialize returns Ok(WsFrame::Unknown) rather than Err(...). A future contributor might change the Err(_) arms to return the parse error, reasoning that a malformed frame is a bug. But: a single malformed frame should not kill the entire WebSocket session. Only tungstenite transport errors (Err(e) from stream.next()) warrant reconnect. Degrading to Unknown allows the caller to log the anomaly and continue receiving subsequent frames, which is the correct resilience policy.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:37:11Z",
+  "updated_at": "2026-04-30T16:46:01Z",
+  "closed_at": "2026-04-30T16:46:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-drv",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:37:11"
+    }
+  ]
+}

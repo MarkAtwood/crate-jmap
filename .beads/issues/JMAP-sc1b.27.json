@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:26:08Z",
+  "compaction_level": 0,
+  "content_hash": "a3387d88aa9800c61bda27e2ac7f6373e98e17d3a63c29ae38d63d0da5fbd53a",
+  "created_at": "2026-05-07T20:29:15Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-client/README.md first sentence: 'RFC 8620 typed client methods for JMAP Mail (RFC 8621)'.\n\nJMAP Mail is RFC 8621; RFC 8620 is the base protocol. Remove 'RFC 8620' or change to 'Typed JMAP client methods for JMAP Mail (RFC 8621)'.\n\nSmallest impact of the README issues but it is the very first line a reader sees on the most prominent client crate.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: mail-client README first sentence RFC mis-attribution",
+  "updated_at": "2026-05-07T21:26:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "aff580ff-14f2-515d-bb30-9b559af745be",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

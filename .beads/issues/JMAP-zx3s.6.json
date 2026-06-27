@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Wontfix per JMAP-zx3s.15 counter-research. The workspace canonical pattern (jmap-types::SetResponse: not_created uses HashMap<String, _>) keys creation-id maps by String, not Id. MdnSendRequest.send is correctly HashMap<String, Mdn>; changing to HashMap<Id, Mdn> would lie about the Id contract (URL-safe base64 alphabet, no '#'). The actual divergence was on_success_update_email going to HashMap<Id, _>, which is fixed under .11.",
+  "closed_at": "2026-05-17T15:18:31Z",
+  "compaction_level": 0,
+  "content_hash": "26983d311add850e539cee3e28ea69eee9e8f731d17ec549801de36eef185833",
+  "created_at": "2026-05-15T04:47:26Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-types/src/mdn.rs:238-258:\n\n```rust\npub struct MdnSendRequest {\n    pub account_id: Id,\n    pub identity_id: Id,\n    pub send: HashMap<String, Mdn>,                              // String key\n    pub on_success_update_email: Option<HashMap<Id, PatchObject>>,  // Id key\n    pub extra: serde_json::Map<String, serde_json::Value>,\n}\n```\n\n`send` keys are client-assigned creation IDs (per RFC 9007 \u00a73.1 / RFC 8620 \u00a75.3). They are referenced from `on_success_update_email` as `'#k1'` (with `#` prefix). The dispatcher resolves them.\n\n`on_success_update_email` uses `HashMap<Id, PatchObject>` (Id-keyed, byte-identical to String on the wire via `#[serde(transparent)]`). The migration test (mdn_send_request_on_success_update_email_roundtrip) explicitly verifies the wire format is identical.\n\nBut `send` itself stays `HashMap<String, Mdn>`. Same shape on the wire either way, but the typed-key discipline is inconsistent. A consumer iterating a map of creation IDs gets `&String` here and `&Id` there for the same logical concept.\n\nFix: change `send` to `HashMap<Id, Mdn>` to match `on_success_update_email` (and to match the pattern that lands in jmap-mail-client's EmailSubmissionSetParams / Mailbox/set etc. for client-assigned creation IDs).\n\nWire-byte-identical to today (Id is `#[serde(transparent)]` over String). Round-trip test would not change behavior.\n\nFiled as opinion because the wire-format effect is zero. Type-discipline benefit is real but minor \u2014 caller ergonomics improve marginally; canonical-template consistency improves more.\n\nConfidence: medium. The Id-keyed pattern is canonical for the workspace but I have not verified that every existing creation-id-keyed map in jmap-mail-types/jmap-chat-types follows the Id-keyed convention. If `HashMap<String, T>` is the prevailing pattern in canonical-creation-id contexts elsewhere, the fix direction reverses.",
+  "ephemeral": 0,
+  "id": "JMAP-zx3s.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MdnSendRequest.send keyed by String, not Id \u2014 type discipline divergence from on_success_update_email",
+  "updated_at": "2026-05-17T15:18:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:47:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zx3s",
+      "id": "a40f2c02-640f-56a0-9cc0-574a702a75c1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

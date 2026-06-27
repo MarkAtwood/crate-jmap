@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.10",
+  "title": "BearerAuth and BasicAuth pre-validate credentials at construction, not at call time",
+  "description": "Both BearerAuth::new() and BasicAuth::new() validate the credential string via HeaderValue::from_str at construction and store the pre-built header string. A contributor might suggest 'simplifying' this by building the header string lazily inside auth_header() and returning Option<Result<...>> or panicking. That would push failures to the first HTTP request rather than to the site where the credentials are supplied, making errors harder to attribute and harder to test. The current design follows Rust's standard 'fail at construction' pattern: invalid credentials are rejected immediately with a clear error. This also avoids a per-request allocation. Do not move header validation out of the constructor.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:28Z",
+  "updated_at": "2026-04-30T01:02:38Z",
+  "closed_at": "2026-04-30T01:02:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:27"
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "newState fetched after all mutations. RFC 8620 \u00a75.3 invariant holds.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Moved new_state fetch to after onSuccessSetIsDefault block; added mutated=true in Ok(Some/None) branches of update_object; MockBackend Forbidden keeps state unchanged; 18 tests pass; clippy clean",
+  "closed_at": "2026-05-05T14:57:26Z",
+  "compaction_level": 0,
+  "content_hash": "ee748d5937291f52813b1ccf381ff81dbe0e6fe1facc1598e89256d27b78ad9b",
+  "created_at": "2026-05-05T02:59:56Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** RFC 8620 \u00a75.3 requires newState to reflect all mutations. Currently new_state is captured before the onSuccessSetIsDefault loop which calls update_object and mutates state.\n\n**Algorithm:**\n1. Set mutated = true inside the onSuccessSetIsDefault block when update_object succeeds.\n2. Move the new_state fetch (currently before the onSuccessSetIsDefault block) to AFTER it:\n   let new_state = if mutated {\n       backend.get_state::<AddressBook>(&account_id).await.map_err(...)?\n   } else {\n       old_state.clone()\n   };\n3. Add test set_on_success_new_state_reflects_mutation: empty create/update/destroy, only onSuccessSetIsDefault triggers update; assert newState != oldState. Oracle: RFC 8620 \u00a75.3.\n4. cargo test -p jmap-contacts-server.\n\n**Acceptance criteria:**\n- newState reflects state after all mutations including post-set. Oracle: RFC 8620 \u00a75.3.\n- When no mutations: newState == oldState.\n- cargo test exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-jf2h.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix: newState must be fetched after onSuccessSetIsDefault mutations",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:59:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h",
+      "id": "23a5893c-6a7c-5e5c-98c3-85d57d96bf3d",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T20:00:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h.1",
+      "id": "bb81fe31-6f6c-5552-826b-c21448273bb5",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:00:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h.2",
+      "id": "cd281a4b-4049-5af3-b826-4c1a96600083",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

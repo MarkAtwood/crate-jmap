@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in next commit. MemoryError reshaped to #[non_exhaustive] named-field struct with pub fn new(impl Into<String>) constructor and pub fn description(&self) -> &str accessor. 13 internal construction sites migrated from tuple ctor; FaultyBackend (tests/common/mod.rs) migrated too. cargo test, clippy, fmt all clean. Sibling-propagation note left on bd:JMAP-q2wa.7.",
+  "closed_at": "2026-05-15T07:00:28Z",
+  "compaction_level": 0,
+  "content_hash": "b8c2e3d7618e55147e2c7ba32b4b953927af5cbe70cdc6ff1a9083fde7b005a1",
+  "created_at": "2026-05-14T16:29:56Z",
+  "created_by": "Mark Atwood",
+  "description": "src/memory.rs:449 declares:\n\n```\n#[derive(Debug)]\npub struct MemoryError(\n    /// Human-readable description of the underlying failure.\n    pub String,\n);\n```\n\nTwo compounding contract issues:\n\n1. No `#[non_exhaustive]`. Adding a structured context field (e.g. an error kind, a source-error reference, an account_id) becomes a SemVer-breaking change because all downstream code that matches on `MemoryError(s)` or constructs `MemoryError(...)` breaks at the API.\n\n2. The inner `String` is `pub` (tuple-field accessor). Even with `#[non_exhaustive]` added, the existing field's visibility would still permit downstream code like `err.0` \u2014 locking the wire representation in.\n\nThis is `MemoryBackend::Error`, the `Self::Error` associated type used in every backend trait method signature. It is hit by every backend call site that maps backend errors to JMAP wire errors (via the workspace's `server_fail_from_backend` helper). The whole point of mapping is to insulate the JMAP wire layer from backend-specific error shapes \u2014 but a public, single-`pub String` tuple makes the backend's chosen text format an external contract.\n\nCookie-cutter amplification: every sibling extension-server crate has its own `MemoryError`-equivalent type. Suggested cross-check.\n\nFix: either\n  (a) `#[non_exhaustive]` + replace tuple with a named-field struct + add accessor `pub fn description(&self) -> &str { &self.description }`, or\n  (b) just add `#[non_exhaustive]` and downgrade the inner field to non-pub with an accessor.\n\nThe crate-level memory-module doc already warns \"API stability is opt-in via this feature and may break across minor versions while the crate is pre-1.0\" \u2014 so this is fixable. But once the crate ships 1.0, the current shape commits the maintainer to never re-shape this type.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryError is not #[non_exhaustive] and has pub tuple field",
+  "updated_at": "2026-05-15T07:00:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:29:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "84662a69-bbba-5089-9793-66b8eb5c01ec",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

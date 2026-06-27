@@ -1,0 +1,23 @@
+{
+  "close_reason": "Accepted current strict behavior (option a). CID has no installed base of non-conformant servers; the typed wrapper's contract (lowercase-hex enforcement at deserialize per draft-atwood-jmap-cid-00 \u00a72 ABNF) is preserved workspace-wide. Comment at crate-jmap-base-client/src/blob.rs:298 updated to drop the JMAP-noz7 forward-reference and document the closed decision (uppercase-hex from a non-conformant server surfaces as ClientError::Parse). No code/test changes needed beyond the comment edit; the 4 tests added in JMAP-v9py.13 (including deserialize_rejects_uppercase) already pin the strict behavior in.",
+  "closed_at": "2026-05-13T17:26:43Z",
+  "compaction_level": 0,
+  "content_hash": "8f15ac1f05471f1c996804c74f917eb7aac6b0e4272da9eb0c3a24ae6902da02",
+  "created_at": "2026-05-13T16:48:05Z",
+  "created_by": "bd-spin/bd-spin-20260513T161839Z-2683045",
+  "description": "## Background\n\nbd:JMAP-v9py.13 promoted BlobUploadResponse.sha256 from Option<String> to Option<jmap_cid_types::Sha256>. The typed Sha256 wrapper validates lowercase-hex on deserialize (draft-atwood-jmap-cid-00 \u00a72: 'sha256-value = 64( %x30-39 / %x61-66 ); 64 lowercase hex digits: 0-9 and a-f'), so a server response with uppercase hex now FAILS to parse and aborts the entire upload with ClientError::Parse.\n\nBefore the typed promotion, the client tolerated uppercase hex via a permissive is_valid_sha256_hex validator that accepted ASCII hex of either case, plus an explicit normalize-to-lowercase step before integrity comparison. The tolerance is documented in a comment at crate-jmap-base-client/src/blob.rs:282 ('JMAP-CID specifies lowercase but non-conformant servers may return uppercase hex. Both represent the same digest; rejecting on case alone would cause spurious integrity errors').\n\nThe .13 implementation followed the bead's literal recommendation to promote the field, which means the tolerance is now LOST. The spec mandates lowercase ('MUST'), so strict deserialize is spec-compliant. But the comment-documented intent was inter-op robustness with non-conformant servers.\n\n## Question\n\nShould the client recover the uppercase tolerance after .13? Options:\n\n(a) Accept the strict behavior \u2014 non-conformant servers must be fixed. Update the comment at line 282 to remove the uppercase justification (the normalize-to-lowercase step is also moot since the wire value is now guaranteed lowercase by the type).\n\n(b) Add a custom Deserialize wrapper inside BlobUploadResponse that normalizes to lowercase before constructing Sha256. Preserves the tolerance. Diverges from how jmap_cid_types::Sha256 is meant to be used elsewhere in the workspace.\n\n(c) Loosen jmap_cid_types::Sha256 to accept mixed case at the type level and normalize on construction. Affects every consumer of the type, including future FileNode integration. Probably too aggressive.\n\n## Out of scope\n\nThe integrity-compare normalize step at blob.rs:282 is now dead code if (a) is chosen; remove it in the same pass.\n\n## Cross-references\n\n- bd:JMAP-v9py.13 (the typed promotion)\n- crate-jmap-base-client/src/blob.rs:273-289 (the affected code path)\n- crate-jmap-base-client/src/blob.rs:282 (the tolerance comment)\n- crate-jmap-cid-types/src/digest.rs:111-128 (the strict validator)",
+  "ephemeral": 0,
+  "id": "JMAP-noz7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Re-evaluate uppercase-hex sha256 tolerance after typed promotion",
+  "updated_at": "2026-05-13T17:26:43Z"
+}

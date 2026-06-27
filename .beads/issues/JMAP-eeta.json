@@ -1,0 +1,36 @@
+{
+  "acceptance_criteria": "cargo test -p jmap-mail-server --features mdn -- mdn_integration passes all 11 tests with exit 0",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:36:23Z",
+  "compaction_level": 0,
+  "content_hash": "cc4ff9daaf6ca78558a233cc6615badfad8bf0bb08fd064a5000a3828b946179",
+  "created_at": "2026-05-02T15:33:04Z",
+  "created_by": "Mark Atwood",
+  "description": "Write integration tests in tests/ covering both MDN methods. Test vectors come directly from draft-ietf-jmap-mdn-17 \u00a73 examples.",
+  "design": "Test file: tests/mdn_integration.rs (compiled only with cfg(feature=mdn)).\n\nMDN/send tests:\n\nsend_success: build MemoryMailBackend with one received email that has Disposition-Notification-To header. Call MDN/send with the draft \u00a73.1 request payload. Verify: sent map contains the creation id with server-set fields (finalRecipient, originalMessageId); notSent is null; implicit Email/set updates the source email with $mdnsent: true.\n\nsend_already_sent: same setup but pre-set $mdnsent on the email. Verify notSent contains mdnAlreadySent SetError; sent is null; email is unchanged.\n\nsend_email_not_found: for_email_id references nonexistent email. Verify notSent contains notFound SetError.\n\nsend_no_dnt_header: email exists but has no Disposition-Notification-To header. Verify notSent contains notFound SetError (per draft \u00a72.1).\n\nsend_missing_mdnsent_patch: call MDN/send with onSuccessUpdateEmail that does NOT patch keywords/$mdnsent. Verify entire request rejected with invalidArguments (not per-entry error).\n\nsend_missing_on_success_entirely: call MDN/send with onSuccessUpdateEmail: null. Verify entire request rejected with invalidArguments.\n\nMDN/parse tests:\n\nparse_valid: upload the hand-crafted MDN blob from draft \u00a73.3 example. Call MDN/parse with its blobId. Verify parsed map contains correct Mdn with all fields; forEmailId set if matching sent email exists; actionMode/sendingMode/type are lowercase.\n\nparse_not_found: call MDN/parse with unknown blobId. Verify notFound contains the id; parsed and notParsable are null.\n\nparse_not_parsable: upload a plain-text blob (not an MDN). Verify notParsable contains the id; parsed and notFound are null.\n\nparse_multiple_mixed: supply three blobIds \u2014 one valid MDN, one not parsable, one not found. Verify all three response fields are populated correctly.\n\nparse_for_email_id_null: valid MDN blob whose Original-Message-ID does not match any known email. Verify parsed MDN has forEmailId: null (not absent \u2014 the field must be present and null).",
+  "ephemeral": 0,
+  "id": "JMAP-eeta",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mdn: integration tests (draft RFC examples)",
+  "updated_at": "2026-05-02T23:36:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:33:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-2adn",
+      "id": "54a4512b-9dcc-54f5-82ea-ce40b0f52c0e",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

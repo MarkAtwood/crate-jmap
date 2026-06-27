@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T14:34:38Z",
+  "id": "019e26e9-3366-7db4-9a03-1b42b1f39f66",
+  "issue_id": "JMAP-ayoz",
+  "text": "Idiom rating: ACCEPTABLE \u2014 7 idiomatic-rust findings filed (.29-.35). No P0/P1 idiom defects. The Rust idiom posture is competent: forbid(unsafe_code), no panics in library code outside test_support, proper use of #[non_exhaustive] on most public types (one miss already flagged by JMAP-ayoz.24), consistent use of Result + ? propagation, idiomatic let-else for early-return guards, idiomatic match/if-let chains. The findings are mostly clippy-tier polish (.29, .30, .33, .34, .35) plus two structural items: .31 (DRY between get_changes and get_metadata_changes inside the same file) and .32 (HashMap-allocation pattern that propagates across the canonical-cookie-cut family). One finding (.35) was reclassified mid-pass: the State::from(.to_string().as_str()) pattern is workspace-wide across 5 cookie-cut siblings, not a metadata-server-specific divergence \u2014 the comment on .35 documents the cross-sibling scope and tags this as a propagation regression where the canonical (mail-server) is already correct."
+}

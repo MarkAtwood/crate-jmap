@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8b519ea553d15a93083e29aa3498cc9f546e1b621203eca44ffbfb5235c5bfbc",
+  "created_at": "2026-05-14T13:05:10Z",
+  "created_by": "Mark Atwood",
+  "description": "Path: crate-jmap-server/src/backend.rs:730-738 (query_objects) vs backend.rs:703-709 (get_changes) and backend.rs:745-757 (query_changes).\n\n  fn query_objects<O>(...) -> impl Future<Output = Result<QueryResult, Self::Error>> + Send;\n  fn get_changes<O>(...)   -> impl Future<Output = Result<ChangesResult, BackendChangesError<Self::Error>>> + Send;\n  fn query_changes<O>(...) -> impl Future<Output = Result<QueryChangesResult, BackendChangesError<Self::Error>>> + Send;\n\nThe asymmetry is: query_objects has no path to surface \"I cannot satisfy this query\" as a typed error. Every error becomes Self::Error \u2192 wrapped by handle_query (crate-jmap-server/src/handlers.rs:205) into JmapError::server_fail(e.to_string()) \u2192 serverFail on the wire. That's the same leak path as JMAP-wlip.2 but it ALSO loses information.\n\nReal cases where /query has typed failure modes RFC 8620 \u00a75.5 + \u00a76.4 allow but this signature can't express:\n- The backend's search index is rebuilding and cannot serve this filter yet \u2192 RFC 8620 has no specific error for this, but the deployment may want to return `cannotCalculateChanges`-style behaviour (force a full refetch). With BackendChangesError it could emit TooManyChanges { limit: 0 }; with bare Self::Error it cannot.\n- The filter exceeds backend complexity limits \u2192 RFC 8620 \u00a76.4 specifies `unsupportedFilter`. With BackendChangesError the variant could be added; with bare Self::Error the backend has to fake it through serverFail.\n- The sort property is not indexable \u2192 RFC 8620 \u00a76.4 specifies `unsupportedSort`. Same problem.\n\nThe QueryError envelope shape could be:\n\n  #[non_exhaustive]\n  pub enum BackendQueryError<E> {\n      UnsupportedFilter,\n      UnsupportedSort,\n      Other(E),\n  }\n  impl<E: Error> From<BackendQueryError<E>> for JmapError { ... }\n\n\u2026which mirrors BackendChangesError's pattern at backend.rs:366-432. handle_query then becomes:\n  .await.map_err(JmapError::from)  // same shape as handle_changes\n\nSame fix applies to a `BackendSetError` extension for /set methods if there's a deficiency there too (this bead is /query-focused; /set is already covered by BackendSetError).\n\nInconsistency cost to callers: a backend implementor must read the doc to know \"Why does query_objects have a different error envelope than get_changes? Is this intentional or a bug?\" The answer is \"intentional but suboptimal\" and the difference forces hand-coded JmapError construction inside backend impls instead of `From` plumbing.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "JmapBackend::query_objects returns Result<_, Self::Error> while get_changes/query_changes return Result<_, BackendChangesError<Self::Error>> \u2014 inconsistent error envelopes hide /query failure modes",
+  "updated_at": "2026-05-14T14:12:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:05:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "24db8da7-31d2-5be9-a4b0-7ef757240da9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

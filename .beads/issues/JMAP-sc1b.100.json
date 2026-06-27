@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T18:37:28Z",
+  "compaction_level": 0,
+  "content_hash": "8aa33c76e4e629cb09ddf9e107597e0876b62770c8a49440a2db6b6fab815c59",
+  "created_at": "2026-05-11T14:26:14Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Location: `crate-jmap-server/src/backend.rs:275-355`\n\n  pub enum BackendSetError<E> {\n      SetError(SetError),\n      Other(E),\n  }\n\n  impl<E: std::fmt::Display> std::fmt::Display for BackendSetError<E> {\n      fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {\n          match self {\n              Self::SetError(se) => write!(f, \"set error: {se}\"),\n              Self::Other(e) => write!(f, \"{e}\"),       // <-- arbitrary backend string passes through\n          }\n      }\n  }\n\nCONCERN\n`BackendSetError::Other(E)` (and the parallel `BackendChangesError::Other(E)` at line 339) wraps a backend's associated `Self::Error` type. The Display impl writes whatever Display the backend's error chose, unredacted.\n\nEvery reference `MemoryBackend` constructs `MemoryError(format!(\"...\"))` strings that include various input values:\n- `crate-jmap-mail-server/src/memory.rs:1172` \u2014 `format!(\"blob not found: {blob_id}\")`\n- `crate-jmap-mail-server/src/memory.rs:384` \u2014 `format!(\"invalid state token: {since_state}\")`\n- Many other sites across the 7 sibling memory backends (per .82 sweep).\n\nFor the reference memory backends today, the interpolated values (Ids, state tokens) are not credential-grade \u2014 so today's exposure is small. The CONCERN is contract-level:\n\nThe `MailBackend::Error` / `ChatBackend::Error` / etc. trait associated types have NO documented contract saying 'do not put credential material into your Display impl'. A backend author who has not read every other crate's security model could plausibly:\n- Include a sieve-script fragment in an error: `format!(\"sieve parse error at line 42: {script_excerpt}\")` \u2014 leaks the script body.\n- Include an `Authorization` header value when reporting a downstream-service failure.\n- Include an email body fragment when an email-size-quota error is constructed.\n\nEach of those errors then propagates through `BackendSetError::Other` \u2192 `RequestError`'s Display (response.rs:91-108) \u2192 operator logs once tracing is wired up. The library offers no guardrail.\n\nWHAT GOES WRONG\nConfidentiality, conditionally. Today's reference backends don't trip this; the risk is a downstream backend author who follows the trait contract without reading the implicit security model. Defense-in-depth gap.\n\nPROPOSED FIX\nAdd a documented requirement on the `Error` associated type of every Backend trait:\n\n  /// The associated error type for storage-layer failures.\n  ///\n  /// # Security\n  ///\n  /// The `Display` impl of this type MUST NOT include any of the following\n  /// in its output:\n  /// - credential material (auth tokens, passwords, push verification codes,\n  ///   invite codes)\n  /// - blob content (email bodies, sieve scripts, file contents)\n  /// - any value derived from `Authorization`-header bytes\n  ///\n  /// Errors that wrap downstream-service failures should sanitize the\n  /// downstream error text before constructing the Display string.\n  type Error: std::error::Error + Send + Sync + 'static;\n\nApply to MailBackend, ChatBackend, CalendarsBackend, TasksBackend, ContactsBackend, FileNodeBackend, SharingBackend, JmapBackend supertrait, and SieveBackend. Per the canonical-templates rule, this is one of those workspace-wide doc sweeps.\n\nOptionally add a regression test for each reference MemoryBackend that constructs every MemoryError(...) variant and asserts none of the resulting strings contain literal canary substrings \u2014 that's the auth.rs:443-475 pattern applied at the backend layer.\n\nORACLE\n- Closed JMAP-sc1b.79 (BearerAuth/BasicAuth Debug redaction) \u2014 same class of finding applied at the Error-trait level rather than the type-derive level.\n- AGENTS.md 'Canonical Templates' rule \u2014 Backend traits are the cookie-cutter shape that every backend implementor follows; the security contract belongs in the trait doc.\n\nRISK CLASSIFICATION\nP3. Defense-in-depth contract gap. Today's code does not exploit this; the future maintainer who writes a downstream backend can.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.100",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security: BackendSetError::Other and BackendChangesError::Other Display impls pass arbitrary backend strings without redaction contract (crate-jmap-server/src/backend.rs:283-289, 339-355)",
+  "updated_at": "2026-05-11T18:37:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:26:13Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "b6990464-c33f-5e84-a6f9-f8d3b1cbd8de",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

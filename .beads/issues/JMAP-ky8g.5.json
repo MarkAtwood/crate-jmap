@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed option (b) \u2014 structural round-trip test notification_roundtrip mirroring task_roundtrip and tasklist_roundtrip. Deserialize\u2192serialize\u2192deserialize\u2192Eq tolerates the explicit-null-vs-absent asymmetry on Option<String> + skip_serializing_if fields (documented in workspace AGENTS.md extras-preservation policy). Commit e7afc50. Tasks-types test count: 74 (was 73).",
+  "closed_at": "2026-05-17T15:40:10Z",
+  "compaction_level": 0,
+  "content_hash": "3213ef8727ad5a8f87441ffbaf9f41034c352760a58f375c23f8ec76f327065a",
+  "created_at": "2026-05-15T05:07:02Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/types_test.rs has `notification_deserialize` (line 378) that loads tests/fixtures/notification.json and asserts a handful of fields, but no test re-serializes that notification and compares to the input.\n\nNotification.json contains `\"comment\": null` (explicit null on an Option<String> field with skip_serializing_if). On deserialize this becomes `None`; on serialize the key is omitted. A naive round-trip test would fail (the input has `comment` as null, the output does not). The absence of a round-trip test masks this asymmetry.\n\nThe asymmetry is intentional per workspace AGENTS.md (extras-preservation policy explicitly admits data loss for explicit null vs absent), but the fixture file should not include `\"comment\": null` if no test exercises it. As written, the explicit-null in the fixture is dead JSON \u2014 included for completeness but proving nothing.\n\nFix options:\n  (a) Add a `notification_roundtrip` test that loads the fixture, removes the explicit null, and asserts byte-equal round-trip. (Slightly involved because of the explicit-null/absent mismatch.)\n  (b) Add a structural-equality round-trip test that deserializes twice and compares values (Eq), tolerating the null vs absent asymmetry.\n  (c) Remove the `\"comment\": null` line from the fixture and add a structural round-trip.\n\n(b) is the closest analog to the `tasklist_roundtrip` and `task_roundtrip` tests already present and would catch any future TaskNotification deserialize regression. Low cost, high coverage.",
+  "ephemeral": 0,
+  "id": "JMAP-ky8g.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "notification.json fixture is never round-trip tested",
+  "updated_at": "2026-05-17T15:40:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:07:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ky8g",
+      "id": "48403922-ff8a-51f4-8e27-ff48a21da3d0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

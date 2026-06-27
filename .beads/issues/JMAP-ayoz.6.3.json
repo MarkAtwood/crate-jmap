@@ -1,0 +1,33 @@
+{
+  "close_reason": "Both required tests are landed:\n\n1. /query with {relatedType: 'Email'} returns only Email-related ids \u2014 covered by tests/metadata_tests.rs::query_filter_related_type_returns_only_matches (and 5 sibling filter tests for filterMetadataType, relatedIds, isPrivate, textMatch, and filter+sort composition).\n\n2. /query with {relatedIds: [...]} (no relatedType) returns invalidArguments \u2014 covered by:\n   - src/metadata.rs::query_related_ids_without_related_type_returns_invalid_arguments (top-level leaf)\n   - src/metadata.rs::query_nested_related_ids_without_related_type_returns_invalid_arguments (nested in OR)\n   - src/metadata.rs::query_nested_under_not_related_ids_without_related_type_returns_invalid_arguments (nested in NOT)\n   - src/metadata.rs::query_related_ids_with_related_type_passes_validation (negative control)\n\nThese three tests live in src/metadata.rs's inline test module rather than tests/metadata_tests.rs; that placement is the subject of the open JMAP-826m.55 migration epic, not a deficit of test coverage for .6.3. Coverage is complete; closing.",
+  "closed_at": "2026-05-17T19:52:27Z",
+  "compaction_level": 0,
+  "content_hash": "99a541ebf48827953ab9a9d389371e797b4abf8f27ab449676bed18e80092e85",
+  "created_at": "2026-05-14T14:50:21Z",
+  "created_by": "Mark Atwood",
+  "description": "Add two integration tests in tests/metadata_tests.rs:\n\n1. /query with {relatedType: 'Email'} returns only Email-related Metadata Ids; non-matching are excluded.\n2. /query with {relatedIds: ['EM1']} (no relatedType) returns invalidArguments method-level error per draft \u00a73.4.1.\n\nBlocks on the handler validation from sibling bead and the MemoryBackend filter honoring from sibling bead.\n\nDecomposed from JMAP-ayoz.6.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.6.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Integration test: Metadata/query relatedType filter and relatedIds-without-relatedType rejection",
+  "updated_at": "2026-05-17T19:52:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:50:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.6",
+      "id": "3e15e8c9-c5ce-5251-825d-f274214aac58",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

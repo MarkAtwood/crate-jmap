@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T08:11:31Z",
+  "compaction_level": 0,
+  "content_hash": "cdf7e6c90546884530097e43fd4f3ecb73fc69e1ed44b7b30eb4907130c5ab9d",
+  "created_at": "2026-05-14T17:52:36Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: The trait methods create_object<O: SetObject + Send + Sync>, update_object, destroy_object are generic over O, but the spec defines only one object type (Metadata). The MemoryBackend.create_object at memory.rs:702 does 'if O::TYPE_NAME == Metadata::TYPE_NAME' to gate the uniqueness check. If O != Metadata, the function happily creates a record without uniqueness enforcement.\n\nMaintenance consequence:\n(a) Any future caller (test fixture, future spec extension) that passes O != Metadata silently bypasses the \u00a73.1 uniqueness constraint. The trait doc invariant requires backends to support Metadata's TYPE_NAME but does not constrain what backends should do for non-Metadata O values.\n\n(b) Future readers of memory.rs see 'if O::TYPE_NAME == Metadata::TYPE_NAME' as an idiom and may conclude the generic-over-O shape is intentional polyphormism for multiple object types \u2014 leading them to invest in 'making MetadataBackend more generic' when the actual spec scope is single-object.\n\n(c) supports_type<O>() at memory.rs:908 returns 'O::TYPE_NAME == Metadata::TYPE_NAME' \u2014 but the trait methods do not consult supports_type before doing work. So a caller that passes O != Metadata gets partial work done (state bumped, change log entry pushed) before any error surfaces from the type-keyed objects map.\n\nFix direction: either\n(i) Drop the O generic from MetadataBackend method signatures (Metadata-specific trait \u2014 matches the spec's single-object reality). This is a breaking change to the trait.\n(ii) Keep the generic but add a TYPE_NAME guard at the top of every method body, returning a clearly-marked error for non-Metadata O. Document the invariant prominently.\n\nThe canonical mail-server uses the same generic-over-O shape (backend.rs:91+) and has the same shape concern for object types it doesn't handle. So this is a workspace-wide pattern that metadata inherited \u2014 not a metadata-specific bug. But the maintainer-burden risk is real: it's a future-bug magnet for the worst kind of bug (silent state corruption with no error path).",
+  "ephemeral": 0,
+  "id": "JMAP-826m.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MetadataBackend trait is generic over O: SetObject but only Metadata is supported \u2014 every create_object/update_object/destroy_object call must runtime-discriminate on O::TYPE_NAME",
+  "updated_at": "2026-05-15T08:11:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:52:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "feb1822f-661a-5348-8ae2-b2c428812c73",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

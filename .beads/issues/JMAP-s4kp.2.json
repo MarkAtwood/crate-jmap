@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ca2cb35ea8aa910f1f71509f3f6f1eb2ada8f283cfff2f2849bf7c3d817a3a00",
+  "created_at": "2026-06-05T03:56:58Z",
+  "created_by": "Mark Atwood",
+  "description": "Propagate canonical mail-server metadata-02 integration (JMAP-s4kp.1) to jmap-chat-server MemoryBackend. Same 3 integration points: query_objects filter matching for 6 metadata conditions, get_changes ignoreMetadataOnlyChanges, /set patch validation. Adapt to chat-server's type set (Chat, Message, Space, ChatContact, etc.) and its apply_space_patch path. See JMAP-s4kp.1 for canonical pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-s4kp.2",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "chat-server: wire metadata-02 helpers into MemoryBackend",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-04T20:57:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s4kp.1",
+      "id": "4db00c66-d5c0-553f-8e55-b5f9b292ccc5",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-06-04T20:56:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s4kp",
+      "id": "88140632-6e84-5591-ac5a-431de5715dad",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

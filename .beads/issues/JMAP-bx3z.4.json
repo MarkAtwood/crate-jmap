@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: inMailboxOtherThan HashSet built once before email loop; email_matches_condition accepts pre-built excluded_set parameter",
+  "closed_at": "2026-05-02T19:30:40Z",
+  "compaction_level": 0,
+  "content_hash": "bef5112cdd990ed961ae1aa35cc04e95b594b7aab6cdf05d45c02dac9e1d2a1e",
+  "created_at": "2026-05-02T19:18:18Z",
+  "created_by": "Mark Atwood",
+  "description": "email_matches_condition (tests/common/mod.rs:1743) builds a HashSet<&Id> from the inMailboxOtherThan exclusion list on every email evaluated in a query scan. For a query over N emails with an exclusion list of k entries this is O(N * k) allocations plus O(k) hash-table insertions per email. The set should be built once before the per-email loop (same pattern already used correctly for the submission_matches_condition identity_ids check). At test scale (16 emails) this is harmless, but the pattern would be copied into any real backend that reuses this filter logic.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "inMailboxOtherThan HashSet rebuilt per email in query loop",
+  "updated_at": "2026-05-02T19:30:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "7ea43203-b40d-5475-9c46-6ae296dd40b6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

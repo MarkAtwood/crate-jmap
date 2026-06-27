@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:34:02Z",
+  "compaction_level": 0,
+  "content_hash": "518e33a1c621f026de68d36ed35d88beca780de4c78956e64dbbcc470527c48f",
+  "created_at": "2026-05-02T03:25:07Z",
+  "created_by": "Mark Atwood",
+  "description": "backend.rs: SetErrorType has Display, but SetError itself has no Display impl. SetError is the per-item error returned in notCreated/notUpdated/notDestroyed maps. Library users logging or propagating a SetError must manually inspect fields; they cannot write .to_string() or format\\! on it. A Display impl that produces e.g. 'invalidProperties (properties: [name, role])' would complete the error type and satisfy the usual Rust convention that public error types implement Display.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetError missing Display impl",
+  "updated_at": "2026-05-02T03:34:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:25:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "26a5645d-4777-52f6-8e2b-945123573df4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

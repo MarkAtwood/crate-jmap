@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added crate-jmap-mail-types/src/capability.rs with 3 capability URI consts (JMAP_MAIL_URI, JMAP_SUBMISSION_URI, JMAP_VACATIONRESPONSE_URI) and 5 typed wire-format structs (MailCapability, MailAccountCapability, SubmissionCapability, SubmissionAccountCapability, VacationResponseCapability), all per RFC 8621 \u00a71.3. Wired through lib.rs re-exports.\n\njmap-mail-client now uses the URI consts in its USING_MAIL/SUBMISSION/VACATION slice constants and the two session.primary_account_id() production-code call sites (mail_account_id, session_parts). Doc-comment URI text strings left as-is.\n\nCapability structs do NOT carry extras-preservation 'extra' field \u2014 matches the in-tree SieveCapability precedent and the 6 sibling extension-types capability structs (calendars, tasks, contacts, filenode, sharing, metadata are all bare-fields). Whether to add 'extra' to capability structs is a separate workspace-architectural decision; the bead's note suggesting #[serde(flatten)] extra: Map was set aside in favour of cross-crate consistency.\n\nSibling extension-client URI-const adoption tracked as follow-up bd:JMAP-ops7.16.\n\nWorkspace cargo test, clippy, and rustdoc all clean. 6 new capability tests pass (round-trip MailAccountCapability+SubmissionAccountCapability, empty-{} session-level for the 3 capability structs, URI const verbatim match to RFC 8621 IANA registrations).",
+  "closed_at": "2026-05-17T22:21:00Z",
+  "compaction_level": 0,
+  "content_hash": "700f7965891e05f8661121731299bcb1c37ed36681d8caec85b0a830e4bac838",
+  "created_at": "2026-05-17T22:01:33Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**:\n- crate-jmap-mail-types/src/ \u2014 NO \\`MailCapability\\`, NO \\`MailAccountCapability\\`, NO \\`JMAP_MAIL_URI\\`\n- crate-jmap-mail-client/src/lib.rs:53, 62, 69 \u2014 hardcodes \\`\"urn:ietf:params:jmap:mail\"\\` in doc comments and method body\n- crate-jmap-mail-client/src/methods/email.rs:36, 128, 171, 247, 315, 405, 479 \u2014 hardcodes the URI string 7+ more times\n\n**Divergence**: 6 of 8 extension type crates expose a capability struct + URI const in *-types (calendars, tasks, contacts, filenode, sharing, metadata). mail-types and chat-types are the two exceptions. RFC 8621 \u00a72 defines a non-trivial mail capability object with fields:\n- \\`maxMailboxesPerEmail: u64 | null\\`\n- \\`maxMailboxDepth: u64 | null\\`\n- \\`maxSizeMailboxName: u64\\`\n- \\`maxSizeAttachmentsPerEmail: u64\\`\n- \\`emailQuerySortOptions: Vec<String>\\`\n- \\`mayCreateTopLevelMailbox: bool\\`\n\nNone of these are surfaced as a Rust struct in the workspace.\n\n**What goes wrong**:\n1. The most-mature crate in the workspace has no canonical capability surface. New extensions have to invent the URI-const pattern fresh because mail-types doesn't model it.\n2. mail-client hardcodes the URI string \\`\"urn:ietf:params:jmap:mail\"\\` in 10+ places. A typo in any one of them is a runtime 'no primary account' error visible only at integration-test time.\n3. Server-side consumers building session-responses have no way to import \\`MailAccountCapability\\` to construct the per-account cap-advertising object. They have to roll their own serde struct or use \\`serde_json::json!({...})\\` literals.\n4. mail-server's per-method cap methods (\\`max_body_value_bytes\\`, \\`max_delayed_send_seconds\\`, \\`max_sieve_script_bytes\\`, \\`max_collapse_threads_emails\\`) return raw \\`u64\\` values but there's no single struct that collects them for advertisement. (Per AGENTS.md the workspace's preferred pattern is now \\`limits() -> XxxLimits\\` struct \u2014 chat-server and calendars-server use this shape. mail-server's per-method pattern is documented as predating the convention, but the capability surface is the natural home for the same data.)\n\n**Fix**: add \\`crate-jmap-mail-types/src/capability.rs\\` with:\n\\`\\`\\`rust\npub const JMAP_MAIL_URI: &str = \"urn:ietf:params:jmap:mail\";\n\n#[non_exhaustive]\n#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]\n#[serde(rename_all = \"camelCase\")]\npub struct MailCapability {} // session-level empty marker per RFC 8621 \u00a72\n\n#[non_exhaustive]\n#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]\n#[serde(rename_all = \"camelCase\")]\npub struct MailAccountCapability {\n    pub max_mailboxes_per_email: Option<u64>,\n    pub max_mailbox_depth: Option<u64>,\n    pub max_size_mailbox_name: u64,\n    pub max_size_attachments_per_email: u64,\n    pub email_query_sort_options: Vec<String>,\n    pub may_create_top_level_mailbox: bool,\n    #[serde(flatten, default, skip_serializing_if = \"serde_json::Map::is_empty\")]\n    pub extra: serde_json::Map<String, serde_json::Value>,\n}\n\\`\\`\\`\nThen mail-client replaces all 10+ hardcoded strings with the imported const.\n\nSibling reference: crate-jmap-calendars-types/src/capability.rs.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mail-types lacks `MailCapability` / `MailAccountCapability` struct and `JMAP_MAIL_URI` const; mail-client hardcodes the URI string in 10+ places",
+  "updated_at": "2026-05-17T22:21:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:01:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "e6510f00-dae0-5c22-a76b-dfcb14ee9832",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

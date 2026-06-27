@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: sort_thread_email_ids now parses RFC 3339 to UTC for comparison",
+  "closed_at": "2026-05-02T19:27:23Z",
+  "compaction_level": 0,
+  "content_hash": "9e9c1994609721f890a636e186f6406048bd7bde5f9481de86dc7e28a02cca2b",
+  "created_at": "2026-05-02T19:18:53Z",
+  "created_by": "Mark Atwood",
+  "description": "common/mod.rs sort_thread_email_ids (~L127) sorts emailIds by receivedAt using lexicographic string comparison. RFC 8621 \u00a73 requires oldest-first by absolute time. A receivedAt of '2025-01-01T10:00:00+05:30' (UTC 04:30) sorts after '2025-01-01T05:00:00Z' (UTC 05:00) lexicographically but represents an earlier absolute time, reversing the intended order. Trigger: backend stores emails with non-Z timezone offsets in receivedAt. The seed fixture only uses Z-suffix timestamps, masking this in current tests.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sort_thread_email_ids: lex sort wrong for non-UTC receivedAt",
+  "updated_at": "2026-05-02T19:27:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "11ddb4d6-dad2-5f01-8d8f-55e285c63576",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

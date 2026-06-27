@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T07:15:36Z",
+  "compaction_level": 0,
+  "content_hash": "fb91995ae629139d308a93ba1ea587c8a037791a00041a2a96981fd7338b24c5",
+  "created_at": "2026-05-11T07:14:10Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Companion to closed JMAP-sc1b.71. While auditing for that bead I confirmed three further response-side state fields in crate-jmap-types/src/methods.rs:\n\n- crate-jmap-types/src/methods.rs:288   pub query_state: String        (QueryResponse)\n- crate-jmap-types/src/methods.rs:335   pub old_query_state: String    (QueryChangesResponse)\n- crate-jmap-types/src/methods.rs:337   pub new_query_state: String    (QueryChangesResponse)\n\nThese are the response-side analogues to since_query_state, which already uses State on the request side (see e.g. crate-jmap-calendars-server/src/event.rs:1471, crate-jmap-tasks-client/src/methods/task_notification.rs:118).\n\nRFC 8620 \u00a75.5 and \u00a75.6 describe queryState / oldQueryState / newQueryState as opaque object-type-specific state strings \u2014 the same opaque-token shape that motivates the State newtype. JMAP-sc1b.71 closed the same gap for state / old_state / new_state on GetResponse, ChangesResponse, SetResponse, and EmailImportResponse.\n\nFix is mechanical: String \u2192 State, add State to the use list. Wire format is preserved (State is #[serde(transparent)]). All workspace .query_state / .old_query_state / .new_query_state reads should keep compiling via State's PartialEq<&str> and AsRef<str> impls \u2014 verify with cargo test --workspace after the change.\n\nWhy P2: SemVer-affecting and the JMAP-sc1b.71 precedent makes the engineering case identical. Cheap to fix now while crates are unpublished; expensive after.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.81",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Follow-up: 3 query_state sites in jmap-types use String while State newtype exists",
+  "updated_at": "2026-05-11T07:15:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T00:14:09Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "10a5c855-2d0c-5af1-8a6e-8afd3f67510e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

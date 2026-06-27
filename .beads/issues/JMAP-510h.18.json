@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "5f77e9140428fc990385a297a76677ef969370ab0d309ad9b1407345b00cbb78",
+  "created_at": "2026-05-14T19:51:55Z",
+  "created_by": "Mark Atwood",
+  "description": "src/filenode.rs has 5 occurrences of the same 18-line match block translating BackendSetError into a JSON value (lines 273-294, 456-473, 547-564, 637-660, 685-702). The Err(_) catch-all is uniform; the Err(BackendSetError::SetError) \u2192 set_error_value() call is uniform; the Err(BackendSetError::Other) \u2192 serverFail JSON shape is uniform.\n\nThis is an obvious extract:\n\n  fn backend_set_error_to_json<E: std::error::Error>(e: BackendSetError<E>) -> Value {\n      match e {\n          BackendSetError::SetError(set_err) => set_error_value(&set_err),\n          BackendSetError::Other(e) => json!({ \"type\": \"serverFail\", \"description\": e.to_string() }),\n          _ => json!({ \"type\": \"serverFail\", \"description\": \"unhandled backend error variant\" }),\n      }\n  }\n\nThen each call site becomes:\n\n  Err(e) => { not_created.insert(create_id, backend_set_error_to_json(e)); }\n\nReduces ~70 lines to ~5 + one helper. Also localizes the JMAP-510h.15 finding about the unactionable catch-all message into one place.\n\nSuggested rewrite: extract to src/helpers.rs, propagate to canonical jmap-mail-server first per the cookie-cutter rule, then sweep the other extension-server siblings.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Boilerplate explosion: 5 copies of identical Err(set_err)/Err(Other)/Err(_) match arms",
+  "updated_at": "2026-05-17T11:00:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:51:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "3148ee71-4441-58f3-bca1-0e417db07b2e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:29:25Z",
+  "compaction_level": 0,
+  "content_hash": "8dea36331c0ec4021e359d2fc9dfde06a652c52ba5699d83539eda8f66f961a8",
+  "created_at": "2026-05-14T21:59:14Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/backend.rs:47-54\n\n```rust\nfn create_object<O: SetObject + Send + Sync>(\n    &self,\n    caller: &Self::CallerCtx,\n    account_id: &jmap_types::Id,\n    create_id: &str,\n    obj: O,\n) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>\n       + Send;\n```\n\nThe rustdoc says `create_id` is \\\"the client-side creation id used in\nthe `/set` request\\\". It does not say what the backend should DO with\nit. Possible interpretations:\n\n1. **Idempotency key.** If the client retries the same `/set` call,\n   the backend uses `create_id` to detect and de-duplicate.\n2. **Audit trail.** The backend logs which client-side id mapped to\n   which server-side id for debugging.\n3. **Reference target for in-batch ResultReference.** RFC 8620 \u00a75.3\n   allows `#c1` references that resolve from a `/set create` result.\n4. **Ignore it.** Both the in-tree MemoryBackend (`memory.rs:491`,\n   `_create_id`) and MockBackend (`lib.rs:337`, `_create_id`) take\n   exactly this position.\n\nA defensive backend implementor reading the trait doc cannot tell\nwhich interpretation is canonical. The two in-tree impls have voted\n\\\"ignore it\\\" \u2014 so why is it in the signature? Either:\n\n- Document the intended semantics (likely #2 or #3, given how\n  RFC 8620 \u00a75.3 \\\"#cid\\\" reference resolution works in\n  `jmap-server`'s ResultReference resolver).\n- Remove the parameter from the trait if backends never actually\n  consume it. The handler can pass the create_id straight to its\n  own response-building logic without needing the backend to see it.\n\nWhat goes wrong for callers when this stays as-is: a downstream\nSharingBackend implementor either does nothing (matching MemoryBackend\nand missing the RFC 8620 \u00a75.3 reference-resolution opportunity if that\nWAS the intended semantics) or guesses one of the four interpretations\nabove and ships divergent behavior across implementations. Real\ncontract gap that the rustdoc must resolve.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Expanded SharingBackend::create_object rustdoc with explicit semantics of the create_id parameter: passthrough only, OPTIONAL backend uses are (1) audit logging, (2) idempotent retry detection. Clarified that #cid ResultReference resolution operates on the /set response's created map inside the Dispatcher, not on the backend's input \u2014 backends have no need to participate in #cid resolution.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SharingBackend::create_object create_id parameter \u2014 semantics undocumented; all in-tree impls ignore it",
+  "updated_at": "2026-05-14T22:29:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:59:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "6c13064e-6233-5f20-9b71-2ea93877f9fa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

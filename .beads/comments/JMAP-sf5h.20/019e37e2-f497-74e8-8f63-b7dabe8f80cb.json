@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T21:41:21Z",
+  "id": "019e37e2-f497-74e8-8f63-b7dabe8f80cb",
+  "issue_id": "JMAP-sf5h.20",
+  "text": "Recommendation ratified after no pushback in ~41 hours: option (b) \u2014 keep into_inner, replace #[serde(into = \"String\")] with a custom Serialize impl, drop From<Sha256> for String. Matches the canonical Id template (crate-jmap-types/src/id.rs). With .18=(A) ratified (keep String), the redundancy is real and (b) is the call."
+}

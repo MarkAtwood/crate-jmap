@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8bd71528bbda7dac76579a34522b958af0c3476b1adbfbcefb4140a23ab6695f",
+  "created_at": "2026-05-18T05:29:08Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence**:\n- jscalendar-types: structs from `RecurrenceRule` (src/lib.rs:446) onward derive `PartialEq` but NOT `Eq`. The scalar wrappers `LocalDateTime`/`Duration`/`SignedDuration`/`UTCOffset` derive `Eq`; the larger structs do not.\n- jscontact-types: every struct derives `PartialEq, Eq` uniformly (src/lib.rs:152, 199, 231, 264, ...).\n\n**Verification of non-load-bearingness**: the omission of `Eq` in jscalendar is not forced by any field type \u2014 none of the affected structs has a `f32`/`f64`, and the shared `extra: serde_json::Map<String, serde_json::Value>` field IS `Eq` (which is why jscontact compiles with `Eq` derived on every extras-bearing struct).\n\n**Caller-observable cost**: callers writing `HashSet<RecurrenceRule>` or using a calendar struct as a `HashMap` key cannot, but callers using analogous contact structs can. Real call sites are uncommon for either, so the practical cost is small.\n\n**Maintainer cost**: a contributor reading both crates side-by-side cannot tell whether the `Eq`-drop in jscalendar is load-bearing or accidental. The answer is \"accidental\".\n\n**Fix**: add `Eq` to the jscalendar-types data struct derive lists. One-line change per struct. cargo test --workspace should pass unchanged because no current code path depends on the absence.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "jscalendar-types omits Eq derive on data structs; jscontact-types derives PartialEq+Eq uniformly \u2014 accidental drift, not load-bearing",
+  "updated_at": "2026-05-18T05:29:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:29:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "775327bb-08a2-5579-9960-8967cb770647",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

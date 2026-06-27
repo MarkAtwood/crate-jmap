@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Workspace-wide propagation: changed Inner::current_state in all 7 extension-server MemoryBackends (mail canonical first, then calendars/chat/contacts/metadata/sharing/tasks) from *...unwrap_or(&0) to .copied().unwrap_or(0). cargo test --workspace passes (143 test groups, 0 failures); per-crate clippy -D warnings clean on all 7 crates. Documented in std::option::Option::copied.",
+  "closed_at": "2026-05-15T18:36:12Z",
+  "compaction_level": 0,
+  "content_hash": "54bb4552c87366358df10e43ff0d42f7656ac128d10f0f5226a20e22b2868707",
+  "created_at": "2026-05-15T17:22:37Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:142-147 \u2014 current_state:\n\n  fn current_state(&self, type_name: &'static str, account_id: &str) -> u64 {\n      *self\n          .states\n          .get(&(type_name, account_id.to_owned()))\n          .unwrap_or(&0)                          // returns &u64\n  }                                                // explicit * deref\n\nThe dereference + unwrap_or(&0) idiom requires the literal 0 to be coerced to &0, which only compiles because the compiler can put 0 in static storage. Rustaceans read 'unwrap_or(&0)' and pause to parse it. The standard idiom for 'extract a Copy value out of Option<&T>' is .copied():\n\n  self.states.get(&(type_name, account_id.to_owned())).copied().unwrap_or(0)\n\nSame shape, no & on the literal, no explicit deref needed at the call site. Documented in std::option::Option::copied.\n\nThis is workspace-wide \u2014 the canonical jmap-mail-server has the same shape at memory.rs:138.\n\nPure clippy-level idiom; behaviour is byte-identical.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.42",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Inner::current_state uses *\u2026unwrap_or(&0) where .copied().unwrap_or(0) would be idiomatic",
+  "updated_at": "2026-05-15T18:36:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:22:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "4b568409-bd55-54fe-ae19-cd20c2ceb588",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "c89f055245fbda3acb700e58112e6a5762f2beccdaabc6a85fe74ccd43fbd5d9",
+  "created_at": "2026-06-13T21:49:16Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/src/message.rs has 354/547 lines covered (64.7%). Uncovered: update-path permission enforcement for broadcast mentions, burn-on-read handler integration, slow_mode_check rateLimited create rejection, many invalidArguments/notFound branches in the update path, and rich-body broadcast span validation. The new broadcast mention validation and permission code is partially covered but the deny paths through IdentityBackend are not.",
+  "ephemeral": 0,
+  "id": "JMAP-w8fu.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Test coverage: chat-server message.rs (64.7%)",
+  "updated_at": "2026-06-13T21:49:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:49:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w8fu",
+      "id": "8c8d7587-42f9-5dcf-bcde-c7cb2a0bb43e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

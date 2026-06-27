@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.1",
+  "title": "AuthProvider invalid-header panic only in WS path, not HTTP",
+  "description": "AuthProvider::auth_header doc says returning invalid HTTP field values 'will cause a panic in the WebSocket connection path'. The HTTP paths (fetch_session, call, upload_blob, download_blob) use reqwest which accepts the same strings without panicking. A custom AuthProvider that passes reqwest but violates RFC 9110 will silently work over HTTP and panic only when connect_ws is called \u2014 a confusing asymmetry that will generate bug reports saying 'my auth works but WebSocket panics'. The contract asymmetry is undocumented at the trait level in a way callers can act on.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:07Z",
+  "updated_at": "2026-04-30T00:19:07Z",
+  "closed_at": "2026-04-30T00:19:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:06"
+    }
+  ]
+}

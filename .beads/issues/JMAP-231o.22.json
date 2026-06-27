@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T05:50:03Z",
+  "compaction_level": 0,
+  "content_hash": "d1ba64f121fc2cf7e756f529c48240f5f8712aac449c74ef22e71f6789fd07fd",
+  "created_at": "2026-05-08T03:21:20Z",
+  "created_by": "Mark Atwood",
+  "description": "calendar.rs:76-77, event.rs:85-86, event.rs:128-129, event_notification.rs:119-120, participant_identity.rs:63-64, event_copy.rs:19 all accept `create: Option<serde_json::Value>`, `update: Option<serde_json::Value>`, `filter: Option<serde_json::Value>`, `sort: Option<serde_json::Value>`.\n\nThis is the JSON-blob anti-pattern. The whole point of jmap-calendars-types is to provide typed Calendar, CalendarEvent, etc. \u2014 but the client API throws that away and accepts any JSON shape, defers all validation to the server, and gives no compile-time feedback to the caller.\n\nThe PLAN.md (lines 122, 172, 188-202) specifies typed builders: `SetRequest<Calendar>`, `CalendarEventQueryRequest`, `CalendarComparator`, `CalendarEventFilterCondition`. None of these were implemented.\n\nConsequence today: caller writes\n```\nsc.calendar_event_set(Some(json!({\"newEv\": {\"calendarIds\": ...}})), None, None).await?;\n```\nwith a typo `calendaIds` and the compiler is silent. Server returns invalidArguments.\n\nIdiomatic fix is exactly what PLAN.md described. This is an API-design Section 1 issue: post-1.0 the signature is locked. Lock the right one. (cross-crate: jmap-mail-client has the same shape.)\n\nNote: switching to typed builders likely changes the public API of `calendar_set`, `calendar_event_set`, `participant_identity_set`, `calendar_event_copy`, `calendar_event_query`, `calendar_event_notification_query` simultaneously. Coordinate the change.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "create/update/filter/sort take Option<serde_json::Value> \u2014 stringly-typed JMAP API",
+  "updated_at": "2026-05-08T05:50:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:21:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "ab654410-72e8-56ce-8cb3-107f284f9264",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

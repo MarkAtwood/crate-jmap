@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:28:24Z",
+  "compaction_level": 0,
+  "content_hash": "98de6177636ebb7530089cc7dd61dbaa9bb9ed7c469e35a02944ae714e52ad86",
+  "created_at": "2026-05-04T19:22:43Z",
+  "created_by": "Mark Atwood",
+  "description": "Per spec \u00a72.4, onSuccessActivateScript and onSuccessDeactivateScript MUST only run if ALL creates/updates/destroys succeed. The handler currently runs them unconditionally after processing mutations, regardless of whether notCreated/notUpdated/notDestroyed are non-empty. Fix: before step 7, check if any not_* map is non-empty and skip activation side-effects if so.",
+  "ephemeral": 0,
+  "id": "JMAP-w9hj.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve_set: onSuccess* fires on partial batch failure",
+  "updated_at": "2026-05-04T19:28:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T12:22:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w9hj",
+      "id": "039979ca-9b59-5019-87a3-11e2246838cd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

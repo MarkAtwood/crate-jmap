@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.6",
+  "title": "TransportConfig and AuthProvider are separate traits \u2014 do not merge them",
+  "description": "The split between TransportConfig (TLS, CA, connect timeout) and AuthProvider (Authorization header) is intentional. They address orthogonal concerns: a CustomCaTransport can be paired with BearerAuth, BasicAuth, or NoneAuth, and vice versa. A contributor might suggest merging them into a single ClientConfig trait to reduce the number of trait objects. That would break free composition: every new transport variant would need to duplicate all auth cases, and every new auth scheme would need to duplicate all transport cases. The current design correctly handles the cartesian product of N transports x M auth schemes with N+M implementations. Do not merge.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:22Z",
+  "updated_at": "2026-04-30T01:02:37Z",
+  "closed_at": "2026-04-30T01:02:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:21"
+    }
+  ]
+}

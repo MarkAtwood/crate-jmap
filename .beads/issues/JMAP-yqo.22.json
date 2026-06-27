@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already documented: common/mod.rs:852-858 already has the single-lock TOCTOU comment.",
+  "closed_at": "2026-05-04T15:46:17Z",
+  "compaction_level": 0,
+  "content_hash": "e9e53c8b1cbf304a6d0c86ec682767f39b4a18cce3b57a69b6fc9a170fb075c8",
+  "created_at": "2026-05-02T02:56:45Z",
+  "created_by": "Mark Atwood",
+  "description": "MemoryBackend::import_email (common/mod.rs:661) acquires one Mutex lock that covers the duplicate Message-ID check, thread assignment, email insert, message_id_index update, and change log bump \u2014 all atomically. An earlier version held separate locks for each step, creating a TOCTOU window between duplicate check and insert. The consolidated single-lock design eliminates this window. A contributor might suggest refactoring this into multiple helper calls for readability \u2014 resist unless each helper also holds the lock, which would require passing the MutexGuard around.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "import_email single-lock covers duplicate check + thread assignment + insert \u2014 no TOCTOU",
+  "updated_at": "2026-05-04T15:46:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:56:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "db6c7c30-e6b1-5c06-acbb-44bf54470794",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

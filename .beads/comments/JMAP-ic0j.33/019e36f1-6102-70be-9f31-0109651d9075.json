@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T17:17:29Z",
+  "id": "019e36f1-6102-70be-9f31-0109651d9075",
+  "issue_id": "JMAP-ic0j.33",
+  "text": "Fixed. Added 'Sentinel fields the backend MUST replace' section to CalendarsBackend::create_object rustdoc at src/backend.rs:114-133, mirroring the canonical jmap-mail-server::MailBackend::create_object contract at crate-jmap-mail-server/src/backend.rs:64-87. Calendars-tailored: covers only the 'id'-sentinel case (no blob_id / size analogs in the calendars draft) and omits the 'Singleton types' section (no singleton types in the current draft). Doc cites the canonical sibling explicitly so future drift is caught by review. Used the literal 'placeholder' string rather than an intra-doc link to PLACEHOLDER_ID (the const is pub(crate) so a public-API intra-doc link would trigger rustdoc::private_intra_doc_links). Verified: RUSTDOCFLAGS=-D warnings cargo doc clean, clippy --all-features --all-targets -D warnings clean, cargo test --all-features 120+13+1 passed."
+}

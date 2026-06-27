@@ -1,0 +1,36 @@
+{
+  "acceptance_criteria": "cargo test -p jmap-chat-types passes; ReadDisposition serializes to lowercase wire strings; DeliveryReceipt and Message structs include the new field; Other(String) round-trips unknown values",
+  "close_reason": "ReadDisposition enum + fields on Message/DeliveryReceipt/MessageProperty; all jmap-chat-types tests pass",
+  "closed_at": "2026-05-02T20:57:43Z",
+  "compaction_level": 0,
+  "content_hash": "81233ea842f9e9605ecc9856cabb233550725eeba3b82e50ee44acce5a49d021",
+  "created_at": "2026-05-02T15:46:37Z",
+  "created_by": "Mark Atwood",
+  "description": "Add the ReadDisposition type and the new read_disposition fields to crate-jmap-chat-types.",
+  "design": "File: crate-jmap-chat-types/src/message.rs\n\n1. Add ReadDisposition enum (above DeliveryState or beside it):\n\n#[non_exhaustive]\n#[derive(Debug, Clone, PartialEq, Eq, Hash)]\npub enum ReadDisposition {\n    /// Message content was shown to the user (default).\n    Displayed,\n    /// Message was removed without being displayed.\n    Deleted,\n    /// Message was handled by an automated process.\n    Processed,\n    /// A value not recognized by this version of the library.\n    Other(String),\n}\n\nimpl_string_enum!(ReadDisposition, \"a read disposition string\",\n    \"displayed\" => Displayed,\n    \"deleted\"   => Deleted,\n    \"processed\" => Processed,\n);\n\n2. Add to DeliveryReceipt (after read_at):\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub read_disposition: Option<ReadDisposition>,\n\n3. Add to Message (after read_at):\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub read_disposition: Option<ReadDisposition>,\n\n4. Export in crate-jmap-chat-types/src/lib.rs:\n   Add ReadDisposition to the pub use message::{ ... } line.",
+  "ephemeral": 0,
+  "id": "JMAP-h8go",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Also add ReadDisposition variant to MessageProperty enum in crate-jmap-chat-types/src/backend.rs \u2014 needed for handle_message_get property filtering. Insert after ReadAt variant.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat-types: ReadDisposition enum + fields on Message and DeliveryReceipt",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:46:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-slsk",
+      "id": "b6651d47-c197-5e25-84e8-e66c2391fd75",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

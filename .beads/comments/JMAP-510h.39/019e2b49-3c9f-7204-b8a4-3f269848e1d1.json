@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T10:58:00Z",
+  "id": "019e2b49-3c9f-7204-b8a4-3f269848e1d1",
+  "issue_id": "JMAP-510h.39",
+  "text": "Same workspace-canonical propagation concern as JMAP-510h.44 and JMAP-510h.40. The bead's own description says 'Apply the fix to mail-server first per the canonical-template rule, then propagate.'\n\nFiled a consolidated workspace propagation epic JMAP-xbeb that bundles all three beads' workspace-sweep concerns into one coordinated effort:\n\n- JMAP-xbeb: 'Workspace propagation epic: extension-server trait + handler + re-export contract sweep'\n\nWhen JMAP-xbeb decomposes into per-crate children, this bead's filenode-server re-export audit becomes one of those children. Until then, JMAP-510h.39 stays human-labeled because the decision to commit to the 22-child sweep needs human judgment.\n\nRecommendation: defer JMAP-510h.39 until JMAP-xbeb decomposes. The do-beads --epic JMAP-510h session has nothing more to do on this bead."
+}

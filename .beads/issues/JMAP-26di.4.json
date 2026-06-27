@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied option B from the bead: dropped struct-level #[serde(default)] from ChatCapability and ChatPushCapability while keeping #[derive(Default)] for test ergonomics. Field-level #[serde(default)] on supported_body_types preserved per its own rustdoc rationale. max_messages_per_push stays Option<u64> (already-optional spec field per chat-push-00 line 96).\n\n5 regression tests added pinning the new strict behavior:\n- ChatCapability {} -> Err\n- ChatCapability missing maxBodyBytes -> Err\n- ChatPushCapability {} -> Err\n- ChatPushCapability missing supportedUrgencyValues -> Err\n- ChatPushCapability with both required fields + no maxMessagesPerPush -> Ok (optional field still optional)\n\nExisting tests all pass \u2014 none relied on the silent-zero behavior. Struct rustdoc on both types now documents the strictness decision and cites the spec lines (draft-atwood-jmap-chat-00 \u00a73 lines 171-184 and draft-atwood-jmap-chat-push-00 lines 90-94).\n\ncargo test -p jmap-chat-client: 52 lib tests pass (was 47, +5 new). cargo test --workspace green. cargo clippy --all-targets -- -D warnings clean. cargo fmt clean. Committed as 2b99b06.",
+  "closed_at": "2026-05-15T21:20:25Z",
+  "compaction_level": 0,
+  "content_hash": "a5ad98b7d1b195cca480cc25e356a2eb408cc5908f1845935990c79c6aceaa7e",
+  "created_at": "2026-05-15T20:27:59Z",
+  "created_by": "Mark Atwood",
+  "description": "src/session.rs:22-25, 80-81. ChatCapability and ChatPushCapability both have BOTH #[derive(..., Default)] AND struct-level #[serde(default)]. Wire object `{}` deserializes successfully with max_body_bytes=0, max_attachment_bytes=0, etc. \u2014 all spec-mandated fields silently zero. draft-atwood-jmap-chat-00 \u00a73 lines 171-184 mark these as required (not optional). A server returning {} is non-compliant; a client treating max_body_bytes=0 as real will refuse to send any message. Worse: the bug is silent. Fix (option B from review): drop the struct-level #[serde(default)] but keep Default derive for test ergonomics. Keep field-level #[serde(default)] on supported_body_types (its rustdoc on lines 46-50 justifies that one as forward-compat). Same fix applies to ChatPushCapability \u2014 maxSnippetBytes and supportedUrgencyValues are spec-required (chat-push-00 lines 90-94); only maxMessagesPerPush is optional (line 96, already Option<u64>). AGENTS.md 'Default impls that hardcode values the spec does not mandate' is the exact antipattern.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChatCapability struct-level #[serde(default)] masks non-compliant servers",
+  "updated_at": "2026-05-15T21:20:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:27:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "d3898dab-152b-5a2a-b295-0553f968ff21",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

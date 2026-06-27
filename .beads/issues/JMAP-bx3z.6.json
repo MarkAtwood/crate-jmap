@@ -1,0 +1,33 @@
+{
+  "close_reason": "Filed as standalone issue JMAP-yecd.2; MemoryBackend Mutex prevents the race in tests; production backends must implement idempotent create",
+  "closed_at": "2026-05-02T19:23:28Z",
+  "compaction_level": 0,
+  "content_hash": "811fe88b18a8ad6ed9b8c4601f8bb223410fb749753ea8f85f3fdccaabfc4d0e",
+  "created_at": "2026-05-02T19:18:22Z",
+  "created_by": "Mark Atwood",
+  "description": "vacation.rs handle_vacation_set has a documented concurrency note (line ~183): two concurrent requests that both hit the NotFound branch both call create_object for the singleton. The code says 'Backends that receive concurrent requests MUST make create_object idempotent for the singleton key via a unique constraint or compare-and-swap.' This pushes a correctness requirement onto every backend implementor without encoding it in the trait or tests. Maintenance consequence: a new backend that doesn't read the comment will pass the current test suite (MemoryBackend holds a Mutex so the race never fires there) and only surface data corruption under concurrent load in production.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "VacationResponse upsert has documented TOCTOU race with no mitigation",
+  "updated_at": "2026-05-02T19:23:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "7ec3d059-084f-5d47-b085-cd9a448c19d5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

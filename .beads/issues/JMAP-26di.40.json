@@ -1,0 +1,33 @@
+{
+  "close_reason": "Substantially completed by commit 0ae115e (docs(clients): add # Errors rustdoc sections to all public method builders) which added # Errors sections to every public async method builder across all 7 *-client crates including jmap-chat-client. Every method the bead's description specifically called out (blob_lookup, chat_changes, chat_create, message_update, space_update, push_subscription_create, push_subscription_update) now has a # Errors section. The one remaining fallible public method, SessionClient::chat_account_id in methods/mod.rs, was a sync accessor whose error case was already described in inline prose; the follow-up commit on this bead lifts it to a formal # Errors section for consistency.",
+  "closed_at": "2026-05-17T17:35:08Z",
+  "compaction_level": 0,
+  "content_hash": "bc6ed2462635152947e952d105350216fd0dd0911471e2eb3033161a9989151d",
+  "created_at": "2026-05-15T20:41:04Z",
+  "created_by": "Mark Atwood",
+  "description": "Files: crate-jmap-chat-client/src/methods/*.rs \u2014 every method on `SessionClient` returning `Result<_, ClientError>`.\n\n`ClientError` (re-exported from `jmap-base-client`) is `#[non_exhaustive]` and has at least 15 variants. Callers writing defensive error handling cannot determine from the function signature or rustdoc which variants are possible. Examples of the gap:\n\n- `blob_lookup` (blob.rs:144) \u2014 can return `InvalidArgument` (empty blob_ids), `InvalidSession` (no chat primary account), `Parse`, plus transport variants from `call_internal`. None listed in the doc.\n- `chat_changes` (chat.rs:90) \u2014 returns `InvalidArgument` on empty `since_state`, plus the usual. Not listed.\n- `chat_create` (chat.rs:180) \u2014 returns `InvalidArgument` for empty `name` in Group/Channel variants (lines 205-209, 233-237) and `Parse` from internal serialization. Not listed.\n- `message_update` (message.rs:215) \u2014 returns `InvalidArgument` when `sender_reaction_id` is empty or contains '/' or '~' (lines 253-263, 271-281); returns `Parse` from `body_type` / `read_disposition` serialization. Not listed.\n- `space_update` (space.rs:239) \u2014 returns `InvalidArgument` for several empty-string conditions (channel name, role name, category name) plus `Parse` from many serialization sites. None listed.\n- `push_subscription_create` (misc.rs:201) \u2014 returns `InvalidArgument` for empty `device_client_id`, empty `url`, and duplicate accountIds in `chat_push`; returns `Parse` from `ChatPushConfig` serialization. None listed.\n- `push_subscription_update` (misc.rs:282) \u2014 partial: lists `InvalidArgument` for empty id and mutual-exclusion conditions; missing duplicate-accountId and Parse.\n\nA few methods DO partially enumerate: `message_create` documents `RateLimited`, `chat_capability` describes three-state output, `quota_get/changes` lists `InvalidSession` and `InvalidArgument`. These are the exceptions.\n\nPattern fix: add an `# Errors` section to every fallible public method. Standard Rust rustdoc convention. Each section should list the `ClientError::*` variants the method can produce and under what conditions, distinguishing between:\n- pre-network defensive guards that fire on caller error (these are programming-error variants)\n- spec-precondition failures returned by the server\n- network/transport errors that always exist for any JMAP call\n\nApproximate scope: 44 methods across 8 method files. Per-method work is small (3-6 lines of doc each) but coordinated \u2014 a propagation epic with one child per file is the natural shape.\n\nCaller impact today: any caller writing `match err { ClientError::RateLimited{..} => retry, _ => bubble }` has no API contract telling them what other variants exist. They will either pattern-match conservatively (`_ =>` bubble) and miss legitimate retry opportunities, or pattern-match defensively and have to revisit every match site whenever a new variant is added.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.40",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "44 fallible public methods lack # Errors doc sections",
+  "updated_at": "2026-05-17T17:35:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:41:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "16e8c6b6-1129-58cf-b88e-f43a14644ffa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

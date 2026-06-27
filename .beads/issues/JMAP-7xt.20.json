@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.20",
+  "title": "push::StateChange shared by SSE and WS: DRY at the type level",
+  "description": "Both SseEvent::StateChange and WsFrame::StateChange carry the same push::StateChange type. This means callers writing StateChange-handling code do not need to branch on transport. A contributor might suggest separate SseStateChange and WsStateChange types for 'clarity' or to allow transport-specific fields. However, RFC 8620 \u00a77.1 defines StateChange with identical shape for both transports; diverging the types would create false differences and force callers to duplicate handling. The shared type is intentional and correct.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:39Z",
+  "updated_at": "2026-04-30T01:01:53Z",
+  "closed_at": "2026-04-30T01:01:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:39"
+    }
+  ]
+}

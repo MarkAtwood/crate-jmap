@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:13:57Z",
+  "compaction_level": 0,
+  "content_hash": "80f29e9abcd68269e32b6f57c74787d85b5e9e6a17bd21cbb4942a1aef72e859",
+  "created_at": "2026-05-14T21:50:38Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/memory.rs:118 (in Inner::objects_mut): every call to objects_mut(type_name, account_id) executes 'self.known_accounts.insert(account_id.to_owned())' BEFORE returning the map handle. This is invoked from create_object (memory.rs:508), update_object (memory.rs:532, 562), and destroy_object (memory.rs:585). Combined with the missing account_exists check in the handlers (see sibling finding 'Principal/set and ShareNotification/set skip account_exists check'), a /set request with an unknown accountId will:\n  1. Pass the handler (no account_exists guard).\n  2. Reach objects_mut on the first mutation attempt.\n  3. Register the account in known_accounts as a side-effect.\n  4. Return success on the operation (creating, then updating, etc.).\n\nTrigger: dispatch Principal/set with create={c1:{...}} on an accountId that was never passed to new_with_accounts. The create succeeds; subsequent account_exists for the same accountId now returns true.\n\nThis is the reference backend so it directly shapes how a downstream implementor will reason about the trait. The fix is to decouple the two operations:\n  - objects_mut should NOT register accounts. That's a function for new_with_accounts and an explicit register_account method (or for the create-object code path to call known_accounts.insert explicitly after a successful create).\n  - update_object and destroy_object should first check known_accounts and return BackendSetError::SetError(SetErrorType::NotFound) (or accountNotFound) for unknown accounts.\n\nNote: the sibling six MemoryBackends have the same Inner::objects_mut pattern. Same finding scope as the account_exists handler fix.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Fixed in src/memory.rs: removed known_accounts.insert() side-effect from Inner::objects_mut. update_object and destroy_object now gate on known_accounts.contains(...) before mutation and return BackendSetError::SetError(SetErrorType::NotFound) for unknown accounts (backend-canonical re-check per AGENTS.md 'Caller identity (foundation seam)' / 'Permission enforcement: backend canonical'). create_object already calls known_accounts.insert explicitly after the commit. Sibling propagation deferred.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend objects_mut side-effect silently registers unknown accounts on mutation",
+  "updated_at": "2026-05-14T22:13:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:50:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "aba10dcc-f7ba-51ae-9626-8b742e99463a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

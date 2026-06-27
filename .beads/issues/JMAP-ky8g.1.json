@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed option (b) on four sub-types per recommendation. Task.at_type intentionally not touched per partial-response analysis in close comment. Workspace propagation sweep filed as JMAP-ky8g.10. Commit a3cf20a.",
+  "closed_at": "2026-05-17T15:33:02Z",
+  "compaction_level": 0,
+  "content_hash": "9a058d96847976f67c87d4601ca110bcf21fe6a75a1e00d403d1b563a4594762",
+  "created_at": "2026-05-15T05:06:06Z",
+  "created_by": "Mark Atwood",
+  "description": "In crate-jmap-tasks-types/src/task.rs, the @type field is declared as required `String` on Person (line 53), CheckItem (line 82), Checklist (line 117), and Comment (line 142):\n\n    #[serde(rename = \"@type\")]\n    pub at_type: String,\n\nbut on Task itself (line 266) it is Option<String> with skip_serializing_if. The asymmetry is wrong, and the required-String form has a concrete failure mode.\n\nTrigger: any deserialize input where a Person / CheckItem / Checklist / Comment object is missing @type. Examples:\n  1. A spec-violating server response (vendors do ship these).\n  2. A response built by serde_json::to_value on a partial sub-object.\n  3. Hand-rolled fixtures, including the workspace's own future fixtures.\n\nActual behavior: serde returns \"missing field `@type`\" error and the entire Task deserialize fails. The user / contributor sees a deserialize error pointing at @type, which is non-obvious to debug because the docs frame @type as a discriminator the user should never have to think about.\n\nNote: tests/types_test.rs fixtures and helpers (`task_with`, `task_list_with`) all currently set @type explicitly, so this is invisible from the test suite \u2014 the hazard is at the server / client integration boundary, not in unit tests.\n\nFix options (pick one, then apply uniformly across all four sub-types and the Task type itself):\n  (a) Change to `Option<String>` with `default` and `skip_serializing_if = \"Option::is_none\"` to match Task. Document that the @type discriminator is the producer's responsibility, the deserializer accepts absent.\n  (b) Add a serde default that supplies the type-mandated string (\"Person\", \"CheckItem\", \"Checklist\", \"Comment\") when absent. Then it stays `String` but is always populated. This is the closer-to-spec form.\n\n(b) is closer to RFC 8984 \u00a71.4.1 intent and avoids breaking the existing typed value contract; it is the recommended fix.\n\nWorkspace propagation: same asymmetry exists in `crate-jmap-jscalendar-types` re-exports (Location, Participant, Alert, etc.) and in the calendars-types/contacts-types siblings \u2014 file a follow-up sweep bead if so.",
+  "ephemeral": 0,
+  "id": "JMAP-ky8g.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Required @type on Person/CheckItem/Checklist/Comment breaks partial responses",
+  "updated_at": "2026-05-17T15:33:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:06:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ky8g",
+      "id": "85403e68-352d-55b5-a3c8-9837b1eeb55d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

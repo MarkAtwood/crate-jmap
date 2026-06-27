@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T23:27:39Z",
+  "id": "019e28d1-319f-77c7-8fed-4fd7766ef8e1",
+  "issue_id": "JMAP-6r7c.52",
+  "text": "Self-flagging as opinion per /review-rusty calibration rule. The 'as u64' cast is correct on every Rust-supported target today; the 128-bit-host concern is purely hypothetical. clippy::cast_possible_truncation is a pedantic-level lint with widely-accepted exceptions for transport-size-cap arithmetic. /do-beads pass should close as wontfix unless the workspace adopts clippy::pedantic as a workspace-wide policy (which it does not today)."
+}

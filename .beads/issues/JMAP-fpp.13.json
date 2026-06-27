@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-fpp.13",
+  "title": "CRLF normalize skip-if-no-CR is correct and avoids allocation on LF-only streams",
+  "description": "client.rs: the CRLF normalization 'if slice.contains(\"\\r\") { ... replace } else { slice.to_owned() }' correctly skips the double-replace on LF-only streams. The two-step replace (CRLF->LF then CR->LF) is the correct order: if reversed, a CRLF would become LF+LF. A contributor might suggest replacing with a single regex or iterator to 'simplify'; the current approach is correct, allocation-avoiding on the common case, and easier to audit. The two-step ordering must be preserved.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:16:37Z",
+  "updated_at": "2026-04-30T01:23:49Z",
+  "closed_at": "2026-04-30T01:23:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-fpp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:16:37"
+    }
+  ]
+}

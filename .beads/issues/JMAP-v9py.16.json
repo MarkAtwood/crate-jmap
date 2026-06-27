@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "9c0ee782ca68257df627698d68f4c0e77d46784e1c5d27c7dc6d0731995b331f",
+  "created_at": "2026-05-12T23:37:34Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec: draft-atwood-jmap-chat-filenode-00.\n\nNOT WORKED in the JMAP-v9py compliance sweep; filed for a later session.\n\nCapability: urn:ietf:params:jmap:chat:filenode (meaningful only with both urn:ietf:params:jmap:chat AND urn:ietf:params:jmap:filenode).\n\n## What needs to land\n\n- FileNode role registered: urn:jmap:chat:filenode:space\n- FileNode extension property: spaceId (immutable; on FileNodes whose role is urn:jmap:chat:filenode:space)\n- Attachment extension: filenodeId, thumbnailBlobId\n- Space permission \u2192 FileNode permission mapping table (view \u2192 read, send \u2192 read+create, manage_channels \u2192 +delete, manage_space \u2192 +administer)\n- Capability struct fields: maxSpaceStorageBytes, autoCreateFileTree\n\n## Dependencies\n\n- jmap-filenode-types must be stable (workspace already has this crate)\n- jmap-chat-types Space + Attachment extension shape\n\n## Out-of-scope per spec\n\n- Group-chat / direct-chat file storage\n- Federation (file tree access in mailbox-per-user)\n- Per-channel FileNode ACL overrides",
+  "ephemeral": 0,
+  "id": "JMAP-v9py.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Layer E: Implement draft-atwood-jmap-chat-filenode-00 (new jmap-chat-filenode-{types,server,client} crates)",
+  "updated_at": "2026-05-12T23:37:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-12T16:37:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py",
+      "id": "983c704b-133f-51e9-8f9f-ed76b14cf635",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T000441Z-1660907",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-12T00:10:45Z",
+  "compaction_level": 0,
+  "content_hash": "fb1f0e14ead1ba5b4b76203689ee4050fcb9502225c8a782bfe1a943144e6db7",
+  "created_at": "2026-05-11T22:27:35Z",
+  "created_by": "Mark Atwood",
+  "description": "Add a pure (no I/O, no state) helper function mapping each `SpacePatchOp` variant to its required permission strings per draft-atwood-jmap-chat-00 \u00a7Space/set lines 1093-1129. Used by backend implementations of `apply_space_patch` to gate per-op authorization (see JMAP-g7wu.2.4.3 for the canonical consumer).\n\nSite: crate-jmap-chat-server/src/space.rs (a new module-level pub helper) or a new file crate-jmap-chat-server/src/permissions.rs.\n\nPlacement rationale: this lives in chat-server NOT chat-types. The wire types in chat-types should not know about server-side permission vocabulary. Permission strings are domain-specific to backend authorization logic.\n\nSignature:\n\n    /// Returns the set of permission strings required to apply this\n    /// SpacePatchOp variant, per draft-atwood-jmap-chat-00 \u00a7Space/set\n    /// lines 1093, 1096, 1102, 1105, 1108, 1111, 1114, 1117, 1120,\n    /// 1123, 1126, 1129.\n    ///\n    /// Permissions enumerated by the draft:\n    ///   - manage_space   \u2014 top-level metadata (name, description, iconBlobId, isPublic, isPubliclyPreviewable)\n    ///   - manage_roles   \u2014 addRoles, removeRoles, updateRoles\n    ///   - manage_members \u2014 addMembers, removeMembers, updateMembers (roleIds changes also require manage_roles)\n    ///   - manage_channels \u2014 addChannels, removeChannels, updateChannels, addCategories, removeCategories, updateCategories\n    ///\n    /// This helper is pure and has no side effects. Backends consume\n    /// it inside `apply_space_patch` after resolving the caller's\n    /// effective permissions. Handlers MUST NOT consume this helper\n    /// for permission gating \u2014 gates are backend-canonical per\n    /// workspace AGENTS.md.\n    pub fn required_permissions_for_op(op: &SpacePatchOp) -> &'static [&'static str];\n\nSpec\u2192variant\u2192permission table (encoded in the match):\n\n  | Variant family       | Permission(s)                          |\n  |----------------------|----------------------------------------|\n  | Top-level metadata   | manage_space                           |\n  | AddRoles, RemoveRoles, UpdateRoles | manage_roles               |\n  | AddMembers           | manage_members                         |\n  | RemoveMembers        | manage_members                         |\n  | UpdateMembers (with role_ids change) | manage_members + manage_roles |\n  | UpdateMembers (nick only)            | manage_members                |\n  | AddChannels, RemoveChannels, UpdateChannels | manage_channels       |\n  | AddCategories, RemoveCategories, UpdateCategories | manage_channels |\n\n## Acceptance\n\n  - Helper signature exists as documented above with full doc comment.\n  - Returns `&'static [&'static str]` (static slice; no allocation).\n  - Unit tests cover every variant: each SpacePatchOp construction \u2192 expected permission slice. Tests use exhaustive match against the SpacePatchOp variants so that adding a new variant to the type forces this helper to be updated.\n  - `cargo test -p jmap-chat-server` clean.\n  - `cargo clippy -p jmap-chat-server -- -D warnings` clean.\n\n## Out of scope\n\n  - Caller-permission resolution (lookup of caller's effective permissions in a Space) \u2014 that lives in the backend per JMAP-g7wu.2.4.3.\n  - Gating logic (deciding whether to apply or reject) \u2014 that lives in the backend.\n  - Handler-side use of this helper \u2014 forbidden by workspace 'backend canonical' policy.\n\n## Depends on\n\n  JMAP-g7wu.2.4.1 (`SpacePatchOp` enum, closed).\n\n## Blocks\n\n  JMAP-g7wu.2.4.3 consumes this helper inside `apply_space_patch`. Add a blocks-link after both beads exist.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.2.4.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Removing inherited human label \u2014 pure implementation work, no decision needed. Autonomous /do-beads loop can pick this up.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Pure helper required_permissions_for_op(&SpacePatchOp) in jmap-chat-server",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T15:27:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4",
+      "id": "15f37ffe-470e-5128-b8c2-d361769656ed",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

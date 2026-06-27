@@ -1,0 +1,36 @@
+{
+  "acceptance_criteria": "cargo check -p jmap-mail-types --features sieve passes; cargo clippy -p jmap-mail-types --features sieve -- -D warnings passes; cargo build -p jmap-mail-types (no features) passes; struct fields match spec \u00a71.2.1 and \u00a72.1 wire names exactly",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:05:41Z",
+  "compaction_level": 0,
+  "content_hash": "f1dcde6d24252c97dfb64997e5429678cf2be2e83ffae34b1f93f87156a18f59",
+  "created_at": "2026-05-02T15:22:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Add Sieve data types to jmap-mail-types/src/sieve.rs behind the sieve feature flag.\n\nWHAT: Create jmap-mail-types/src/sieve.rs with SieveScript, SieveCapability, SieveAccountCapability, SieveScriptProperty, JMAP_SIEVE_SCRIPTS_URI. Wire feature flag into Cargo.toml and lib.rs.\n\nALGORITHM:\n1. Add sieve = [] to crate-jmap-mail-types/Cargo.toml [features].\n2. Create crate-jmap-mail-types/src/sieve.rs:\n   a. pub const JMAP_SIEVE_SCRIPTS_URI = \"urn:ietf:params:jmap:sieve\"\n   b. SieveScript { id: Id, name: Option<String>, blob_id: Id, is_active: bool } \u2014 #[non_exhaustive] #[serde(rename_all=\"camelCase\")] #[derive(Debug Clone PartialEq Eq Serialize Deserialize)]; name/blob_id use #[serde(skip_serializing_if=\"Option::is_none\")]; impl SieveScript { pub fn new(id, blob_id, is_active) -> Self }\n   c. SieveCapability { implementation: String } \u2014 #[non_exhaustive] #[derive(Debug Clone Serialize Deserialize)] #[serde(rename_all=\"camelCase\")]\n   d. SieveAccountCapability { max_size_script_name: u64, max_size_script: Option<u64>, max_number_scripts: Option<u64>, max_number_redirects: Option<u64>, sieve_extensions: Vec<String>, notification_methods: Option<Vec<String>>, external_lists: Option<Vec<String>> } \u2014 #[non_exhaustive] same derives; Option fields use skip_serializing_if; pub fn new(...) constructor\n   e. SieveScriptProperty enum { Id, Name, BlobId, IsActive } \u2014 #[derive(Debug Clone PartialEq Eq Hash)]\n   f. impl JmapObject for SieveScript { const TYPE_NAME = \"SieveScript\"; type Property = SieveScriptProperty; }\n   g. impl GetObject for SieveScript {}\n   h. impl SetObject for SieveScript { type Patch = serde_json::Value; }\n3. In crate-jmap-mail-types/src/lib.rs add (behind cfg(feature=\"sieve\")):\n   - #[cfg(feature=\"sieve\")] pub mod sieve;\n   - #[cfg(feature=\"sieve\")] pub use sieve::{SieveScript, SieveCapability, SieveAccountCapability, SieveScriptProperty, JMAP_SIEVE_SCRIPTS_URI};\n\nDEFENSIVE RULES:\n- #[non_exhaustive] on every public struct \u2014 pub fn new(...) is the only construction path for external crates\n- Every Option field: #[serde(skip_serializing_if = \"Option::is_none\")]\n- No .unwrap() or .expect() in library code\n- No async, no tokio (types crate has no async deps)\n- All serde attributes must match the spec camelCase wire names exactly\n\nAGENT TEAM: Single implementer agent + single validator agent\n\nTESTS: cargo check -p jmap-mail-types --features sieve must pass; cargo clippy -p jmap-mail-types --features sieve -- -D warnings must pass; cargo test -p jmap-mail-types --features sieve must pass; cargo build -p jmap-mail-types (no features) must still compile",
+  "design": "Types to add (all behind cfg(feature=sieve)):\n\nSieveScript { id: Id, name: Option<String>, blob_id: Id, is_active: bool }  \u2014 #[serde(rename_all=camelCase)]\n\nSieveCapability { implementation: String }  \u2014 server-level capability object (urn:ietf:params:jmap:sieve)\n\nSieveAccountCapability { max_size_script_name: u64, max_size_script: Option<u64>, max_number_scripts: Option<u64>, max_number_redirects: Option<u64>, sieve_extensions: Vec<String>, notification_methods: Option<Vec<String>>, external_lists: Option<Vec<String>> }  \u2014 per-account capability\n\nSieveScriptFilter { name: Option<String>, is_active: Option<bool> }  \u2014 FilterCondition for /query\n\nSieveScriptSortProperty enum { Name, IsActive }\n\nSieveSetRequest \u2014 standard SetRequest fields + on_success_activate_script: Option<Id> + on_success_deactivate_script: Option<bool>\n\nSieveValidateRequest { account_id: Id, blob_id: Id }\nSieveValidateResponse { account_id: Id, error: Option<SieveSetError> }\n\nSieveSetErrorType variants: InvalidSieve, SieveIsActive (extends base SetErrorType)\n\nJMAP_SIEVE_URI const = urtietf:params:jmap:sieve\n\nName validation: spec \u00a72.1 forbids U+0000-U+001F, U+007F-U+009F, U+2028, U+2029. Add validate_sieve_name(s: &str) -> bool helper.",
+  "ephemeral": 0,
+  "id": "JMAP-wx3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve: SieveScript + capability types in jmap-mail-types",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T11:29:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-82ty",
+      "id": "17ee71df-15bf-5500-b05e-3f6b4927a6b2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

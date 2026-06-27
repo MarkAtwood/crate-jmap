@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Already fixed: apply_jmap_patch line 1695 already has comment 'Parent absent and value is null: nothing to remove \u2014 no-op'.",
+  "closed_at": "2026-05-04T15:51:05Z",
+  "compaction_level": 0,
+  "content_hash": "05523310583e05b3fb17a12503bb529bccbafb89ec95afe471900c27ccedc46b",
+  "created_at": "2026-05-02T00:44:00Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/common/mod.rs apply_jmap_patch: when a path-style key names a non-existent parent object and the value is null, nothing happens (no error, no insertion). This is correct per RFC 8620 \u00a75.3 JSON Merge Patch semantics: null removes, so if the parent does not exist there is nothing to remove. A future contributor might add an error return for the absent-parent+null case, which would cause legal patches like 'mailboxIds/<non-existent-id>: null' to fail when the sub-key was already absent.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "apply_jmap_patch treats absent-parent + null value as no-op",
+  "updated_at": "2026-05-04T15:51:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:44:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "4f02a391-5dc2-5851-888e-752b7158661b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

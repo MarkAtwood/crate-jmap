@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:28:26Z",
+  "compaction_level": 0,
+  "content_hash": "5558ab4e21f0933d30be1242fa9a8ca042898db41aead590d8fbf339c71b83fd",
+  "created_at": "2026-05-04T19:22:44Z",
+  "created_by": "Mark Atwood",
+  "description": "A client sending update:{id:{\"isActive\":true}} bypasses the one-active-at-a-time invariant because the handler does not reject isActive as a direct patch key. Fix: in the update loop, if patch contains isActive key, reject with invalidProperties (isActive is server-set per spec \u00a72.1).",
+  "ephemeral": 0,
+  "id": "JMAP-w9hj.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve_set: direct isActive patch in update bypasses state machine",
+  "updated_at": "2026-05-04T19:28:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T12:22:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w9hj",
+      "id": "7eed2b18-856f-5415-92de-f5ea243eddda",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

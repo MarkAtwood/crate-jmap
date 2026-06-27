@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-sf2.1",
+  "title": "onSuccessUpdateEmail: keys treated as Email IDs, not EmailSubmission IDs",
+  "description": "RFC 8621 \u00a77.5: onSuccessUpdateEmail keys are EmailSubmission IDs (or creation refs like #c1), but submission.rs:361 treats them as Email IDs directly. backend.update_object::<Email> is called with the submission creation ID as the email ID \u2014 these IDs don't exist in the Email store, so every update silently goes into email_not_updated. No email ever gets updated via onSuccessUpdateEmail.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:28:28Z",
+  "updated_at": "2026-05-01T02:40:53Z",
+  "closed_at": "2026-05-01T02:40:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sf2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:28:28"
+    }
+  ]
+}

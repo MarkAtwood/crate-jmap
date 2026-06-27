@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: rfc3339_to_epoch_secs takes &str, no String allocation per email",
+  "closed_at": "2026-05-02T19:41:07Z",
+  "compaction_level": 0,
+  "content_hash": "731428d07bf0ea6071ab399da500e3c3185473315dd6d4c7de68dce2e6db19e4",
+  "created_at": "2026-05-02T19:34:16Z",
+  "created_by": "Mark Atwood",
+  "description": "mod.rs:119-122 \u2014 sort_thread_email_ids calls .to_owned() on the receivedAt &str before passing it to rfc3339_to_epoch_secs, allocating a heap String per email solely to satisfy the &String argument. rfc3339_to_epoch_secs takes &str; the intermediate String can be dropped. For long-lived mailing-list threads (1000+ emails) triggered on every import, this is N unnecessary heap allocations per thread sort.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sort_thread_email_ids: String clone per email for rfc3339 parse",
+  "updated_at": "2026-05-02T19:41:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "51b3b885-46b1-5d56-9d88-2fc881bebb61",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

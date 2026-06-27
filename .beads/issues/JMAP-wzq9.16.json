@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "0f2111945d2c4edc932172224d208ce1b22ea664a7d6ef0cdd6273e936c1a822",
+  "created_at": "2026-05-15T02:09:30Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/metadata.rs:76-79, 144-148, 212-215 \u2014 three call sites construct ClientError::InvalidArgument(String):\n\n    \\\"metadata_changes: since_state may not be empty\\\"\n    format!(\\\"metadata_set: serializing update map failed: {e}\\\")\n    \\\"metadata_query_changes: since_query_state may not be empty\\\"\n\nThe cause is encoded only in the message string. A caller that wants programmatic dispatch \u2014 'empty-state was caught client-side, retry with a fresh fetch_session' vs 'serialization of an internal PatchObject failed, log and bail' \u2014 has to substring-match the message. This is fragile contract leakage:\n\n- 'metadata_changes: since_state may not be empty' is an exhaustively-caught invariant; should be a typed variant the caller can match.\n- 'serializing update map failed' wraps a serde_json::Error in a string; the underlying serde_json error type is dropped (no #source chain). A caller cannot do programmatic recovery, only log the message.\n\nWorkspace-wide observation: email_set in the canonical sibling (mail-client/src/methods/email.rs:122-126) uses the same shape. So this is propagation of an existing canonical wart, not a regression from canonical. But it freezes a contract that downstream consumers cannot work around.\n\nSuggested fixes:\n1. Add typed variants to ClientError (in jmap-base-client) for the empty-state case and the internal-serialization case.\n2. Or wrap with #[source] so the serde_json::Error survives via Error::source().\n\nEither fix requires touching jmap-base-client first, then propagating to every *-client crate. Mark as workspace-wide propagation work, but file because the contract decision fossilises at 0.1.0.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "blocked",
+  "timeout_ns": 0,
+  "title": "ClientError::InvalidArgument(String) string-typed error path \u2014 callers cannot dispatch",
+  "updated_at": "2026-05-15T02:37:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:09:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "d26c1dba-f355-5ee3-b4b9-54f4056b65d4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

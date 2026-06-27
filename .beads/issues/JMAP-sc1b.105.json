@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T000441Z-1660907",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-12T00:37:30Z",
+  "compaction_level": 0,
+  "content_hash": "bc48656725adedab8357b9ebc9806b6a181511128d1d7644968a87b7f42cbde1",
+  "created_at": "2026-05-11T18:12:14Z",
+  "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "description": "Follow-up to JMAP-sc1b.18 (which landed the workspace bench convention and the canonical bench in crate-jmap-server).\n\nThe MIME parser in jmap-mime is the second of three crates the .sc1b.18 review identified as worth benchmarking (large-message parsing, encoded-word decoding, MIME tree walking).\n\nPattern to copy from crate-jmap-server:\n1. Add to crate-jmap-mime/Cargo.toml [dev-dependencies]:\n     criterion = { version = '0.8', default-features = false, features = ['cargo_bench_support'] }\n2. Add to crate-jmap-mime/Cargo.toml:\n     [[bench]]\n     name = '<bench-name>'\n     harness = false\n3. Create crate-jmap-mime/benches/<bench-name>.rs with criterion harness.\n\nSuggested workloads:\n- Small (1 KB) email parse \u2014 baseline.\n- Medium (16 KB) multipart with three text parts and one base64 PDF attachment.\n- Large (1 MB) multipart with deep nesting (5+ levels) to stress the tree walker.\n\nRun with: cargo bench -p jmap-mime\n\nAcceptance: at least one benches/<file>.rs target that compiles, runs to completion, and reports timings for at least three workload sizes.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.105",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "De-labeling human (2026-05-11, Mark): implementation chore. Bench pattern is fully documented in the bead body. No pending decision.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add criterion benches/ to crate-jmap-mime (parser hot path)",
+  "updated_at": "2026-05-12T00:37:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T11:12:13Z",
+      "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "33144204-e74c-5d05-a56e-649d737f4124",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T23:35:00Z",
+  "id": "019e384b-0068-799f-bd8c-7b4b9902d365",
+  "issue_id": "JMAP-ops7.25",
+  "text": "Fix spans crates: jmap-tasks-server (signature change) + jmap-calendars-server (consistency check at handler call site). /do-beads must verify with cargo check --workspace."
+}

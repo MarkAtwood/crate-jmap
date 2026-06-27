@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-jxj.7",
+  "title": "AuthProvider::auth_header returns (&'static str, &str): name is always static",
+  "description": "The &'static lifetime on the header name looks restrictive but is correct: HTTP authentication header names are always compile-time constants (authorization, x-api-key, etc.). A contributor might suggest Cow<'static, str> \u2014 the static constraint on the name is intentional and forces implementors to use the correct pattern.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:40:51Z",
+  "updated_at": "2026-04-30T15:42:46Z",
+  "closed_at": "2026-04-30T15:42:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-jxj",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:40:50"
+    }
+  ]
+}

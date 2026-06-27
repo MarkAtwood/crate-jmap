@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Added 'Extras-preservation policy (JMAP-lbdy)' H2 section to all 8 client crate PLAN.md files. Six migrated crates (base/mail/chat/calendars/contacts/filenode) enumerate their in-scope structs and crate-specific test patterns. Sharing-client and tasks-client document that they have no in-scope structs locally and that wire-format types flow through re-exported jmap-types and jmap-*-types. Canonical pattern (byte-identical serde attribute block) propagated from jmap-mail-client/PLAN.md across all 8. No source/test changes; documentation only.",
+  "closed_at": "2026-05-11T20:14:32Z",
+  "compaction_level": 0,
+  "content_hash": "b1d2b11ca75079d109d567f7b600a03d6ac3f5c12db4df9d8d4d298eff88eca7",
+  "created_at": "2026-05-11T20:09:12Z",
+  "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "description": "Parent epic JMAP-lbdy acceptance criterion: 'Every migrated crate's PLAN.md notes the policy in the type-design section.'\n\nAfter JMAP-lbdy.9 migrated 29 wire-format structs across 6 client crates (jmap-base-client, jmap-mail-client, jmap-chat-client, jmap-calendars-client, jmap-contacts-client, jmap-filenode-client), the client-crate PLAN.md files were not updated to document the extras policy. Type crates' PLAN.md files (jmap-mail-types, jmap-chat-types, etc.) already contain such notes per JMAP-lbdy.2-.8.\n\nIn scope:\n- crate-jmap-base-client/PLAN.md\n- crate-jmap-mail-client/PLAN.md\n- crate-jmap-chat-client/PLAN.md\n- crate-jmap-calendars-client/PLAN.md\n- crate-jmap-contacts-client/PLAN.md\n- crate-jmap-filenode-client/PLAN.md\n- crate-jmap-sharing-client/PLAN.md (no in-scope structs; note this)\n- crate-jmap-tasks-client/PLAN.md (no in-scope structs; note this)\n\nMirror the canonical pattern from crate-jmap-mail-types/PLAN.md (search for 'extras-preservation' there for the exact wording). Each note should:\n1. Quote the policy attribute set\n2. Enumerate the in-scope structs in that crate (or note 'none \u2014 only re-exports from jmap-*-types' for sharing-client / tasks-client)\n3. Reference workspace AGENTS.md for the full policy text\n\nAcceptance: each of the 8 client-crate PLAN.md files contains an extras-preservation section. No code changes required.",
+  "ephemeral": 0,
+  "id": "JMAP-lbdy.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add extras policy notes to *-client crate PLAN.md files (JMAP-lbdy follow-up)",
+  "updated_at": "2026-05-11T20:14:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T13:09:12Z",
+      "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+      "depends_on_issue_id": "JMAP-lbdy",
+      "id": "555d57c4-245b-5051-a43d-e214b81232d7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

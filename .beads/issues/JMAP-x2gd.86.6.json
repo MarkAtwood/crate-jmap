@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a9f1a9a30d06a0dd76bdd7444a1d03b75a447bbac3c39e95a22da50b39d492cb",
+  "created_at": "2026-05-14T16:11:52Z",
+  "created_by": "Mark Atwood",
+  "description": "## Scope\n\nPropagate the canonical foundation-methods doc shape (written on\nmail-server under JMAP-x2gd.86.1) to filenode-server's\n`create_object` / `update_object` / `destroy_object` rustdoc.\n\nAdapt only for extension-specific content:\n- SetErrorType variants and their filenode-specific triggers\n- Cascade rules that match filenode's actual reference-impl behavior\n- Examples drawn from filenode's types, not mail's\n\nThe 5-contract shape stays identical to canonical mail-server:\nSetErrorType selection, Some/None semantics on update, state-bump\ncontract, cascade rules, atomicity within multi-property updates.\n\n## Dependency\n\nThis bead is blocked on JMAP-x2gd.86.1 (the canonical write).\nPick up only after that bead closes.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.86.6",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Foundation methods doc sweep: propagate canonical to filenode-server",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:12:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd.86.1",
+      "id": "7780c57f-dd16-5014-a8af-495a66dda8ef",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T09:11:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd.86",
+      "id": "8d8d7367-0e41-54d6-8647-97590f531108",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

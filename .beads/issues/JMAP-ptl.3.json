@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T15:51:54Z",
+  "compaction_level": 0,
+  "content_hash": "17b8340c8e325f6058ddccc83a9e86a112807e4692c2a77eb93674a56133eff6",
+  "created_at": "2026-05-01T15:31:16Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs lines 726 and 742: when onDestroyRemoveEmails=true and the backend returns BackendSetError::SetError for a cascade email destroy or un-mailbox patch, the handler silently continues (empty arm with no comment). RFC 8621 \u00a72.5 says emails that are in no other mailbox MUST be destroyed. A backend returning Forbidden or another semantic error causes the mailbox to be destroyed while its emails remain. The empty arm looks like a missing error handler \u2014 a contributor reviewing this will not know if it was intentional. If intentional, needs a comment; if not, needs proper error surfacing.",
+  "ephemeral": 0,
+  "id": "JMAP-ptl.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/set cascade: RFC MUST 'emails MUST be destroyed' silently swallowed on SetError",
+  "updated_at": "2026-05-01T15:51:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:31:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ptl",
+      "id": "b2166eb1-6a78-5666-9d99-976ea97424d9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

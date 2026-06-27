@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added a PLAN.md \u00a7'Classifier-attribute strings are bare Option<String> / String' section explaining the workspace 'externally-owned-schema classifier strings' exclusion for these 9 fields, with redirect to the workspace AGENTS.md policy and the README \u00a7Gotchas note. The bead's defensive intent \u2014 a future contributor proposing 'type these properly' as an enum should be redirected to existing policy, not have the policy rediscovered \u2014 is now visible in all three places (workspace AGENTS.md, crate PLAN.md, crate README). No code change. Tests pass.",
+  "closed_at": "2026-05-15T04:08:02Z",
+  "compaction_level": 0,
+  "content_hash": "43b9649295f763f46bfce04e281d81896d9c662f14e102070577e55e624dadff",
+  "created_at": "2026-05-15T03:36:29Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs types NameComponent.kind:150, Title.kind:334, Calendar.kind:515, Anniversary.kind:1009, PersonalInfo.kind:1098, Directory.kind:744, Link.kind:799, Media.kind:847, AddressComponent.kind:667 as Option<String> or String \u2014 NOT as #[non_exhaustive] enum { Variant, \u2026, Other(String) }. This follows the workspace AGENTS.md 'externally-owned-schema classifier strings' exclusion (decided 2026-05-12). The rationale documented there: RFC 9553 enumerates these values as if authoritative, but real-world JSContact emitters (Outlook, Google, Apple, vCard converters, localized clients) routinely send values outside the spec enumeration, so a typed enum would do no real programmatic dispatch and pay a maintenance cost for every spec revision. A future contributor unfamiliar with the workspace policy will see the bare String and propose 'typing these properly' as an enum \u2014 defend the current shape, point them at workspace AGENTS.md, and link the README \u00a7Gotchas note at :99-107 that already explains the choice.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Classifier-attribute strings typed as Option<String>, not enum-with-Other",
+  "updated_at": "2026-05-15T04:08:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:36:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "cc202e6e-770a-539d-b1a9-cda133e3e233",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

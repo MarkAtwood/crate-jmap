@@ -1,0 +1,59 @@
+{
+  "acceptance_criteria": "5 integration tests pass covering all 3 gaps.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added 5 integration tests via dispatcher (isDraft_revert, isDraft_draft_to_publish, utcstart_not_in_default, utcstart_when_requested, per_user_patch_split); added per_user_calls counter to MockBackend; overrode update_task_per_user in MockBackend; 27 total tests pass; clippy clean",
+  "closed_at": "2026-05-05T04:22:14Z",
+  "compaction_level": 0,
+  "content_hash": "fc0aabf80bd9df5f7265e65de65967cd5edf052fd73b73077ed2b6bf313765a6",
+  "created_at": "2026-05-05T03:02:02Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Add end-to-end handler tests for all three gaps fixed in T1-T3 via register_tasks_handlers dispatching.\n\n**Tests:**\n1. isDraft_revert_via_dispatcher: Task/set update {\"isDraft\":true} on task with isDraft=false \u2192 notUpdated[\"t1\"][\"type\"]==\"invalidProperties\" and properties==[\"isDraft\"]. Oracle: \u00a74.\n2. isDraft_draft_to_publish_allowed: Task/set update {\"isDraft\":false} on draft task \u2192 reaches MockBackend (not pre-rejected by handler).\n3. utcStart_not_in_default_properties: Task/get without requesting utcStart \u2192 returned task JSON has no utcStart key.\n4. utcStart_returned_when_requested: Task/get with properties:[\"id\",\"utcStart\"] \u2192 returned task has utcStart field (MockBackend compute returns fixed value).\n5. per_user_patch_split: Task/set update {\"color\":\"#ff0000\"} \u2192 update_task_per_user called (verify via mock call tracking).\n\nMockBackend extended to track which update method was called.\n\n**Acceptance criteria:** All 5 tests pass. cargo test -p jmap-tasks-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-131x.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Integration tests: isDraft, utcStart/utcDue, per-user routing",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:02:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-131x.2",
+      "id": "4758fac5-d16c-552b-8c8b-d817c75bd245",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:02:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-131x.3",
+      "id": "5f1a3def-4262-5757-9276-868728968853",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:02:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-131x",
+      "id": "672204c4-c008-57dc-9505-6ba3d7c2479a",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T20:02:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-131x.1",
+      "id": "bda16f16-5ff1-5ee5-b391-f89e8403ead4",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

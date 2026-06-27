@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d9620aa67246307b48aace0f2ea48cbc8a187cd397c173a530fab149660800af",
+  "created_at": "2026-06-13T21:49:31Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/backend.rs has 113/155 lines covered (72.9%). Uncovered: default trait method bodies on JmapBackend (account_exists, get_state, get_changes, copy_objects), the BackendSetError Display impl, and some BackendChangesError branches. Need tests calling the default impls on a minimal trait-only backend.",
+  "ephemeral": 0,
+  "id": "JMAP-w8fu.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Test coverage: jmap-server backend.rs (72.9%)",
+  "updated_at": "2026-06-13T21:49:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:49:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w8fu",
+      "id": "9d097a0f-5988-5b5b-8ff1-156110463835",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T06:07:39Z",
+  "compaction_level": 0,
+  "content_hash": "8dd346b8b111cc1b10ff2078b26eff6ff62967ee5f6cdc48dd6ce69224de4e72",
+  "created_at": "2026-05-01T05:48:18Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs line 656-668: find_immutable_patch_key returns Option<String> by calling field.to_string() on a &'static str from IMMUTABLE_EMAIL_FIELDS. The field variable is already &'static str (it comes from &[&str] constant), so the function signature should return Option<&'static str> and return Some(field) directly. The current code allocates a String on every hit \u2014 this runs on every Email/set update and Email/copy onSuccessUpdateOriginal patch. Returning &'static str is cleaner, cheaper, and the lifetime is provably correct.",
+  "ephemeral": 0,
+  "id": "JMAP-2qp.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_immutable_patch_key returns Option<String> instead of Option<&'static str>",
+  "updated_at": "2026-05-01T06:07:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-04-30T22:48:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-2qp",
+      "id": "95136154-1dd8-5dfc-8a34-73aa8c0eaaa3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

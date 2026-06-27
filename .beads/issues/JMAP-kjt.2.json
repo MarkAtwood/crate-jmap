@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-kjt.2",
+  "title": "Add Email/query Comparator type (RFC 8621 \u00a74.4.2)",
+  "description": "jmap-mail-server cannot implement Email/query ordering without a Comparator type. RFC 8621 \u00a74.4.2 defines a Comparator object with: property (String, required), isAscending (bool, default true), collation (String, optional), and two Email-specific extension fields: keyword (String, optional \u2014 used when property is 'keyword') and mailbox (Id, optional \u2014 used when property is 'size' or 'receivedAt' within a mailbox context). Comparator is used in Email/query and Email/queryChanges.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:05:12Z",
+  "updated_at": "2026-04-30T04:24:28Z",
+  "closed_at": "2026-04-30T04:24:28Z",
+  "design": "Single struct EmailComparator. All fields except property are Option. isAscending defaults to true per the spec; use #[serde(default = true_fn)] or a custom default. The 'keyword' and 'mailbox' fields are RFC 8621-specific extensions to the base JMAP Comparator (RFC 8620 \u00a75.5).",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-kjt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:05:12"
+    }
+  ]
+}

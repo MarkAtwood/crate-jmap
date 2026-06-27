@@ -1,0 +1,33 @@
+{
+  "close_reason": "Added deny.toml at workspace root with [advisories]/[licenses]/[bans]/[sources] sections. cargo deny check reports all four checks ok. Also added version='0.1' to every workspace.dependency sibling reference (was path-only, which fails cargo publish) \u2014 JMAP-sc1b.23 partially addressed. JMAP-hge6 (CI cargo-deny job) is now unblocked.",
+  "closed_at": "2026-05-09T07:47:28Z",
+  "compaction_level": 0,
+  "content_hash": "46122e2ea61ab2bc6fb6a3ada112e3eca7be0ac81569b3e7c184da1978fa13aa",
+  "created_at": "2026-05-07T20:29:04Z",
+  "created_by": "Mark Atwood",
+  "description": "There is no top-level deny.toml. For a 25-crate workspace targeting crates.io, this means license / advisory / duplicate-version / source policy is unenforced.\n\nRecommended sections:\n- [advisories]: Use RustSec advisory db; vulnerability = deny, unmaintained = warn\n- [licenses]: allow MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Unicode-DFS-2016, Zlib (typical RustCrypto profile); deny anything that didn't make the allow-list\n- [bans]: deny multiple-versions for shared deps where reasonable\n- [sources]: allow crates.io only\n\nOnce added, wire `cargo deny check` into CI (depends on JMAP-sc1b.X for CI setup).",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: No cargo-deny configuration (deny.toml absent)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "44f114bf-5ced-58d0-bb70-2223e965bf89",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

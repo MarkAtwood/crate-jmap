@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Both BFS impls in memory.rs (get_ancestors and get_descendant_ids) now use HashSet<Id> directly, matching the FileNodeBackend::query_subtree default impl in backend.rs. Removed N gratuitous String allocations per BFS visit. No behavioural change. Committed in fe75d28. Gates: fmt/clippy/test/doc green.",
+  "closed_at": "2026-05-14T20:38:33Z",
+  "compaction_level": 0,
+  "content_hash": "f48529f8ed8d952938436a11d487c2e817332bcb420e72e0ea9a512c87fbef1a",
+  "created_at": "2026-05-14T20:14:28Z",
+  "created_by": "Mark Atwood",
+  "description": "Two BFS implementations in src/memory.rs use HashSet<String> for visited-set deduplication, requiring a String allocation (.as_ref().to_owned()) on every visit:\n\n1. src/memory.rs:583-584 (get_ancestors):\n   let mut visited: std::collections::HashSet<String> =\n       ids.iter().map(|id| id.as_ref().to_owned()).collect();\n   ...\n   let key = parent_id.as_ref().to_owned();\n   if visited.contains(&key) { continue; }\n   visited.insert(key);\n\n2. src/memory.rs:632-633 (get_descendant_ids):\n   let mut visited: std::collections::HashSet<String> =\n       std::iter::once(id.as_ref().to_owned()).collect();\n   ...\n   let child_key = node.id.as_ref().to_owned();\n   if visited.insert(child_key) { ... }\n\nWhat idiomatic Rust would do: HashSet<jmap_types::Id> directly. Id derives Hash + Eq + Clone (verified \u2014 see crate-jmap-types/src/id.rs and the use site at backend.rs:150 below). Use HashSet<Id> and insert id.clone() (which is a refcount bump if Id is Arc-backed, or a String clone of the same cost as .to_owned() but without the intermediate &str step).\n\nWhat goes wrong as-is: every BFS visit does one String allocation just to populate the HashSet key. For get_descendant_ids over an N-node tree, that's N allocations on the hot path. The Drop of the HashSet later releases all of them. This is the kind of gratuitous-clone-to-escape-the-borrow-checker pattern the supplement specifically flags under 'ownership'.\n\nThe inconsistency is the strongest signal: the same crate's src/backend.rs:150 (the FileNodeBackend::query_subtree default impl) does it correctly:\n   let mut seen: std::collections::HashSet<jmap_types::Id> =\n       root_ids.iter().cloned().collect();\n\nTwo BFS impls in memory.rs, one BFS impl in backend.rs, three of them, only one keys by Id. Inconsistent within the crate.\n\nCanonical comparison: jmap-mail-server uses HashSet<Id> exclusively (no HashSet<String> for id dedup). Filenode-specific divergence.\n\nPropagation note: local to this crate. Fix is mechanical: change HashSet<String> to HashSet<Id>, remove the .as_ref().to_owned() at insert/lookup sites, use id.clone() instead.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.48",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "HashSet<String> keyed by Id.as_ref().to_owned() instead of HashSet<Id> \u2014 inconsistent with same crate's backend.rs",
+  "updated_at": "2026-05-14T20:38:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:14:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "32d27ce0-e9dd-578e-9c44-c272a406ccb4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

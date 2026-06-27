@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ca01b9b81637da30b9e6dc329dc42077926d900b0702316e846f21072b8d76e5",
+  "created_at": "2026-05-17T17:41:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Spun off from bd:JMAP-26di.52 which originally scoped this to three\nchat-client wire enums. Broader scope: every wire enum in the workspace\nthat uses jmap_types::impl_string_enum! shares the same forging caveat \u2014\nthe pub Other(String) variant lets callers construct\nOther(\"canonical-wire-string\".into()), which:\n\n* Compares unequal to the canonical variant on PartialEq.\n* Serialises to the canonical wire string.\n* Round-trips back to the canonical variant on deserialize.\n\nWorkspace census (grep impl_string_enum! across crate-jmap-*-types/\nand crate-jmap-chat-client/, excluding the macro definition itself):\n19 invocations. Each one carries the same footgun:\n\n- jmap-types::string_enum.rs (tests)\n- jmap-mail-types: MailboxRole, ComparatorProperty (\u00d7N), Delivered, Displayed, UndoStatus\n- jmap-chat-types: Presence, UrgencyLevel, DeliveryState, ReadDisposition, ChatKind\n- jmap-filenode-types: NodeType, NodeRole\n- jmap-tasks-types: NotificationType, TaskListRole, TaskProgress\n- jmap-calendars-types: NotificationType\n- jmap-sharing-types: (1 enum)\n- jmap-chat-client: QuotaScope, ChatMemberRole, BodyType\n\nOptions:\n\n1. Document the footgun on the impl_string_enum! macro's rustdoc and\n   reference it from every using site (low cost, low protection).\n2. Have the macro generate a `pub fn other(s: impl Into<String>) -> Self`\n   canonicalising constructor for every enum, then encourage callers to\n   use it. Does not block direct construction of Other(...) \u2014 partial\n   protection.\n3. Change the macro to generate a private newtype OpaqueOther around\n   the String, with a public constructor that canonicalises. Airtight\n   but a sizable API redesign with public-API breakage for any consumer\n   that currently matches on Other(s).\n\nbd:JMAP-26di.52 applied option 1 at chat-client scope (rustdoc on each\nOther variant). This bead tracks lifting that to the macro itself plus\nthe parallel docs on every using site, and/or escalating to option 2/3.\n\nThe bead is workspace-template-shaped and should be filed under a\nworkspace canonical-template propagation epic (or JMAP-x2gd if active),\nnot under JMAP-26di which is the chat-client-specific review epic.",
+  "ephemeral": 0,
+  "id": "JMAP-cfv1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "impl_string_enum! forging caveat is systemic across 19 workspace wire enums",
+  "updated_at": "2026-05-17T17:41:16Z"
+}

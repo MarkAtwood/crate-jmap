@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Moved ChatCapability and ChatPushCapability from chat-client/session.rs to chat-types/src/capability.rs. Added JMAP_CHAT_URI and JMAP_CHAT_PUSH_URI consts. BodyType wire-format enum also moved from chat-client/types.rs to chat-types/src/message.rs (alongside DeliveryState/ReadDisposition) since ChatCapability.supported_body_types references it. chat-client now re-exports BodyType, ChatCapability, ChatPushCapability from chat-types; call sites updated.\n\nThis eliminates the wrong-direction dependency (chat-server can now import ChatCapability without depending on chat-client) and brings chat-types into line with the 6 sibling extension-types crates (calendars, tasks, contacts, filenode, sharing, metadata) that already host their capability surface in *-types.\n\nCapability structs retain the workspace extras-preservation 'extra' field they had in chat-client (this is the OPPOSITE choice from ops7.6 where mail-types capability structs do NOT carry extra \u2014 see ops7.6 close comment). The chat case preserves the existing behavior of the moved structs to keep the move surgical; whether all capability structs should adopt extras is a separate workspace-architectural decision. Filing-and-continuing rather than reshaping extras during a move.\n\nWorkspace cargo test, cargo clippy, and rustdoc are all clean. 5 new capability tests + 2 new BodyType tests pass, using hand-built JSON fixtures with independent oracles.\n\nURI-const adoption in chat-client itself (replacing the hardcoded 'urn:ietf:params:jmap:chat' strings in USING_CHAT / primary_account_id sites) is in scope of follow-up bd:JMAP-ops7.16, not this bead.",
+  "closed_at": "2026-05-17T22:28:17Z",
+  "compaction_level": 0,
+  "content_hash": "0ba1891df1fab983f032c3f8ac202a898c681d9f35fd2e683196a60819424a1c",
+  "created_at": "2026-05-17T22:01:32Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**:\n- crate-jmap-chat-client/src/session.rs:38 \u2014 \\`pub struct ChatCapability { ... }\\`\n- crate-jmap-chat-client/src/session.rs:114 \u2014 \\`pub struct ChatPushCapability { ... }\\`\n- crate-jmap-chat-types/src/ \u2014 NO capability struct, NO URI const\n\n**Divergence**: 6 of 8 extension type crates expose capability struct(s) + URI const(s) in their *-types crate (calendars, tasks, contacts, filenode, sharing, metadata). chat is the only extension whose capability struct lives outside its types crate \u2014 it's defined in chat-client/session.rs, which means:\n1. chat-server cannot import \\`ChatCapability\\` without depending on chat-client (an upside-down dependency direction).\n2. Any third-party consumer that builds a session response server-side has to redefine \\`ChatCapability\\` from scratch or hardcode the JSON shape.\n3. The URI string \\`urn:ietf:params:jmap:chat\\` is referenced via doc comments and string literals in 3 different files (chat-server/src/backend.rs:151, chat-client/src/lib.rs, chat-client/src/session.rs) \u2014 no single source of truth.\n\nmail-types has the same omission (no \\`MailCapability\\` / \\`MailAccountCapability\\` / \\`JMAP_MAIL_URI\\` \u2014 see separate finding) but mail's RFC 8621 capability is non-trivial (with \\`maxMailboxesPerEmail\\`, \\`maxMailboxDepth\\`, etc.) whereas chat's two capabilities are simple structs that fit comfortably in chat-types alongside the other 35 chat wire types.\n\n**What goes wrong**:\n1. Today: chat-server has no shared capability type to advertise in a session-response builder. Sibling extension servers (e.g. calendars-server) can use \\`jmap_calendars_types::CalendarsAccountCapability\\` directly.\n2. Tomorrow: when a workspace consumer (kith, stoa, jmapchat-server reference impl) needs the URI const for routing or session-builder logic, they have nothing to import from chat-types and must hardcode the URI string.\n\n**Fix**: move \\`ChatCapability\\` and \\`ChatPushCapability\\` from chat-client/session.rs to chat-types/src/capability.rs. Add \\`pub const JMAP_CHAT_URI: &str = \"urn:ietf:params:jmap:chat\";\\` and \\`pub const JMAP_CHAT_PUSH_URI: &str = \"urn:ietf:params:jmap:chat:push\";\\`. Re-export from chat-client for backward compat.\n\nSibling reference: crate-jmap-calendars-types/src/capability.rs is the canonical layout.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat-types lacks `ChatCapability` struct and `JMAP_CHAT_URI` const; `ChatCapability` lives in chat-client (wrong dependency direction)",
+  "updated_at": "2026-05-17T22:28:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:01:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "cc7aad11-38d7-5669-ad93-a2777138fe64",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

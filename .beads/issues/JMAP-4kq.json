@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-4kq",
+  "title": "Add MailBackend::find_thread_by_message_ids to eliminate O(n) scan in assign_thread",
+  "description": "assign_thread (email.rs) fetches all emails in the account to find a thread match by Message-ID. Fix: add find_thread_by_message_ids(&self, account_id, &[&str]) -> Result<Option<Id>, Self::Error> to MailBackend, implement in MemoryBackend with a scan of only email.message_id fields, and update assign_thread to call it. This is a breaking change to the MailBackend trait \u2014 existing implementors must add the method.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:17:53Z",
+  "updated_at": "2026-05-01T00:21:11Z",
+  "closed_at": "2026-05-01T00:21:11Z"
+}

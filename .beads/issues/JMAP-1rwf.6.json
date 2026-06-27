@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T16:10:03Z",
+  "compaction_level": 0,
+  "content_hash": "95670f8a338cbd8f79a67c9928ace8786f713aa7f4fdaedeec6247e9aed2dc25",
+  "created_at": "2026-05-15T05:20:05Z",
+  "created_by": "Mark Atwood",
+  "description": "Worth defending: src/event.rs:208-218 and src/event.rs:262-273 type recurrenceOverrides and localizations as Option<HashMap<String, jmap_types::PatchObject>> \u2014 a typed PatchObject envelope at the JMAP layer with serde_json::Value leaves inside the PatchObject.\n\nThis is the right answer to a real cross-spec ownership problem: JMAP \u00a75.3 owns the PatchObject envelope shape (a Map<String, *> with JSON-pointer-like keys), while JSCalendar \u00a74.3.2 / \u00a74.6 owns the *leaf* shape (any JSCalendar Event field, recursively). Typing the envelope but not the leaves keeps the JMAP layer honest and leaves consumers room to deserialize specific leaves on demand.\n\nWire format is byte-identical to the prior opaque Option<Value> shape via PatchObject's #[serde(transparent)] \u2014 confirmed by calendar_event_recurrence_overrides_wire_format_is_object_map (tests/types_test.rs:357).\n\nA future contributor or 'simplifier' might suggest:\n  - Reverting to Option<serde_json::Value> for both fields ('simpler') \u2014 would lose the type-level signal that the outer envelope is JMAP PatchObject semantics.\n  - Typing the inner leaves with full JSCalendar field-by-field structs \u2014 would require an exhaustive JSCalendar leaf type that must evolve with both specs and would break partial deserialize.\n\nDefend both choices. The hybrid is correct.\n\nCross-reference: PLAN.md \u00a71, Sloppy-Value workspace policy in workspace AGENTS.md.",
+  "ephemeral": 0,
+  "id": "JMAP-1rwf.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "decision: hybrid Sloppy-Value pattern for recurrenceOverrides and localizations",
+  "updated_at": "2026-05-17T16:10:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:20:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1rwf",
+      "id": "29446e15-531a-537e-a92f-dcd2338c2e94",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

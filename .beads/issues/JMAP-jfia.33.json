@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "SetErrorType::serialize uses s.collect_str(self) \u2014 avoids per-call String allocation. Wire-format identity pinned by existing round-trip test.",
+  "closed_at": "2026-05-14T17:18:51Z",
+  "compaction_level": 0,
+  "content_hash": "9cfb6e7ea1cabec5243e513255b63b742a5a2f02c3ee91ebd467bb0170a52d7a",
+  "created_at": "2026-05-14T16:54:26Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/backend.rs:429-433 \u2014 SetErrorType::serialize is:\n\n  impl serde::Serialize for SetErrorType {\n      fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {\n          s.serialize_str(&self.to_string())\n      }\n  }\n\nEvery serialization allocates a fresh `String` via Display, then passes a borrow of that String to `serialize_str`. The String is dropped immediately after.\n\nFor all the typed variants (23 of 24, all branches except `Custom(s)`), `Display` writes a static `&'static str` literal via `f.write_str(s)`. The Display path could feed `serialize_str` directly with no allocation. The current shape allocates on every wire-format SetError serialize, of which there is roughly one per failing-row in every `/set` response \u2014 i.e. quite a lot.\n\nA serious Rust practitioner reads `s.serialize_str(&self.to_string())` and reaches for `Serializer::collect_str(self)`, which serde provides specifically for this pattern:\n\n  impl serde::Serialize for SetErrorType {\n      fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {\n          s.collect_str(self)\n      }\n  }\n\n`collect_str` takes any `T: Display`, calls `Display::fmt` into a writer that the serializer chooses (often a stack buffer for short strings), and never allocates a heap `String`. For 24 of the 24 SetErrorType variants the result is identical bytes-on-the-wire with zero allocations.\n\nAlternative shape (slightly more code, but transparent):\n\n  impl serde::Serialize for SetErrorType {\n      fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {\n          let lit: &str = match self {\n              Self::Forbidden => \"forbidden\",\n              // ... 22 more arms identical to the Display match ...\n              Self::Custom(s) => s.as_str(),\n          };\n          s.serialize_str(lit)\n      }\n  }\n\nThis duplicates the Display table (also flagged in the workspace AGENTS.md \"no strum / serde_with\" decision) but is mechanically the same cost as the existing Display arm and removes the per-call allocation entirely. The `set_error_type_all_known_variants_round_trip` test already proves Display and Deserialize agree; a per-arm Serialize would join the same drift-detection coverage.\n\nThis is a clippy-class finding (P2 chore, not a P1 idiom defect) because the cost is per-call allocation rather than wrong behaviour. But it is the exact pattern that an experienced Rust reviewer flags on sight \u2014 `serialize_str(&self.to_string())` is the standard \"I forgot serde has collect_str\" smell.\n\nFix is one line:\n\n  -        s.serialize_str(&self.to_string())\n  +        s.collect_str(self)\n\nNo test changes required; the existing round-trip and Custom-variant tests cover the wire-format invariant.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetErrorType::serialize allocates String per call via self.to_string() \u2014 collect_str avoids it",
+  "updated_at": "2026-05-14T17:18:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:54:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "7c71699d-58ca-57d4-871a-64314f45d169",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

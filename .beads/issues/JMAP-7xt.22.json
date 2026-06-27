@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.22",
+  "title": "connect_ws scheme validation before network I/O: SSRF prevention from compromised session document",
+  "description": "connect_ws checks that ws_url starts with ws:// or wss:// before calling into_client_request() or any network code. A compromised or MITM'd session document could supply http:// or file:// as the WebSocket URL; tungstenite would attempt to connect to it, leaking credentials or hitting internal services. The check is a single line but is the only barrier between a tampered session document and SSRF. A contributor might argue it is redundant with tungstenite's own URL validation. It is not: tungstenite's error for a non-ws URL is a generic WebSocket error with no semantic distinction from a network failure; the explicit check makes the rejection clear and occurs before any I/O.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:46Z",
+  "updated_at": "2026-04-30T01:01:58Z",
+  "closed_at": "2026-04-30T01:01:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:46"
+    }
+  ]
+}

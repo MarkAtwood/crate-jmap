@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T05:44:38Z",
+  "compaction_level": 0,
+  "content_hash": "e6243ee473df0e1a141a280b6134b54e48c47bcd33cd723cdb076a18f35d61cf",
+  "created_at": "2026-05-08T03:21:32Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs public structs that are NOT marked `#[non_exhaustive]`:\n- GetResponse<T> (line 29)\n- QueryResponse (line 39)\n- ChangesResponse (line 52)\n- SetResponse<T> (line 69)\n- SetError (line 84)\n- QueryChangesResponse (line 102)\n- AddedItem (line 114)\n- CalendarEventParseResponse (line 132)\n- PrincipalGetAvailabilityResponse (line 150)\n- CalendarEventGetParams (line 165)\n- SessionClient (line 232)\n\nRFC 8620 \u00a73.6, \u00a75.1-\u00a75.5, and the calendars draft all explicitly say servers MAY add response fields. Without `#[non_exhaustive]`, adding a new field to any of these is a SemVer-breaking change for callers who pattern-match exhaustively.\n\nThe recent commit history (`f9a3201 feat: non_exhaustive sweep`) shows this was intentional sweep work \u2014 it apparently didn't reach this crate. jmap-types and jmap-base-client are LOCKED with `#[non_exhaustive]` everywhere; this crate's public API is the gap.\n\nNotably: `AddedItem` is exactly the kind of struct the spec is most likely to grow (recurrence-instance metadata, etc.).\n\nNote: `CalendarEventGetParams` already has 3 fields and the spec adds new ones in subsequent draft versions \u2014 this struct WILL gain fields. Mark it now or pay later.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Public types missing #[non_exhaustive]",
+  "updated_at": "2026-05-08T05:44:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:21:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "b60f2621-80cb-5d18-b319-77fe4aac4150",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "84005600ecc7e08f67dfea09b3952b1c88a9b09bb3190d20f8fea8c3ed233608",
+  "created_at": "2026-05-18T05:30:11Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence** \u2014 per-crate AGENTS.md git-push policy summary:\n- All 8 extension-server AGENTS.md Restrictions sections (e.g. crate-jmap-mail-server/AGENTS.md L140, crate-jmap-chat-server/AGENTS.md L170, etc.) read: 'Push freely \u2014 `git push`, no `pull --rebase` ritual'\n\n**Workspace AGENTS.md** \"Git Commit and Push Policy\" section reads: 'Push freely too: just `git push`. ... If a push is rejected for any reason \u2014 non-fast-forward, network, auth, anything \u2014 **stop and ask the human**. Do NOT run `git pull --rebase`...'\n\n**Drift**: the per-crate summary preserves only the first half of the policy (\"push freely, no pull --rebase ritual\") and not the stop-and-ask-on-rejection safety clause. A contributor reading the per-crate AGENTS.md in isolation might infer \"if push is rejected, just pull --rebase like every other repo\" \u2014 which the workspace AGENTS.md explicitly forbids.\n\n**Maintainer / safety cost**: this is a real safety policy (\"non-fast-forward push has destroyed work in this repo before\" per the workspace AGENTS.md). The summarisation drops the safety-relevant clause from the place a contributor is most likely to read first (per-crate AGENTS.md when working in that crate).\n\n**Fix**: rewrite the 8 sibling AGENTS.md Restrictions push-policy lines to preserve the stop-and-ask-on-rejection clause, or replace the inline summary with a pointer \"see workspace AGENTS.md 'Git Commit and Push Policy' for full rules\". Pure doc sweep.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.42",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "All 8 extension-server AGENTS.md Restrictions sections summarize the workspace git-push policy as 'push freely, no pull --rebase ritual' but drop the workspace AGENTS.md's stop-and-ask-on-rejection clause \u2014 looser policy than the workspace mandates",
+  "updated_at": "2026-05-18T05:30:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:30:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "20f13af9-da93-51a7-9dff-e0f8a5d4f193",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

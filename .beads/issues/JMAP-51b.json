@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-51b",
+  "title": "Review: jmap-server crate",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:51:17Z",
+  "updated_at": "2026-04-30T17:54:05Z",
+  "closed_at": "2026-04-30T17:53:32Z",
+  "notes": "Maintainer risk: LOW \u2014 crate is small (3 files, ~700 lines logic), well-tested with RFC-cited oracles, no public API footguns beyond the documented /set handler createdIds contract. Only live risk is RequestError missing Error impl which limits library ergonomics.\nIdiom rating: CLEAN \u2014 no gratuitous clones, no unwrap-without-comment, correct iterator patterns throughout, two-phase atomic design is idiomatic, HandlerFuture alias is the right approach for async trait objects with Rust 1.75 MSRV.\nConfidence: 10% chance of missed bug. Least confident: json_pointer_ext wildcard behavior on empty arrays (returns Some([]) \u2014 not tested, but likely correct). Uncertainty driven by: not running cargo test against an actual JMAP server for end-to-end validation. Would raise confidence if: integration test with a real JMAP client sending ResultReference requests.\nRust idiom confidence: 5% chance of missed issue. Least confident: JmapHandler::call String params vs Arc<str> \u2014 chose String and it is correct for 'static futures. No issues missed."
+}

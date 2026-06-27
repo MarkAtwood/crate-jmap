@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed: moved accountId no-check explanation from inline comment into the handle_mdn_parse doc comment with RFC 8620 citation",
+  "closed_at": "2026-05-03T13:08:15Z",
+  "compaction_level": 0,
+  "content_hash": "aa457e05d259605499136ffbee5c494105c6dfaaa34d06aefd49ac7bf6c59690",
+  "created_at": "2026-05-03T13:00:50Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mdn_parse step 2 has a comment explaining there is no backend account-existence check: 'No separate backend account-existence check exists in the MailBackend trait; other handlers follow the same pattern and let storage errors surface naturally.' This is correct but the comment is in the middle of the function body where a reviewer scanning for missing validation would not expect it. The comment belongs at the top of the function or in the MailBackend trait doc. An RFC 8620 \u00a75.1 citation would also help readers verify the choice is intentional.",
+  "ephemeral": 0,
+  "id": "JMAP-7a8b.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_mdn_parse omits accountId existence check \u2014 comment explains why but is not discoverable",
+  "updated_at": "2026-05-03T13:08:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:00:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7a8b",
+      "id": "d2cdd8be-4133-5b55-898b-ac38f9762415",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

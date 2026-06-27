@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b0792c0d7376182bac13a71bde8bd2b9bde172b0cc60da693a2d913e3110d7bd",
+  "created_at": "2026-05-18T03:07:17Z",
+  "created_by": "Mark Atwood",
+  "description": "ContactsBackend::supports_type<O>(&self) -> bool (and the analogous MailBackend, ChatBackend, etc. methods in canonical sibling crates) is a sync method with no caller/account_id parameters. The answer is global per backend instance.\n\nJMAP-qz9v.30 documented this limitation in the contacts-server trait rustdoc. This bead tracks the workspace-design question of whether to extend the signature to:\n\n  fn supports_type<O: JmapObject>(\n      &self,\n      caller: &Self::CallerCtx,\n      account_id: &Id,\n  ) -> impl Future<Output = Result<bool, Self::Error>> + Send;\n\nReal use cases that need this:\n- Multi-tenant SaaS where some tenants have contacts disabled or behind a paywall\n- Per-user feature flags (e.g. beta access to a new draft extension)\n- Storage-tier gating (e.g. contacts available for paying users only)\n- Account-type gating (e.g. shared address-book accounts that only support read methods)\n\nCanonical mail-server has the same signature shape \u2014 propagation would touch every extension-server *Backend trait. Workspace-design call.\n\nOpen questions:\n- Is the right layer here the JmapBackend supertrait (so the foundation handles all per-account capability advertisement) or each extension trait?\n- Should the method return Result (storage-checked) or stay bool (fast path)?\n- Is the right home for per-account capability gating at the session-capability-builder layer (outside the trait entirely)?\n\nPre-1.0 (workspace is 0.1.x), so signature breaks are cheap. Post-1.0 this would require a major bump.\n\nP3 because no consumer is currently blocked by the limitation.",
+  "ephemeral": 0,
+  "id": "JMAP-42x7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace design: add caller/account_id to *Backend::supports_type<O> for per-account feature gating",
+  "updated_at": "2026-05-18T03:07:17Z"
+}

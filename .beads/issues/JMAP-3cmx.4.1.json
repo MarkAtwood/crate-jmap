@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "All 4 async tests pass, including onSuccessUpdateEmail wire path and empty-id guard. Clippy clean.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/submission_set.rs: 4 wiremock tests including onSuccessUpdateEmail wire path and guard test; all pass; clippy clean",
+  "closed_at": "2026-05-05T03:49:09Z",
+  "compaction_level": 0,
+  "content_hash": "2cc67cad50df78e60f49709551e7e455ceb8dbdb9372adb9a3c2b84c6647713c",
+  "created_at": "2026-05-05T03:31:31Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-mail-client/tests/submission_set.rs with 4 async wiremock tests for EmailSubmission/set, focusing on the onSuccessUpdateEmail wire path.\n\n**Algorithm:**\n1. Create tests/submission_set.rs.\n2. At top: `#[path = \"helpers.rs\"] mod helpers;`\n3. Implement 4 tests:\n\n**Test 1: email_submission_set_create_round_trip**\n- Mock: POST /api/ \u2192 200, body = SetResponse with created={\"k1490\":{\"id\":\"ES-3bab7f9a\",\"identityId\":\"I64588216\",\"emailId\":\"M7f6ed5bcfd\",\"threadId\":\"T1\",\"envelope\":null,\"sendAt\":\"2024-06-15T10:00:00Z\",\"undoStatus\":\"final\",\"deliveryStatus\":null,\"dsnBlobIds\":[],\"mdnBlobIds\":[]}}, notCreated=null.\n- Call: sc.email_submission_set(Some(serde_json::json!({\"k1490\":{\"identityId\":\"I64588216\",\"emailId\":\"M7f6ed5bcfd\"}})), None, None, None, None).await\n- Assert: resp.created.as_ref().unwrap()[\"k1490\"].id.as_ref()==\"ES-3bab7f9a\", resp.not_created.is_none().\n- Oracle: RFC 8621 \u00a77.5 response example (lines 4715-4724).\n\n**Test 2: email_submission_set_on_success_update_email**\n- Mock: POST /api/ \u2192 200, body = SetResponse (created, no notCreated).\n- Params: EmailSubmissionSetParams { on_success_update_email: Some(serde_json::json!({\"#k1490\":{\"keywords/\":null}})), on_success_destroy_email: None }\n- Call: sc.email_submission_set(Some(create_val), None, None, None, Some(params)).await\n- Inspect request body: assert methodCalls[0][1][\"onSuccessUpdateEmail\"] is an object, assert methodCalls[0][1][\"onSuccessUpdateEmail\"][\"#k1490\"] is an object.\n- Assert: the key \"#k1490\" is present (the # prefix is a literal part of the wire key, not a protocol escape).\n- Oracle: RFC 8621 \u00a77.5 request example lines 4675-4689 \u2014 onSuccessUpdateEmail with creation reference \"#k1490\".\n\n**Test 3: email_submission_set_no_on_success_when_none**\n- Mock: POST /api/ \u2192 200, body = minimal valid SetResponse.\n- Call: sc.email_submission_set(None, None, None, None, None).await\n- Inspect request body: assert methodCalls[0][1] does NOT contain key \"onSuccessUpdateEmail\", does NOT contain key \"onSuccessDestroyEmail\".\n- Assert: resp deserialization succeeds.\n- Oracle: RFC 8621 \u00a77.5 \u2014 these fields are optional method args, absent when not requested.\n\n**Test 4: email_submission_set_destroy_with_empty_id_guard**\n- No mock needed \u2014 this test exercises the pre-flight guard, not the network.\n- Call sc.email_submission_set(None, None, Some(vec![\"\"]), None, None).await\n- Assert: returns Err(ClientError::InvalidArgument(_)).\n- Use matches!() macro to assert the specific error variant.\n- Oracle: implementation guard in submission.rs (empty destroy element \u2192 InvalidArgument).\n\n**Defensive programming rules:**\n- Test 2 asserts the specific key \"#k1490\" (with # prefix) \u2014 do not generalize to \"any key\"\n- Test 4 asserts the specific error variant ClientError::InvalidArgument, not just is_err()\n- All fixture response bodies are hand-written literals; no value is taken from a prior test run\n- Use .expect() with messages, not bare unwrap()\n\n**Acceptance criteria:**\n- cargo test -p jmap-mail-client submission_set exits 0 (all 4 tests pass)\n- Clippy clean.",
+  "ephemeral": 0,
+  "id": "JMAP-3cmx.4.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "tests/submission_set.rs: 4 wiremock tests",
+  "updated_at": "2026-05-05T03:49:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:32:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx.2.1",
+      "id": "1cfe09d7-c441-5993-a7b5-18ca78bab96d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:31:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx.4",
+      "id": "40768084-011c-5de7-bbe7-8b95288d2af7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T20:31:46Z",
+  "compaction_level": 0,
+  "content_hash": "6b093fccea4c0a8c709cb8f229205a2824e03ae420a03c240e076fba14d75269",
+  "created_at": "2026-05-14T19:43:31Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:521-526:\n\n    let start = if position >= 0 {\n        (position as usize).min(ids.len())\n    } else {\n        let neg = position.saturating_neg() as usize;\n        ids.len().saturating_sub(neg)\n    };\n\nThree `as` casts that clippy::pedantic flags:\n\n1. (position as usize) where position is i64 \u2265 0 \u2014 fine on 64-bit, but truncates to 32 bits on a 32-bit target (cast_possible_truncation).\n2. position.saturating_neg() as usize \u2014 for position == i64::MIN, saturating_neg() returns i64::MAX, so `as usize` is i64::MAX truncated to u32 on 32-bit (cast_sign_loss + cast_possible_truncation). The i64::MIN edge case is genuinely reachable: a client can send any i64 in the query \"position\" arg per RFC 8620 \u00a75.5.\n3. ids.len() is usize. Even on 64-bit, the saturating_sub on usize is correct; the bug is purely on the cast.\n\nIdiomatic Rust would use usize::try_from or saturate at the conversion boundary:\n\n    let start = if position >= 0 {\n        usize::try_from(position).unwrap_or(usize::MAX).min(ids.len())\n    } else {\n        let neg = usize::try_from(position.saturating_neg()).unwrap_or(usize::MAX);\n        ids.len().saturating_sub(neg)\n    };\n\n\u2026or, cleaner, the entire computation can be done on i64 first and converted at the end. The `position: i64` parameter type is itself the smell \u2014 RFC 8620 says position can be negative-meaning-from-end, which is a tiny domain that fits in i32, but the workspace exposes it as i64.\n\nEngineering cost: only fires on 32-bit targets or on the i64::MIN edge case. Real cost in idiom: this is the textbook example of `as` casts that should be try_into. The jmap-server canonical handle_query helpers may already do the bounds check before reaching the backend \u2014 verify before fixing.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.48",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "query_objects: 'position.saturating_neg() as usize' truncates on 32-bit and on i64::MIN",
+  "updated_at": "2026-05-17T20:31:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:43:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "fa67eec8-6b9a-54fb-a270-76d6f12e685d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

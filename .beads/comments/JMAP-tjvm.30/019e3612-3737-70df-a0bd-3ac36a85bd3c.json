@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T13:13:44Z",
+  "id": "019e3612-3737-70df-a0bd-3ac36a85bd3c",
+  "issue_id": "JMAP-tjvm.30",
+  "text": "Bead has 'underspecified' label and body says 'Possible the override was deliberate to support a future multi-account SessionClient design.' Design intent is unclear; removing the override would break the API. Labeling human until intent is clarified."
+}

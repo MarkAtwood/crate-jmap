@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-5tq.7",
+  "title": "Auth/transport separation is correct and should be defended",
+  "description": "TransportConfig (TLS/trust-root) and AuthProvider (per-request credentials) are independent traits that compose freely. A contributor might suggest merging them into one 'client config' trait to reduce the API surface. They should not: the separation enables CustomCaTransport + BearerAuth, DefaultTransport + BasicAuth, etc., without combinatorial implementations. Merging would either force a CartesianProduct of impls or remove the ability to mix them.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:43:16Z",
+  "updated_at": "2026-04-30T06:51:18Z",
+  "closed_at": "2026-04-30T06:51:18Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-5tq",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:43:16"
+    }
+  ]
+}

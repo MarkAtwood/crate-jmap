@@ -1,0 +1,32 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:20:13Z",
+  "compaction_level": 0,
+  "content_hash": "40409ee1dcfebef2e7879a370352b9fa35145e74536ccdf607a34d0d8e88e199",
+  "created_at": "2026-05-05T01:16:45Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-3a4e.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "src/string_enum.rs \u2014 copy from jmap-mail-types",
+  "updated_at": "2026-05-05T01:20:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:16:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3a4e",
+      "id": "ab1a5111-fc92-50a4-a06f-c99de6172a5e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

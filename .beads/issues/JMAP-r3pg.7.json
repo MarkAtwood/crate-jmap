@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T05:30:50Z",
+  "compaction_level": 0,
+  "content_hash": "66c8fe3d909d44cc8a31f23fda20ecd13f2d942e705ae174d84f02643d68ed05",
+  "created_at": "2026-05-08T03:31:30Z",
+  "created_by": "Mark Atwood",
+  "description": "PLAN.md \u00a76 (lines 184-193) describes the onSuccessSetIsDefault behaviour:\n- After a successful Calendar/set (all creates/updates/destroys succeeded), if onSuccessSetIsDefault is a valid Calendar id, the handler calls set_default_calendar on the backend\n- ParticipantIdentity/set has the same pattern via onSuccessSetIsDefault\n- The PLAN names backend methods set_default_calendar and set_default_participant_identity\n\nNeither method exists on CalendarsBackend (src/backend.rs has no such methods). The /set handlers do not parse onSuccessSetIsDefault from args. grep -rn 'onSuccessSetIsDefault\\|set_default' crate-jmap-calendars-server/src returns nothing.\n\nSpec basis: draft-ietf-jmap-calendars-26 \u00a73.3 (ParticipantIdentity/set) and the implied Calendar/set semantics referenced by PLAN. Cross-check the spec before implementing \u2014 Calendar/set onSuccessSetIsDefault is not on a quick search of the draft text and may be a PLAN.md hallucination; ParticipantIdentity/set onSuccessSetIsDefault is in \u00a73.3.\n\nAction: (1) confirm against draft text whether Calendar/set actually has onSuccessSetIsDefault; (2) confirm ParticipantIdentity/set \u00a73.3 wire form; (3) implement whichever the spec requires; (4) add tests using the spec example JSON as oracle.\n\nWire impact: a client that uses onSuccessSetIsDefault gets back a /set response that does not flip the default \u2014 likely caught by a follow-up /get showing the wrong default. Annoying but not silent corruption.\n\nTest gap: no inline test exercises any onSuccessSetIsDefault path.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Calendar/set and ParticipantIdentity/set onSuccessSetIsDefault unimplemented (PLAN.md \u00a76)",
+  "updated_at": "2026-05-08T05:30:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:31:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "fa81e40f-ea14-5b41-a108-dfff6f0d1352",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

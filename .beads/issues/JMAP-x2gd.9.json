@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "6f5644e6a0c14dd0bd7f1208fd80292b84d28bdb9ee6564c45c8e82aa8917210",
+  "created_at": "2026-05-14T03:13:39Z",
+  "created_by": "Mark Atwood",
+  "description": "Sites:\n- crate-jmap-chat-server/src/invite.rs:20-58 (handle_invite_get)\n- crate-jmap-chat-server/src/ban.rs:21-59 (handle_ban_get)\n\ndraft-atwood-jmap-chat-00:\n- \u00a7SpaceInvite/get (line 1282-1284): 'Only members of the Space may retrieve its invites. Members with manage_members permission see all invites; other members see only invites they created.'\n- \u00a7SpaceInvite/changes (line 1286-1288): same rules.\n- \u00a7SpaceBan/get (line 1302-1304): 'Members with ban permission in the Space see all SpaceBan records for that Space. A banned user fetching their own account sees only SpaceBan records where userId matches their own identity.'\n\nBoth handlers do a plain backend.get_objects::<T>(caller, account_id, ids, None) and return the full list. The MemoryBackend's generic get_objects performs no visibility scoping. So any caller with JMAP access to the account sees every SpaceInvite or SpaceBan stored under that account, regardless of:\n- which Space the invite/ban belongs to,\n- whether the caller is a member of that Space,\n- whether the caller holds manage_members / ban / is the invite owner / is the ban target.\n\nSecurity impact:\n- SpaceInvite codes are credentials. The handler leaks invite codes for any Space the caller doesn't otherwise have permission to access. A non-member can SpaceInvite/get a Space's invite list and use any of those codes to join.\n- SpaceBan records leak the identities of banned users to non-privileged callers (and the ban reasons, which may be sensitive).\n\nFix: each /get handler post-filters the returned list per spec rules. Workspace backend-canonical policy says the backend should be the source of truth, but the kit can layer a defense-in-depth handler-side filter that calls backend.member_effective_permissions (a new sync-friendly read helper) and B::principal_id(caller) to project the allowed set.\n\nFor changes / queryChanges, the same filter must be applied to created/updated/destroyed id arrays \u2014 a caller who lost visibility to an invite/ban should not see its id in /changes either, otherwise the rate of new invites in a Space leaks.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.9",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "SpaceInvite/get + SpaceBan/get return all account records, ignoring per-spec visibility scoping",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:02:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd.3",
+      "id": "0412c938-be40-5db5-861c-c77efb369afc",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-13T20:13:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "0f969fbe-fd0f-51b2-88a7-f16d8aaf56b1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

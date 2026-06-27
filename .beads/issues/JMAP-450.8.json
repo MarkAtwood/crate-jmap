@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-450.8",
+  "title": "filter_properties is O(n*m): Vec::contains for each property key",
+  "description": "email.rs:543-547 \u2014 for each key in the object, properties.contains(k) does a linear scan of the properties Vec. With P properties and K object keys: O(P*K) per email. For Email/get with 26 properties and 100 emails, that's 2600 comparisons per call. Fix: convert properties slice to a HashSet before iterating the map.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:34:55Z",
+  "updated_at": "2026-04-30T21:50:27Z",
+  "closed_at": "2026-04-30T21:50:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-450",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:34:55"
+    }
+  ]
+}

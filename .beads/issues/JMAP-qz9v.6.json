@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "MemoryBackend.create_object and update_object now enforce RFC 9610 \u00a73 uid uniqueness within an Account. New account_has_card_with_uid helper scans for a matching uid (self-excluded on update so no-op patches succeed). Failure: SetError(InvalidProperties).with_properties(['uid']). Cross-account same-uid IS allowed (per-Account scope). Implementation in commit b0a868d. 5 new integration tests cover the cases.",
+  "closed_at": "2026-05-15T10:14:03Z",
+  "compaction_level": 0,
+  "content_hash": "c4bd90a398816e9f14f6dbef30281217094b8b11eb1a192ef80b6e5f28381651",
+  "created_at": "2026-05-14T19:20:24Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: ContactCard/set create two entries with the same uid in one /set call, or create one and then create another with the same uid in a later call.\n\nBad behavior: RFC 9610 \u00a73 states 'there MUST NOT be more than one ContactCard with the same uid in an Account.' handle_contact_card_set has no uid-uniqueness check. MemoryBackend.create_object likewise just stores the JSON. The result: two cards with the same uid coexist in one account, violating the spec.\n\nThe standard SetError type for this is 'invalidProperties' on the uid field (or arguably a custom 'uidExists', though \u00a73 doesn't define one). The closest spec-defined SetError is 'invalidProperties' per RFC 8620 \u00a75.3.\n\nMitigations: backends are canonical for enforcement, so the handler legitimately defers; but the reference MemoryBackend SHOULD enforce uniqueness so the integration tests model the spec contract correctly, and so contributors studying the reference impl see the invariant maintained. Otherwise the reference impl is a misleading model.\n\nTest gap: no integration test attempts to create duplicate-uid cards. Adding one would have caught this immediately.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactCard uid uniqueness within an Account is not enforced by handler or MemoryBackend",
+  "updated_at": "2026-05-15T10:14:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:20:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "b71e054e-2a8f-51c6-b611-dbceb9ae33f0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

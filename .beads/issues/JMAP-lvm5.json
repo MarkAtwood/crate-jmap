@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "df9c477218a6f1275753b8d80a5a51602af6ea0b24d7bafc6a2763fd92ea6f01",
+  "created_at": "2026-05-17T20:45:47Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace canonical-template propagation follow-up to bd:JMAP-qz9v.29 (contacts-server, closed now).\n\nThe 'Sentinel fields the backend MUST replace' rustdoc subsection on create_object trait method is canonical-pattern infrastructure in jmap-mail-server (the workspace canonical). Audit at HEAD:\n\n| Sibling | Has `Sentinel fields` doc on create_object |\n|---|---|\n| jmap-mail-server | YES (canonical) |\n| jmap-chat-server | yes |\n| jmap-calendars-server | yes |\n| jmap-contacts-server | YES (just landed) |\n| jmap-tasks-server | NO |\n| jmap-metadata-server | NO |\n| jmap-sharing-server | NO |\n| jmap-filenode-server | NO |\n\nPROPAGATE: port the section to the four siblings that lack it. Canonical text at crate-jmap-mail-server/src/backend.rs:64-87 plus the just-landed contacts-server adaptation at crate-jmap-contacts-server/src/backend.rs:42-79.\n\nPer-sibling adaptations:\n- **tasks-server**: TaskList / Task / TaskNotification \u2014 sentinels likely match contacts (just `id` = \"placeholder\"). Verify against handler call sites (`grep -n placeholder crate-jmap-tasks-server/src/`).\n- **metadata-server**: Metadata / Annotation \u2014 sentinels likely match. Verify same way.\n- **sharing-server**: Principal / ShareNotification \u2014 likely just `id` = \"placeholder\". Verify.\n- **filenode-server**: FileNode \u2014 likely has `id` = \"placeholder\" AND potentially `blob_id` = \"placeholder-blob\" matching the Email mail-server analog. Verify.\n\nFor each sibling: the doc text mirrors contacts-server (or mail-server when there are blob_id sentinels). The list of sentinels MUST match the handler's actual or_insert_with(Value::String(...)) calls \u2014 do not document sentinels that don't exist; do not omit sentinels that do.\n\nPure-rustdoc change, no code. P3 because failure mode is backend-implementor reads incomplete trait doc and ships a record reachable by the real id but carrying `id == \"placeholder\"` in its serialized form \u2014 a class of bug a careful reader of the existing handler source would catch, but the trait doc shouldn't depend on careful reading.\n\nCross-reference: bd:JMAP-qz9v.29 (contacts close), bd:JMAP-qz9v.13 (the handler-side placeholder mechanic that this trait-level contract supports).",
+  "ephemeral": 0,
+  "id": "JMAP-lvm5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Propagate 'Sentinel fields the backend MUST replace' rustdoc to tasks/metadata/sharing/filenode backend traits",
+  "updated_at": "2026-05-17T20:45:47Z"
+}

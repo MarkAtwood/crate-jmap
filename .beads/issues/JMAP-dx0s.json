@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "0bef217510397dcefab0cbe693cb14ceb5588648a44c3114d2d33d35fa2a0b7e",
+  "created_at": "2026-05-18T03:03:37Z",
+  "created_by": "Mark Atwood",
+  "description": "JMAP-qz9v.17 added `debug_assert!(!account_id.is_empty(), ...)` to crate-jmap-contacts-server's MemoryBackend::register_account (and the contacts-specific with_account convenience). The canonical jmap-mail-server (crate-jmap-mail-server/src/memory/mod.rs:292) and other extension-server siblings have the same gap.\n\nMail-server takes `&Id` (no internal Id::from call), so the gap is reachable via callers who pass an empty Id externally \u2014 same latent bug, slightly different exposure surface.\n\nPropagation needed across:\n- crate-jmap-mail-server (canonical)\n- crate-jmap-chat-server\n- crate-jmap-calendars-server\n- crate-jmap-tasks-server\n- crate-jmap-filenode-server\n- crate-jmap-sharing-server\n- crate-jmap-metadata-server\n\nMechanical: add `debug_assert!(!account_id.as_ref().is_empty(), \"register_account: account_id must not be the empty string\")` at the top of each MemoryBackend::register_account. P3 because the surface is test-only (`feature = \"memory\"`) and debug-only (the assert is removed in release).",
+  "ephemeral": 0,
+  "id": "JMAP-dx0s",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace sweep: add empty-id debug_assert on MemoryBackend::register_account across extension-server siblings",
+  "updated_at": "2026-05-18T03:03:37Z"
+}

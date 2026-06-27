@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "736ba3563c5fee8543be019ab48febac79392e0c3f6c72eaa24686584fee8c9f",
+  "created_at": "2026-05-17T12:04:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Discovered while running pre-commit gates for JMAP-1j9k.1 (calendars-types Calendar.id/ParticipantIdentity.id Option<Id> fix).\n\ncargo clippy --workspace --all-targets -- -D warnings fails on:\n\n  error: the borrowed expression implements the required traits\n     --> crate-jmap-metadata-types/tests/metadata_types.rs:195:43\n      |\n  195 |     let round_trip = serde_json::to_value(&Metadata::Annotation(ann)).unwrap();\n      |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: change this to: Metadata::Annotation(ann)\n      |\n      = note: -D clippy::needless-borrows-for-generic-args implied by -D warnings\n\nVerified pre-existing: git stash then re-run produces the same error against HEAD (c13f2a2). The clippy version is rust-1.95.0; the new lint variant tightened in a recent toolchain rollover.\n\nFix: remove the leading & on the Metadata::Annotation(ann) argument. serde_json::to_value takes &T so passing an owned value works via auto-ref; the explicit & is redundant.\n\nBlocks workspace pre-commit gate. Out of scope for JMAP-1j9k.1; filing separately.",
+  "ephemeral": 0,
+  "id": "JMAP-o523",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Pre-existing clippy needless_borrows_for_generic_args at crate-jmap-metadata-types/tests/metadata_types.rs:195",
+  "updated_at": "2026-05-17T12:04:13Z"
+}

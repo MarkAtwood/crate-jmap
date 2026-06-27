@@ -1,0 +1,33 @@
+{
+  "closed_at": "2026-05-14T22:26:57Z",
+  "compaction_level": 0,
+  "content_hash": "c8157f65e78c94ad4fe19540be9d5d575c911242aabe564d9f48427651744125",
+  "created_at": "2026-05-14T21:52:09Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/notification.rs:78-100 enforces RFC 9670 \u00a73.3 ('only destroy is supported') at the HANDLER layer: every entry in create_map and update_map gets a SetError::Forbidden response without touching the backend. The doc comment at notification.rs:46-51 explicitly cites RFC 9670 \u00a73.3.\n\nWhy this should be defended: a contributor reviewing the PLAN.md \u00a72 'ShareNotification/set rejects creates and updates in the handler layer' might suggest pushing this enforcement into the backend trait for symmetry with Principal/set ('all permission decisions live in the backend'). That suggestion is wrong here. The RFC 9670 \u00a73.3 rule is a PROTOCOL constraint on the ShareNotification object type, not a permission/policy decision. Every backend that handles ShareNotification has the SAME constraint. Putting it in every backend impl means 6 places to forget it; putting it in the handler is the spec contract being honored once.\n\nThis is also consistent with how VacationResponse is handled in jmap-mail-server (per PLAN.md \u00a72 cross-reference).\n\nTest coverage that locks this in: notification.rs:209-272 (set_create_returns_forbidden_not_created, set_update_returns_forbidden_not_updated). Removing the handler-layer check would break those tests immediately.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Existing design defended \u2014 no code change needed. The handler-layer 'forbidden' enforcement for ShareNotification create/update is documented at notification.rs:46-51 with explicit RFC 9670 \u00a73.3 citation, and locked in by tests set_create_returns_forbidden_not_created and set_update_returns_forbidden_not_updated. The defense bead exists to flag a future contributor's potential 'push it to the backend for symmetry' suggestion; the current shape is correct because RFC 9670 \u00a73.3 is a protocol constraint on the object type, not a per-backend policy. (The .30 destroy-array refactor in this same epic preserves the handler-layer shape.)",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Handler-layer 'forbidden' enforcement in ShareNotification/set with explicit RFC 9670 \u00a73.3 citation",
+  "updated_at": "2026-05-14T22:26:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:52:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "dee1c7dd-1d53-5d7e-90a4-76e861ae5985",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

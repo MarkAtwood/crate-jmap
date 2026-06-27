@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-drv.7",
+  "title": "#[forbid(unsafe_code)] at crate root \u2014 non-negotiable",
+  "description": "A JMAP client does I/O, processes untrusted server data, and is used in async context. #[forbid(unsafe_code)] eliminates an entire class of soundness bugs. A future contributor adding a fast path for SIMD parsing or zero-copy buffer manipulation will suggest removing this. Do not. The performance upside of unsafe in this crate is near zero; the risk is not.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:37:07Z",
+  "updated_at": "2026-04-30T16:45:50Z",
+  "closed_at": "2026-04-30T16:45:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-drv",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:37:06"
+    }
+  ]
+}

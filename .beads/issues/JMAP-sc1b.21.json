@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:58:35Z",
+  "compaction_level": 0,
+  "content_hash": "6b4786c492aa0fca890bd4db74a2060a2ca800f95e2f41d110fbb2f05accc850",
+  "created_at": "2026-05-07T20:29:11Z",
+  "created_by": "Mark Atwood",
+  "description": "Two crates declare Cargo features that are not described anywhere in user-facing docs:\n\n- jmap-mail-types/Cargo.toml: `mdn = []`, `sieve = []`\n- jmap-mail-server/Cargo.toml: `mdn = [\"jmap-mail-types/mdn\"]`, `sieve = [\"jmap-mail-types/sieve\"]`\n\nNeither README documents what the features enable, what RFC they correspond to (RFC 9007 / RFC 9661), or how to opt in.\n\ncrates.io renders feature flags on the package page but users still expect README guidance.\n\nRelated to JMAP-sc1b.X (mail-types README) and JMAP-sc1b.X (mail-server README) \u2014 fold this into those if more efficient, or keep separate as a feature-flag-doc consistency item.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: mdn and sieve Cargo features declared but undocumented in any README",
+  "updated_at": "2026-05-07T21:58:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "8c46139a-ca73-518a-a1e5-4d5d97ddb1f3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

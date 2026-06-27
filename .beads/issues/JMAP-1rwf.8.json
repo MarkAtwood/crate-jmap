@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T16:06:50Z",
+  "compaction_level": 0,
+  "content_hash": "0e311a2ee4c50ed2c11ab1ced01bcd3409635ddacac9d06b5ee3227268286c51",
+  "created_at": "2026-05-15T05:20:26Z",
+  "created_by": "Mark Atwood",
+  "description": "Worth defending: the AlertTrigger enum in jmap-jscalendar-types (re-exported here at lib.rs:64-68) carries an Unknown(serde_json::Value) catch-all variant in addition to OffsetTrigger and AbsoluteTrigger.\n\nRFC 8984 \u00a74.5.2 normatively says: 'Implementations MUST NOT trigger for trigger types they do not understand but MUST preserve them.' The Unknown variant is exactly what makes that preservation possible \u2014 without it, a deserialize of an unknown @type would either fail or silently drop, both of which violate the spec MUST.\n\nA future contributor doing an 'enum hygiene' pass might:\n  - Remove the Unknown variant ('exhaustive enums are cleaner').\n  - Replace it with #[serde(other)] ('idiomatic Rust').\n  - Add #[serde(deny_unknown_fields)] to the enum.\n\nAll three would break round-trip preservation. The verifying test is alert_unknown_trigger_roundtrip (tests/types_test.rs:798-820).\n\nCross-reference: workspace AGENTS.md 'Extras-preservation policy' for the forward-compat catch-all pattern. AlertTrigger is the type-tagged-enum case of the same policy applied to data-shape unions instead of string enums.",
+  "ephemeral": 0,
+  "id": "JMAP-1rwf.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "decision: AlertTrigger::Unknown(Value) for forward-compat per RFC 8984 \u00a74.5.2",
+  "updated_at": "2026-05-17T16:06:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:20:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1rwf",
+      "id": "2f32b3d9-1027-5052-a03c-9f37a6121696",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

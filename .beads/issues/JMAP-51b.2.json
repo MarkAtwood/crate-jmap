@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-51b.2",
+  "title": "RequestError missing std::error::Error impl",
+  "description": "RequestError has only #[derive(Debug)], no Display or Error impl. Library users who want to use ? to chain RequestError with other errors (e.g., in axum handlers returning Result<Response, Box<dyn Error>>) cannot do so. The From<JmapError> for RequestError already half-commits to error-propagation ergonomics; missing Error impl is an incomplete story. Fix: add Display (e.g., 'JMAP request error {type}: {description}') and impl std::error::Error.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:53:34Z",
+  "updated_at": "2026-04-30T17:57:05Z",
+  "closed_at": "2026-04-30T17:57:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-51b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:53:33"
+    }
+  ]
+}

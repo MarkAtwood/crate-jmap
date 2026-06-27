@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied option (a) bilateral cross-reference: extension_fields docstring now explicitly states it generates MIME-level headers on the disposition-notification part (e.g. X-AcmeCorp-Tracking), with explicit pointer to Self::extra for JMAP-level vendor fields. Worked example included in both docs. extra docstring already had the cross-reference; tightened it to specify the JMAP-only nature of those fields (e.g. acmeCorpSendPriority that never leaves JMAP). RUSTDOCFLAGS='-D warnings' cargo doc clean.",
+  "closed_at": "2026-05-17T15:20:32Z",
+  "compaction_level": 0,
+  "content_hash": "6156ef50b2562dce00eff2745d4f757bf983b9fc0c8bf55d860e419a0f274800",
+  "created_at": "2026-05-15T04:57:10Z",
+  "created_by": "Mark Atwood",
+  "description": "## Caller contract risk: two semantically-distinct catch-all fields with similar-looking names.\n\n\\`Mdn\\` (RFC 9007) carries two adjacent fields that look like \\\"extension data\\\" to a casual reader but mean very different things on the wire:\n\n\\`\\`\\`rust\npub struct Mdn {\n    // ...\n    /// Extension fields from the MDN.\n    ///\n    /// Wire name is \\`extensionFields\\` per RFC 9007 \u00a72 (normative).\n    /// The \u00a73.1 example incorrectly uses \\`extension\\`; the \u00a72 definition is authoritative.\n    #[serde(skip_serializing_if = \\\"Option::is_none\\\")]\n    pub extension_fields: Option<HashMap<String, String>>,\n\n    /// Catch-all for vendor / site / private extension fields not covered\n    /// by the typed fields above. [...]\n    /// Distinct from RFC 9007 \\`extensionFields\\` above: that field carries\n    /// RFC 9007-defined MDN extension headers; \\`extra\\` captures JMAP-level\n    /// vendor / site fields on the \\`Mdn\\` object itself.\n    #[serde(flatten, default, skip_serializing_if = \\\"serde_json::Map::is_empty\\\")]\n    pub extra: serde_json::Map<String, serde_json::Value>,\n}\n\\`\\`\\`\n\nThe two fields are:\n\n| Field | Wire shape | Purpose |\n|---|---|---|\n| \\`extension_fields\\` (\\`extensionFields\\`) | inner object value | RFC 9007 \u00a72 MDN-protocol extension headers \u2014 these go on the MIME-level MDN |\n| \\`extra\\` (flattened) | sibling keys on the Mdn JSON object | Workspace vendor / site catch-all on the JMAP wire shape |\n\nA caller who wants to attach a vendor MDN header (e.g. \\`X-AcmeCorp-Tracking: abc123\\`) reads the doc comment for \\`extra\\` (\\\"vendor / site / private extension fields\\\") and reasonably concludes that's where vendor extensions go. Wrong: that adds a key to the JMAP \\`Mdn\\` JSON object, which the server then has to special-case to translate into a MIME header \u2014 and most servers won't. The correct field is \\`extension_fields\\`.\n\nA caller who wants to attach a vendor JMAP-level field (e.g. \\`acmeCorpSendPriority: \\\"high\\\"\\` for server-side dispatch hint) reads the doc comment for \\`extension_fields\\` (\\\"Extension fields from the MDN\\\") and reasonably concludes that's where extensions go. Wrong: that adds an MDN-protocol header field.\n\n### Why the existing doc disambiguation is insufficient\n\nThe current doc on \\`extra\\` does include the cross-reference (\\\"Distinct from RFC 9007 \\`extensionFields\\` above...\\\"). But:\n\n1. The disambiguation lives only on the \\`extra\\` side. A caller starting from \\`extension_fields\\` does not see it.\n2. The two fields are listed back-to-back, which visually reinforces the \\\"both catch-alls\\\" reading.\n3. Neither doc gives an example of when to use which.\n\n### Two ways to harden\n\na. **Bilateral cross-reference**: add a \\\"See also: \\[\\`extra\\`\\] for JMAP-level vendor fields on this object\\\" line to the \\`extension_fields\\` docstring, mirroring the existing \\\"Distinct from RFC 9007 \\`extensionFields\\`\\\" line on \\`extra\\`.\n\nb. **Worked example** in both docs: 1 line of Rust showing the right field for a representative caller (one vendor MDN header, one vendor JMAP field).\n\nThis is the only Mdn-family type where this collision exists, but the pattern (RFC-defined extension-headers field adjacent to workspace-policy \\`extra\\`) could recur in future extensions \u2014 flagging now sets a docs convention.",
+  "ephemeral": 0,
+  "id": "JMAP-zx3s.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mdn.extension_fields (RFC 9007 MDN headers) and Mdn.extra (workspace vendor catch-all) are adjacent confusable fields",
+  "updated_at": "2026-05-17T15:20:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:57:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zx3s",
+      "id": "7bb96a2f-6af7-56dc-aa76-e47a89fa7ed9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-he4",
+  "title": "Rusty review pass 3: jmap-client",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:24:56Z",
+  "updated_at": "2026-04-30T01:31:47Z",
+  "closed_at": "2026-04-30T01:31:47Z",
+  "notes": "Targeted question answers:\n1. |&s| s.to_owned() in request.rs:44 \u2014 IDIOMATIC. Correct pattern for converting &&str from .iter() into String.\n2. b.is_ascii_hexdigit() in blob.rs:274 \u2014 FUNCTIONALLY CORRECT but contract mismatch with doc comment (see JMAP-he4.2). The predicate itself is idiomatic.\n3. char::from(byte) in blob.rs:85 \u2014 CORRECT for ASCII-only branch (guard ensures byte < 128). char::from(u8) is defined for all u8; it's safe here. Slightly less idiomatic than char::from in hex_digit context (see JMAP-he4.4).\n4. [(&str,&str);4] coercing to &[(&str,&str)] in blob.rs:208-216 \u2014 CORRECT. Array deref coercion to slice is idiomatic and compiles correctly.\n5. Remaining .to_string() on literals \u2014 3 in production code (JMAP-he4.1), several in tests (JMAP-he4.5).\n6. New clippy issues from changes \u2014 3 confirmed str_to_string violations (JMAP-he4.1). clippy passes clean at default lint level.\nIdiom rating: ACCEPTABLE \u2014 The code is structurally sound and mostly idiomatic. The public API has one clear improvement opportunity (AuthProvider returning String instead of &str forces a clone on every request). The validate_sha256_format doc/predicate mismatch is a real P1 clarity issue. Three clippy str_to_string hits in production code are the most mechanical fix.\nRust idiom confidence: 85% chance of missed issue. Least confident flags: JMAP-he4.3 (auth_header lifetime change is a public API break \u2014 may be intentionally deferred). Uncertainty driven by: did not see error.rs or push.rs; no visibility into whether ClientError derives are complete; could not run cargo check --all-features to verify feature-gated paths."
+}

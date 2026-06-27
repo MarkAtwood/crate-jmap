@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.4",
+  "title": "bytes.len() as u64 cast: silent truncation on 32-bit targets (usize < u64)",
+  "description": "blob.rs and client.rs: bytes.len() returns usize. The cast 'bytes.len() as u64' is safe on 64-bit targets because usize == u64, but on 32-bit targets usize is 32 bits. A body of more than 4 GiB would truncate silently. In practice reqwest will exhaust memory before returning a 4 GiB Bytes, so this cannot be triggered as written. However, the correct idiomatic cast is 'u64::try_from(bytes.len()).unwrap_or(u64::MAX)' or simply relying on the fact that the limit check itself prevents >limit bytes. This is at minimum misleading: the check 'if bytes.len() as u64 > download_limit' on a 32-bit target would silently pass for a body larger than u32::MAX, defeating the cap. The crate does not declare a 64-bit-only target requirement. File as correctness because it is a real bug on 32-bit targets even if the practical risk is low.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:33:44Z",
+  "updated_at": "2026-04-30T01:42:51Z",
+  "closed_at": "2026-04-30T01:42:51Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:33:43"
+    }
+  ]
+}

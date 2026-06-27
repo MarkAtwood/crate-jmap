@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:55:08Z",
+  "compaction_level": 0,
+  "content_hash": "83f95ee6604cf249763806a780609b7df7f42931c2553d95d15ec96336016738",
+  "created_at": "2026-05-02T00:44:33Z",
+  "created_by": "Mark Atwood",
+  "description": "register_mail_handlers registers handlers via ClosureHandler which receives caller: C in JmapHandler::call but does not pass it to the handler closure. The CLAUDE.md says auth is the caller's responsibility, but the mechanism to pass auth context into a handler is present in the type signature and silently dropped. A contributor trying to use C for per-request auth will find it does nothing and may assume the design is complete.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "caller context C is wired into JmapHandler but silently discarded by ClosureHandler",
+  "updated_at": "2026-05-02T00:55:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:44:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "aa7e3f8c-3102-5d65-a894-47cabf1fd980",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

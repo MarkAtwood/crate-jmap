@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-fg8.2",
+  "title": "EmailSubmissionFilterCondition has no serialization tests",
+  "description": "crate-jmap-mail-types/src/submission.rs defines EmailSubmissionFilterCondition (lines 281-317) but has zero test coverage. Every other filter type (EmailFilterCondition, EmailComparator) has roundtrip and serialization tests. Missing: at minimum a roundtrip test for the empty case, one for each field, and a Filter<EmailSubmissionFilterCondition> operator test. Without tests, a camelCase rename regression (e.g. undoStatus vs undo_status) would go undetected.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:37:25Z",
+  "updated_at": "2026-04-30T04:37:53Z",
+  "closed_at": "2026-04-30T04:37:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-fg8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:37:24"
+    }
+  ]
+}

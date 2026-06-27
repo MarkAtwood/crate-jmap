@@ -1,0 +1,50 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T161839Z-2683045",
+  "close_reason": "Landed in commit 7f4dc90. handle_space_get now lifts non-member non-previewable Spaces from list into notFound before the projection layer runs, indistinguishable from the nonexistent case per spec. Four tests cover the notFound classification, the indistinguishability, the member regression guard, and the previewable-non-member regression guard. The Layer A TODO marker in project_space_for_caller is closed; the function is now a pure projection with no notFound side-effects.",
+  "closed_at": "2026-05-13T16:45:45Z",
+  "compaction_level": 0,
+  "content_hash": "f810c11c9adaf29c0e8ba03c8b19d0013a3289a3dc646095c9ae8bed7b3e73b7",
+  "created_at": "2026-05-13T15:30:57Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec source: draft-atwood-jmap-chat-00 \u00a7Space/get (after JMAP-v9py.19 lands).\n\n## Background\n\nCompanion to JMAP-v9py.4. The spec edit tracked by JMAP-v9py.19 introduces two non-member rules in \u00a7Space/get:\n\n1. If isPubliclyPreviewable=true \u2192 return restricted 8-field view (this is JMAP-v9py.4's surface).\n2. If isPubliclyPreviewable=false (or Space does not exist) \u2192 caller MUST receive the Space id back in the notFound array, and the Space MUST NOT appear in the list array.\n\nThis bead implements rule (2). It is split from JMAP-v9py.4 to keep that bead's surface limited to the field-trim path, and because rule (2) was explicitly out-of-scope in the original JMAP-v9py.4 bead text.\n\n## Acceptance\n\n- handle_space_get in crate-jmap-chat-server/src/space.rs detects the (non-member caller) \u00d7 (isPubliclyPreviewable=false) case and routes the requested Space id into the notFound array of the response, NOT into the list array.\n- The same path is exercised when the Space simply does not exist for the caller (existing behavior is preserved \u2014 this is the union of 'not found' and 'forbidden because non-preview').\n- The notFound branch MUST NOT leak existence information beyond what the 'genuinely not found' branch already leaks. Concretely: callers MUST NOT be able to distinguish 'space exists but is not previewable' from 'space does not exist' via this response. Both produce identical notFound entries.\n- Tests (uses MemoryBackend + the TestCallerCtx pattern that JMAP-v9py.4 will land):\n  * non-member /get against Space with isPubliclyPreviewable=false \u2192 id appears in notFound, list is empty\n  * non-member /get against a nonexistent Space \u2192 same response shape (no behavioral distinction)\n  * non-member /get against Space with isPubliclyPreviewable=true \u2192 id appears in list with the 8-field restricted view (this is the JMAP-v9py.4 path \u2014 assert it does NOT take the notFound path)\n  * member /get against same Space ignoring isPubliclyPreviewable \u2192 id appears in list with the full object (existing behavior, regression guard)\n\n## Implementation note\n\nThe non-member detection logic is the same code path JMAP-v9py.4 will land. Sequence is to land JMAP-v9py.4 first (with the restricted-view branch and a TODO marker for the notFound branch), then close out this bead by filling the TODO. If the two beads are claimed in the same session, fold both branches into one PR; otherwise the partial-then-complete sequence is acceptable.\n\n## Out of scope\n\n- Reshaping the notFound semantics for member callers (unchanged).\n- Other Space methods (Space/query is governed by JMAP-v9py.4's discovery rule; Space/changes/Space/queryChanges are unaffected).\n- Generalizing the pattern to other extension types \u2014 this is JMAP Chat specific because no other JMAP extension currently has an isPubliclyPreviewable-shaped field.",
+  "ephemeral": 0,
+  "id": "JMAP-v9py.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Space/get: classify non-previewable spaces as notFound for non-member callers",
+  "updated_at": "2026-05-13T16:45:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T08:31:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py.19",
+      "id": "3dc21162-da92-5c4b-aa22-f69dd43d6ef8",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-13T08:30:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py",
+      "id": "4c6d6472-e08d-528a-b1d1-114a7416dbd0",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-13T08:33:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py.4",
+      "id": "90ea78ac-f8cf-557a-9267-8fc43deaf9ae",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

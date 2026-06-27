@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added SetError::validate_extras returning Result<(), ReservedExtrasKey>. Deterministic across build profiles unlike the existing with_extra debug_assert. ReservedExtrasKey is pub, #[non_exhaustive], Display+Error. Field doc gained a 'Reserved-name invariant' block pointing at the method. Two tests: positive control + iterates every reserved wire-name. The pub(crate) option from the bead was rejected because it would violate workspace AGENTS.md 'extras-preservation policy: pub extra'. The Serialize-panic option was rejected because it requires manual Serialize impl. Landed at additive surface-narrowing \u2014 direct mutation still compiles, but consumers and tests have a deterministic gate.",
+  "closed_at": "2026-05-14T17:10:19Z",
+  "compaction_level": 0,
+  "content_hash": "b712a8e2ef144cbe239cdd1d970edb45268396a2ac152984a9ada5a403864cf5",
+  "created_at": "2026-05-14T16:44:38Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/backend.rs:69 \u2014 SetError.extra is declared as `pub\nextra: serde_json::Map<String, serde_json::Value>` directly on the struct.\nThe struct is #[non_exhaustive] (blocks struct literal from outside) and\nships a `with_extra(key, value)` builder whose debug_assert rejects keys\nthat collide with reserved typed-field wire-names\n(RESERVED_SET_ERROR_WIRE_NAMES). Direct field mutation bypasses that guard:\n\n    let mut e = SetError::new(SetErrorType::custom(\"rateLimited\"));\n    e.extra.insert(\"type\".to_string(), json!(\"evil\"));   // compiles, no warning\n\nThe resulting wire shape carries two `type` keys at the same level. RFC\n8259 \u00a74 calls duplicate-key behaviour implementation-defined; in practice\nmany JMAP clients silently take the last value and the SetError is\nmalformed.\n\nWhat callers cannot depend on: that emitting a SetError via the\ndocumented `new() + with_*` builder chain is sufficient to avoid the\nmalformed-wire-shape footgun. The reserved-name guard is a debug_assert\nonly because the builder API is the assumed access path; the public\nfield surface invalidates that assumption.\n\nWhat goes wrong when this stays as-is: a future contributor (handler\nauthor, test helper, mock-backend builder) reaches for `e.extra.insert`\ndirectly because the field is `pub`, ships the call, and the bug is\nonly caught by manual wire-shape inspection \u2014 there is no test gate\nbecause debug_assert is bypassed.\n\nResolution paths (one is sufficient):\n- Make `extra` `pub(crate)` and expose read access via an accessor.\n  Mutation forced through `with_extra`.\n- Keep `extra` pub but add a runtime assertion in `serde::Serialize`\n  that panics on reserved-name collision, so the bug surfaces at the\n  first serialize call (matches the existing debug_assert philosophy).\n- Document the contract: \"Direct mutation of `extra` is supported but\n  callers MUST avoid keys in RESERVED_SET_ERROR_WIRE_NAMES; the\n  `with_extra` helper enforces this in debug builds.\"\n\nThe same concern applies to every typed result struct in backend.rs\nwith `pub` fields exposed via builders (ChangesResult, QueryResult,\nQueryChangesResult, AddedItem), but those have no analogue validation\nguard for `with_extra` to bypass, so the issue is unique to SetError.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetError.extra is pub \u2014 bypasses with_extra reserved-name validation",
+  "updated_at": "2026-05-14T17:10:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:44:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "ad61b3c7-3b32-5d08-bfaa-24bf18f7fb0b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

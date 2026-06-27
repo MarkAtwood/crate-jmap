@@ -1,0 +1,33 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T15:36:57Z",
+  "compaction_level": 0,
+  "content_hash": "19243f68364b5c495aa432acb499de9f39b4b918f3536d60b43e69b9b4d453b8",
+  "created_at": "2026-05-11T14:25:55Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Location: `crate-jmap-base-client/src/request.rs:99-143`\n\n  #[non_exhaustive]\n  #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]\n  #[serde(rename_all = \"camelCase\")]\n  pub struct Session {\n      ...\n      /// Username associated with the current credentials (RFC 8620 \u00a72).\n      pub username: String,\n      ...\n      /// Opaque session state token (RFC 8620 \u00a72).\n      pub state: State,\n  }\n\nCONCERN\n`Session` is the RFC 8620 \u00a72 session object returned from `.well-known/jmap`. It derives `Debug` with two fields that are sensitivity-adjacent:\n\n1. `username` (line 116) \u2014 the authenticated user's identifier. For most JMAP deployments this is a full email address. Per privacy frameworks (GDPR Article 4, CCPA \u00a71798.140) this is PII; logs containing it are subject to retention and access-control obligations. The `derive(Debug)` means any `{:?}`-format of a Session writes the email to the output stream.\n\n2. `state` (line 142) \u2014 the opaque session state token. RFC 8620 \u00a72 says clients use this for cache validation; it is NOT an auth credential, but it is the server-side identifier for the client's session and uniquely identifies it. Logging it lets an operator pivot from log \u2192 request-trace \u2192 user, which is the same shape of leak as logging a session cookie.\n\nThis is the same class as the closed JMAP-sc1b.79 finding (BearerAuth/BasicAuth Debug redaction). `.79` only covered the two AuthProvider impls; `Session` and the dereived-Debug shape was missed.\n\nWHAT GOES WRONG\nPrivacy / PII exposure. Operator logs that Debug-print a Session value (any `tracing::debug!(\"session: {:?}\", session)` call, or a panic with the Session in scope) leak the user's identity. Indirect: aids correlation attacks against pseudo-anonymous logs.\n\nPROPOSED FIX\n1. Remove `Debug` from the derive list at line 100.\n2. Add a manual Debug impl that redacts `username` and shows only `state.fingerprint()` or 'state: [opaque]' rather than the full state value. Mirror the BearerAuth shape at `crate-jmap-base-client/src/auth.rs:183-189`.\n3. Add a regression test that constructs a Session with a canary username and asserts the canary does not appear in `{:?}` output (mirror `auth.rs:443-475` pattern).\n4. Apply the same treatment to `AccountInfo` if it has similarly PII-adjacent fields (left as a follow-up; check `crate-jmap-base-client/src/request.rs` for sibling types).\n\nORACLE\n- Closed JMAP-sc1b.79 \u2014 the in-repo precedent for Debug redaction + canary test on credential/PII-bearing types.\n- RFC 8620 \u00a72 \u2014 defines Session.username as the authenticated principal; \u00a71.4 defines State as opaque to clients but inherently server-side identifying.\n\nRISK CLASSIFICATION\nP3. Hygiene / privacy defense-in-depth. The current code doesn't actively log it; the risk is the next contributor who adds a tracing call.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.99",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security: Session derives Debug exposing username (PII) and session state token (crate-jmap-base-client/src/request.rs:100-143)",
+  "updated_at": "2026-05-11T15:36:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:25:55Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "5fe44d18-113d-50e5-b666-3b8fc4bd7400",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

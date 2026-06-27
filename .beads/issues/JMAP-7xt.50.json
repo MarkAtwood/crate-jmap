@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.50",
+  "title": "validate_session_urls uses string-split for scheme extraction instead of url::Url::parse",
+  "description": "client.rs lines 512-515: validate_session_urls splits URL strings on '://' to extract the scheme. This is a heuristic that would accept 'ftp://foo' with scheme 'ftp' but would misclassify a URL with no '://' as having an empty scheme (which happens to work by coincidence). The url crate (already a direct dependency via url::Url for base_url) provides url::Url::parse() which does proper scheme extraction. Idiomatic: parse each URL with url::Url::parse() and check .scheme(). Note: the RFC 6570 template URLs (upload_url, download_url, event_source_url) contain {placeholders} that url::Url::parse() would reject \u2014 but the scheme check is prefix-only, so extracting just the scheme prefix before the first '{' would work, or parse only api_url with url::Url.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:48:53Z",
+  "updated_at": "2026-04-30T00:52:28Z",
+  "closed_at": "2026-04-30T00:52:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:48:53"
+    }
+  ]
+}

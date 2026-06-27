@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Updated reg! macro in jmap-chat-server to use ClosureHandlerWithCtx; clippy clean",
+  "closed_at": "2026-05-05T18:34:32Z",
+  "compaction_level": 0,
+  "content_hash": "086975ea8044863dd6d67dda9531baf8324cab330fcc150c57bb52bea5686c84",
+  "created_at": "2026-05-05T17:28:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Update register_chat_handlers to forward CallerCtx using ClosureHandlerWithCtx<B, C> (from JMAP-exue.1).\\n\\nSame pattern as jmap-mail-server update. All ~30 chat handler closures receive a fourth ctx: C argument.\\n\\nAcceptance criteria:\\n- register_chat_handlers closures receive CallerCtx\\n- cargo test -p jmap-chat-server exits 0\\n- Clippy clean\\n\\nDepends on JMAP-exue.1.",
+  "ephemeral": 0,
+  "id": "JMAP-exue.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-server: Forward CallerCtx in register_chat_handlers",
+  "updated_at": "2026-05-05T18:34:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T10:28:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-exue",
+      "id": "5049c569-bf4f-5eb1-9ed8-5c3c64406436",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-05T10:29:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-exue.1",
+      "id": "6e926a3c-5c60-54c5-b3ee-e614225e95f9",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "9d113c1004fe4bc8c4ce3f04d60c0508d76a05cbcd6717633fb8452460928555",
+  "created_at": "2026-05-14T14:26:49Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:229:\n    #[derive(Clone, Default)]\n    pub struct MemoryBackend { inner: Arc<Mutex<Inner>> }\n\nHas no #[non_exhaustive].\n\nWhat callers cannot depend on / what locks the maintainer:\n- Adding a public field is a breaking change. Even with the only existing field 'inner' being private, the lack of #[non_exhaustive] means the maintainer cannot add a new pub field later (e.g. a config Arc, a metrics counter, a tracing span name) without a major version bump.\n- More subtly: callers cannot pattern-match an empty struct (there is nothing to match), but they CAN construct via MemoryBackend::default() / new() / new_with_accounts(...). #[non_exhaustive] would not break that. Adding the attribute now is risk-free and reserves the design space.\n\nRecommendation:\n- Add #[non_exhaustive] to MemoryBackend.\n- The canonical sibling (jmap-mail-server::memory::MemoryBackend at memory.rs:251) is similarly missing #[non_exhaustive]. Per workspace AGENTS.md canonical-template rule, change the canonical first, then propagate.\n\nWhat goes wrong if this stays:\n- Forces a major-version cycle for what would otherwise be a non-breaking field addition. The 'memory' feature mitigation (lib.rs:28 declares API stability is opt-in via feature) covers this for now, but the same applies to MemoryError \u2014 the discipline costs nothing pre-1.0.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "API: MemoryBackend struct missing #[non_exhaustive]",
+  "updated_at": "2026-05-17T20:02:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:26:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "7f23b428-71de-5e55-87cc-ae3276fb7fb8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

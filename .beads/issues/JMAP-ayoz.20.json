@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Affirmative review finding \u2014 verified in-source. demo_next_id's rustdoc header at memory.rs:446-463 explicitly states 'NOT A PRODUCTION PATTERN' and walks the deterministic vs realistic-demo-ids modes; the in-function 'CARGO-CULT WARNING' block at memory.rs:495-500 enumerates the three failure modes (collides after deletes, resets on restart, not unique across namespaces). The function also carries a defensive debug_assert! at line 505-512 that names the collision mode explicitly. The convention is fully in-source and self-documenting. No code change warranted.",
+  "closed_at": "2026-05-17T09:05:23Z",
+  "compaction_level": 0,
+  "content_hash": "8555fcf8b466157b25618244624e3f1499feae34ba2279afd3a5b646aee3011a",
+  "created_at": "2026-05-14T14:23:07Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:253-313 \u2014 demo_next_id carries a multi-paragraph rustdoc and an inline 'CARGO-CULT WARNING' block:\n\n    /// NOT A PRODUCTION PATTERN. Both modes below are explicitly\n    /// demonstration-quality; production backends must mint real ULIDs\n    /// (or equivalent globally-unique, monotonic, persistent-across-restarts\n    /// ids) and never use this helper as a copy-paste source.\n\n\u2026plus a detailed inside-function comment block enumerating the failure modes of the deterministic mode (collides after deletes, resets on process restart, not unique across namespaces).\n\nThis is the workspace's explicit anti-copy-paste convention applied at the place where a contributor is most likely to copy-paste. Without this block, a contributor implementing a real backend would naturally reach for this template and inherit at least the count-based id minting (which is broken in three ways enumerated in the comment).\n\nDefend against: 'this is too much commentary for a small function', 'move this to a separate design doc', 'production users won't read source comments'. The point of putting it INSIDE the function is that contributors writing their own minter from scratch will pull up this function for reference \u2014 that's exactly when the warning needs to be visible.\n\nAdjacent: bd:JMAP-ayoz.10 (find_uniqueness_conflict) and JMAP-ayoz.13 (query_objects ignoring filters) recommend extending the same convention to other demo-grade impls in this file. Worth doing \u2014 the convention is the value, the function-by-function application is mechanical.\n\nPre-existing context: the same convention applies in jmap-mail-server's email.rs:1748 (per Cargo.toml comment at line 24). This is workspace-wide pattern, not metadata-server-specific. Preserving it across propagation is part of the canonical-template discipline.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "demo_next_id cargo-cult warning block is load-bearing onboarding documentation",
+  "updated_at": "2026-05-17T09:05:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:23:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "33f38e1b-4151-536a-bf6d-bde9733024c7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

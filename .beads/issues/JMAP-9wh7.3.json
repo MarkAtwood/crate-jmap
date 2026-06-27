@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260510T221713Z-3712501",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T22:20:07Z",
+  "compaction_level": 0,
+  "content_hash": "5939c9af2e14acf5a770ea5f2c7231c245ac9ca1c2f1d9c3883044e54e131556",
+  "created_at": "2026-05-10T21:31:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Add rustdoc to the filter algebra types in crate-jmap-calendars-types documenting their exclusion from the workspace extras-preservation policy (JMAP-lbdy \"Decision: filter algebra excluded\", 2026-05-10).\n\n## Types in scope\n\n- `crate-jmap-calendars-types/src/calendar.rs:151` \u2014 `CalendarFilterCondition`\n- `crate-jmap-calendars-types/src/event.rs:298` \u2014 `CalendarEventFilterCondition`\n- `crate-jmap-calendars-types/src/event.rs:350` \u2014 `CalendarEventComparator`\n- `crate-jmap-calendars-types/src/notification.rs:152` \u2014 `NotificationFilterCondition`\n\n## Required rustdoc content\n\nMirror the wording established by canonical .1 (jmap-types) and .2 (jmap-mail-types) per cookie-cutter rule. Each type carries:\n- exclusion notice,\n- three-reason rationale,\n- IETF-track future hook pointing at `draft-ietf-jmap-metadata` / workspace tracker JMAP-06zp,\n- pre-IETF escape (sloppy-value `serde_json::Value` or fork FilterCondition),\n- JMAP-lbdy cross-reference.\n\n## Acceptance criteria\n\n- All four types carry the exclusion notice with wording consistent with siblings and both future-hook paths.\n- `cargo doc --no-deps -p jmap-calendars-types` clean.\n- `cargo clippy -p jmap-calendars-types -- -D warnings` clean.\n- `cargo test -p jmap-calendars-types` clean.\n\nNo code changes beyond doc comments.\n",
+  "ephemeral": 0,
+  "id": "JMAP-9wh7.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add filter-algebra exclusion rustdoc to jmap-calendars-types",
+  "updated_at": "2026-05-10T22:20:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T14:31:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-9wh7",
+      "id": "5bfb59c9-fbca-542a-adcd-8873bd2eaded",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

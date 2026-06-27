@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:50:34Z",
+  "compaction_level": 0,
+  "content_hash": "a5a2f64b998626202f3d5d7a3cd34d397f2abc1c42d5537fc25e3a16c71b3e43",
+  "created_at": "2026-05-02T04:45:50Z",
+  "created_by": "Mark Atwood",
+  "description": "message.rs line 376: expires_str.as_str() <= now.as_str() and space.rs line 582 (invite expiry check): same pattern. now_utc_string() produces YYYY-MM-DDTHH:MM:SSZ with no fractional seconds. A client-supplied timestamp like 2025-06-01T12:00:00.000Z contains '.' (0x2E) which is less than 'Z' (0x5A), so a future millisecond-precision timestamp at the boundary second is incorrectly treated as already expired and rejected. Fix: parse both sides to a numeric epoch before comparing. Acceptance: a senderExpiresAt one second in the future with millisecond precision must not be rejected as expired.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.61",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Lexicographic ISO 8601 comparison fails with fractional-second timestamps",
+  "updated_at": "2026-05-02T04:50:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:45:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "f6b284d2-6716-5389-b117-adebd98a9640",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

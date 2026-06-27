@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already documented: backend.rs:220-228 explains 65536 default with memory sizing context and multi-tenant rationale.",
+  "closed_at": "2026-05-04T15:53:57Z",
+  "compaction_level": 0,
+  "content_hash": "4308dbe636a7f688019eaf312cfd5ed3202511ec9958f5e026eafd902ff78f89",
+  "created_at": "2026-05-02T00:43:37Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs defines COLLAPSE_THREADS_MAX_EMAILS = 65_536 and includes a comment explaining the memory math: 65536 IDs x ~32 bytes each is ~2 MiB, which is acceptable. Total is also omitted when the result was capped (the 'only honest' comment at line 631). A future contributor might remove the cap (OOM risk on large accounts), raise it without recalculating memory cost, or unconditionally include total even when it would misrepresent a truncated result. Both the cap value and the conditional total omission are intentional.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "COLLAPSE_THREADS_MAX_EMAILS cap with documented memory sizing",
+  "updated_at": "2026-05-04T15:53:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "20512cd2-9440-5eb6-84b5-e50beb69df9c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

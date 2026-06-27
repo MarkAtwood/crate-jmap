@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-5tq.4",
+  "title": "StateChange::changed uses String where Id/State newtypes exist",
+  "description": "StateChange::changed is HashMap<String, HashMap<String, String>>. The outer key is an account ID (jmap_types::Id), the inner value is a state string (jmap_types::State). Both Id and State are newtypes over String already used elsewhere in the crate (Session::state: State, BlobUploadResponse::account_id: Id). Using raw String here diverges from the type conventions established by the rest of the codebase and makes it possible to accidentally pass a state string where an Id is expected.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:42:57Z",
+  "updated_at": "2026-04-30T06:50:02Z",
+  "closed_at": "2026-04-30T06:50:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-5tq",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:42:56"
+    }
+  ]
+}

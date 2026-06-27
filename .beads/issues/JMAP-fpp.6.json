@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-fpp.6",
+  "title": "AuthProvider contract violation deferred to WS path only",
+  "description": "The AuthProvider doc comment already notes this but it is a trap: violations cause a panic in connect_ws (HeaderName/HeaderValue conversion) but are silently tolerated on all HTTP paths (header is passed as &str to reqwest which silently rejects invalid values in some versions or panics in others). A custom AuthProvider returning a header name with spaces will fail differently on HTTP vs WS paths, making the contract hard to test. The contract is documented; the risk is that it is not enforced uniformly. No immediate fix needed but the doc should be stronger: 'violating this contract causes a panic on the WebSocket path and undefined behavior on HTTP paths'.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:15:20Z",
+  "updated_at": "2026-04-30T01:23:25Z",
+  "closed_at": "2026-04-30T01:23:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-fpp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:15:20"
+    }
+  ]
+}

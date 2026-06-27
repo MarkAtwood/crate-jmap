@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: oracle comment updated to match actual .repeat(200) and ~14800 byte count in seed.rs",
+  "closed_at": "2026-05-02T19:26:57Z",
+  "compaction_level": 0,
+  "content_hash": "928808395c8e9d679d4e191917b640017ad1f56645de08ead6b4986e3d39071f",
+  "created_at": "2026-05-02T19:18:59Z",
+  "created_by": "Mark Atwood",
+  "description": "seed_fixture_tests.rs test_email_size_large comment (line ~369) states the oracle is '72-char phrase 700 times (~50400 bytes)' citing seed-data.ts line ~211. The actual seed.rs fixture uses .repeat(200) (~14600 bytes body). The > 10240 assertion passes but the oracle comment cites wrong values, meaning the test cannot be verified against its stated external reference. Trigger: review of test against seed-data.ts; the test would pass for a 200-repeat body but its doc-comment claims 700x \u2014 the independent oracle is wrong.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "test_email_size_large comment claims 700-repeat but fixture uses 200",
+  "updated_at": "2026-05-02T19:26:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "637fcff7-3eb6-5246-b634-a62f3543c854",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

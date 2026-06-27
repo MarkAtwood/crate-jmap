@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:46:16Z",
+  "compaction_level": 0,
+  "content_hash": "853a7feec319943c0454b74b9a0bd17ac04c7ff6aa0b47725a681c9bc16f9b65",
+  "created_at": "2026-05-07T20:43:23Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mime exposes a public type `JmapBodyFields` with NO derives \u2014 no Debug, Clone, PartialEq, Serialize, Deserialize.\n\nThis is a public-API ergonomics gap:\n- Cannot `println!(\"{:?}\", fields)` for debugging\n- Cannot serde-roundtrip\n- Cannot compare two JmapBodyFields values in tests with `assert_eq!`\n\nPer Rust API Guidelines C-COMMON-TRAITS, public structs should implement Debug + Clone at minimum, plus PartialEq/Eq/Hash/Serialize/Deserialize where reasonable.\n\nFix: add `#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]` (or whichever subset is reasonable given the type's contents).\n\nSpot-check first: are there any `fn(...)` fields in JmapBodyFields that prevent these derives? If so, document why.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.49",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: JmapBodyFields (jmap-mime) has zero derives",
+  "updated_at": "2026-05-07T21:46:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "9bf06b84-2d09-5621-b463-9edd1479524e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

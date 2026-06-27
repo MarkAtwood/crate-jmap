@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T17:29:22Z",
+  "id": "019e2789-2c44-70e3-bdd0-bee421629207",
+  "issue_id": "JMAP-jfia.21",
+  "text": "Filing as human alongside JMAP-jfia.19 \u2014 proposes changing parse_request(body: Value, ...) to parse_request(body: &[u8], ...) so the kit can enforce the JSON-depth-cap internally rather than via documented caller responsibility. Mechanically: the kit would gain a serde_json::from_slice with a custom RecursionLimit, the caller-side recursion-limit obligation goes away.\n\nReal value (the caller-responsibility list IS easy to miss), but the change forces a workspace-wide audit of every http transport layer to confirm they pass bytes rather than pre-parsed Value. Defer to major-bump."
+}

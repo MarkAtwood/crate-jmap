@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "The bead's diagnosis of 'statically unreachable wildcard' was wrong \u2014 BackendSetError IS #[non_exhaustive] (the bead author missed the attribute above the derive). Wildcards are reachable iff a future jmap-server release adds a variant. Bound the wildcard as Err(other) and included format!(\"{other:?}\") so future variants' Debug repr round-trips to the client rather than being silently swallowed. 8 sites touched. Implementation in commit c436820.",
+  "closed_at": "2026-05-15T10:18:43Z",
+  "compaction_level": 0,
+  "content_hash": "1a3c24b84876c3ab9b45fad863cc1f8620c12d2b519387ab52e89fe5bef27361",
+  "created_at": "2026-05-14T19:44:20Z",
+  "created_by": "Mark Atwood",
+  "description": "addressbook.rs:172-181 (create), 231-239 (update), 296-304 (destroy), and the parallel sites in card.rs 144-153, 203-212, 252-261, 461-469. Every backend-error match has the shape:\n\n    Err(BackendSetError::SetError(set_err)) => { ... }\n    Err(BackendSetError::Other(e)) => { ... }\n    Err(_) => {\n        not_created.insert(create_id, json!({\n            \"type\": \"serverFail\",\n            \"description\": \"unhandled backend error variant\",\n        }));\n    }\n\nBackendSetError is defined in jmap-server. If BackendSetError is #[non_exhaustive], then this wildcard arm is correct \u2014 future variant additions in jmap-server fall here. If BackendSetError is NOT #[non_exhaustive], the wildcard arm is statically unreachable: the two named variants exhaust the enum.\n\nFrom existing finding .23's investigation it's noted that some workspace error types lack #[non_exhaustive]. The audit gap: this wildcard either silently masks future-variant breakage (if BackendSetError IS #[non_exhaustive], then the description \"unhandled backend error variant\" is honest, but contracts the inability to surface a structured error code) or it's dead code (if BackendSetError is NOT #[non_exhaustive]).\n\nIdiomatic Rust answer in either case:\n  - If non_exhaustive, the wildcard arm MUST produce something that round-trips informative info \u2014 at minimum log the variant via Debug. The current json! body discards the actual error.\n  - If not non_exhaustive, delete the wildcard arm.\n\nSame wildcard pattern in canonical jmap-mail-server \u2014 propagation needed. Verify the upstream non_exhaustive status with: rg \"#\\\\[non_exhaustive\\\\]\" crate-jmap-server/src/ on the BackendSetError enum.\n\nThe duplication across 6 sites in this crate alone is the deeper finding: the BackendSetError \u2192 JSON conversion is open-coded six times. A helper like `fn backend_set_err_to_json(e: BackendSetError<...>) -> Value` would centralize it and let the wildcard-arm decision live in one place.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.53",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Three /set handlers have wildcard 'Err(_)' arm after Err(SetError) and Err(Other) that is statically unreachable",
+  "updated_at": "2026-05-15T10:18:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:44:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "1c95618f-09e1-529d-8d70-398040a2da65",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

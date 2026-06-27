@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7cfe4a4c94c4ac3fed5724b91bbe896619fa8daa9780407b9fe93aeca42e02c5",
+  "created_at": "2026-05-14T14:19:47Z",
+  "created_by": "Mark Atwood",
+  "description": "jmap-metadata-types/src/backend.rs:58-61 declares:\n\n    impl QueryObject for crate::Metadata {\n        type Filter = crate::MetadataFilterCondition;\n        type Comparator = serde_json::Value;\n    }\n\nFilter is typed (good); Comparator is serde_json::Value (problem). Per workspace AGENTS.md \"Filter algebra and control enums are explicitly EXCLUDED\" from the extras-preservation pattern \u2014 but that exclusion is about adding extra fields, not about replacing the type with serde_json::Value altogether.\n\nThe spec \u00a7 3.4.2 enumerates a closed set of MUST-/SHOULD-support sort keys:\n  *  id (MUST)\n  *  @type, relatedType, relatedId, isPrivate (SHOULD)\n\nBackends need to dispatch on the comparator value to implement sort. With Comparator = serde_json::Value, every backend has to do its own ad-hoc parsing of the JSON shape to recover \"which sort key was requested\". This:\n\n1. Pushes parsing duplication into every implementor.\n2. Allows wire-level acceptance of nonsense (e.g. {\"property\": 42, \"isAscending\": \"yes\"}) \u2014 the JmapHandler accepts whatever serde_json::Value the wire produces; the backend has to validate.\n3. Makes the workspace's own MemoryBackend impl at memory.rs:484-532 ignore the comparator entirely (params are _filter, _sort).\n\nCompare canonical jmap-mail-server which has typed comparators (EmailComparator, MailboxComparator, etc.) so the wire shape is validated at deserialize time.\n\nFix: define MetadataComparator as a typed struct with field: MetadataSortKey, is_ascending: bool, where MetadataSortKey is an enum over {Id, TypeName, RelatedType, RelatedId, IsPrivate}, with #[non_exhaustive] and ideally Unknown(String) per the workspace result-enum policy IF the workspace's filter-algebra exclusion is read as not applying to comparators (which the AGENTS.md does seem to say: it lists EmailComparator etc. as IN scope of the exclusion). The cleaner read is: comparators are control enums on a closed spec list, and Unknown(String) is wrong because the backend can't sort on an unknown key. So keep the comparator strictly typed without Unknown(String).\n\nThis is partially a metadata-types finding (the type alias is wrong) and partially a metadata-server one (the handler shim must validate). The Comparator change is a public-API break, but the crate is pre-1.0 so it can land before publish. Bundle into a metadata-types child bead AND a metadata-server child bead. Block on the metadata-types fix.\n\nRelated: JMAP-ayoz.6 will surface this when /query tests actually exercise sort.\n\nSeverity: P1 because once this ships with serde_json::Value Comparator, downstream backends will encode their own validation idioms and the public-API change becomes harder. Pre-1.0 fix is cheap; post-1.0 is breaking.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "Metadata/query/queryChanges Comparator is serde_json::Value \u2014 control surface escape",
+  "updated_at": "2026-05-17T20:02:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:19:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "46db588a-7981-5662-84b4-df0f3e6bf5dc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

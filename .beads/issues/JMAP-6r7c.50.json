@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed. upload_blob now takes UploadBlobParams<'_>; the four positional args (upload_url_template, account_id, data, content_type) are gone. Three existing test sites migrated to the typed shape (two error-path in tests/client_tests.rs, one streaming-cap in tests/streaming_cap_tests.rs). New positive round-trip test test_upload_blob_typed_params_round_trip in tests/client_tests.rs asserts the wire request \u2014 URL template expansion, Content-Type header, body bytes \u2014 and the parsed BlobUploadResponse shape. Re-exported at the crate root alongside DownloadBlobParams.",
+  "closed_at": "2026-05-18T03:59:51Z",
+  "compaction_level": 0,
+  "content_hash": "616c1c2112758c07240ec24af64e22a41f901fb0f696f40319631ee1531be728",
+  "created_at": "2026-05-14T23:26:05Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-base-client/src/blob.rs:219-225 declares pub async fn upload_blob(&self, upload_url_template: &str, account_id: &str, data: bytes::Bytes, content_type: &str) -> ... \u2014 four positional parameters including three string-typed ones (the template URL, the account_id, the content_type). The download_blob counterpart in the same file (blob.rs:324-336) was already refactored to take DownloadBlobParams<'a> precisely because six positional &str args invited call-site confusion. upload_blob still has the older shape and is one fat-finger away from upload_blob(content_type, account_id, data, template_url) compiling silently and POSTing the wrong URL with the wrong header. Recommendation: introduce UploadBlobParams<'a> mirroring DownloadBlobParams<'a>: { upload_url_template, account_id, content_type, data }. Caller writes a named-field struct literal at every call site, gains documentation, and adding an optional field (per-call timeout override, body integrity hint, etc.) becomes a non-breaking minor-version bump. The current shape locks the positional order in for SemVer.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.50",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "upload_blob takes four positional &str args \u2014 same parameter-confusion DownloadBlobParams already solved",
+  "updated_at": "2026-05-18T03:59:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T13:57:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-prpm",
+      "id": "ebad9989-e7e0-56ca-b202-e5e82af5c2a3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

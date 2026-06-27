@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T06:51:35Z",
+  "compaction_level": 0,
+  "content_hash": "da58759d97a3348a2fa2bf97e54577b2e4628398f405925dcae21f7fd184ffdc",
+  "created_at": "2026-05-14T18:06:24Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:470-544 implements query_objects with only one filter path ('inTaskList') and no sort handling. RFC 8620 \u00a75.5 requires that an unsupported sort or filter produces 'unsupportedSort' / 'unsupportedFilter' SetErrors at the method-level. Two concrete consequences:\n\n1. (Spec deviation) A Task/query with sort=[{property: 'due', isAscending: true}] returns ids in Id-string lexicographic order, silently \u2014 a client sorting by due-date sees ids ordered by id-creation-order and likely concludes 'sort works' (because for the deterministic 'task<n:016x>' demo ids, creation order is monotonic by id). Tests cannot easily detect this because the integration test fixture uses sequential creation and never asserts a non-id-order sort property.\n\n2. (Maintainer burden) A consumer copying this method's shape into their own backend gets the wrong invariant teaching: 'sort can be ignored' is the implicit lesson. Production backends MUST validate sort/filter against the type's QueryObject::supported_sort / supported_filter sets and return unsupportedSort/Filter.\n\nRecommended remediation: (a) add a rustdoc on query_objects explaining that the implementation is filter-and-sort-blind by design, and that a production backend MUST inspect both arguments; (b) when sort is non-None and contains a property other than 'id', return Err(MemoryError) wrapped in serverFail \u2014 making the missing functionality loud rather than silent. Alternative: implement a minimal sort by 'due' / 'created' / 'updated' on the Task store for fidelity with the integration-test fixture set. The choice is a judgement call.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.query_objects silently ignores sort and filter",
+  "updated_at": "2026-05-17T06:51:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:06:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "d80a8545-1a94-5a3a-a36f-d8033ce53993",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

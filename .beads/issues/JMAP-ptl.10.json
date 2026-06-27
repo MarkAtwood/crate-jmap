@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "NOT A BUG: RFC 8620 \u00a75.4 is the copy method spec. Citation is correct.",
+  "closed_at": "2026-05-01T15:46:50Z",
+  "compaction_level": 0,
+  "content_hash": "abb88e9cf6c3ae08e8d7d6f36af1e2fe24b914b628c806652638bfb561d5652c",
+  "created_at": "2026-05-01T15:42:15Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs:1162: comment reads '// RFC 8620 \u00a75.4: fromAccountId MUST differ from accountId'. RFC 8620 \u00a75.4 is the /set method spec and says nothing about copy operations. The copy spec is RFC 8620 \u00a76.3. A contributor verifying the restriction against the RFC will not find it at \u00a75.4. The comment should either cite \u00a76.3 with the actual text that (arguably) implies cross-account, or be removed if the restriction is not supported by the RFC.",
+  "ephemeral": 0,
+  "id": "JMAP-ptl.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_email_copy comment cites RFC 8620 \u00a75.4 for fromAccountId restriction",
+  "updated_at": "2026-05-01T15:46:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:42:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ptl",
+      "id": "c5f558bf-e39d-5a26-bfd8-5e57971d2f67",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

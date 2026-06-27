@@ -1,0 +1,33 @@
+{
+  "close_reason": "Public-API behavioural change: CALL_ID design (currently hard-coded 'r1', would need pipeline-aware caller ergonomics). Touches the JmapRequestBuilder shape. Defer to 0.2.0; would naturally land alongside any pipelining feature work.",
+  "closed_at": "2026-05-09T07:37:22Z",
+  "compaction_level": 0,
+  "content_hash": "4b46664e91fa1896fc16dda6e258785e02ade4181865e312b7250686d2d45bca",
+  "created_at": "2026-05-08T03:19:55Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:182 \u2014 `pub(crate) const CALL_ID: &str = \"r1\";` is shared by every method invocation. Today this is OK because each `SessionClient` method makes one call, with one method, with that one call_id.\n\nFuture-self risk: the moment someone wants to batch (e.g. fetch a calendar AND its events in one HTTP round-trip via `/get` + `/get` with a backref), this constant is going to silently produce two methodCalls with the same id, the response will be ambiguous, and `extract_response(&resp, \"r1\")` will return only the first match \u2014 silently dropping the second.\n\nJMAP's whole batching model relies on unique call ids per invocation. Section 1 maintainer-burden flag: there is no comment in build_request explaining this restriction, so a contributor will reach for batching without realizing. Either:\n- Add a comment to build_request making this single-call-only restriction explicit, OR\n- Make CALL_ID an argument and let callers (eventually) batch.\n\nThe mail-client probably has the same shape (cross-crate); leaving that for the matching review.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CALL_ID hard-coded as 'r1' \u2014 every request collides if callers ever pipeline",
+  "updated_at": "2026-05-09T07:37:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:19:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "914a5aa0-dc57-5668-8d15-a8642d006c84",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

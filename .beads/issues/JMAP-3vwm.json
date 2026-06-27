@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a3fa9a0dce83d171db5ceb6d8707a5134f23d0c483c8b59b7865ba977febeb51",
+  "created_at": "2026-05-15T10:26:09Z",
+  "created_by": "Mark Atwood",
+  "description": "Running 'cargo clippy --workspace --tests -- -D warnings' from the workspace root fails on jmap-jscontact-types because of a clippy::type-complexity error at crate-jmap-jscontact-types/src/lib.rs:1735:\n\n  let cases: &[(&str, serde_json::Value, fn(&AnniversaryDate) -> bool)] = &[\n\nThis blocks the AGENTS.md-mandated pre-commit workspace clippy gate. Fix options:\n\n1. Introduce a type alias above the test, e.g.:\n   type AnniversaryCase = (&'static str, serde_json::Value, fn(&AnniversaryDate) -> bool);\n   let cases: &[AnniversaryCase] = &[ ... ];\n\n2. Or apply #[allow(clippy::type_complexity)] on the function \u2014 discouraged; alias is more idiomatic.\n\nConfirmed pre-existing on HEAD c436820 \u2014 not caused by JMAP-510h.14.1 (test-migration of filenode-server). Surfaced while running the workspace clippy gate after that change.\n\nScope: jmap-jscontact-types only; one site.",
+  "ephemeral": 0,
+  "id": "JMAP-3vwm",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "jscontact-types: cargo clippy --tests fails with type-complexity at lib.rs:1735",
+  "updated_at": "2026-05-15T10:26:09Z"
+}

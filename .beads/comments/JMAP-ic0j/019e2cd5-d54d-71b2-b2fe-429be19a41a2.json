@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T18:11:12Z",
+  "id": "019e2cd5-d54d-71b2-b2fe-429be19a41a2",
+  "issue_id": "JMAP-ic0j",
+  "text": "API contract risk (supplement pass): MEDIUM \u2014 15 new findings across the 6 sub-labels. The single most consequential is JMAP-ic0j.53 (P1 leakage): principal.rs:121 bypasses the workspace-wide server_fail_from_backend redaction helper for the single AvailabilityError::Other branch, leaking backend error Display output into the wire description while every other handler in the same crate redacts. The P2 findings concentrate on public-type shape lock-in: bare String fields for documented-typed values (.54 time_zone, .55 recurrence_overrides_*), name collision with sibling object-prefix pattern (.56 ParseResult), and re-export asymmetry locking the backend module path (.57). The 4 underspecified P3 findings (.58, .62, .64, .66) and 2 docs P3 findings (.61, .65) collectively shift caller burden onto downstream backend implementors who must guess what the trait contract is. The risk classification (MEDIUM) matches the parent epic's prior API-contract note from 2026-05-15 17:15 \u2014 this supplement did not surface a fresh risk class, only deeper coverage of the same MEDIUM-class concerns."
+}

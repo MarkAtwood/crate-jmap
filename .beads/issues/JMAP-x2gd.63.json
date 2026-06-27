@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T01:55:05Z",
+  "compaction_level": 0,
+  "content_hash": "93264057e1029dc5a2b0ee6100715c979f55b9d9874918a8d613376ad864ee09",
+  "created_at": "2026-05-14T12:29:23Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\nThe \\`realistic-demo-ids\\` cargo feature has two API-contract gaps\non different axes.\n\n### Gap A: undocumented in lib.rs //! doc\n\n\\`Cargo.toml\\` declares the feature at line 32 with an inline\ncomment, and \\`memory.rs:187\\` documents the behavior change on\n\\`demo_next_id\\`. But the crate-level \\`//!\\` doc in \\`src/lib.rs\\`\n(which is what a consumer scans first when browsing the rendered\ndocs) does NOT mention the feature.\n\nThe \\`memory\\` feature gets its own heading at lib.rs:19-27 with\npurpose, \\\"Not production\\\" caveat, and pre-1.0 stability note.\n\\`realistic-demo-ids\\` gets nothing. A consumer reading the rustdoc\ntop-of-crate page does not learn the feature exists, what it\ndoes, or whether to activate it.\n\n### Gap B: behavior-altering feature on an unchanged pub fn signature\n\n\\`MemoryBackend::demo_next_id\\` (memory.rs:200) has the same\nsignature in both feature modes:\n\n```rust\nfn demo_next_id(inner: &mut Inner, type_name: &'static str, account_id: &str) -> Id\n```\n\nThe runtime output shape changes (\\`memory.rs:187-200\\`):\n\n- feature OFF (default): deterministic, \\`format!(\\\"{n:016x}\\\")\\` based on inner len\n- feature ON: timestamp+counter, mail-server-style\n\nPer Cargo features guidance, behavioral feature flags that mutate\nthe *output* of an unchanged function signature are a known\nunification hazard:\n\n- Crate A's tests activate \\`realistic-demo-ids\\` for realism\n- Crate B's tests consume \\`MemoryBackend\\` expecting deterministic ids\n- Cargo's feature unification means \\`realistic-demo-ids\\` is ON\n  for *both* crates in the unified workspace build\n- B's tests silently break\n\n\\`MemoryBackend\\` is documented as not-production so the blast\nradius is bounded, but the unification hazard is real for\ntest-helper consumption across a multi-crate workspace.\n\n## Why this matters more than ordinary feature docs gaps\n\n\\`realistic-demo-ids\\` is a feature on a public function that\nmutates the function's observable output without changing its\nsignature. The cargo features convention is that features should\neither be (a) additive on the API surface or (b) clearly\ndocumented as runtime-behavior-altering and not unification-safe.\nHere the runtime-altering aspect is documented in memory.rs but\nnot at the crate-level entry point.\n\n## Recommendation\n\nTwo things:\n\n1. Add a \\`# realistic-demo-ids feature\\` heading to lib.rs's \\`//!\\`\n   doc, modelled on the existing \\`# memory feature\\` heading at\n   lines 19-27. Explain what the feature does, its interaction\n   with \\`memory\\`, and warn that the output format of\n   \\`demo_next_id\\` is feature-dependent and must not be relied on\n   across dep-graph configurations.\n\n2. Add a rustdoc note on \\`demo_next_id\\` itself (memory.rs:187)\n   reinforcing the unification hazard: \\\"The output format\n   depends on the \\`realistic-demo-ids\\` feature, which is\n   unified across the dep graph by cargo. Crates that depend on\n   a specific format MUST NOT rely on the absence of the feature.\\\"\n\n## Engineering basis\n\n- Verified Cargo.toml line 32: \\`realistic-demo-ids = []\\`\n- Verified \\`grep -n \\\"realistic-demo-ids\\\" crate-jmap-chat-server/src/lib.rs\\`\n  returns zero hits. The feature is genuinely absent from lib.rs.\n- Verified \\`grep -n \\\"realistic-demo-ids\\\" crate-jmap-chat-server/src/memory.rs\\`\n  returns 4 hits at lines 187/195/201/220 documenting and gating the\n  behavior.\n- Verified the \\`demo_next_id\\` function signature at memory.rs:200\n  is identical under both \\`#[cfg(feature = ...)]\\` arms.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.63",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: realistic-demo-ids feature is undocumented in lib.rs //! AND behavior-altering on pub fn demo_next_id",
+  "updated_at": "2026-05-18T01:55:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:29:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "63f13d5d-2a45-52db-b0b5-9b68d70fcbf9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

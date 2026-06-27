@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ce765db9257f6432fc618a9742a03bfea07498110e6685b2acc42506e37c74e7",
+  "created_at": "2026-05-15T23:04:24Z",
+  "created_by": "Mark Atwood",
+  "description": "The workspace 'hybrid sloppy-Value + opt-in typed sub-types' pattern (workspace AGENTS.md \u00a7Sloppy-Value) ships typed sub-object types via two re-export surfaces from the *-types crates:\n\n- Top-level: `jmap_contacts_types::Name`, `jmap_contacts_types::EmailAddress`, etc. (30+ types from jmap-jscontact-types).\n- Module alias: `jmap_contacts_types::jscontact::*` (entire upstream crate).\n- Parallel surface in `jmap_calendars_types::jscalendar::*` (full upstream re-export).\n\nThe mechanism is correct and consistent with the workspace's canonical-template rule. The gap is that **the workspace has no documented stability contract for how these re-exports evolve**.\n\nConcrete risks:\n- If `jmap-jscontact-types::Name` is renamed to `JsContactName`, both surfaces in `jmap-contacts-types` break consumers downstream.\n- If `jmap-jscontact-types` adds a non-default field to any of these types, match-arm exhaustiveness in downstream `match` statements breaks (#[non_exhaustive] handles struct-literal construction but not match destructure).\n- If `jmap-jscontact-types` cuts a major version (0.x \u2192 0.y) under semver, every downstream consumer of `jmap-contacts-types` has to coordinate the upgrade.\n\nDecisions needed:\n1. Should the re-export surface (top-level vs module alias vs both) be canonical workspace policy? Currently it is implicit precedent.\n2. Should the *-types crate version-pin the re-exported crate at `=0.x.y` (tighter) or `^0.x` (looser)? Currently it's a path-dep so the question deferred to crates.io release time.\n3. Should additions to upstream sub-types automatically propagate via the top-level re-export, or should *-types crates re-export individually per RFC version?\n\nRecommendation: document the policy in workspace AGENTS.md as a successor to the Sloppy-Value section. Choose option (a) both surfaces (status quo), with version-pin at `=0.x.y` once the crates hit crates.io; and document that any breaking change in the re-exported sub-types-only crate is by definition a breaking change in the consuming *-types crate.\n\nTrigger: JMAP-glx8.15 contacts-types review \u2014 same shape applies to calendars-types and the planned tasks-types JSCalendar re-exports (JMAP-yfpq).",
+  "ephemeral": 0,
+  "id": "JMAP-84zs",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace policy: stability contract for hybrid type-crate re-exports (jscontact, jscalendar)",
+  "updated_at": "2026-05-15T23:04:24Z"
+}

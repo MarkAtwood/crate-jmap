@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Re-parented to deferred workspace-arch epic JMAP-78ng per the bead's own 'escalate to its own epic' recommendation. No consumer demand signal currently exists; un-defer when a third-party requests or a second internal consumer ships.",
+  "closed_at": "2026-05-18T02:09:28Z",
+  "compaction_level": 0,
+  "content_hash": "0cad06ea57a979c88d26bf68af8da419e886f22aefad85532615193b98b4fc75",
+  "created_at": "2026-05-14T03:42:02Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/backend.rs:243 (trait definition)\n\nThe trait surface ChatBackend has ~14 required + optional methods\nplus the JmapBackend supertrait's get/changes/query family.\nImplementing this trait correctly \u2014 particularly the contract\nnuances flagged by the other findings in this epic \u2014 is a\nsubstantial undertaking. A downstream consumer (kith, stoa, a\nthird-party) writes their own MemoryBackend equivalent and has\nno way to verify they got the contract right without running\nthis crate's integration tests as a manual exercise.\n\nWorkspace AGENTS.md 'Defensive-code-forcing' relevant clause:\n'API shapes that force every caller to write the same boilerplate\ndefensive check.' Generalised here to test boilerplate.\n\nWhat's missing: a public test-harness module\n(e.g. behind feature='test-harness') that exports a battery of\ncontract-compliance tests parameterised over any ChatBackend\nimplementation:\n\n  #[cfg(feature = \"test-harness\")]\n  pub mod test_harness {\n      pub async fn run_contract_suite<B: ChatBackend>(backend: B);\n      pub async fn run_space_set_atomicity_suite<B: ChatBackend>(backend: B);\n      pub async fn run_invite_redemption_suite<B: ChatBackend>(backend: B);\n      // ...\n  }\n\nOr a macro-based equivalent. The kit's own integration tests\nbecome test_harness::run_*_suite(MemoryBackend::new()).await\ncalls; third-party backends opt in by adding the same calls in\ntheir test suite.\n\nThis is a workspace-shape decision, not strictly required for\nthe kit to ship. Labeling 'opinion' because the engineering\nbasis is real (contract complexity, conformance gap) but the\nfix is a multi-bead epic, not a single-bead edit.\n\nFiling for visibility; the workspace may close as 'won't fix' or\nescalate to its own epic depending on consumer demand.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.45",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: ChatBackend trait has no test-shape macro / blanket harness for downstream backends",
+  "updated_at": "2026-05-18T02:09:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:42:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "0f84af59-7396-5436-8493-1e84ba5dbded",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

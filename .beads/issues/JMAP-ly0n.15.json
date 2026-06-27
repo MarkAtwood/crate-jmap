@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in 13d3253: Unknown is now a struct variant {type_name, payload} with hand-rolled (de)serialise pair. Wire round-trip preserved; 5 new tests assert tag and payload fidelity, empty-payload round-trip, known-variant byte-equivalence, missing-@type error, non-string-@type error.",
+  "closed_at": "2026-05-16T03:02:28Z",
+  "compaction_level": 0,
+  "content_hash": "1119d76ce7151105cf4e65fb1ffcfee0fb02152a7e058eea283e7cea63ada06a",
+  "created_at": "2026-05-16T02:47:20Z",
+  "created_by": "Mark Atwood",
+  "description": "SECTION: Contract underspecification\n\nCONTRACT RISK\nEphemeralMessage::Unknown is defined as a UNIT variant with\n#[serde(other)] on a #[serde(tag = \"@type\")] enum\n(crate-jmap-chat-types/src/ephemeral.rs:107-125):\n\n  #[serde(tag = \"@type\")]\n  pub enum EphemeralMessage {\n      #[serde(rename = \"ChatStreamEnable\")]  Enable(ChatStreamEnable),\n      ...\n      #[serde(other)]\n      Unknown,\n  }\n\nThe doc above this enum claims:\n  \"Unknown @type values deserialize to EphemeralMessage::Unknown\n   rather than producing an error, allowing forward-compatible clients.\"\n\nThe \"forward-compatible\" claim does not hold in the round-trip\ndirection. Receiving a future-draft frame like\n\n  {\"@type\":\"ChatVideoCallStart\",\"callId\":\"v1\",\"ringingAt\":\"...\"}\n\ndeserialises into EphemeralMessage::Unknown \u2014 at which point both\n(a) the original @type discriminant string \"ChatVideoCallStart\" AND\n(b) the entire payload (callId, ringingAt, ...) are DISCARDED.\n\nSerialising the resulting EphemeralMessage::Unknown emits\n  {\"@type\":\"Unknown\"}\nbecause serde resolves the tag from the variant name and there are no\nfields to flatten. #[serde(other)] is documented as\ndeserialise-only \u2014 it does not preserve the original tag for\nserialise.\n\nWHAT BREAKS FOR CALLERS\nAny caller that treats an EphemeralMessage as data to forward,\nrestream, log, or replay (federation relays, multi-tab session\nbridges, push-to-websocket bridges, the workspace's own jmap-testjig)\nwill silently mangle every frame it doesn't recognize at the current\nbuild. The recipient on the other side sees {\"@type\":\"Unknown\"} and\nhas no way to tell what the original wire message was.\n\nIn a federation context (draft-atwood-jmap-chat-federation-00),\nsilent corruption of forwarded WSS frames is a correctness\nregression masquerading as forward-compatibility.\n\nThe mode-prompt finding JMAP-ly0n.2 noted that the README documents\nUnknown as a struct variant while the code defines it as a unit\nvariant \u2014 that finding is about docs/code mismatch. THIS finding is\nabout the round-trip data loss that the unit-variant shape causes,\nindependent of the docs/code mismatch. Fixing JMAP-ly0n.2 by aligning\nthe README to the current unit variant does NOT fix this; it\ndocuments the loss.\n\nRECOMMENDED RESOLUTION\nSwitch Unknown to a payload-carrying struct variant that captures\nboth the original tag and the original body:\n\n  #[serde(untagged)]\n  Unknown(serde_json::Value)\n\nor\n\n  Unknown { #[serde(rename = \"@type\")] type_tag: String,\n            #[serde(flatten)] payload: serde_json::Map<String, serde_json::Value> }\n\nThe latter integrates better with the enum's existing #[serde(tag =\n\"@type\")] discipline but requires choosing a serde idiom that\npreserves the original tag verbatim on serialise. A round-trip test\nfor an unknown @type value belongs alongside the existing\nstream_disable_roundtrip test.\n\nORACLE\nserde-derive documentation for #[serde(other)] (deserialise-only);\ndraft-atwood-jmap-chat-federation-00 (federation relays MUST forward\nunrecognised frames without modification).",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "EphemeralMessage::Unknown round-trip discards original @type and payload",
+  "updated_at": "2026-05-16T03:02:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:47:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "baaffce9-ca23-5ffd-bdd6-705854a821e6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-sq1.2",
+  "title": "SSE multi-byte UTF-8 split-chunk handling",
+  "description": "The raw_buf/buf two-stage approach for SSE decoding is correct and necessary. It handles the case where a multi-byte UTF-8 codepoint is split across two HTTP chunks, which is a real edge case that a naive str-based approach would panic on or corrupt. A future contributor might suggest simplifying to directly treating bytes as UTF-8 strings. They must not \u2014 that would either panic (strict conversion) or silently corrupt data (lossy conversion). The current approach is the right answer.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:49:02Z",
+  "updated_at": "2026-04-30T02:49:13Z",
+  "closed_at": "2026-04-30T02:49:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sq1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:49:01"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T01:57:43Z",
+  "id": "019e38cd-a998-73d6-b42f-0fc845b3967c",
+  "issue_id": "JMAP-x2gd.56",
+  "text": "Superseded by workspace-wide epic JMAP-ibyi. The bead's own framing ('one sweep PR; one bead so the work shows up on a single sprint') is incompatible with piecemeal action under a chat-server-scoped review epic, and the canonical-template propagation rule requires the canonical jmap-mail-server be addressed first."
+}

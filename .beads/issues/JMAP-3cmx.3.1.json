@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "All 4 async tests pass. Clippy clean.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/submission_query.rs: 4 wiremock tests for EmailSubmission/query and /queryChanges; all pass; clippy clean",
+  "closed_at": "2026-05-05T03:49:07Z",
+  "compaction_level": 0,
+  "content_hash": "8299bf561d3d0d6b75309483c567191e88bf4680be8827e99fb227a3fccfa53e",
+  "created_at": "2026-05-05T03:31:11Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-mail-client/tests/submission_query.rs with 4 async wiremock tests for EmailSubmission/query and EmailSubmission/queryChanges.\n\n**Algorithm:**\n1. Create tests/submission_query.rs.\n2. At top: `#[path = \"helpers.rs\"] mod helpers;`\n3. Implement 4 tests:\n\n**Test 1: email_submission_query_with_filter**\n- Mock: POST /api/ \u2192 200, body = QueryResponse {accountId=A13824, queryState=qs1, canCalculateChanges=true, position=0, ids=[ES-1,ES-2], total=2, limit=null}.\n- Call: sc.email_submission_query(Some(serde_json::json!({\"identityIds\":[\"I1\"]})), None, None, None).await\n- Inspect request: server.received_requests() \u2192 parse body \u2192 assert methodCalls[0][1][\"filter\"][\"identityIds\"]==[\"I1\"].\n- Assert: resp.ids.len()==2, resp.query_state==\"qs1\".\n- Oracle: RFC 8621 \u00a77.3 filter condition fields (identityIds).\n\n**Test 2: email_submission_query_no_filter**\n- Mock: POST /api/ \u2192 200, body = QueryResponse {accountId=A13824, queryState=qs-empty, canCalculateChanges=true, position=0, ids=[], total=0}.\n- Call: sc.email_submission_query(None, None, None, None).await\n- Inspect request: assert methodCalls[0][1] does NOT contain key \"filter\".\n- Assert: resp.ids is empty, resp.query_state==\"qs-empty\".\n- Oracle: RFC 8621 \u00a77.3 \u2014 filter is optional, absent when None.\n\n**Test 3: email_submission_query_changes_round_trip**\n- Mock: POST /api/ \u2192 200, body = QueryChangesResponse {accountId=A13824, oldQueryState=qs1, newQueryState=qs2, total=5, removed=[ES-old], added=[{id=ES-new, index=0}]}.\n- Call: sc.email_submission_query_changes(\"qs1\", None, None, None).await\n- Assert: resp.old_query_state==\"qs1\", resp.new_query_state==\"qs2\", resp.removed contains \"ES-old\", resp.added[0].id==\"ES-new\", resp.added[0].index==0.\n- Oracle: RFC 8620 \u00a75.6 /queryChanges response shape.\n\n**Test 4: email_submission_query_changes_with_filter_and_sort**\n- Mock: POST /api/ \u2192 200, body = minimal valid QueryChangesResponse.\n- Call: sc.email_submission_query_changes(\"qs1\", None, Some(serde_json::json!({\"undoStatus\":\"pending\"})), Some(serde_json::json!([{\"property\":\"sentAt\",\"isAscending\":false}]))).await\n- Inspect request: assert filter.undoStatus==\"pending\" and sort[0].property==\"sentAt\".\n- Note: the sort property name is \"sentAt\" (\u00a77.3 line 4513), NOT \"sendAt\" (the object field).\n- Oracle: RFC 8621 \u00a77.3 Comparable properties.\n\n**Defensive programming rules:**\n- sort property name \"sentAt\" verified against spec \u00a77.3 line 4513 \u2014 not guessed\n- All fixture values are literals; none derived from running the code under test\n- Use .expect() with descriptive messages, never bare unwrap()\n\n**Acceptance criteria:**\n- cargo test -p jmap-mail-client submission_query exits 0 (all 4 tests pass)\n- Clippy clean.",
+  "ephemeral": 0,
+  "id": "JMAP-3cmx.3.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "tests/submission_query.rs: 4 wiremock tests",
+  "updated_at": "2026-05-05T03:49:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:32:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx.2.1",
+      "id": "74ff1739-8285-57ea-b160-29e0b693285c",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:31:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx.3",
+      "id": "ecf227fd-56e0-593e-8d22-8a3251be6c19",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-9hz.5",
+  "title": "validate_session_urls uses string prefix instead of url::Url::scheme()",
+  "description": "blob.rs expand_url_template and client.rs validate_session_urls check HTTPS scheme with url.starts_with(\"https://\") (case-sensitive string match) instead of parsing the URL and calling .scheme(). RFC 3986 \u00a73.1 specifies schemes are case-insensitive, so HTTPS:// or Https:// are valid but would be rejected. The url crate (already a dep) normalizes schemes to lowercase, so Url::parse(s)?.scheme() == \"https\" is the correct check.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:23:36Z",
+  "updated_at": "2026-04-30T06:33:09Z",
+  "closed_at": "2026-04-30T06:33:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9hz",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:23:36"
+    }
+  ]
+}

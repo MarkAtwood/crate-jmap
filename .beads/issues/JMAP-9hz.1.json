@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-9hz.1",
+  "title": "validate_sha256_format returns InvalidSession for SHA-256 format errors",
+  "description": "validate_sha256_format() returns ClientError::InvalidSession when the SHA-256 string is not 64 hex chars. InvalidSession is documented as 'Session document missing a required field'. Two callers: (1) download_blob with caller-supplied expected_sha256 \u2014 wrong format is an InvalidArgument (caller bug). (2) upload_blob with server-returned sha256 \u2014 wrong format is a Parse or InvalidSession-ish server error. The function uses one error variant for two semantically distinct situations, and that variant is wrong for at least one of them.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:21:15Z",
+  "updated_at": "2026-04-30T06:33:02Z",
+  "closed_at": "2026-04-30T06:33:02Z",
+  "notes": "Fix: (a) split into two call sites with appropriate errors, or (b) add a new ClientError variant for integrity check failures that covers format errors too, or (c) use InvalidArgument for caller path and Parse for server path.",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9hz",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:21:14"
+    }
+  ]
+}

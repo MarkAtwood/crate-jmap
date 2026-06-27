@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T17:29:24Z",
+  "id": "019e2789-34ad-7dd0-baae-1a19f0ec3361",
+  "issue_id": "JMAP-jfia.29",
+  "text": "Filing as human alongside JMAP-jfia.19 \u2014 Dispatcher::dispatch returns JmapResponse with no per-call metrics, panic flag, timing surface. The bead notes this couples observability into the consumer's transport layer (which has to instrument every call site) rather than being available at the dispatch boundary.\n\nOptions: (a) add a DispatchOutcome struct returned alongside JmapResponse with per-call metadata, (b) accept a tracing::Span argument, (c) Dispatcher::dispatch_instrumented variant. Option (a) is the cleanest but adds a return-type field, breaking change. Defer to major-bump."
+}

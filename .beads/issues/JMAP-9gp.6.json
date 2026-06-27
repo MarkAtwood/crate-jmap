@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-9gp.6",
+  "title": "next_id() process-local counter produces duplicate thread IDs on restart",
+  "description": "email.rs next_id() uses a static AtomicU64 initialized to 1. Thread IDs like 0000000000000001 restart from 1 on every process restart. Persistent backends will accumulate thread IDs and the counter will collide, merging emails from different conversations into the same thread. The function is undocumented about this limitation. Fix: use a UUID or a timestamp-based ID, or document that this is only safe for volatile in-memory backends and that persistent backends must override find_thread_by_message_ids to supply their own thread ID.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:44:53Z",
+  "updated_at": "2026-05-01T01:51:16Z",
+  "closed_at": "2026-05-01T01:51:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9gp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:44:52"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Non-string non-null parentId in /copy create entry now produces invalidProperties[parentId] in notCreated. Null and string values preserved. New integration test filenode_copy_non_string_parent_id_returns_invalid_properties asserts the wire shape. Committed in 1d1e309. Gates: fmt/clippy/test/doc green.",
+  "closed_at": "2026-05-14T20:39:40Z",
+  "compaction_level": 0,
+  "content_hash": "9f400c58bdb1ece9e0c4ef30884b35eac7b45e88809bdb82f2b824cc3a1710c7",
+  "created_at": "2026-05-14T19:50:30Z",
+  "created_by": "Mark Atwood",
+  "description": "src/filenode.rs:816-822:\n\n  if let Some(new_parent) = obj_val.get(\"parentId\") {\n      source_node.parent_id = if new_parent.is_null() {\n          None\n      } else {\n          new_parent.as_str().map(Id::from)\n      };\n  }\n\nIf new_parent is non-null and non-string (e.g., a JSON number, array, or object \u2014 wire-protocol garbage), .as_str() returns None and source_node.parent_id is set to None ('move to root'). The client sent invalid input and got 'move to root' behavior with no error.\n\nTrigger: malformed FileNode/copy with create: { 'c1': { 'id': 'src', 'parentId': 42 } }. Bad behavior: source node is copied to the destination root rather than the response signaling invalidProperties.\n\nRequired: emit notCreated[c1] = { type: 'invalidProperties', properties: ['parentId'], description: 'parentId must be a string Id or null' } for non-string non-null values, instead of silently coercing to None.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_filenode_copy silently drops non-string overrides for parentId",
+  "updated_at": "2026-05-14T20:39:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:50:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "2c5a2d3c-ebe5-5557-8e31-db0b8744089e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

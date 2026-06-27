@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "calendar_event_parse method implemented and tested.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created event_parse.rs with calendar_event_parse method; 4 unit tests (guard, blobIds wire name, properties absent, USING_PARSE URIs); 32 total pass; clippy clean",
+  "closed_at": "2026-05-05T15:40:25Z",
+  "compaction_level": 0,
+  "content_hash": "c91d330e4467f22e3fb50df0ec7235974a232579d9720e23502d242fe8e84740",
+  "created_at": "2026-05-05T02:55:28Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-calendars-client/src/methods/event_parse.rs implementing calendar_event_parse on SessionClient. Oracle: draft-ietf-jmap-calendars-26 \u00a75.13 and \u00a78.5 (Figures 18-21).\n\n**Signature:**\npub async fn calendar_event_parse(&self, blob_ids: &[&str], properties: Option<&[&str]>) -> Result<CalendarEventParseResponse, ClientError>\n\n**Algorithm:**\n1. Create event_parse.rs and add pub mod event_parse to mod.rs.\n2. Guard: blob_ids.is_empty() \u2192 InvalidArgument.\n3. Each element must be non-empty string \u2192 InvalidArgument if any empty.\n4. session_parts() \u2192 (api_url, account_id).\n5. Build args: accountId, blobIds array, optional properties.\n6. build_request(\"CalendarEvent/parse\", args, USING_PARSE).\n7. call_internal \u2192 extract_response.\n8. Unit tests: empty blob_ids \u2192 InvalidArgument; request has blobIds wire key (camelCase); properties:None \u2192 absent from request; using array has all 3 parse URIs.\n\n**Acceptance criteria:**\n- cargo test -p jmap-calendars-client exits 0.\n- blob_ids:&[] returns Err(InvalidArgument).\n- Request uses \"blobIds\" key and USING_PARSE capability slice.",
+  "ephemeral": 0,
+  "id": "JMAP-7i4v.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement calendar_event_parse method on SessionClient (\u00a75.13)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:55:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v",
+      "id": "92710279-e714-5d58-9ad7-9828e6d690f6",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:56:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v.1",
+      "id": "ff7b7729-50ef-5827-81e8-bc258d065972",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Added RFC 8620 \u00a75.5 compliance note: total is returned as the cap (honest lower bound) when capped, not omitted \u2014 so calculateTotal=true is honored correctly.",
+  "closed_at": "2026-05-04T16:02:06Z",
+  "compaction_level": 0,
+  "content_hash": "f541efe423fafc8301fbd7bd86ace28d37a8924c15440154fbf5b7afe17491eb",
+  "created_at": "2026-05-02T00:43:35Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs lines 631-636: when the result set is capped at COLLAPSE_THREADS_MAX_EMAILS, total is set to None. The comment says 'Total is only honest when the fetch was not capped' but does not explain the client-visible consequence: if the client sent calculateTotal=true it will receive a response with no 'total' field at all (silent omission, not an error). This is surprising and likely spec-non-conformant \u2014 RFC 8620 \u00a75.5 says total MUST be present when calculateTotal=true. The comment should either explain why omission is acceptable here, or flag this as a known gap.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "collapseThreads cap silently omits total from response",
+  "updated_at": "2026-05-04T16:02:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "f1928ea8-173d-518d-bf0f-d0a5d008acdb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

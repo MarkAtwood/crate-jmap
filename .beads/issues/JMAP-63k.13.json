@@ -1,0 +1,33 @@
+{
+  "close_reason": "positive finding, no action needed",
+  "closed_at": "2026-05-02T06:53:38Z",
+  "compaction_level": 0,
+  "content_hash": "1da1265ca64e15cbc14065f4ae82726b14ec70b94abab651a64c1ac40f414be3",
+  "created_at": "2026-05-02T06:45:57Z",
+  "created_by": "Mark Atwood",
+  "description": "File:crate-jmap-server/src/handlers.rs (consumed from crate-jmap-chat-server/src/chat.rs:73, ban.rs:72, message.rs:67, space.rs:67, crate-jmap-mail-server/src/email.rs:520, mailbox.rs:61, submission.rs:75, thread.rs:58)\nDecision: Each per-type handle_*_changes function was replaced with a single-line delegation to jmap_server::handlers::handle_changes::<T, B>(backend, args).await, eliminating 8 near-identical copies of the sinceState parsing, maxChanges validation, get_changes dispatch, and JSON response assembly.\nWhy good: The changes response shape is defined entirely by RFC 8620 \u00a75.2, not by the object type \u2014 there is nothing type-specific in the logic that was duplicated. Any bug fix or spec-compliance improvement to the response format (e.g. updatedProperties semantics) now needs to be made in exactly one place. The generic approach is enforced at the type system level: the compiler verifies that T implements the required trait bounds, so a handler cannot accidentally call the wrong backend method.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "GOOD: */changes handlers delegate to generic handle_changes",
+  "updated_at": "2026-05-02T06:53:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:45:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "3988f0da-9a72-55cb-93e1-ab147a938687",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

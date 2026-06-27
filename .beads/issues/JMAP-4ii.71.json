@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:59:49Z",
+  "compaction_level": 0,
+  "content_hash": "22cd13f77e339e0f3b326a72222977976a4d36f2b098ca54fdf9e5266a93ef36",
+  "created_at": "2026-05-02T04:57:09Z",
+  "created_by": "Mark Atwood",
+  "description": "space.rs/handle_space_set update loop uses args.get(\"update\").and_then(|v| v.as_object()) (borrow) instead of args.remove(\"update\") (owned). This forces: (1) id_str.clone() on every branch in the loop body (lines 393, 423, 444, 457, 463, 466, 470); (2) patch_val.get(field) + v.clone() (line 438) for each metadata field when building clean_patch, instead of patch_val.remove(field) with a move. All other set handlers in the crate were fixed in JMAP-4ii.57/58 \u2014 space.rs was missed.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.71",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "space.rs update loop: args.get borrow forces id_str.clone() and v.clone()",
+  "updated_at": "2026-05-02T04:59:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:57:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "54ae1452-e445-5ce0-b59f-9a91d0bce744",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "PrincipalCalendarsCapability added. Tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added PrincipalCalendarsCapability to capability.rs with 4 fields per \u00a72.1; re-exported from lib.rs; 4 tests covering null/non-null accountId and round-trip",
+  "closed_at": "2026-05-05T03:12:15Z",
+  "compaction_level": 0,
+  "content_hash": "eb67cf68d2a9a988043a2069044cacf4811842e54e12d5569117157a132f9a03",
+  "created_at": "2026-05-05T02:52:24Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Add PrincipalCalendarsCapability to capability.rs. Draft-ietf-jmap-calendars-26 \u00a72.1 defines the value of Principal.capabilities[\"urn:ietf:params:jmap:calendars\"]. Fields: accountId (Id|null), mayGetAvailability (Boolean), mayShareWith (Boolean), calendarAddress (String).\n\n**Algorithm:**\n1. Add to capability.rs:\n   #[non_exhaustive]\n   #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]\n   #[serde(rename_all = \"camelCase\")]\n   pub struct PrincipalCalendarsCapability {\n       pub account_id: Option<Id>,       // Id|null, no skip_serializing_if\n       pub may_get_availability: bool,\n       pub may_share_with: bool,\n       pub calendar_address: String,\n   }\n2. Re-export from lib.rs.\n3. Add round-trip serde tests: accountId null and non-null cases.\n4. Run cargo test -p jmap-calendars-types.\n\n**Acceptance criteria:**\n- 4 fields with correct wire names.\n- accountId serializes as null when None.\n- cargo test -p jmap-calendars-types exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-z2cy.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add PrincipalCalendarsCapability struct (calendars-26 \u00a72.1)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:52:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-z2cy",
+      "id": "52ff9812-1c31-5f89-9b0f-43d1a5d8b36a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "README \u00a7'How to use' rewritten as rust,ignore schematic block with pointer to lib.rs doctest for the runnable, verified variant. Same gap in canonical mail-server + other extension-server siblings tracked as workspace sweep at bd:JMAP-50yd. Implementation in commit 9fe2756.",
+  "closed_at": "2026-05-15T10:03:05Z",
+  "compaction_level": 0,
+  "content_hash": "0a277631db21be604c389147b219c2ba118afaeebcd13b2f2e2bdaf38da7fdde",
+  "created_at": "2026-05-14T19:35:33Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/README.md:23-38\n\nCURRENT BLOCK:\n    \\`\\`\\`rust\n    use std::sync::Arc;\n    use jmap_contacts_server::{ContactsBackend, register_contacts_handlers};\n    use jmap_server::Dispatcher;\n\n    // 1. Implement ContactsBackend for your storage layer (see trait section below).\n    struct MyBackend { /* db pool, etc. */ }\n    impl ContactsBackend for MyBackend { /* ... */ }\n\n    // 2. Wire all 9 contacts methods into a Dispatcher in one call.\n    let mut dispatcher: Dispatcher<()> = Dispatcher::new();\n    register_contacts_handlers(&mut dispatcher, Arc::new(MyBackend { /* ... */ }));\n    \\`\\`\\`\n\nPROBLEM:\nThis block is the FIRST thing a new caller reads after the elevator\npitch. It is the de-facto contract example. It does NOT compile, for\nmultiple reasons:\n\n1. **`impl ContactsBackend for MyBackend { /* ... */ }` is incomplete.**\n   ContactsBackend is a subtrait of JmapBackend; the impl block must\n   provide every required JmapBackend method (account_exists,\n   get_objects, get_state, get_changes, query_objects, query_changes)\n   plus every required ContactsBackend method (create_object,\n   update_object, destroy_object, supports_type, copy_contact_card,\n   address_book_has_contents). The example shows none of them.\n\n2. **type Error / type CallerCtx missing.** JmapBackend's two\n   associated types are required and not shown.\n\n3. **`Dispatcher<()>` vs `B::CallerCtx` mismatch implicit.** The\n   `Dispatcher<()>` constructor requires that `MyBackend::CallerCtx\n   = ()`. The reader does not see that constraint until they hit a\n   compile error.\n\n4. **`Arc::new(MyBackend { /* ... */ })` is `Arc<MyBackend>` not\n   `Arc<dyn ...>`.** This part is OK as-is, but combined with #3 the\n   error message will mention CallerCtx without explanation.\n\nA reader who copy-pastes this sample gets a wall of trait-impl errors\non the very first build. The code sample serves the OPPOSITE purpose\nof its intended role: it actively misleads about the surface area\nrequired to implement a ContactsBackend.\n\nWHAT CALLERS CANNOT DEPEND ON:\nThat the README's How-to-use example is a working starting point.\n\nRECOMMENDED:\nReplace with a documented, doctest-able example. The lib.rs already\ncontains the right shape (lib.rs:9-17):\n\n    \\`\\`\\`rust,no_run\n    # use std::sync::Arc;\n    # use jmap_contacts_server::{ContactsBackend, register_contacts_handlers};\n    # use jmap_server::Dispatcher;\n    # fn example<B: ContactsBackend<CallerCtx = ()> + 'static>(backend: B) {\n    let mut dispatcher: Dispatcher<()> = Dispatcher::new();\n    register_contacts_handlers(&mut dispatcher, Arc::new(backend));\n    # }\n    \\`\\`\\`\n\nThat doctest IS already in lib.rs and presumably passes `cargo test\n--doc`. Copy the same idiom into the README so the rendered docs at\ncrates.io/docs.rs and the README match.\n\nAlternative: link the README to the `lib.rs` rustdoc:\n    \"For a complete working example, see [the crate docs].\"\n\nP1 because the README is the primary discovery surface for new\nconsumers and the broken example will produce confused issue traffic\nthe moment this crate publishes.\n\nPARENT EPIC RELATIONSHIP: this is orthogonal to JMAP-qz9v.1 (README\ndocuments an unimplemented cascade); both are README-as-contract\nfindings but on different sections.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README \u00a7'How to use' code sample does not compile \u2014 missing JmapBackend supertrait methods, type Error, type CallerCtx",
+  "updated_at": "2026-05-15T10:03:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:35:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "baa4ec55-295a-5a7a-9545-d9fba1b595bd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T18:13:12Z",
+  "compaction_level": 0,
+  "content_hash": "df0ae1391219c4a647057abaa921915f643a37e28a78c01cfc7ad16bed42e8cd",
+  "created_at": "2026-05-02T17:32:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Port jmap-test-suite mailbox-get.test.ts (10 tests) and mailbox-query.test.ts (13 tests) to Rust integration tests against MemoryMailBackend using the canonical fixture. Key cases: get-all (ids=null returns all), get-by-ids, get-not-found (notFound is []), get-properties-filter (unrequested props absent), get-inbox-exists (role=inbox), get-mailbox-properties (myRights has 9 boolean fields), get-total-emails-accurate; query-filter-by-parent-id-null (top-level only), query-filter-by-role (hasAnyRole), query-sort-by-name, query-limit+position, anchorNotFound. Source: ~/GIT/jmap-test-suite/src/tests/mailbox/",
+  "ephemeral": 0,
+  "id": "JMAP-b96x",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "test: Mailbox/get + Mailbox/query conformance",
+  "updated_at": "2026-05-02T18:13:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T10:32:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bhw5",
+      "id": "961d4558-7200-5bb6-8793-b44dc9901f33",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

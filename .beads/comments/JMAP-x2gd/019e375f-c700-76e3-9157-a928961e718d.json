@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T19:18:04Z",
+  "id": "019e375f-c700-76e3-9157-a928961e718d",
+  "issue_id": "JMAP-x2gd",
+  "text": "Idiom rating (5th rusty pass, 2026-05-17): CLEAN-leaning-ACCEPTABLE \u2014 production code remains structurally idiomatic Rust; 28 commits of new code since the 4th pass (2026-05-16, +147 lines Space/join idempotent rewrite; +96 lines STRUCTURAL_KEYS enum; +126 lines apply_space_patch cap enforcement in memory.rs; +68 lines burn-on-read rewrite in message.rs) introduce three local findings: one canonical-template divergence on optional-arg parsing (.104, P2, 26 sites diverge from mail-server's 48-site idiom), one dead-suppression sweep (.105, P2, 10 #[allow(clippy::result_large_err)] for a lint that does not fire under default/pedantic/explicit -W), one .find_map opportunity in new code (.106, P3). Zero P0/P1. The Space/join idempotent rewrite, STRUCTURAL_KEYS enum dispatch, declare-then-init\u2192if-expression refactor (.27 closed via f8ea707), and message.rs burn-on-read rewrite are all idiomatic improvements that close prior findings without introducing new ones. The 4th pass's verdict 'further investment goes to fixing rather than finding' stands; this pass found findings only because new code surface was introduced."
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-fpp.12",
+  "title": "raw_buf drain-at-least-one prevents stuck-forever invalid UTF-8",
+  "description": "client.rs subscribe_events: when valid_up_to == 0 (the first byte in raw_buf starts an invalid sequence), drain_end = 0.max(1) = 1 discards that byte rather than looping forever. Without this, a stream of permanently-invalid bytes would never drain, raw_buf would grow to the 1 MiB cap, and the stream would yield SseFrameTooLarge instead of processing subsequent valid data. The max(1) is subtle but necessary; a contributor who 'simplifies' it to drain(..valid_up_to) creates an infinite loop. The comment explains the intent but the decision record makes it explicit.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:16:31Z",
+  "updated_at": "2026-04-30T01:18:54Z",
+  "closed_at": "2026-04-30T01:18:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-fpp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:16:30"
+    }
+  ]
+}

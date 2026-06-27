@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "cc10be715c5f20c19eb4aa3a1c85a42aefa18da924b43bcf32e7655e199de1bc",
+  "created_at": "2026-05-17T12:12:42Z",
+  "created_by": "Mark Atwood",
+  "description": "Discovered while resolving JMAP-1j9k.12 (calendars-client got the if_in_state arg in line with canonical mail-client). Confirmed via grep that the following extension-client siblings do NOT expose if_in_state on any /set method:\n\n- jmap-chat-client (Space/set, Message/set, Membership/set, ...)\n- jmap-tasks-client (Task/set, TaskList/set)\n- jmap-contacts-client (ContactCard/set, AddressBook/set)\n- jmap-filenode-client (FileNode/set)\n- jmap-sharing-client (Principal/set if any, ResourceShareGroup/set)\n\nCanonical (jmap-mail-client) exposes if_in_state on:\n- email_set (email.rs:104-117)\n- email_import (email.rs:253-ish)\n- email_submission_set (submission.rs:160-189)\n\nPer workspace AGENTS.md 'Canonical Templates' propagation rule, this is a cookie-cutter divergence: the canonical has the spec primitive, the siblings don't. RFC 8620 \u00a75.3 if_in_state is the standard optimistic-concurrency guard; without it callers cannot atomically guard /set against concurrent modification.\n\nChildren (one per sibling):\n.1 jmap-chat-client \u2014 sweep all *_set methods\n.2 jmap-tasks-client \u2014 sweep task_set, task_list_set\n.3 jmap-contacts-client \u2014 sweep contact_card_set, address_book_set\n.4 jmap-filenode-client \u2014 sweep filenode_set\n.5 jmap-sharing-client \u2014 sweep all *_set methods if applicable\n\nPattern (mirror canonical): trailing positional Option<&State> arg, wire shape:\n    if let Some(s) = if_in_state { args[\"ifInState\"] = s.as_ref().into(); }\n\nAcceptance:\n- Every *_set method in scope gains if_in_state: Option<&State>\n- All existing call sites pass None for backward equivalence\n- Each sibling's smoke tests retain green\n- Workspace-level: cargo test --workspace + cargo clippy --workspace --all-targets -- -D warnings green\n- Out of scope: extending if_in_state to /import and /submission_set in non-mail crates (they don't have those methods)",
+  "ephemeral": 0,
+  "id": "JMAP-ip5u",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Sweep: add RFC 8620 \u00a75.3 if_in_state arg to /set methods across extension-client siblings",
+  "updated_at": "2026-05-17T12:12:42Z"
+}

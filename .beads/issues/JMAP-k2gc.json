@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "9746134d9e61576eb6000750014c59dd5c3853ee798636261db0460e68ef247c",
+  "created_at": "2026-05-15T08:26:44Z",
+  "created_by": "Mark Atwood",
+  "description": "**Pattern source**: bd:JMAP-826m.47 aligned jmap-metadata-server's MemoryError + MockError to mirror jmap-mail-server's canonical shape:\n- #[non_exhaustive]\n- Named-field struct { description: String }\n- pub fn new(impl Into<String>) -> Self\n- pub fn description(&self) -> &str\n\nThe pub tuple-struct shape with a pub String field forecloses adding structured fields (error kind, source reference, account id) without a breaking change \u2014 exactly what non_exhaustive + named-field is designed to enable.\n\n**Canonical state**:\n- jmap-mail-server (canonical): correct named-field shape at crate-jmap-mail-server/src/memory.rs (around line 475).\n- jmap-tasks-server: named-field shape at crate-jmap-tasks-server/src/memory.rs (around line 89). Need to verify non_exhaustive presence.\n- jmap-sharing-server: special shape at crate-jmap-sharing-server/src/memory.rs (around line 282). Need to verify alignment.\n- jmap-metadata-server: aligned in JMAP-826m.47.\n\n**Divergent siblings** (still 'pub struct ... (pub String);'):\n- crate-jmap-calendars-server/src/memory.rs (MemoryError around line 80) and lib.rs (MockError around line 224)\n- crate-jmap-chat-server/src/memory.rs (MemoryError around line 432)\n- crate-jmap-contacts-server/src/memory.rs (MemoryError around line 77) and lib.rs (MockError around line 165)\n- crate-jmap-filenode-server/src/memory.rs (MemoryError around line 69) and lib.rs (MockError around line 144)\n- crate-jmap-tasks-server/src/lib.rs (MockError around line 186) \u2014 need to verify\n\n**Fix shape** (cookie-cut from JMAP-826m.47):\n1. Replace pub struct ErrName(pub String); with non_exhaustive named-field shape.\n2. Add new(impl Into<String>) constructor.\n3. Add description(&self) -> &str accessor.\n4. Update Display impl to use self.description.\n5. Find all construction sites (likely 5-15 per crate) and replace ErrName(...) with ErrName::new(...).\n6. Find all pattern-match sites and replace ErrName(msg) with capture-and-call-description-method.\n\n**Rationale**: Workspace AGENTS.md canonical-template propagation rule: siblings mirror the canonical. The pub String tuple shape locks in primitive obsession AND prevents future contributors from adding structured error context without a breaking change. The non_exhaustive named-field shape is the forward-compatible foundation.\n\n**Sub-bead candidate**: file per-crate children .1-.5 if the sweep is paused mid-flight.",
+  "ephemeral": 0,
+  "id": "JMAP-k2gc",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Sibling sweep: align MemoryError/MockError to canonical non_exhaustive named-field shape in 5 extension-server crates",
+  "updated_at": "2026-05-15T08:26:44Z"
+}

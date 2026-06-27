@@ -1,0 +1,39 @@
+{
+  "id": "JMAP-0u6",
+  "title": "email.rs core: Email/get,changes,query,queryChanges,set",
+  "description": "Implement the 5 core Email/* handlers in src/email.rs.\n\n## Methods to implement\n\n### Email/get (RFC 8621 \u00a75.1)\n- Fetch emails by id; honor 'properties' whitelist\n- bodyProperties sub-selection (nested EmailBodyPart properties)\n- fetchTextBodyValues / fetchHTMLBodyValues / fetchAllBodyValues flags\n- maxBodyValueBytes truncation\n\n### Email/changes (RFC 8621 \u00a75.2)\n- Return created/updated/destroyed email ids since sinceState\n- updatedProperties optimization: if only flags/mailboxIds changed, return 'updatedProperties' list\n\n### Email/query (RFC 8621 \u00a75.3)\n- FilterCondition: inMailbox, inMailboxOtherThan, before, after, minSize, maxSize, allInThreadHaveKeyword, someInThreadHaveKeyword, noneInThreadHaveKeyword, hasKeyword, notKeyword, hasAttachment, text, from, to, cc, bcc, subject, body, header\n- SortComparator: receivedAt, from, to, subject, size, sentAt, hasKeyword, allInThreadHaveKeyword, someInThreadHaveKeyword\n\n### Email/queryChanges (RFC 8621 \u00a75.4)\n- Returns removed + added items since sinceState\n\n### Email/set (RFC 8621 \u00a75.5)\n- create: assign threadId (new or existing based on References/In-Reply-To headers), mailboxIds, keywords\n- update: patch mailboxIds, keywords \u2014 do NOT allow modifying immutable fields (from, subject, body \u2192 immutableError)\n- destroy: remove from all mailboxes; if last email in thread, destroy thread too\n\n## Key design decisions\n- Thread assignment: handler logic, not backend \u2014 inspect headers to find matching thread\n- Immutable fields (RFC 8621 \u00a75.5): receivedAt, size, blobId, threadId, messageId, inReplyTo, references, sender, replyTo, from, to, cc, bcc, subject, sentAt, bodyStructure, bodyValues, textBody, htmlBody, attachments, hasAttachment, preview, headers\n- keywords use RFC 5788 keyword names: \\Seen, \\Answered, \\Flagged, \\Draft, \\Deleted\n\n## Source references\n- Stalwart (AGPL \u2014 read, do not copy): ~/GIT/stalwart-jmap-server/main/crates/jmap/src/email/\n- RFC 8621 \u00a75\n- Copy pattern: ~/PROJECT/crate-jmapchat-server/jmapchat-server/src/chat.rs\n\n## Test vectors\n- Email/get with properties=[\"id\",\"subject\"] \u2192 only those fields returned\n- Email/set create \u2192 appears in Email/query inMailbox filter\n- Email/set update keywords \u2192 Email/changes updatedProperties=[\"keywords\"]\n- Email/set update from \u2192 immutableError\n\nDepends on: JMAP-8ph, JMAP-5c0, JMAP-tf6\nParent: JMAP-445",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:02:34Z",
+  "updated_at": "2026-04-30T21:10:41Z",
+  "closed_at": "2026-04-30T21:10:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-2n8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:39:40"
+    },
+    {
+      "depends_on_id": "JMAP-5c0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:02"
+    },
+    {
+      "depends_on_id": "JMAP-8ph",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:02"
+    },
+    {
+      "depends_on_id": "JMAP-tf6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:03"
+    }
+  ]
+}

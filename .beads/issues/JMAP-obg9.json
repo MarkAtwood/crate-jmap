@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:43:37Z",
+  "compaction_level": 0,
+  "content_hash": "e90867b36b95eddc2c4a20752ea79c36c42967ad9a248451737e5b2b7b82aad0",
+  "created_at": "2026-05-02T23:39:04Z",
+  "created_by": "Mark Atwood",
+  "description": "In common/mod.rs parse_mdns (lines 2522-2529), the parsed Mdn is constructed by building a serde_json::json!({...}) template and deserializing it. This template enumerates specific field names. If Mdn gains a new field in the future, it will not appear in this template and will be silently absent in the returned value. This is a structural consequence of Mdn being #[non_exhaustive] (preventing struct literal construction), but the risk is undocumented at the construction site. By contrast, send_mdns (lines 2399-2445) uses serde_json::to_value(&mdn) to start from the client-supplied value, which does preserve all existing fields. The parse path has no equivalent preservation guarantee.",
+  "ephemeral": 0,
+  "id": "JMAP-obg9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mdn parse_mdns hand-built JSON template silently drops new Mdn fields",
+  "updated_at": "2026-05-02T23:43:37Z"
+}

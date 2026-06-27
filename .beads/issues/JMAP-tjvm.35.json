@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added 'Clone' to all 10 non-lifetimed public method-input Params/Input structs across the canonical mail-client and 5 sibling extension-client crates: jmap-mail-client (5: EmailGetParams, EmailCopyParams, MailboxSetParams, EmailSubmissionSetParams, EmailParseParams), jmap-calendars-client (2: CalendarEventParseParams, PrincipalGetAvailabilityParams \u2014 CalendarEventGetParams already had Clone), jmap-contacts-client (1: AddressBookSetParams), jmap-filenode-client (2: FileNodeSetParams, FileNodeCopyParams), jmap-chat-client (2: ChatQueryInput, ChatContactQueryInput). jmap-tasks-client and jmap-sharing-client have no Params structs in their public method-input surface; jmap-metadata-client side tracked separately at JMAP-wzq9.34 (5 Params there). Borrowed-lifetime *Input structs (EmailImportInput<'a> on mail-client + 19 *Input<'a> on chat-client) explicitly scoped out per the bead body's carve-out and tracked in follow-up JMAP-tjvm.39 for the canonical-template completion. Workspace canonical-template propagation rule followed.",
+  "closed_at": "2026-05-17T13:50:49Z",
+  "compaction_level": 0,
+  "content_hash": "2cd62b6d02343024aa3526c4be4a426e0732362f86bae25df6871d930e96b5b9",
+  "created_at": "2026-05-15T03:20:10Z",
+  "created_by": "Mark Atwood",
+  "description": "Canonical mail-client analog of JMAP-wzq9.20 / JMAP-wzq9.34 (metadata-client).\n\n`crate-jmap-mail-client/src/methods/mod.rs`:\n\n    line 40:  #[derive(Debug, Default, serde::Serialize)]\n    line 42:  pub struct EmailGetParams { ... }\n\n    line 67:  #[derive(Debug, serde::Serialize)]\n    line 69:  pub struct EmailCopyParams { ... }\n\n    line 87:  #[derive(Debug, Default, serde::Serialize)]\n    line 89:  pub struct MailboxSetParams { ... }\n\n    line 111: #[derive(Debug, Default, serde::Serialize)]\n    line 113: pub struct EmailSubmissionSetParams { ... }\n\n    line 253: #[derive(Debug, Default, serde::Serialize)]\n    line 255: pub struct EmailParseParams { ... }\n\nNone of the five public input param structs derive `Clone`. (`EmailImportInput<'a>` at line 147 also lacks it but holds borrowed data, so Clone is separately debatable \u2014 not the concern here.)\n\n## What goes wrong\n\nThe five methods all take `Option<XxxParams>` by value. A caller running a paginated changes/query loop or a parallel fan-out cannot reuse the same params object:\n\n    let params = EmailGetParams { fetch_text_body_values: Some(true), .. Default::default() };\n    for chunk in id_chunks {\n        let resp = sc.email_get(Some(chunk), None, Some(params.clone())).await?;\n        //                                                ^^^^^^^^ does not compile\n        ...\n    }\n\nThe caller must either:\n- Construct a fresh `EmailGetParams` every iteration (materialising any `Vec<String>` body_properties from scratch each time), or\n- Wrap params in `Rc` / `Arc` and `.clone()` the smart pointer (extra ceremony just to reuse a config object).\n\n## Fix\n\nAdd `Clone` to all 5 derives:\n\n    #[derive(Debug, Default, Clone, serde::Serialize)]   // EmailGetParams, MailboxSetParams, EmailSubmissionSetParams, EmailParseParams\n    #[derive(Debug, Clone, serde::Serialize)]            // EmailCopyParams (no Default since from_account_id is required)\n\nCost: `Clone` of `Vec<String>` body_properties is O(n) on element count, but n is bounded by the spec's enumerated property names (small). Acceptable.\n\n## Cross-refs\n\n- JMAP-wzq9.20 \u2014 metadata-client side: MetadataChangesParams not Clone\n- JMAP-wzq9.34 \u2014 metadata-client side: the 4 new params structs missing Clone\n- JMAP-tjvm.16 \u2014 adjacent `#[non_exhaustive]` gap on the same structs (different concern, both should be fixed in same commit)\n\n## Workspace propagation\n\nPer workspace AGENTS.md \"Canonical Templates\", fix here first, then propagate to all 7 extension-client siblings.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Public input params structs missing Clone derive (EmailGetParams, EmailCopyParams, MailboxSetParams, EmailSubmissionSetParams, EmailParseParams)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:20:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "e0df815e-28d1-5547-a2f1-e5b70b764e13",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

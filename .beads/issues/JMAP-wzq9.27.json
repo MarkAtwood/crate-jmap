@@ -1,0 +1,33 @@
+{
+  "close_reason": "Implemented in commit 8d8b6c5 as part of the params-slot rollout. Extracted the args.as_object_mut().expect() hoist into a shared merge_extras helper (methods/metadata.rs:9-24) so the invariant is computed once per call, not once per extras-key. Helper is now used by all 5 Metadata/* method builders (metadata_get, metadata_set, metadata_changes, metadata_query, metadata_query_changes) \u2014 every site that flattens extras into args goes through the same hoisted-invariant path.",
+  "closed_at": "2026-05-15T02:32:08Z",
+  "compaction_level": 0,
+  "content_hash": "c5cabd1d0da9f08d6a24ba9b40d2e1f4278f463efe8c408c3cf3765a86c8682f",
+  "created_at": "2026-05-15T02:22:18Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:102-107 \u2014 `metadata_changes` walks p.extra and on each iteration calls `args.as_object_mut().expect(\"args is constructed as an Object\")` to obtain the inner Map, then `.entry(k).or_insert(v)`. The .as_object_mut().expect() pair is a loop invariant: `args` does not change shape across iterations.\n\nIdiomatic Rust hoists invariant computation out of the loop body:\n```rust\nlet obj = args.as_object_mut().expect(\"args is constructed as an Object\");\nfor (k, v) in p.extra {\n    obj.entry(k).or_insert(v);\n}\n```\n\nWhat goes wrong if it stays: nothing at runtime (LLVM probably inlines / hoists the as_object_mut call, and `.expect()` is cheap on Some). The cost is *clarity*: each loop iteration as written reads as if it might re-evaluate the args shape, when in fact it cannot. A reader has to convince themselves that the per-iteration call is OK before moving on.\n\nNote: this is NOT propagatable from canonical jmap-mail-client because mail-client's extras loop (email.rs:55-59) uses `args[k] = v` \u2014 a different (overwrite-on-collision) semantics with implicit per-iteration as_object_mut. Metadata-client deliberately uses entry+or_insert to preserve typed fields on collision (see JMAP-wzq9.18). The hoisting fix applies only here.\n\nScope: metadata.rs:102-107 (one site).",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "metadata_changes: hoist args.as_object_mut().expect() out of extras for-loop",
+  "updated_at": "2026-05-15T02:32:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:22:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "0e2bbddf-0e1a-5a7d-bb80-3baafc6c395b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

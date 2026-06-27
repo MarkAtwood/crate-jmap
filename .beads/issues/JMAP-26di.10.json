@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced the existing .is_some_and(any()) assertion in chat_get_omits_ids_and_properties_when_none with assert_eq! on the full USING_CHAT array. Added matching assert_eq! to space_get_omits_ids_and_properties_when_none and message_get_threads_ids_and_omits_properties_when_none.\n\nCoverage: 3 assertions total (one per method-family). All Chat/* / Space/* / Message/* requests in chat-client funnel through the same build_request(super::USING_CHAT) call site, so a regression that swapped USING_CHAT for USING_CHAT_PUSH (or vice versa) for any individual method in those families would fail the family's representative assertion.\n\nUSING_CORE / USING_CHAT_PUSH / USING_QUOTA are not yet covered because the methods that consume them (push_subscription_*, quota_*, blob_*, presence_status_*, read_position_*) have no smoke-test coverage at all \u2014 tracked at bd:JMAP-26di.6.\n\ncargo test -p jmap-chat-client: all 94+ tests green. cargo clippy -p jmap-chat-client --tests -- -D warnings clean. cargo fmt clean. Committed as eadc01c.",
+  "closed_at": "2026-05-15T21:24:56Z",
+  "compaction_level": 0,
+  "content_hash": "972d49cdde96ba449d717f96eecfc47cde2000037a8b2127321e0e0a7d5a06e1",
+  "created_at": "2026-05-15T20:28:35Z",
+  "created_by": "Mark Atwood",
+  "description": "Only chat_smoke_tests.rs::chat_get_omits_ids_and_properties_when_none (line 78-91) asserts on the `using` array of the JMAP request envelope. None of the space_* or message_* smoke tests verify `using`. The chat-client crate has multiple capability constants (USING_CHAT, USING_CHAT_PUSH per methods/mod.rs:195-208) \u2014 a regression that swapped them per-method (e.g. PushSubscription methods getting USING_CHAT instead of USING_CHAT_PUSH) would not be caught. RFC 8620 \u00a73.3 requires using correctness on every request. Fix: add at least one `using` assertion per method-family that consumes a capability constant. The one existing assertion (chat_get) uses an awkward .is_some_and(|a| a.iter().any(...)) chain; replace with assert_eq! on the full expected array so 'extra capabilities accidentally added' is also caught.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "using-capability correctness asserted on only 1 of 26 smoke tests",
+  "updated_at": "2026-05-15T21:24:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:28:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "0eae5f68-c8b9-5ec4-aa61-ad9a10d3a910",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

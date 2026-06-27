@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already-defended. memory.rs:314-331 demo_next_id rustdoc already carries: '/// NOT A PRODUCTION PATTERN. Both modes below are explicitly /// demonstration-quality; production backends must mint real ULIDs /// (or equivalent globally-unique, monotonic, persistent-across-restarts /// ids) and never use this helper as a copy-paste source.' The body also retains the debug_assert! proof-by-failure for the 'len()+1 collides after delete' case. The bead's defense ask is already fully present in the source. No code change needed.",
+  "closed_at": "2026-05-14T19:03:37Z",
+  "compaction_level": 0,
+  "content_hash": "dc1661bc9cee598a30e6447f644092198386eed21008d738be7a2ae83302e665",
+  "created_at": "2026-05-14T18:07:57Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:271-330 explicitly documents both demo modes as demonstration-quality and shows the failure modes (collision after delete, process-restart reset, no namespace uniqueness). A contributor reading the source and seeing 'this works' would otherwise be tempted to lift it for a production backend. The block also contains a debug_assert! that catches the 'len()+1 collides after delete' case at test time \u2014 a concrete proof-by-failure for the comment. Future contributors should not 'simplify' this by removing the comment or the debug_assert! 'because it's never going to fire'.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Defend: CARGO-CULT WARNING on demo_next_id",
+  "updated_at": "2026-05-14T19:03:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:07:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "327f1ac4-271d-5d5a-8df7-414bcc3c37c8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

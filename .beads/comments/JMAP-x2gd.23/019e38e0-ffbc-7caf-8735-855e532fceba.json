@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T02:18:50Z",
+  "id": "019e38e0-ffbc-7caf-8735-855e532fceba",
+  "issue_id": "JMAP-x2gd.23",
+  "text": "Review-acknowledgement bead. Verified constant-time compare `ct_eq` is present in handle_space_join (grep finds the use site). The bead's recommendation 'preserve both the choice and the comment' is the status quo. No code change required."
+}

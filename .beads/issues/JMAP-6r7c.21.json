@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in 1a95410. Added 'Field-type rationale' section to ClientConfig rustdoc explaining the u64-for-HTTP-body-caps vs usize-for-in-memory-frame-caps split (reqwest reports Content-Length as u64; tungstenite WebSocketConfig wants usize). Added 'No cross-field invariants' section explicitly documenting that validate() checks each field independently. Doc-only; no behavior change. The optional cross-field warning recommendation (max_sse_frame > max_call_body hint) was rejected as bikeshedding \u2014 they govern different threats (per-frame vs whole-body) and a deployment can rationally configure them in either order.",
+  "closed_at": "2026-05-17T11:37:20Z",
+  "compaction_level": 0,
+  "content_hash": "e4db746ae53f99d56e68f59776f3819a949f7106bb3698e45833168e992d0f7a",
+  "created_at": "2026-05-14T23:15:04Z",
+  "created_by": "Mark Atwood",
+  "description": "client.rs:36-81 \u2014 ClientConfig struct with seven pub fields.\n\n#[non_exhaustive] correctly allows adding fields. But:\n\n1. Every field is pub. Callers reading config.max_call_body, mutating with .max_call_body = ..., or pattern-destructuring (let ClientConfig { max_call_body, .. } = config) are committed. The crate cannot replace u64 with a NonZeroU64 newtype later \u2014 that would be a breaking change at every caller site even though it would catch the bug Class A: 'I set max_call_body to 0 and got InvalidArgument at the constructor instead of compile-time'.\n\n2. Two semantically-related fields (max_sse_frame, max_ws_message) are usize while three (max_session_body, max_call_body, max_download_body, max_upload_response_body) are u64. The mixed-int-type API forces callers writing `max_sse_frame: 1024 * 1024` versus `max_session_body: 1024 * 1024` \u2014 without a `_u64` suffix, the literals are different types. Callers who try to write a helper `fn limit_for(kind: BodyKind) -> impl Into<Both>` discover the mismatch. Should have been one numeric type (u64 throughout, with internal casts to usize where needed).\n\n3. There is no constraint that max_sse_frame <= max_call_body or other cross-field invariants. A caller can configure max_sse_frame = 2 MiB but max_call_body = 1 MiB and get inconsistent behavior \u2014 a single SSE event survives, but a JSON response of the same size triggers ResponseTooLarge. validate() should at least flag if max_sse_frame > max_call_body as a hint.\n\nRecommendation (low priority because it's a 0.x crate): document the rationale for the mixed types in the field docstrings, and consider in next minor release whether to add cross-field warnings to validate().",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClientConfig field set is public; future fields cannot remove existing ones without major bump",
+  "updated_at": "2026-05-17T11:37:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:15:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "b11d18c6-361c-5fa8-b8c7-60301c01325b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

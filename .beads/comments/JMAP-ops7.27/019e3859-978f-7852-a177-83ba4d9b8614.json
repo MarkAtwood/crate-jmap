@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T23:50:56Z",
+  "id": "019e3859-978f-7852-a177-83ba4d9b8614",
+  "issue_id": "JMAP-ops7.27",
+  "text": "Closed by commit 60fe345.\n\nAdded 13 per-crate AGENTS.md files (6 extension-types + 7 extension-client siblings).\nModeled on the existing canonical references (jmap-mail-types/AGENTS.md for types;\njmap-mail-client/AGENTS.md for clients) and the existing extension-server sibling\nbanner pattern.\n\nEach new file carries the canonical-template banner with explicit propagation rule,\nthe spec content that distinguishes the sibling from the canonical, the crate-family\ndep graph, per-crate build/test/clippy commands, and the workspace push policy +\ndep scope restrictions.\n\nSibling roster now complete:\n- types: mail (canonical), chat (also-canonical-for-chat-draft), calendars, tasks,\n  contacts, filenode, sharing, metadata (8/8 covered)\n- clients: mail (canonical), chat, calendars, tasks, contacts, filenode, sharing,\n  metadata (8/8 covered)\n- servers: mail (canonical), chat, calendars, tasks, contacts, filenode, sharing,\n  metadata (8/8 covered, was already done)\n\ncargo check --workspace unchanged (docs-only change)."
+}

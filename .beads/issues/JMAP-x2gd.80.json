@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Refactor committed in 3e66d49 (refactor(chat-server): share apply-test seed code). Extracted seed_space, seed_with_admin, seed_with_non_admin_caller helpers plus ACCOUNT_ID/SPACE_ID constants into tests/common/mod.rs; three apply-test files now import shared helpers (~135 lines deduplicated). The projection-test fixture in space_get_projection.rs has a structurally different shape (full categories/channels) and remains local, per the rationale documented in the new common-mod block.",
+  "closed_at": "2026-05-16T17:55:57Z",
+  "compaction_level": 0,
+  "content_hash": "7894573af205ca6771151b5179d94bffc5efefa8d628b255a4475abd74ccac14",
+  "created_at": "2026-05-14T15:53:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Four integration test files define functionally-identical `seed_space` helpers:\n- crate-jmap-chat-server/tests/role_member_apply.rs:35-57 (original)\n- crate-jmap-chat-server/tests/channel_category_apply.rs:45-67 (BYTE-IDENTICAL to role_member_apply \u2014 confirmed by `diff <(sed -n '35,57p' role_member_apply.rs) <(sed -n '45,67p' channel_category_apply.rs)` returning empty)\n- crate-jmap-chat-server/tests/space_metadata_apply.rs:50-73 (identical structure plus `\"description\": \"original\"`)\n- crate-jmap-chat-server/tests/space_get_projection.rs:36 (variant)\n\nEach copy also redeclares `const ACCOUNT_ID: &str = \"a1\"` and `const SPACE_ID: &str = \"s1\"`.\n\nCritically, `tests/common/mod.rs` exists at 734 lines AND its top-of-file rustdoc explicitly says: \"Shared test infrastructure ... Each integration test binary includes this module with `mod common;`.\" The module is the documented home for shared test fixtures. The seeders went into per-file copies anyway, and the contributor knew it: see the comment at channel_category_apply.rs:37 'Seeding helpers (mirrors role_member_apply.rs)' which explicitly acknowledges the duplication.\n\nIdiomatic Rust: move `seed_space`, `seed_with_admin`, `seed_with_admin_caller`, `seed_with_non_admin_caller`, and the `ACCOUNT_ID` / `SPACE_ID` consts into tests/common/mod.rs. Per-file variants like the metadata test's `\"description\": \"original\"` take a parameter or get a sibling helper.\n\nEngineering basis: maintenance hazard. A future schema change to Space (e.g. a new required wire field) forces edits in four files instead of one. The crate's own contributor already acknowledged this is duplication; the only thing missing is the dedup pass. Real-world bug from this pattern: bd:JMAP-x2gd.74 (apply_space_patch memberCount invariant) would be testable with a single common-helper assertion if the helpers were consolidated; instead, every file that wants to verify post-mutation memberCount has to re-build the fixture independently.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.80",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "tests: seed_space helper duplicated byte-identically across 4 test files; tests/common/mod.rs exists for exactly this purpose but is bypassed",
+  "updated_at": "2026-05-16T17:55:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:53:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "924ba344-4a0c-5d33-938a-9a9ef2a237a4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Partial: deleted 2 dead allows in commit 6188b28. The remaining 15 are load-bearing (clippy fires on them today, contrary to bead's verification claim). Workspace-canonical fix filed as bd:JMAP-s9xo.",
+  "closed_at": "2026-05-17T19:37:10Z",
+  "compaction_level": 0,
+  "content_hash": "31ba7d67d3d702e4b0152eefb4b5efa0b3d8b4783c1fec1a156b8e7b4452df59",
+  "created_at": "2026-05-17T19:17:21Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/src/memory.rs carries 10 #[allow(clippy::result_large_err)] annotations (lines 308, 339, 1154, 1388, 1495, 1797, 1961, 2049, 2274, 2324). The canonical jmap-mail-server carries zero such annotations.\n\nVerification that the lint does not fire:\n  cargo clippy -p jmap-chat-server --all-features                                # 0 result_large_err warnings\n  cargo clippy -p jmap-chat-server --all-features -- -W clippy::pedantic        # 0 result_large_err warnings\n  cargo clippy -p jmap-chat-server --all-features --tests -- -W clippy::result_large_err  # 0 warnings\n\nThe lint is silent under default, pedantic, and explicit -W flags. The 10 #[allow] attributes therefore suppress nothing \u2014 they are dead annotations.\n\nEngineering basis: gratuitous #[allow] attributes are noise that masks engineering intent. A future maintainer reading 'this fn explicitly allows result_large_err' will assume the lint fires here and the suppression is load-bearing, then waste cycles confirming it. Code review of any future change near these sites will repeat the same waste.\n\nThe shape of SetError (8 typed Option fields + extras Map) is non-trivial in size, but neither chat-server nor mail-server hits the 128-byte default lint threshold for BackendSetError<E>. If a future SetError field push makes the type cross the threshold, the right fix is workspace-wide (Box the SetError variant of BackendSetError, or shrink SetError itself) \u2014 not pre-emptive per-fn allows.\n\nFix: delete all 10 #[allow(clippy::result_large_err)] lines. If a future build catches the lint firing, file a new bead at that time with the actual measured size and the workspace-canonical Box decision.\n\nCanonical-template implication: mail-server's clean state is the propagation direction. Chat-server diverges from canonical; this finding closes that divergence.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.105",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "10 dead #[allow(clippy::result_large_err)] annotations in memory.rs suppress a non-firing lint",
+  "updated_at": "2026-05-17T19:37:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T12:17:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "f7bdc325-919c-5d9a-b7d2-bf90fd916fbe",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

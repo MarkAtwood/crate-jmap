@@ -1,0 +1,33 @@
+{
+  "close_reason": "Redirected to workspace-sweep epic JMAP-x2gd.46.1 which covers the canonical-template propagation across all 8 extension-server crates plus jmap-testjig. The chat-server-local fix (file: crate-jmap-chat-server/src/backend.rs:282) cannot be landed in isolation per workspace AGENTS.md 'Canonical Templates' / chat-server AGENTS.md '\ud83e\uddec Sibling of the canonical jmap-mail-server \u2014 mirror its shape' \u2014 fixing chat-server alone would create canonical-template divergence. The 8-crate sweep needs human sign-off because it is a breaking-API signature change for every downstream consumer that overrides supports_type today; tracked at .46.1 (human-labeled, awaiting decision).",
+  "closed_at": "2026-05-14T04:41:08Z",
+  "compaction_level": 0,
+  "content_hash": "6869022dd07c466e2d168e2fc97e21932788391da56fced2aa4aea840221ab4a",
+  "created_at": "2026-05-14T04:17:17Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/backend.rs:278-282\n\n  /// Returns true if this account supports the given JMAP object type.\n  /// Called by the server consumer (e.g. the session capability builder) \u2014\n  /// NOT called internally by the handler library. Backends that support all\n  /// types unconditionally can return `true` always.\n  fn supports_type<O: JmapObject>(&self) -> bool;\n\nThe doc-comment explicitly says 'this account supports the given JMAP\nobject type' \u2014 but the signature has NO account_id argument. The\n'this account' is implicit / unknown.\n\nThis is a real problem for production backends doing per-account\ncapability discovery. RFC 8620 \u00a71.6.2 is unambiguous: capabilities\nare per-Account, not per-server. A multi-tenant backend offering:\n\n- Free tier: Chat, Message, Space, ChatContact (subset)\n- Pro tier: + CustomEmoji, PresenceStatus\n- Enterprise tier: + SpaceInvite, SpaceBan\n\nliterally CANNOT express the answer through this method, because\nthe answer depends on the account being queried and that account\nid is not in scope.\n\nThis is also sync and stateless. Compare to ChatBackend::limits\n(crate-jmap-chat-server/src/backend.rs:333) which DID get the\nplumbing right: `fn limits(&self, _caller: &Self::CallerCtx,\n_account_id: &jmap_types::Id) -> ChatLimits` \u2014 args plumbed even\nin the default impl, so production backends can vary by-account\nwithout an API break.\n\nThree contract issues with the current shape:\n\n1. The method's NAME ('supports_type') and DOC ('this account\n   supports') promise per-account semantics. The signature\n   silently delivers per-server semantics. A consumer reading\n   the doc will write production code that compiles, runs, and\n   silently returns wrong capabilities.\n\n2. Once a single downstream backend depends on the\n   no-account-id shape, adding account_id (or caller) is a\n   breaking change. The current shape is locked in.\n\n3. The doc says 'Backends that support all types unconditionally\n   can return true always.' This describes the trivial case but\n   doesn't admit the non-trivial case exists. A reader assumes\n   the trivial case is the intended case.\n\nRecommended fix (before publishing): match the limits() shape \u2014\n`fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx,\naccount_id: &jmap_types::Id) -> bool` with the default impl\nignoring both args.\n\nSibling finding: JMAP-x2gd.43 calls out limits() sync-ness. This\nfinding is about the missing-args shape on supports_type, which\nis a STRICTLY MORE SEVERE form of the same defect: limits has the\nargs (production can override per-account), supports_type does\nnot (production cannot).",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.46",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: ChatBackend::supports_type lacks account_id, blocks per-account capability discovery",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T21:17:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "e1b7386d-228e-54d4-8764-45b3b2ad901b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

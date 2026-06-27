@@ -1,0 +1,67 @@
+{
+  "acceptance_criteria": "9 calendars-server integration tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added 7 dispatcher integration tests (copy errors, parse notParsable, getAvailability, utcStart+start conflict); 37 total pass; clippy clean",
+  "closed_at": "2026-05-05T15:47:10Z",
+  "compaction_level": 0,
+  "content_hash": "5b7dca678b1556d28af4655a4b454bea1857077bed357aafab021406d5c5bd93",
+  "created_at": "2026-05-05T03:02:11Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Integration tests covering the corrected and new handlers. Oracle: RFC 9670, RFC 8620 \u00a75.4, \u00a75.3, draft-ietf-jmap-calendars-26 \u00a75.\n\n**9 tests:**\n1. copy_missing_from_account_returns_from_account_not_found. Oracle: RFC 8620 \u00a75.4.\n2. copy_missing_source_id_returns_invalid_properties.\n3. copy_source_event_not_found_returns_not_found.\n4. copy_on_success_destroy_original_appends_invocation. Oracle: RFC 8620 \u00a75.4.\n5. parse_unknown_blob_returns_not_found. Oracle: \u00a75.13.\n6. parse_unparseable_blob_returns_not_parsable. Oracle: \u00a75.13.\n7. get_availability_unknown_principal_returns_not_found. Oracle: \u00a72.2.\n8. get_availability_forbidden_returns_forbidden. Oracle: \u00a72.2.\n9. set_with_utc_start_and_start_returns_invalid_properties. Oracle: \u00a75.9.\n\nAll use MockBackend. All expected response values from spec, not from code.\n\n**Acceptance criteria:** All 9 tests pass. cargo test -p jmap-calendars-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-qksw.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Integration tests: all handlers against MockBackend",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:02:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw.5",
+      "id": "a619fdb7-9ce2-5049-82e5-d9555687ddad",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:02:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw.2",
+      "id": "ce912e60-75f4-5a0a-9545-0413744c15cc",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:02:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw.1",
+      "id": "cf72e950-5009-5436-b8d6-8e1e755cf328",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:02:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw.4",
+      "id": "ddb8f642-0608-5be2-a45c-9994035be39d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:02:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw",
+      "id": "e691ca22-4a0e-5274-9826-132001115273",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

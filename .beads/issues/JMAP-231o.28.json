@@ -1,0 +1,33 @@
+{
+  "close_reason": "Won't fix: opinion-tagged. Reviewer concludes 'Either choice is defensible' \u2014 the trait method enables idiomatic .with_calendars_session(...) chaining via orphan-rule workaround, paying one trait import for the chained syntax. Decision: keep current shape.",
+  "closed_at": "2026-05-10T05:30:10Z",
+  "compaction_level": 0,
+  "content_hash": "822e8cd84740879282dd7e8cf1f95fdd2616557197266542dfe323155780239f",
+  "created_at": "2026-05-08T03:22:28Z",
+  "created_by": "Mark Atwood",
+  "description": "src/lib.rs:24-39 defines:\n```\npub trait JmapCalendarsExt {\n    fn with_calendars_session(&self, session: Session) -> SessionClient;\n}\nimpl JmapCalendarsExt for JmapClient { ... }\n```\n\nThis is the canonical extension-trait idiom (orphan-rule workaround for adding a method to a foreign type). PLAN.md (lines 65-84) intended the trait to host all 19 methods. The shipped design moved the methods to inherent impls on `SessionClient` (defined in this crate), leaving the trait with one method.\n\nTwo consequences:\n1. The trait achieves nothing the orphan rule requires now \u2014 `SessionClient` is local, the inherent impl block on `JmapClient` is forced through the trait but the trait could just BE the with_calendars_session function that takes (&JmapClient, Session): `pub fn with_calendars_session(client: &JmapClient, session: Session) -> SessionClient`. Free function, no trait import needed at call site.\n\n2. Callers must remember `use jmap_calendars_client::JmapCalendarsExt;` to access ONE method. Trait imports are a known papercut for new users.\n\nIf you want the chained `client.with_calendars_session(...)` syntax, the trait is the only way (orphan rule). That's a real ergonomic win and probably worth the import cost. But document the design decision so a future contributor doesn't 'simplify' it (or DO simplify it to a free function \u2014 the .with_calendars_session(...) chain is not load-bearing).\n\nFiling as P3 idiomatic-rust/opinion-adjacent. Either choice is defensible.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extension trait JmapCalendarsExt has only one method and no default impl \u2014 could be inherent",
+  "updated_at": "2026-05-10T05:30:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:22:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "87b0f30c-32df-57ba-b197-6c21ec4e0b1f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

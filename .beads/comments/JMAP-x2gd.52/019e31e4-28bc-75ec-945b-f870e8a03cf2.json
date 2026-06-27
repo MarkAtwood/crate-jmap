@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T17:44:57Z",
+  "id": "019e31e4-28bc-75ec-945b-f870e8a03cf2",
+  "issue_id": "JMAP-x2gd.52",
+  "text": "Re-classified workspace-canonical via JMAP-x2gd.84 (2026-05-16). Confirmed: crate-jmap-mail-server/src/memory.rs:109-125 carries the byte-identical Inner shape with HashMap<(&'static str, String), ...> and .to_owned() at lines 131, 138, 149, 151, 160, 207 (6 sites, same count as chat-server).\n\nPer workspace AGENTS.md 'Canonical Templates' propagation rule, the fix lands in mail-server first (canonical extension-server template), then propagates here, then to the 6 sibling backends (calendars, tasks, contacts, filenode, sharing, metadata) which all carry the same shape. .52 stays open as chat-server-scope tracking; the workspace-wide sweep is the bigger task.\n\nRecommendation when this work is picked up: file a workspace-architectural epic with one issue per crate. Land the canonical change in mail-server first; verify in a separate commit; then propagate per-sibling in subsequent commits. The recommended fix (option (a) from the .52 description): restructure Inner as nested HashMap<&'static str, HashMap<String, ...>> so outer key never needs to be owned for lookup and inner key can be borrowed via Borrow<str>-on-String."
+}

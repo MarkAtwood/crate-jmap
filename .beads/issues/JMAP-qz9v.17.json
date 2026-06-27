@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T03:03:50Z",
+  "compaction_level": 0,
+  "content_hash": "c25c4ae574e94bf7a85c2ddb8cae5d60f1b9256166714618583a587e9e70703a",
+  "created_at": "2026-05-14T19:22:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: MemoryBackend::with_account('').register_account(&Id::from('')) creates an account whose id is the empty string. Later AddressBook/get { accountId: '' } succeeds against it.\n\nBad behavior consequence: the empty-string-as-Id is at best confusing in test output and at worst a maintenance hazard if a contributor copy-pastes the with_account('') invocation. Id::from is infallible by design (the workspace newtype), so the validation gap is in the higher-level helper.\n\nThe same gap exists in seed_object \u2014 no validation on the type_name string, no validation on the id string. A typo seed_object('acc1', 'AddreesBook', ...) creates a phantom HashMap slot under ('AddreesBook', 'acc1') that no read path will ever find.\n\nSuggested rewrite: at minimum, add debug_assert!(!account_id.is_empty(), ...) and debug_assert!(matches!(type_name, 'AddressBook' | 'ContactCard'), ...) to with_account / register_account / seed_object. This is a demo backend, so the cost is zero in release and the developer-experience gain in tests is positive. A typoed type_name would fail loudly in debug.\n\nLower-priority because the surface area is internal (test fixtures) and the failure mode is 'fixture didn't load, test still passes vacuously', which is a tractable observable failure. Still worth a defensive assert.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "register_account accepts empty-string accountId silently \u2014 Id::from('') yields a usable but invalid account",
+  "updated_at": "2026-05-18T03:03:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:22:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "de1801c0-d14b-55f9-8d37-ffd6018b2902",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

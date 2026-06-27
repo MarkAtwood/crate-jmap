@@ -1,0 +1,33 @@
+{
+  "close_reason": "P3 optimization, not prioritized now; easy to add short-circuit in filter_properties later",
+  "closed_at": "2026-05-02T07:05:34Z",
+  "compaction_level": 0,
+  "content_hash": "4ded237052d103d558a24abc26b31dddc872aa8706ce4febf16f72ffeafa3abb",
+  "created_at": "2026-05-02T05:35:46Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs: filter_properties(&val, &effective_props) is called for every email even when properties=None (meaning return all default properties). In that case the function clones ALL values. At scale (100+ emails per request), this doubles the JSON allocation for the common case. When \\!header_props.is_empty() is false and no filtering is needed, filter_properties could be replaced with val.clone() to skip the per-key iteration, or the header-injection branch could restructure to avoid the double-clone.",
+  "ephemeral": 0,
+  "id": "JMAP-287.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_email_get: filter_properties clones all values even when properties=None",
+  "updated_at": "2026-05-02T07:05:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T22:35:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-287",
+      "id": "e63d729f-69d0-5bd0-b44f-c472b46c5745",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

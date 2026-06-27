@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Rustdoc 'Properties' section added covering None/Some(&[])/Some(&[..]) semantics, RFC 8620 \u00a75.1 silent-ignore for unknown names, and the cross-backend stability expectation. Handler at event.rs:1029-1067 already implements this contract; this commit just publishes it on the trait surface.",
+  "closed_at": "2026-05-16T01:29:57Z",
+  "compaction_level": 0,
+  "content_hash": "3fe6cf04d58e7bfbb3988467e9120283f90ba2f8c791a7e3c5de46950432c27e",
+  "created_at": "2026-05-15T18:09:51Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-calendars-server/src/backend.rs:521-542 defines:\n\n    fn parse_calendar_event_blobs(\n        &self,\n        _caller: &Self::CallerCtx,\n        _account_id: &Id,\n        blob_ids: &[Id],\n        _properties: Option<&[String]>,\n    ) -> impl ... -> Result<ParseResult, Self::Error>\n\nNote `_properties` is leading-underscore-named (ignored by the default impl). The rustdoc at :521-525 describes only blob ids and the default behavior \u2014 it says NOTHING about what `properties` does:\n\n- Whether a backend implementing non-default behavior should produce CalendarEvent objects with only the requested properties populated (RFC 8620 \u00a75.1-style projection).\n- Whether passing `Some(&[])` means \"no properties \u2014 just confirm parseability\" or \"default property set\".\n- Whether `None` means \"default properties\" or \"all properties\".\n- Whether unknown property names are rejected, ignored, or surfaced via a separate ParseResult bucket.\n\nCompare draft-ietf-jmap-calendars-26 \u00a75.13 (CalendarEvent/parse): the spec defines the `properties` argument and the behavior of restricting parsed objects to those properties. But the trait method's rustdoc does not relay this.\n\nWhat callers cannot rely on:\n- That two backend impls produce the same CalendarEvent shape when given the same `properties` argument.\n- That the handler (event.rs:983-1003) does any post-processing \u2014 it does not; the result is forwarded verbatim.\n- That `properties: Some(&[\"title\"])` will produce `CalendarEvent` objects with ONLY `title` populated, vs full objects.\n\nFix: add to the rustdoc:\n\n    The `properties` argument selects which CalendarEvent properties\n    are populated in the `parsed` map (per RFC 8620 \u00a75.1). Backends\n    MUST honor this when implementing non-default behavior. `None` =\n    return all properties (server-defined \"default property set\");\n    `Some(&[])` = parse but return only the `id` and required keys;\n    unknown property names MUST be silently ignored per RFC 8620 \u00a75.1.\n\nWithout this, every non-default backend will make its own decisions and clients will see different responses against different deployments.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.66",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "parse_calendar_event_blobs accepts properties arg with no documented effect; backends silently disagree",
+  "updated_at": "2026-05-16T01:29:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T11:09:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "6c87cc9c-3c94-529b-9502-7e9f2e850c15",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "76928ec645357acb9ee7fdc7d8db2a655483dedb717b9110a49af0ba056bb26a",
+  "created_at": "2026-05-14T12:45:04Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src/sieve.rs:1163-1184 (the new maxSizeScript check added in commit e5b9c7b) calls backend.get_sieve_blob to read the script bytes for size checking, then calls backend.validate_sieve_script which in production backends will fetch the same bytes again to actually parse them. The MemoryBackend reference impl shows the double-fetch shape directly: memory.rs:2713 in get_sieve_blob and memory.rs:2726 in validate_sieve_script both call self.inner.lock().unwrap().blobs.get(blob_id).cloned().\n\nFor a real backend hitting S3 / a database / a filesystem, this is a 2x I/O cost on every validate. The cost is concentrated on exactly the scripts (large ones) where it hurts most. For small scripts within the size cap the cost is wasted but tolerable; for scripts above the cap the entire second fetch is dead work since validate_sieve_script will need the bytes only after the size check would already have rejected the request.\n\nThe right shapes are:\n\n1. validate_sieve_script(account_id, blob_id, max_bytes_opt) \u2014 pass the cap into the backend, which fetches once and short-circuits internally. SieveBackend trait extension, default impl can fetch via get_sieve_blob to preserve behaviour for existing impls.\n\n2. Or: pull validate_sieve_script's signature back to take raw bytes \u2014 let the handler fetch via get_sieve_blob, size-check, and pass &[u8] in. Cleaner but breaks the trait API across all implementers.\n\nEither is a deliberate trait-API choice. For now the comment 'Note: this method validates script syntax only. Script blob size should be checked separately' (sieve.rs:66-68) describes the design but doesn't explain the cost.\n\nNote: this is also reachable via SieveScript/set create+update paths, not just validate, since those paths also do the size-check-then-parse dance. Same fix pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-j7pa.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Sieve validate path fetches blob twice for size + parse",
+  "updated_at": "2026-05-14T12:45:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:45:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-j7pa",
+      "id": "46d4e4a5-c559-52c7-b9fb-1ef17e9e7d67",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

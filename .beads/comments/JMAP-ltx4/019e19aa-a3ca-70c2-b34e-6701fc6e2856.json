@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260512T000441Z-1660907",
+  "created_at": "2026-05-12T00:51:14Z",
+  "id": "019e19aa-a3ca-70c2-b34e-6701fc6e2856",
+  "issue_id": "JMAP-ltx4",
+  "text": "Adding 'human' label that was missing from the original filing. The bead's description ends 'Question for human: which of A/B/C/D/E should be the next focus' \u2014 this is exactly a /do-beads-rule 'turn questions into beads' bead. Labeling so future /do-beads passes filter it correctly per the loop's step-1 selector."
+}

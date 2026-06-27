@@ -1,0 +1,33 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:10:02Z",
+  "compaction_level": 0,
+  "content_hash": "c7ba3b533ed9cd0a5acab5f5d45b645acd39683b5fe26aa6a609542316ad25be",
+  "created_at": "2026-05-05T01:08:55Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-qet4.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-sharing-types: implement string_enum, Cargo.toml, lib.rs skeleton",
+  "updated_at": "2026-05-05T01:10:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:08:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qet4",
+      "id": "06600b29-929d-56f5-bd39-26c2b995867b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

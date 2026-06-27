@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added item 3 of the crate-level 'Spec-driven divergences (deliberate, do not fix)' rustdoc section documenting serde_json::{Map,Value} in the public API surface as a deliberate workspace-policy trade-off. The README Gotchas section and PLAN.md Extras-preservation section already cover the policy; this is the third surface (cargo doc landing page) making the trade-off discoverable. Lock-in to serde_json's major version is the explicit and accepted cost of the workspace extras-preservation policy \u2014 a future PR proposing to 'decouple from serde_json' would have to back out the workspace-wide policy first.",
+  "closed_at": "2026-05-16T02:30:08Z",
+  "compaction_level": 0,
+  "content_hash": "bd37c0845c8087c0b54dc87c07c0f062ec40d0c9ca6061e69fb1170e43eb4fe9",
+  "created_at": "2026-05-15T22:15:09Z",
+  "created_by": "Mark Atwood",
+  "description": "**Contract risk**: every public struct in this crate carries\n\n    pub extra: serde_json::Map<String, serde_json::Value>\n\nper workspace extras-preservation policy, and `AlertTrigger::Unknown`\nholds a `serde_json::Value` directly. `serde_json::Map` and\n`serde_json::Value` are therefore part of the public API surface.\n\n**What goes wrong for callers**:\n- If `serde_json` cuts a major version, this crate must major-bump\n  in lockstep, because consumers using `link.extra.get(...)` would\n  see breaking changes in `serde_json::Map`'s methods. The\n  workspace cannot decouple from serde_json's release cadence.\n- A consumer that wants to operate on the extras programmatically\n  (e.g. validate that a particular vendor key is present) must\n  import `serde_json` and pin to whatever version this crate uses.\n  Multi-version mismatches are a real possibility \u2014 e.g. consumer\n  on serde_json 2.x but this crate on 1.x.\n- The same applies to `AlertTrigger::Unknown(v)` \u2014 pattern-matching\n  on this variant forces consumers into `serde_json::Value` ergonomics\n  (`.get(...)`, `.as_str()`, etc.).\n\n**Defended? Partly**: README \u00a7\"How it works\" notes the choice;\nPLAN.md \u00a7\"Extras-preservation policy\" rationalizes it. Workspace\nAGENTS.md mandates the pattern. So the maintainer has chosen to\naccept this risk crate-family-wide. But: the README does not warn\nconsumers that serde_json is part of the public-API surface they\ninherit.\n\n**Fix shape** (workspace-architectural, not crate-local):\nOption 1: stay as-is, document in README that `serde_json` is a\npublic-API dep and a serde_json major bump forces a jmap-* major bump.\nOption 2: introduce a workspace-owned `JmapExtras` newtype wrapping\n`serde_json::Map` to insulate consumers from serde_json's API. Costs\nmaintenance, gains independence.\n\nLabel as `opinion` if the workspace-wide accepted-risk reading holds;\nfile in the visible queue so future PRs that propose changing\nserde_json majors have a thread to land on.",
+  "ephemeral": 0,
+  "id": "JMAP-mno4.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "serde_json::{Map,Value} appears in the public API surface via the extras field on every struct and AlertTrigger::Unknown \u2014 locks the major version of serde_json into the crate's contract",
+  "updated_at": "2026-05-16T02:30:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:15:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mno4",
+      "id": "38955bc1-de8e-54d7-9617-d8958ea35bd8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

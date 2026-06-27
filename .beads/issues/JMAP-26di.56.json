@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already resolved by bd:JMAP-26di.55's commit 17033be. The build_chat_push_map helper extracted in .55 collapses the previous two-pass form (HashSet duplicate detection pass + serialize+insert pass) into a single-pass loop where the duplicate check is done via 'if chat_push_map.insert(key, value).is_some() { return Err(...) }'. Same semantics; the HashSet allocation is also eliminated.\n\nVerified: misc.rs has zero remaining 'seen = HashSet::new()' patterns. The two former two-pass blocks (push_subscription_create and push_subscription_update Patch::Set arm) both now call build_chat_push_map.\n\nNo additional work needed for .56.",
+  "closed_at": "2026-05-15T21:51:17Z",
+  "compaction_level": 0,
+  "content_hash": "c5678903f7f8c229a5fedbf556636d7faf5696a9ab4fa91f59f3561529d2a5b9",
+  "created_at": "2026-05-15T20:51:30Z",
+  "created_by": "Mark Atwood",
+  "description": "misc.rs:233-247 (and the duplicated 329-343) iterate the chat_push slice twice: once to detect duplicate account IDs via HashSet::insert, then again to build the chat_push_map. The two passes can be fused: 'for (account_id, config) in cp { if !seen.insert(account_id) { return Err(...); } chat_push_map.insert(account_id.as_ref().to_owned(), serde_json::to_value(config).map_err(...)?); }'. Same semantics, half the iteration cost, and lets the duplicate check short-circuit before serializing other entries. Engineering basis: minor perf (O(2N) \u2192 O(N)) and clearer intent \u2014 the duplicate check and the map insertion are part of the same per-entry work.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.56",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat_push duplicate-check + map-build use two iterator passes where one suffices",
+  "updated_at": "2026-05-15T21:51:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:51:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "34f61a00-d7c7-529f-8a66-5fb31dcce152",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

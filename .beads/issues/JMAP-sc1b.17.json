@@ -1,0 +1,51 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-12T05:25:12Z",
+  "compaction_level": 0,
+  "content_hash": "25657e81bc5aff508d743d1eaf16f90c4329e5379ecd4a7912718dcebfa7c53f",
+  "created_at": "2026-05-07T20:29:09Z",
+  "created_by": "Mark Atwood",
+  "description": "After the reference-impl extraction epic lands (each server crate gets a public, feature-gated `memory::MemoryBackend`), writing examples becomes nearly trivial. This bead's scope was originally to invent examples from scratch; the new scope is to wrap the public reference impls with thin example narratives.\n\n## Updated scope (post-extraction-epic)\n\nSuggested minimum (unchanged from original):\n\n- `jmap-base-client/examples/session_fetch.rs` \u2014 `new_plain` \u2192 `fetch_session` \u2192 print capabilities. Uses wiremock under the hood OR a real test endpoint with `JMAP_TEST_URL` env var. No backend needed.\n\n- `jmap-mail-client/examples/mailbox_list.rs` \u2014 spin up `jmap_mail_server::memory::MemoryBackend` in-process behind an `axum`/`hyper` test server, point a `JmapClient` at it, query mailboxes, print. ~50-80 LOC.\n\n- `jmap-chat-client/examples/sse_listen.rs` and `examples/ws_loop.rs` \u2014 same shape, using `jmap_chat_server::memory::MemoryBackend`. ~80-120 LOC each.\n\n- `jmap-mime/examples/parse_eml.rs` \u2014 parse a hand-supplied .eml file, print the resulting `jmap_mail_types::Email`. ~40 LOC. No backend needed; pure parser demo.\n\n- `jmap-server/examples/dispatcher_minimal.rs` \u2014 register one method with a stub handler, dispatch a synthetic request, print response. Uses a no-op handler. ~60 LOC. NOT a full backend; demonstrates the dispatcher's job specifically.\n\n## Why this bead is reduced (not cancelled)\n\nThe examples themselves still need to be written and reviewed for narrative clarity. They are NOT the same code as the reference impls \u2014 they're thin wrappers that demonstrate the client-side and dispatcher-side flow against the reference impls.\n\nEach example becomes a doc-test target in lib.rs (`#[doc = include_str!(\"../examples/foo.rs\")]`) or is referenced by `//! See `examples/foo.rs` ...`.\n\n## Acceptance\n\n- 6 example files land (one per crate as listed).\n- Each example compiles, runs, produces sane output.\n- Each example is \u2264 120 LOC and reads as a narrative, not a tutorial.\n- `cargo build --workspace --examples` clean.\n- `cargo run --example session_fetch -p jmap-base-client` (etc.) succeeds.\n- README.md for each affected crate has a one-line link to its `examples/` directory.\n\n## Depends on\n\nThe reference-impl extraction epic landing first (so that the public `memory::MemoryBackend` types exist to be referenced by the client examples).\n\n## Why this is now low-risk\n\nWithout the extraction epic, examples for client/server crates required either (a) inventing demo backends inline (cookie-cut sprawl), (b) using wiremock and JSON fixtures (test-shaped, not example-shaped), or (c) requiring a deployed real server (unworkable for example code). With the extraction, examples just import the public reference impl. Clean.\n\nLABELS: examples, publish-readiness, review\n",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "[2026-05-11 /do-beads] Decomposed into 5 child beads (.17.1 through .17.5), one per crate per the bead Suggested minimum enumeration. .17 stays open as meta-tracker and depends on all five children.\nWorkflow-workaround human label dropped (2026-05-11, Mark, batch-clean of stale labels). Both children .17.4 and .17.5 are now resolved via option A; the parent's filtering concern (do-beads re-surfacing it as ready) becomes moot once the children close and the parent auto-resolves.\nBody-framing correction (2026-05-11, Mark): the description's 'Suggested minimum' list for .17.4 (mailbox_list.rs) and .17.5 (sse_listen.rs + ws_loop.rs) says 'spin up MemoryBackend behind an axum/hyper test server'. That framing was aspirational and pre-dated noticing that the workspace's *-server crates are deliberately transport-less.\n\nThe actual decisions recorded on the children are kit-aligned:\n\n  - .17.4 \u2192 option (A): wiremock + hand-written Mailbox/get JSON fixture. No axum/hyper involved.\n  - .17.5 \u2192 option (A) adapted: hand-rolled tokio TcpListener for SSE, hand-rolled tokio-tungstenite accept loop for WS. No axum/hyper involved.\n\nThe workspace identity is 'library kit, not server' (see workspace AGENTS.md 'What this workspace builds' section, landed 2026-05-11). HTTP transport lives only in jmap-testjig (epic JMAP-cf7p), which is publish=false. Future /do-beads passes reading the body of this bead should treat the 'axum/hyper test server' language as superseded by these children's recorded option-A decisions.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: 0 of 25 crates have examples/ directories",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "214c255e-d660-513a-8b31-58f2043c7c01",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-11T00:23:10Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b.17.1",
+      "id": "419e8eec-ca17-5ecf-aa68-3542795b26c0",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-10T14:56:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-hwdv",
+      "id": "6015cdac-d9d6-5a2b-b55b-3a14167f38e2",
+      "metadata": {},
+      "type": "relates-to"
+    }
+  ]
+}

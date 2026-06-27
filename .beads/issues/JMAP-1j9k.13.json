@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "401aedb450f2e2476840ce19593863ce2de30333975658b67271bdb3b8d3880a",
+  "created_at": "2026-05-15T01:12:38Z",
+  "created_by": "Mark Atwood",
+  "description": "## Contract risk\n\nRFC 8620 \u00a75.4 defines /copy with these standard optional arguments:\n\n- `ifFromInState`: 'String|null'      \u2014 guard against concurrent change at source\n- `ifInState`:     'String|null'      \u2014 guard against concurrent change at target\n- `onSuccessDestroyOriginal`: 'Boolean' (default false)\n- `destroyFromIfInState`:     'String|null' \u2014 guards the implied source destroy\n\nCanonical mail-client exposes them via `EmailCopyParams` at\ncrate-jmap-mail-client/src/methods/mod.rs:67-84:\n\n```rust\npub struct EmailCopyParams {\n    pub from_account_id: Id,\n    pub on_success_destroy_original: Option<bool>,\n    pub destroy_from_if_in_state: Option<jmap_types::State>,\n    pub extra: serde_json::Map<String, serde_json::Value>,\n}\n```\n\n(Note: this canonical struct itself doesn't expose `ifFromInState` or\n`ifInState` either \u2014 that's a separate canonical gap, not in scope for this\nfinding. But the workspace canonical at least carries\n`onSuccessDestroyOriginal` and `destroyFromIfInState`.)\n\ncalendars-client `calendar_event_copy` at\ncrate-jmap-calendars-client/src/methods/event_copy.rs:22-26 takes:\n\n```rust\npub async fn calendar_event_copy(\n    &self,\n    from_account_id: &Id,\n    create: HashMap<String, jmap_calendars_types::CalendarEvent>,\n) -> ...\n```\n\nTwo arguments. No `onSuccessDestroyOriginal`, no `destroyFromIfInState`, no\n`ifFromInState`, no `ifInState`.\n\n## Why this matters for a caller\n\nA caller copying a calendar event from a colleague's shared account into\ntheir own with the intent 'and remove the original after successful copy'\n(the classic 'move' operation, which JMAP /copy implements via the\n`onSuccessDestroyOriginal` flag) has no path through this client. They\nmust either fork or write a two-call sequence (/copy, then /set destroy\nagainst the source account), losing atomicity.\n\nSimilarly for state-conditional copy. A caller who fetched the source event\nat state s5 and wants to copy only if source is still at s5 cannot express\nthis through the API. They must accept the risk that the source event was\nmodified between read and copy.\n\n## What goes wrong if this stays\n\nReal callability gap. JMAP /copy without `onSuccessDestroyOriginal` is half\nthe standard /copy primitive \u2014 the other half (move-by-copy-then-destroy as\na single atomic operation) is unreachable.\n\nOnce shipped at 0.x.y, adding these as a `CalendarEventCopyParams` struct\nor as additional arguments is a breaking change.\n\n## Fix shape\n\nIntroduce `CalendarEventCopyParams` mirroring mail-client's `EmailCopyParams`:\n\n```rust\n#[derive(Debug, serde::Serialize)]\n#[serde(rename_all = \"camelCase\")]\npub struct CalendarEventCopyParams {\n    pub from_account_id: Id,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub on_success_destroy_original: Option<bool>,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub destroy_from_if_in_state: Option<jmap_types::State>,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub if_from_in_state: Option<jmap_types::State>,\n    #[serde(skip_serializing_if = \"Option::is_none\")]\n    pub if_in_state: Option<jmap_types::State>,\n    #[serde(flatten, default, skip_serializing_if = \"serde_json::Map::is_empty\")]\n    pub extra: serde_json::Map<String, serde_json::Value>,\n}\n```\n\nThe signature becomes:\n\n```rust\npub async fn calendar_event_copy(\n    &self,\n    params: CalendarEventCopyParams,\n    create: HashMap<String, CalendarEvent>,\n) -> Result<SetResponse<CalendarEvent>, ClientError>\n```\n\nThis also fixes the workspace canonical gap (mail-client's `EmailCopyParams`\nis itself missing `ifFromInState` and `ifInState`); if accepted, sweep\nmail-client first, then propagate per the canonical-template rule.\n\n## Source citations\n\n- crate-jmap-calendars-client/src/methods/event_copy.rs:22-49\n- crate-jmap-mail-client/src/methods/mod.rs:67-84\n- crate-jmap-mail-client/src/methods/email.rs:208-228\n- ~/PROJECT/jmap-chat-spec/references/rfc8620.txt \u00a75.4",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "calendar_event_copy lacks RFC 8620 \u00a75.4 ifFromInState, ifInState, onSuccessDestroyOriginal, destroyFromIfInState args",
+  "updated_at": "2026-05-15T01:12:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:12:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "3b8075c7-3690-5174-957c-c3909c806f49",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

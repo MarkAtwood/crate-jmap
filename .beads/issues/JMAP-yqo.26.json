@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:31Z",
+  "compaction_level": 0,
+  "content_hash": "061e5bbac349068e10129e59b15dc5d807020b2696db9d8112cc0d6f2fa38109",
+  "created_at": "2026-05-02T02:58:43Z",
+  "created_by": "Mark Atwood",
+  "description": "backend.rs Display impl for SetErrorType uses #[allow(unreachable_patterns)] with a wildcard arm to guard against future variants \u2014 but the comment says this is required by the #[non_exhaustive] enum contract. The actual issue is structural: the wildcard arm falls back to {:?} (Debug format), which would silently emit a Rust identifier like 'SomeNewVariant' rather than the required JMAP camelCase wire string. Any new variant added before this match is updated will produce a malformed JMAP wire response. The correct pattern is to derive or impl the wire string as part of the variant definition (e.g., via serde rename attributes already present) rather than maintaining a parallel exhaustive match. Since SetErrorType already has #[serde(rename_all = \"camelCase\")] derives, the Display impl could delegate to serde_json serialization the same way role_to_wire does, eliminating the parallel match entirely and making new variants automatically correct.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetErrorType missing #[non_exhaustive] on Display match",
+  "updated_at": "2026-05-02T03:22:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:58:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "deecc511-6ac3-5511-bf6f-4c034fe34aa5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

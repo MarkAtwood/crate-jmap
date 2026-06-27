@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Implemented option (b): added CollisionError type and validate_extras() method on ContactCard, AddressBook, AddressBookRights. Per-typed-field-name collision tests for all three types use an independent oracle list. Commit: 707f78c.",
+  "closed_at": "2026-05-15T23:47:43Z",
+  "compaction_level": 0,
+  "content_hash": "612da02d4a63bd293a5b7f4ddd74db2a3b9393e9c65c2c10ca063ade9002af24",
+  "created_at": "2026-05-15T23:27:15Z",
+  "created_by": "Mark Atwood",
+  "description": "## Hypothesis\n\nThe `extra` field on `ContactCard`, `AddressBook`, and `AddressBookRights` uses `#[serde(flatten)] serde_json::Map<String, serde_json::Value>`. The doc-comment on `ContactCard.extra` (card.rs:247-267) explicitly acknowledges that programmatically inserting a key matching a typed wire-field name (`\"id\"`, `\"addressBookIds\"`, `\"name\"`, ...) produces a **duplicate JSON object key** on serialise:\n\n> On serialize, a colliding key in `extra` is emitted as a duplicate JSON object key alongside the typed field. RFC 8259 \u00a74 leaves duplicate-key handling implementation-defined; JMAP servers MAY accept, reject, or last-wins.\n\nThis is a **silent wire-corruption hazard**. The type accepts a programmatically-constructed value that produces ambiguous JSON. A buggy or malicious producer can construct a `ContactCard` with `extra.insert(\"id\".into(), json!(\"impersonated\"))` and emit JSON with two `\"id\"` keys; downstream parsers behave differently \u2014 `serde_json` last-wins, but a Go server using `encoding/json` last-wins, a Python server using `json.loads` last-wins **but** `jsonschema` validators may reject, and an audit log scraper may scrape the first occurrence. The cross-implementation behavior is exactly the spec-undefined hazard that RFC 8259 \u00a74 warns about.\n\n## What goes wrong\n\nThree concrete failure modes:\n\n1. **Integrity** \u2014 a card with `extra: { \"id\": \"attacker-id\" }` serialised and round-tripped through a last-wins parser silently changes its ID. `extra` becomes a privilege-escalation primitive for any downstream code that programmatically constructs `extra` from untrusted input (e.g. a sync agent that copies a remote vendor's blob into `extra` wholesale).\n2. **Audit/log divergence** \u2014 a log scraper that takes `first(\"id\")` and an authorization check that takes `last(\"id\")` see different values; classic JSON-parser-discrepancy class.\n3. **Test gap** \u2014 the contract is documented but no unit test demonstrates the wire-corruption concretely. A future contributor reading the doc-comment may not internalise the severity.\n\nThe contract is correctly documented as 'do not do this' \u2014 but Rust doesn't enforce 'do not do this' at compile time on a `pub` `serde_json::Map`. The library MAY add a runtime safeguard at serialise time.\n\n## Acceptance criteria\n\nTwo options, pick one:\n\n**(a) Documenting test only** (minimal): Add a unit test `extra_typed_field_collision_produces_duplicate_keys` that:\n\n1. Constructs a `ContactCard` with `extra: { \"id\": json!(\"attacker\") }` and a typed `id: Some(Id::from(\"real\"))`.\n2. Serialises via `serde_json::to_string`.\n3. Asserts the output contains two `\"id\":` occurrences (concrete demonstration that the hazard is real).\n4. Asserts that `serde_json::from_str` round-trip last-wins (concrete demonstration of which value survives).\n\nThis is documentation-as-code; it ratifies the contract without changing the API.\n\n**(b) Defensive validation helper** (preferred): Add a `ContactCard::validate_extras()` method (and the same on `AddressBook`, `AddressBookRights`) returning `Result<(), CollisionError>` that returns `Err` if any `extra` key matches a typed wire-field name. Document it as the recommended pre-serialise validation. Add a unit test that covers each typed field name.\n\nOption (b) gives downstream consumers a runtime hook to detect the hazard; option (a) is purely documentary. Recommendation: (b), because the workspace 'kit' posture means downstream consumers benefit from a typed validator more than from a sentence in rustdoc.\n\n## Probe / downstream session\n\nA downstream `/do-beads JMAP-glx8` session under appropriate permissions:\n\n1. Read card.rs:247-267 to confirm the documented contract.\n2. Implement option (a) or (b) above. Strongly recommend (b).\n3. For (b), the `CollisionError` type lives in the crate root with a `Display` impl listing the colliding key(s).\n4. Run `cargo test -p jmap-contacts-types` to verify.\n\nOut-of-scope per workspace transport-less posture: rejecting the duplicate-key JSON at deserialise (the contract is byte-identical round-trip for vendor extras; the hazard is purely producer-side).\n\n## Cross-reference\n\n- card.rs:247-267 \u2014 the documented contract that this finding promotes from doc-comment to runtime.\n- RFC 8259 \u00a74 \u2014 duplicate-key behavior implementation-defined.\n- Workspace AGENTS.md 'extras-preservation policy' \u2014 the policy that introduced the hazard, and the rationale for why a runtime validator is consistent with the policy.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extra-field typed-name collision is documented but not runtime-detectable",
+  "updated_at": "2026-05-15T23:47:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T16:27:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "b27f921b-1459-50ed-86fe-4968ec96aaf4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Adopted PatchObject across jmap-tasks-{types,server,client}. 3 SetObject::Patch impls (TaskList, Task, TaskNotification). update_task_per_user backend trait method (the only concrete-Value patch param in workspace at this layer) migrated to PatchObject. 2 server destructures converted. 2 client method signatures migrated. cargo test --workspace: 1450/0/7. clippy clean.",
+  "closed_at": "2026-05-08T21:01:07Z",
+  "compaction_level": 0,
+  "content_hash": "8f353049d96b0143c04680cc78f528f4e58e9973d629a5d5d4ea2a3f1bb4808e",
+  "created_at": "2026-05-08T20:46:42Z",
+  "created_by": "Mark Atwood",
+  "description": "Non-locked subset of JMAP-zk6m. Migrate jmap-tasks-types (3 SetObject::Patch impls: TaskList, Task, TaskNotification), jmap-tasks-server (3 destructure sites + per-user routing logic in task.rs + concrete trait method update_task_per_user(patch: serde_json::Value) in backend.rs:113 + lib.rs MockBackend + 11 inline test fixtures), jmap-tasks-client (2 method signatures: task_set, task_list_set; task_notification is destroy-only). Wire format unchanged. NB: update_task_per_user is the only non-generic concrete-Value patch param in the workspace; it must change to PatchObject directly. Task.recurrence_overrides / locations / participants / alerts Sloppy-Value fields are OUT OF SCOPE.",
+  "ephemeral": 0,
+  "id": "JMAP-zk6m.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Adopt PatchObject across tasks triple (types+server+client)",
+  "updated_at": "2026-05-08T21:01:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-08T13:46:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zk6m",
+      "id": "2caecce8-c7b5-573a-bafc-bc93cff298a2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

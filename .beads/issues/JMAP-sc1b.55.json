@@ -1,0 +1,33 @@
+{
+  "close_reason": "Won't fix: P3-opinion-only stylistic observation. The chat-client's top-level session.rs, sse.rs, ws.rs modules reflect that JMAP Chat has a genuinely different push-transport surface (WebSocket + SSE) than the other extension clients. Some asymmetry is expected; making chat-client look like the other 6 clients would either hide the WS/SSE surface or rename it confusingly. Per AGENTS.md convergence rule, P3/opinion is at bikeshedding threshold.",
+  "closed_at": "2026-05-10T23:48:59Z",
+  "compaction_level": 0,
+  "content_hash": "d7b96dc3518d90889f6f8d016b0d4572220a7addae712213fdd7751b37576373",
+  "created_at": "2026-05-07T20:43:27Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-client has top-level src/{session.rs, sse.rs, ws.rs, types.rs, utils.rs} alongside the standard `methods/` directory. All 6 other extension client crates put everything in `methods/` and have only lib.rs at the top.\n\nSome divergence is justified (Chat has WebSocket and SSE-specific types other extension clients don't), but `types.rs` and `utils.rs` at the top level look ad-hoc.\n\nMarked opinion. The chat crate's push transport is genuinely a different surface from the other extension clients, so some asymmetry is expected. Just want to flag it for review.\n\nIf the user wants symmetry: move chat-only client-side types under methods/ or rename types.rs \u2192 client_types.rs to make the role clearer.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.55",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: jmap-chat-client diverges from peer client crates' module layout",
+  "updated_at": "2026-05-10T23:48:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "f918a7b6-0682-56b5-bbd5-34348cadb3f8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

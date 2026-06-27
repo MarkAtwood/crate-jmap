@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already defended at three layers: line-comment at src/methods/principal_availability.rs:40, README \u00a7Known Limitations, and tests/availability_tests.rs wire-payload assertion. Section-6 'good-decision' note, no code change required.",
+  "closed_at": "2026-05-10T05:29:36Z",
+  "compaction_level": 0,
+  "content_hash": "796766615a6572425e2a77fe27a5fc6a5f25d39369bcfc71a7b3042c14783657",
+  "created_at": "2026-05-08T03:20:22Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/principal_availability.rs:40 has the line-comment `// \u00a72.2 uses \"id\" not \"principalId\"`, and tests/availability_tests.rs:67-76 actually inspects the wire payload to verify. README.md:166-169 (Known Limitations) calls it out for users.\n\nThis is the spec-vs-intuition trap (most JMAP method args use camelCased noun names; this one is bare `id`). The author noticed and documented at three layers. Future contributors who 'helpfully' rename to `principalId` will break interop with conformant servers. Defend this.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "wire key 'id' (not 'principalId') for Principal/getAvailability has explicit comment + test",
+  "updated_at": "2026-05-10T05:29:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:20:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "d6d1402a-69aa-5f32-9dfc-b643797a3dda",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

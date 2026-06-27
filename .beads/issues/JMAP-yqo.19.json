@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added two-line comment at partition() call: 'Pass 1 = role-vacating; pass 2 = everything else. This ordering allows a single request to swap roles atomically.'",
+  "closed_at": "2026-05-04T16:00:17Z",
+  "compaction_level": 0,
+  "content_hash": "e41463f1fc8d9f43003057546de1ce554668b7b8f09b9c66da1c320e87300901",
+  "created_at": "2026-05-02T02:56:17Z",
+  "created_by": "Mark Atwood",
+  "description": "The two-pass update loop in handle_mailbox_set is correct and well-commented, but the terms 'vacating' and 'non-vacating' are invented vocabulary not present in RFC 8621. The block comment explains the rationale but a contributor encountering this for the first time (or returning to it in 12 months) must re-read the entire comment to understand why two passes are needed. Suggested: add a one-line comment at the partition() call: // Two-pass to allow role swaps in one request: pass 1 clears roles, pass 2 claims them.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/set two-pass update: intent of 'vacating' vs 'non-vacating' requires reading full comment",
+  "updated_at": "2026-05-04T16:00:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:56:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "95117d21-0355-556c-b478-d3edac6169ad",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

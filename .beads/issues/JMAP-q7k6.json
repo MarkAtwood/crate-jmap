@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d7ba06db61ba1137686aa94eeb20c8d4524a90a691454e2072ae790052b31259",
+  "created_at": "2026-05-14T18:54:38Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace-wide propagation of two tasks-server fixes (JMAP-h47t.18 + JMAP-h47t.19) to the canonical jmap-mail-server and the remaining 6 extension-server siblings.\n\nBoth patterns appear identically in every *-server crate's reference MemoryBackend:\n\nPattern 1: MemoryError(pub String) tuple struct\n  Lock the maintainer out of adding kind/source fields. Convert to struct\n  MemoryError { msg: String } + pub fn new(impl Into<String>) -> Self +\n  pub fn message(&self) -> &str. Internal call sites migrate to ::new(...).\n\nPattern 2: #[derive(Clone)] on Arc<Mutex<Inner>> MemoryBackend\n  Casual reader sees derive(Clone) and expects deep-copy semantics; actual\n  behavior is shared-state via Arc::clone. Replace with manual Clone impl\n  whose rustdoc states the contract (handler registration depends on\n  Arc-clone semantics so this can never become deep-copy without a wider\n  redesign).\n\nAffected crates:\n  jmap-mail-server      (canonical \u2014 change first)\n  jmap-chat-server\n  jmap-calendars-server\n  jmap-contacts-server\n  jmap-filenode-server\n  jmap-metadata-server\n  jmap-sharing-server\n\nPer-crate steps:\n  1. memory.rs: replace MemoryError(pub String) \u2192 struct + new/message.\n  2. memory.rs: rg 'MemoryError\\(' \u2192 migrate to MemoryError::new(.\n  3. memory.rs: replace #[derive(Clone)] on the backend struct with a\n     manual impl Clone block that documents the shared-state contract.\n  4. Module rustdoc: tighten the 'Cloning is cheap' line to reference the\n     manual Clone impl and call out 'shared-state' explicitly.\n  5. cargo fmt + clippy + test + cargo doc -D warnings per crate.\n\nNo behavior change in either pattern \u2014 Display impl + Arc-clone semantics\nare preserved. The visible difference is on docs.rs (Clone semantics now\nattached to the impl block, not buried in a module-level paragraph) and\nin the API surface (MemoryError's field is no longer pub, so a future\naddition of structured fields is non-breaking).\n\nCross-references: JMAP-h47t.18 + JMAP-h47t.19 closed against tasks-server.",
+  "ephemeral": 0,
+  "id": "JMAP-q7k6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "workspace canonical-template sweep: MemoryBackend tightening across all *-server crates (private error field, manual Clone with shared-state docs)",
+  "updated_at": "2026-05-14T18:54:38Z"
+}

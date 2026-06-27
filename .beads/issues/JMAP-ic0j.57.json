@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed: added the 7 calendars-specific extras (ParseResult, SetDefaultResult, AvailabilityError, CalendarEventGetArgs, CalendarEventQueryArgs, QueryCalendarEventsError, CalendarEventSetArgs) to the pub use backend block at lib.rs:49. Brings calendars-server into line with the chat-server pattern (sibling under the same canonical mail-server template). Purely additive. fmt/clippy/test/doc all green.",
+  "closed_at": "2026-05-15T18:22:40Z",
+  "compaction_level": 0,
+  "content_hash": "05964fde4172921e0f88e0ecfc877e470e2e02af21b8bb0d20afc40385953f11",
+  "created_at": "2026-05-15T18:07:44Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-calendars-server/src/lib.rs:49-53 re-exports backend trait + foundation types from `backend::` to the crate root, but OMITS the calendars-specific extras types:\n\nNOT re-exported:\n- ParseResult (backend.rs:581)\n- SetDefaultResult (backend.rs:620)\n- AvailabilityError (backend.rs:635)\n- CalendarEventGetArgs (backend.rs:663)\n- CalendarEventQueryArgs (backend.rs:692)\n- QueryCalendarEventsError (backend.rs:709)\n- CalendarEventSetArgs (backend.rs:740)\n\nA consumer implementing `CalendarsBackend` MUST reference these in method signatures (e.g. `fn parse_calendar_event_blobs(...) -> Result<ParseResult, Self::Error>` per backend.rs:533, or `fn query_calendar_events(...) -> Result<QueryResult, QueryCalendarEventsError<Self::Error>>` per backend.rs:457). To do so, the consumer must import via `jmap_calendars_server::backend::ParseResult` etc.\n\nWhat callers cannot rely on:\n- The `backend` module path is part of the stable public surface. A future refactor that moves these types out of `backend` (e.g. into a top-level `args` module, or splits per-method into per-file modules) is a SemVer break for every consumer.\n- The asymmetric re-export \u2014 trait + foundation types at crate root, calendars-specific extras only in submodule \u2014 forces consumers to use BOTH `crate::Type` and `crate::backend::Type` import paths for the same family of related types.\n\nThis is the sibling of JMAP-ic0j.29 (which flags property enums in the same way) but for the calendars-specific arg/result types.\n\nFix: add the seven types to the `pub use backend::{...}` block. Doing so is purely additive at the crate root; the canonical pattern is one set of imports per consumer, all from the crate root.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.57",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Backend extras-args types not re-exported from crate root: callers reach into ::backend::*",
+  "updated_at": "2026-05-15T18:22:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T11:07:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "755303b3-8b40-5f81-939e-560744ca33aa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

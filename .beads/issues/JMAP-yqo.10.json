@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:29Z",
+  "compaction_level": 0,
+  "content_hash": "8d970a7300499d04b76516201e1905e76e52bf7a93bee92f9e62bc7489761862",
+  "created_at": "2026-05-02T02:55:10Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mailbox_set destroy calls query_objects with an inMailbox filter, then get_objects with the returned IDs, then re-filters with email.mailbox_ids.contains_key(&id). The comment says 'correctness safety net for backends that do not support the filter'. But this means: if the backend ignores the inMailbox filter (returns all email IDs), get_objects will fetch ALL emails, consuming unbounded memory. For a large mailbox account this is an OOM vector. A backend author who does not realize filter support is expected will silently expose this. Should enforce a page limit or require the filter be honoured.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/set destroy: mailbox email cascade fetches all emails, not just that mailbox",
+  "updated_at": "2026-05-02T03:22:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:55:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "449ace62-a283-5893-a707-96b2e726378c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

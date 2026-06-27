@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "close_reason": "Committed in 3aad685: docs(server): parse_request DoS limit contract. Added 'Caller responsibility: resource limits' section to parse_request docstring covering body-size cap, JSON nesting depth cap, and the per-pointer recursion already enforced internally. Names concrete limiter types per framework (tower_http, http_body_util, warp body filters). The optional parse_request_bytes helper from the bead's proposed-fix was not added \u2014 the docstring contract is sufficient and the helper is optional.",
+  "closed_at": "2026-05-11T14:47:42Z",
+  "compaction_level": 0,
+  "content_hash": "1042275c5c3c42841462fb727b7b3ef565bf3efba4e1e9be48bdd3e7fce86313",
+  "created_at": "2026-05-11T14:24:34Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Location: `crate-jmap-server/src/parse.rs:19-42`\n\n  /// # Caller responsibility: `notJSON`\n  ///\n  /// This function takes a pre-parsed [`serde_json::Value`], not raw bytes.  The\n  /// caller is responsible for the initial JSON parse of the HTTP request body.\n  /// If that parse fails (the body is not valid JSON), the caller must produce the\n  /// `notJSON` error response itself ...\n\n  pub fn parse_request(body: Value, max_calls: usize) -> Result<JmapRequest, JmapError> {\n      let req: JmapRequest = serde_json::from_value(body).map_err(|_| JmapError::not_request())?;\n      if req.method_calls.len() > max_calls { ... }\n      Ok(req)\n  }\n\nCONCERN\nThe contract docs at lines 19-26 tell integrators to do the initial JSON parse themselves, but DO NOT warn them to:\n\n1. **Byte-cap the body** before calling `serde_json::from_slice` \u2014 there is no recommended max body size in the doc, no mention of `maxSizeRequest` from the JMAP capability advertisement, and no example showing tower's `RequestBodyLimitLayer` or hyper's body cap.\n\n2. **Cap JSON recursion depth** \u2014 serde_json's default recursion depth (128) is documented as a stack-DoS mitigation but the default is intentionally loose. A 2 MiB tokio worker stack can be exhausted by adversarial nesting patterns within the 128-level budget. The dispatcher then calls `json_pointer_ext` (parse.rs:173-222, separate bead) which recurses again, doubling the stack pressure.\n\nThe library is framework-agnostic by design (response.rs:83 lists axum/hyper/warp) \u2014 that is precisely why the library has an obligation to tell each integrator the size and depth invariants the dispatcher assumes. Today an integrator who reads parse.rs and writes axum body parsing without setting RequestBodyLimitLayer ships a Memory-DoS-able server.\n\nWHAT GOES WRONG\nDoS (memory and stack). The library does not own the HTTP server, but it ships a contract that says 'feed me a serde_json::Value' without telling integrators that an unconstrained Value is an unconstrained worker. The first naive integration will be vulnerable.\n\nPROPOSED FIX\nExpand the parse_request doc-comment to add a 'Resource limits' section that says:\n\n  Before calling this function the caller MUST:\n  - apply a byte-cap to the HTTP request body (suggested: 10 MiB or the value\n    of `maxSizeRequest` from the JMAP session capability),\n  - use `serde_json::from_slice` (not `from_reader`, which has no depth cap),\n  - reject requests whose JSON nesting depth exceeds a configured ceiling (suggested:\n    32 levels \u2014 well below serde_json's default 128, well above any legitimate\n    JMAP request shape).\n\n  Failure to enforce these limits exposes the dispatcher to memory and stack\n  exhaustion DoS on adversarial input.\n\nOptionally add a helper function `parse_request_bytes(bytes: &[u8], max_calls: usize, max_body_bytes: usize) -> Result<JmapRequest, JmapError>` that does the bounded-parse for integrators who do not want to roll their own.\n\nORACLE\n- RFC 8620 \u00a73 \u2014 defines `maxSizeRequest` as a session capability that the server advertises; the library should reflect this in its API surface.\n- serde_json::Deserializer docs on recursion_limit (https://docs.rs/serde_json/latest/serde_json/struct.Deserializer.html#method.disable_recursion_limit) \u2014 the depth concern is documented upstream.\n\nRISK CLASSIFICATION\nP2. The library is foundation for every server in the workspace; a contract gap here propagates to every downstream deployment.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.94",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security: parse_request docstring missing byte-cap and JSON-recursion-depth warnings for HTTP integrators (crate-jmap-server/src/parse.rs:19-42)",
+  "updated_at": "2026-05-11T14:47:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:24:34Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "82c8fb91-75b6-5cdd-a80f-afd636a7d652",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

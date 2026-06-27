@@ -1,0 +1,33 @@
+{
+  "close_reason": "Positive confirmation \u2014 no action needed",
+  "closed_at": "2026-05-02T21:07:30Z",
+  "compaction_level": 0,
+  "content_hash": "0f4577bd29c6cbb4c86a06c779fb2bb1c558de33a91ad696adddbc34f6028467",
+  "created_at": "2026-05-02T21:03:03Z",
+  "created_by": "Mark Atwood",
+  "description": "ReadDisposition uses #[non_exhaustive] + Other(String) to preserve unknown enum values for round-trip fidelity while allowing spec extensions. Matches RFC requirement: 'Servers MUST NOT reject messages carrying unknown values.' Avoids silent data loss on spec updates.",
+  "ephemeral": 0,
+  "id": "JMAP-oslg.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "GOOD: Other(String) variant for forward compatibility",
+  "updated_at": "2026-05-02T21:07:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:03:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-oslg",
+      "id": "1404903b-761b-5e55-bdea-012337e499a9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

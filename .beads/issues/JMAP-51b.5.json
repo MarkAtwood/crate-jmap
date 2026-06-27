@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-51b.5",
+  "title": "panic isolation via task::spawn correctly documents cancellation semantics",
+  "description": "Running each handler in task::spawn prevents a panicking handler from crashing the connection task. The JoinError cancellation branch (is_cancelled check) is technically unreachable in normal operation (nobody calls handle.abort() and runtime shutdown would cancel the outer future first), but the distinct 'task cancelled' message aids diagnostics without adding complexity. A contributor might remove the is_cancelled branch as dead code \u2014 it should stay as defensive future-proofing.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:53:40Z",
+  "updated_at": "2026-04-30T17:57:07Z",
+  "closed_at": "2026-04-30T17:57:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-51b",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:53:40"
+    }
+  ]
+}

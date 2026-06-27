@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260513T175453Z-2820386",
+  "created_at": "2026-05-13T17:57:44Z",
+  "id": "019e227c-cb2f-7072-86fa-ab3279c4d021",
+  "issue_id": "JMAP-cf7p.12",
+  "text": "Cross-reference: API design for the underlying backend signal/replay surface is being escalated on JMAP-cf7p.9. The three beads (.9 signal-driven push, .10 SSE Last-Event-ID, .12 WS pushState) share infrastructure and should be re-shaped into one foundation epic \u2014 see JMAP-cf7p.9's most recent comment for the design options and recommendation. Not labeling this bead 'human' to avoid duplicate decision surface; this bead is effectively gated on the .9 resolution. The bead description itself already says these three could land as a coordinated cluster."
+}

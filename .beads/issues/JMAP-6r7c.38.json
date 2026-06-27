@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in 7573ae4. Added 'Cancellation is via drop-future' Gotchas entry to README. Documents the contract that workspace policy ties to consumer-runtime choice rather than the foundation crate; explicit cancel-token API would be a separate feature task with broader API impact.",
+  "closed_at": "2026-05-17T11:48:16Z",
+  "compaction_level": 0,
+  "content_hash": "a5959093ea53b3e90454657e027f291c0ebace0d50a0659013fd07e5e47ad243",
+  "created_at": "2026-05-14T23:19:18Z",
+  "created_by": "Mark Atwood",
+  "description": "client.rs:254, 304, 382, 577 \u2014 fetch_session, call, subscribe_events, connect_ws_session\n\nAll four are async methods returning a Future. Cancellation today: drop the future. That's the Rust async cancel model and the reqwest layer handles it (dropping the response future closes the underlying connection).\n\nBut there is no graceful shutdown signal. A caller who has issued a long-running call() (say a Mailbox/changes returning 50MB of data) and wants to cancel cleanly \u2014 releasing connection-pool slot, notifying server politely \u2014 has only the drop-the-future option. Drop happens synchronously inside whatever runtime; if the future was suspended at .await inside reqwest, the cancellation propagates by reqwest closing the underlying TcpStream. That works but is abrupt.\n\nFor long-running streams (subscribe_events, the WsSession::next_frame loop), cancel semantics are even less clear:\n  - tokio::select! { _ = stream.next() => ..., _ = shutdown_rx => break }\n  - drops the .next() future, which drops the BoxStream's state, which drops the underlying reqwest stream.\n\nA modern async API offers an explicit cancel token (CancellationToken, tokio_util) \u2014 pass it in at construction or per-call, the future polls it, the future returns cleanly with Err(Cancelled). The current API provides no such facility.\n\nThis is a contract underspecification: the cancel-via-drop semantic works today but isn't documented as the supported model. A caller who later wants graceful shutdown has no API support.\n\nLow priority because (a) drop-cancel is the idiomatic Rust async model, (b) workspace policy ties cancellation to the consumer's runtime choice rather than to the foundation crate. Documentation fix would be sufficient: a Gotchas section entry: \"Cancellation is via drop-future. There is no explicit cancel token; if you need graceful shutdown, wrap the future in tokio::select! against your shutdown signal.\"",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JmapClient methods cannot be canceled mid-flight \u2014 no built-in cancel-token or abort handle",
+  "updated_at": "2026-05-17T11:48:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:19:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "5d7e6e9e-840e-5e39-9e58-60be8a4d8857",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

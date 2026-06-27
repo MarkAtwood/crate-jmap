@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b074aab9b5f2266d11fe8f72591d2a5389a8a88b877480e8fc99e1b7b8a1df33",
+  "created_at": "2026-05-18T05:31:25Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence** \u2014 workspace thiserror policy is contradictory:\n- crate-jmap-mail-server/AGENTS.md L127 \u2014 Dependencies row explicitly says \"No `thiserror`.\"\n- crate-jmap-calendars-server/Cargo.toml:50 \u2014 declares `thiserror = { workspace = true }`\n- crate-jmap-calendars-server/AGENTS.md:122 \u2014 Dependencies allowlist includes `thiserror`\n- crate-jmap-calendars-server/src/backend.rs:996-1018 (`AvailabilityError<E>`) and :1083-1108 (`QueryCalendarEventsError<E>`) \u2014 uses `#[derive(thiserror::Error)]` and `#[error(\"...\")]`\n- The other 7 server crates' AGENTS.md Dependencies rows omit thiserror; none of them declares it in Cargo.toml; their analogous error types (e.g. crate-jmap-chat-server/src/backend.rs:297-325 `SlowModeError`) hand-roll `Display` and `Error` impls\n\n**Caller-observable / maintainer cost**:\n- A contributor cookie-cutting a new extension-server crate from the canonical mail-server sees \"No thiserror\" in the AGENTS.md and writes hand-rolled Display/Error impls. Reading calendars-server they see the opposite policy.\n- Per-role error types (`AvailabilityError`, `QueryCalendarEventsError`, `SlowModeError`) are 5-10 lines of `Display`/`Error` boilerplate each; thiserror replaces those with one attribute. The choice between \"hand-rolled everywhere\" and \"thiserror everywhere\" is a clear workspace-API decision.\n\n**Decision required** \u2014 workspace-architecture call:\n(a) Adopt thiserror workspace-wide: add to mail-server / chat-server / contacts-server / filenode-server / sharing-server / metadata-server / tasks-server Cargo.toml [dependencies] and AGENTS.md Dependencies rows; rewrite the canonical mail-server's \"No thiserror\" line. Rewrite hand-rolled Display impls in (e.g.) chat-server's `SlowModeError` and the BackendSetError/BackendChangesError impls in jmap-server.\n(b) Remove thiserror from calendars-server: rewrite `AvailabilityError` and `QueryCalendarEventsError` to hand-roll Display/Error impls; drop the dep; drop the row from AGENTS.md.\n\nThis is a workspace-architectural decision (which way to converge) \u2014 labeling human and not picking a side. Three subagents in pass 3 surfaced this independently (jscalendar/jscontact alignment, AGENTS.md content drift, error-type cluster audit), confirming the divergence is real and not a phantom.\n\n**Cross-reference**: bd:JMAP-ops7.39 (AGENTS.md Dependencies row drift); bd:JMAP-ops7.44 (the serde direct-dep gap on the same 2 outlier crates).",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.45",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "thiserror policy is undecided across workspace: calendars-server adopts it (with AvailabilityError/QueryCalendarEventsError); canonical mail-server's AGENTS.md explicitly says 'No thiserror'; 6 other server siblings are silent",
+  "updated_at": "2026-05-18T05:31:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:31:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "f30ba467-396f-56bb-b895-c1220dd1ea63",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

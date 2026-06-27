@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:42:46Z",
+  "compaction_level": 0,
+  "content_hash": "cf3b4e40e8e3bcdd2e034c28dfc4062a27e10498b3a4cde6ab0c1247cacc923d",
+  "created_at": "2026-05-02T23:38:12Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src/mdn.rs:417 has a TODO comment: 'make this configurable via MdnBackend trait or server config'. Project policy forbids TODO comments in committed code. Either track the configurability as a beads issue and remove the comment, or document why 16 is the correct value with a spec or design rationale. The TODO as written leaves a future maintainer uncertain whether the value is intentional or a placeholder.",
+  "ephemeral": 0,
+  "id": "JMAP-5ugd",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Remove TODO from MDN_PARSE_MAX_BLOB_IDS",
+  "updated_at": "2026-05-02T23:42:46Z"
+}

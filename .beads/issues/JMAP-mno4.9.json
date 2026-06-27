@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added a 'Test-oracle discipline' crate-level rustdoc section that documents the workspace test-integrity rule (oracle = spec example, NOT code under test) and explicitly forbids the 'build typed struct \u2192 serialize \u2192 deserialize \u2192 compare' anti-pattern. The existing test 'Oracle:' comment headers continue to name the spec section per fixture. A future PR that replaces fixture construction with code-as-oracle now hits a rendered-rustdoc defense at the top of every cargo doc page.",
+  "closed_at": "2026-05-16T02:30:05Z",
+  "compaction_level": 0,
+  "content_hash": "8d15d585ada565fd4ad0ba9a22ca389a5122b4e3e0671125388bc526b24416e5",
+  "created_at": "2026-05-15T22:08:58Z",
+  "created_by": "Mark Atwood",
+  "description": "The test module (src/lib.rs:751-1148) constructs all fixtures from serde_json::json!({...}) literals whose shape comes directly from RFC 8984 example text. Two examples worth defending:\n\n1. time_zone_with_standard_rule_round_trips (lines 1063-1118): the Europe/Berlin transition rule with +0200\u2192+0100 STANDARD and +0100\u2192+0200 DAYLIGHT, with byMonth/byDay/-1 last-sunday recurrence \u2014 this is the canonical RFC 8984 \u00a74.7.2 example. The test uses assert_eq!(back, raw, ...) for full round-trip equality, which works correctly because the workspace does not enable serde_json/preserve_order (verified: Cargo.toml line 95) so serde_json::Map is a BTreeMap with set-equality PartialEq.\n\n2. The 'oracle' comment header on each newtype-temporal test (lines 765-839) explicitly names the spec section the example shape is drawn from, and re-asserts the bare-string wire form. This is the workspace's test-integrity rule applied correctly: the oracle is the spec example, not the code under test.\n\nWhat a future contributor might wrongly suggest:\n\n1. 'Construct test fixtures from the typed structs (e.g. RecurrenceRule { frequency: \"yearly\".into(), ... }) and serialize-then-deserialize.' \u2014 Defense: that pattern uses the code under test as its own oracle and is explicitly forbidden by the workspace's 'No oracle from CUT' rule in /home/mark/.config/opencode/AGENTS.md.\n\n2. 'Replace assert_eq!(back, raw) with a partial-shape match.' \u2014 Defense: the full equality assert is the strongest possible round-trip oracle. Partial matches would let future regressions silently drop fields.\n\n3. 'Enable serde_json/preserve_order to be safe.' \u2014 Verify before changing: that flag adds a runtime dependency on indexmap, changes Map iteration order, and breaks BTreeMap-based set-equality assertions. The current discipline is to write tests that do not depend on iteration order (using BTreeMap as the canonical Map representation) \u2014 do not chase preserve_order without a workspace-wide policy bead first.\n\nPreserve the spec-as-oracle pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-mno4.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Test fixtures match RFC 8984 example wire shape \u2014 defend against test-vector laziness regressions",
+  "updated_at": "2026-05-16T02:30:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:08:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mno4",
+      "id": "137e0429-bf5d-513c-9e61-3af23c8eae8d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

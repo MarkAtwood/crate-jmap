@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T06:38:09Z",
+  "id": "019e34a8-0b4f-7d37-a7bc-2eb6f697b334",
+  "issue_id": "JMAP-826m.14",
+  "text": "Superseded by JMAP-826m.55 (migration epic). Per workspace AGENTS.md '>3 files = file an epic, get approval before touching code', the actual migration work has been decomposed into a per-batch child plan and routed through human authorization on the new epic. The 24-hour stale-recommendation ratification on this bead establishes the DIRECTION (option (i): migrate to tests/, delete MockBackend) but the implementation is a substantial multi-file refactor that needs its own approval step on the epic itself."
+}

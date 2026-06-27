@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T10:43:05Z",
+  "compaction_level": 0,
+  "content_hash": "c9389941a20ec23e913f139f78991a0f949f1c8dad86f6c28d08edc87a00979d",
+  "created_at": "2026-05-14T19:51:04Z",
+  "created_by": "Mark Atwood",
+  "description": "src/lib.rs:124-458 retains 'test_support::MockBackend' (cfg(test) only) even after commit c30d7ed extracted the public MemoryBackend to src/memory.rs.\n\nVerification: the canonical sibling jmap-mail-server has no MockBackend equivalent in src/lib.rs \u2014 unit tests there use crate::memory::MemoryBackend directly (cfg(test) at the call sites pulls in the public reference impl regardless of the feature gate). The chat-server also has no MockBackend. Per AGENTS.md 'Canonical Templates' rule, filenode-server must mirror the canonical shape; a divergent extra mock backend with different semantics is a regression of the cookie-cutter intent.\n\nMaintenance cost:\n\n1. Two implementations to keep in sync. They have different bug surfaces (MockBackend's create_object always succeeds with id 'mock-id-1'; MemoryBackend actually assigns server ids and stores state). Unit tests in src/filenode.rs cover behavior that uses MockBackend's degenerate semantics; equivalent behavior with MemoryBackend may differ.\n\n2. Test confusion: a contributor adding a new handler unit test will pick whichever mock is in scope (probably MockBackend, since it's in the same crate), and end up with weaker test coverage than the equivalent integration test.\n\n3. set_descendants / set_sibling / set_ancestors helpers on MockBackend (src/lib.rs:200-247) are an alternate way to set up tree fixtures distinct from MemoryBackend::seed_node. New contributors will be confused about which pattern to use.\n\nRequired: remove src/lib.rs:124-458 entirely. Migrate the unit tests in src/filenode.rs (the ones that currently use MockBackend) and src/lib.rs:486-552 to use MemoryBackend behind cfg(test). If a behavior is hard to test with MemoryBackend (e.g., backend errors), add a deterministic-fault helper to MemoryBackend (the mail-server sibling FaultyBackend pattern), not a parallel MockBackend.\n\nRelated: README.md:239-241 says 'A tree-backed MockBackend exists in the test_support module inside src/lib.rs for unit testing only' \u2014 that documentation is stale and inconsistent with the AGENTS.md 'mirror jmap-mail-server' rule.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "duplicate test-double infrastructure: test_support::MockBackend (src/lib.rs) coexists with memory::MemoryBackend",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:51:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "10ff45a5-c50d-540b-8b9d-3606b4f0c65b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

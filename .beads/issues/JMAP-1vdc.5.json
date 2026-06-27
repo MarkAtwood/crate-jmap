@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: test now asserts seen.len() > 1 for sub-second uniqueness",
+  "closed_at": "2026-05-02T19:41:09Z",
+  "compaction_level": 0,
+  "content_hash": "967ccffbc53a0e7ba04a25d8c850926603c63709598063822ea01b274ca0a8af",
+  "created_at": "2026-05-02T19:34:08Z",
+  "created_by": "Mark Atwood",
+  "description": "helpers.rs test now_utc_string_subsecond_uniqueness (line 137) collects 10 timestamps into a HashSet but then does 'let _ = seen;' \u2014 it never calls assert\\!. The test passes vacuously regardless of clock behavior. Comment says 'We accept this test as documentation, not a hard guarantee' but the effect is a test that contributes zero coverage signal. Maintenance consequence: a regression in sub-second precision would not be caught; future maintainers believe subsecond uniqueness is tested when it is not.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "now_utc_string_subsecond_uniqueness test never asserts",
+  "updated_at": "2026-05-02T19:41:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "0243e180-1482-55a8-a032-5a6de79d5c67",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

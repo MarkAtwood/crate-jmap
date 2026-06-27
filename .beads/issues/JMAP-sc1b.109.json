@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T041030Z-2473287",
+  "close_reason": "Closed in commit a1259f9. Cookie-cut AGENTS.md into 6 extension-server siblings (calendars/tasks/contacts/filenode/sharing/metadata), each 138-139 lines mirroring the 144-line chat-server reference Mark blessed.\n\nPer-sibling differences kept minimal:\n- Spec references (RFC 9610 / 9670 / 8984 / 9553 / drafts 26/06/13/01)\n- Backend trait name (CalendarsBackend / TasksBackend / ContactsBackend / FileNodeBackend / SharingBackend / MetadataBackend)\n- Register fn name, crate-family-context diagram, dependency list\n- Extension-specific implications of the workspace identity-seam policy\n\nThe chat-specific 'constant-time secret compares' row is dropped in all 6 siblings \u2014 none of them handle credential material analogous to chat invite-codes.\n\nThe 'Permission enforcement: backend canonical' section is identical verbatim across all 7 server-crate AGENTS.md files (canonical chat-server text + 6 new). Backport into the canonical mail-server is tracked separately by JMAP-sc1b.112.\n\ncargo test --workspace passes (no code changes; doc-only commit).",
+  "closed_at": "2026-05-13T04:49:49Z",
+  "compaction_level": 0,
+  "content_hash": "a962e88c78564eed77f3b0cee410e57ed976e8a2bd642ac90596bb9d5e4760ed",
+  "created_at": "2026-05-12T02:19:54Z",
+  "created_by": "Mark Atwood",
+  "description": "Per JMAP-2koi decision (B): every extension *-server crate gets an AGENTS.md cookie-cut from the canonical `crate-jmap-mail-server/AGENTS.md` (109 lines).\n\nCurrently only 1 of 8 extension-server crates has an AGENTS.md. The other 7 are missing the canonical-template banner that the workspace AGENTS.md 'Canonical Templates' rule presumes exists on every sibling.\n\n## Sites (7 files to create)\n\n  - crate-jmap-chat-server/AGENTS.md\n  - crate-jmap-calendars-server/AGENTS.md\n  - crate-jmap-tasks-server/AGENTS.md\n  - crate-jmap-contacts-server/AGENTS.md\n  - crate-jmap-filenode-server/AGENTS.md\n  - crate-jmap-sharing-server/AGENTS.md\n  - crate-jmap-metadata-server/AGENTS.md\n\n## Cookie-cut shape (mirror mail-server)\n\nEach sibling AGENTS.md must include:\n\n  1. Title line (`# Agent Instructions \u2014 jmap-<thing>-server`)\n  2. Canonical-template banner pointing AT mail-server as the canonical (sibling form: 'This crate is a sibling of the canonical jmap-mail-server. Mirror its shape; deviations must be motivated by spec differences only.')\n  3. 'Before Starting Any Work' checklist with the relevant RFC / draft swapped in\n  4. 'What This Is' (one-paragraph crate summary)\n  5. 'Crate Family Context' diagram fragment\n  6. 'Spec Reference' with the appropriate normative document path\n  7. The 'Permission enforcement: backend canonical' section that JMAP-ga0q.2 wanted on chat-server (now applies workspace-wide; foundation seam is documented in workspace AGENTS.md)\n\nWhere mail-server's content is genuinely mail-specific (RFC 8621 sections, MailBackend trait names), substitute the sibling's equivalents. Where the content is workspace-wide policy, copy verbatim.\n\n## Acceptance\n\n  - 7 new AGENTS.md files exist, each ~80-150 lines.\n  - Each file's canonical-template banner correctly identifies mail-server as the canonical.\n  - Each file's 'Permission enforcement: backend canonical' section matches the workspace AGENTS.md identity-seam wording.\n  - cargo test --workspace clean (sanity \u2014 doc additions cannot break tests but no extra cost to verify).\n  - Spot-check by Mark on the chat-server one (highest-velocity sibling) before the others land.\n\n## Out of scope\n\n  - Updating mail-server's AGENTS.md itself (it is already canonical; sweeps update siblings).\n  - Adding AGENTS.md to non-server crates (types-only, client-only crates have their own canonical-template story).\n  - Reshaping the workspace AGENTS.md (JMAP-ga0q.2 already landed that).\n\n## Cross-references\n\n  - JMAP-2koi \u2014 the human decision that authorized this sweep\n  - JMAP-ga0q.2 \u2014 the work that surfaced the missing-AGENTS.md gap (closed, but its chat-server site is functionally completed by this sweep)\n  - workspace AGENTS.md 'Canonical Templates' table \u2014 the policy this sweep implements",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.109",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sweep: cookie-cut AGENTS.md into 7 extension-server siblings (chat/calendars/tasks/contacts/filenode/sharing/metadata)",
+  "updated_at": "2026-05-13T04:49:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T19:19:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "d85ad2d0-20ab-5eb8-a976-a7213a0b3c97",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Already addressed in metadata.rs. The literal-string copy-paste the bead describes is gone: the three /set loop catch-all arms now route through a shared helper at metadata.rs:484 (create), 535 (update), 597 (destroy):\n\n    Err(other) => { not_*.insert(id, unhandled_backend_set_error(&other)); }\n\nThe helper at helpers.rs:156-162 emits 'unhandled backend error variant: {e:?}' \u2014 the bead's second concern (literal-string telling the operator nothing about which variant fired) was resolved by bd:JMAP-826m.36 routing through the helper's {e:?} interpolation.\n\nThe bead's deeper refactor (fold all three Err arms into one backend_set_error_to_value helper) is more invasive and would diverge further from canonical mail-server (which still uses three-arm shape with literal strings at 32 sites across email/identity/mailbox/mdn/sieve/submission/vacation). Per the canonical-template propagation rule, that's a workspace-wide sweep, not a metadata-server-local change.\n\nIf the deeper refactor is desired, it should be filed as a workspace-wide canonical-template sync bead with mail-server as the first sibling to touch \u2014 metadata-server is the polished evolution that mail-server can be brought up to, not the other way around. Not filing that sweep bead myself: same opinion P3 cost-benefit as JMAP-ayoz.14's workspace sweep question, and the bead's metadata-server-local concern is already addressed.",
+  "closed_at": "2026-05-17T09:09:00Z",
+  "compaction_level": 0,
+  "content_hash": "8c631e4662e1b684ff778327a88a75df30dbb6bbef732529b931b2ee02f974b1",
+  "created_at": "2026-05-14T14:21:09Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:341-349, 400-408, 450-458 \u2014 three of the four match arms in the create/update/destroy loops follow this pattern:\n\n    Err(BackendSetError::SetError(set_err)) => { ... }\n    Err(BackendSetError::Other(e)) => { ... }\n    Err(_) => {\n        not_created.insert(create_id, json!({\n            \"type\": \"serverFail\",\n            \"description\": \"unhandled backend error variant\",\n        }));\n    }\n\nBackendSetError is #[non_exhaustive] (in jmap-server). The Err(_) catch-all is the contract \u2014 a future variant being added in jmap-server should not break compilation in this crate, and at runtime the catch-all routes the new variant to serverFail.\n\nTwo issues:\n1. The literal string 'unhandled backend error variant' leaks into wire responses if jmap-server ever adds a variant the metadata-server doesn't handle. That's not a great message for a client to receive \u2014 it tells the client nothing about what happened and tells the operator nothing about which variant fired.\n2. The pattern is copy-pasted three times. Future variant additions require three edits. Three is the threshold where DRY pays.\n\nSuggested rewrite \u2014 extract a helper in helpers.rs that consumes BackendSetError<E> and produces a Value:\n\n    pub(crate) fn backend_set_error_to_value<E: std::fmt::Display>(\n        e: &BackendSetError<E>,\n    ) -> Value {\n        match e {\n            BackendSetError::SetError(se) => set_error_value(se),\n            BackendSetError::Other(inner) => json!({\n                \"type\": \"serverFail\",\n                \"description\": inner.to_string(),\n            }),\n            _ => json!({\n                \"type\": \"serverFail\",\n                \"description\": \"unhandled backend error variant\",\n            }),\n        }\n    }\n\nThen the three loops collapse to:\n    Err(e) => { not_*.insert(id, backend_set_error_to_value(&e)); }\n\nCost of leaving: 3-way drift risk on future BackendSetError extension. A new variant added to jmap-server's BackendSetError will be silently routed to 'unhandled backend error variant' in metadata-server's wire responses until someone updates the three sites.\n\nThis is exactly the bug class the workspace's canonical-template propagation rule is supposed to catch. Worth checking if jmap-mail-server has the same pattern and whether this should be a canonical sweep.\n\nSeverity: P3, elegance + future drift hedge.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_metadata_set: four identical 'unhandled backend error variant' arms after Other arm",
+  "updated_at": "2026-05-17T09:09:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:21:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "00a46c60-ed37-56da-b8be-22239a55d94d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T12:25:19Z",
+  "compaction_level": 0,
+  "content_hash": "a1eea6a5a68ce71c404b9c0a0e1d88e53fbf5b1427e2e20c3dd55c128ee5d814",
+  "created_at": "2026-05-01T12:15:16Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs lines 720-726: invalidRecipients errors produced by CRLF check use json!({\"type\":\"invalidRecipients\",\"description\":...}) but RFC 8621 \u00a77.5 says MUST include an \"invalidRecipients\" String[] property listing the invalid addresses. The bad address is not included in the required array field.",
+  "ephemeral": 0,
+  "id": "JMAP-a14.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "invalidRecipients SetError missing required String[] field",
+  "updated_at": "2026-05-01T12:25:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T05:15:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a14",
+      "id": "153a79a2-bf8b-553c-ae0f-e8a90674fae1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in next commit. build_mailbox_from_props now uses explicit match on parentId and role distinguishing String|null (accept) from other JSON types (reject with invalidProperties + description). Three regression tests added in tests/integration.rs covering int-rejection on role, int-rejection on parentId, and a null+null happy-path guard. All 243 mail-server tests pass.",
+  "closed_at": "2026-05-15T06:46:09Z",
+  "compaction_level": 0,
+  "content_hash": "7eca645fa353e7166951a49eac267af4c3bf59e57257b99fdc9f7c5bd152484a",
+  "created_at": "2026-05-14T16:20:42Z",
+  "created_by": "Mark Atwood",
+  "description": "src/mailbox.rs build_mailbox_from_props (line 1179-1195) handles parentId and role as: 'if let Some(v) = props.get(...).and_then(|v| v.as_str()) { use it } else { ignore }'. A client request with parentId=42 or role=true is silently treated as 'no parent' / 'no role'. The created mailbox response will lack these fields and the client has no signal its values were rejected. RFC 8620 \u00a75.3 requires invalidProperties for malformed property values. fc763f8 fixed the same antipattern for destroy arrays (non-string entries) \u2014 same fix needed here. Reproduction: Mailbox/set with create entry {\"x\":{\"name\":\"foo\",\"role\":42}} \u2014 succeeds, creates foo with no role, no error returned. Fix: explicit type check \u2014 if parentId/role is present and not string|null, push InvalidProperties to notCreated.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/set silently drops non-string role and parentId values on create",
+  "updated_at": "2026-05-15T06:46:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:20:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "5f2846ec-8dcd-5c5f-896b-51713a537b8b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

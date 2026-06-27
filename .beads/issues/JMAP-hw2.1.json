@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-hw2.1",
+  "title": "check_no_crlf return type unused at call sites",
+  "description": "submission.rs:546 \u2014 check_no_crlf returns Result<(), &str> giving back the offending email in Err, but both call sites (lines 642, 647) only call .is_err(), discarding the value. The Err payload is never used. Should be -> bool returning false on CRLF. The current signature implies the caller might inspect the bad address, which none do.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T04:16:19Z",
+  "updated_at": "2026-05-01T04:18:44Z",
+  "closed_at": "2026-05-01T04:18:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-hw2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 21:16:18"
+    }
+  ]
+}

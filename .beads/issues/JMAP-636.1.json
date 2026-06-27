@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-636.1",
+  "title": "ClientError missing #[non_exhaustive] \u2014 adding a variant is a breaking change",
+  "description": "error.rs: ClientError is a public enum with no #[non_exhaustive]. Adding any new error variant (e.g. RateLimit, Timeout) is a semver breaking change for any caller that pattern-matches it exhaustively. The existing exhaustive-match test in error.rs helps within this crate only \u2014 external callers break silently at compile time when they upgrade. Pre-1.0 is not an excuse; the crate's own changelog says this will happen as it grows.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:54:01Z",
+  "updated_at": "2026-04-30T15:55:13Z",
+  "closed_at": "2026-04-30T15:55:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-636",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:54:00"
+    }
+  ]
+}

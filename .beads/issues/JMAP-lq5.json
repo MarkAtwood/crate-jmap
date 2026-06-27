@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-lq5",
+  "title": "Review: jmap-mail-server pass 8",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:38:52Z",
+  "updated_at": "2026-05-01T03:43:30Z",
+  "closed_at": "2026-05-01T03:43:30Z",
+  "notes": "Confidence: 15% chance of missed bug. Least confident flags: edge cases in EmailSubmission create validation (ForbiddenFrom delegated to backend by design). Uncertainty driven by: no SMTP-layer or identity policy tests. Would raise confidence with integration tests against a real backend.\nMaintainer risk: MEDIUM \u2014 two P0 correctness bugs exist (noRecipients, role-uniqueness cross-loop); both are protocol spec violations that external clients could trigger.\nIdiom rating: CLEAN \u2014 no unsafe, error handling correct, ownership patterns appropriate. Iterators used properly.\nRust idiom confidence: 5% chance of missed issue. Least confident flags: none remaining. Uncertainty driven by: generic MailBackend trait could have subtle associated-type bound issues not visible in the handler layer."
+}

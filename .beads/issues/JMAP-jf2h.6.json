@@ -1,0 +1,67 @@
+{
+  "acceptance_criteria": "6 onSuccessSetIsDefault integration tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added 3 dispatcher-based tests for onSuccessSetIsDefault; verifies string id applied, skipped on failure, null is no-op; 36 total pass; clippy clean",
+  "closed_at": "2026-05-05T15:47:07Z",
+  "compaction_level": 0,
+  "content_hash": "a7aca1b66453d9bb8515a1f5b243ca43345438c703fa152c18ef12725bc14006",
+  "created_at": "2026-05-05T03:00:28Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Integration tests using a stateful MockBackend for onSuccessSetIsDefault path. Oracle: contacts-10 \u00a72.3, \u00a74.2.\n\n**Tests (in addressbook.rs test module or tests/addressbook_tests.rs):**\n1. set_on_success_set_is_default_bare_id: string id \u2192 target in updated with isDefault:true.\n2. set_on_success_set_is_default_creation_ref: create + use #c1 \u2192 newly-created book appears in created AND updated with isDefault:true.\n3. set_on_success_bad_ref_ignored: non-existent id \u2192 silently ignored, notUpdated empty.\n4. set_on_success_skipped_on_error: failing create \u2192 onSuccessSetIsDefault not applied.\n5. set_on_success_new_state_reflects_mutation: only onSuccessSetIsDefault changes \u2192 newState != oldState.\n6. set_on_success_demoted_book_in_updated: old default book also in updated with isDefault:false.\n\nMockBackend extended to: track isDefault per book, implement single-default invariant.\n\n**Acceptance criteria:** All 6 tests pass with stateful backend.",
+  "ephemeral": 0,
+  "id": "JMAP-jf2h.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Integration tests: AddressBook/set onSuccessSetIsDefault full coverage",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:00:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h.4",
+      "id": "017b7513-ecc1-57f4-91b6-2e8decc21398",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:00:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h.3",
+      "id": "0f1c8f0c-10a8-5fb9-b6dc-5c2ab5c299c5",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:00:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h.2",
+      "id": "3b9d65e3-aaef-5ae9-8533-72313da02f3d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:00:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h.1",
+      "id": "4cce1307-7472-59aa-868e-2e2d39a21fc4",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:00:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h",
+      "id": "e6d443de-fb66-5d47-9cfe-553de54dc07b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in 5417494. WrongLength.got and NonHexLowercase.at switched from usize to u32 with saturating u32::try_from(_).unwrap_or(u32::MAX) at the construction site. Eliminates platform-dependent integer width from the public error contract.",
+  "closed_at": "2026-05-16T04:19:15Z",
+  "compaction_level": 0,
+  "content_hash": "cac2164c7868f5d73a094fa56de587dc88af156f1be045a13b0d130d995367e9",
+  "created_at": "2026-05-16T03:49:14Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-cid-types/src/digest.rs:35-38 declares:\n\n    WrongLength {\n        got: usize,\n    },\n\nThe candidate's byte length is bounded by the maximum length of any &str a caller can possibly pass. Practically, the value is going to be in 0..=128 for any sensible diagnostic \u2014 the spec ABNF length is 64, and the only inputs where a much larger length would be informative are pathological (and even then, capping the diagnostic at u32::MAX bytes is more than enough).\n\nUsing usize bakes 64-vs-32-bit platform-dependence into the public error type:\n\n  - The Debug-printed representation will differ in layout assumptions between 32-bit and 64-bit targets (relevant only for diagnostic-byte-output tests, but those exist).\n  - Error structs that are serialized into logs or transmitted over IPC (jaeger, OTLP) will carry an integer whose maximum-value range depends on the target.\n  - Consumers building cross-platform wire diagnostic payloads (e.g. an error report uploaded from a 32-bit ARM client to a 64-bit x86_64 server's aggregator) carry an inconsistency that is invisible until someone tries to deserialize a wide value.\n\nA bounded type \u2014 u32 (or even u16) \u2014 fixes the contract and matches the actual value range. The cost is a `as u32` or `as u16` cast at the construction site (digest.rs:115), which can saturate or panic on overflow \u2014 for a value bounded by usize that came from &str length, this won't actually overflow in practice on any platform with addressable memory under 4 GiB.\n\nThis is an api-contract,leakage finding in the workspace's terms: the public surface leaks a platform-dependent implementation detail (Rust's choice of usize for collection lengths) where a fixed-width integer would have been equivalent in semantics and more portable. The same critique applies to NonHexLowercase { at: usize } \u2014 both are bounded by the 64-byte input.\n\nWorth fixing in v0.1.0 before consumers code error-deserializer logic against the usize shape.",
+  "ephemeral": 0,
+  "id": "JMAP-sf5h.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sha256DigestErrorKind::WrongLength { got: usize } uses platform-dependent type for a bounded value",
+  "updated_at": "2026-05-16T04:19:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T20:49:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sf5h",
+      "id": "0c04b6dc-7f1c-567e-850f-e089fa06134f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

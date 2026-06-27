@@ -1,0 +1,33 @@
+{
+  "close_reason": "positive observation, no action needed",
+  "closed_at": "2026-05-02T07:05:15Z",
+  "compaction_level": 0,
+  "content_hash": "c2a5ac7c6e9bfa955cd7ddc05dfb6baf05d68e60b9d53bc057d68a9d538ba2e5",
+  "created_at": "2026-05-02T05:28:03Z",
+  "created_by": "Mark Atwood",
+  "description": "assign_thread in email.rs returns a fresh next_id() immediately when both in_reply_to and references are empty, avoiding an unnecessary backend call. This is the common case for new top-level emails and is the correct optimization.",
+  "ephemeral": 0,
+  "id": "JMAP-ci3.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "assign_thread short-circuits correctly for emails without references",
+  "updated_at": "2026-05-02T07:05:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T22:28:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ci3",
+      "id": "137c3aa4-e374-5f83-80bb-e475828b8037",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

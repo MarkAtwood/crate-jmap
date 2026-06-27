@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-7zr",
+  "title": "error_status: no type distinction between request-level and method-level errors",
+  "description": "error_status() in response.rs accepts any JmapError and builds an HTTP error response. request_error() also accepts any JmapError. But some JmapError variants (e.g. unknownMethod) are method-level errors that belong in an Invocation, not in a top-level HTTP response body. Nothing in the type system prevents a caller from passing a method-level error to request_error(), silently producing a malformed response. This is a footgun for consumers building new method handlers.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:03:38Z",
+  "updated_at": "2026-04-30T06:14:09Z",
+  "closed_at": "2026-04-30T06:14:09Z",
+  "notes": "Mitigation options: (a) split JmapError into RequestError and MethodError marker newtypes, (b) add #[doc] warnings on the fn signatures, (c) document which variants are safe as request-level. Option (b) is the lowest-risk change for a locked API.",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-e39",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:04:17"
+    }
+  ]
+}

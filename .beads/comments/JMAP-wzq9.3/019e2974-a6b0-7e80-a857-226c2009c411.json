@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T02:26:11Z",
+  "id": "019e2974-a6b0-7e80-a857-226c2009c411",
+  "issue_id": "JMAP-wzq9.3",
+  "text": "Blocked on canonical mail-client propagation. JMAP-tjvm.5 (P0) covers the /queryChanges half (filter/sort/upToId for email_query_changes and mailbox_query_changes). The /query half (anchor/anchorOffset/calculateTotal) is also a workspace-wide gap \u2014 canonical mail-client at src/methods/email.rs lacks these too. Per workspace canonical-template propagation rule, fix must land in canonical mail-client first, then propagate to all 7 extension-client siblings. Will become unblocked when canonical mail-client adds the missing /query and /queryChanges args."
+}

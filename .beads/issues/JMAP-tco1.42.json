@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-09T17:42:36Z",
+  "compaction_level": 0,
+  "content_hash": "d108e5f8ec5af3395a59d422308754d53dcb4b2a7415b9acce2104150686b04e",
+  "created_at": "2026-05-09T08:08:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Apply pattern H to jmap-sharing-server.\n\nPattern (full): finalize_set_response<B,O> helper extracting the 22-line /set envelope boilerplate\n\nReference: see calendars-server (which already has the change) for the exact shape, and the JMAP-tco1 epic description for the source bead that defined the pattern (JMAP-r3pg.{12,13}).",
+  "ephemeral": 0,
+  "id": "JMAP-tco1.42",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Self-contained playbook reference (workspace AGENTS.md cookie-cutter consistency sweep, JMAP-tco1):\n\nPATTERN: finalize_set_response<B,O> helper extracting /set envelope boilerplate\nTARGET: jmap-sharing-server\nCANONICAL REFERENCE: crate-jmap-calendars-server (commit fca0c74)\n\nThe full step-by-step playbook for Pattern H is in JMAP-tco1's notes\nfield (run 'bd show JMAP-tco1' and read the 'Per-pattern playbook' section\nfor PATTERN H). Includes: before/after code snippets, target file\nglob, error-message preservation rules, helper-function signatures,\nvalidation steps.\n\nWHY THIS BEAD EXISTS: 2026-05-09 work session unilaterally applied\nPattern H to calendars-* without propagating to siblings \u2014 the LOCKED\ncrate markers were misread as 'API stability lockdown' rather than\n'canonical-template, propagate or change-canonical-first'. This bead\ncatches jmap-sharing-server back up.\n\nCLOSEABLE WHEN: target crate matches the canonical reference (manual diff\nagainst canonical shows only RFC/draft content differences, no shape\ndifferences) AND workspace gates pass (cargo test --workspace, cargo\nclippy --workspace --tests -- -D warnings, cargo fmt --check).",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sweep H -> jmap-sharing-server: finalize_set_response<B,O> helper extracting the 2",
+  "updated_at": "2026-05-09T17:42:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T01:08:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tco1",
+      "id": "b39b0859-916a-5689-8dcf-56df9660baf4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

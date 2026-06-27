@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-isx.2",
+  "title": "EmailSubmission/set: BackendSetError::Other mapped to notFound instead of server error",
+  "description": "submission.rs:319-326 (destroy) and submission.rs:379-386 (onSuccessUpdateEmail update): BackendSetError::Other(e) is inserted into not_destroyed/not_updated with SetErrorType::NotFound. A storage failure (disk full, DB error, etc.) will be reported to the client as 'the object was not found'. The Email/set handler correctly uses json\\!({\"type\": \"serverFail\", ...}) for this case (email.rs:444, 488, 520). Fix: use json\\!({\"type\": \"serverFail\", \"description\": e.to_string()}) consistently.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:19:35Z",
+  "updated_at": "2026-04-30T23:25:58Z",
+  "closed_at": "2026-04-30T23:25:58Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-isx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:19:34"
+    }
+  ]
+}

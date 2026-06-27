@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "5ef9b4cdb9bd8d694e0ae1eb6bb7efee73ceeecd084cf5b9f9cfe42b905cc49b",
+  "created_at": "2026-05-18T01:32:40Z",
+  "created_by": "Mark Atwood",
+  "description": "RUSTDOCFLAGS='-D warnings' cargo doc -p jmap-chat-server --no-deps fails with broken-intra-doc-link at backend.rs:438:\n\n```\nerror: unresolved link to `crate::memory::MemoryBackend`\n   --> crate-jmap-chat-server/src/backend.rs:438:25\n    |\n438 |     /// The reference [`crate::memory::MemoryBackend`] does NOT\n    |                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no item named `memory` in module `jmap_chat_server`\n```\n\nThe `memory` module is gated behind feature='memory'. Rustdoc with default-features fails the intra-doc-link resolution. `cargo doc --all-features` succeeds.\n\nAnalogous to existing beads:\n- JMAP-cs2o (jmap-metadata-server lib.rs:50)\n- JMAP-go45 / JMAP-9b7r (jmap-filenode-server)\n- JMAP-m1yd (jmap-sharing-server principal.rs)\n\nFix shape (matching the sibling pattern): wrap the rustdoc reference with `#[cfg_attr(docsrs, doc(cfg(feature = \\\"memory\\\")))]` style, or use a fully-qualified path with intra-doc-link disabled, or rewrite the link to a plain identifier (e.g. `MemoryBackend` without backticks) so it doesn't trigger broken-link resolution.\n\nDiscovered during JMAP-x2gd.82 work; not caused by that bead's changes (verified by git stash + retry on main HEAD).\n\nEngineering basis: rustdoc -D warnings is a workspace pre-commit gate per AGENTS.md. The pre-existing breakage means `cargo doc -p jmap-chat-server --no-deps` cannot succeed under default-features today.",
+  "ephemeral": 0,
+  "id": "JMAP-t1v6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "jmap-chat-server: rustdoc broken-intra-doc-link at backend.rs:438 referencing crate::memory::MemoryBackend behind feature gate",
+  "updated_at": "2026-05-18T01:32:40Z"
+}

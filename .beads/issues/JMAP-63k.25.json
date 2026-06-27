@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T06:50:06Z",
+  "compaction_level": 0,
+  "content_hash": "c32d25aac7ff2dd2aac927c69f1e0a38d95e5898d4ca2943b4a4747f1d52431b",
+  "created_at": "2026-05-02T06:47:06Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/chat.rs:523\nIssue: The list of server-set Chat fields that cannot be patched is defined as a hardcoded const &[&str] slice: CHAT_READONLY = [\"id\", \"createdAt\", \"unreadCount\", \"pinnedMessageIds\"]. The same fields are defined structurally on the Chat type in jmap-chat-types. When a new server-set field is added to Chat, a developer must also add it to CHAT_READONLY. There is no compiler signal if they forget. A similar pattern exists in crate-jmap-mail-server/src/helpers.rs (IMMUTABLE_EMAIL_FIELDS).\nRisk: Adding a server-set field to Chat and forgetting CHAT_READONLY means clients can write to it. This is a security and data-integrity issue, not just an ergonomics issue. The pattern will be replicated in every new object type's set handler.\nFix: Document the invariant that CHAT_READONLY must stay in sync with server-set fields in the Chat struct, with a reference to the struct definition. Ideally, expose a method on the Chat type (or a trait) that returns the set of server-set field names, so there is a single source of truth. A compile-time test that constructs a full Chat and verifies every server-set field key appears in the list would also catch drift.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CHAT_READONLY list for update validation is not compiler-enforced",
+  "updated_at": "2026-05-02T06:50:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:47:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "c3a825ae-6fde-5ebd-9e71-74ce1fe9cf0c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

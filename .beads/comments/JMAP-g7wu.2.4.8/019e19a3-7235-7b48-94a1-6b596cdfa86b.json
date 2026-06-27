@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260512T000441Z-1660907",
+  "created_at": "2026-05-12T00:43:23Z",
+  "id": "019e19a3-7235-7b48-94a1-6b596cdfa86b",
+  "issue_id": "JMAP-g7wu.2.4.8",
+  "text": "Picked up during /do-beads pass but escalating per bead's own instruction ('label this human if not resolved when picked up'). The design question (a/b/c for where max-* config values live) is unresolved.\n\nThe bead's recommendation is option (c): backend method limits() returning a ChatLimits struct, matching how Email/import limits work in jmap-mail-server. I agree with that recommendation \u2014 it keeps the policy with the backend (which already owns per-account permission state), avoids a new session-capability surface that would ripple through jmap-server foundation, and parallels precedent already in the workspace.\n\nIf approved, the implementation steps in the bead description are concrete and ready to execute. Filing this comment instead of claiming-and-implementing because the bead author explicitly asked for human confirmation before the work starts."
+}

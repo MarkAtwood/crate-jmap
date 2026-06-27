@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.4",
+  "title": "expand_url_template allocates N+1 Strings in loop",
+  "description": "blob.rs expand_url_template (lines 33-41): iterates over vars slice calling String::replace each iteration. Each replace allocates a new String even when no substitution matches, plus a format! allocation for the placeholder. With the download-blob call site (4 vars) this is 8 allocations minimum. Hot path for every blob upload and download. Fix: single-pass substitution scanning the template once.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:45:44Z",
+  "updated_at": "2026-04-30T01:08:25Z",
+  "closed_at": "2026-04-30T01:08:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:45:44"
+    }
+  ]
+}

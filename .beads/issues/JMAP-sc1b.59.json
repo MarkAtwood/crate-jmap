@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:48:54Z",
+  "compaction_level": 0,
+  "content_hash": "c33f9424543e391be02b1749c861a7601dff3b5b9eff44fc0701cc5969bb5126",
+  "created_at": "2026-05-07T20:43:30Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/Cargo.toml:20 declares serde_json in [dev-dependencies] although it's already in [dependencies]:16. Cargo unions feature sets across both, so the dev-dep line adds nothing.\n\nDrop the dev-dep declaration. Cosmetic only.\n\nLOCKED \u2014 needs approval.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.59",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: workspace inconsistency \u2014 jmap-server serde_json dev-dep redundant",
+  "updated_at": "2026-05-07T21:48:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "9703e385-df82-512c-9666-5cf0a95f598b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

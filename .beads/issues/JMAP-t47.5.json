@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.5",
+  "title": "AuthProvider contract violation silently drops header on reqwest HTTP path",
+  "description": "auth.rs doc comment says: 'On HTTP code paths the header value is passed as &str directly to reqwest, which silently drops headers it cannot encode rather than returning an error'. This is documented, but the documentation is in the AuthProvider trait doc, not at the call sites in client.rs (fetch_session, call, upload_blob, download_blob). A user implementing a custom AuthProvider with a subtly invalid header value will get authentication failures that look like network errors, not client bugs. The maintenance consequence: every auth-related support report will require the user to check both HTTP and WebSocket paths and compare behavior. Consider calling HeaderValue::from_str at each call site so the invalid value is caught uniformly on the HTTP path too, or add an explicit validate() to AuthProvider.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:34:00Z",
+  "updated_at": "2026-04-30T01:42:54Z",
+  "closed_at": "2026-04-30T01:42:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:33:59"
+    }
+  ]
+}

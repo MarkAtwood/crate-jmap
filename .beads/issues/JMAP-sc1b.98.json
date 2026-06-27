@@ -1,0 +1,33 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T15:34:20Z",
+  "compaction_level": 0,
+  "content_hash": "8578bc24939db429fe509bcabee0400334e6f9ff29d6a1d5bd354ec7cb55636f",
+  "created_at": "2026-05-11T14:25:41Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Location: `crate-jmap-base-client/src/ws/mod.rs:48-76`\n\n  /// A parsed frame received from the JMAP WebSocket.\n  ...\n  #[non_exhaustive]\n  #[derive(Debug, Clone, PartialEq)]\n  pub enum WsFrame {\n      StateChange(StateChange),\n      Response(jmap_types::JmapResponse),\n      Unknown {\n          type_name: String,\n          /// Raw JSON object as received from the server, preserved for logging\n          /// and forward-compatibility diagnostics.       // <-- THIS LINE\n          raw: serde_json::Value,\n      },\n  }\n\nCONCERN\nThe doc-comment on `WsFrame::Unknown.raw` (lines 72-73) explicitly invites consumers to log the field: 'preserved for logging and forward-compatibility diagnostics'. The enum derives `Debug`, so a `{:?}`-format of any WsFrame instance writes the raw Value.\n\n`parse_ws_frame` (lines 270-289) produces `Unknown` in three scenarios:\n1. Unrecognized `@type` (RFC 8887 \u00a74.3.1 forward-compatibility ignore path).\n2. Known `@type == \"StateChange\"` but typed deserialization failed.\n3. Known `@type == \"Response\"` but typed deserialization failed.\n\nAny of these can carry server-pushed payload that has secret material in it, for example:\n\n- A future JMAP extension that defines a new `@type` carrying a push verification code, a federation handshake token, a session-rotation challenge, etc. \u2014 case 1 puts it straight into a Debug-formatted log.\n- A server that ships a malformed `Response` to a `PushSubscription/get` call \u2014 case 3 puts the full response (including any `verificationCode` echoed back) into the raw Value, which a tracing! call then logs.\n- An extension that puts secret material into a typed shape that drifts from the client's compiled-in deserializer \u2014 cases 2/3 again leak the wire payload verbatim.\n\nThe current attack surface depends on what extensions a deployment uses, but the API actively pushes consumers toward an unsafe-by-default logging pattern.\n\nWHAT GOES WRONG\nConfidentiality. A future or extension WebSocket payload carrying credential-grade material lands verbatim in operator logs, after the consumer follows the doc-comment's instruction to log unknown frames.\n\nPROPOSED FIX\nTwo changes, both small:\n\n(a) Update the doc-comment to add a redaction warning:\n\n    /// Raw JSON object as received from the server, preserved for forward-\n    /// compatibility diagnostics. **DO NOT log this field verbatim** \u2014\n    /// future or extension JMAP WebSocket message types may carry credential\n    /// material (push verification codes, federation tokens, session\n    /// challenges). Log `type_name` only, or apply a redaction filter.\n\n(b) Optionally provide a helper method:\n    impl WsFrame {\n        /// Returns a Display-formattable summary that omits the raw payload.\n        pub fn log_summary(&self) -> impl fmt::Display + '_ { ... }\n    }\n\nORACLE\n- Closed JMAP-sc1b.80 \u2014 same shape of finding (WebSocket auth_header docstring missing credential warning). This bead extends the same pattern to the inbound-frame side.\n- RFC 8887 \u00a74.3.1 forward-compatibility rules \u2014 clients SHOULD ignore unknown @types, but the rule does not address how to log them safely.\n\nRISK CLASSIFICATION\nP3. Defense-in-depth / doc hardening. The exploitable surface today is bounded (RFC 8887 defines only StateChange/Response/Push); the risk grows linearly with each extension.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.98",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security: WsFrame::Unknown.raw doc encourages logging server-pushed JSON without a secret-material warning (crate-jmap-base-client/src/ws/mod.rs:67-75)",
+  "updated_at": "2026-05-11T15:34:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:25:41Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "e8b440b7-2274-5d27-917f-a3299291a827",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

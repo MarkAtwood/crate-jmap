@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.15",
+  "title": "client.rs: check_auth_status is pub(crate) but called via fully-qualified path in blob.rs",
+  "description": "blob.rs lines 141, 226: calls JmapClient::check_auth_status(status) using the fully-qualified path. Since this is an inherent method on JmapClient and upload_blob/download_blob are impl blocks on JmapClient, calling self.check_auth_status(status)... wait, the method is 'fn check_auth_status(status: StatusCode)' \u2014 it takes no self. It is a static (associated) method. The fully-qualified path is therefore correct and necessary. This is a non-finding; file a note instead.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:35:36Z",
+  "updated_at": "2026-04-30T01:35:39Z",
+  "closed_at": "2026-04-30T01:35:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:35:35"
+    }
+  ]
+}

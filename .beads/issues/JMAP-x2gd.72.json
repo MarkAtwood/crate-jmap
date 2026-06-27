@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit 247fb69. Added 'Cross-type cascade contract' subsection to ChatBackend::apply_space_patch rustdoc (backend.rs) documenting RemoveChannel cascade to Chat + Message destruction with both type-state-token bumps, RemoveCategory cascade to Chat.categoryId clearing with Chat state bump, RemoveRole cascade to member roleIds (captured by Space bump), and RemoveMember bookkeeping with implementation-defined ReadPosition cleanup. Existing tests at integration.rs:4102-4125 already assert the cascade; the doc gap is now closed.",
+  "closed_at": "2026-05-14T15:58:50Z",
+  "compaction_level": 0,
+  "content_hash": "a4696aebce14be71f64df06aafd757ebf03402608174ee2fc2b82d21dd07b6f5",
+  "created_at": "2026-05-14T15:43:17Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\n`ChatBackend::apply_space_patch`'s rustdoc\n(`crate-jmap-chat-server/src/backend.rs:441-509`) discusses\nordering, atomicity, permission gates, and per-aggregate count\nlimits. It is **entirely silent on cross-type cascade behaviour\nwhen destructive ops fire**.\n\nThe kit's integration test suite asserts a substantial cascade\ncontract that the rustdoc does not state.\n\n## Test 1: RemoveChannel cascades to Message destruction with state bump\n\n`crate-jmap-chat-server/tests/integration.rs:4102-4125` asserts\nthat removing a channel from a Space:\n\n1. Destroys all `Message` records contained in that channel.\n2. Bumps the `Message` type's state token so\n   `Message/changes` subscribers see the destruction.\n\nVerbatim assertion:\n\n```rust\n// ... the only Message state-bump in this run is the\n// one our removeChannels cascade emits. So a Message/changes since\n// \"0\" must list exactly m1, m2, m3 in `destroyed`.\n// ...\nassert_eq!(\n    destroyed,\n    vec![\"m1\".to_owned(), \"m2\".to_owned(), \"m3\".to_owned()],\n    \"cascade must destroy exactly the three messages in the removed channel: {destroyed:?}\"\n);\n```\n\nThe kitchen-sink test's seeding comment at\n`tests/space_set_kitchen_sink.rs:55-60` even acknowledges that\nthis contract exists only in code, not in docs:\n\n> The reference impl's `apply_space_patch` for `removeChannels`\n> cascades to Chat destruction and Message destruction; tests\n> in `tests/integration.rs` cover that cascade.\n\n## What goes wrong for a third-party implementer\n\nA third-party backend that implements `RemoveChannel` by deleting\nonly the Space-side cross-reference (the natural minimal\nimplementation):\n\n1. **Passes the rustdoc contract** \u2014 nothing in `apply_space_patch`'s\n   doc mentions cross-type effects.\n2. **Leaves orphaned `Chat` and `Message` rows** in the storage\n   layer. They become unreachable through Space navigation but\n   keep existing as zombie records consuming quota.\n3. **Misses the `Message` and `Chat` state-token bumps**, so\n   subscribers to `Message/changes` and `Chat/changes` never\n   see the removal. The clients' local cache of the removed\n   channel's messages remains visible indefinitely.\n4. **Diverges from RFC 8620 `/changes` semantics** silently \u2014 a\n   `since=$state` poll appears to show no change, but a fresh\n   `Message/query` shows the messages gone.\n\nThis is a substantive correctness gap, not a polish issue. The\nfailure mode is silent at compile time, silent in single-tenant\nsmoke tests, and only manifests when a multi-client subscriber\nnotices their cache went stale.\n\n## Comparison to other documented cascade rules\n\nThe same trait DOES extensively document cascade rules\nelsewhere:\n\n- `expire_message` at `backend.rs:856-892` \u2014 60 lines on what\n  happens when a Message is expired (state token bumps,\n  cross-references nulled, etc.).\n- `protect_last_admin` at `backend.rs:583-624` \u2014 explicit\n  contract on the post-mutation member/role graph state.\n\nThe asymmetry is striking: the most central destructive backend\nmethod (`apply_space_patch` with `RemoveChannel` /\n`RemoveCategory` / `RemoveRole` / `RemoveMember`) has zero\ncascade documentation; auxiliary methods have detailed cascade\ndocumentation.\n\n## Recommendation\n\nAdd a \"Cross-type cascade contract\" sub-section to\n`apply_space_patch`'s rustdoc. Minimum surface to cover:\n\n- `RemoveChannel`: MUST destroy all `Chat` records associated\n  with the channel and all `Message` records contained in those\n  chats; MUST bump the `Chat` and `Message` type state tokens.\n- `RemoveCategory`: MUST clear `Chat.categoryId` for any chats\n  in the destroyed category (see separate finding on the\n  category-cascade Chat/changes contract); MUST bump `Chat`\n  state.\n- `RemoveRole`: MUST clear the role from every `SpaceMember.roleIds`\n  in the Space; effects on `SpaceMember/changes` (if the kit\n  models members as a separate JMAP type).\n- `RemoveMember`: MUST clear the member's `ReadPosition` records\n  for any Chats in the Space (or \u2014 alternatively \u2014 preserve\n  them; the kit's intended choice should be stated).\n\nFor each cascade target, state whether the state token bump is\nrequired, and whether subscribers should see the cross-type\nchanges via `<TargetType>/changes`.\n\n## Engineering basis\n\n- Test assertion at `integration.rs:4102-4125` verbatim.\n- Seeding comment at `space_set_kitchen_sink.rs:55-60` verbatim.\n- Rustdoc at `backend.rs:441-509` read end-to-end; no cascade\n  language present.\n- The reference impl at `memory.rs` does implement the cascade\n  correctly (else the test would fail), so the kit ships a\n  cascade-correct reference and a cascade-silent doc \u2014 the\n  worst combination for third-party implementers.\n\n## Priority justification\n\nP1 because:\n- The failure is a multi-type spec-correctness gap (`Message/changes`\n  and `Chat/changes` subscribers diverge from query reality).\n- The failure is silent at every layer that a third-party\n  implementer can reasonably test in isolation (no compile\n  error, no panic, no smoke test).\n- The fix is doc-only \u2014 high leverage, zero code churn.\n- Sibling finding (category-cascade Chat/changes) shares the\n  same failure mode and same fix.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.72",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: apply_space_patch RemoveChannel cascade contract entirely undocumented; tests assert cascade destroys Messages and bumps Message state",
+  "updated_at": "2026-05-14T15:58:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:43:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "c0f1a370-efb8-515a-be22-0cbeda98c821",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

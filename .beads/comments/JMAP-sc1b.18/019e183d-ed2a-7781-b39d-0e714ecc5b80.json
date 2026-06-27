@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T18:12:52Z",
+  "id": "019e183d-ed2a-7781-b39d-0e714ecc5b80",
+  "issue_id": "JMAP-sc1b.18",
+  "text": "Resolution: landed workspace bench convention + canonical example in crate-jmap-server.\n\nConcrete artifacts:\n- crate-jmap-server/Cargo.toml: added criterion 0.8 dev-dep + [[bench]] entry for \"dispatcher\".\n- crate-jmap-server/benches/dispatcher.rs: 3 benches covering the parse + resolve hot path.\n  * parse_request_three_calls: ~3.9 \u00b5s/op\n  * resolve_args_ids_star: ~1.9 \u00b5s/op (ResultReference + /ids/* wildcard)\n  * resolve_args_no_refs_fast_path: ~346 ns/op (early-return path)\n- Bench inputs are hand-built JSON Values modeled on RFC 8620 \u00a73 + Fastmail samples (workspace memory `jmap-ids-result-reference-path-fastmail-official-samples`).\n- Pattern uses std::hint::black_box (criterion::black_box is deprecated in 0.8) and harness=false so cargo bench picks up criterion's harness.\n\nWorkspace state: 1 of 25 crates now has benches/. Follow-up beads filed for the other two \"worth considering for\" crates from this bead's description:\n- JMAP-sc1b.105: criterion benches/ for crate-jmap-mime (parser hot path).\n- JMAP-sc1b.106: criterion benches/ for crate-jmap-base-client (session URL/JSON serde).\n\nBoth follow-ups land at P3 because the canonical pattern is now established and replication is mechanical. Convention captured in workspace memory `workspace-criterion-bench-pattern`."
+}

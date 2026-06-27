@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed: replaced serde round-trip with to_string() after Display impls were added (JMAP-7a8b.16)",
+  "closed_at": "2026-05-03T13:05:39Z",
+  "compaction_level": 0,
+  "content_hash": "07a1b3b60532b542e2ade1e381ff135a220708c1c1d2641afb957fd38eb164a7",
+  "created_at": "2026-05-03T13:00:44Z",
+  "created_by": "Mark Atwood",
+  "description": "MemoryBackend send_mdns serializes ActionMode/SendingMode/DispositionType to their wire strings via serde_json::to_value(mode).ok().and_then(|v| v.as_str().map(String::from)).unwrap_or_else(|| fallback). This is roundabout because the types have no Display impl. Once Display is added (see P1 issue), this becomes just format!(\"{mode}\") or mode.to_string(). Fix is blocked on the Display impl issue.",
+  "ephemeral": 0,
+  "id": "JMAP-7a8b.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "serde round-trip to get enum wire string in MemoryBackend send_mdns is roundabout",
+  "updated_at": "2026-05-03T13:05:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:00:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7a8b",
+      "id": "691b7b67-9e65-5fdf-81fd-8dddf8649a96",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-03T06:02:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7a8b.16",
+      "id": "b427536c-071e-5989-98af-f876b8d12bc9",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-amk.5",
+  "title": "EmailComparator keyword constraint not enforced at type level",
+  "description": "RFC 8621 \u00a74.4.2: when property is 'hasKeyword', 'allInThreadHaveKeyword', or 'someInThreadHaveKeyword', the Comparator MUST also have a keyword field. EmailComparator has keyword: Option<String> but no enforcement. A comparator with property='hasKeyword' and keyword=None is logically invalid per RFC but accepted silently. Should add a validate() method or custom Deserialize that enforces this, or at minimum document the constraint clearly in the field doc.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:29:28Z",
+  "updated_at": "2026-04-30T04:34:15Z",
+  "closed_at": "2026-04-30T04:34:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-amk",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:29:27"
+    }
+  ]
+}

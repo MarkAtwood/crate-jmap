@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "OnExists::Replace branch now consults on_destroy_remove_children. When true and descendants exist, the handler cascades destroy of all descendants (each added to destroyed_list), then destroys the colliding node, then proceeds to create. When false, the prior nodeHasChildren guard is preserved. Two new integration tests (filenode_set_create_replace_with_remove_children_cascades, filenode_set_create_replace_without_flag_returns_node_has_children) use MemoryBackend to exercise both paths end-to-end. Committed in 42d77e7. Gates: fmt/clippy/test/doc green.",
+  "closed_at": "2026-05-14T20:30:47Z",
+  "compaction_level": 0,
+  "content_hash": "c5dd9f3909a459821fed762c030e640ca8f04289ec3e1e0183959ddf4df2e1f7",
+  "created_at": "2026-05-14T19:49:04Z",
+  "created_by": "Mark Atwood",
+  "description": "draft-ietf-jmap-filenode-13 \u00a73.2.3 (lines 565-570): 'If \"replace\", the existing item will be destroyed. In this case, the server MUST include the id of the replaced item in the destroyed response list. NOTE: if the replaced item is a directory which has children, then the server MUST respond with a nodeHasChildren error to this action UNLESS onDestroyRemoveChildren is true.'\n\nThe current src/filenode.rs:245-306 (OnExists::Replace branch) checks get_descendant_ids on the existing node and returns nodeHasChildren whenever the descendant list is non-empty. It does NOT consult on_destroy_remove_children.\n\nTrigger: client sends FileNode/set create with onExists='replace' AND onDestroyRemoveChildren=true, where the colliding sibling is a directory containing child nodes. Bad behavior: handler returns nodeHasChildren even though the spec requires the replace+cascade combination to succeed (destroying the existing directory and its descendants, then creating the new node).\n\nRequired: when on_destroy_remove_children is true, the OnExists::Replace path must cascade destroy of descendants first (same logic as the destroy branch at filenode.rs:624-675), include all destroyed ids in destroyed_list, then destroy the existing node, then create the new one.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "onExists='replace' guard ignores onDestroyRemoveChildren when destroying replaced directory with children",
+  "updated_at": "2026-05-14T20:30:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:49:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "9c8884bb-92f1-5fce-9c5e-5fe94604e9a1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

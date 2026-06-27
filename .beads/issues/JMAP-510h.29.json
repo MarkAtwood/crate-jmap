@@ -1,0 +1,33 @@
+{
+  "close_reason": "Acknowledged. The 'mutated' boolean tracker at filenode.rs:191 is the right pattern: fetch state once at start, fetch again at end only if mutation observed. Per-iteration state fetches and unconditional re-fetches are both wrong for the documented reasons; preserve current shape.",
+  "closed_at": "2026-05-14T20:43:27Z",
+  "compaction_level": 0,
+  "content_hash": "714e62fba6578887dc50814c601dd71d30d8d43f6af91250c4b9ee10496e2adb",
+  "created_at": "2026-05-14T19:54:28Z",
+  "created_by": "Mark Atwood",
+  "description": "src/filenode.rs uses a 'let mut mutated = false;' tracker (line 187) that flips to true ONLY on observable backend mutations (Ok branches of create_object/destroy_object/update_object). The finalize_set_response helper (src/helpers.rs:69-76) then conditionally re-fetches state only when mutated is true.\n\nThis is the right shape: state token is fetched once at the start (old_state) and once at the end IF a mutation happened. It avoids the trap of fetching state per-iteration (which would be wrong if the backend bumps state during a failed operation) and avoids the trap of skipping state-refetch entirely on partial-success (which would return stale newState).\n\nA future contributor might be tempted to either:\n- Move state fetching to a per-call basis (causes incorrect newState reporting).\n- Skip the mutated tracking and always re-fetch (wasted backend call when nothing changed).\n\nDefend both behaviors. The current shape is the cheapest correct one.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Good: filenode.rs explicitly tracks 'mutated' flag for state monotonicity",
+  "updated_at": "2026-05-14T20:43:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:54:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "0c48b01c-73f3-58ba-816d-6e9d874151b9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

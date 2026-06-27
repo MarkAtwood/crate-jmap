@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-4xv.5",
+  "title": "handle_mailbox_query in-process filter duplicates MailboxFilterCondition field list",
+  "description": "handle_mailbox_query manually extracts filter_parent_id, filter_name, filter_role, filter_has_any_role, filter_is_subscribed from raw args. MailboxFilterCondition defines the same five fields. These two definitions can diverge. Suggest: parse the filter arg into MailboxFilterCondition and use its fields directly in the in-process filter, removing the manual extraction.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:58:10Z",
+  "updated_at": "2026-05-01T03:08:14Z",
+  "closed_at": "2026-05-01T03:08:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-4xv",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:58:10"
+    }
+  ]
+}

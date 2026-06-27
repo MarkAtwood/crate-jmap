@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-e39",
+  "title": "Review: jmap-server (RFC 8620 dispatcher, parse, HTTP helpers)",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:01:35Z",
+  "updated_at": "2026-04-30T06:14:15Z",
+  "closed_at": "2026-04-30T06:14:15Z",
+  "notes": "Idiom rating: CLEAN \u2014 no unsafe, no gratuitous clones, no unwrap outside tests. Two genuine idiom gaps: missing From<JmapError> for RequestError (P3), and Debug impl unnecessarily collects keys into Vec (P4). Everything else is idiomatic. Rust idiom confidence: 90% chance of no missed issues. Least confident: whether json_pointer_ext recursive clone at leaf could be eliminated with Cow or lifetime tricks \u2014 but the Option<Value> return type makes owned semantics unavoidable here."
+}

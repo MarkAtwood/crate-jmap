@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in 5e18f72: PLAN.md module-listing and key-design section \u00a711 now point at the workspace-shared string_enum! macro consolidated to jmap-types under JMAP-wk77; the nonexistent src/string_enum.rs row is removed.",
+  "closed_at": "2026-05-15T22:55:09Z",
+  "compaction_level": 0,
+  "content_hash": "d6e59d02523ba66d4477b864f081c4142ef6afbc8e4a36f2d8cfbfd0873a36e6",
+  "created_at": "2026-05-15T22:35:34Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-contacts-types/PLAN.md lines 28, 165-172, 300 reference a 'string_enum.rs' module containing a 'string_enum!' macro for open-ended string-typed enums. No such file exists in src/. Trigger: a contributor reading PLAN.md as guidance, attempting to use the documented macro. Bad behavior: dead path; the contributor patches the PLAN to remove the reference, or adds an enum that drifts from the actual codebase convention. PLAN.md is supposed to be a permanent design doc, not a scratchpad (workspace AGENTS.md). Either delete the references (the macro is not used) or implement the module. Recommended fix: delete the string_enum references from PLAN.md \u2014 kind / version / @type are all kept as Option<String> per the workspace 'externally-owned-schema classifier strings are EXCLUDED' rule in workspace AGENTS.md, so the macro is not needed.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "PLAN.md references nonexistent src/string_enum.rs module",
+  "updated_at": "2026-05-15T22:55:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:35:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "2c608f1e-6336-5297-8370-fbf3af0a33cf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

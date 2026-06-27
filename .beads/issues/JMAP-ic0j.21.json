@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:00:36Z",
+  "compaction_level": 0,
+  "content_hash": "1e15e3235b9b7d049b14fddf7ef4c7eca26d72c55abf0065d986b325d8339585",
+  "created_at": "2026-05-15T17:00:05Z",
+  "created_by": "Mark Atwood",
+  "description": "draft-ietf-jmap-calendars-26 \u00a73.3 / \u00a74.3 require onSuccessSetIsDefault to silently ignore an id-not-found or forbidden case ('No error is returned to the client'). The naive shape would be:\n\n  fn set_default_calendar(...) -> impl Future<Output = Result<(), Error>>;\n\n\u2026and then the handler/backend would have no way to distinguish 'I changed the default' from 'I silently no-oped'. The SetDefaultResult struct (backend.rs:528-550) makes the three states explicit:\n\n  Result::Ok(SetDefaultResult { new_default: Some(_), previous_default: Some(prev) })\n      \u2192 changed, prev was 'prev'\n  Result::Ok(SetDefaultResult { new_default: Some(_), previous_default: None })\n      \u2192 changed, no previous\n  Result::Ok(SetDefaultResult { new_default: None, previous_default: _ })\n      \u2192 silent no-op (spec-mandated)\n  Result::Err(_)\n      \u2192 genuine storage failure \u2192 handler swallows per \u00a73.3/\u00a74.3\n\nThe handler at calendar.rs:328-345 uses this to emit the 'previous default got isDefault:false' response-mutation pair atomically. Without the previous_default field, the swap would be invisible to clients.\n\nThis is the right design and survives 'simplify to () return' pressure. The non_exhaustive + Default-impl pattern (with named accessors) also means future scheduling additions (e.g. an OnSuccessSetIsDefaultReason enum) can be added without SemVer break.\n\nDEFEND when reviewers suggest replacing SetDefaultResult with a tuple or with ().",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "set_default_calendar / set_default_participant_identity 'silent ignore' contract preserved through SetDefaultResult",
+  "updated_at": "2026-05-17T17:00:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:00:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "aef9f785-e983-5672-952c-b151d1583f5a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

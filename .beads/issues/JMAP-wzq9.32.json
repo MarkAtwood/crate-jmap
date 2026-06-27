@@ -1,0 +1,41 @@
+{
+  "close_reason": "Resolved by JMAP-tjvm.34 canonical-template sweep, which added the same '# Deferred session-capability validation' doc section to crate-jmap-metadata-client/src/lib.rs::JmapMetadataExt::with_metadata_session as part of propagating the canonical mail-client change. Per workspace AGENTS.md canonical-template rule, changes to extension-client method docs propagate across all 8 sibling crates in one pass; this bead's metadata-side scope was absorbed into the canonical commit. Path (b) doc-only fix selected per bead body recommendation; path (a) (Result<SessionClient, ClientError> typed contract) deferred to a future workspace-wide major version cut.",
+  "closed_at": "2026-05-17T13:55:12Z",
+  "compaction_level": 0,
+  "content_hash": "3779d45d7231c42ac9ff4c316ee9e623c560e7f9e384089805314438f86d10bc",
+  "created_at": "2026-05-15T02:46:10Z",
+  "created_by": "Mark Atwood",
+  "description": "src/lib.rs:43-49 \u2014 JmapMetadataExt::with_metadata_session is infallible:\n\n    pub trait JmapMetadataExt {\n        /// Create a [`SessionClient`] bound to this client and session.\n        ///\n        /// All JMAP Metadata method calls are made through the returned\n        /// [`SessionClient`].\n        fn with_metadata_session(&self, session: jmap_base_client::Session)\n            -> methods::SessionClient;\n    }\n\nBut the returned SessionClient is unusable if the Session does not advertise the metadata capability (i.e. session.primary_account_id(\"urn:ietf:params:jmap:metadata\") returns None). In that case, every subsequent method call returns\n\n    Err(ClientError::InvalidSession(\n        \"no primary account for urn:ietf:params:jmap:metadata\".into()))\n\nat the moment of the first call \u2014 see session_parts() at src/methods/mod.rs:248-258, which every builder method calls before serialising args.\n\nThe deferred-validation pattern is invisible from the trait method's signature and doc-comment. A caller's mental model \u2014 \"if with_metadata_session succeeds, the returned SessionClient is usable\" \u2014 silently violates reality. Failure is moved from construction time to first-call time. This forces every caller to handle ClientError::InvalidSession on every method call site (or manually walk session.primaryAccounts before construction to validate by hand).\n\nTwo fix paths:\n\n(a) Type-the-contract. Change with_metadata_session to return Result<SessionClient, ClientError>, validating the capability at construction. Breaking signature change at 0.1.0; workspace-canonical propagation required (extension-client family consistency); minor ergonomic cost of an extra ? at each construction site.\n\n(b) Document-the-contract. Add an explicit \"# Deferred validation\" or \"# Errors-on-first-call\" section to the trait method doc-comment stating that with_metadata_session does NOT validate the session and that the first method call may return Err(InvalidSession) if the session does not advertise the metadata capability. Non-breaking; cheap. Matches the \"documented unsafety\" pattern.\n\nRecommendation: (b) for 0.1.0 (cheap, documents the actual behaviour), (a) for a future workspace-canonical revision pass once the canonical-template propagation rule allows. wzq9.13 ratified the extension-trait SHAPE; this finding is about the contract SEMANTICS of one trait method, orthogonal to the shape decision.\n\nWorkspace-wide: same deferred-validation gap exists on every extension-client with_<ext>_session method, since session_parts is the shared validation point. Propagate from canonical.\n\nCross-ref: wzq9.13 (shape approval \u2014 non-conflicting; this is about semantics not shape), wzq9.16 (ClientError::InvalidArgument(String) \u2014 note that the InvalidSession case here uses the same string-typed error variant).",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JmapMetadataExt::with_metadata_session: deferred-validation contract not documented",
+  "updated_at": "2026-05-17T13:55:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:46:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "1884324e-3339-56af-87b6-8a0c84252314",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-14T20:20:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm.34",
+      "id": "a672666c-cfea-59ce-b799-cb7a6ea0078e",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

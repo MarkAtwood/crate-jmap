@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:42:44Z",
+  "compaction_level": 0,
+  "content_hash": "e0106bf18ee5a48398b528eab7a13e969a3996905c7f61780449a4ae4ee4a8a9",
+  "created_at": "2026-05-02T23:38:37Z",
+  "created_by": "Mark Atwood",
+  "description": "draft-ietf-jmap-mdn-17 \u00a72: 'forEmailId MUST NOT be null for MDN/send'. When the client supplies forEmailId: null (or omits it), the handler (crate-jmap-mail-server/src/mdn.rs step 4-6) lets the entry fall through to the backend. The MemoryBackend (tests/common/mod.rs:2286-2296) returns SetErrorType::NotFound with description 'forEmailId is required', but the correct JMAP error for a MUST NOT be null violation is invalidProperties (RFC 8620 \u00a75.3), not notFound. A real backend or a future refactor may not even check this. Fix: handle_mdn_send should validate that every Mdn in the send map has a non-null for_email_id before calling the backend, returning invalidProperties per-entry for any that are null.",
+  "ephemeral": 0,
+  "id": "JMAP-6ljq",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MDN/send: null forEmailId wrong error type",
+  "updated_at": "2026-05-02T23:42:44Z"
+}

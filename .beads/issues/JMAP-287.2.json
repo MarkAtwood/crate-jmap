@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T06:29:09Z",
+  "compaction_level": 0,
+  "content_hash": "da1faf25fe6f9a49171a8cc0643366558c644dc0b4ed56048a7bf46422cf9d74",
+  "created_at": "2026-05-02T05:35:35Z",
+  "created_by": "Mark Atwood",
+  "description": "ChatBackend::generate_invite_code has a default impl that uses nanosecond wall-clock time \u2014 NOT a CSPRNG. The docs say 'Production backends MUST override', but there is no compile-time enforcement. A backend author who does not read the docs ships guessable invite codes. Consider removing the default impl and requiring backends to provide their own, OR add a cfg(test) flag to the insecure path.",
+  "ephemeral": 0,
+  "id": "JMAP-287.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "generate_invite_code default impl is insecure and opt-in to fix",
+  "updated_at": "2026-05-02T06:29:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T22:35:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-287",
+      "id": "b2c07f9b-1585-5661-b6bf-7cc871ac545f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

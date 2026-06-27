@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "handle_get now batch-serializes the entire list via serialize_value(&list). One serializer construction instead of N for the Vec<O> case. Wire shape unchanged. handle_query_changes added_items_json builder needs per-element {id, index} construction so cannot trivially batch \u2014 out of scope.",
+  "closed_at": "2026-05-14T17:28:35Z",
+  "compaction_level": 0,
+  "content_hash": "d8cbe5ee07340e610bd02e86fd70d47ef34ebf69aeb66e703e22e8c03d9df20d",
+  "created_at": "2026-05-14T16:37:17Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/handlers.rs:114-117 \u2014 handle_get serializes the returned objects with:\n\n  let list_json: Vec<Value> = list\n      .iter()\n      .map(serialize_value)\n      .collect::<Result<Vec<_>, _>>()?;\n\nFor each object the helper calls serde_json::to_value, which constructs and discards an intermediate Serializer per call. For a Mailbox/get over 10k mailboxes, this is 10k separate to_value invocations.\n\nA single serde_json::to_value(&list) over the entire Vec<O> would amortize the serializer construction. Or build the response directly with serde_json::Value::Array and let the json! macro slot it in.\n\nMarginal at small N. Worth flagging for Mailbox/get and Email/get on large accounts (~100k+ objects). The current pattern also obscures the per-object error: if object #5000 fails to serialize, the error includes no positional info. Batch-serialization would either succeed for the whole list or fail with a structured serde_json error.\n\nFix: replace with `let list_json = serde_json::to_value(&list).map_err(|e| JmapError::server_fail(e.to_string()))?;` \u2014 one alloc, identical wire shape.\n\n(The same pattern in handle_query_changes added_items_json builder at handlers.rs:347-357 has the same flavor but is inherent to the AddedItem-to-Value shape transform \u2014 those need {id, index} keys constructed, so batch is harder.)",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_get serializes objects one-by-one rather than batch-serializing",
+  "updated_at": "2026-05-14T17:28:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:37:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "a9c5959c-9de3-5795-9978-1c42ba5cc40d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

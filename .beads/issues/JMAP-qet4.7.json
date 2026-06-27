@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "Test notification_filter_null_after_before passes. Default serializes to {}.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added serde(default) to after/before fields; added notification_filter_null_after_before and notification_filter_default_serializes_to_empty_object; 29+1 tests pass; clippy clean",
+  "closed_at": "2026-05-05T04:02:08Z",
+  "compaction_level": 0,
+  "content_hash": "2fd4be733d0cbbff01fd340e25a333fd8ff256ddaa6da167e56ed0f44d5356b0",
+  "created_at": "2026-05-05T02:50:36Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Add tests verifying ShareNotificationFilterCondition.after and .before (typed UTCDate|null per RFC 9670 \u00a73.4.1) accept explicit null JSON input without error.\n\n**Algorithm:**\n1. In notification.rs test module, add test notification_filter_null_after_before:\n   - Input JSON: {\"after\": null, \"before\": null}\n   - Assert serde_json::from_str succeeds.\n   - Assert fc.after.is_none() and fc.before.is_none().\n2. If test fails because serde rejects explicit null for Option<T>, add #[serde(default)] to those fields.\n3. Run cargo test -p jmap-sharing-types.\n\n**Defensive programming rules:**\n- Test failure messages must name which field failed.\n\n**Acceptance criteria:**\n- serde_json::from_str::<ShareNotificationFilterCondition>(r#\"{\"after\":null}\"#) succeeds.\n- serde_json::to_value(&ShareNotificationFilterCondition::default()) equals {}.\n- cargo test -p jmap-sharing-types exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-qet4.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Test ShareNotificationFilter null after/before deserialization",
+  "updated_at": "2026-05-05T04:02:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:50:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qet4",
+      "id": "b81ea6ed-fea0-5183-94b3-143fe5e2443c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

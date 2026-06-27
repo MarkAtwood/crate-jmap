@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T08:49:04Z",
+  "compaction_level": 0,
+  "content_hash": "9839ecdfff1bcc6ed2851977d2521c179700fb334b76ffe4175650a6699f0089",
+  "created_at": "2026-05-16T18:37:18Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\nJMAP-x2gd.91 fixed the two backend Display leak sites in\n`crate-jmap-chat-server/src/chat.rs` (duplicate-Direct cleanup\nfailure) and `crate-jmap-chat-server/src/message.rs` (burn-on-read\nhard-delete failure) by routing through\n`server_fail_value_from_backend`. The redaction discipline is\nrestored mechanically.\n\nA regression test was NOT added in the .91 fix commit. The\nmail-server canary pattern at\n`crate-jmap-mail-server/tests/integration.rs:5746-5818` is the\ntarget shape: inject a backend that returns a canary literal in\nits Display, drive the failure path, assert the wire-format\ndescription equals `SERVER_FAIL_INTERNAL_DESC` and the canary\ndoes NOT appear anywhere in the wire response.\n\n## Blocker\n\nChat-server's FaultyBackend (`tests/common/mod.rs:38-107`) is\nsimpler than mail-server's: it has no `inject(type, op)`\nselective-failure mechanism. Either the chat-server FaultyBackend\nneeds to grow that mechanism (canonical-template-shaped change to\nmatch mail-server), or both tests need a bespoke wrapper that\nselectively fails `destroy_object<Chat>` (for chat.rs) and\n`expire_message` (for message.rs) while letting the setup writes\nsucceed.\n\n## Fix shape\n\n1. Extend `FaultyBackend` (or add a sibling `InjectableBackend`)\n   with a per-(type, op) injection mechanism mirroring\n   mail-server's pattern.\n2. Add two `#[tokio::test]` cases mirroring the mail-server\n   shape: one drives a Chat/set create that triggers the\n   duplicate-Direct cleanup failure; one drives a Message/set\n   update with burn-on-read that triggers expire_message failure.\n3. Both tests assert the canary literal does NOT appear in the\n   wire response and the description equals\n   `SERVER_FAIL_INTERNAL_DESC`.\n\n## Priority rationale\n\nP3 not P1: the leak is already closed at both sites by the .91\nfix commit. The missing test is a regression guard, not a live\ndefect. The mechanical fix is identical to the helper used at\n~115 other sites (calendars / mail / contacts / etc.) which DO\nhave canary coverage, so the pattern itself is already\ntest-pinned at the workspace level \u2014 just not at the chat-server\nsites.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.99",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add chat-server-local canary tests for redaction at duplicate-Direct-cleanup and burn-on-read failure paths",
+  "updated_at": "2026-05-17T08:49:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T11:37:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "4e42c969-1a86-5a80-9f73-2499e424c7b5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

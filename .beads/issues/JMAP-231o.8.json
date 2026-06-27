@@ -1,0 +1,33 @@
+{
+  "close_reason": "Deleted 13 vacuous inline tests across 8 method files. Kept the 4 tests that legitimately exercise build_request / USING_* constants. Net 24 \u2192 11 inline tests; production-path coverage continues via tests/calendar_smoke_tests.rs and tests/availability_tests.rs. Follow-up wiremock smoke coverage for methods that lost flag-passthrough tests is filed as JMAP-uuoi.",
+  "closed_at": "2026-05-09T07:44:14Z",
+  "compaction_level": 0,
+  "content_hash": "35f937a0f0943d5cdcb2d802d7d893c9a20feaad2630e71516872d6393eb35ab",
+  "created_at": "2026-05-08T03:12:50Z",
+  "created_by": "Mark Atwood",
+  "description": "Tests in src/methods/calendar.rs:149-176, src/methods/event.rs:212-241, src/methods/event_copy.rs:50-64, src/methods/event_notification.rs:191-241, src/methods/participant_identity.rs:110-138, src/methods/event_parse.rs:60-107, src/methods/principal_availability.rs:73-123, and src/methods/mod.rs:393-423 follow this pattern:\n\n```\nlet args = json!({...});  // hand-built mock of what the production method WOULD build\nlet req = build_request(\"Method/name\", args, USING_CALENDARS);\nassert_eq!(calls[0][0], json!(\"Method/name\"));\n```\n\nThese tests prove only that `build_request` echoes its inputs. They do NOT prove that `calendar_get`, `calendar_event_set`, `calendar_event_query`, etc. CALL `build_request` with those exact arguments. If the production method body had a typo (\"Calendar/Get\" instead of \"Calendar/get\", or \"sinceState\" \u2192 \"since_state\"), every one of these tests would still pass.\n\nThe pattern that has actual coverage value lives in tests/availability_tests.rs:60-86: it inspects `server.received_requests()` after calling the production method. Apply that pattern to the wire-shape tests too, OR remove these vacuous tests; they currently lock in the wrong invariant.\n\nSpecific tests to fix or delete:\n- calendar_get_request_shape (calendar.rs:167)\n- calendar_set_on_destroy_remove_events_in_args (calendar.rs:150)\n- calendar_event_get_params_expand_recurrences_in_args (event.rs:213)\n- calendar_event_query_expand_recurrences_in_args (event.rs:232)\n- calendar_event_copy_request_shape (event_copy.rs:51)\n- calendar_event_notification_set_no_destroy_sends_empty_array (event_notification.rs:192)\n- calendar_event_notification_set_with_destroy_sends_ids (event_notification.rs:226)\n- participant_identity_get_request_shape (participant_identity.rs:111)\n- participant_identity_set_destroy_request_shape (participant_identity.rs:128)\n- blob_ids_wire_name_is_camel_case (event_parse.rs:60)\n- properties_none_is_absent_from_request (event_parse.rs:79)\n- request_uses_id_key_not_principal_id (principal_availability.rs:74)\n- show_details_none_is_absent_from_request (principal_availability.rs:93)\n- calendar_event_get_params_serializes (mod.rs:393)",
+  "ephemeral": 0,
+  "id": "JMAP-231o.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Tests of build_request shape do not exercise production methods",
+  "updated_at": "2026-05-09T07:44:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:12:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "98f5ad65-98b1-5a5b-93b5-59e725e85678",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

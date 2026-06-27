@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:35:12Z",
+  "compaction_level": 0,
+  "content_hash": "7df40ed5da4e761180dbeb2d9e92ddac2664dec98db51ca71a2e892aa4636046",
+  "created_at": "2026-05-02T03:25:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Multiple handlers (mailbox.rs line ~209, identity.rs, thread.rs, vacation.rs) call serde_json::from_value(v.clone()) where v is a reference obtained from args.get(). The .clone() is avoidable when the value is only used once. Idiomatic approach: either restructure to use args.remove() (consuming the map entry) and call from_value(v) directly without cloning, or at minimum add a comment explaining why the clone is necessary. Several sites already do the right thing (submission.rs uses args.remove()), but the inconsistency signals the clone was habitual rather than necessary.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "serde_json::from_value(v.clone()) should use serde_json::from_value(v) after move",
+  "updated_at": "2026-05-02T03:35:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:25:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "fadcb278-631c-59d8-ae72-a8ce3d0ea85a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

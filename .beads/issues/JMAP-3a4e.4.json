@@ -1,0 +1,32 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:20:14Z",
+  "compaction_level": 0,
+  "content_hash": "0e2281784423a130a27cba562a8d3856f157717ee73670c03f9745b8048ec545",
+  "created_at": "2026-05-05T01:16:47Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-3a4e.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "src/capability.rs \u2014 ContactsCapability, ContactsAccountCapability",
+  "updated_at": "2026-05-05T01:20:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:16:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3a4e",
+      "id": "07ef9a32-23d1-556d-bd6e-877068a1616c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T02:08:23Z",
+  "compaction_level": 0,
+  "content_hash": "877c49e42e980f3c7226b348dacd190bfb44c24a3445a42d97507bbf9c697bb5",
+  "created_at": "2026-05-14T04:18:01Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/memory.rs (11 test-only methods)\n\nThe reference MemoryBackend exposes 11 test-helper methods. The\nstability signaling across these 11 methods is inconsistent on\nthree orthogonal axes \u2014 even though all 11 serve the same role\n(test-only entry points that production callers must not use):\n\nAxis 1: #[doc(hidden)]\n  Present on 9 of 11:\n    set_retains_edit_history_for_test           (line 251)\n    set_protect_last_admin_for_test             (line 270)\n    apply_space_patch_with_caller_id            (line 299)\n    apply_space_metadata_patch_with_caller_id   (line 330)\n    set_limits_for_test                         (line 352)\n    insert_object_for_test                      (line 367)\n    first_category_id                           (line 386)\n    peek_chat                                   (line 416)\n    (plus 2 'normal' constructors: new, register_account)\n  Missing on 2 of 11:\n    new                                         (line 169)\n    register_account                            (line 175)\n\nAxis 2: `_for_test` name suffix\n  Present on 5 of 9 hidden methods:\n    set_retains_edit_history_for_test\n    set_protect_last_admin_for_test\n    set_limits_for_test\n    insert_object_for_test\n    (one more)\n  Missing on 4 of 9 hidden methods:\n    apply_space_patch_with_caller_id\n    apply_space_metadata_patch_with_caller_id\n    first_category_id\n    peek_chat\n\nAxis 3: verbatim 'Production callers must not use this method'\nbanner sentence in the doc-comment\n  Present on 5 of 9 hidden methods:\n    set_protect_last_admin_for_test\n    apply_space_patch_with_caller_id\n    apply_space_metadata_patch_with_caller_id\n    set_limits_for_test\n    insert_object_for_test\n  Missing on 4 of 9 hidden methods:\n    set_retains_edit_history_for_test  (says 'default false matching\n                                         trait default' but no banner)\n    first_category_id                  (says 'Test-only' + Panics)\n    peek_chat                          (says 'Test-only' + Panics)\n    (and the 2 non-hidden: new, register_account)\n\nA reader trying to decide 'can I call this from production?' has\nto apply three independent mental tests with three different\nanswer-distributions. A 'contributor writing a new test method'\nhas no canonical pattern to follow.\n\nEngineering basis (not stylistic):\n\n1. The pattern is the documented intent \u2014 see the explicit\n   'Production callers must not use this method' banner on the\n   5 methods that have it. The other 4 deviate from the explicit\n   intent of the pattern.\n\n2. Once the inconsistency ships, a future cleanup pass that\n   normalizes all 11 to follow the same pattern becomes a\n   breaking change for the 4 deviating methods (renaming\n   first_category_id \u2192 first_category_id_for_test is breaking).\n\n3. New contributors will copy the nearest existing pattern. The\n   inconsistency makes 'nearest' ambiguous and reproduces the\n   defect.\n\nRecommended fix: write down the pattern as a comment / banner at\nthe top of the test-helper section in memory.rs, then mechanically\nalign all 11 methods to it. Suggested canonical:\n\n  - All test methods: #[doc(hidden)] + `_for_test` suffix +\n    verbatim banner.\n  - Public stable methods: no hidden, no suffix, no banner \u2014\n    only `new` qualifies; `register_account` should NOT\n    qualify (see JMAP-x2gd.48).\n\nSibling: JMAP-x2gd.48 (register_account specific case).",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.49",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: MemoryBackend test-helper stability signaling is inconsistent on three orthogonal axes",
+  "updated_at": "2026-05-18T02:08:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T21:18:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "c8a9b9ae-515a-56a6-86ea-6b88adf4af58",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T00:17:26Z",
+  "compaction_level": 0,
+  "content_hash": "fb9151d2c5fd963df3c960306de29b39d9446ee4d07992297177f05296cd8458",
+  "created_at": "2026-05-03T00:09:48Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mdn_send checks CRLF on mdn_gateway and original_message_id (server-set fields shared with MDN/parse) but does NOT check original_recipient. The comment at lines 240-243 correctly identifies that server-set fields shared with the Mdn struct must be CRLF-checked if they can appear in generated RFC 5322 headers \u2014 but original_recipient was omitted. A client-supplied CRLF in originalRecipient would be passed to backend.send_mdns() unchecked; a backend that builds Original-Recipient: headers from this field would be vulnerable to header injection. Trigger: MDN/send with {\"send\": {\"k1\": {\"forEmailId\": \"...\", \"originalRecipient\": \"foo\\r\\nX-Injected: bar\", \"disposition\": {...}}}} \u2014 backend receives unchecked value.",
+  "ephemeral": 0,
+  "id": "JMAP-o68r.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Missing CRLF check on original_recipient in handle_mdn_send",
+  "updated_at": "2026-05-03T00:17:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:09:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o68r",
+      "id": "5d740a9b-dc55-51e4-9ba2-a8fa2b83050c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

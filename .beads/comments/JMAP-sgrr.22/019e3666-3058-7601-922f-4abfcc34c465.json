@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T14:45:27Z",
+  "id": "019e3666-3058-7601-922f-4abfcc34c465",
+  "issue_id": "JMAP-sgrr.22",
+  "text": "Recommendation ratified after no human pushback in ~58 hours (committed 2026-05-15T04:01Z, ratified 2026-05-17T13Z): parent sgrr.17 ratified to option (c) doc-only hardening, so per this bead's conditional logic, this bead becomes a documentation update on PartialDate.month and PartialDate.day saying 'the type does not range-check; callers MUST verify 1..=12 / 1..=31 before treating as spec-conformant'. De-labeling for the autonomous frontier."
+}

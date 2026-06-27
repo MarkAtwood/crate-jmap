@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "f912feff0233643b960b75a7eb58e88fd461d69bf4fa4d95897e6aa78d6e6f09",
+  "created_at": "2026-05-17T23:32:24Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence**: MetadataBackend::get_metadata_changes default (crate-jmap-metadata-server/src/backend.rs:201) silently drops the `filterRelatedType` and `filterMetadataType` args, delegating to get_changes. The metadata.rs handler (crate-jmap-metadata-server/src/metadata.rs:175-215) post-filters `created` and `updated` by re-fetching each id and checking the related-type / metadata-type, but does NOT post-filter `destroyed` (the objects are gone \u2014 you cannot re-fetch them to check their type).\n\n**Caller-observable effect**: a client requesting `Metadata/changes` with `filterRelatedType: \"Email\"` against a backend that ships the default impl will receive correctly-filtered `created` and `updated` arrays but a `destroyed` array containing ids for every related type. draft-ietf-jmap-metadata-01 \u00a73.3 requires the filter to apply to all three.\n\n**Sibling positions** (cross-trait alignment for filter-args-aware /changes /query defaults):\n- jmap-calendars-server `query_calendar_events` (line 529) and `get_calendar_events` (line 483) \u2014 silently drop \u00a75.7 / \u00a75.11 extras with NO handler compensation (see bd:JMAP-ic0j.26).\n- jmap-metadata-server (this bead) \u2014 silently drops with PARTIAL handler compensation, acknowledged in rustdoc.\n- jmap-filenode-server `query_subtree` (line 363) \u2014 REFERENCE PATTERN: rustdoc explicitly cites workspace 'no silent-drop' policy from AGENTS.md, propagates errors instead of partial results.\n\n**The workspace has three different patterns for the same problem**. Either metadata's documented partial-compliance is the convention (and calendars should adopt it) or filenode's no-silent-drop is the convention (and both metadata and calendars should adopt it). Status quo is incoherent.\n\n**Recommendation options**:\n(a) Drop the default; require backends to honor the filter args (filenode pattern). Strictest, blocks the partial-compliance escape hatch.\n(b) Keep the default + handler post-filter for created/updated, but extend the post-filter to destroyed by maintaining a side-table of (id, relatedType, metadataType) for recently-destroyed ids in the reference impl. Workable but adds storage.\n(c) Document the partial-compliance status as a permanent kit limitation in the capability advertising surface (e.g. a flag on MetadataCapability that says 'destroyed array is unfiltered when filterRelatedType set'). Most honest but spec doesn't have a slot for it.\n\n**Cross-references**: bd:JMAP-ic0j.26 (calendars-server, broader pattern). This bead specifically covers the metadata-server instance + the workspace-wide pattern-selection question.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "metadata-server: MetadataBackend::get_metadata_changes default + handler partial-compensation leaves 'destroyed' array unfiltered (draft-ietf-jmap-metadata-01 \u00a73.3 partial violation)",
+  "updated_at": "2026-05-17T23:32:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T16:32:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "0f9e00c7-68ca-5673-b540-6b9f6a700587",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

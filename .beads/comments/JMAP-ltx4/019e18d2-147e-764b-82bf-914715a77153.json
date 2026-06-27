@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T20:54:42Z",
+  "id": "019e18d2-147e-764b-82bf-914715a77153",
+  "issue_id": "JMAP-ltx4",
+  "text": "Added 'human' label so /do-beads loop skips this bead cleanly per workspace AGENTS.md rules. The bead body is a sequencing question for the human; it was filed in lieu of invoking the interactive question tool but missed the label that the loop uses to filter durable questions out of the autonomous ready frontier."
+}

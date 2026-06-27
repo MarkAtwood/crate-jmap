@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T06:00:59Z",
+  "compaction_level": 0,
+  "content_hash": "400323ee2edf2c333576760e1e659b5ead7eea09dc6ab789fd17b6cbffa81b34",
+  "created_at": "2026-05-07T20:29:07Z",
+  "created_by": "Mark Atwood",
+  "description": "Sampling 5 crates with `RUSTDOCFLAGS=\"-W missing_docs\" cargo doc -p <crate> --no-deps`:\n\n| Crate | missing_docs warnings |\n|---|---|\n| jmap-types | 5 (enum variants) |\n| jmap-mail-types | 71 (all enum variants in backend.rs Property enums) |\n| jmap-mail-server | 0 |\n| jmap-mail-client | 41 (32 struct fields + 8 modules + 1 crate-level) |\n| jmap-mime | 0 |\n\nFull-workspace count likely exceeds 200. The bulk is the spec-defined Property enum variants: `MailboxProperty::{Id, Name, ParentId, Role, \u2026}`, `EmailProperty::{...}`, etc. \u2014 all are RFC 8621 \u00a72/\u00a74 named identifiers and could be documented from the RFC text in a single sweep.\n\n`jmap-mail-client` has structurally weaker coverage: missing crate-level docstring, missing module docs on every method module, undocumented response-struct fields (`account_id`, `state`, `list`, `not_found`).\n\nSuggested phased approach:\n1. Add `#![warn(missing_docs)]` at each crate root (so warnings keep accumulating until fixed)\n2. Add crate-level docstrings to client crates\n3. Document Property enum variants (mechanical sweep, can be a single agent task)\n4. Eventually upgrade to `#![deny(missing_docs)]` for type crates\n\nThis is a marathon, not a sprint \u2014 a P2 because partial coverage is acceptable for v0.1, but the missing variants leak through to docs.rs and look unfinished.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: missing_docs at scale on type-crate enum variants (117+ in 5 sampled crates)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "6539fa5c-a031-5497-b83c-0f7dcf61d8ba",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

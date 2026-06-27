@@ -1,0 +1,33 @@
+{
+  "close_reason": "Rewrote PLAN.md to describe shipped design: 1-method extension trait + 19 SessionClient inherent methods, &str/&[&str] for ids/state, raw serde_json::Value for filter/sort/create/update/destroy, CalendarEventGetParams (not CalendarEventGetArgs), 19 methods (CalendarEvent/parse + Principal/getAvailability added). Added Drift summary and 'Review Findings' section linking remaining JMAP-231o children. Net -109 lines. Commit 99056f1.",
+  "closed_at": "2026-05-09T03:16:11Z",
+  "compaction_level": 0,
+  "content_hash": "7abeb75f37861b2108d9f35cdc484e89880f41cd7dcc10e7cb45ae5b5ecad724",
+  "created_at": "2026-05-08T03:12:04Z",
+  "created_by": "Mark Atwood",
+  "description": "PLAN.md describes an extension trait `JmapCalendarsExt` whose methods ARE the calendar operations (`async fn calendar_get` directly on the trait). The shipped design instead exposes a single trait method `with_calendars_session` that returns a `SessionClient`, and all 19 calendar methods are inherent methods on `SessionClient`.\n\nOther discrepancies:\n- PLAN.md uses `&Id` and `&State`; impl uses `&str`.\n- PLAN.md has `SetRequest<T>` / `CopyRequest<T>` / `CalendarEventQueryRequest` builder structs; impl uses raw `serde_json::Value` for filter/sort/create/update/destroy.\n- PLAN.md has `CalendarEventGetArgs` with String fields; impl has `CalendarEventGetParams` with bool fields and a different name.\n- PLAN.md lists 18 methods but README and impl ship 19 (parse + availability added later).\n\nNot a correctness bug \u2014 but PLAN.md is the canonical design doc per workspace AGENTS.md, and reviewers / future-Mark will read it expecting it to match. Either rewrite PLAN.md to describe the shipped design, or delete it.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "PLAN.md describes a different API than the one shipped",
+  "updated_at": "2026-05-09T03:16:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:12:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "a90fb206-ab05-5b6b-b7e7-d30f6d9049bd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

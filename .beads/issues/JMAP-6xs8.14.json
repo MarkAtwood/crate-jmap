@@ -1,0 +1,33 @@
+{
+  "close_reason": "Ratified \u2014 commendation finding, no action item. The Argument<T> sealed-trait invariant + compile_fail doctest at crate-jmap-types/src/resultref.rs are the canonical pattern. bd:JMAP-6xs8.27 (closed) extended the sealed set with Date/UTCDate/State and reaffirmed the invariant via the same compile_fail doctest mechanism. The bead reads as 'defend against suggestions to open up Sealed' \u2014 the compile_fail test is the durable defense.",
+  "closed_at": "2026-05-17T16:57:38Z",
+  "compaction_level": 0,
+  "content_hash": "226f9fd1916965c159ad5e6a0d2cd492c4ffad2c7afe33ced41604cadfbf7a5c",
+  "created_at": "2026-05-15T05:35:48Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-types/src/resultref.rs lines 80-101 document the invariant \\\"T must not deserialize from a JSON object with keys resultOf, name, path\\\" and back it up with a `compile_fail` doctest proving `Argument<serde_json::Value>` does not compile. This is the right pattern: an invariant that would otherwise live only in the author's head is captured in code AND demonstrated by the type system. A future contributor cannot accidentally widen the sealed set with a struct type without re-reading this. Defend against any suggestion to \\\"open up\\\" Sealed for convenience (e.g. \\\"can we add HashMap<String, String>?\\\"). The compile_fail test was the right way to lock it in.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Argument<T> sealed-trait invariant explicitly documented with compile_fail doctest",
+  "updated_at": "2026-05-17T16:57:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:35:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "d7141bbd-f4a2-5f25-8bc8-ae9ae147c562",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

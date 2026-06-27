@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-13T15:32:11Z",
+  "id": "019e21f7-881c-76bb-9a0b-b1173ebe7ff3",
+  "issue_id": "JMAP-v9py.19",
+  "text": "Labeled 'human' so the autonomous /do-beads loop doesn't claim this. The actual work for this bead happens in ~/PROJECT/jmap-chat-spec, not in this repo \u2014 Mark closes this bead manually once he confirms the spec commit lands. The full edit prompt is in his OpenCode session transcript for 2026-05-13."
+}

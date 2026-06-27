@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Resolved per the cascade pinned to closed bd:JMAP-sf5h.9. Landed option (b) docs-only: added # Allocation bounds rustdoc section on Sha256 documenting that the #[serde(try_from = \"String\")] adapter materialises the full input string before the 64-byte ABNF cap rejects, instructing consumers to bound at the transport layer (reqwest/tokio_tungstenite/hand-rolled HTTP), and explaining the in-scope threat model. Did NOT switch to a custom Deserialize impl with visit_str length pre-check (option a / c) because bd:JMAP-sf5h.9 was closed with 'Decision ratified \u2014 defense already committed' in favor of keeping the adapter; that decision pins .25 to the docs-only resolution. Commit e795b5f.",
+  "closed_at": "2026-05-17T18:12:04Z",
+  "compaction_level": 0,
+  "content_hash": "48ae3f100b17eada799b0789d0eae46552f1d60309ddfb783487fe55c8c26da3",
+  "created_at": "2026-05-16T03:59:44Z",
+  "created_by": "Mark Atwood",
+  "description": "Crypto-security supplement complementary to JMAP-sf5h.9 (which asks the workspace to defend `#[serde(try_from = \"String\")]` over a custom `Deserialize` impl). This finding adds the protocol-boundary security angle that .9 doesn't cover.\n\n**Current shape** (digest.rs:99-102):\n\n```rust\n#[serde(try_from = \"String\", into = \"String\")]\npub struct Sha256(String);\n```\n\nWhen deserializing a `Sha256` from JSON, serde_json takes the following path:\n\n1. Parses the JSON string token and **allocates a Rust `String` of the full payload length**.\n2. Calls `<Sha256 as TryFrom<String>>::try_from(s)`.\n3. `from_hex` runs, observes `bytes.len() != 64`, returns `WrongLength`.\n4. The allocated `String` is dropped.\n\n**The problem**: step 1 happens **before** step 3. A hostile JMAP server (or upstream proxy, or any party able to inject into the response body \u2014 e.g. a malicious server, a tampered cache) sending `{\"sha256\": \"aaa\u2026a\"}` with a 1 GiB string payload will cause the client to allocate 1 GiB before the type's own validator rejects the value. The 64-byte upper bound declared by the ABNF is **not enforced at allocation time** \u2014 it is enforced at validation time, after the buffer is materialized.\n\n**Threat model** \u2014 this matters when:\n\n- A JMAP client connects to an untrusted or compromised JMAP server. The server controls the response body and can pad any digest field arbitrarily.\n- A JMAP client connects to a trusted JMAP server through an untrusted transport (e.g. a proxy that rewrites response bodies). Less likely on TLS, possible on metadata or via injection.\n- A JMAP middleware (federation, mirror, cache) processes responses from a peer it does not fully trust. The chat-federation use case described in the workspace AGENTS.md is exactly this.\n\n**Section C (untrusted input at protocol boundaries) requirement** that this fails:\n\n> Variable-length fields have explicit upper bounds enforced before allocation. (Memory-DoS via \"this field claims to be 4 GiB long\".)\n\n**Fix** \u2014 choose one, in order of decreasing cost-benefit:\n\n(a) **Custom `Deserialize` via `Visitor::visit_str` with length pre-check**. Replace `#[serde(try_from = \"String\")]` with a hand-rolled `Deserialize` impl that uses a `Visitor` with `visit_str(&self, v: &str)` and rejects `v.len() != 64` before doing any allocation of its own. `serde_json`'s string deserializer still materializes the input into a `Cow<'de, str>` internally, but the borrowed-string path avoids the owned allocation when the input doesn't contain escape sequences. For digest payloads (which are pure ASCII), this means **zero `String` allocation on the rejection path**. This change is internal \u2014 public surface is unchanged. Bonus: closes JMAP-sf5h.22 (the clone-after-owning finding) for free, since the validating path operates on a borrow.\n\n(b) **Document that allocation bounding lives in the consumer's transport layer**. Add a `# Allocation bounds` rustdoc section to `Sha256` stating: \"This type does not bound allocation before validation. Consumers parsing `Sha256` from untrusted JMAP responses MUST enforce a body-size limit at the transport layer (e.g. `reqwest`'s response size limit, or a wrapping `Reader` with a hard byte cap). A hostile server can otherwise force `O(payload-length)` allocation per deserialize attempt before the 64-byte ABNF cap rejects the value.\" This is the minimum-cost option but offloads the bound onto every downstream consumer.\n\n(c) **Both**. Implement (a) as defense-in-depth and add a shorter version of the (b) note explaining that the type now self-bounds at deserialize. Best option once .9 is resolved in favor of a custom `Deserialize` impl.\n\n**Recommend (c)** as the resolution that subsumes (a) JMAP-sf5h.9 (idiom: defend the try_from routing) and (b) JMAP-sf5h.22 (clone-after-owning). The three findings are a single refactor.\n\nWhat goes wrong if left as-is: a JMAP client deserializing responses from an untrusted server is one malicious response away from an O(server-controlled) allocation. Easy DoS for a remote attacker on a federation peer link.",
+  "ephemeral": 0,
+  "id": "JMAP-sf5h.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Filed by /review-crypto-security supplement on JMAP-sf5h.\nComplementary to JMAP-sf5h.9 (try_from defense) and JMAP-sf5h.22 (clone-after-owning).\nSection C (untrusted input at protocol boundaries) \u2014 primary section in scope for this crate.\nAll three findings collapse into a single refactor if resolved together.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sha256 Deserialize path does not bound allocation before validation \u2014 memory-DoS posture at protocol boundary",
+  "updated_at": "2026-05-17T18:12:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T20:59:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sf5h",
+      "id": "fbc69360-57d8-5bd3-8e48-1d76e4aed4ef",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

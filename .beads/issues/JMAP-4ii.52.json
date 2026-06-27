@@ -1,0 +1,33 @@
+{
+  "close_reason": "no-action: P3/P4 observation, not prioritized for JMAP-39s scope",
+  "closed_at": "2026-05-02T07:05:11Z",
+  "compaction_level": 0,
+  "content_hash": "ab3af679f7a61cda2077d88ca94a2039fd71d409413053191919472ad1c78bbc",
+  "created_at": "2026-05-02T04:19:13Z",
+  "created_by": "Mark Atwood",
+  "description": "MailboxRole::to_wire_str() is defined in jmap-mail-types, the same crate that defines MailboxRole. Within the defining crate, #[non_exhaustive] does NOT suppress exhaustive match warnings, so adding a new variant without updating to_wire_str() is a compile error \u2014 not a runtime panic or silently wrong behavior. The old role_to_wire() function was a free function in mail-server which matched externally against a non_exhaustive enum and was forced to use an unreachable!() wildcard arm. This is the correct way to provide an infallible wire-format conversion for a non_exhaustive enum.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.52",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MailboxRole::to_wire_str() exhaustive match in defining crate is correct design",
+  "updated_at": "2026-05-02T07:05:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:19:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "ffcaa079-09b0-5751-8b1a-c51e4ad6783c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

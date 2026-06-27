@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:12:30Z",
+  "compaction_level": 0,
+  "content_hash": "8bfda569ce83b98b458e2f4f698aef91e42e0b879bde7a1a44c82230a39b594e",
+  "created_at": "2026-05-02T03:55:26Z",
+  "created_by": "Mark Atwood",
+  "description": "identity.rs handle_identity_changes response does not include updatedProperties. RFC 8620 \u00a75.2 requires updatedProperties in every /changes response. Mailbox/changes and all chat-server /changes handlers include it. Thread/changes also omits it \u2014 two handlers share this bug. Pattern: every new /changes handler added to the codebase risks silently omitting this field because the generic handle_changes in jmap-server includes it but domain-specific handlers do not reuse it.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Identity/changes missing updatedProperties field",
+  "updated_at": "2026-05-02T04:12:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:55:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "0b8ce68d-383c-5bb0-8324-5ab8249e3a4c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

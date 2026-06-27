@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decision recorded: 21-entry linear scan outperforms HashSet at this scale; sub-path match logic requires loop anyway",
+  "closed_at": "2026-05-02T21:11:51Z",
+  "compaction_level": 0,
+  "content_hash": "c8e208b34665de0c0f73847501a1d56f1f7ac99c4c297c271e2f555cb728325d",
+  "created_at": "2026-05-02T19:34:11Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src/helpers.rs implements find_immutable_patch_key as two nested loops: outer over patch keys, inner over IMMUTABLE_EMAIL_FIELDS (a &[&str] of 21 entries). The comment explicitly notes: '21 entries; a linear scan is simpler and fast enough that a static HashSet adds no benefit.'\n\nA contributor might suggest building a static HashSet<&str> (via once_cell or std::sync::LazyLock) to get O(1) lookup per patch key instead of O(21).\n\nWhy the linear scan is correct:\n1. IMMUTABLE_EMAIL_FIELDS has exactly 21 entries. O(21) is O(1) in practice; the constant factor of a HashSet (hashing, memory allocation or static initialization) dominates at this scale.\n2. The outer loop is over patch keys, which are typically 1-5 entries for a well-formed Email/set update. The total work is O(k * 21) where k is small.\n3. A static HashSet would require unsafe (static mut) or a lazy initializer (once_cell/LazyLock), adding a dependency or Rust edition requirement for no measurable gain.\n4. The sub-path match logic (checking that key.as_bytes()[field.len()] == b'/') cannot be expressed as a simple HashSet lookup anyway \u2014 the HashSet approach would still need a loop for the prefix case, negating the main claimed benefit.\n5. The current code is 15 lines, fully readable, and has no allocation. The HashSet variant would be longer and harder to audit.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "linear scan for find_immutable_patch_key: no static HashSet needed",
+  "updated_at": "2026-05-02T21:11:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "803f2fa3-f53a-59e0-ae2f-c11986b3920a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

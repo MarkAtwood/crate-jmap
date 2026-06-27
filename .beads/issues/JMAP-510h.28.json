@@ -1,0 +1,33 @@
+{
+  "close_reason": "Acknowledged. The catch-all on BackendSetError (5 sites in filenode.rs) is the workspace pattern for upstream-#[non_exhaustive] enums and must not be 'simplified' to a closed match. The orthogonal P2 (.15) about a more useful catch-all message stands.",
+  "closed_at": "2026-05-14T20:43:26Z",
+  "compaction_level": 0,
+  "content_hash": "cec9940945deb263606f58be50990e3bcbce6e37e8c944f91008112022254267",
+  "created_at": "2026-05-14T19:54:28Z",
+  "created_by": "Mark Atwood",
+  "description": "Per workspace AGENTS.md, BackendSetError is #[non_exhaustive]. Every match against it in src/filenode.rs has the explicit Err(_) catch-all (5 occurrences). This is the right pattern even though it produces visually noisy code: future BackendSetError variants will compile against this crate without breaking changes, AND the runtime behavior is defined ('unhandled backend error variant' serverFail) rather than UB or accidental match.\n\nA future contributor will be tempted to 'simplify' the match by removing the catch-all (clippy might suggest matches!(...) shapes). Defend this: the catch-all is the contract with the upstream BackendSetError. Without it, adding a variant upstream becomes a breaking change for every downstream handler. See JMAP-510h.15 for the orthogonal improvement (make the catch-all message more useful).",
+  "ephemeral": 0,
+  "id": "JMAP-510h.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Good: BackendSetError marked #[non_exhaustive] AND every match has explicit Err(_) catch-all",
+  "updated_at": "2026-05-14T20:43:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:54:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "c4ecdd85-f48b-502d-b92d-ca1383ec8025",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

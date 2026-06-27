@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "New Beads issue created. Cites line, lists fields, presents fix options.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Gap documented in PLAN.md \u00a7Known Limitations #2: headers/language/location require raw &[u8] bytes not passed to part_to_jmap; this bead IS the tracking issue",
+  "closed_at": "2026-05-05T01:05:38Z",
+  "compaction_level": 0,
+  "content_hash": "1d07fd8e12db41e0917d468284321cb71db30b52987d8abe9af8ecdccae94b66",
+  "created_at": "2026-05-05T01:00:31Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** File a tracked gap issue documenting that part_to_jmap cannot\npopulate EmailBodyPart.headers, .language, or .location because its signature\ndoes not accept the raw message bytes (&[u8]) needed to extract per-part\nheaders.\n\n**Algorithm:**\n1. Read crate-jmap-mime/src/lib.rs and find the comment:\n     // headers, language, location: require raw bytes; left as None/empty.\n   Note its exact line number.\n2. Read jmap-mail-types EmailBodyPart definition and confirm headers,\n   language, location are real fields that RFC 8621 \u00a74.1.4 defines.\n3. Read ParsedPart.header_range field \u2014 this provides the byte offsets\n   into the original raw message that cover this part's headers.\n4. Create a standalone Beads issue titled:\n     'jmap-mime: part_to_jmap cannot populate headers/language/location'\n   with priority P3, type task, description covering:\n   - The current function signature: pub fn part_to_jmap(part: &ParsedPart, blob_id_for: impl Fn(&ParsedPart) -> Id) -> EmailBodyPart\n   - Why raw bytes are needed: headers requires slicing raw[part.header_range.0..], language/location parse specific header values from that slice\n   - Fix options:\n     (a) Add a third parameter: raw: &[u8] (breaking change to public API)\n     (b) Add a new function part_to_jmap_with_headers(part, raw, blob_id_for)\n     (c) Return a builder/struct that callers can augment (more complex)\n   - The RFC 8621 fields affected: headers (EmailHeader[]), language (String[]), location (String)\n   - RFC 8621 \u00a74.1.4 default bodyProperties does NOT include headers or subParts,\n     so many callers will not need these \u2014 option (b) may be sufficient\n\n**Defensive programming rules:**\n- Tracking issue only \u2014 no code changes.\n- Cite exact line numbers.\n\n**Subagent instructions:**\nSingle subagent reads src/lib.rs and jmap-mail-types EmailBodyPart fields,\nthen writes the issue.\n\n**Tests:** N/A\n\n**Acceptance criteria:**\n- New Beads issue created with exact title.\n- Cites the comment line number.\n- Lists all three missing fields with their RFC 8621 types.\n- Presents at least two fix options with trade-offs.",
+  "ephemeral": 0,
+  "id": "JMAP-dcgj.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-mime gap: headers/language/location API design",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:00:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-dcgj.1",
+      "id": "0ba2629d-4742-5507-8f4f-a9ec145f6672",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T18:00:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-dcgj",
+      "id": "2001ada3-8e82-5181-a880-fd9072b56b71",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

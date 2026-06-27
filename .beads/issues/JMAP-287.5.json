@@ -1,0 +1,33 @@
+{
+  "close_reason": "positive observation or resolved, no action needed",
+  "closed_at": "2026-05-02T07:05:18Z",
+  "compaction_level": 0,
+  "content_hash": "69c467834dfea0bba00920f7f4978d894b217a8d4b9294ad07ea52d88a0d4f03",
+  "created_at": "2026-05-02T05:36:19Z",
+  "created_by": "Mark Atwood",
+  "description": "resolve_args uses a two-phase approach: collect all (#key, resolution) pairs first, verify all succeed, then apply mutations atomically. This ensures args is never partially modified \u2014 either all #-key refs resolve and all mutations apply, or args is unchanged and an error is returned. RFC 8620 \u00a73.7 does not require atomicity but it is the right design: partial mutation would produce non-deterministic handler behavior. A future contributor might simplify this to a single-pass loop; this decision should be preserved.",
+  "ephemeral": 0,
+  "id": "JMAP-287.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Atomic ResultReference resolution in parse.rs: two-phase collect-then-apply",
+  "updated_at": "2026-05-02T07:05:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T22:36:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-287",
+      "id": "7d68c26a-1680-5050-b2b3-88ab34569978",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

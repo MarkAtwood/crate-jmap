@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: MailboxRole always serializes as bare JSON string via impl_string_enum!; added comment documenting this invariant at both as_str() call sites",
+  "closed_at": "2026-05-02T19:30:52Z",
+  "compaction_level": 0,
+  "content_hash": "6886b48b882a95ae7fa24f8046f9a3991c308345f561801fa894248fa8435681",
+  "created_at": "2026-05-02T19:18:56Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs handle_mailbox_set create loop checks role_just_created by inspecting values in the created map: v.get('role').and_then(|r| r.as_str()). The created map stores the full serialized Mailbox object returned by the backend. If the Mailbox role field serializes as a JSON object (e.g. {\"type\":\"inbox\"}) rather than a bare string, the as_str() call returns None and the uniqueness check silently passes, allowing two mailboxes to be created with the same role in a single request. This is an implicit coupling between the serialization format of MailboxRole and the correctness of the uniqueness guard.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox role-uniqueness check in create uses created map but role is full serialized object",
+  "updated_at": "2026-05-02T19:30:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "40624b5e-bf21-5821-903b-8e062add74ee",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

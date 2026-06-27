@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Updated five stub arms to note silent null return and need for implementation or error before production",
+  "closed_at": "2026-05-02T22:41:17Z",
+  "compaction_level": 0,
+  "content_hash": "e6df341eb551ec05371536861ae7730f07d379b036cb6851c47a08d563adb693",
+  "created_at": "2026-05-02T19:19:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Five arms of apply_header_form (AsAddresses, AsGroupedAddresses, AsDate, AsMessageIds, AsURLs) each carry the comment 'RFC 8621 \u00a74.1.2 structured form not yet implemented; returns null.' A client at 2am seeing null where structured address data was expected will have no actionable error message. More importantly, the validate_header_form function explicitly ACCEPTS these forms as valid (it only rejects cross-type mismatches), so a client requesting asAddresses for a From header receives null without any error \u2014 a silent data loss. The comments should note the silent-null-return consequence so an implementor knows this needs a future error or implementation, not just 'returns null'.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.41",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "email.rs: apply_header_form stubs return null with no indication of when they will be implemented",
+  "updated_at": "2026-05-02T22:41:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:19:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "90bfad4c-f36c-55a7-a185-65b052fe50bf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

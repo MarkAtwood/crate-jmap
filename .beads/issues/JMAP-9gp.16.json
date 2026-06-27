@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-9gp.16",
+  "title": "Mailbox/query rejects sort rather than silently ignoring \u2014 correct per spec",
+  "description": "mailbox.rs handle_mailbox_query:135-139 returns JmapError::unsupported_sort() for any non-empty sort array. RFC 8620 \u00a75.5 requires unsupportedSort rather than silent ignore. A contributor might 'simplify' this to just ignore the sort. Defend: silent ignore is spec non-conformance and produces confusing results when sort is expected (returns wrong order without error). The current behavior is correct.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:45:48Z",
+  "updated_at": "2026-05-01T02:19:50Z",
+  "closed_at": "2026-05-01T02:19:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9gp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:45:48"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "tasks-client's with_tasks_session changed from fn(self, Session) to fn(&self, Session), with impl cloning self. Matches the canonical extension-client template established by jmap-mail-client::JmapMailExt::with_mail_session and the 6 other sibling extension clients (chat, calendars, contacts, filenode, sharing, metadata).\n\nA caller using multiple extension clients in the same workflow no longer has to clone the JmapClient before calling with_tasks_session \u2014 the compiler now enforces uniform behavior across all 8 extension clients. Pre-1.0 v0.1.x \u2014 small breaking change for the one outlier.\n\nWorkspace cargo test, clippy, rustdoc all clean.",
+  "closed_at": "2026-05-17T22:34:41Z",
+  "compaction_level": 0,
+  "content_hash": "0f388ea5ba4a222a1a1bf3af03f961cd043c6d2220aac32f4ec105fd2bf6a0b2",
+  "created_at": "2026-05-17T22:00:44Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**: crate-jmap-tasks-client/src/lib.rs:62, :66\n\n**Divergence**:\n- mail-client, chat-client, calendars-client, contacts-client, filenode-client, sharing-client, metadata-client \u2014 all 7 define:\n    fn with_<x>_session(&self, session: jmap_base_client::Session) -> methods::SessionClient\n- tasks-client (crate-jmap-tasks-client/src/lib.rs:62 declaration, :66 impl) instead defines:\n    fn with_tasks_session(self, session: jmap_base_client::Session) -> methods::SessionClient\n  (consumes the receiver \u2014 implementation uses \\`client: self\\`, not \\`client: self.clone()\\`)\n\n**What goes wrong**: any caller that needs to use multiple extension clients (e.g. a mail + tasks workflow) must clone the JmapClient before calling with_tasks_session, but does NOT need to for any of the other 7 extensions. The compiler does not enforce this asymmetry \u2014 the call site only fails the second time the caller tries to use the moved client. A user reading the canonical mail-client example and pattern-matching to tasks will produce a compile-error stack that looks like 'value moved here in previous call'.\n\n**Fix**: tasks-client should take \\`&self\\` to match the 7-crate canonical shape. The impl change is \\`fn with_tasks_session(&self, ...) { ... client: self.clone() ... }\\` mirroring the canonical mail-client at crate-jmap-mail-client/src/lib.rs:86.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "tasks-client `with_tasks_session(self, ...)` consumes the client while 7 sibling extension clients take `&self`",
+  "updated_at": "2026-05-17T22:34:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:00:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "1a185898-7a70-5f20-88c1-dfa176a9978f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

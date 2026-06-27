@@ -1,0 +1,33 @@
+{
+  "close_reason": "wontfix: bikeshedding. Epic JMAP-6r7c explicitly flagged this as bikeshedding ('SseFrame.id conflation' in the opinion bucket). RFC 8895 \u00a79.2 distinguishes 'id field not present' from 'bare id: (reset)'. Real-world JMAP push streams send id: <value> on every event; the bare-reset case is theoretical. Distinguishing it would require Option<Option<String>> or a three-variant enum on the public SseFrame.id field, which trades a real shape complication for a theoretical wire-format edge case no JMAP server emits. Re-file with concrete evidence if a deployed JMAP server is observed to send bare id: lines.",
+  "closed_at": "2026-05-17T20:57:59Z",
+  "compaction_level": 0,
+  "content_hash": "7a3d893b5fd851bc01de971df7ebf47df19bc1cf620f06c9913a361ebed01a95",
+  "created_at": "2026-05-14T23:20:51Z",
+  "created_by": "Mark Atwood",
+  "description": "sse.rs:13-34 \u2014 pub struct SseFrame { pub event: SseEvent, pub id: Option<String> }\n\nThe struct-level doc-comment (sse.rs:13-24) explicitly states the limitation:\n\"This implementation conflates the first two cases: both produce id: None.\"\n\nWhere the three RFC 8895 \u00a79.2 states are:\n1. No id: field present \u2192 unchanged\n2. Bare id: field (no value) \u2192 RESET to empty\n3. id: value \u2192 updated to value\n\nThe conflation is intentional and documented. For JMAP's actual use case (Last-Event-ID reconnection), the distinction rarely matters because servers rarely emit a bare-id reset frame mid-stream.\n\nBut the contract gap: callers implementing strict RFC 8895 \u00a79.2 reconnect semantics cannot distinguish. A future minor release that wanted to expose the distinction would have to break the type:\n  pub enum SseFrameId { Unchanged, Reset, Set(String) }\n\nThe current `Option<String>` is committed; changing it is a breaking change.\n\nFor the foundation library, the right call may be to commit now to \"JMAP-flavor SSE only, never strict RFC 8895\" \u2014 which is what the type does, just be explicit about it. OR to introduce the tri-state type now while the crate is still 0.x.\n\nRecommendation: low priority. The current conflation is documented and acceptable for JMAP. Filing so the future-major-version conversation has a record.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.45",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SseFrame.id conflates 'no id field present' with 'bare id: (reset)' \u2014 RFC 8895 \u00a79.2 distinguishes",
+  "updated_at": "2026-05-17T20:57:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:20:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "ade7a3a2-15cf-5a92-b61a-bb7e11b3969a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

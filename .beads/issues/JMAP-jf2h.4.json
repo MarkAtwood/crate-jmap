@@ -1,0 +1,59 @@
+{
+  "acceptance_criteria": "Both old and new default books reported in updated. \u00a74.2 example verified.",
+  "assignee": "Mark Atwood",
+  "close_reason": "MockBackend now stores AddressBooks, applies patches with single-default invariant; re-fetch after onSuccessSetIsDefault adds demoted book to updated; test set_on_success_reports_demoted_book_in_updated; 21 pass; clippy clean",
+  "closed_at": "2026-05-05T15:25:11Z",
+  "compaction_level": 0,
+  "content_hash": "f548c9eca73f06084ec5b7dd1cea6c7bab72500e5b0f462cd779f9310fae5f17",
+  "created_at": "2026-05-05T03:00:06Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Contacts-10 \u00a72.3 citing RFC 8620 \u00a75.3: any changed objects must appear in created or updated. The \u00a74.2 example shows BOTH the new default (isDefault:true) AND the old default (isDefault:false) in updated. Currently only the target book is reported.\n\n**Algorithm:**\n1. Choose approach: after update_object for the target book, call backend.get_objects::<AddressBook>(&account_id, None, Some(&[\"id\",\"isDefault\"])) to find books whose isDefault changed.\n   Alternatively: extend MockBackend to implement single-default invariant (setting one default clears others and returns all changed books from update_object).\n2. Add all changed books (those whose isDefault changed from true to false) to the updated map with their new values.\n3. Add test set_on_success_demoted_book_in_updated: pre-seed two address books (one isDefault=true); pass onSuccessSetIsDefault targeting the second; assert BOTH books appear in updated (one gaining true, one losing). Oracle: \u00a74.2 example.\n4. cargo test -p jmap-contacts-server.\n\n**Acceptance criteria:**\n- Old default book appears in updated with isDefault:false when default transfers. Oracle: \u00a74.2, \u00a72.3.\n- New default book appears in updated with isDefault:true.\n- cargo test exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-jf2h.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix: report demoted book in updated when isDefault transfers",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:00:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h.2",
+      "id": "38a01232-26ff-5966-9136-000eae4b5bd0",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:00:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h.3",
+      "id": "4840bb0d-306b-56ad-ae91-35cba71202c3",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:00:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h.1",
+      "id": "4db44a98-fe4d-5f39-b06c-e2d1e9f9138d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:00:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h",
+      "id": "84ec4f4a-2c31-518c-9a43-260213a2b1df",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

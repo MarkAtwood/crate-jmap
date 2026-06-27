@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-5tq.6",
+  "title": "Double-checked body size limits (Content-Length + actual bytes) should be defended",
+  "description": "Every response body check in fetch_session, call, upload_blob, download_blob first inspects Content-Length as an early exit, then enforces the same limit on the actual bytes read. A future contributor might simplify to one check. Both checks are necessary: Content-Length is optional and servers can lie (RFC 7230 \u00a73.3), so the actual-bytes check is the security boundary. Removing the Content-Length check loses the early-exit optimization; removing the actual-bytes check is a security regression.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:43:10Z",
+  "updated_at": "2026-04-30T06:51:14Z",
+  "closed_at": "2026-04-30T06:51:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-5tq",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:43:09"
+    }
+  ]
+}

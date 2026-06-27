@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T00:00:35Z",
+  "compaction_level": 0,
+  "content_hash": "b7ccc3d70e077c9343dccd7fdec938fe1ddc06a2dd4151ede815217c7b818905",
+  "created_at": "2026-05-05T00:00:08Z",
+  "created_by": "Mark Atwood",
+  "description": "supports_quotas() checks 'urn:ietf:params:jmap:quotas' (plural) but spec uses singular 'quota'. Callers checking this guard always get false. Fix: change to 'quota' without s.",
+  "ephemeral": 0,
+  "id": "JMAP-8fpl.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "session: supports_quotas checks wrong URI 'quotas' should be 'quota'",
+  "updated_at": "2026-05-05T00:00:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:00:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-8fpl",
+      "id": "369810fc-e900-54e4-afb1-d7f160e4314d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

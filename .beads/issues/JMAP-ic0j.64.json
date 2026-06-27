@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Rustdoc 'Storage-during-lookup ambiguity' section added covering the three-modes-into-two-shapes ambiguity. Contract: return Err for any storage-failure-during-lookup branch; the handler silently swallows it per \u00a74.3. set_default_participant_identity inherits via cross-reference. No behavior change.",
+  "closed_at": "2026-05-16T01:31:36Z",
+  "compaction_level": 0,
+  "content_hash": "11280da6732db9c6100b086c18ebbdafd09e70057fbe84de8cae46789897aab4",
+  "created_at": "2026-05-15T18:09:21Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-calendars-server/src/backend.rs:471-501 documents `set_default_calendar` with three failure modes:\n\n1. \"id was not found\" \u2192 return `Ok(SetDefaultResult { new_default: None, ... })` (silently ignored per \u00a74.3)\n2. \"the change was forbidden by policy\" \u2192 same `Ok(...)` shape\n3. \"genuine backend storage failures\" \u2192 `Err(Self::Error)`\n\nBut only TWO return shapes (`Ok(None-ish)`, `Err`). A backend that experiences a storage failure DURING the not-found lookup cannot tell which side it's on:\n\n- If it returns `Ok(SetDefaultResult::default())`, it's misclassifying a storage failure as \"id not found\" \u2014 silently dropping the user's intent. The user issues `Calendar/set` with `onSuccessSetIsDefault: \"newCal1\"`; the lookup transiently fails; the server reports success but silently fails to update the default; the user has no way to know.\n- If it returns `Err(...)`, the handler maps that to `serverFail` \u2014 but per \u00a74.3 the spec says the client should see no error in the silently-ignored cases. So a storage hiccup classified as `Err` violates \u00a74.3's \"no error returned to the client\" rule for cases that LOOK like silent-ignore-class.\n\nThe trait rustdoc gives no guidance.\n\nWhat callers cannot rely on:\n- That two backend impls agree on which class storage-during-lookup belongs to.\n- That a transient backend failure doesn't silently swallow the user's intent.\n- That `Ok(SetDefaultResult::default())` always means \"id not found or forbidden\" rather than \"we don't know because storage flaked\".\n\nSame issue applies to `set_default_participant_identity` at backend.rs:512-519 (which delegates to the same rustdoc by reference).\n\nFix options:\n1. Add an explicit clause: \"If the backend cannot complete the not-found check due to transient failure, it MUST return `Err`. The handler will surface `serverFail`, accepting the \u00a74.3 violation as the lesser evil over silently dropping the user's intent.\"\n2. Or extend `SetDefaultResult` with a third `unknown` shape (e.g. `new_default: Result<Option<Id>, ()>`).\n\nOption 1 is cheaper and matches what the reference MemoryBackend already does in practice. Either way, the contract must be documented.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.64",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "set_default_calendar three-failure-modes-into-two-shapes: storage-during-lookup unclassifiable",
+  "updated_at": "2026-05-16T01:31:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T11:09:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "0eae3cc2-251d-5068-8d5c-7fc4e88300e1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

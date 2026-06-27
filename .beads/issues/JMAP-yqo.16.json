@@ -1,0 +1,33 @@
+{
+  "close_reason": "Stale: find_immutable_patch_key uses const &[&str] linear scan, not OnceLock<HashSet>. doc at helpers.rs:83 already explains the design.",
+  "closed_at": "2026-05-04T15:48:24Z",
+  "compaction_level": 0,
+  "content_hash": "49123509cba16f9de71ddce6002f47fe402d02a04cf8a957f4009f6bd5ac6126",
+  "created_at": "2026-05-02T02:55:57Z",
+  "created_by": "Mark Atwood",
+  "description": "find_immutable_patch_key uses a OnceLock<HashSet> for O(1) exact match, but then calls IMMUTABLE_EMAIL_FIELDS.iter().copied().find() \u2014 a linear scan over the same slice \u2014 to return the &'static str. The HashSet already contains the &'static str pointers from the array; the find() is redundant. Suggested rewrite: change the HashSet to HashSet<&'static str> and return the value directly from the set: if let Some(&f) = set.get(key.as_str()) { return Some(f); }",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_immutable_patch_key: redundant linear scan after O(1) HashSet hit",
+  "updated_at": "2026-05-04T15:48:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:55:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "b55697e6-e807-5fb1-9b90-ca34252228a5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

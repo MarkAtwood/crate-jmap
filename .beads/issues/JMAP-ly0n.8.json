@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in ab4804f (batch). See commit message for per-bead details.",
+  "closed_at": "2026-05-16T03:27:40Z",
+  "compaction_level": 0,
+  "content_hash": "78820927cd61f53cf62bd644d69771221b1d1a806fd16811663b4eeecc063437",
+  "created_at": "2026-05-16T02:38:26Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: a future contributor adds tracing instrumentation to jmap-chat-server's Space/join handler and writes:\n\n    tracing::debug!(invite = %invite, \"join request\");\n    tracing::info!(\"invite code: {}\", invite.code);\n\n(or equivalents using % Display formatting, or accessing the code field directly into a log line).\n\nBad behavior: SpaceInvite's manual Debug impl (space.rs:199-214) correctly redacts code \u2192 \"[REDACTED]\" \u2014 and the regression test (space_invite_debug_does_not_leak_code, lines 417-442) is well-constructed with an external canary literal. That covers exactly one leak path: '{:?}' or 'format!(\"{invite:?}\")' style formatting.\n\nIt does NOT cover:\n1. SpaceInvite has NO Display impl, so {} formatting on the whole struct already fails to compile \u2014 fine.\n2. But the code field is pub String. Anyone writing format!(\"{}\", invite.code) \u2014 or, more dangerously, tracing::info!(code = %invite.code, ...) \u2014 bypasses the Debug impl entirely. The workspace AGENTS.md 'Security testing' section explicitly calls out this gap as pattern 2 (log-capture canary) and notes that 'Pattern 1 catches a future refactor that adds #[derive(Debug)]; Pattern 2 catches a future tracing::* call that interpolates a Display value (which Pattern 1 does not cover)'.\n3. The crate has no integration test of the type the workspace pattern-2 reference (jmap-base-client/tests/log_redaction.rs) demonstrates.\n\nThe Debug-only protection covers the most common accidental leak. It does not cover the more subtle case where a downstream consumer pulls 'invite.code' into a log line by hand.\n\nFix: this crate is a types-only crate and does not itself emit tracing events, so the right place for the pattern-2 canary is the downstream jmap-chat-server (which IS where the actual tracing instrumentation will live). File a follow-up bead against jmap-chat-server requiring a log-capture canary harness for the Space/join code path; reference the existing harness in crate-jmap-base-client/tests/common/log_capture.rs.\n\nPriority P2 because (a) the type-level Debug protection is real and well-tested, and (b) the gap is in a downstream crate, so the closure point is also downstream. Filed against this epic because the SpaceInvite.code rustdoc here is what consumers will read to decide whether they need to be careful, and the rustdoc only mentions the Debug-impl protection \u2014 it should also point the reader at the workspace 'Security testing' two-pattern policy.",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SpaceInvite Debug-redaction canary covers Debug but not the parallel Display / tracing paths",
+  "updated_at": "2026-05-16T03:27:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:38:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "a7b88f71-6a89-5271-81ce-ab029fae38f5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

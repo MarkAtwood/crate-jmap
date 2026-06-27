@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:34:07Z",
+  "compaction_level": 0,
+  "content_hash": "14b3c71e8192e35d73bdea8c17749c2730548717d67dcddce752badbe49ae163",
+  "created_at": "2026-05-02T19:19:30Z",
+  "created_by": "Mark Atwood",
+  "description": "MemoryBackend::query_changes ignores filter, sort, max_changes, up_to_id, and collapse_threads (all prefixed with _). The method doc says 'Return the full current id list as added when since_query_state == 0; otherwise return empty changes.' This limitation means any test exercising query_changes with a filter or since_state \\!= '0' will silently receive wrong data. The limitation comment is only on the method body; the parameter names are _ which hides it in IDE hover. The struct-level doc on MemoryBackend should list this as a known limitation so test authors don't write tests that appear to test filtering but actually test nothing.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.47",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "common/mod.rs: MemoryBackend query_changes stub limitation not visible at call sites",
+  "updated_at": "2026-05-02T22:34:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:19:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "9ae25195-5aea-599c-b66c-a109601cc941",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

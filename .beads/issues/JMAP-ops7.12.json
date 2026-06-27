@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "sharing-server and metadata-server Cargo.toml descriptions reformulated to match the 6-sibling pattern (RFC/draft cite in parens, then '\u2014 backend-agnostic, plugs into jmap-server Dispatcher' tail). Workspace now has 8/8 server crates following the same description formula.",
+  "closed_at": "2026-05-17T22:46:22Z",
+  "compaction_level": 0,
+  "content_hash": "78f4999306eb555090870e9d61afe01b5a884682fcd66a264134f13fb6cb6154",
+  "created_at": "2026-05-17T22:02:58Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**: \\`description\\` field in each \\`crate-jmap-*-server/Cargo.toml\\`.\n\n**Survey result**:\n- mail: \\`\"RFC 8621 JMAP for Mail method handlers \u2014 backend-agnostic, plugs into jmap-server Dispatcher\"\\` \u2713\n- chat: \\`\"JMAP Chat extension method handlers \u2014 backend-agnostic, plugs into jmap-server Dispatcher\"\\` \u2713\n- calendars: \\`\"JMAP Calendars method handlers \u2014 backend-agnostic, plugs into jmap-server Dispatcher\"\\` \u2713\n- tasks: \\`\"JMAP Tasks method handlers \u2014 backend-agnostic, plugs into jmap-server Dispatcher\"\\` \u2713\n- contacts: \\`\"JMAP Contacts method handlers \u2014 backend-agnostic, plugs into jmap-server Dispatcher\"\\` \u2713\n- filenode: \\`\"JMAP FileNode method handlers \u2014 backend-agnostic, plugs into jmap-server Dispatcher\"\\` \u2713\n- sharing: \\`\"JMAP Sharing method handlers \u2014 Principal and ShareNotification (RFC 9670)\"\\` \u2717 (breaks formula)\n- metadata: \\`\"JMAP Object Metadata method handlers \u2014 Metadata/get/changes/set/query/queryChanges (draft-ietf-jmap-metadata-01)\"\\` \u2717 (breaks formula)\n\n**Divergence**: 6 of 8 server crates end with the marketing-tagline \\`\"backend-agnostic, plugs into jmap-server Dispatcher\"\\`. sharing and metadata replace that tail with crate-specific content (the RFC number or method list).\n\n**What goes wrong**: crates.io listing skim \u2014 a developer browsing the jmap-* crate family on crates.io sees 6 crates with the same tail clause (signalling 'this is a workspace family') and 2 outliers. The two outliers look like third-party crates, not workspace siblings. Same issue for \\`cargo search jmap\\` output.\n\n**Fix**: rewrite the two descriptions to fit the formula:\n- sharing: \\`\"JMAP Sharing method handlers (RFC 9670 Principal/ShareNotification) \u2014 backend-agnostic, plugs into jmap-server Dispatcher\"\\`\n- metadata: \\`\"JMAP Object Metadata method handlers (draft-ietf-jmap-metadata) \u2014 backend-agnostic, plugs into jmap-server Dispatcher\"\\`\n\n**Priority**: P3 \u2014 cosmetic but cheap to fix, and the workspace cookie-cutter convention is explicit (canonical-template propagation rule in AGENTS.md).",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Cargo.toml `description` for sharing-server and metadata-server breaks the 'backend-agnostic, plugs into jmap-server Dispatcher' formula used by the other 6 server crates",
+  "updated_at": "2026-05-17T22:46:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:02:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "07442f0f-1474-5dbb-8894-fb5c6a86c91e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

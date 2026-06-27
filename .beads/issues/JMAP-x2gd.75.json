@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T01:49:58Z",
+  "compaction_level": 0,
+  "content_hash": "8fec979fbaee06bc08e2cf2550b8659a0cd5284cd26a9c59f967a0fe7054b6b8",
+  "created_at": "2026-05-14T15:44:09Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\n`ChatBackend::expire_message`'s rustdoc has an \"Idempotency\"\nsection (`crate-jmap-chat-server/src/backend.rs:856-866`) saying:\n\n```\n/// If the message no longer exists (already expired or deleted),\n/// this method SHOULD return `Ok(())` rather than\n/// `BackendSetError::SetError(SetError::NotFound)`.\n```\n\nThe rustdoc is silent on the **state-token side effect** of the\nSHOULD-Ok-on-missing-id case. The integration test asserts the\nstate token MUST NOT bump:\n\n`crate-jmap-chat-server/tests/integration.rs:1664-1672`:\n\n```rust\nlet state_after: jmap_types::State = backend\n    .get_state::<jmap_chat_types::Message>(&(), &account_id)\n    .await\n    .expect(\"get_state\");\nassert_eq!(\n    state_after.as_ref(),\n    \"0\",\n    \"expire_message on missing id must not bump the state counter\"\n);\n```\n\n## What goes wrong for a third-party implementer\n\nA natural-minimal implementation interprets \"SHOULD return Ok(())\"\nas \"treat the no-op as a successful write\" and:\n\n1. Increments the `Message` type state token (because that's what\n   `update_object` / `destroy_object` do on every successful op).\n2. Returns `Ok(())`.\n\nThis passes the rustdoc contract verbatim (it returns `Ok(())`)\nbut breaks Message/changes subscribers: every retried expiry\ncall against an already-expired-or-deleted message produces a\nspurious `Message/changes` delta with no records. A buggy\nexpiry scheduler that retries on transient errors and races with\nitself triggers a state-bump storm; subscribers re-poll and\nre-poll, getting empty change sets each time.\n\n## Recommendation\n\nTighten the Idempotency wording. Replace:\n\n```\n/// If the message no longer exists (already expired or deleted),\n/// this method SHOULD return `Ok(())` rather than\n/// `BackendSetError::SetError(SetError::NotFound)`.\n```\n\nwith:\n\n```\n/// If the message no longer exists (already expired or deleted),\n/// this method SHOULD return `Ok(())` rather than\n/// `BackendSetError::SetError(SetError::NotFound)`, AND MUST\n/// NOT bump the `Message` type state token in that case. The\n/// no-op case must be observationally indistinguishable from\n/// \"the scheduler never fired\" for `Message/changes`\n/// subscribers.\n```\n\n## Engineering basis\n\n- Test assertion at `integration.rs:1664-1672` verbatim.\n- Rustdoc at `backend.rs:856-866` verbatim.\n- Reference impl behaviour: `memory.rs` `expire_message` returns\n  early without state bump on missing id (else the test would\n  fail).\n\n## Priority justification\n\nP3 \u2014 the contract is implicit in \"idempotent\" but a careful\nimplementer rightly questions whether \"successfully no-opped\" is\n\"successful\" in the state-bump sense. The 4-word fix\n(\"AND MUST NOT bump\") closes the ambiguity. Not P2 because the\nfailure mode is bandwidth waste (spurious state bumps), not\ncorrectness drift.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.75",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: expire_message rustdoc says SHOULD return Ok(()) on missing id but is silent on whether state token must NOT bump in that case",
+  "updated_at": "2026-05-18T01:49:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:44:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "ae57668b-99de-56a9-880c-76cada87ae8d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "All four commands exit 0 with zero warnings/errors. Reported verbatim in bead notes.",
+  "assignee": "Mark Atwood",
+  "close_reason": "All four quality gates pass: 16+1 tests clean, clippy clean, fmt clean, workspace check clean",
+  "closed_at": "2026-05-05T01:05:04Z",
+  "compaction_level": 0,
+  "content_hash": "ae970d793a2fee85b5101f0b3c373c7be4288c7960ba2bbd43d43d9ebd5c8fee",
+  "created_at": "2026-05-05T00:59:45Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Verify that cargo test and cargo clippy both pass cleanly for jmap-mime and that the workspace-level gates also pass.\n\n**Algorithm:**\n1. Run: cargo test -p jmap-mime\n   Assert: 16 tests pass, 1 doc-test passes, 0 failures.\n2. Run: cargo clippy -p jmap-mime -- -D warnings\n   Assert: zero warnings or errors.\n3. Run: cargo fmt --all -- --check\n   Assert: no formatting diffs.\n4. Run: cargo check --workspace\n   Assert: clean.\n5. Report exact output of each command.\n\nIf any gate fails, report the failure verbatim and do NOT mark the bead done.\nDo not fix failures \u2014 escalate to a separate bead or to the user.\n\n**Defensive programming rules:**\n- This bead runs commands only; it does not modify any file.\n- Each command exit code must be explicitly checked.\n- A command that failed and was ignored is not a completed step.\n\n**Subagent instructions:**\nSingle subagent runs all four commands sequentially and reports each output.\n\n**Tests:** N/A \u2014 this bead IS the test run.\n\n**Acceptance criteria:**\n- cargo test -p jmap-mime: 16 unit tests + 1 doc-test pass, 0 failures.\n- cargo clippy -p jmap-mime -- -D warnings: zero warnings.\n- cargo fmt --all -- --check: no diff.\n- cargo check --workspace: clean.",
+  "ephemeral": 0,
+  "id": "JMAP-dcgj.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-mime: verify quality gates",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:59:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-dcgj",
+      "id": "332548ad-6178-5c75-a2e5-eb15931ccada",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:43:35Z",
+  "compaction_level": 0,
+  "content_hash": "2b7a9ca3de5d9f35dcb39fd5528117e801c86786ae05d4b14bb990ee73aec10b",
+  "created_at": "2026-05-02T23:38:42Z",
+  "created_by": "Mark Atwood",
+  "description": "In common/mod.rs:2478, the parsability check uses text.contains(\"Disposition:\") which is case-sensitive. RFC 5322 header names are case-insensitive. A conforming MDN blob with 'disposition: ...' (lowercase) will be classified as notParsable instead of being parsed. The subsequent find_header_value call at line 2557 is correctly case-insensitive (eq_ignore_ascii_case), creating an inconsistency: the gate is strict, the parser is lenient. Impact: any real-world MDN blob from a mail client that lowercases header names would fail to parse in test infrastructure and in production if this backend is used as a reference.",
+  "ephemeral": 0,
+  "id": "JMAP-86mv",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mdn parse_mdns: case-sensitive Disposition: heuristic",
+  "updated_at": "2026-05-02T23:43:35Z"
+}

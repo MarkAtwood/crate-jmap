@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "efb820ba00703e3e8942d528e8b2d79975b144bb483f136beb399e9e4a7ca587",
+  "created_at": "2026-06-13T21:49:16Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-types/src/push.rs has 30/41 lines covered (73.2%). Contains ChatMessagePush, ChatMessageEntry, ChatPushConfig, UrgencyLevel types. Uncovered: UrgencyLevel serde impls (Other variant), ChatPushConfig serde paths, and ChatMessagePush constructor body. Need round-trip tests for UrgencyLevel variants and ChatPushConfig with all fields populated.",
+  "ephemeral": 0,
+  "id": "JMAP-w8fu.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Test coverage: chat-types push.rs (73.2%)",
+  "updated_at": "2026-06-13T21:49:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:49:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w8fu",
+      "id": "bc319c42-4513-5589-a1b2-bbbb9278aa04",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

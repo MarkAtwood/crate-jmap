@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2fbcf075d1be9de44e0f57d53524b7389c51be2d54a43182c3db2bb878cc3475",
+  "created_at": "2026-05-15T02:09:43Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/metadata.rs:130-156 \u2014 metadata_set takes update: Option<HashMap<Id, PatchObject>>. Id is re-exported via 'pub use jmap_types::{\u2026}' in jmap-types but PatchObject is NOT in the lib.rs re-export list (lib.rs:30-33: AddedItem, ChangesResponse, GetResponse, MetadataChangesParams, QueryChangesResponse, QueryResponse, SessionClient, SetError, SetResponse). State is also not re-exported.\n\nA caller that depends only on 'jmap-metadata-client' in their Cargo.toml hits this compile error:\n\n    use jmap_metadata_client::PatchObject;  // error: no `PatchObject` in the root\n    use jmap_types::PatchObject;            // error: jmap_types is not declared\n\n\u2026and must add jmap-types as a direct dep just to construct the update argument. Same applies to Id (referenced as Option<&[Id]> in metadata_get and as Vec<Id> in metadata_set's destroy arg) and State (referenced as &State in metadata_changes and metadata_query_changes).\n\nThis isn't a contract immutability problem \u2014 adding re-exports is backwards-compatible. But it is a docs/ergonomics gap that forces every downstream caller to read the function signatures, deduce which sibling-crate types they need, and amend Cargo.toml accordingly.\n\nWorkspace-wide observation: canonical mail-client/src/lib.rs has the same gap. So fixing this requires propagating a 'pub use jmap_types::{Id, PatchObject, State}' re-export pattern through every *-client crate. Cheap and additive.\n\nFix: extend lib.rs re-exports to:\n    pub use jmap_types::{Id, PatchObject, State};\n\nAnd document in the lib.rs preamble that these are re-exported for caller convenience.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "blocked",
+  "timeout_ns": 0,
+  "title": "PatchObject not re-exported \u2014 callers must add jmap-types dep just to call metadata_set",
+  "updated_at": "2026-05-15T02:37:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:09:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "00cb370e-96f2-5c2b-8905-094d42c297b8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

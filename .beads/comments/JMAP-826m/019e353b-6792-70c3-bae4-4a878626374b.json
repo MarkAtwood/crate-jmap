@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T09:19:06Z",
+  "id": "019e353b-6792-70c3-bae4-4a878626374b",
+  "issue_id": "JMAP-826m",
+  "text": "/do-beads pass 2026-05-17: frontier converged for autonomous work.\n\nOpen children: 6 total.\n- JMAP-826m.55 (P1, open, human-labeled): the concrete migration epic implementing option (i) from .14. The 'human' label is correctly applied \u2014 the bead explicitly requires authorization for source-file deletion (~350 LoC MockBackend module from src/lib.rs) and large-scale test relocation (~1250 LoC of inline tests). This meets the AGENTS.md Destructive Action Guardrails bar. NOT a stale escalation; the label stays.\n- JMAP-826m.6, .24, .27, .28, .31 (P2/P3, blocked): all structurally entangled with the MockBackend disposition decided by .55. Their stated 'depends on' is .14 (now closed), but the bead comments explain the real blocker shifted to .55 when it was filed on 2026-05-17. Adding an explicit dep edge for clarity.\n\nNo autonomous work available on this epic. Awaiting Mark's authorization on .55 to start the migration scope."
+}

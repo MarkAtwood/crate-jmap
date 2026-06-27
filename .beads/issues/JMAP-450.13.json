@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-450.13",
+  "title": "find_immutable_patch_key allocates format string per (key, field) pair in inner loop",
+  "description": "email.rs:558 \u2014 key.starts_with(&format!(\"{field}/\")) allocates a new String for every combination of patch key and immutable field (up to 26*N allocations per update call). Fix: key == field || (key.starts_with(field) && key.as_bytes().get(field.len()) == Some(&b'/'))",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:35:16Z",
+  "updated_at": "2026-04-30T21:50:42Z",
+  "closed_at": "2026-04-30T21:50:42Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-450",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:35:16"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7ab2200dda71c9b75a4ea0756f3a6b91952076c269f9aa520550c7a62f1380f1",
+  "created_at": "2026-05-17T05:54:14Z",
+  "created_by": "Mark Atwood",
+  "description": "## Scope\n\nFoundation crate (jmap-server) backend trait method docs are silent on what to return when account_id does not exist. The handler library validates account existence via JmapBackend::account_exists before calling these methods (bd:JMAP-826m.34) and surfaces accountNotFound itself. But the foundation trait method contract is unspecified for the case where:\n\n- A downstream consumer calls the method directly without going through the standard handler.\n- A test fixture constructs a backend without registering accounts and calls these methods.\n- A future extension-server handler refactor accidentally drops the pre-check.\n\nIn all these cases the trait method's behavior matters. The current trait docs don't say.\n\nAffected methods on JmapBackend (crate-jmap-server/src/backend.rs):\n\n- get_changes (line ~1033)\n- get_objects (line ~1017)\n- get_state (line ~1026)\n- query_objects (line ~1060)\n- query_changes (line ~1071-ish)\n\n(account_exists already has the explicit performance-contract paragraph; this bead is about the OTHER trait methods.)\n\n## Recommended doc shape\n\nMirror the paragraph already added to MetadataBackend::get_metadata_changes (bd:JMAP-ayoz.27, commit pending) at the foundation level:\n\n> # Unknown account_id\n>\n> The standard JMAP handlers (handle_get, handle_changes, handle_query, handle_query_changes) validate account existence via JmapBackend::account_exists BEFORE invoking this method and surface accountNotFound themselves. Implementations therefore do not need to repeat the account-existence check.\n>\n> Backends SHOULD return Ok with a wire-shape-appropriate empty result (empty Vec for get_objects, current state with empty change arrays for get_changes / query_changes, empty Vec for query_objects, the zero State for get_state) for an unknown account. Returning Err for unknown accounts is technically valid but surfaces at the wire as serverFail rather than accountNotFound, which is hard to debug.\n\n## Acceptance\n\n- Each of the 5 affected method docs carries the unknown-account paragraph\n- cargo doc -p jmap-server -D warnings green\n- Per workspace AGENTS.md canonical-template rule, after this lands the same paragraph propagates to extension-server backend trait methods that mirror these signatures (MetadataBackend already done under JMAP-ayoz.27, others tracked).\n\n## Why P4\n\nPure doc clarification. No behavior change. Backends shipping today rely on the implicit empty-Ok convention via the reference MemoryBackend impls.\n\n## Cross-references\n\n- Driving bead: bd:JMAP-ayoz.27 (closed)\n- Related: bd:JMAP-jfia.27 (account_exists performance contract \u2014 same trait, different method)",
+  "ephemeral": 0,
+  "id": "JMAP-qzvb",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "jmap-server: document unknown-account behavior on JmapBackend::get_changes / get_objects / get_state / query_objects / query_changes",
+  "updated_at": "2026-05-17T05:54:14Z"
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T23:10:53Z",
+  "id": "019e28c1-d7c0-7ae4-82df-ca33b7217232",
+  "issue_id": "JMAP-6r7c.5",
+  "text": "Clarification on Option 1 (text lost to shell quoting in original description): the manual redacting Debug should print 'raw: <redacted-N-bytes>' or 'raw: <redacted, M keys>' for the inner serde_json::Value field, so {:?} output of WsFrame::Unknown remains diagnostic (type_name visible, size/shape of raw visible) but the actual credential-grade bytes never appear."
+}

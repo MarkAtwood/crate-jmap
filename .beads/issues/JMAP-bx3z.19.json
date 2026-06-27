@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: filter_properties now always includes id in email.rs",
+  "closed_at": "2026-05-02T19:26:37Z",
+  "compaction_level": 0,
+  "content_hash": "418cd0613e59d3c99ddc7839464f3e224e0023a089fce5eadb69486e1e154ea5",
+  "created_at": "2026-05-02T19:18:41Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_email_get (email.rs ~L448-456), when properties is Some([...]), effective_props is built from regular_props without forcing 'id' into the set. filter_properties then omits 'id' from every list entry. RFC 8620 \u00a75.1 requires id to always be present. Trigger: Email/get with properties=[\"subject\"] \u2192 response list objects have no 'id' field. Same bug exists in handle_email_parse (email.rs ~L1812-1820).",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/get drops 'id' when properties list is specified",
+  "updated_at": "2026-05-02T19:26:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "0cb60603-81b0-5794-9a62-46665434a0cc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

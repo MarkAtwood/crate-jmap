@@ -1,0 +1,91 @@
+{
+  "acceptance_criteria": "All quality gates pass. Epic closed.",
+  "assignee": "Mark Atwood",
+  "close_reason": "All gaps closed; no TODO/FIXME; 12 unit + 4 integration tests; clippy clean; quality gates pass",
+  "closed_at": "2026-05-05T04:52:05Z",
+  "compaction_level": 0,
+  "content_hash": "d19546a8432d2abbf4c54d6e1678c02f68a9c7f6d9a213086960802b1d89a16f",
+  "created_at": "2026-05-05T02:56:44Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Final quality gate for jmap-sharing-server.\n\n**Algorithm:**\n1. cargo test --workspace: all pass.\n2. cargo clippy --workspace -- -D warnings: zero warnings.\n3. RUSTDOCFLAGS=\"-D warnings\" cargo doc --no-deps -p jmap-sharing-server: zero warnings.\n4. Close epic JMAP-q3ze.\n\n**Acceptance criteria:** All commands exit 0.",
+  "ephemeral": 0,
+  "id": "JMAP-q3ze.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Done signal: sharing-server all gaps closed and quality gate passes",
+  "updated_at": "2026-05-05T04:52:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:56:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze.6",
+      "id": "1df1324a-5215-5ed7-a104-8efafc13be9b",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:56:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze.4",
+      "id": "253d255e-bbe6-5c3d-83bf-cf05b289a00b",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:56:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze.1",
+      "id": "26bf3e8e-382c-50c5-b0d2-b6155663ac29",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:56:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze.2",
+      "id": "4ece5798-b4dd-5fd7-9450-0a9549944e2c",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:56:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze.3",
+      "id": "6fce8444-8eb7-5d90-9040-ce55b2976ab5",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:56:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze",
+      "id": "7a867554-e8da-528a-997f-fb021693dc1b",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:56:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze.7",
+      "id": "8b4f105e-0349-5c01-9183-90502a49da1b",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:56:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze.5",
+      "id": "dd1ae0a6-9442-5230-b082-d991cd8b4d42",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

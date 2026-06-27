@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T01:47:09Z",
+  "compaction_level": 0,
+  "content_hash": "8ddfb4f8fa93c2b9bbc3677ae41475ad375e145b22f364800b72e1269e560b64",
+  "created_at": "2026-05-14T15:45:00Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\n`ChatBackend::generate_invite_code`'s rustdoc at\n`crate-jmap-chat-server/src/backend.rs:362-365` says:\n\n```\n/// 2. **Minimum 128 bits of CSPRNG entropy.** The default\n///    implementation here emits 32 lowercase-hex characters\n///    (16 bytes = 128 bits) which is the workspace floor.\n///    Production backends MAY use more; less is forbidden.\n```\n\nThe phrase \"The default implementation here emits \u2026\" suggests\nthe trait method carries a default body that does the\ndescribed thing. The actual signature at line 414 is:\n\n```\nfn generate_invite_code(&self) -> String;\n```\n\n\u2014 terminating semicolon, **no default body**. The \"default\nimplementation\" the rustdoc names does not exist on the trait;\nit lives only on the reference `MemoryBackend` in `memory.rs`.\n\n## What goes wrong for a reader\n\nA consumer reading the doc on docs.rs sees a positive claim that\nthe trait method has a default impl returning a 32-char\nlowercase-hex string. They could:\n\n1. **Skip implementing the method**, assuming the default is\n   adequate for a stub backend. Result: compile error (the\n   method is abstract). Mildly annoying, not a contract bug.\n\n2. **Trust the description as authoritative**, conclude \"the\n   default emits 16 bytes\", and implement THEIR backend to do\n   the same \u2014 fine.\n\n3. **Skim the doc and conclude this is a `Has-A-Default` method**\n   when assessing the trait surface, miscount the required-to-\n   implement vs. has-default-impl methods, and budget testing\n   incorrectly.\n\nThe third failure mode is the one that bites real implementers.\nThe first compiles-fail and is self-correcting.\n\n## Why this is a real finding, not a typo\n\nThere's a parallel stale note in `invite.rs:210-213` saying:\n\n> default implementation is nanosecond-seeded and NOT\n> cryptographically secure\n\nreferring to a default that no longer exists. Two separate doc\ncomments reference a default-impl that the trait does not have.\nThis is structural drift between the rustdoc and the trait, not\na one-off typo.\n\nThe history hint: an earlier revision of the trait apparently\nhad a default impl on `generate_invite_code` (the `invite.rs`\nwarning makes that clear \u2014 the original default WAS nanosecond-\nseeded). It was removed at some point, with the surrounding doc\nleft unedited.\n\n## Recommendation\n\nRewrite the rustdoc bullet to refer to the reference\nimplementation, not \"the default implementation here\":\n\n> 2. **Minimum 128 bits of CSPRNG entropy.** The reference\n>    `MemoryBackend` impl in this crate emits 32 lowercase-hex\n>    characters (16 bytes = 128 bits) which is the workspace\n>    floor. Production backends MAY use more; less is forbidden.\n\nAnd delete the stale paragraph at `invite.rs:210-213` referring\nto the never-existent default. Both changes are doc-only.\n\n## Engineering basis\n\n- `backend.rs:362-365` and `backend.rs:414` read directly.\n- `invite.rs:210-213` read for the parallel stale reference.\n- No default-impl block exists in the trait\n  (`backend.rs:295-893`); a full read of the trait body\n  confirms the signature at line 414 terminates with `;`.\n\n## Priority justification\n\nP3 because:\n- The misstatement is small.\n- The natural failure modes are compile-fail-self-correcting\n  (mode 1) or just-implement-the-same-thing (mode 2).\n- The doc-as-contract surface concern (mode 3) is real but\n  bounded.\n\nThe 4th-pass api-contract supplement explicitly flagged\n\"running out of real complaints\" territory. This is a real\nfinding (the rustdoc factually misstates the trait shape), but\nit is small. Including for completeness; reviewer welcome to\ndowngrade to opinion if they weight the cost differently.\n\n## Cross-reference\n\nJMAP-x2gd.67 marked \"N2 (MUST-override prose contracts, footgun\nID generator)\" as mail-server-LOCAL. The current finding is a\nchat-server-specific stale-default-reference doc bug, not a\ngeneralization of N2; the two findings are distinct.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.77",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: generate_invite_code rustdoc references 'the default implementation here emits 32 lowercase-hex characters' but the trait method has no default impl",
+  "updated_at": "2026-05-18T01:47:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:45:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "c7dfde6b-7540-5430-b7f6-6a9a30cd8e41",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

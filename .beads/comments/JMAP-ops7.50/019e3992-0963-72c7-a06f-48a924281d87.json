@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T05:32:13Z",
+  "id": "019e3992-0963-72c7-a06f-48a924281d87",
+  "issue_id": "JMAP-ops7.50",
+  "text": "Cookie-cutter sweep; one-line addition. /do-beads should bundle with bd:JMAP-ops7.44 since both are workspace-deps direct-declaration fixes."
+}

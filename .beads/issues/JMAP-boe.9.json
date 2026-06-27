@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-boe.9",
+  "title": "maxChanges: negative integer silently becomes no-limit across all changes handlers",
+  "description": "All */changes and */queryChanges handlers use v.as_u64() to parse maxChanges/maxChanges. as_u64() returns None for negative values, which is treated as 'no limit'. A client sending maxChanges:-1 (invalid per RFC) gets unlimited results silently. RFC 8620 requires rejecting invalid argument types. Affects: email.rs:108, thread.rs:84, identity.rs:80, mailbox.rs:89, submission.rs:100.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:37:33Z",
+  "updated_at": "2026-05-01T00:43:29Z",
+  "closed_at": "2026-05-01T00:43:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-boe",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:37:33"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Duplicate of pre-existing sibling child bead \u2014 superseded. The .1-.6 children created 2026-05-17T07:00 already cover the same sibling-crate sweeps. This dup was filed in a /do-beads session that missed the pre-existing children. Mapping: .8 (chat) \u2261 .1, .9 (calendars) \u2261 .2, .10 (contacts) \u2261 .3, .11 (filenode) \u2261 .4, .12 (metadata) \u2261 .5, .13 (sharing) \u2261 .6.",
+  "closed_at": "2026-05-17T09:23:06Z",
+  "compaction_level": 0,
+  "content_hash": "f16a8427dc921539cf2ba284b5588c6eb7be1bb9148ee578a7a12e6e45742303",
+  "created_at": "2026-05-17T09:22:32Z",
+  "created_by": "Mark Atwood",
+  "description": "Sweep handle_* docstrings in jmap-sharing-server (sibling propagation of canonical from JMAP-h47t.30.7).\n\nPattern (per parent JMAP-h47t.30 and template tasks-server):\n\n1. Per-handler rustdoc on every `handle_*` fn:\n   - One-line title with type-specific spec ref (RFC 9670 / draft-ietf-jmap-sharing \u00a7X.Y).\n   - `args` shape + return-`Value` shape paragraph (RFC 8620 \u00a75.x refs).\n   - Optional type-specific notes.\n   - Trailer: `/// Returns `(response_args, extra_invocations)`. ...`\n\n2. Module-level `# Wire-shape contract` paragraph on every src/*.rs file with handlers.\n\nFiles to touch (2 files, 10 handlers): src/notification.rs (5), src/principal.rs (5)\n\nNo API break. Pure docs. Verify with `cargo doc --no-deps -p jmap-sharing-server`.\n\nDepends on JMAP-h47t.30.7 landing first (canonical-template rule).",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.30.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-sharing-server: propagate handle_* wire-shape docstrings",
+  "updated_at": "2026-05-17T09:23:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T02:22:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t.30",
+      "id": "8038ddb4-8e44-5091-a55c-388766d3d916",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "ClosureHandler moved to jmap-server, re-exported by domain crates",
+  "closed_at": "2026-05-02T06:36:44Z",
+  "compaction_level": 0,
+  "content_hash": "baa9e50413e22128c33dce160c761f12d1b5c53272819d63b324b447b944f6a4",
+  "created_at": "2026-05-02T03:57:11Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src/lib.rs and crate-jmap-chat-server/src/lib.rs both define an identical ClosureHandler<B> struct plus its JmapHandler<C> impl, differing only in the bound (MailBackend vs ChatBackend). This is copy-paste shared infrastructure. The idiomatic fix is to move ClosureHandler into jmap-server as a generic type parameterized by trait bound (e.g. ClosureHandler<B: Send + Sync + 'static>), exporting it for both crates to use. Duplication means any future change (e.g. forwarding CallerCtx) must be made in both places.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClosureHandler duplicated identically in mail-server and chat-server lib.rs",
+  "updated_at": "2026-05-02T06:36:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:57:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "6f564a01-a5d1-57f7-a555-c54e9fe7173b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

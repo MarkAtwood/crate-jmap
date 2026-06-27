@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added QueryResult::new_clamped(position_signed: i64, ...) constructor that clamps negative request-side offsets to u64. Plain new() kept for backends that have a u64 already. Bead's debug_assert option was rejected (heuristic, not a real safety net); contract test option deferred.",
+  "closed_at": "2026-05-14T17:27:14Z",
+  "compaction_level": 0,
+  "content_hash": "5d208cdacd8731d187e49a4676a1a7866c7157e46c3d39f9627edfbe2b95db40",
+  "created_at": "2026-05-14T16:47:08Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/backend.rs:609-628 \u2014 QueryResult.position is\ntyped as u64 with the doc:\n\n> RFC 8620 \u00a75.5 specifies this as `UnsignedInt` in the response \u2014\n> a non-negative integer (bd:JMAP-wlip.25). The request-side\n> position parameter accepts negative values as end-relative\n> offsets, but the response position cannot validly be negative.\n> Backends that derive `position` from a request-side `i64`\n> offset MUST clamp / normalize to `u64` before constructing this\n> struct.\n\nThe corresponding backend method takes `position: i64` (backend.rs:878):\n\n    fn query_objects<O: ...>(..., position: i64) -> ...;\n\nWhat callers cannot depend on:\n\n1. That the returned QueryResult::position is correct relative to\n   the request-side i64 offset semantics. A backend that does:\n       QueryResult::new(ids, 0, total, state, true)\n   for a `position: -5` request when the result set has fewer than\n   5 items has produced a misleading response: per RFC 8620 \u00a75.5,\n   the response position should equal the actual offset of the\n   first returned id, which for an end-relative request with no\n   valid offset is implementation-defined but conventionally 0.\n\n2. That the kit catches malformed positions. QueryResult::new is\n   total \u2014 accepts any u64. No assertion in the constructor, no\n   debug_assert, no wrapping that the response makes sense against\n   the (filter, limit, position) tuple from the request.\n\n3. That the asymmetry between i64 request input and u64 response\n   output is checked anywhere. Backends with bugs ship malformed\n   responses; downstream queryChanges then operates on a\n   queryState that drifted from the actual server state.\n\nWhat goes wrong when this stays as-is:\n\n- A backend implementor reads the i64 request param doc, derives a\n  signed offset, returns the i64 verbatim cast to u64 via `as u64`\n  \u2192 silent wraparound for negative values, malformed wire response.\n- A backend implementor reads the request as u64 (ignoring the\n  i64 negative-offset semantics), and the position field in their\n  response represents the wrong thing entirely (off by the\n  signed-negative offset's magnitude).\n- A wire-conformance test against a known-correct server (e.g.\n  jmap-test-suite) catches the bug at the integration layer,\n  hundreds of test runs after the bug landed.\n\nResolution paths:\n\n- Introduce `QueryResult::new_clamped(ids, position_signed: i64,\n  total_len: u64, total, state, can_calc)` that does the clamp\n  inside the constructor with documented semantics.\n  Backend impls call this when they have an i64 offset; the\n  existing `new` stays for backends with a u64 offset already.\n\n- Add a debug_assert in QueryResult::new that the position is\n  reasonable relative to ids.len() \u2014 e.g. position > 1_000_000\n  with ids.len() = 5 trips a warning. Heuristic but cheap.\n\n- Strengthen the doc on QueryResult.position to include an\n  example showing the clamp arithmetic.\n\n- Add a contract test in jmap-server's own test suite that\n  feeds a synthetic backend with an out-of-range position and\n  asserts the response shape is what the spec demands.\n\nThis is the canonical pattern of \"request type is i64, response\ntype is u64, the contract on the backend implementor is in a doc\ncomment\". The doc is correct; the type-level safety net is missing.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "QueryResult::position contract requires backend self-clamp but type accepts unchecked u64",
+  "updated_at": "2026-05-14T17:27:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:47:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "fa9c4174-e596-54db-b3e6-4a03e1f2e8cc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:55:08Z",
+  "compaction_level": 0,
+  "content_hash": "5b168d74f19446a007e2e0da37a6b7a48abd18845f88caec1dd70e68bd973f8f",
+  "created_at": "2026-05-02T04:47:15Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs process_update helper (line 907) calls backend.update_object::<EmailSubmission>(account_id, id, patch.clone()) where patch: &Value. The forced clone originates at the call site (line 435) which uses args.get(\"update\").and_then(|v| v.as_object()) borrow pattern instead of args.remove(\"update\") take. This is a separate code path from JMAP-4ii.59 (closed), which covers only the onSuccessUpdateEmail loop at line 564.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.65",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "submission.rs process_update patch.clone() from &Value signature",
+  "updated_at": "2026-05-02T04:55:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:47:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "79785a6e-accb-5788-8702-bd4410d186ac",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.34",
+  "title": "JmapRequestBuilder::add_call does not explain what call_id is used for",
+  "description": "request.rs JmapRequestBuilder::add_call (lines 50-56): doc says 'call_id must be unique within this request; callers use it to match responses back to the originating call' but does not explain the matching mechanism \u2014 that call_id appears verbatim in the response Invocation at index 2 and is the argument to extract_response(). A caller who does not read extract_response's doc will not know what format or value to use. Suggested fix: add a one-line example showing that the same string passed to add_call must be passed to extract_response.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:47:19Z",
+  "updated_at": "2026-04-30T01:03:16Z",
+  "closed_at": "2026-04-30T01:03:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:47:19"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in 4fac15e. Trait signature widened from Output=bool to Output=Result<bool, Self::Error>. Handler at addressbook.rs maps Err -> serverFail via server_fail_value_from_backend. MemoryBackend (in-memory, infallible) wraps the existing computation in Ok(); test_support MockBackend gains set_fail_has_contents() knob and a new regression test exercises the Err -> serverFail path. Trait doc explicitly forbids fail-open by returning Ok(false) on storage degradation. README updated. 94+28+1 contacts-server tests pass; workspace clippy + tests clean. Does not propagate to canonical mail-server (no analogous RFC 8621 method).",
+  "closed_at": "2026-05-17T10:13:05Z",
+  "compaction_level": 0,
+  "content_hash": "29f9b3a2277b9ce20435218d3e6eddc43040bb1ac4fbb52a13b42ec6b3a4c8b3",
+  "created_at": "2026-05-14T19:31:36Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/src/backend.rs:100-110\n\nSIGNATURE:\n    fn address_book_has_contents(\n        &self,\n        caller: &Self::CallerCtx,\n        account_id: &jmap_types::Id,\n        address_book_id: &jmap_types::Id,\n    ) -> impl std::future::Future<Output = bool> + Send;\n\nPROBLEM:\nEvery other read/write method on ContactsBackend and its JmapBackend\nsupertrait returns Result<_, Self::Error>. This one returns plain bool.\nA backend cannot signal a storage error from this call. Three things\ngo wrong for the caller:\n\n1. **Fail-open silent data loss.** If the backend is degraded (DB\n   connection lost, replica unreachable, query timeout) and cannot\n   determine whether the AddressBook has contents, the backend MUST\n   return either `true` (over-conservative, blocks all destroys) or\n   `false` (fail-open: destroys proceed against possibly-non-empty\n   books, silently violating the RFC 9610 \u00a73 addressBookHasContents\n   contract). A real backend that fails-open will lose contact data the\n   first time the storage layer flaps.\n\n2. **No serverFail propagation.** Every other contacts handler path\n   maps backend errors to JMAP `serverFail` via\n   `jmap_server::server_fail_from_backend(&e)`. This one path cannot\n   participate \u2014 the handler at addressbook.rs:266-269 has no error to\n   propagate. The destroy outcome becomes ambiguous to the client.\n\n3. **Trait future-pinning.** Once we ship `Output = bool`, switching to\n   `Output = Result<bool, Self::Error>` is a breaking change for every\n   backend implementor. The convenient and correct contract is\n   permanently unreachable without a major-version bump.\n\nEVIDENCE FROM HANDLER (crate-jmap-contacts-server/src/addressbook.rs):\n\n    if !on_destroy_remove_contents\n        && backend\n            .address_book_has_contents(caller, &account_id, &id)\n            .await   // \u2190 unconditional bool, no error path\n    {\n        not_destroyed.insert(id_str, set_error_value(...));\n        continue;\n    }\n\nThe MemoryBackend reference impl at memory.rs:794-805 uses `.unwrap_or(false)`\non a missing aux entry, embodying exactly the silent fail-open this\ntrait shape forces. A production backend that has to query a relational\nDB has no better option.\n\nWHAT CALLERS CANNOT DEPEND ON:\n- That a backend storage failure surfaces as `serverFail` to the JMAP\n  client.\n- That `false` means \"definitely empty\" rather than \"couldn't determine\".\n- That the answer is causally connected to the storage state at all.\n\nRECOMMENDED:\nChange the signature to:\n    fn address_book_has_contents(\n        &self,\n        caller: &Self::CallerCtx,\n        account_id: &Id,\n        address_book_id: &Id,\n    ) -> impl Future<Output = Result<bool, Self::Error>> + Send;\n\nThe handler maps Err(e) to `server_fail_from_backend(&e)` via the\nexisting path and returns the resulting JmapError as a method-level\nerror (consistent with how account_exists Err is handled at\naddressbook.rs:73-79).\n\nPARENT-EPIC RELATIONSHIP:\nThis is the trait-shape angle on the same concern as JMAP-qz9v.1\n(README documents cascade that the code does not implement). Even if\nJMAP-qz9v.1 is fixed by implementing the cascade, the bool return type\nmakes a correct fix impossible without a breaking change. Fix this one\nFIRST while the crate is at 0.1.x.\n\nPROPAGATION: the canonical sibling jmap-mail-server has no analog (no\nRFC 8621 method needs an analogous \"has contents\" check), so this fix\ndoes not propagate.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactsBackend::address_book_has_contents returns bool not Result \u2014 backend cannot signal storage error, must fail-open",
+  "updated_at": "2026-05-17T10:13:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:31:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "3746dd6d-6315-5416-a694-2d88c640c15f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

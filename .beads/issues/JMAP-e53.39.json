@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:55:04Z",
+  "compaction_level": 0,
+  "content_hash": "c691742b6aee946d1acc24dae666fe46f919dee8f2c017073940f45556f89fba",
+  "created_at": "2026-05-02T00:44:49Z",
+  "created_by": "Mark Atwood",
+  "description": "parse_rfc5322_headers matches Subject: and subject: by exact prefix but misses all other capitalizations (SUBJECT:, sUbJeCt:, etc.). RFC 5322 header names are case-insensitive. Tests using non-standard header capitalization will silently miss subject, message-id, and address fields, producing false-passing tests whose failures are invisible.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "parse_rfc5322_headers uses case-sensitive header name matching",
+  "updated_at": "2026-05-02T00:55:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:44:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "c2b294b9-1824-5115-844f-d7364f2f017d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

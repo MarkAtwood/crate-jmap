@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:15:24Z",
+  "compaction_level": 0,
+  "content_hash": "21a34c7b48eee084915c825f043444595d0837e2c3ecd58e3f56c33867ed33f5",
+  "created_at": "2026-05-02T03:56:00Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/src/chat.rs lines 583-585: a #[allow(dead_code)] fn _check_utcdate(_: UTCDate) {} is committed to work around a spurious unused-import warning. The correct fix is to use UTCDate directly in an expression that the compiler can see (the type is already used in the create loop at line 363), or to add the import as a use statement with a #[allow(unused_imports)] at the call site. A no-op function with a leading underscore is dead code in production; CLAUDE.md policy forbids committed dead code.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat.rs: _check_utcdate dead-code workaround is dead code in committed code",
+  "updated_at": "2026-05-02T04:15:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:55:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "517b4f90-adcb-5d09-8a22-a63317e21ed6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

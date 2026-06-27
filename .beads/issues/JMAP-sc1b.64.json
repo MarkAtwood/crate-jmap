@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T22:18:31Z",
+  "compaction_level": 0,
+  "content_hash": "f707e0434a6d3f010eed8636b272fb2000616bdf2e6185b1027578d482cacc68",
+  "created_at": "2026-05-07T21:05:54Z",
+  "created_by": "Mark Atwood",
+  "description": "calendars-client/src/methods/principal_availability.rs:70 has a test `empty_principal_id_returns_invalid_argument` that does NOT exercise the actual code path:\n\n```rust\nlet result: Result<(), _> = if \"\".is_empty() {\n    Err(ClientError::InvalidArgument(\"must not be empty\".into()))\n} else {\n    Ok(())\n};\nassert!(matches!(result, Err(ClientError::InvalidArgument(_))));\n```\n\nThe `if \"\".is_empty()` is always true (clippy::const_is_empty caught this and was muted with #[allow]). The test never calls into get_availability or whatever the actual method is named. It just constructs ClientError::InvalidArgument and asserts the constructed value matches the variant \u2014 vacuous.\n\nPer AGENTS.md: 'Never write a test that uses the code under test as its own oracle. Tests must have an independent oracle.' This test fails the principle \u2014 it has no real oracle.\n\nSame vacuous pattern likely exists in task_notification (the subagent reported the test 'mirrors' that crate). Audit and fix all instances together.\n\nFix options:\n1. Delete the vacuous tests entirely.\n2. Rewrite to actually call principal_availability with an empty principal_id and verify the error.\n\nThe pre-existing #[allow(clippy::const_is_empty)] should be removed once the test is rewritten.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.64",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: vacuous test in calendars-client/principal_availability.rs uses const literal as oracle",
+  "updated_at": "2026-05-07T22:18:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T14:05:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "ecf395b8-fe56-5492-b7b8-aa6569f20ab3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

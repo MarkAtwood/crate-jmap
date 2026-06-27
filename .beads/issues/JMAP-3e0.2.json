@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3e0.2",
+  "title": "client.rs extract_response: call_id.to_string() should be .to_owned()",
+  "description": "client.rs line 483: .ok_or_else(|| ClientError::MethodNotFound(call_id.to_string())) \u2014 call_id is already &str; .to_owned() is the direct, idiomatic conversion that avoids the Display trait dispatch.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:14:23Z",
+  "updated_at": "2026-04-30T01:23:35Z",
+  "closed_at": "2026-04-30T01:23:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3e0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:14:23"
+    }
+  ]
+}

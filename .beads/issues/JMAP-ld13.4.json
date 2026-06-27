@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Implemented in crate-jmap-jscontact; 27 tests pass; clippy clean",
+  "closed_at": "2026-05-05T18:57:13Z",
+  "compaction_level": 0,
+  "content_hash": "f89b4b449b00c073658a7c5d1fec63e0905b55ef9ed40de02170d3f6ef0b4103",
+  "created_at": "2026-05-05T18:48:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement RFC 9553 \u00a72.5-2.6 types in src/address.rs and src/resource.rs. AddressComponentKind enum (room/apartment/floor/building/number/name/block/subdistrict/district/locality/region/postcode/country/direction/landmark/postOfficeBox/separator + Other). DirectoryKind (directory/entry + Other), LinkKind (contact + Other), MediaKind (photo/sound/logo + Other). Resource base struct with all shared fields.",
+  "ephemeral": 0,
+  "id": "JMAP-ld13.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-jscontact: Address, AddressComponent, Resource subtypes (CryptoKey, Directory, Link, Media)",
+  "updated_at": "2026-05-05T18:57:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T11:48:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ld13",
+      "id": "1be59a30-b953-5db9-9f97-64bfaff517f6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

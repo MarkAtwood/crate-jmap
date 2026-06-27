@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T22:18:27Z",
+  "compaction_level": 0,
+  "content_hash": "90a40be7c83e54408a42e81cbd1e9e0a83a96c2555274730329cf8af93b099d4",
+  "created_at": "2026-05-07T20:29:16Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-contacts-server/src/card.rs:252:\n\n```rust\nlet leaf_key = parts.last().unwrap().clone();\n```\n\nGuarded by:\n- line 237: `if parts.is_empty() { return; }`\n- line 241: len == 1 branch returns early\n\nBy the time line 252 runs, `parts.len() >= 2`, so `.last()` is `Some`. The .unwrap() is provably safe.\n\nStylistically: a `let Some(leaf_key) = parts.last().cloned() else { return; };` would remove the only `.unwrap()` in any production path and make the function lockstep with the rest of the workspace's pattern.\n\nMarked opinion because the current code is correct; this is purely about idiom.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: contacts-server/card.rs:252 unwrap is guarded but stylistically loose",
+  "updated_at": "2026-05-07T22:18:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "da19acb0-3096-5841-9910-735617fcc601",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

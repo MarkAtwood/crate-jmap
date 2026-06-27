@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed. Username and AccountName typed PII wrappers replace Session.username and AccountInfo.name (was String). Both have redacting Display (renders '[REDACTED]') and Debug (renders 'Username(\"[REDACTED]\")'). expose_unredacted() returns the raw &str; the explicit accessor name surfaces caller intent. Transparent serde preserves wire round-trip. Two new canary tests in tests/log_redaction.rs exercise both %-Display and ?-Debug paths against the Username and AccountName types; the canary literal must not appear and '[REDACTED]' must.",
+  "closed_at": "2026-05-18T04:38:48Z",
+  "compaction_level": 0,
+  "content_hash": "53fbca046faf2f3bb92517bc49ee91d567261df57408f1ad465f31c1d881a71c",
+  "created_at": "2026-05-17T11:35:03Z",
+  "created_by": "Mark Atwood",
+  "description": "Followup to bd:JMAP-6r7c.35. Session.username and AccountInfo.name are pub String fields containing PII (typically email addresses). Debug redaction is in place but Display, Serialize, and tracing %-formatter paths still leak the raw value.\n\nbd:JMAP-6r7c.35 added doc-warnings on both fields enumerating the leak paths. The followup recommendation is to introduce typed wrappers:\n\n  pub struct Username(String);\n  pub struct AccountName(String);\n\n\u2026each with:\n- A manual Display impl that redacts to '<user>@\u2026' or similar pattern.\n- An explicit .expose_unredacted() -> &str method for callers who genuinely need the raw value (audit logging, etc.) so the call site documents the intent.\n- A Serialize impl that emits the raw value (since the wire format requires it).\n- Debug-redaction canary tests (workspace AGENTS.md Security testing Pattern 1).\n\nThis is a public-API break \u2014 every caller currently writing session.username.clone() or session.username.as_str() has to migrate. The right place to land it is the next API-break cycle (e.g. alongside JMAP-6by7 typed-Id).\n\nAffects: crate-jmap-base-client/src/request.rs (Session, AccountInfo).\nTests: tests/log_redaction.rs (extend the existing canary harness).\n",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.63",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Username/AccountName newtypes with redacting Display impl",
+  "updated_at": "2026-05-18T04:38:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T13:57:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-prpm",
+      "id": "61240b9e-80c9-5123-b168-f246bef959b9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

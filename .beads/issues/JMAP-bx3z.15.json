@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:36:32Z",
+  "compaction_level": 0,
+  "content_hash": "5be05a6867d0b04888d2457f4d74705d7ff38d6afe513f7c155f353525763112",
+  "created_at": "2026-05-02T19:18:36Z",
+  "created_by": "Mark Atwood",
+  "description": "At the end of setup_seed_data, threads.insert('thread-alpha', alpha_thread_id) overwrites the entry that was inserted earlier when thread-starter was created (via threads.insert). The duplication is silent and a contributor editing the seeding order could accidentally break the mapping. A short comment explaining why the re-insert exists (to ensure the canonical 'thread-alpha' key is set after all replies are imported) would prevent this confusion.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "seed.rs: overwrite of threads['thread-alpha'] at EOF is silently surprising",
+  "updated_at": "2026-05-02T22:36:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "cdc98647-42f2-54c2-ba86-149f3f2c833c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

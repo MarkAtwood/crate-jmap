@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decision ratified \u2014 defense already committed to source in digest.rs:143-158 (type-level rustdoc on Sha256 explains the #[serde(try_from = \"String\")] adapter routes every deserialize path through Sha256::from_hex, keeping the ABNF validator as single source of truth) and reinforced by digest.rs:301-306 (rustdoc on TryFrom<String> impl explaining the move-not-clone path the adapter takes). The decision-record-grade rationale is committed and pinned. Pattern mirrors how sibling DEFEND-ON-REVIEW beads .7 and .8 were closed (commit c430f73).",
+  "closed_at": "2026-05-16T04:36:52Z",
+  "compaction_level": 0,
+  "content_hash": "41d4ef6baae0925e0d94c2eed02872545fc175f4bbf1b5ac0062669088d6b9f9",
+  "created_at": "2026-05-16T03:41:35Z",
+  "created_by": "Mark Atwood",
+  "description": "DEFEND ON REVIEW: digest.rs:99-102 derives Serialize/Deserialize with #[serde(try_from = \"String\", into = \"String\")]. This routes every deserialize path (serde_json::from_str, from_value, from_reader) through TryFrom<String>, which calls Sha256::from_hex, which applies the ABNF validator. A future contributor might suggest writing a hand-rolled impl Deserialize for Sha256 to (a) emit a more JMAP-specific error message, or (b) reject the input earlier (visit_str without allocating). Resist both: (a) the current error already names the byte position via Display, and (b) the visit_str variant would need to re-implement the same validator logic and would skew over time from from_hex. The adapter pattern keeps validation in one place \u2014 from_hex \u2014 which is the single source of truth tested in 11 of the 19 unit tests. Keep this decision.",
+  "ephemeral": 0,
+  "id": "JMAP-sf5h.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sha256 #[serde(try_from, into)] adapter routes Deserialize through TryFrom \u2014 defend over a custom Deserialize impl",
+  "updated_at": "2026-05-16T04:36:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T20:41:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sf5h",
+      "id": "47cd5150-e759-5ca9-90dd-b62623cc29e0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

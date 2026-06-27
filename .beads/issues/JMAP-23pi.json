@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "9325ae8528d464772faebf57d6d792286ecca66565f55bc50537472c6a6a65b5",
+  "created_at": "2026-05-17T21:24:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Pre-existing clippy warnings in crate-jmap-mail-types/src/mdn.rs:756-758 fail 'cargo clippy --workspace --tests -- -D warnings':\n\n```\nerror: use of a fallible conversion when an infallible one could be used\n   --> crate-jmap-mail-types/src/mdn.rs:756:26\n   --> crate-jmap-mail-types/src/mdn.rs:757:27\n   --> crate-jmap-mail-types/src/mdn.rs:758:23\n```\n\nThree adjacent test-code sites use Id::try_from(\"...\").unwrap() where Id::from(\"...\") would do, given Id implements From<&str> infallibly (Id is #[serde(transparent)] over String, intentionally permissive \u2014 see workspace AGENTS.md). Clippy autofix suggestion:\n\n```diff\n-        let blob_id = Id::try_from(\"b1\").unwrap();\n+        let blob_id = Id::from(\"b1\");\n```\n\nDiscovered while running pre-commit gate for JMAP-tjvm.37 (queryChanges wire-shape regression tests sweep). The file was NOT touched by that work \u2014 this is pre-existing.\n\nFix is mechanical: replace 3 try_from(&str).unwrap() with from(&str). Out of scope for any feature/test bead.\n\nCompanion clippy beads from the same workspace run: JMAP-79qy / JMAP-taw2 (needless_borrows in metadata_types test), JMAP-l35v (type_complexity in jscontact-types lib test), JMAP-z26e (doc_list_item_without_indentation in email.rs). One more untracked error to file.",
+  "ephemeral": 0,
+  "id": "JMAP-23pi",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "(BUG) clippy unnecessary_fallible_conversions in jmap-mail-types mdn.rs (3 sites)",
+  "updated_at": "2026-05-17T21:24:51Z"
+}

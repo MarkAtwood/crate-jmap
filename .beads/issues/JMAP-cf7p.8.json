@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "close_reason": "Landed crate-jmap-testjig/README.md + main.rs CLI flag parsing (--port, --token, --help, -h) + framed startup banner. README is loudly NOT-FOR-PRODUCTION at the top, points to workspace AGENTS.md 'What this workspace builds' for the kit-vs-jig posture, gives quick-start curl examples for /jmap and /.well-known/jmap, SSE+WS usage examples, spawn_in_process snippet for integration tests. main.rs gained 6 unit tests for the Cli parser. Pre-existing lib.rs + spawn.rs NOT-FOR-PRODUCTION warnings are sufficient for the per-item docs; adding micro-warnings to every individual pub item would be repetitive \u2014 the crate-level doc appears at the top of every rustdoc page already. Workspace test+clippy+doc all green; 80 testjig tests pass.",
+  "closed_at": "2026-05-12T06:47:20Z",
+  "compaction_level": 0,
+  "content_hash": "93c53c60896daf36e3ba31ed59b875121bfa3bd926758707e5408b5cfa4e397a",
+  "created_at": "2026-05-12T05:47:55Z",
+  "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "description": "Final slice: add NOT-FOR-PRODUCTION documentation across the testjig surface.\n\n- crate-jmap-testjig/README.md: explain that this is a test jig, not a JMAP server consumers should run; in-memory only; single-user; no persistence; no auth integration. Document 'cargo run -p jmap-testjig' usage and the --port / --token flags.\n- src/lib.rs module doc: same NOT-FOR-PRODUCTION warning at the top of every public item the API exposes.\n- spawn_in_process rustdoc: warns 'production deployments must instead build their own dispatcher and HTTP layer' and points to consumer-built examples (kith, stoa) when those exist.\n- src/main.rs: when started with no args, prints a banner reminding the operator that this is a test jig.\n- Cross-reference workspace AGENTS.md 'What this workspace builds' section.\n\n## Acceptance\n\n- README exists and reads as documentation, not as marketing\n- rustdoc on every public item carries the warning\n- The startup banner is visible and unmistakable\n- cargo doc --no-deps -p jmap-testjig clean with RUSTDOCFLAGS=-D warnings\n- This bead closes the JMAP-cf7p epic",
+  "ephemeral": 0,
+  "id": "JMAP-cf7p.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Doc + README: NOT-FOR-PRODUCTION warnings, contributor usage",
+  "updated_at": "2026-05-12T06:47:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T22:47:54Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p",
+      "id": "38754401-9741-56ba-af1c-e2ee5a9a35c0",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-11T22:47:54Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p.7",
+      "id": "6b14a8d8-1354-5615-ad11-1c66c583bb95",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

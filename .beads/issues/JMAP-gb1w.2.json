@@ -1,0 +1,131 @@
+{
+  "acceptance_criteria": "cargo build -p jmap-chat-client; cargo test --workspace; clippy clean workspace",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:49:45Z",
+  "compaction_level": 0,
+  "content_hash": "cb73b7bab5cc28c3e52834abd2137272b6b3df9f1fb7ef295920c667ad70bfa4",
+  "created_at": "2026-05-04T23:15:09Z",
+  "created_by": "Mark Atwood",
+  "description": "WHAT: Wire all modules together in lib.rs \u2014 complete JmapChatExt trait with all method signatures and SessionClient::with_session entry point.\n\nALGORITHM:\n1. Update crate-jmap-chat-client/src/lib.rs:\n   - #![forbid(unsafe_code)]\n   - All pub mod declarations (methods, session, sse, ws, types, utils)\n   - pub use re-exports: ChatSessionExt, ChatSseEvent, ChatSseFrame, parse_chat_sse_block, ChatWsFrame, ChatWsExt\n2. Define pub trait JmapChatExt (on JmapClient):\n   fn with_session(&self, session: jmap_base_client::Session) -> methods::SessionClient;\n   (All the 46 async method signatures live on SessionClient, not on this trait directly \u2014 the trait just provides the entry point)\n3. impl JmapChatExt for jmap_base_client::JmapClient:\n   fn with_session(&self, session: ...) -> methods::SessionClient { methods::SessionClient { client: self.clone(), session } }\n4. Run cargo test --workspace to confirm all 16 integration tests in jmap-mail-server plus new chat-client tests pass\n\nACCEPTANCE: cargo build -p jmap-chat-client; cargo test -p jmap-chat-client; cargo clippy --workspace -- -D warnings; cargo test --workspace \u2014 all clean",
+  "ephemeral": 0,
+  "id": "JMAP-gb1w.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-client: lib.rs \u2014 JmapChatExt trait + impl + re-exports",
+  "updated_at": "2026-05-04T23:49:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T16:15:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-umfu",
+      "id": "1743e11e-2bed-583f-b37e-657289531d73",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T16:15:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-xjmj",
+      "id": "2908ec62-afae-528a-9648-4c23ee766d7c",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T16:15:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-lqtf",
+      "id": "2be0db8e-a7d9-5579-be49-5fd0a3ff174f",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T16:15:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4euz",
+      "id": "3e714a31-9507-5134-978d-f98252580f1f",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T16:15:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v3yw",
+      "id": "729091ea-9cc6-5eb9-8398-6db830c89aea",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T16:15:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w",
+      "id": "77f82c13-7057-57d6-b025-9e29e25887a7",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T16:15:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h8io",
+      "id": "7cf2a944-1913-500e-a207-524a8bf622bf",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T16:15:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-787e",
+      "id": "8ae4bbfd-d0f2-5e77-b469-df4b19ff0c21",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T16:15:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-uqv2",
+      "id": "a5b8d46e-36d4-5934-9269-36044ef3cc6f",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T16:15:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-njoe",
+      "id": "bb6896c2-37b9-565f-8025-9bb6691c5c61",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T16:15:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-0soi",
+      "id": "bbdc5c01-8350-5611-9f17-7d3884377d2d",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T16:15:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a82j",
+      "id": "d70b85cc-4ded-5a48-9520-30c01fdc061b",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T16:15:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-8q4x",
+      "id": "e9509c7b-d887-5338-aa91-4aa3cc701155",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

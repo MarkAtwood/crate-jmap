@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit 247fb69 alongside .72. The same new 'Cross-type cascade contract' subsection documents the AddCategory/UpdateCategory-with-channelIds cascade explicitly: Chat.categoryId mutations on relocated channels MUST bump the Chat state token and surface in Chat/changes 'updated'. Pins the regression from bd:JMAP-g7wu.2.4.9 in the doc surface. Test at integration.rs:3729-3733 verifies the impl-side contract; the rustdoc now mirrors it.",
+  "closed_at": "2026-05-14T15:58:51Z",
+  "compaction_level": 0,
+  "content_hash": "2102db59736f454476160ce3336c8366e930fd7240c067ac91f810309d6fa0f5",
+  "created_at": "2026-05-14T15:43:36Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\n`ChatBackend::apply_space_patch`'s rustdoc\n(`crate-jmap-chat-server/src/backend.rs:441-509`) is silent on the\ncross-type state-token-bump requirement for ops that mutate `Chat`\nrecords as a side effect.\n\nThe kit's integration tests assert that AddCategory /\nUpdateCategory ops carrying a `channelIds` array \u2014 which mutates\n`Chat.categoryId` for each named channel \u2014 MUST emit\n`Chat/changes` entries for every relocated channel.\n\n## Test\n\n`crate-jmap-chat-server/tests/integration.rs:3729-3733`:\n\n```rust\nassert_eq!(\n    updated,\n    vec![\"ch-p\", \"ch-q\"],\n    \"Chat/changes must list both cascaded channels as updated: {updated:?}\"\n);\n```\n\nRegression-context comment at `integration.rs:3677-3680`\nverbatim:\n\n> before that bead, the `set_channel_category` cascade silently\n> mutated Chat records without producing a `Chat/changes` entry,\n> leaving subscribers unaware of the categoryId change.\n\nThis describes a previously-fixed real bug (the cascade omitted\nthe state bump). The fix landed but the contract that prevents\nits recurrence is encoded only in the test, not the rustdoc.\n\n## What goes wrong for a third-party implementer\n\nA third-party backend that implements AddCategory /\nUpdateCategory by:\n\n1. Writing to the `Category` aggregate / `Space.categories`\n   collection, AND\n2. Updating `Chat.categoryId` on each affected channel,\n\nbut FORGETS to bump the `Chat` type's state token, silently\nbreaks every Chat/changes subscriber. Clients see chats sitting\nin their previous category indefinitely, even after a fresh\n`Chat/get` returns the new `categoryId`. The bug is silent until\na user noticed their categorization changes don't propagate.\n\n## Why this is a separate finding from the RemoveChannel cascade\n\nThe sibling finding (RemoveChannel destroys Messages + bumps\nMessage state) covers the **destructive** cascade. This one\ncovers the **mutating-cross-type** cascade: a Space-level op\nmutates `Chat` records without destroying them, and the state\nbump is the only signal subscribers get.\n\nBoth are members of a broader workspace cross-type-state-bump\nconvention that the rustdoc captures nowhere. They share the\nrecommended fix (one new \"Cross-type cascade contract\" rustdoc\nsection) but the failure modes and the test fixtures are\ndistinct enough to file separately.\n\n## Recommendation\n\nIn the same \"Cross-type cascade contract\" rustdoc section\nproposed by the RemoveChannel cascade finding, add:\n\n> ### Side-effect mutations on Chat\n>\n> Ops that mutate `Chat.categoryId` as a side effect of\n> Space-level changes (e.g. `AddCategory` / `UpdateCategory`\n> with a non-empty `channelIds` array, `RemoveCategory` that\n> falls channels back to no-category) MUST bump the `Chat`\n> type's state token for each affected channel.\n> `Chat/changes` subscribers rely on this bump to see the\n> `categoryId` change; without it, their local cache of channel\n> categorization drifts silently from server reality.\n>\n> Similarly for `Member` / `Role` / `ReadPosition` records\n> mutated as side effects of Space-level ops: the touched\n> records' type state tokens MUST be bumped.\n\n## Engineering basis\n\n- Test assertion at `integration.rs:3729-3733` verbatim.\n- Regression-context comment at `integration.rs:3677-3680`\n  verbatim \u2014 explicitly identifies \"before that bead\" the\n  silent-mutation bug existed in the reference impl.\n- Rustdoc at `backend.rs:441-509` read end-to-end; no\n  cross-type-state-bump language present.\n\n## Priority justification\n\nP1, same justification as the RemoveChannel cascade finding:\nsilent failure, multi-client correctness gap, doc-only fix,\nhigh leverage. The fact that this bug HAS BEEN historically\npresent in the kit's own reference impl (per the comment at\n`integration.rs:3677-3680`) is direct evidence that the\ncontract is non-obvious and the doc gap matters in practice.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.73",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: apply_space_patch category-add-with-channelIds MUST bump Chat/changes for relocated channels; rustdoc silent",
+  "updated_at": "2026-05-14T15:58:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:43:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "d8742b2b-f32a-594d-bf99-4493868f0937",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

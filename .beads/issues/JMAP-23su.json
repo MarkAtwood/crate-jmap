@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b7133a70f1633782834c04acdbcff02f0adfa4a686a684dadbe00f253cb9061f",
+  "created_at": "2026-05-14T22:29:01Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/principal.rs:36 and principal.rs:312 reference [`BackendChangesError::CannotCalculate`] in rustdoc but the path is not in scope \u2014 cargo doc with RUSTDOCFLAGS=-D warnings fails. These were not introduced by JMAP-3t94 review fixes (verified with git stash); pre-existing.\n\nFix: change both to [`crate::backend::BackendChangesError::CannotCalculate`] or import in the rustdoc context.\n\nOut-of-scope for JMAP-3t94 epic per /do-beads scope rules (every change must trace directly to a bead in the epic). Filed as a follow-up so the AGENTS.md pre-commit cargo doc gate can be made strictly passing.",
+  "ephemeral": 0,
+  "id": "JMAP-23su",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Pre-existing intra-doc-link warnings: BackendChangesError::CannotCalculate",
+  "updated_at": "2026-05-14T22:29:01Z"
+}

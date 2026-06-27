@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-450.14",
+  "title": "SMTP injection defense (check_no_crlf) is correct and must be kept",
+  "description": "submission.rs:421-427, 516-525 \u2014 explicit CRLF check on every rcptTo and mailFrom email address before building the SMTP envelope. This prevents header injection (SMTP smuggling). A future contributor might remove it thinking 'the RFC doesn't require this in the JMAP layer' \u2014 the check is in the right place because the JMAP server owns the envelope construction.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:35:33Z",
+  "updated_at": "2026-04-30T21:53:43Z",
+  "closed_at": "2026-04-30T21:53:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-450",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:35:33"
+    }
+  ]
+}

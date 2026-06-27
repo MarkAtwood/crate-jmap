@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T000441Z-1660907",
+  "close_reason": "Landed jscalendar-types slice in commit 3e27837. 10 enumerated-string sites \u2192 8 typed enums via impl_string_enum! macro; 18 round-trip tests added; consumer crate tests updated. Parallel jscontact-types propagation filed as JMAP-sc1b.108 with human label pending design call on the no-JMAP-dep constraint conflict.",
+  "closed_at": "2026-05-12T01:26:10Z",
+  "compaction_level": 0,
+  "content_hash": "9a06a1e5bc216bcbb17a5922b44ba6e76da0af5eeb55be1736c4b9aaa710ca4f",
+  "created_at": "2026-05-11T07:00:40Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Sites in crate-jmap-jscalendar-types/src/lib.rs where RFC 8984 enumerates a closed set of string values but the Rust type is bare `String`:\n\n- line 123:  NDay.day                 \u2014 \"mo\"/\"tu\"/\"we\"/\"th\"/\"fr\"/\"sa\"/\"su\"\n- line 144:  RecurrenceRule.frequency \u2014 \"yearly\"/\"monthly\"/\"weekly\"/\"daily\"/\"hourly\"/\"minutely\"/\"secondly\"\n- line 156:  RecurrenceRule.skip      \u2014 \"omit\"/\"backward\"/\"forward\"\n- line 160:  RecurrenceRule.first_day_of_week \u2014 same 7 day values as NDay.day\n- line 232:  Location.relative_to     \u2014 \"start\"/\"end\"\n- line 379:  Participant.kind         \u2014 \"individual\"/\"group\"/\"location\"/\"resource\"\n- line 394:  Participant.participation_status \u2014 RFC 8984 enumerates ~6 values\n- line 406:  Participant.schedule_agent \u2014 \"server\"/\"client\"/\"none\"\n- line 474:  OffsetTrigger.relative_to \u2014 \"start\"/\"end\"\n- line 569:  Alert.action             \u2014 \"display\"/\"email\"\n\nEach could be an `#[non_exhaustive] enum` with `#[serde(rename_all = \"camelCase\")]` and the enumerated variants. Section 1 type-design: \"Stringly-typed values where a newtype, enum, or validated wrapper would make invalid states unrepresentable.\"\n\nWhy this is opinion-tagged (not a P2 bug):\n- The crate's PLAN.md design rationale documents intentional use of `String` to \"preserve forward-compatibility with new sub-object types\" (for `@type`) \u2014 and a similar argument applies to RFC 8984's general open-world model (the spec leaves room for vendor extensions). Today's RFC 8984 values are fixed, but a future RFC might add a frequency mode.\n- An `#[non_exhaustive] enum` with an explicit `Unknown(String)` variant solves the forward-compat objection cleanly: known variants are typed, unknown values round-trip in the catch-all. But this turns a derive(Serialize, Deserialize) into a manual impl per enum, which is a maintenance cost.\n\nEngineering basis (why not pure taste):\n- Typos at construction site: `day: \"mn\".to_owned()` is accepted today, would be a wire-protocol violation. With an enum, the typo is a compile error.\n- Documentation lives next to the type: a consumer reading `Frequency` immediately sees the 7 values; reading `String` requires going to RFC 8984.\n\nTriage note: workspace AGENTS.md says \"Sloppy-Value pattern for IETF-defined nested objects\" is the workspace convention for value shapes \"defined by an external IETF spec ... and is large or extensible\". These are small fixed enums, not large/extensible value shapes \u2014 they are NOT covered by the sloppy-value exemption. Still, the call is a tradeoff between strict type-checking and forward-compat; reasonable Rust practitioners would split on this.\n\nFiled as opinion-tagged so the loop converges and the call lands with the human, not the agent.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.77",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Parallel sites also exist in crate-jmap-jscontact-types/src/lib.rs \u2014 Anniversary.kind (line 854: \"birth\"/\"death\"/\"wedding\"), Phone.kind, Address.contexts keys, NameComponent.kind, etc. Same engineering argument and same forward-compat caveat apply. Treat as one finding spanning both type crates: if .77 is accepted, fix in jscalendar-types first (canonical extension-types pattern for the workspace's RFC-typed extraction crates), then propagate to jscontact-types.\nDecision (2026-05-11, Mark): apply the canonical workspace 'same shape' pattern uniformly \u2014 convert each enumerated-string field to a `#[non_exhaustive] enum + Unknown(String) with #[serde(other)]` typed enum.\n\nThis is the same mechanism JMAP-lbdy already mandates for result enums (mechanism 2). Known RFC 8984 / RFC 9553 variants are typed; future spec or vendor values round-trip via Unknown(String). The forward-compat concern raised in the bead body is fully resolved by the Unknown variant.\n\nScope (per bead description + notes):\n  1. jscalendar-types canonical first: NDay.day, RecurrenceRule.frequency, RecurrenceRule.skip, RecurrenceRule.first_day_of_week (alias of NDay.day), Location.relative_to, Participant.kind, Participant.participation_status, Participant.schedule_agent, OffsetTrigger.relative_to, Alert.action.\n  2. Propagate to jscontact-types parallel sites: Anniversary.kind, Phone.kind, NameComponent.kind, AddressComponent.kind, Address.contexts (keys), etc.\n\nEach new enum carries #[non_exhaustive] and round-trip tests (known variant + Unknown(String) variant).\n\nRemoving 'human' label so the autonomous /do-beads loop can pick this up.\nSuperseded (2026-05-11, Mark): this conversion is being reverted. See JMAP-sc1b.111 (the revert bead) and JMAP-sc1b.110 (the workspace AGENTS.md policy narrowing that makes this conversion out-of-scope).\n\nReason: RFC enumerations of classifier strings on data-object sub-types in externally-owned-schema-mirror type crates (jscalendar-types, jscontact-types) do not reflect operational reality. Real-world wire traffic routinely contains values outside the RFC enumeration. Typed enums with Other(String) catch-all create fiction; the catch-all does the work, the named variants do not. Maintenance cost is paid for no programmatic benefit.\n\nThis bead stays closed (it shipped successfully; the work was real). The policy call that made it the wrong posture came later.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: jscalendar-types enumerated-string fields (frequency, day, kind, action) could be enums",
+  "updated_at": "2026-05-12T02:26:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T00:00:40Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "59a2b857-6c89-5136-a8b4-b644172bcb39",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

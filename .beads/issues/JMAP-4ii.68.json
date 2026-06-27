@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:55:10Z",
+  "compaction_level": 0,
+  "content_hash": "a5e7c14b997c4a661964636541a45b582bf638599afbceda46fade6c3c6f1a31",
+  "created_at": "2026-05-02T04:47:47Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_email_set update loop (line 994) uses args.get(\"update\").and_then(|v| v.as_object()) (borrow), making patch_val: &Value throughout. This forces patch_val.clone() at line 1011 for update_object. The function takes args: Value by ownership and could use args.remove(\"update\") or entry-based consumption to avoid the clone. Not covered by JMAP-4ii.53 (chat.rs/identity.rs), JMAP-4ii.26 (mailbox), or JMAP-4ii.59 (onSuccessUpdateEmail).",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.68",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "email.rs update loop borrow forces patch_val.clone()",
+  "updated_at": "2026-05-02T04:55:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:47:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "6c75295d-a8c3-57e8-85de-f428d6d8bc6c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

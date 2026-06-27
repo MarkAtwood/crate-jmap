@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-kmx",
+  "title": "Review: jmap-mail-types crate (RFC 8621 wire types)",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:04:26Z",
+  "updated_at": "2026-04-30T05:15:41Z",
+  "closed_at": "2026-04-30T05:15:41Z",
+  "notes": "Maintainer risk: HIGH \u2014 two P0 bugs (EmailComparator and EmailFilterCondition uncreatable from external crates) make the query module non-functional for its intended client use case. P1 risk: server serialization of empty-keyword emails violates RFC 8621.\nConfidence: 15% chance of missed bug. Least confident flags: the skip_serializing_if on default-value fields (P1) \u2014 could be intentional if jmap-mail-server always adds missing fields before sending; the PLAN.md does not clarify. Uncertainty driven by: not reading jmap-mail-server yet to see how it consumes Email serialization. Would raise confidence if: jmap-mail-server is read to confirm it does/does not rely on Email serialization for wire output.\nIdiom rating: ACCEPTABLE \u2014 the macro-generated serde impls are clean, Borrow<str> on Keyword is idiomatic, no gratuitous clones, no unsafe. The #[non_exhaustive]-with-no-constructor pattern on input types is the main idiom failure.\nRust idiom confidence: 10% chance of missed issue. Least confident flags: none. Uncertainty driven by: not having a compiler to confirm the non_exhaustive struct-update-syntax restriction applies in the exact Rust edition/version used (1.75)."
+}

@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "7 calendars-client wiremock tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/helpers.rs and tests/calendar_smoke_tests.rs (3 smoke tests: calendar get, event set, event parse notParsable); clippy clean",
+  "closed_at": "2026-05-05T15:47:12Z",
+  "compaction_level": 0,
+  "content_hash": "6aab91d949c410c1c145d435fe56de6ddf4ca66bc34e36dcd1d092ddd8bd9603",
+  "created_at": "2026-05-05T02:55:45Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-calendars-client/tests/smoke_integration.rs plus tests/parse_integration.rs. 7 async wiremock tests covering existing and new methods. Oracle: \u00a78.1 (Calendar/get), \u00a78.2 (CalendarEvent/set create), \u00a78.5 Figures 18-21 (CalendarEvent/parse).\n\n**Tests (smoke_integration.rs):**\n1. calendar_get_round_trip: mock returns \u00a78.1 Calendar response fixture; assert account_id and list length.\n2. calendar_event_set_create_round_trip: mock returns \u00a78.2 SetResponse; assert created map has expected key.\n3. calendar_get_request_method_name: capture request; assert methodCalls[0][0]==\"Calendar/get\" and using contains \"urn:ietf:params:jmap:calendars\".\n\n**Tests (parse_integration.rs):**\n4. parse_success: mock returns \u00a78.5 Figure 19; assert parsed map has one entry, not_found is None.\n5. parse_not_found: mock returns Figure 20; assert not_found has one id.\n6. parse_not_parsable: mock returns Figure 21; assert not_parsable has one id.\n7. parse_request_shape: capture request; assert methodCalls[0][0]==\"CalendarEvent/parse\" and blobIds key present.\n\n**Acceptance criteria:** All 7 tests pass. Fixtures from spec \u00a78.1, \u00a78.2, \u00a78.5 verbatim.",
+  "ephemeral": 0,
+  "id": "JMAP-7i4v.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock smoke tests: Calendar/get, CalendarEvent/set, CalendarEvent/parse",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:56:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v.3",
+      "id": "b7986438-75c0-5a69-a468-d00d77f603ec",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:56:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v.2",
+      "id": "c9f98b11-14a6-5c7a-b511-ecae54a9d8c9",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:55:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v",
+      "id": "e34e5434-212b-5eb4-a8c9-ec8f3c678850",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

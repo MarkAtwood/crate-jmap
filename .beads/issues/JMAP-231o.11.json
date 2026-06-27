@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit b1be5a3: helpers_compile #[cfg(test)] block removed from helpers.rs across all 6 sibling client crates.",
+  "closed_at": "2026-05-10T05:28:48Z",
+  "compaction_level": 0,
+  "content_hash": "181cf7092fb84fc14bf101b7b0266312084db345e0b9a296dc69b9ad112d1ffe",
+  "created_at": "2026-05-08T03:19:20Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/helpers.rs:63-77 contains `#[cfg(test)] mod tests { fn helpers_compile }`. Both tests/calendar_smoke_tests.rs:9 and tests/availability_tests.rs:6 do `#[path = \"helpers.rs\"] mod helpers;`. Result: each integration test binary picks up that test, plus the helpers.rs file itself produces a third binary, leading to `cargo test` output:\n\n  Running tests/helpers.rs        \u2192 tests::helpers_compile \u2026 ok\n  Running tests/calendar_smoke_tests.rs \u2192 calendar_smoke + helpers::tests::helpers_compile (ok)\n  Running tests/availability_tests.rs \u2192 availability_round_trip + helpers::tests::helpers_compile (ok)\n\nThree runs of the same test, three binaries linked. Adds compile time and noise.\n\nTwo cleaner options:\n1. Drop the `#[cfg(test)] mod tests` block from helpers.rs entirely. Compile-failure of the helpers will already be caught the moment any consuming test file fails to compile.\n2. Move helpers into tests/common/mod.rs and use `mod common;` in each test file (Rust idiomatic test-helper layout \u2014 does NOT compile common as its own binary).\n\nOption 2 is more idiomatic. The current `#[path = \"helpers.rs\"]` workaround exists specifically because /tests/*.rs is each its own binary.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "helpers_compile test runs three times because of #[path] include",
+  "updated_at": "2026-05-10T05:28:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:19:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "6e0d0d8f-f761-5b7b-a252-92ffaa44463d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

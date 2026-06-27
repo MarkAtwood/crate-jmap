@@ -1,0 +1,53 @@
+{
+  "acceptance_criteria": "Integration tests: send MDN successfully \u2192 sent map has server-set fields + email gets $mdnsent; send to already-$mdnsent email \u2192 mdnAlreadySent; missing onSuccessUpdateEmail patch \u2192 invalidArguments rejection",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:22:47Z",
+  "compaction_level": 0,
+  "content_hash": "63b58116171d57892449dbf6e1ab94d267a864d4ed2ffa6304dc6f13b9380aac",
+  "created_at": "2026-05-02T15:32:21Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement handle_mdn_send in src/mdn.rs. Sends RFC 5322 MDN messages and stamps $mdnsent via a coupled Email/set call.",
+  "design": "Request args: accountId, identityId, send: Id[MDN], onSuccessUpdateEmail: Id[PatchObject]|null.\n\nPre-flight checks (before calling backend):\n1. Verify accountId exists; reject with invalidArguments if not.\n2. Verify identityId exists and belongs to accountId; reject with invalidArguments if not.\n3. For EACH entry in send map, verify onSuccessUpdateEmail contains a backward ref (#<creationId>) that sets keywords/$mdnsent: true. If ANY entry is missing this patch, reject the ENTIRE request with invalidArguments. Rationale: draft \u00a72.1 \u2014 'the server MUST reject an MDN/send which does not result in setting the keyword $mdnsent'.\n4. Check $mdnsent keyword on the referenced email for each entry; if already set, add mdnAlreadySent SetError to notSent for that entry (do NOT send).\n\nFor each remaining entry (no pre-existing $mdnsent):\n- Delegate to backend.send_mdns(account_id, identity_id, send_map).\n- Backend returns server-set fields: finalRecipient, originalMessageId, mdnGateway, originalRecipient, error.\n- On success: add to sent map with server-set fields only (omit fields client supplied).\n\nAfter all sends succeed/fail:\n- For each successfully sent entry, apply the corresponding onSuccessUpdateEmail patch via MailBackend::update_emails. This stamps $mdnsent on the source email.\n- Response: { accountId, sent: Id[MDN]|null, notSent: Id[SetError]|null } + implicit Email/set response if any emails were updated.\n\nSetError types: notFound (email not found or no Disposition-Notification-To header), forbidden, forbiddenFrom (finalRecipient not allowed by identity), overQuota, tooLarge, rateLimit, invalidProperties, mdnAlreadySent.\n\nThe 'using' property of the JMAP Request MUST include both urn:ietf:params:jmap:mdn and urn:ietf:params:jmap:mail \u2014 validate this in the handler.\n\nSpec ref: draft-ietf-jmap-mdn-17 \u00a72.1, \u00a73.1.",
+  "ephemeral": 0,
+  "id": "JMAP-pdb",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "CORRECTIONS (from research phase):\n\n1. CRLF injection: After deserializing the Mdn struct, validate that subject, text_body, reporting_ua, and all extensionFields keys and values contain no CR or LF characters. Use check_no_crlf (made pub(crate) by JMAP-4ffm). On failure return SetError::invalid_properties for the specific creation-id entry.\n\n2. forbiddenFrom: if the request Mdn for an entry has a non-null final_recipient, validate it matches a permitted address for the given identity. If not, return SetError of type ForbiddenFrom for that entry (not a whole-request rejection).\n\n3. handle_mdn_send signature needs call_id: &str as third parameter (same pattern as handle_submission_set) so the implicit Email/set invocation can echo the same call_id.\n   pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(backend: &B, args: Value, call_id: &str) -> Result<(Value, Vec<Invocation>), JmapError>\n\n4. The implicit Email/set: call backend.update_object::<Email>() for each successfully-sent entry's onSuccessUpdateEmail patch. Validate patch with find_immutable_patch_key before calling. Build Email/set response JSON and push to extra Vec<Invocation> with the same call_id. Do not dispatch through Dispatcher \u2014 this is identical to how submission.rs builds the companion Email/set response.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mdn: MDN/send handler",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T08:33:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-m2l",
+      "id": "58f10b71-8beb-5250-9ed1-5b3ceea322c7",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T16:11:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ffm",
+      "id": "5bb396ab-1de8-5b21-924f-2b59edb29779",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-02T16:11:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-emft",
+      "id": "eebd0d9c-de4e-5531-8c6f-15da455501c6",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

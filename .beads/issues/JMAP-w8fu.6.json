@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a63ea599ca8f67ca14f27af9fe9f81b614bab6a5a0e7d8e4c09efaca8ba7c2eb",
+  "created_at": "2026-06-13T21:49:04Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-client/src/session.rs has 7/18 lines covered (38.9%). Contains ChatSessionExt trait methods (supports_chat_websocket, supports_quotas, supports_refplus). Uncovered paths are the negative cases (capability absent) and the Some-but-empty-object cases. Need wiremock tests with session fixtures that omit or include these capabilities.",
+  "ephemeral": 0,
+  "id": "JMAP-w8fu.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Test coverage: chat-client session.rs (38.9%)",
+  "updated_at": "2026-06-13T21:49:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:49:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w8fu",
+      "id": "1c70927f-05eb-53f0-9a02-0d057886f8c6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

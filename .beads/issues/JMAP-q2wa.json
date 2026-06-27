@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "4315e04d6207dddc27089233b45e79a5d4014e3537917c8f2b256ce0ed6eb806",
+  "created_at": "2026-05-14T16:15:54Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {
+    "dispatcher": "bd-review-loop",
+    "dispatcher_run": "bd-review-loop-20260517T055532Z-2293771",
+    "final_failures": 0,
+    "final_iter": 1,
+    "final_verdict": "genuine_convergence",
+    "log_dir": "/home/mark/.local/state/bd-review-loop/crate-jmap/20260517T055532Z",
+    "model": "anthropic/claude-opus-4-7",
+    "scope": "crate-jmap-mail-server since 9c0d34f",
+    "variant": "max"
+  },
+  "no_history": 0,
+  "notes": "Maintainer risk: MEDIUM \u2014 three P0 silent-correctness bugs (two Pattern G regressions of bc79c70 in newly-added code, one silent-drop of non-string property values in Mailbox/set) plus six P1 items that compound the cookie-cutter propagation cost across 6 sibling crates. None of the P0s are exploitable for data exfiltration, but all three silently corrupt wire responses with no client signal, which is exactly the failure class that generates 'why doesn't this work?' user reports.\nConfidence: 30% chance of missed bug. Least confident flags: (1) memory.rs filter-roundtrip Pattern G regression \u2014 I asserted infallibility on both sides without writing a probe, the bd:JMAP-q2wa.3 fix should ALSO add a serde-round-trip test as a separate bead. (2) submission.rs process_create error mapping \u2014 three sites mapped to one bead but the third site (line 926, ::Other) may have already been swept; recheck before fixing. Uncertainty driven by: not running the test suite, not building under all feature flag combinations (the 'memory' feature gating means some Pattern G regressions could be cfg-hidden), and not validating that the sweep claims in the c64d655/bc79c70 commit messages match what's actually on HEAD across all extension-server crates. Would raise confidence if: a sweep script (the original /tmp/sweep_pattern_g.py from bc79c70) is re-run against the current tree to count remaining sites, and the test suite is run under --all-features to surface any new BackendSetError::Other code paths.\nbd-review-loop: iter=1 verdict=question_tool_invoked failures=1 history=; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; ",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "in_progress",
+  "timeout_ns": 0,
+  "title": "Review: crate-jmap-mail-server since 9c0d34f (my-oss mode)",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-kmx.9",
+  "title": "deserialize_header enforces RFC 8621 \u00a74.4.1 1-2 element constraint at wire boundary",
+  "description": "The header field of EmailFilterCondition has a custom deserialize_with that rejects 0 or 3+ element arrays with an error citing the RFC section. This is the right place to catch this: at the wire boundary during deserialization, not buried in method handler logic. A contributor might suggest removing the validation as 'over-engineering for a types crate' \u2014 but invalid input that reaches method handlers without validation generates confusing failures far from the source. The error message includes the RFC section number, which is precisely what a debugger needs.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:05:33Z",
+  "updated_at": "2026-04-30T05:15:39Z",
+  "closed_at": "2026-04-30T05:15:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-kmx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:05:32"
+    }
+  ]
+}

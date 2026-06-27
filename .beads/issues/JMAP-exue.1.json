@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added BackendCallFnWithCtx<B,C> type alias and ClosureHandlerWithCtx<B,C> struct with JmapHandler<C> impl that forwards caller to closure; 2 tests (closure_handler_with_ctx_forwards_caller, compile-time trait check); 76 tests pass; clippy clean.",
+  "closed_at": "2026-05-05T18:23:23Z",
+  "compaction_level": 0,
+  "content_hash": "e5ef927d9d8e6db6b536b1b83fba02d69cad3549112318e25dc3092c757a8530",
+  "created_at": "2026-05-05T17:28:50Z",
+  "created_by": "Mark Atwood",
+  "description": "Add a CallerCtx-aware closure type to jmap-server so register_*_handlers functions can forward per-request context to handler closures.\\n\\nCurrent state:\\n- BackendCallFn<B> = Fn(Arc<B>, String, Value) -> HandlerFuture (no CallerCtx)\\n- ClosureHandler<B> calls the closure and discards _caller: C\\n\\nRequired change:\\n1. Add BackendCallFnWithCtx<B, C> = Fn(Arc<B>, String, Value, C) -> HandlerFuture + Send + Sync + 'static\\n2. Add ClosureHandlerWithCtx<B, C> struct that stores Box<BackendCallFnWithCtx<B, C>>\\n3. impl<B, C: Clone + Send + 'static> JmapHandler<C> for ClosureHandlerWithCtx<B, C> \u2014 forwards caller to the closure\\n4. Add a companion macro or helper in each register_*_handlers crate (or expose the type from jmap-server)\\n\\nKeep existing ClosureHandler<B> for backward compat \u2014 it is used by tests and downstream code that does not need CallerCtx.\\n\\nAcceptance criteria:\\n- ClosureHandlerWithCtx<B, C> compiles and passes JmapHandler<C> impl\\n- Existing ClosureHandler tests unchanged\\n- cargo test --workspace exits 0\\n- Clippy clean",
+  "ephemeral": 0,
+  "id": "JMAP-exue.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-server: Add CallerCtx-forwarding ClosureHandler variant",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-05T10:28:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-exue",
+      "id": "39886327-d26c-5af0-a2c3-6d7bbe301cf9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

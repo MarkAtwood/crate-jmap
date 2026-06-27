@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:29:25Z",
+  "compaction_level": 0,
+  "content_hash": "d46811e05a9f1ec9c041f800426693bf3c6a00337c9b6ae643fb761f2ac542ca",
+  "created_at": "2026-05-14T21:59:31Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/backend.rs:69-75\n\n```rust\n/// Destroy a Principal or ShareNotification by id.\nfn destroy_object<O: SetObject + Send + Sync>(\n    &self,\n    caller: &Self::CallerCtx,\n    account_id: &jmap_types::Id,\n    id: &jmap_types::Id,\n) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;\n```\n\nThe entire contract documentation for destroy is a single sentence:\n\\\"Destroy a Principal or ShareNotification by id.\\\"\n\nA backend implementor reading this has no answer to any of:\n\n1. **What if `id` does not exist?** Must return\n   `BackendSetError::SetError(SetError::new(SetErrorType::NotFound))`\n   per RFC 8620 \u00a75.3, but the trait does not say so. The handler at\n   `notification.rs:121-148` maps the SetError variants verbatim\n   into the wire response, so getting the wrong variant produces an\n   incorrect JMAP response that no Rust-level test would catch.\n\n2. **What if `id` exists but the caller lacks permission?** Must\n   return `SetErrorType::Forbidden`. Documented nowhere. The crate's\n   AGENTS.md says backend is canonical for permission enforcement,\n   but that AGENTS.md note is not part of the public API contract\n   that a third-party SharingBackend implementor reads.\n\n3. **What if `account_id` does not exist?** Tied to JMAP-3t94.1 and\n   JMAP-3t94.2 \u2014 but the trait should explicitly say the backend may\n   assume `account_exists` was verified by the handler (which is\n   currently NOT TRUE per .1), or that the backend must verify it\n   itself.\n\n4. **What are the state-mutation guarantees?** Should the backend\n   bump its state counter only if the destroy succeeds? Should it\n   record a change-log entry? Should the change-log entry be\n   atomic with the destroy? None of this is in the trait doc; the\n   MemoryBackend impl (`memory.rs:576-605`) shows the workspace\n   answer but a downstream impl cannot rely on undocumented\n   pattern-by-example.\n\n5. **Idempotency on already-destroyed.** If the caller destroys\n   the same id twice, does the second call return `Ok(())` or\n   `Err(NotFound)`? MemoryBackend returns `Err(NotFound)`. RFC 8620\n   \u00a75.3 doesn't strictly require either.\n\nWhat goes wrong for callers when this stays as-is: backend\nimplementors guess the contract differently. Cross-backend\nbehavior diverges. JMAP clients written against one backend see\ndifferent error wire-shapes against another. The handler's\nmapping of SetError to wire response is the only test coverage,\nand that test only catches the variants the existing MemoryBackend\nhappens to produce.\n\nResolution: enumerate the canonical SetErrorType variants per\ncondition (NotFound, Forbidden, ifInState mismatch). Cite RFC 8620\n\u00a75.3. State the state-mutation contract.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Expanded SharingBackend::destroy_object rustdoc with full error contract (NotFound for missing id, Forbidden for permission, accountNotFound handler-vs-backend layering, Other for storage failures), state-mutation contract (state advances only on commit, change-log entry atomic with state advance), and idempotency (second destroy is NotFound \u2014 workspace convention shared with canonical jmap-mail-server).",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SharingBackend::destroy_object \u2014 one-line docstring; no error contract, no SetErrorType guidance, no state-mutation contract",
+  "updated_at": "2026-05-14T22:29:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:59:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "d1d00fb1-9105-5512-8fe2-469cff6e553b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

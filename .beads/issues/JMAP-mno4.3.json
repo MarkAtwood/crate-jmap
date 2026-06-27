@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added std::fmt::Display impls for LocalDateTime, Duration, SignedDuration that emit the bare wire string (matching RFC 8984 \u00a71.4.5/.6/.7). format!(\"{dt}\") now compiles. Added scalar_newtypes_display_as_wire_string test confirming all three. cargo test + clippy clean.",
+  "closed_at": "2026-05-16T02:14:31Z",
+  "compaction_level": 0,
+  "content_hash": "e320b5353f974c53aa6fa49b23f6dd8b2664bc8f27807559172a46635928c870",
+  "created_at": "2026-05-15T22:07:21Z",
+  "created_by": "Mark Atwood",
+  "description": "src/lib.rs:43, 68, 94 define LocalDateTime, Duration, SignedDuration as transparent String newtypes with From<String>, From<&str>, AsRef<str> only.\n\nComparison points:\n- jmap-types::{Id, UTCDate, Date, State} use the impl_string_newtype! macro (crate-jmap-types/src/id.rs:72-116) which generates Display, From<String>, From<&str>, AsRef<str>, PartialEq<str>, PartialEq<&str>, std::borrow::Borrow<str>, and into_inner(). That is the foundation canonical pattern.\n- jmap-jscontact-types::JsContactId (crate-jmap-jscontact-types/src/lib.rs:99-115) has the same minimal set as the new newtypes here (From<String>, From<&str>, AsRef<str>) \u2014 matches the sibling extension-types pattern.\n\nSo the new newtypes match the sibling jscontact pattern but diverge from the canonical foundation pattern. Consequence at consumer sites:\n\n- format!(\"until={}\", rule.until.as_ref().map(|d| d.as_ref()).unwrap_or(\"\")) \u2014 three method calls and an unwrap to render a string, whereas with Display it would be format!(\"until={}\", rule.until.as_deref().unwrap_or(...)) or format!(\"until={}\", rule.until.as_ref()...).\n- error messages that interpolate a Duration require .as_ref() boilerplate at every site.\n- no PartialEq<str> means tests like assert_eq!(rule.until.as_ref(), Some(\"2024-12-31T23:59:59\".into())) must construct a LocalDateTime to compare, or compare on .as_ref().\n\nThis is not a correctness issue. It is a usability friction that will accumulate across every consumer call site. Two options:\n\n(a) Promote the impl_string_newtype! macro from jmap-types to either a shared crate or duplicate it here \u2014 but jscontact already chose the minimal pattern, so this would create a divergence.\n\n(b) Add Display + PartialEq<str> + PartialEq<&str> + Borrow<str> + into_inner() to LocalDateTime, Duration, SignedDuration without macroizing \u2014 closes the usability gap with localized code.\n\n(c) Accept the friction as the cost of matching the jscontact sibling pattern, and file a workspace-API epic to harmonize the newtype impl set across all *-types crates.\n\nRecommendation: (c) \u2014 newtype-impl coverage is a workspace-wide canonical-template question, not a per-crate question. File the question on a new bead under JMAP workspace-API epic, not as a per-crate fix.",
+  "ephemeral": 0,
+  "id": "JMAP-mno4.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "LocalDateTime/Duration/SignedDuration missing Display impl: format!() interpolation becomes ergonomically awkward",
+  "updated_at": "2026-05-16T02:14:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:07:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mno4",
+      "id": "c40fcc2c-a1a8-5b1a-86f0-f55f62e5a0c3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

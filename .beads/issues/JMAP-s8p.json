@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-s8p",
+  "title": "parse_request: missing doc explaining caller's notJSON responsibility",
+  "description": "parse_request() accepts a pre-parsed serde_json::Value, not a raw &[u8] or &str. The caller is responsible for the initial JSON parse and must return the JMAP notJSON error response on parse failure. This contract is not documented in the function's doc comment, leaving consumers uncertain about the error-handling split.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:04:08Z",
+  "updated_at": "2026-04-30T06:14:06Z",
+  "closed_at": "2026-04-30T06:14:06Z",
+  "notes": "Add a # Errors section to parse_request's doc comment explaining: if the body is not valid JSON, the caller must parse and handle that (returning notJSON); parse_request only validates the JMAP structure of an already-parsed Value.",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-e39",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:04:20"
+    }
+  ]
+}

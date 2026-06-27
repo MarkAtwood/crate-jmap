@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "6 named tests pass; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:48:12Z",
+  "compaction_level": 0,
+  "content_hash": "7bf8059e7ad757f964cea5ce85b9dcb534659efe12e6c0f0fe434516056536e6",
+  "created_at": "2026-05-04T15:07:02Z",
+  "created_by": "Mark Atwood",
+  "description": "WHAT: Chat-specific WebSocket frame parsing and stream control (after GAP-02 adds raw field to WsFrame::Unknown).\n\nALGORITHM:\n1. Create crate-jmap-chat-client/src/ws.rs\n2. Define ChatWsFrame enum:\n   pub enum ChatWsFrame {\n     StateChange(jmap_base_client::push::StateChange),\n     Response(jmap_types::JmapResponse),\n     ChatTyping(jmap_chat_types::ChatTypingEvent),\n     ChatPresence(jmap_chat_types::ChatPresenceEvent),\n     Unknown { type_name: String },\n   }\n3. Define fn parse_chat_ws_frame(frame: jmap_base_client::WsFrame) -> ChatWsFrame:\n   - Match on frame:\n     * WsFrame::StateChange(sc) \u2192 ChatWsFrame::StateChange(sc)\n     * WsFrame::Response(r) \u2192 ChatWsFrame::Response(r)\n     * WsFrame::Unknown { type_name, raw } where type_name == \"ChatTypingEvent\" \u2192 deserialize raw as ChatTypingEvent, on error \u2192 Unknown\n     * WsFrame::Unknown { type_name, raw } where type_name == \"ChatPresenceEvent\" \u2192 deserialize raw as ChatPresenceEvent, on error \u2192 Unknown\n     * WsFrame::Unknown { type_name, .. } \u2192 ChatWsFrame::Unknown { type_name }\n4. Extension methods on jmap_base_client::WsSession via a trait ChatWsExt:\n   pub trait ChatWsExt { \n     async fn next_chat_frame(&mut self) -> Option<Result<ChatWsFrame, ClientError>>;\n     async fn send_stream_enable(&mut self, enable: &jmap_chat_types::ChatStreamEnable) -> Result<(), ClientError>;\n     async fn send_stream_disable(&mut self) -> Result<(), ClientError>;\n   }\n   impl ChatWsExt for jmap_base_client::WsSession { ... }\n   - next_chat_frame: calls self.next_frame().await.map(|r| r.map(parse_chat_ws_frame))\n   - send_stream_enable: serde_json::to_value(enable)? then send_json\n   - send_stream_disable: send_json(&json!({\"@type\": \"ChatStreamDisable\"}))\n5. Declare in lib.rs: pub mod ws; pub use ws::{ChatWsFrame, ChatWsExt};\n\nDEFENSIVE RULES:\n- Deserialization failures on Unknown raw \u2192 return Unknown (never panic, never propagate)\n- send_stream_enable: return Err on serialization failure (? operator)\n\nTESTS (oracles from spec):\n- parse_state_change_frame: WsFrame::StateChange \u2192 ChatWsFrame::StateChange\n- parse_response_frame: WsFrame::Response \u2192 ChatWsFrame::Response\n- parse_typing_frame: WsFrame::Unknown { type_name: ChatTypingEvent, raw: {...} } \u2192 ChatWsFrame::ChatTyping\n- parse_presence_frame: same for ChatPresenceEvent\n- parse_unknown_frame: unrecognized type_name \u2192 ChatWsFrame::Unknown\n- parse_typing_malformed: type_name ChatTypingEvent but bad raw \u2192 ChatWsFrame::Unknown\n\nACCEPTANCE: 6 named tests pass; cargo test -p jmap-chat-client passes; clippy clean",
+  "ephemeral": 0,
+  "id": "JMAP-a82j",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-client: ws.rs \u2014 ChatWsFrame enum, stream enable/disable",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T11:29:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w",
+      "id": "0369ddfa-6874-5067-8611-3a17eb524167",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T08:07:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s1ei",
+      "id": "66a3caa4-741f-52f8-ba52-bbcdf0777a29",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T08:07:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ds04",
+      "id": "d49af3cd-9c4c-5f8e-b71b-1ecf2aa7beed",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

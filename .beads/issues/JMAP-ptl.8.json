@@ -1,0 +1,33 @@
+{
+  "close_reason": "not_found_json helper extracted to src/helpers.rs; all 5 get-handler call sites updated to use it inline",
+  "closed_at": "2026-05-01T16:13:27Z",
+  "compaction_level": 0,
+  "content_hash": "b21017a04c927f819348afef1a31dad6474c67ca07774c8034fa8a5fc73504f7",
+  "created_at": "2026-05-01T15:31:58Z",
+  "created_by": "Mark Atwood",
+  "description": "The pattern 'if not_found.is_empty() { None } else { Some(not_found.iter().map(|id| Value::String(id.as_ref().to_string())).collect()) }' appears identically in mailbox.rs, thread.rs, identity.rs, submission.rs, and email.rs. A one-line helper fn ids_to_json_array(ids: &[Id]) -> Option<Vec<Value>> would eliminate the repetition and the one place where it diverges slightly would be caught at compile time. Suggested: pub(crate) fn opt_id_json_array(ids: &[Id]) -> Value { if ids.is_empty() { Value::Null } else { Value::Array(ids.iter().map(|id| Value::String(id.as_ref().to_string())).collect()) } }",
+  "ephemeral": 0,
+  "id": "JMAP-ptl.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "not_found_json pattern repeated verbatim across five get-handlers",
+  "updated_at": "2026-05-01T16:13:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:31:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ptl",
+      "id": "8a0079a3-fcfc-5362-bac7-8afdda7c8ad8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

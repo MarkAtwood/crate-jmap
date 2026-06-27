@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-4so",
+  "title": "Rusty review pass 5: jmap-client",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:44:33Z",
+  "updated_at": "2026-04-30T01:48:41Z",
+  "closed_at": "2026-04-30T01:48:41Z",
+  "notes": "Idiom rating: ACCEPTABLE \u2014 one real finding: WsFrame missing Clone while all peers (SseFrame, SseEvent, StateChange) gained Clone in the prior pass. Everything else is clean: no gratuitous clones, no misused unwrap in production code, no Box<dyn Error> in public API, no unsafe, no return-as-last-statement, no is_empty antipatterns, clippy passes clean with -D warnings.\nRust idiom confidence: 8% chance of missed issue. Least confident flags: none \u2014 the one filed finding (WsFrame Clone) is real. Uncertainty driven by: not having run 'cargo clippy --all-targets' with tests included (only ran without --tests flag); WsFrame Clone omission is the only asymmetry spotted between the new derives added in round 6 and the remaining types.\nConfidence update: running with --tests flag revealed a second finding (clippy::identity_op in client_tests.rs). Revised confidence: 5% chance of missed issue. The two findings together are consistent with the prior round having fixed production code but not run clippy --tests."
+}

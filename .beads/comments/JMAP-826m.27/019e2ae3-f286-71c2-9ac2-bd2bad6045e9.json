@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T09:07:22Z",
+  "id": "019e2ae3-f286-71c2-9ac2-bd2bad6045e9",
+  "issue_id": "JMAP-826m.27",
+  "text": "Blocked on JMAP-826m.14. The natural fix here \u2014 replace state_for_test()'s MutexGuard exposure with explicit fixture-injection methods (record_created_id, record_destroyed_id, set_state) \u2014 is meaningless if .14 resolves toward 'drop MockBackend entirely; move all tests to tests/ using MemoryBackend'. Recommend addressing together with .14 once the canonical-template decision is made."
+}

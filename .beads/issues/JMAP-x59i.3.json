@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T04:39:55Z",
+  "compaction_level": 0,
+  "content_hash": "2f696526dcbf0ad57190030b35e591c854f0d2e42b6a38fcf97abb9cca2f1247",
+  "created_at": "2026-05-10T21:46:23Z",
+  "created_by": "Mark Atwood",
+  "description": "Update workspace-level documentation to reflect the new `jmap-jscalendar-types` crate after the code extraction (children .1 and .2) has landed.\n\n## Files to update\n\n1. **Workspace root `AGENTS.md`** \u2014 three sections need edits:\n\n   - **Crate Map table** (top of file): add a row for `crate-jmap-jscalendar-types/` / `jmap-jscalendar-types`. Suggested description: \"RFC 8984 JSCalendar typed sub-types \u2014 shared foundation, consumed by Calendars and Tasks. No async, no JMAP dep.\"\n   - **Dependency Tree** ASCII diagram: insert `jmap-jscalendar-types` as a sibling foundation crate (alongside `jmap-types`), with edges into `jmap-calendars-types` and (after JMAP-yfpq lands) `jmap-tasks-types`. The diagram already shows `jmap-types` at the root; the new crate is structurally similar \u2014 no JMAP dep, consumed by extension-types crates.\n   - **Canonical Templates table**: do NOT add this crate. It is foundation-shaped (like `jmap-types`), not a member of the extension-types cookie-cutter family. The table's purpose is to show propagation paths within a sibling family; the new crate has no siblings.\n\n2. **Workspace root `README.md`** (if it lists crates): mirror the change to the Crate Map. Check first whether the workspace README has a crate listing \u2014 if not, this step is a no-op.\n\n3. **`crate-jmap-calendars-types/README.md`**: the current type table includes references to JSCalendar sub-types (Location, RecurrenceRule, etc.) with \"[RFC 8984 \u00a7X]\" citations. Add a one-line note near that section: \"These typed sub-types live in the `jmap-jscalendar-types` crate and are re-exported here for backward-compatible access.\"\n\n## Acceptance\n\n- Workspace AGENTS.md crate-map table has the new row.\n- Dep-tree diagram in AGENTS.md is updated.\n- No file claims the new crate is a canonical-template member of the extension-types family.\n- Workspace README (if applicable) and calendars-types README are aligned.\n- All Markdown is valid; no broken links.\n- `cargo check --workspace` still clean (this child is doc-only).\n\n## Coordination\n\nThis child can run in parallel with .2, but is cleanest landed after .2 so the docs describe an actually-existing state of the code. If landed in parallel, double-check that the AGENTS.md description matches what .2 actually shipped (esp. whether the `pub use jmap_jscalendar_types as jscalendar;` module alias was added per the .2 risk note).\n",
+  "ephemeral": 0,
+  "id": "JMAP-x59i.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Update workspace AGENTS.md / dep-tree / calendars-types README for jmap-jscalendar-types extraction",
+  "updated_at": "2026-05-11T04:39:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T14:46:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x59i.2",
+      "id": "3683b856-4191-5f43-9f4f-702149b1d0a6",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-10T14:46:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x59i",
+      "id": "dcec7af9-ab61-537e-8d2e-eabcf74f791c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added item 2 of the crate-level 'Spec-driven divergences (deliberate, do not fix)' rustdoc section defending AlertTrigger::Unknown(serde_json::Value). Cites RFC 8984 \u00a74.5.2 preserve-mandate, rebuts both Unknown(String) and Unknown { at_type, fields } alternatives, names the serde-derive-macro limitation that forces the manual Deserialize impl. The struct rustdoc already covered the manual-serde rationale; this addition is the top-level discoverability and pre-rebuttal of the simplification suggestion.",
+  "closed_at": "2026-05-16T02:30:02Z",
+  "compaction_level": 0,
+  "content_hash": "ff9e2bd2026ff2daf48649baf142e886f379144db027679e9a98a7d0872806f3",
+  "created_at": "2026-05-15T22:08:45Z",
+  "created_by": "Mark Atwood",
+  "description": "src/lib.rs:570-612 defines AlertTrigger as a #[non_exhaustive] enum with three variants:\n- OffsetTrigger(OffsetTrigger)\n- AbsoluteTrigger(AbsoluteTrigger)\n- Unknown(serde_json::Value)\n\nThe Unknown variant carries an opaque serde_json::Value rather than a typed struct or a String, and the Deserialize is implemented manually (rather than via #[serde(tag = \"@type\")]).\n\nThis is exactly right and is mandated by RFC 8984 \u00a74.5.2:\n\n  'An UnknownTrigger object is an object that contains an @type property\n   whose value is not recognized (i.e., not OffsetTrigger or AbsoluteTrigger)\n   plus zero or more other properties. This is for compatibility with client\n   extensions and future specifications. Implementations SHOULD NOT trigger\n   for trigger types they do not understand but MUST preserve them.'\n\nThe 'preserve them' obligation means the whole object \u2014 @type + arbitrary other fields \u2014 must round-trip byte-equivalently. A typed Unknown(String) variant (matching the workspace pattern for result-enum forward-compat) would discard the inner fields. A typed Unknown { at_type: String, fields: Map<...> } would force a schema on what is explicitly unschema'd. Only serde_json::Value preserves the wire shape.\n\nThe manual Deserialize impl is necessary because serde does not support #[serde(tag = \"@type\", other)] with tuple variants holding non-unit data \u2014 'other' only works with unit variants in internally-tagged enums (see PLAN.md \u00a7113-117 for the rationale).\n\nWhat a future contributor might wrongly suggest:\n\n1. 'Make Unknown match the workspace Unknown(String) pattern for consistency with result enums (MailboxRole etc.).' \u2014 Defense: result enums are tag-only string sets; AlertTrigger variants are nested objects. Unknown(String) would lose data.\n\n2. 'Replace the manual Deserialize with #[serde(tag = \"@type\")] now that newer serde versions support it.' \u2014 Verify: as of serde 1.0.x current at HEAD, internally-tagged enums with 'other' still require unit variants. Even if a future serde adds support, the current implementation is correct and explicit; do not change without re-reading the spec text.\n\n3. 'Strict-mode: reject Unknown.' \u2014 Defense: spec says MUST preserve. Reject = wire data loss = spec violation.\n\nDefend this construction. The single comment block at src/lib.rs:557-567 captures the reasoning and should be preserved if the surrounding code is refactored.",
+  "ephemeral": 0,
+  "id": "JMAP-mno4.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AlertTrigger::Unknown(serde_json::Value) variant is spec-mandated \u2014 defend against simplification",
+  "updated_at": "2026-05-16T02:30:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:08:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mno4",
+      "id": "3223f881-c512-563b-9f68-0dabbe5d8997",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T17:04:13Z",
+  "id": "019e36e5-3953-7902-b84b-604620216334",
+  "issue_id": "JMAP-ic0j.36",
+  "text": "Closing as canonical-template propagation deferred. Verified: canonical sibling jmap-mail-server::MdnParseResult::new(parsed: HashMap<Id, Mdn>, not_parsable: Vec<Id>, not_found: Vec<Id>) at crate-jmap-mail-server/src/mdn.rs:129 carries the IDENTICAL two-Vec<Id> swap risk this bead flags (with field order swapped relative to calendars'). Per workspace AGENTS.md cookie-cutter rule, the fix must land in the canonical first then propagate to every extension-server sibling in the same pass. Note also: the canonical jmap-chat-spec edit on 2026-05-11 simplified caps shape; if a future workspace-wide ParseResult shape-consolidation epic is filed, the right pattern is per-field with_* builders for the same-typed fields (the workspace already added with_parsed/with_not_found/with_not_parsable on CalendarEventParseResult in JMAP-ic0j.60 work, so the swap-safe escape hatch exists today \u2014 backends concerned about the swap risk can use CalendarEventParseResult::default().with_parsed(p).with_not_found(nf).with_not_parsable(np)). Closing as out-of-scope for the calendars-server review epic per the canonical-propagation rule. P3 carries appropriate priority for any future workspace-wide sweep."
+}

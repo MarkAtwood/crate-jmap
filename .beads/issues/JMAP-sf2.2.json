@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-sf2.2",
+  "title": "Email/copy extra invocations use request format \u2014 should be response format",
+  "description": "The dispatcher (jmap-server lib.rs:190) appends extra invocations verbatim to methodResponses \u2014 it does NOT re-execute them. So extra invocations must be response-format objects, not request args.\n\nsubmission.rs is CORRECT: builds a full Email/set response object as the extra invocation.\n\nEmail/copy (email.rs:1141-1155 and 1171-1180) is WRONG: builds request-format objects ({accountId, destroy: [...]} and {accountId, update: {...}}) as extra invocations. A client receiving the batch response sees an 'Email/set' response that contains 'destroy'/'update' keys instead of 'created'/'updated'/'destroyed' \u2014 invalid RFC 8620 \u00a73.4 response format.\n\nFix: Email/copy must build full Email/set response objects for its extra invocations, executing the destroy/update side effects directly (as submission.rs does) and building the response to return.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:28:37Z",
+  "updated_at": "2026-05-01T02:40:57Z",
+  "closed_at": "2026-05-01T02:40:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sf2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:28:36"
+    }
+  ]
+}

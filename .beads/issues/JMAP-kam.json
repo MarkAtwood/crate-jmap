@@ -1,0 +1,28 @@
+{
+  "id": "JMAP-kam",
+  "title": "jmap-client: tests",
+  "description": "Write the full test suite for jmap-client as specified in PLAN.md. All tests use wiremock \u2014 no live network. Tests must verify the Chat-variant removals and security additions made in other beads.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-29T23:31:13Z",
+  "updated_at": "2026-04-30T00:08:39Z",
+  "closed_at": "2026-04-30T00:08:39Z",
+  "design": "Test areas: (1) JmapClient::new() URL validation (empty, bad scheme, path present, query, fragment). (2) fetch_session with mock returning RFC 8620 \u00a72 session JSON. (3) call() round-trip with mock returning JmapResponse. (4) BearerAuth adds correct Authorization header. (5) SSE parse_sse_block with known block formats from jmapchat-client/src/sse.rs inline tests. (6) JmapRequestBuilder unit tests (no network). (7) SPLIT VERIFICATION: assert SseEvent has no Typing or Presence variants (compile-time \u2014 use exhaustive match or check variant count). (8) SPLIT VERIFICATION: assert WsFrame has no ChatTyping or ChatPresence variants. (9) SIZE CAP TESTS: mock fetch_session returning > 1 MiB body \u2192 expect ClientError::ResponseTooLarge. mock call() returning > 8 MiB body \u2192 expect ClientError::ResponseTooLarge. (10) WebSocket @type field: verify outgoing WS frame contains @type: 'Request'.",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3g1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:39"
+    },
+    {
+      "depends_on_id": "JMAP-75e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:48"
+    }
+  ]
+}

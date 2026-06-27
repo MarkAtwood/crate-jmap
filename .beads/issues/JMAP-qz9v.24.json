@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already fixed by bd:JMAP-qz9v.35 close (commit fda4e37 this session). Both concerns the bead raises are resolved:\n\n1. **'type_name: &'static str' locks call sites to string literals**: signature now reads 'type_name: &str' (crate-jmap-contacts-server/src/memory.rs ~line 412). Parameterised fixtures can pass computed values. The internal storage keys still require &'static str, so the dispatch rebinds the accepted input to the matching literal \u2014 mirrors the canonical jmap-calendars-server pattern (bd:JMAP-ic0j.69).\n\n2. **Typo silently corrupts the store**: seed_object now panics with an actionable message naming the typo and the known type-name list ('AddressBook', 'ContactCard') at the seed boundary. Test added: seed_object_rejects_unknown_type_name in mod seed_object_validation_tests.\n\nVerified at HEAD via grep + the new unit tests covering the four panic cases + the non-static-str positive control test seed_object_accepts_non_static_type_name. The bead's PROPAGATION concern (sibling cookie-cutter divergence) is tracked at bd:JMAP-flv7 for tasks-server (the only remaining sibling with seed_object that still has the gap).",
+  "closed_at": "2026-05-17T20:46:54Z",
+  "compaction_level": 0,
+  "content_hash": "02f1a48ea9c9389806215574a89df32a829aaf0c8ba2c5abc3f892036c2dfc7f",
+  "created_at": "2026-05-14T19:30:37Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/src/memory.rs:251-266\n\nSIGNATURE:\n    pub fn seed_object(\n        &self,\n        account_id: &str,\n        type_name: &'static str,\n        id: &str,\n        value: serde_json::Value,\n    )\n\nUSAGE (integration tests, tests/contacts_tests.rs:84-87 etc.):\n    backend.seed_object(\"acc1\", \"AddressBook\", \"ab1\", address_book_fixture(...));\n    backend.seed_object(\"acc1\", \"ContactCard\", \"card1\", contact_card_fixture(...));\n\nCALLER CONTRACT PROBLEM:\nThe `type_name: &'static str` parameter is stringly-typed. Valid values\nare \"AddressBook\" and \"ContactCard\" (matched by `O::TYPE_NAME` in the\nbackend). The signature does not communicate which strings are valid;\ncallers must read the source. A typo like `\"Addressbook\"` or\n`\"ContactCardd\"` compiles fine, runs without error during seeding, and\nsilently corrupts the store \u2014 `get_objects::<AddressBook>` will fail to\nfind the seeded fixture, leaving the test author to debug the fixture\nplumbing rather than getting a fail-fast at the seed call site.\n\nOnce this crate ships seed_object with a `&'static str` parameter, we\ncannot promote it to a sealed enum or to `O: JmapObject` type-parameter\nform (the obvious cleanups) without breaking every caller. The\n&'static str bound makes even runtime-typed callers (rare for test\nfixtures, but possible) impossible without leaking the &'static\nrequirement.\n\nWHAT CALLERS CANNOT DEPEND ON:\n- That an invalid type_name will produce an error.\n- That refactoring \"AddressBook\" \u2192 AddressBook::TYPE_NAME inside the\n  test will not silently relocate the seeded data into a new bucket.\n\nRECOMMENDED (any one of):\n(a) Generic: `pub fn seed_object<O: JmapObject>(&self, account_id: &Id,\n    id: &Id, value: serde_json::Value)`. Caller writes\n    `seed_object::<AddressBook>(...)` and the type system enforces.\n(b) Sealed enum: `pub enum SeedType { AddressBook, ContactCard }` and\n    accept that. New variants are non-breaking via #[non_exhaustive].\n(c) Two separate helpers: `seed_address_book` / `seed_contact_card`.\n\nWORKSPACE NOTE:\nThis helper exists only in contacts-server, not in the canonical\njmap-mail-server. If kept, the canonical-template propagation rule\napplies \u2014 add to mail-server (and the other 5 extension servers) with\nmatching shape, or remove from contacts-server.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::seed_object stringly-typed type_name: &'static str \u2014 locks call sites to string literals",
+  "updated_at": "2026-05-17T20:46:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:30:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "8b40f149-7719-547f-a2cc-c29ae8ddc59d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

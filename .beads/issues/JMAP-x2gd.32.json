@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "chat-server-local part (HashMap import) done in commit b265e06. The wider 13-positional-arg Message::new reshape (the type-design half in jmap-chat-types) is tracked as JMAP-x2gd.100 (canonical-template propagation: mail-types Email::new takes 6 args, chat-types drifted to 13).",
+  "closed_at": "2026-05-17T04:22:13Z",
+  "compaction_level": 0,
+  "content_hash": "b8b522fa80031bfaa1e0d31fb94ec6d17a520b9fb151958477bb077720b6b731",
+  "created_at": "2026-05-14T03:21:45Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/message.rs:456 \u2014 inside Message::new(...) constructor call:\n\n    let mut msg = Message::new(\n        Id::from(\"placeholder\"),\n        Id::from(create_id.as_str()),\n        SenderId::Owner,\n        chat_id,\n        body,\n        body_type,\n        vec![],\n        vec![],\n        vec![],\n        std::collections::HashMap::new(),    // <-- here\n        sent_at,\n        received_at,\n        DeliveryState::Pending,\n    );\n\nThe fully-qualified path `std::collections::HashMap::new()` is used inline in a positional constructor call. Two non-idiomatic concerns:\n\n1. Inconsistent imports. The file does NOT `use std::collections::HashMap` at the top, yet it does `use std::collections::HashSet` at message.rs:8 \u2014 the asymmetry is local inconsistency. Either both should be top-level `use`d, or neither.\n\n2. Twelve positional arguments to a constructor. `Message::new(...)` takes 13 positional args of which 4 are `vec![]` / `HashMap::new()` empty containers. This is exactly the call-site shape a builder pattern or a `Default`-and-struct-update pattern is designed to replace. The downstream four assignments at lines 462-467 (`msg.reply_to = ...; msg.thread_root_id = ...; msg.sender_expires_at = ...; msg.burn_on_read = ...`) reinforce the smell: the constructor takes 13 mandatory args, then the caller assigns 4 more optional fields imperatively. A struct-with-Default plus `Message { id, sender_id_msg, ..Default::default() }` would shrink this from 17 lines to 5 and make required-vs-optional structurally obvious.\n\nThis finding is about the message.rs handler \u2014 the wider Message::new shape lives in jmap-chat-types and would need a propagation bead there. But the *call-site* in message.rs is the part subject to this review.\n\nWhat goes wrong if left:\n\n- (1) is a clippy/style miss; a future contributor adding HashMap usage elsewhere will be unsure whether to import or fully-qualify.\n- (2) is a real readability concern: positional constructors past 5-6 args lose call-site meaning. The reviewer cannot tell at a glance which `vec![]` is reactions, which is attachments, which is mentions. The risk is silently passing args to the wrong slot during refactors (the compiler won't catch it because all three Vec<_> slots accept the same `vec![]`).\n\nScope: P3 clippy for (1), P2 type-design for (2). Combined finding because they share a site and rewriting #2 dissolves #1.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "message.rs Message::new call site: fully-qualified HashMap path + 13-positional-arg constructor",
+  "updated_at": "2026-05-17T04:22:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:21:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "f6e50e82-3b55-58b0-b325-8b0e1a611fbd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

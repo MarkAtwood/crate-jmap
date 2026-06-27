@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T06:36:02Z",
+  "id": "019e34a6-1aef-7ee9-9013-ef37307f4adb",
+  "issue_id": "JMAP-826m.25",
+  "text": "Resolved together with bd:JMAP-826m.8 (path (a): propagate mail-server's IdFate algorithm). The new HashMap<Id, IdFate> dedup replaces the prior Vec::contains + retain pattern in both the default get_changes and the get_metadata_changes override, fixing the O(n\u00b2) cost in lockstep with the \u00a75.2 omit-both conformance."
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.19",
+  "title": "SSE framing uses scan_from = old_len.saturating_sub(3) to avoid re-scanning the full buffer",
+  "description": "The subscribe_events() SSE framing loop maintains scan_from = old_len.saturating_sub(3) and re-starts the delimiter search from that position after each chunk append. The comment explains the invariant: 3 bytes back covers the longest incomplete delimiter prefix that can straddle a chunk boundary, specifically the prefix of the CRLF variant \\r\\n\\r (which is the start of \\r\\n\\r\\n). A contributor might 'simplify' this to always scan from 0, which is correct but O(n^2) in buffer size and pathological for large slow streams. They might also change the 3 to 1 to save one comparison, which would miss the CRLF case and produce a framing bug. The value 3 is derived directly from the longest incomplete multi-byte delimiter prefix. Do not change it.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:55Z",
+  "updated_at": "2026-04-30T01:02:40Z",
+  "closed_at": "2026-04-30T01:02:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:55"
+    }
+  ]
+}

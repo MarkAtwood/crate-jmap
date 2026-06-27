@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:55:05Z",
+  "compaction_level": 0,
+  "content_hash": "efce0d6f8c5e5d8693d23e529d689ac9d9e5b6b609d03422551c454acf73b82b",
+  "created_at": "2026-05-02T00:44:24Z",
+  "created_by": "Mark Atwood",
+  "description": "common/mod.rs email_matches_condition (~lines 1585-1591): the in_mailbox_other_than check iterates all of the email's mailbox keys (email.mailbox_ids.keys()) and for each calls excluded.contains(id), where excluded is a Vec<Id>. This is O(email_mailbox_count * excluded_list_length) per email. For a query scanning E emails where each has M mailboxes and the filter lists K excluded mailboxes, the filter pass is O(E*M*K). The excluded list should be converted to a HashSet before the per-email loop. This is test infrastructure, but the pattern is what implementors will copy into production backends.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "email_matches_condition: in_mailbox_other_than O(mailboxes*excluded) scan",
+  "updated_at": "2026-05-02T00:55:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:44:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "1ff92ca0-da74-5048-a361-9e54497079fc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

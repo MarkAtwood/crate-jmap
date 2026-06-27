@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Adopted PatchObject across jmap-sharing-{types,server,client}. 2 SetObject::Patch impls migrated (Principal, ShareNotification). 1 server destructure converted in principal.rs. 1 client method signature migrated. cargo test --workspace: 1450/0/7. clippy clean.",
+  "closed_at": "2026-05-08T20:58:50Z",
+  "compaction_level": 0,
+  "content_hash": "7ed4887fa2afe14a211a2f02d72800e7551a12527b12a41ff5950d58f02455c3",
+  "created_at": "2026-05-08T20:46:38Z",
+  "created_by": "Mark Atwood",
+  "description": "Non-locked subset of JMAP-zk6m. Migrate jmap-sharing-types (2 SetObject::Patch impls: Principal, ShareNotification), jmap-sharing-server (1 destructure in principal.rs:141 + notification.rs:94 read-only-rejection iteration + tests/common/mod.rs MemoryBackend + json_merge_patch helper + query_changes_tests wrapper backend), jmap-sharing-client (1 method signature: principal_set; ShareNotification is destroy-only). Wire format unchanged. Principal.accounts Sloppy-Value field is OUT OF SCOPE.",
+  "ephemeral": 0,
+  "id": "JMAP-zk6m.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Adopt PatchObject across sharing triple (types+server+client)",
+  "updated_at": "2026-05-08T20:58:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-08T13:46:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zk6m",
+      "id": "70d79542-6e29-5c6f-84b1-e0138f2552de",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Migrated 7 UTCDateTime fields in jmap-calendars-types from String to UTCDate: event.rs Event.{created,updated} (Option<UTCDate>), notification.rs CalendarEventNotification.created (UTCDate) and NotificationFilterCondition.{after,before} (Option<UTCDate>), capability.rs CalendarsAccountCapability.{min,max}_date_time (UTCDate). Wire format unchanged. Fixed one downstream test in jmap-calendars-client to construct UTCDate explicitly. cargo test, cargo clippy -D warnings, RUSTDOCFLAGS='-D warnings' cargo doc all clean.",
+  "closed_at": "2026-05-11T06:36:05Z",
+  "compaction_level": 0,
+  "content_hash": "cc1facef24dd19814b210347b078eb2476a1f542a7c073b3cbf35774c7800dd0",
+  "created_at": "2026-05-11T06:26:13Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Audit follow-up from JMAP-g7wu.9.5. Migrate 7 public String fields documented as UTCDate/UTCDateTime to jmap_types::UTCDate.\n\nSites (all in crate-jmap-calendars-types/src/):\n\n1. event.rs:135 \u2014 pub created: Option<String>  (JSCalendar UTCDateTime per RFC 8984 \u00a74.1.5)\n2. event.rs:139 \u2014 pub updated: Option<String>  (JSCalendar UTCDateTime per RFC 8984 \u00a74.1.5)\n3. notification.rs:68 \u2014 pub created: String  (doc says 'UTC date-time')\n4. notification.rs:179 \u2014 pub after: Option<String>  (doc says 'UTCDate')\n5. notification.rs:183 \u2014 pub before: Option<String>  (doc says 'UTCDate')\n6. capability.rs:48 \u2014 pub min_date_time: String  (UTCDateTime per draft-ietf-jmap-calendars-26 \u00a71.6.1 line 347)\n7. capability.rs:52 \u2014 pub max_date_time: String  (UTCDateTime per draft-ietf-jmap-calendars-26 \u00a71.6.1 line 351)\n\nChange:\n  Option<String> -> Option<UTCDate>\n  String         -> UTCDate\n\nRationale: identical wire format to JMAP-g7wu.9.1's already-landed migration of utc_start/utc_end. JSCalendar UTCDateTime equals RFC 8620 UTCDate format (RFC 3339 with trailing 'Z'), so jmap_types::UTCDate newtype is the right type.\n\nOut of scope (intentionally NOT included):\n- LocalDateTime fields (CalendarEventFilterCondition::after/before at event.rs:338,343 \u2014 these are LocalDateTime per their doc comments).\n- time_zone fields (IANA tz identifiers, not dates).\n- recurrence_id_time_zone (IANA tz).\n- sent_by (email addr-spec).\n\nAPI break \u2014 0.2.0 class. Coordinate with sibling beads for tasks-types / contacts-types / filenode-types per workspace cookie-cutter rule. canonical extension-types crate is jmap-mail-types (already fully migrated).\n\nTest approach: update any RFC-example fixture tests to construct UTCDate via UTCDate::new_validated() or UTCDate::from() \u2014 wire JSON unchanged because UTCDate is a transparent newtype around String.\n\nAcceptance:\n- cargo test -p jmap-calendars-types passes.\n- cargo clippy -p jmap-calendars-types -- -D warnings clean.\n- All 7 fields use Option<UTCDate> or UTCDate.\n- Downstream jmap-calendars-server and jmap-calendars-client still compile (the wire format and serde shape are unchanged).\n- RUSTDOCFLAGS='-D warnings' cargo doc -p jmap-calendars-types --no-deps clean.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.9.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "UTCDate migration in jmap-calendars-types (JSCalendar UTCDateTime fields and capability bounds)",
+  "updated_at": "2026-05-11T06:36:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T23:26:12Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-g7wu.9",
+      "id": "c419558c-eb16-59d4-80d8-c456fb456960",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:26:05Z",
+  "compaction_level": 0,
+  "content_hash": "fc54119de876fcdc8a7792f03d80d0e2fe1af899ef5cde146ca59dfbdcbfc9ff",
+  "created_at": "2026-05-07T20:29:14Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-calendars-server/README.md headline says 'all 20 method names'. The registered set in lib.rs is 19:\n- Calendar (3): get/set/changes\n- CalendarEvent (7): get/set/changes/query/queryChanges/copy/parse\n- CalendarEventNotification (5): get/set/changes/query/queryChanges\n- ParticipantIdentity (3): get/set/changes\n- Principal/getAvailability (1)\nTotal: 3+7+5+3+1 = 19\n\nThe table contents in the README are correct; only the cardinality and the 'all 20' headline are wrong.\n\nFix: change to 'all 19 method names' and verify against draft-ietf-jmap-calendars-26 \u00a7X.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: calendars-server README claims 'all 20 methods' (actual 19)",
+  "updated_at": "2026-05-07T21:26:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "5dee87e0-13d8-5b4a-8d47-94e58b2a95ce",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

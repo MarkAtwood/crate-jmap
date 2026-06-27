@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T00:17:27Z",
+  "compaction_level": 0,
+  "content_hash": "86a299bf2d25c2c517c0adedf7d3427719fc6a194aea6b38fa9f15f7988b39bb",
+  "created_at": "2026-05-03T00:10:35Z",
+  "created_by": "Mark Atwood",
+  "description": "MemoryBackend::send_mdns has a for_email_id.is_none() check at the top of the entry loop that inserts a notFound SetError and continues. But handle_mdn_send filters out all None for_email_id entries (returning invalidProperties) before calling send_mdns. The backend check is unreachable via the handler and represents dead code that will confuse future contributors reading the backend. Wrong error type too (NotFound instead of InvalidProperties). Fix: remove the None check from MemoryBackend::send_mdns; document in the MdnBackend trait doc that callers guarantee for_email_id is Some.",
+  "ephemeral": 0,
+  "id": "JMAP-o68r.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Dead for_email_id None check in MemoryBackend send_mdns",
+  "updated_at": "2026-05-03T00:17:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:10:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o68r",
+      "id": "be54da69-83d4-5115-b216-a8431668e760",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

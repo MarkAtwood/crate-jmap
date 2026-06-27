@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decomposed into existing workspace execution epic bd:JMAP-grs0 (Inner-state HashMap restructure). This metadata-server-scope finding is the per-crate equivalent of bd:JMAP-x2gd.52 (chat-server scope) and bd:JMAP-x2gd.84 (cross-walk classification, closed). Epic grs0 was filed previously but had no children; this session filed 8 per-crate children (canonical jmap-mail-server at .1 with 6 known .to_owned sites, 7 siblings at .2-.8 blocking on .1). Metadata-server's grs0.8 is the bead that will land the fix in this crate. Epic adopts option (a) nested HashMap<&'static str, HashMap<String, T>> per the recommendation in grs0's epic body \u2014 outer key is &'static str (no alloc), inner HashMap<String, V>::get works with &str via Borrow<str> stdlib path. No code change made under this bead \u2014 execution moves to grs0.8 (gated by grs0.1 canonical landing first).",
+  "closed_at": "2026-05-17T05:49:38Z",
+  "compaction_level": 0,
+  "content_hash": "e817fc1d0ea4db9b398a6e9a8aedc586e13377a714d508eb46fa88863a114a63",
+  "created_at": "2026-05-14T14:32:31Z",
+  "created_by": "Mark Atwood",
+  "description": "src/memory.rs:115-124 defines Inner's storage maps with composite keys of the form (&'static str, String):\n\n    objects: HashMap<(&'static str, String), HashMap<Id, serde_json::Value>>,\n    states: HashMap<(&'static str, String), u64>,\n    change_log: HashMap<(&'static str, String), Vec<ChangeEntry>>,\n\nEvery read-side lookup must allocate a String for the lookup key, because HashMap::get<Q>(&self, key: &Q) requires K: Borrow<Q>, and (&'static str, String) does not Borrow<(&str, &str)>. Witness sites:\n\n    src/memory.rs:130: .get(&(type_name, account_id.to_owned()))\n    src/memory.rs:137: .entry((type_name, account_id.to_owned()))\n    src/memory.rs:148: self.known_accounts.insert(account_id.to_owned());\n    src/memory.rs:150: .entry((type_name, account_id.to_owned()))\n    src/memory.rs:159: self.objects.get(&(type_name, account_id.to_owned()))\n    src/memory.rs:168: .entry((type_name, account_id.to_owned()))\n    src/memory.rs:434: .get(&(O::TYPE_NAME, account_id.as_ref().to_owned()))\n    src/memory.rs:637: inner.known_accounts.insert(account_id.as_ref().to_owned());\n    src/memory.rs:853: .get(&(Metadata::TYPE_NAME, account_id.as_ref().to_owned()))\n\nIdiomatic Rust would either:\n\n(a) Use a nested map structure: HashMap<&'static str, HashMap<String, T>> \u2014 outer keyed by static str (no alloc), inner keyed by String but the lookup string can borrow.\n\n(b) Use a CompactString or SmartString for the second component (still allocates, but inline for short ids).\n\n(c) Use a typed key newtype implementing Borrow<&str> via a custom unsized type \u2014 too complex for a demo backend, but the right answer for a production backend.\n\n(d) Accept the alloc explicitly: the canonical mail-server's MemoryBackend has the same pattern (memory.rs:131-160 across crate-jmap-mail-server). Workspace policy: this is a canonical-template issue, not a metadata-server divergence \u2014 fix in jmap-mail-server first, then propagate.\n\nWhat goes wrong as-is: every /get, /changes, /set, /query call allocates a temporary String for each HashMap lookup. For the reference impl this is acceptable (the rustdoc disclaims production-grade); for downstream contributors copying the pattern into production, the demo backend telegraphs the wrong idiom. AGENTS.md says 'demo_next_id cargo-cult warning block is load-bearing onboarding documentation' (per JMAP-ayoz.20) \u2014 the same load-bearing-warning logic applies here, and there is no warning. Either fix the canonical or document the alloc as an explicit demo concession.\n\nPriority is P3 (not P1) because: (1) it is a canonical-template issue affecting all 7 extension-server siblings equally, (2) the rustdoc explicitly disclaims this as 'not production', (3) no downstream consumer is shipping this. The fix is canonical-first per workspace AGENTS.md.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend HashMap key (&'static str, String) forces .to_owned() allocation on every lookup",
+  "updated_at": "2026-05-17T05:49:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:32:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "9c2c4d6f-947a-5e88-b7cc-083969399404",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

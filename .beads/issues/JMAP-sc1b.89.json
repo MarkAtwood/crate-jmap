@@ -1,0 +1,33 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T15:18:09Z",
+  "compaction_level": 0,
+  "content_hash": "a072259c959951fbbcc7b7b7d5622ce48e254009521063a847940a01c1076652",
+  "created_at": "2026-05-11T14:23:23Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Location: `crate-jmap-chat-server/src/space.rs:601`\n\n  let invite = invites\n      .into_iter()\n      .find(|inv| inv.code == code)\n      .ok_or_else(|| JmapError::invalid_arguments(\"invite code not found\"))?;\n\nCONCERN\n`inv.code` is the SpaceInvite code field (`crate-jmap-chat-types/src/space.rs:96`), doc'd in the ChatBackend trait (`crate-jmap-chat-server/src/backend.rs:74-89`) as the output of a CSPRNG and explicitly described as 'unguessable'. It is the credential that authorizes a Space/join.\n\nThe `String == String` comparison short-circuits at the first mismatched byte. An attacker who can issue Space/join requests can mount a timing oracle to recover an invite code byte-by-byte. The threat is bounded but real: network jitter raises the noise floor but does not eliminate the side-channel for short fixed-length tokens. Industry standard is constant-time compare for any 'is this token correct' check regardless of jitter (NIST SP 800-57, IRTF CFRG guidance).\n\nWHAT GOES WRONG\nKey recovery \u2014 specifically, invite-code recovery \u2192 unauthorized Space membership.\n\nWORKSPACE GAP\n`subtle::ConstantTimeEq` is not in the workspace dependency tree (grep confirms zero hits for `subtle::`, `ConstantTimeEq`, `constant_time` across all 25 crates). There is no constant-time-compare facility for future MAC/session-token/HMAC comparisons either.\n\nPROPOSED FIX\n1. Add `subtle` to workspace.dependencies.\n2. In space.rs:601, replace `inv.code == code` with subtle-based compare:\n       use subtle::ConstantTimeEq;\n       inv.code.as_bytes().ct_eq(code.as_bytes()).into()\n   (Note: `==` lengths first, then constant-time over the canonical byte length. The two strings can be of different lengths in principle; document the length-discrimination decision.)\n3. Document the constant-time invariant on `SpaceInvite.code` in jmap-chat-types and on the trait method that consumes it.\n\nORACLE\n- IRTF CFRG side-channel-resistance guidance for token comparisons (https://datatracker.ietf.org/wg/cfrg/charter/)\n- `subtle::ConstantTimeEq` docs (https://docs.rs/subtle)\n- Match shape to BearerAuth's existing redaction discipline (auth.rs:183-189) \u2014 the workspace already treats credential comparisons as a defended surface elsewhere.\n\nRISK CLASSIFICATION\nP2. Live exploitable timing oracle on a credential comparison, mitigated only by network jitter. The fix is mechanical and cheap; not blocking publish but should land before crates.io release.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.89",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security: non-constant-time invite-code compare in Space/join (crate-jmap-chat-server/src/space.rs:601)",
+  "updated_at": "2026-05-11T15:18:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:23:23Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "766435ae-6bb6-5fdd-8493-0e20e048e3b8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

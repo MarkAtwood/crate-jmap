@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-450.4",
+  "title": "collapseThreads: total reflects page-local collapse, not full result-set thread count",
+  "description": "email.rs:180-195 \u2014 when collapseThreads=true, the backend returns a page of N emails; collapse_by_thread deduplicates that page; then total = ids.len() (collapsed page count). If the full result set has 100 emails collapsing to 30 threads but the page has 20 emails collapsing to 15 threads, total=15 is wrong (should be 30). Also result.position is from the pre-collapse query and may not match the collapsed ids slice. Clients using total for pagination will loop forever or stop early.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:34:38Z",
+  "updated_at": "2026-04-30T21:50:19Z",
+  "closed_at": "2026-04-30T21:50:19Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-450",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:34:38"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-kjt.4",
+  "title": "Add system keyword constants (RFC 8621 \u00a74.1.1)",
+  "description": "RFC 8621 \u00a74.1.1 defines system keywords that callers use as HashMap keys in Email.keywords. Without named constants, callers hardcode magic strings and typos silently produce missing functionality. System keywords: $seen, $answered, $flagged, $draft, $forwarded, $phishing, $mdnsent. RFC 8621 \u00a74.1.1 also notes that IMAP keywords may appear; only the JMAP-defined ones need constants.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:05:28Z",
+  "updated_at": "2026-04-30T04:24:31Z",
+  "closed_at": "2026-04-30T04:24:31Z",
+  "design": "A pub mod keyword with pub const str values, e.g. pub const SEEN: &str = '$seen'. Alternatively a Keyword newtype wrapping String with associated consts. The simpler &str consts are easier to use as HashMap keys and add no allocation overhead.",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-kjt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:05:28"
+    }
+  ]
+}

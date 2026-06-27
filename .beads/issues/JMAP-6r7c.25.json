@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in 22c103f. Added jmap_client_is_send_sync_clone compile-time trait-bound assertion test pinning JmapClient: Send + Sync + Clone. Extended JmapClient struct rustdoc to document the contract for consumers. Future refactor introducing non-Sync field (Rc/RefCell/Cell) fails the test in CI.",
+  "closed_at": "2026-05-17T11:29:49Z",
+  "compaction_level": 0,
+  "content_hash": "08bc023f34f4c6b5dbaec0286ab029612c4c38795b62111835c44ad35e604691",
+  "created_at": "2026-05-14T23:16:07Z",
+  "created_by": "Mark Atwood",
+  "description": "client.rs:155-160 \u2014 pub struct JmapClient\n\nThe Clone derive auto-generates Clone iff all fields are Clone:\n  - url::Url: Clone \u2713\n  - Arc<dyn AuthProvider>: Clone \u2713\n  - reqwest::Client: Clone \u2713 (Arc-backed)\n  - ClientConfig: Clone \u2713\n\nThe struct ends up Send + Sync because:\n  - url::Url is Send + Sync\n  - Arc<dyn AuthProvider> requires AuthProvider: Send + Sync (which the trait requires at auth.rs:112)\n  - reqwest::Client is Send + Sync\n  - ClientConfig is Send + Sync\n\nSo `JmapClient: Send + Sync + Clone`. But the public docs do not state this contract. A caller relying on it (passing JmapClient by &Arc, sharing across tokio tasks) is exposed if a future internal refactor adds an Rc<...> or RefCell<...> field that breaks Sync. The Arc<dyn AuthProvider> blanket-impl maintenance note (auth.rs:107) flags one direction; the inverse direction \u2014 keeping JmapClient itself Send + Sync \u2014 is not flagged anywhere.\n\nRecommendation:\n1. Add a compile-time assert in the test module:\n   ```rust\n   #[test] fn jmap_client_is_send_sync() {\n       fn assert_send_sync<T: Send + Sync>() {}\n       assert_send_sync::<JmapClient>();\n   }\n   ```\n2. Document on the struct: \"JmapClient is Send + Sync + Clone. Share by clone; the underlying reqwest::Client and Arc<dyn AuthProvider> are reference-counted.\"\n\nThe same gap applies to WsSession. It contains SplitSink/SplitStream over a MaybeTlsStream<TcpStream>. The Send-ness of those depends on tungstenite's internal types. A compile-time assert would lock the contract.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "JmapClient lacks Send/Sync trait bounds in docs; AuthProvider trait-object requires Send + Sync at compile time",
+  "updated_at": "2026-05-17T11:29:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:16:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "72f4fe8d-ad29-5e60-ab02-83402e17548b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

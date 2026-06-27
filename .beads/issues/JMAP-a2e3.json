@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added msrv CI job using dtolnay/rust-toolchain@1.88.0 + cargo check --workspace --all-features --locked. The declared MSRV (1.88) now has CI coverage; a future transitive-dep update that silently raises the actual MSRV will fail this job. YAML validated. Commit pending.",
+  "closed_at": "2026-05-09T04:55:14Z",
+  "compaction_level": 0,
+  "content_hash": "0152c8402ddddab386346d7fb5f9d70c639b88b7f82e441298db64956d74fe55",
+  "created_at": "2026-05-08T18:25:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Plan C deferred from JMAP-sc1b.9. The workspace declares rust-version = \"1.75\" in Cargo.toml [workspace.package]. CI must verify the workspace actually compiles with the declared MSRV, otherwise a transitive-dep update could silently bump the minimum supported Rust version without us noticing.\n\nImplementation hint: add a single 'msrv' job using dtolnay/rust-toolchain@1.75 and run 'cargo check --workspace --all-features --locked'. Use --locked to prevent surprise dep upgrades during the check.\n\nNote: MSRV check is build-only (cargo check), not test. Some test-only features (e.g. wiremock) may require newer Rust; that is acceptable as long as library crates' build paths are MSRV-clean.\n\nCloses the MSRV TODO comment in .github/workflows/ci.yml.",
+  "ephemeral": 0,
+  "id": "JMAP-a2e3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "2026-05-08: Investigation discovered declared MSRV 1.75 does not match actual MSRV (~1.86 minimum, 1.88 confirmed working). Failure modes: Rust 1.75 fails on hashbrown 0.17.0 needing edition2024; Rust 1.85 fails on icu_*@2.2.0 needing rustc 1.86. Blocked on JMAP-ulfy (decision: bump declared MSRV vs pin deps vs drop MSRV declaration). Will resume once JMAP-ulfy resolved.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CI: add MSRV (1.75) build check",
+  "updated_at": "2026-05-09T04:55:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-08T19:43:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ulfy",
+      "id": "af07ee7f-55a0-50f0-9db7-6f17f9384495",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

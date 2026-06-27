@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "Types and constants added. cargo test passes.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added CalendarEventParseResponse, PrincipalGetAvailabilityResponse, USING_PARSE, USING_AVAILABILITY; 2 serde tests; 24 total pass; clippy clean",
+  "closed_at": "2026-05-05T15:25:11Z",
+  "compaction_level": 0,
+  "content_hash": "f2e8894de0e1fc0f30993d9e5db63959220de0506ab74baaaabae68f76cdf761",
+  "created_at": "2026-05-05T02:55:18Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Add CalendarEventParseResponse and PrincipalGetAvailabilityResponse types to crate-jmap-calendars-client/src/methods/mod.rs. Add USING_PARSE and USING_AVAILABILITY constants. Re-export from lib.rs. Depends on BusyPeriod being added to jmap-calendars-types (JMAP-z2cy B1).\n\n**Algorithm:**\n1. In methods/mod.rs, add:\n   pub struct CalendarEventParseResponse {\n       pub account_id: Id,\n       pub parsed: Option<HashMap<Id, Vec<jmap_calendars_types::CalendarEvent>>>,\n       pub not_found: Option<Vec<Id>>,\n       pub not_parsable: Option<Vec<Id>>,\n   }\n   pub struct PrincipalGetAvailabilityResponse {\n       pub list: Vec<jmap_calendars_types::BusyPeriod>,\n   }\n2. Add constants:\n   pub(crate) const USING_PARSE: &[&str] = &[\"urn:ietf:params:jmap:core\", \"urn:ietf:params:jmap:calendars\", \"urn:ietf:params:jmap:calendars:parse\"];\n   pub(crate) const USING_AVAILABILITY: &[&str] = &[\"urn:ietf:params:jmap:core\", \"urn:ietf:params:jmap:principals:availability\"];\n3. Re-export both response types from lib.rs.\n4. Add unit serde tests for both types using spec-derived JSON literals.\n5. cargo test -p jmap-calendars-client.\n\n**Acceptance criteria:**\n- CalendarEventParseResponse and PrincipalGetAvailabilityResponse publicly accessible.\n- USING_PARSE contains 3 URIs. USING_AVAILABILITY contains 2 URIs.\n- cargo test -p jmap-calendars-client exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-7i4v.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add BusyPeriod type and CalendarEvent/parse response types to mod.rs",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:55:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7i4v",
+      "id": "3a46cd92-c8f4-52e1-9789-b689326a0499",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

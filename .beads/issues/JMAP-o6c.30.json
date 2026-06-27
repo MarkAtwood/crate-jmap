@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Extracted role_already_held(role_str, all_mailboxes, vacated, exclude_id) helper. Create loop passes None for exclude_id; update loop passes Some(&id). Eliminates duplicate iter().any() predicate across both loops.",
+  "closed_at": "2026-05-04T15:47:36Z",
+  "compaction_level": 0,
+  "content_hash": "40cf0107cd94098434ea5633081544e2df8a213b48638215c00790d691c71971",
+  "created_at": "2026-05-02T03:26:36Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs handle_mailbox_set: the role uniqueness check appears independently in the create loop (~line 462) and the update loop (~line 663), with the same pattern: check all_mailboxes, check roles_just_created/claimed, check roles_actually_vacated. Suggest extracting a fn is_role_taken(role_str, all_mailboxes, vacated, created_map, claimed_set) -> bool so the logic is in one place and changes to the algorithm (e.g., adding cross-request deduplication) only need updating once.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Role uniqueness logic is duplicated across create and update loops",
+  "updated_at": "2026-05-04T15:47:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:26:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "7c3591ab-c41f-5a92-833a-a7a419a80ee1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

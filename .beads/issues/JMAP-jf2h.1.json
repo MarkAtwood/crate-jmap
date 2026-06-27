@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "onSuccessSetIsDefault wire type fixed. Ignored-id test passes.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed onSuccessSetIsDefault to accept Id|null (String), not map; creation reference #c1 resolved; errors silently ignored per \u00a72.3; 3 new tests; 18 pass; clippy clean",
+  "closed_at": "2026-05-05T14:51:36Z",
+  "compaction_level": 0,
+  "content_hash": "da82e8684de60fb093bfabdff46c544ae0f9dc68f6f79e0d30ce27a389e78974",
+  "created_at": "2026-05-05T02:59:42Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Critical correctness bug. In crate-jmap-contacts-server/src/addressbook.rs handle_address_book_set, the post-set block matches Some(Value::Object(is_default_map)) and iterates it as a map. The spec (draft-ietf-jmap-contacts-10 \u00a72.3) defines onSuccessSetIsDefault as Id|null \u2014 a single string id, not a map. Also fix the incorrect doc-comment on the field.\n\n**Algorithm:**\n1. Replace the post-set block (currently iterating a map) with:\n   match on_success_set_is_default {\n       Some(Value::String(id_str)) => {\n           // resolve creation reference: if id_str starts with '#', look up in created map\n           let resolved: Option<Id> = if id_str.starts_with('#') {\n               created.get(&id_str[1..]).and_then(|v| v.get(\"id\")).and_then(|v| v.as_str()).map(Id::from)\n           } else {\n               Some(Id::from(id_str.as_str()))\n           };\n           if let Some(target_id) = resolved {\n               let patch = json!({\"isDefault\": true});\n               match backend.update_object::<AddressBook>(&account_id, &target_id, patch).await {\n                   Ok(Some(obj)) => { updated.insert(target_id.to_string(), ...); mutated = true; }\n                   Ok(None) => {}  // silently ignored per \u00a72.3\n                   Err(_) => {}    // silently ignored per \u00a72.3\n               }\n           }\n       }\n       Some(Value::Null) | None => {}\n       _ => {}  // malformed \u2014 ignore\n   }\n2. Correct the doc-comment on AddressBookSetParams.on_success_set_is_default to say Id|null (single id string), not a map.\n3. Add test set_on_success_set_is_default_bare_id: pass as a string id; assert target book appears in updated.\n4. Add test set_on_success_set_is_default_bad_id_ignored: pass non-existent id; assert no error returned, notUpdated empty. Oracle: \u00a72.3 must be ignored.\n5. cargo test -p jmap-contacts-server.\n\n**Acceptance criteria:**\n- onSuccessSetIsDefault accepts a bare string Id, not a JSON object.\n- Creation reference #c1 resolved to server-assigned id.\n- Non-existent id silently ignored per \u00a72.3.\n- Doc-comment corrected.\n- cargo test -p jmap-contacts-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-jf2h.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix: onSuccessSetIsDefault wire type is Id|null not a map",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:59:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h",
+      "id": "3e5ef09f-7cff-5800-af21-04fdbc9a1bc3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

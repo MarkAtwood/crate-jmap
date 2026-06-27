@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T23:43:35Z",
+  "compaction_level": 0,
+  "content_hash": "75048f6ec91baff2b076cf8f2787472de45e63c359e9a026f7473df0d7b0c7a8",
+  "created_at": "2026-05-02T23:38:47Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8098 \u00a72.1 allows an optional list of disposition modifiers after the disposition-type, separated by '/'. Example: 'manual-action/MDN-sent-manually; displayed/error'. In common/mod.rs parse_disposition_field (line 2597), type_part is matched against bare strings ('displayed', 'processed', etc.). If a modifier is present (e.g. 'displayed/error'), the match fails and None is returned, sending the blob to notParsable. No test covers a blob with a disposition modifier. A future maintainer adding modifier support would need to change the split logic; the current code gives no hint this case exists.",
+  "ephemeral": 0,
+  "id": "JMAP-22zb",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mdn parse_mdns: disposition modifiers (RFC 8098 \u00a72.1) silently dropped as notParsable",
+  "updated_at": "2026-05-02T23:43:35Z"
+}

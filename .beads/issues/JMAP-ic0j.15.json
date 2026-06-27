@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T17:39:30Z",
+  "compaction_level": 0,
+  "content_hash": "d1c056eaf320ea39f31bb927d013c22e71a8032948334fd9df8e04aaf055e2ea",
+  "created_at": "2026-05-15T16:58:31Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:489-510 (the get_changes dedup loop) does:\n\n  for entry in &relevant {\n      for id in &entry.created {\n          if !destroyed.contains(id) && !created.contains(id) { created.push(id.clone()); }\n      }\n      for id in &entry.updated {\n          if !destroyed.contains(id) && !created.contains(id) && !updated.contains(id) {\n              updated.push(id.clone());\n          }\n      }\n      for id in &entry.destroyed {\n          created.retain(|c| c != id);\n          updated.retain(|u| u != id);\n          if !destroyed.contains(id) { destroyed.push(id.clone()); }\n      }\n  }\n\nWalking entries in order, when a destroyed-then-recreated id appears (per JMAP-ic0j.2's len()-based id recycling) the sequence is:\n  entry K:   destroyed.push(id)\n  entry K+2: created loop sees destroyed.contains(id) == true \u2192 SILENTLY DROPS the create\n\nSo a recycled id round-trips as 'only destroyed' from the perspective of /changes \u2014 the new live object becomes invisible to a client that called /changes spanning K to K+2.\n\nThis is a layered bug:\n1. JMAP-ic0j.2 is the root cause (id recycling shouldn't happen).\n2. The dedup loop here MASKS rather than detects the inconsistency. If both creates and destroys were preserved (i.e. RFC 8620 \u00a75.2 reports the id as 'changed' or similar), the client would at least retry-fetch and see the new live object.\n\nAfter JMAP-ic0j.2 lands, the dedup is correct under the invariant 'no id is ever recreated after destroy'. But the dedup ITSELF currently silently enforces that invariant on output even when storage violates it on input. That is a separation-of-concerns smell.\n\nFix paths (one of):\n(a) After JMAP-ic0j.2: leave the dedup alone, optionally add a debug_assert that no entry's created vec intersects a prior entry's destroyed vec, so any future regression in id minting trips immediately in tests.\n(b) Independent: change the dedup so a destroyed-then-recreated id results in BOTH a destroyed entry (for the old) AND a created entry (for the new). This requires distinguishing the two object identities, which the current Id-as-string model doesn't support without versioning.\n\nP1 because today this hides the JMAP-ic0j.2 P0 bug from being noticed. After fixing JMAP-ic0j.2 the loop becomes correct under the invariant \u2014 but until then it actively obscures observable evidence of the bug.\n\nTracking link: this is the same dedup logic referenced in the closing comment of bd:JMAP-qz9v.14 ('the de-dup logic at memory.rs:438-456 silently makes the re-minted id appear ONLY in destroyed because the loop sees destroyed second; that's another silent-correctness issue').",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "memory.rs change_log silently de-dups recycled ids hiding state bugs",
+  "updated_at": "2026-05-15T17:39:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T09:58:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "613b403c-b7fb-517b-84a5-624a73e387ba",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

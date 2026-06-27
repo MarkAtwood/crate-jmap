@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T20:03:04Z",
+  "id": "019e3788-f7b4-7df2-9509-ea7d448120be",
+  "issue_id": "JMAP-ayoz.36",
+  "text": "Deferred to bd:JMAP-p3xn (Workspace canonical hygiene: extension-server MemoryBackend / MemoryError / ClosureHandler re-export shape). The original bead descriptions already noted that the fix path goes through the canonical jmap-mail-server and propagates to all 8 extension-server siblings \u2014 that workspace-wide sweep is now tracked under the new epic. This bead will close when its corresponding per-sibling sweep child under JMAP-p3xn lands."
+}

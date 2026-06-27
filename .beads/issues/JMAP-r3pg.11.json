@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Fixed by JMAP-r3pg.2 commit 99a8be3 \u2014 handle_calendar_event_get now passes get_args.time_zone.as_deref() to compute_utc_times. Verified by inline test calendar_event_get_time_zone_passed_to_compute_utc_times.",
+  "closed_at": "2026-05-08T05:41:48Z",
+  "compaction_level": 0,
+  "content_hash": "9b3250a883364ff9dfecd8fda95a5f5fd0928118ab9ae04a4066ad5ee135539d",
+  "created_at": "2026-05-08T03:32:33Z",
+  "created_by": "Mark Atwood",
+  "description": "src/event.rs:48 calls:\n\n    backend.compute_utc_times(&account_id, &event, None).await\n\nThe third arg, tz_hint: Option<&str>, is the \u00a75.7 'timeZone' argument from CalendarEvent/get. Per draft-ietf-jmap-calendars-26 \u00a75.7 (line 1437): 'timeZone: TimeZoneId (default \"Etc/UTC\") \u2014 The time zone to use when calculating the utcStart/utcEnd property of floating events.'\n\nBy passing None unconditionally, the handler drops the client-supplied timeZone and relies entirely on the event's own timeZone (or the backend's default fallback). For floating events (events with no timeZone property), this causes utcStart/utcEnd to be computed using a backend-default tz instead of the client's requested tz.\n\nThe CalendarsBackend::compute_utc_times default impl (src/backend.rs:171-178) returns (None, None) so the bug is invisible against the MockBackend \u2014 there are no tests of a real tz computation path. A backend that does support tz computation will silently use the wrong zone.\n\nNote: this is the same root cause as JMAP-r3pg.2 (extra args dropped). Fixing JMAP-r3pg.2 by parsing the request and threading args through naturally fixes this site. Filing separately because the call site is a clean, easily-fixed atomic change even if the broader CalendarEventGetArgs struct work is deferred.\n\nFix: parse 'timeZone' from args before the handle_get call, then pass Some(&tz_str) to compute_utc_times instead of None. One-line fix once the value is in scope.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "compute_utc_times always passes tz_hint: None \u2014 \u00a75.7 timeZone arg dropped at the boundary",
+  "updated_at": "2026-05-08T05:41:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:32:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "44108bf7-3290-5ebe-8de7-f1b9f93e9e00",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

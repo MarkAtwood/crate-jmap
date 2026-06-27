@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-12T05:27:30Z",
+  "compaction_level": 0,
+  "content_hash": "2452bd096d97aabf9a647a308fa7ff27d72d232d8199b180aa3ba4de577de874",
+  "created_at": "2026-05-12T02:25:41Z",
+  "created_by": "Mark Atwood",
+  "description": "Decision (2026-05-11, Mark): the extras-preservation policy section in workspace AGENTS.md must be narrowed to exclude classifier-attribute strings on data-object sub-types in type crates that mirror an externally-owned schema (JSContact via RFC 9553; JSCalendar via RFC 8984).\n\n## Rationale\n\nRFC 9553 and RFC 8984 enumerate classifier strings (e.g. `Title.kind`, `NameComponent.kind`, `Anniversary.kind`, `Participant.kind`, `RecurrenceRule.frequency`) as if those enumerations were authoritative. Operational reality in the contacts and calendars ecosystems is that real implementers (Outlook, Google, Apple, vCard exporters, localized clients, third-party CalDAV servers, etc.) routinely send strings outside the spec enumeration. Typing these into `enum { Variant1, Variant2, ..., Other(String) }` creates a fiction where the catch-all does most of the real work and the named variants do ~no programmatic dispatch. The maintenance cost (variant additions on every spec revision, `#[non_exhaustive]` surface, propagation through consumers) is paid for no programmatic benefit.\n\n## In-scope policy stays the same for JMAP-native enums\n\n`MailboxRole`, `DeliveryState`, `NodeType`, `EmojiKind`, `ChatKind`, `ParticipantRole` etc. remain in scope for the typed-enum-with-`Unknown(String)` mechanism. These are JMAP-defined wire-format result enums on JMAP-native types; consumers DO dispatch reliably on them; the wild-vendor-extensions pattern does not apply.\n\n## Site\n\n`/home/mark/PROJECT/JMAP/AGENTS.md`, the section titled 'Extras-preservation policy for vendor/site fields', sub-list 'In scope (apply both mechanisms)'.\n\n## Proposed wording (illustrative; bead claimant may refine)\n\nAdd an explicit excluded-from-scope bullet under the existing 'Out of scope' list, OR add a new sub-section after the 'In scope' list. Suggested text:\n\n> **Excluded: classifier-attribute strings on data-object sub-types in type crates that mirror an externally-owned schema.**\n>\n> Examples: `NameComponent.kind`, `Title.kind`, `Calendar.kind`, `Anniversary.kind`, `PersonalInfo.kind` in `jmap-jscontact-types`; `Participant.kind`, `RecurrenceRule.frequency`, `Alert.action` in `jmap-jscalendar-types`.\n>\n> Rationale: the RFCs that define these schemas (RFC 9553 JSContact, RFC 8984 JSCalendar) enumerate classifier values as if authoritative. Operational reality is that real-world implementers routinely send values outside the spec enumeration. Typed enums with `Other(String)` catch-all create a fiction where the catch-all does most of the work and named variants do no programmatic dispatch. Leave these fields as `Option<String>` or `String`; consumers that care about specific values match string literals.\n>\n> This exclusion is narrow. It does NOT apply to:\n> - JMAP-native result enums (`MailboxRole`, `ChatKind`, etc.) \u2014 those stay in scope.\n> - Field shapes that are whole nested objects \u2014 those follow the Sloppy-Value pattern.\n> - Wire-protocol control values defined by RFC 8620 itself \u2014 those stay in scope.\n\n## Acceptance\n\n  - Workspace AGENTS.md edit lands with the exclusion text (final wording at claimant's discretion as long as it matches the rationale above).\n  - JMAP-sc1b.110 (jscalendar-types revert) cross-links to this bead as the policy basis.\n  - JMAP-sc1b.108 (jscontact-types propagation) cross-links to this bead as the policy basis for closing wontfix.\n  - No code changes \u2014 workspace AGENTS.md only.\n\n## Cross-references\n\n  - JMAP-sc1b.77 \u2014 the original jscalendar-types conversion that this exclusion makes wrong in retrospect\n  - JMAP-sc1b.108 \u2014 the parallel jscontact-types propagation that triggered the policy discussion",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.110",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Workspace AGENTS.md: narrow extras-section scope to exclude externally-owned-schema classifier strings",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T19:25:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "68450d4c-ec68-5c5a-946b-566e4d2d17fa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

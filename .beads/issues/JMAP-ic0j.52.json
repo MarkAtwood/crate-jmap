@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closing as opinion / no engineering basis to change.\n\nThe current form `let _ = (inner, type_name, account_id);` in the realistic-demo-ids cfg branch is a documented Rust idiom for explicit discard, scoped tightly to the branch where the params are unused.\n\nThe bead's two proposed alternatives both have downsides:\n(a) Underscore-prefix the params and split into two cfg-branched function definitions \u2014 doubles the function signature for marginal clarity gain.\n(b) `#[cfg_attr(feature = \"realistic-demo-ids\", allow(unused_variables))]` on the function \u2014 applies the lint allowance to the whole function including the (not(realistic-demo-ids)) branch where the params ARE used; less precise than the in-branch discard.\n\nThe bead author labeled this opinion + clippy + idiomatic-rust acknowledging it as cosmetic. Stopping here per the workspace bikeshedding-signal rule: \"Only flag things that have an engineering basis that would survive a code review comment thread.\" The current form is acceptable Rust and clippy does not complain (verified by the recent `cargo clippy -p jmap-calendars-server -- -D warnings` clean exit during JMAP-ic0j.48 work).",
+  "closed_at": "2026-05-18T03:43:16Z",
+  "compaction_level": 0,
+  "content_hash": "31a17b8f4255d5108458b9a37b53d65f3322370bed84381c36a81219352a7b66",
+  "created_at": "2026-05-15T17:25:02Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:340-382 \u2014 demo_next_id is a #[cfg]-branched function whose 'realistic-demo-ids' branch ignores all three of its arguments:\n\n  fn demo_next_id(inner: &mut Inner, type_name: &'static str, account_id: &str) -> Id {\n      #[cfg(feature = \"realistic-demo-ids\")]\n      {\n          use std::sync::atomic::{AtomicU64, Ordering};\n          use std::sync::OnceLock;\n          use std::time::{SystemTime, UNIX_EPOCH};\n\n          let _ = (inner, type_name, account_id);     // <-- triple discard\n          static COUNTER: AtomicU64 = AtomicU64::new(0);\n          ...\n\nThe triple-binding discard 'let _ = (inner, type_name, account_id);' is a cosmetic blemish. It moves three values into a tuple solely to drop them. Idiomatic Rust handles cfg-conditional unused params with the underscore-prefix-on-param-name convention or with cfg-attr:\n\n(a) Underscore-prefix the param names that are unused in this branch:\n       #[cfg(feature = \"realistic-demo-ids\")]\n       fn demo_next_id(_inner: &mut Inner, _type_name: &'static str, _account_id: &str) -> Id { ... }\n       #[cfg(not(feature = \"realistic-demo-ids\"))]\n       fn demo_next_id(inner: &mut Inner, type_name: &'static str, account_id: &str) -> Id { ... }\n   This splits the function into two cfg-branched implementations; clearer at the cost of repetition.\n\n(b) Annotate the function with cfg_attr:\n       #[cfg_attr(feature = \"realistic-demo-ids\", allow(unused_variables))]\n       fn demo_next_id(inner: &mut Inner, type_name: &'static str, account_id: &str) -> Id {\n           ...\n       }\n   Single signature, lint-allowance scoped to the right cfg.\n\nEither is preferable to silently dropping three values via a tuple. The current form also has a subtle issue: 'let _ = (inner, ...)' may or may not move the values (depending on Copy-ness), and for a future maintainer this looks like 'these values are being saved for later use' more than 'these are deliberately discarded'.\n\nCosmetic / clippy-level; behaviour-identical.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.52",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "demo_next_id 'realistic' branch uses 'let _ = (a, b, c)' triple-binding discard",
+  "updated_at": "2026-05-18T03:43:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:25:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "4fa5030a-ef1e-582b-b512-41382463256e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.10",
+  "title": "SSE scan_from comment explains only the 4-byte delimiter overlap, not why 3 covers all cases",
+  "description": "The scan_from = old_len.saturating_sub(3) comment explains that 3 bytes covers the longest incomplete prefix of the 4-byte delimiter \\r\\n\\r\\n. But the code also searches for \\n\\n and \\r\\r (2-byte delimiters), whose max chunk-boundary overlap is 1 byte. The comment is correct but incomplete: a reader checking the code for the 2-byte cases has to verify independently that 3 >= 1. Add: '3 bytes also covers the 1-byte overlap of the 2-byte \\n\\n and \\r\\r delimiters.'",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:57:23Z",
+  "updated_at": "2026-04-30T02:49:07Z",
+  "closed_at": "2026-04-30T02:49:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:57:22"
+    }
+  ]
+}

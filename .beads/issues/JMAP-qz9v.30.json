@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T03:07:42Z",
+  "compaction_level": 0,
+  "content_hash": "a260fabf12ed381813b2490483fa510e0e011d093e98fb75604f9d5b0300fc2b",
+  "created_at": "2026-05-14T19:32:41Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/src/backend.rs:75-80\n\nSIGNATURE:\n    /// Returns true if this account supports the given JMAP object type.\n    ///\n    /// Called by the server consumer (e.g. the session capability\n    /// builder) \u2014 NOT called internally by the handler library.\n    /// Backends that support all types unconditionally can return\n    /// `true` always.\n    fn supports_type<O: JmapObject>(&self) -> bool;\n\nPROBLEM:\nThe doc says \"Returns true if this account supports the given JMAP\nobject type\" \u2014 but the signature has no `account_id` or `caller`\nparameter. The answer cannot in fact depend on the account or the\ncaller; the doc misnames it.\n\nBackends that need to make this answer per-account (e.g., multi-tenant\nSaaS where some tenants have contacts disabled, or where contacts is a\npaid feature) cannot implement that policy through this trait. They\nmust either:\n(a) Lie \u2014 return true for everyone and rely on a later access-control\n    check in create_object/destroy_object, with no session-capability\n    signal to the client; or\n(b) Wrap the backend in account-specific instances and dispatch per\n    request \u2014 defeating the cheap-Arc-clone design of the handler\n    registration path.\n\nThe doc says \"Called by the server consumer (e.g. the session\ncapability builder)\" \u2014 but session capabilities are advertised to a\nspecific user with a specific Bearer token, so the answer IS naturally\ncaller-scoped. The current signature forecloses that.\n\nWHAT CALLERS CANNOT DEPEND ON:\n- That a session capability advertisement for one user matches what\n  another user would see.\n- That changes to the answer (feature flag flip) propagate to existing\n  sessions without re-registering handlers.\n\nASSESSMENT:\nP3 because (a) the canonical sibling jmap-mail-server has the same\nshape (workspace cookie-cutter), so any fix is a cross-extension\npropagation, and (b) most real backends do support all types per\naccount so the global answer is usually correct. But the doc misleads\nimplementors about what is and is not parameterizable.\n\nRECOMMENDED:\n(a) Reword the doc to match what the signature actually says:\n    \"Returns true if this backend implementation supports the given\n    JMAP object type. The answer is global per backend instance; it\n    cannot depend on the account or caller. Consumers needing per-\n    account feature gating must wrap the backend or implement gating\n    at the session-capability-builder layer.\"\nor\n(b) Add `account_id: &Id, caller: &Self::CallerCtx` parameters and\n    make it `impl Future<Output = Result<bool, Self::Error>> + Send`\n    so backends can consult storage. Propagate to canonical and\n    siblings.\n\nOption (a) is the cheap fix; option (b) is the right long-term shape\nbut is a workspace-wide change.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactsBackend::supports_type<O> is sync with no caller/account params \u2014 implied global-per-process answer is not documented",
+  "updated_at": "2026-05-18T03:07:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:32:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "e117b1dc-1d65-544b-b57b-1392fd34b75e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

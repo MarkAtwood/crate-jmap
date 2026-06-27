@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T01:53:35Z",
+  "compaction_level": 0,
+  "content_hash": "ea5d6e6895d051a7de7a59741d05b02a660acc97301f51e1bdfa534654e14cbe",
+  "created_at": "2026-05-14T12:29:40Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\n\\`ChatBackend::apply_space_metadata_patch\\` at backend.rs:557-563\ndocuments the return:\n\n> Returns \\`Ok(Some(updated_space))\\` if the backend modified any\n> properties beyond what the client requested (RFC 8620 \u00a75.3\n> server-set field echo, e.g. a normalised \\`name\\`); or\n> \\`Ok(None)\\` if the patch was applied verbatim with no\n> server-side modification.\n\n(Same shape as the \\`update_object\\` finding in .59 but on a\ndifferent method.)\n\n## What's ambiguous\n\nA production backend that bumps a \\`Space.updatedAt\\` /\n\\`Space.lastModifiedAt\\` / membership-count denormalization on\nevery successful metadata patch \u2014 which is normal bookkeeping\nfor any real backend that supports \\`/changes\\` \u2014 **never hits\nthe \\`Ok(None)\\` branch**. So either:\n\n- \\`Ok(None)\\` is reserved for \\\"no observable side effect that\n  the client should learn about\\\" (in which case timestamp\n  bumps live in the not-shown-to-client space, separately from\n  the wire-visible payload), OR\n- \\`Ok(None)\\` is a vestigial path that real backends never use\n  (in which case why document it?)\n\nThe doc gives no guidance. A third-party implementer guesses\ninconsistently across object types, and the \\`Ok(None)\\` path may\nwork for some types and not others, producing wire output that\nis internally inconsistent across the kit's surface.\n\n## Recommendation\n\nEither:\n\n1. Restate as outcome-keyed: \\\"Return \\`Ok(None)\\` if the wire-\n   visible \\`Space\\` shape (after RFC 8620 \u00a75.3 server-set field\n   echo) is identical to the input patch applied to the prior\n   state. Otherwise return \\`Ok(Some(space))\\`. Server-internal\n   bookkeeping such as \\`updatedAt\\` timestamps that the client\n   reads via \\`Space/get\\` MUST be reflected in the \\`Some\\` path\n   if the field is part of the public \\`Space\\` shape.\\\"\n\n2. Remove the \\`None\\` branch entirely (replace \\`Option<Space>\\`\n   with \\`Space\\` in the return type) and let callers compute\n   the echo-vs-modify distinction themselves if they need it.\n\nChoice (1) is the lower-cost; (2) is a breaking change.\n\n## Engineering basis\n\nDirect read of backend.rs:557-563. The \\`jmap-chat-types::Space\\`\nshape would need a separate verification pass for whether it\nincludes a public \\`updatedAt\\` field (the explore subagent did not\nverify this), but the contract gap exists regardless: the doc\ndoes not tell the implementer what to do.\n\n## Related findings\n\n.59 (foundation method docs thinness) covers the equivalent gap\non \\`update_object\\`. The two methods document the same semantic\nshape (\\`Option<O>\\` for echo-vs-modify) but in different prose;\nneither resolves the timestamp-bump ambiguity.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.64",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: apply_space_metadata_patch Ok(None) vs Ok(Some) semantics ambiguous when backend bumps timestamps on every successful write",
+  "updated_at": "2026-05-18T01:53:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:29:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "0eb110c5-8abc-51d1-b7eb-5a7300a2cc49",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

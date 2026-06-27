@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in 8d12c8e. The three pipeline_* bench targets are removed from the criterion_group! list and the file. Module doc comment now explains the two-mode design (parse-only / convert-only with parse hoisted out of inner loop) and explicitly notes that pipeline was dropped because parse_* + convert_* gives strictly more diagnostic information.",
+  "closed_at": "2026-05-15T06:35:46Z",
+  "compaction_level": 0,
+  "content_hash": "ed1d804632426b0a58efb03e54e92d6eaaa008353f3dd4ad7827426de85baaf4",
+  "created_at": "2026-05-15T05:54:17Z",
+  "created_by": "Mark Atwood",
+  "description": "Path: crate-jmap-mime/benches/mime_pipeline.rs has 9 bench targets across 3 sizes \u00d7 3 modes: parse_only, convert_only, and pipeline (= parse + convert). Pipeline is the sum of parse + convert; it adds no signal that the other two do not provide, but it doubles the bench wall-clock cost and the noise in regression analysis.\n\nExpected impact at scale: pipeline_large_deep_multipart alone parses + converts a ~1 MB message in the inner loop. With criterion's default sample count this is several seconds per bench, ~30s total for the three pipeline_* benches. Removing them cuts 'cargo bench -p jmap-mime' wall-clock by ~33% without losing any diagnostic information.\n\nWhen a regression appears, the operator needs to know whether it lives in mime-tree::parse or in jmap-mime::message_to_jmap_body. parse_* and convert_* answer exactly that question. pipeline_* answers a question (how long does the combined operation take?) that is mechanically derivable from the other two.\n\nFix: delete bench_pipeline_small, bench_pipeline_medium, bench_pipeline_large and drop them from the criterion_group! list. Update the file-level doc comment to drop the 'pipeline' mode description.\n\nCounterargument someone might make: pipeline_* catches cache / branch-predictor interaction effects that parse_* + convert_* miss. Reply: that is theoretically true but in practice the parse output is small enough (~tens of KB even for the 1 MB fixture once decoded structurally) that L2 effects dominate identically in both modes. If a real regression were ever traced to that interaction, the right response is a dedicated bench with a clearly stated cache-effect hypothesis, not three pipeline benches running by default.",
+  "ephemeral": 0,
+  "id": "JMAP-t307.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Bench: pipeline_* benches are redundant with parse_* + convert_*",
+  "updated_at": "2026-05-15T06:35:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:54:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-t307",
+      "id": "76b05e89-b127-55d7-bc8f-45eb497a8e16",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "id": "JMAP-t93",
+  "title": "submission.rs: EmailSubmission/get,changes,query,queryChanges,set",
+  "description": "Implement all 5 EmailSubmission/* handlers in src/submission.rs.\n\n## Methods to implement\n\n### EmailSubmission/get (RFC 8621 \u00a77.1)\n- Fetch submission objects: id, identityId, emailId, threadId, envelope, sendAt, undoStatus, deliveryStatus, dsnBlobIds, mdnBlobIds\n\n### EmailSubmission/changes (RFC 8621 \u00a77.2)\n- Return created/updated/destroyed since sinceState\n\n### EmailSubmission/query (RFC 8621 \u00a77.3)\n- FilterCondition: identityIds, emailIds, threadIds, undoStatus, before, after\n- Sort: emailId, threadId, sentAt\n\n### EmailSubmission/queryChanges (RFC 8621 \u00a77.4)\n- removed + added since sinceState\n\n### EmailSubmission/set (RFC 8621 \u00a77.5)\n- create: triggers email sending\n  - emailId must reference existing Email\n  - identityId must reference existing Identity\n  - envelope (RFC 5321): from, rcptTo list \u2014 defaults derived from email headers if omitted\n  - sendAt: scheduled time (null = immediate)\n  - MemoryBackend: mark as sent immediately; deliveryStatus = {delivered: yes}\n- update: only undoStatus can be updated (cancel pending send); if already sent \u2192 cannotUnsend error\n- destroy: only pending submissions; sent \u2192 alreadySent error\n- onSuccessUpdateEmail: after submission set succeeds, also update the email (e.g. remove \\Draft, add \\Seen)\n\n## Key notes\n- onSuccessUpdateEmail is a companion operation processed atomically with the submission set\n- MemoryBackend does NOT actually send email \u2014 just records the submission as sent\n\n## Source references\n- Stalwart (AGPL \u2014 read, do not copy): ~/GIT/stalwart-jmap-server/main/crates/jmap/src/submission/\n- RFC 8621 \u00a77\n\n## Test vectors\n- Create submission \u2192 undoStatus=final, deliveryStatus shows delivered\n- Create submission with bad emailId \u2192 notCreated error\n- Update submission undoStatus after sent \u2192 cannotUnsend error\n\nDepends on: JMAP-8ph, JMAP-5c0, JMAP-tf6\nParent: JMAP-445",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:03:20Z",
+  "updated_at": "2026-04-30T21:02:14Z",
+  "closed_at": "2026-04-30T21:02:14Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-2n8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:39:44"
+    },
+    {
+      "depends_on_id": "JMAP-5c0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:08"
+    },
+    {
+      "depends_on_id": "JMAP-8ph",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:07"
+    },
+    {
+      "depends_on_id": "JMAP-tf6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:04:09"
+    }
+  ]
+}

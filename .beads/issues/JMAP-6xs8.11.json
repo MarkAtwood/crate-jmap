@@ -1,0 +1,33 @@
+{
+  "close_reason": "Declined \u2014 workspace bikeshedding signal per AGENTS.md convergence rule. The current per-field doc-comment on each 'extra' field (4 lines describing it as the workspace extras-preservation catch-all) is workspace-consistent, IDE-hover-friendly (the reader sees the explanation immediately on hover without navigating to a module-level doc), and stable across the workspace's extras-policy lifetime. Suggested DRY refactor (option (b) module-level explanation + one-liner per field) adds indirection at the IDE-hover layer for marginal benefit \u2014 the bead's 'reduces diff churn when policy text needs updating' argument is real but the rustdoc content has been stable across the JMAP-lbdy.* propagation already in flight. Per workspace AGENTS.md 'Bikeshedding': only flag things with engineering basis that would survive a code review comment thread; this would not. The canonical policy citation in workspace AGENTS.md remains the single source of truth; per-field rustdocs are short references to it.",
+  "closed_at": "2026-05-17T16:57:52Z",
+  "compaction_level": 0,
+  "content_hash": "34ea7efa744dd8cd528d94aeb7d2d7e6a1530d557703dc93f1a197a1089fe9ed",
+  "created_at": "2026-05-15T05:35:27Z",
+  "created_by": "Mark Atwood",
+  "description": "methods.rs has 6 identical 4-line doc-comment blocks for `extra` fields (GetResponse, ChangesResponse, SetResponse, QueryResponse, QueryChangesResponse, AddedItem). wire.rs has 2 more (JmapRequest, JmapResponse). SetError has one slightly longer variant. The blocks all say the same thing: \\\"Catch-all for vendor / site / private extension fields not covered by the typed fields above. Preserves unknown fields across deserialize/serialize round-trip per workspace extras-preservation policy (see workspace AGENTS.md).\\\" Suggested rewrite: define a private const `EXTRAS_DOC` and use `#[doc = EXTRAS_DOC]`, OR add a single module-level explanation at the top of methods.rs/wire.rs and shorten the per-field docs to a one-liner pointing to it. Reduces diff churn when the policy doc-text needs updating. Same pattern WILL be propagated to 30+ struct sites across the workspace (JMAP-lbdy.* sweep) \u2014 fixing it here first makes the propagation cleaner.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Per-struct doc-comment for extras field is copy-pasted 8 times within one file",
+  "updated_at": "2026-05-17T16:57:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:35:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "a19fac6f-c098-5a63-af08-9a35727a998e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

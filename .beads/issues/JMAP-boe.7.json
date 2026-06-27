@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-boe.7",
+  "title": "Email/copy: onSuccessUpdateOriginal is not in RFC 8620 or RFC 8621",
+  "description": "email.rs:968-971 and 1079-1098 implement onSuccessUpdateOriginal for Email/copy. RFC 8620 \u00a75.4 only defines onSuccessDestroyOriginal and destroyFromIfInState. RFC 8621 \u00a74.7 adds nothing. No standard client will ever send this field, making the code dead. An implementor reading the handler will assume it is RFC-compliant and document/test it.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:37:31Z",
+  "updated_at": "2026-05-01T00:43:24Z",
+  "closed_at": "2026-05-01T00:43:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-boe",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:37:30"
+    }
+  ]
+}

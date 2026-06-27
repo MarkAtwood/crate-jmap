@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T04:06:32Z",
+  "id": "019e29d0-8437-72d8-92cf-18f882decda1",
+  "issue_id": "JMAP-sgrr.15",
+  "text": "Blocked on bd:JMAP-sgrr.17. The 'spec-value-bounds the type does not capture' family includes sgrr.14 (pref 1..=100), sgrr.15 (list_as > 0), sgrr.22 (month 1..=12 / day 1..=31), and sgrr.17 (mandatory-as-Option). All four resolve together: if the workspace picks doc-only / validate() / strict-form-newtypes, the same answer applies here. Holding pending sgrr.17."
+}

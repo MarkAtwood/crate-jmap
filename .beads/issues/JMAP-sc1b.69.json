@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T07:07:50Z",
+  "compaction_level": 0,
+  "content_hash": "2e4292aa5da1d278b76f1ceff0e5470390419a12aad87e5c252a2f88e19abba2",
+  "created_at": "2026-05-11T06:58:38Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Site: crate-jmap-chat-client/src/methods/mod.rs:1\n\n```\n//! Typed JMAP Chat method wrappers \u2014 response types, Patch<T>, SessionClient,\n```\n\n`RUSTDOCFLAGS=\"-D warnings\" cargo doc --workspace --no-deps` fails with:\n\n```\nerror: unclosed HTML tag `T`\n  --> crate-jmap-chat-client/src/methods/mod.rs:1:60\n   |\n 1 | //! Typed JMAP Chat method wrappers \u2014 response types, Patch<T>, SessionClient,\n   |                                                            ^^^\n   = note: `-D rustdoc::invalid-html-tags` implied by `-D warnings`\nerror: could not document `jmap-chat-client`\n```\n\nRustdoc's invalid_html_tags lint treats single-uppercase-letter `<T>` as a not-closed HTML element. Fix: wrap in backticks \u2014 ``response types, `Patch<T>`, SessionClient,``. Line 96 inside the same file already backticks `Patch<T>` correctly, so this is one-line drift only on line 1.\n\nImpact: publish-readiness \u2014 `cargo publish --dry-run` for jmap-chat-client succeeds today because publish doesn't run rustdoc with -D warnings, but the docs.rs build will fail with the same gate, and the CI `doc` job in .github/workflows/ci.yml already gates on this and will start failing on this crate.\n\nSibling check: `rg '^//[!/].*[A-Za-z]<[A-Za-z]' --type rust` shows other crate-doc strings reference `<Mutex>`, `<MailBackend>` etc.; rustdoc only flags the single-uppercase-letter `<T>` because multi-letter words are not HTML element names. So the fix is local \u2014 line 1 of crate-jmap-chat-client/src/methods/mod.rs only.\n\nWhy P1: `cargo doc --workspace -D warnings` was previously passing (JMAP-sc1b.5 closed 9 days ago). Regression. New since most recent rustdoc gate run. Both docs.rs and the existing CI doc job will reject the next release of jmap-chat-client until fixed.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.69",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P1: cargo doc --workspace fails \u2014 unclosed HTML tag T in jmap-chat-client//! Patch<T>",
+  "updated_at": "2026-05-11T07:07:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T23:58:38Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "8613924e-9c3e-5d2e-b7bb-971c75a933ff",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

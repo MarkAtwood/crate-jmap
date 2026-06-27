@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-5tq.2",
+  "title": "ClientError::Parse and ::Serialize wrap same type, only Serialize has #[from]",
+  "description": "Two variants (Parse and Serialize) both wrap serde_json::Error. Only Serialize carries #[from], so ? on any serde_json operation auto-converts to Serialize. A contributor adding JSON deserialization code who uses ? instead of .map_err(ClientError::Parse) will silently produce the wrong variant. The comment warns about this but it is easy to miss. Maintenance consequence: incorrect error variants in the wild produce misleading error messages and break callers who match on Parse vs Serialize.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:42:43Z",
+  "updated_at": "2026-04-30T06:47:43Z",
+  "closed_at": "2026-04-30T06:47:43Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-5tq",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:42:43"
+    }
+  ]
+}

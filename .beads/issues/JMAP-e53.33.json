@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:55:07Z",
+  "compaction_level": 0,
+  "content_hash": "f022dda3b2e247cd47805c16193511c76f91b432a0fafe11e2ed50501ca7a478",
+  "created_at": "2026-05-02T00:44:22Z",
+  "created_by": "Mark Atwood",
+  "description": "update_object returns Result<Option<O>, BackendSetError<E>> where Some(O) is intended for server-modified field echo-back (RFC 8620 \u00a75.3). Every call site in email.rs, submission.rs, and mailbox.rs discards the return with Ok(_) => {}. No test checks or uses the Some variant. Future implementors who return Some(O) will have no effect, and contributors reading the trait will assume the feature works. The API surface will never be exercised until a caller is written.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "update_object return value is dead API surface",
+  "updated_at": "2026-05-02T00:55:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:44:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "a836f1ed-a9ab-5aa3-a1d4-46e1ca3a2956",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

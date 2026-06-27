@@ -1,0 +1,33 @@
+{
+  "close_reason": "Stale: client_supplied_send_at does not exist \u2014 sendAt is now entirely server-set. No read-before-move pattern to document.",
+  "closed_at": "2026-05-04T16:02:05Z",
+  "compaction_level": 0,
+  "content_hash": "2c127971613340675a574ff7a97a249a127c7c19680f6cb15cabffc921844c42",
+  "created_at": "2026-05-02T00:43:46Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs line 790: client_supplied_send_at is computed with a matches\\! peek before send_at consumes the same field on line 791. The pattern exists because serde_json::from_value(v.clone()) moves v, so the presence check must happen first. This is non-obvious Rust ownership reasoning that a contributor could break by reordering the two lines or switching to args.remove(). Add a comment: '// Check presence before consuming the value with from_value below.'",
+  "ephemeral": 0,
+  "id": "JMAP-e53.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "client_supplied_send_at read-before-move pattern unexplained",
+  "updated_at": "2026-05-04T16:02:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "eedd95e0-3fd7-5512-8f92-bdd6d1310611",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T21:16:27Z",
+  "compaction_level": 0,
+  "content_hash": "5eccdf750931514801c8388774169e5e8b3908ff7ec2129bb28d92b6007328cf",
+  "created_at": "2026-05-14T20:01:39Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/backend.rs:116-123\n\n```rust\n/// `parent_id` is `None` for the root level.  `case_insensitive`\n/// controls the comparison (many file systems treat names\n/// case-insensitively).\nfn find_sibling_by_name(\n    &self,\n    caller: &Self::CallerCtx,\n    account_id: &jmap_types::Id,\n    parent_id: Option<&jmap_types::Id>,\n    name: &str,\n    case_insensitive: bool,\n) -> ...;\n```\n\nWhen `case_insensitive = true`, what algorithm does the backend use?\n\n- ASCII fold only (a..z \u2194 A..Z)?\n- Unicode simple case fold (Default Case Folding)?\n- Unicode full case fold (e.g. \"\u00df\" \u2192 \"ss\")?\n- Turkish/Azerbaijani special-case folding (\"I\" \u2194 \"\u0131\", \"\u0130\" \u2194 \"i\")?\n- HFS+ decomposition + fold (the macOS native behaviour)?\n- ICU collation (locale-aware)?\n\nThe trait doc says nothing. The two test-double impls in this crate\ndisagree:\n- `MemoryBackend::find_sibling_by_name` (memory.rs:662-704) uses\n  `str::to_lowercase()` \u2014 Unicode simple lowercase, language-\n  independent.\n- `MockBackend::find_sibling_by_name` (lib.rs:440-457) also uses\n  `str::to_lowercase()`, but the doc on `set_sibling` (lib.rs:230)\n  says \"Both case-sensitive and case-insensitive lookups use the\n  lowercase key\" \u2014 meaning case-sensitive lookups in the mock are\n  actually case-insensitive. The contract is wrong in two layers.\n\nReal-world impact: a JMAP client uploads a file \"DOCUMENT.txt\" to a\nbackend that stores filenames with Turkish-locale folding (where\n\"I\" lowercases to \"\u0131\"). The reference Rust impl folds \"DOCUMENT\" to\n\"document\"; the storage layer (e.g. an NTFS-backed CIFS share on a\nTurkish-locale Windows server) folds it to \"documenT\" (with dotless\n\u0131). The reference impl says no collision; the storage says\ncollision. The JMAP /set succeeds; the underlying filesystem rejects\nthe create. Client receives an unexpected backend error.\n\nThis is exactly the kind of footgun the API contract is supposed to\nprevent. Either the trait must specify a canonical algorithm\n(recommendation: Unicode Default Case Folding, NFC-normalized), or\nthe trait must take a callback so the caller controls folding.\n\nCompare RFC 4791 (CalDAV) which explicitly defers to \"the case\nsensitivity of the resource path\" \u2014 JMAP FileNode has no equivalent\nhedge and the draft itself (draft-ietf-jmap-filenode-13 \u00a73.2.3\n\"compareCaseInsensitively\") is also silent.\n\nSuggested fix: add to the trait doc a normative MUST clause \u2014\n\"Implementations MUST use Unicode Default Case Folding per Unicode\nStandard Annex \u00a73.13 over NFC-normalized input.\" If the workspace\nposition is that this is the implementer's call, document that\nfact explicitly so a future migration between backends is not a\nsilent data-loss event.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "FileNodeBackend::find_sibling_by_name case-folding algorithm is unspecified \u2014 interop hazard",
+  "updated_at": "2026-05-14T21:16:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:01:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "7ec1dd9d-f245-576a-bc76-cbf7bc99242c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

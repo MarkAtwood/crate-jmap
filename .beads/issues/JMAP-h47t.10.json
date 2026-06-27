@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "O(1) refcount index replaces O(N) recompute. task_lists_with_tasks: HashSet<Id> \u2192 task_list_refcount: HashMap<Id, u64>. Inner::inc_task_ref / dec_task_ref helpers maintain the count incrementally at each Task create/update/destroy/seed site; the change_object loop now does the change directly instead of scanning every Task per mutation. dec_task_ref removes entries at refcount=0 so task_list_has_tasks reads contains_key. cargo fmt + clippy + workspace test (2190 passing) green. The 15 integration tests in tests/tasks_tests.rs include task_list_set_destroy_with_tasks_returns_error which exercises the refcount path end-to-end.",
+  "closed_at": "2026-05-14T19:10:07Z",
+  "compaction_level": 0,
+  "content_hash": "5ea62165fa4b81079ed2d677243e65c34705d53e5a5c37907c531ae4f3044666",
+  "created_at": "2026-05-14T18:08:52Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:196-210 rebuilds the entire task_lists_with_tasks index by scanning every Task in the account on every Task create / update / destroy call (memory.rs:643, 701, 731, 793). For an account with N tasks, every mutation is O(N).\n\nAt N=100k the rebuild dominates the mutation cost; at N=1M it makes the reference impl unusable for any soak / load test. The 'reference impl' framing makes this defensible-as-is, but it actively teaches the wrong pattern to a contributor who lifts memory.rs as the starting point for a database backend.\n\nThe index is trivially incrementally maintainable: on create with taskListId T \u2192 set.insert(T); on update where taskListId changed from T0\u2192T1, set.remove(T0) if no other task references T0, set.insert(T1); on destroy where taskListId was T, remove T if no other task references T. The 'no other task references T' check is itself O(N) unless a refcount is also maintained \u2014 refcount is the right shape and trivial: a HashMap<Id, u64> with one increment/decrement per mutation.\n\nRecommended remediation: replace the HashSet<Id> field with a HashMap<Id, u64> refcount, drop recompute_task_lists_with_tasks, and increment / decrement at create / destroy / update sites. The task_list_has_tasks check becomes 'refcount >= 1'.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.recompute_task_lists_with_tasks is O(n) per mutation",
+  "updated_at": "2026-05-14T19:10:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:08:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "5a7982e3-0277-5d5f-863f-d6ce070f2ddc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit 1040763: workspace now passes cargo clippy --workspace --all-targets -- -D warnings",
+  "closed_at": "2026-05-07T21:06:11Z",
+  "compaction_level": 0,
+  "content_hash": "0f269540f5581cd93e193aeef560c688803246ed6be0eaa031e3e9fe93bd857b",
+  "created_at": "2026-05-07T20:17:08Z",
+  "created_by": "Mark Atwood",
+  "description": "AGENTS.md pre-commit gate explicitly lists `cargo clippy --workspace -- -D warnings` as required. Currently fails with ~46 errors across 9 crates (jmap-server, jmap-mail-server, jmap-chat-server, jmap-contacts-server, jmap-calendars-server, jmap-calendars-types, jmap-tasks-server, jmap-filenode-server, jmap-sharing-server).\n\nCategories of errors:\n- 21x unnecessary_fallible_conversions: Id::try_from(literal).unwrap() should be Id::from(literal) \u2014 Id implements From<&str> infallibly\n- 21x clone_on_ref_ptr / slice clone: foo.clone() where slice::from_ref(&foo) is cleaner\n- 8x or_insert_with(Foo::default) should be or_default()\n- 7x useless vec![] (could be array literal)\n- 5x map_or simplification\n- 4x assert_eq!(x, true) \u2014 should be assert!(x)\n- 1x for-loop with index that could be enumerate/iter\n- 1x doc list indent\n- 1x always-true expression\n\nTo reproduce: `cargo clippy --workspace --all-targets -- -D warnings`\n\nThis blocks any meaningful 'publish readiness' status and was likely missed by the recent version bump commit.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P1: cargo clippy --workspace --all-targets -- -D warnings fails",
+  "updated_at": "2026-05-07T21:06:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:17:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "da043482-df7f-5158-b484-9d919321906e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

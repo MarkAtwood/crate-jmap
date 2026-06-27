@@ -1,0 +1,33 @@
+{
+  "close_reason": "Added 'deny' job to .github/workflows/ci.yml using EmbarkStudios/cargo-deny-action@v2. Runs cargo deny check on every push; blocks merge on advisory/license/ban/source violations. actionlint clean.",
+  "closed_at": "2026-05-09T07:48:04Z",
+  "compaction_level": 0,
+  "content_hash": "64c402849083d14307314d5b29095ca75648e664b87a4a7ce0815c00714ce4e5",
+  "created_at": "2026-05-08T18:25:38Z",
+  "created_by": "Mark Atwood",
+  "description": "Plan C deferred from JMAP-sc1b.9. Once JMAP-sc1b.10 (deny.toml) is configured, add a 'deny' job to .github/workflows/ci.yml that runs 'cargo deny check' on every push.\n\nImplementation hint: use the EmbarkStudios/cargo-deny-action@v2 action \u2014 handles install + invocation in one step. Or install cargo-deny via 'cargo install cargo-deny --locked' and run 'cargo deny check'.\n\nBlocked by: JMAP-sc1b.10 (deny.toml configuration). Without a deny.toml the action defaults are too strict for this workspace (license check would fire on existing transitive deps).\n\nCloses the deny TODO comment in .github/workflows/ci.yml.",
+  "ephemeral": 0,
+  "id": "JMAP-hge6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CI: add cargo-deny supply-chain job",
+  "updated_at": "2026-05-09T07:48:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-08T11:25:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b.10",
+      "id": "5db3aa40-2a25-5452-b48a-a515d7825348",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

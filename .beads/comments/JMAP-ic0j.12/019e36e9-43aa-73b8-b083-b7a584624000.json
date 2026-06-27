@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T17:08:37Z",
+  "id": "019e36e9-43aa-73b8-b083-b7a584624000",
+  "issue_id": "JMAP-ic0j.12",
+  "text": "Fixed. CalendarEvent/copy create-path now distinguishes the two error conditions:\n  - 'id' key absent: existing diagnostic unchanged (invalidProperties + properties:['id'])\n  - 'id' key present but not a JSON string: adds description:'id must be a string' to the same shape\n\nBoth shapes are RFC 8620 \u00a75.3 invalidProperties-conformant; the description field disambiguates them per RFC 8620 \u00a75.3 (description is permitted in invalidProperties SetErrors). Added regression test copy_non_string_source_id_returns_invalid_properties_with_description that exercises three non-string id shapes (integer, null, object) and asserts all three carry the disambiguating description field. The existing copy_missing_source_id_returns_invalid_properties test now also asserts the missing-id case still omits 'description' (locks in the disambiguation contract from both directions). Verified: cargo fmt clean, clippy --all-features --all-targets -D warnings clean, cargo test --all-features 120 (was 119) passed."
+}

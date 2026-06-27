@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d204b551c3a989d276fb34a701550f1020e44645821242f019b7b2ee2e96233a",
+  "created_at": "2026-06-05T03:57:06Z",
+  "created_by": "Mark Atwood",
+  "description": "Propagate canonical mail-server metadata-02 integration (JMAP-s4kp.1) to jmap-filenode-server MemoryBackend. Same 3 integration points: query_objects filter matching for 6 metadata conditions, get_changes ignoreMetadataOnlyChanges, /set patch validation. Adapt to filenode-server's type set (FileNode) and its tree-shaped operations. See JMAP-s4kp.1 for canonical pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-s4kp.6",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "filenode-server: wire metadata-02 helpers into MemoryBackend",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-04T20:57:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s4kp",
+      "id": "37e75d17-5e8c-5597-9162-ab2d920ce74c",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-06-04T20:57:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s4kp.1",
+      "id": "83082736-0871-59e2-b95c-4185bad4edaa",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

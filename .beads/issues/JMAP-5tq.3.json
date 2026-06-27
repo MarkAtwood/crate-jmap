@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-5tq.3",
+  "title": "StateChange missing #[non_exhaustive]",
+  "description": "Every other public struct in this crate (Session, AccountInfo, WebSocketCapability, BlobUploadResponse, ClientConfig, SseFrame) is marked #[non_exhaustive]. StateChange in push.rs is not. The JMAP Chat extension and future JMAP drafts may add fields to the StateChange object. Without #[non_exhaustive], any such addition is a semver-breaking change. Maintenance consequence: adding a field to StateChange breaks all external callers doing struct literal construction.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:42:50Z",
+  "updated_at": "2026-04-30T06:48:01Z",
+  "closed_at": "2026-04-30T06:48:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-5tq",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:42:50"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T01:03:39Z",
+  "compaction_level": 0,
+  "content_hash": "93f91725cbbd843f3e3541713ae004a4295bd88ba74a0099b6a5d415064b861f",
+  "created_at": "2026-05-02T00:59:09Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs: when a create fails, the #create_id is correctly absent from submission_email_id_map (only added on Ok path), so onSuccessUpdateEmail/onSuccessDestroyEmail silently skips it. But there is no test verifying this behavior. A test should exercise: create s0 fails (e.g. invalid emailId) + onSuccessUpdateEmail has #s0 \u2192 no Email/set side-effect applied. Without this test, a future refactor could break the invariant silently.",
+  "ephemeral": 0,
+  "id": "JMAP-sz1.1.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Test: onSuccessUpdateEmail skips failed #create_id",
+  "updated_at": "2026-05-02T01:03:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:59:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sz1.1",
+      "id": "21a34b84-bbd3-5990-8992-82d443adfb73",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

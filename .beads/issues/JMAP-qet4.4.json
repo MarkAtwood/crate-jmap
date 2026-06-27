@@ -1,0 +1,33 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:12:17Z",
+  "compaction_level": 0,
+  "content_hash": "4665feb348b7b11e3bda08f66830e30840e5daf19c67c8d8dcb2522e50dcafcf",
+  "created_at": "2026-05-05T01:08:57Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-qet4.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-sharing-types: implement capability.rs and query.rs",
+  "updated_at": "2026-05-05T01:12:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:08:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qet4",
+      "id": "bc8e8a43-138a-5747-8cc0-dbca79c63329",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

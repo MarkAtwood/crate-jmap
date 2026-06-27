@@ -1,0 +1,33 @@
+{
+  "close_reason": "Wontfix per workspace AGENTS.md 'Bikeshedding' rule and the parent epic Section 7 calibration ('opinion-labeled forward-major-version flag; close as wontfix unless workspace is planning the next major bump'). The Email::new positional-arg ergonomics issue is a real type-design observation but has no engineering pressure on the current 0.1.x crate. The same shape appears on Mailbox::new (9 positional args + #[allow(clippy::too_many_arguments)]), so any fix would propagate across the canonical-template family. Best addressed in a coordinated breaking-release pass, not piecemeal. Cookie-cutter consistency requires the sibling extension-types crates to mirror Email's shape; reshaping just this one breaks the canonical template. If a major-version bump is planned, file a fresh epic that addresses the positional-arg + Into<Id> generics + per-object id-newtype questions together.",
+  "closed_at": "2026-05-17T15:22:38Z",
+  "compaction_level": 0,
+  "content_hash": "cc257d389ee5bb120c226e8cf4825d71218b1c0b2a712a5811d3befbfc333c50",
+  "created_at": "2026-05-15T04:47:10Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-types/src/email.rs:356-363:\n\n```rust\npub fn new(\n    id: Id,\n    blob_id: Id,\n    thread_id: Id,\n    mailbox_ids: HashMap<Id, bool>,\n    size: u64,\n    received_at: UTCDate,\n) -> Self\n```\n\nFour `Id`-shaped parameters in positional order. A caller can easily transpose `id` and `blob_id`, or `thread_id` and a mailbox map key, with no compile-time signal \u2014 `Id` is `#[serde(transparent)]` over `String`, so the type system treats all four equivalently.\n\nThis is the same pattern flagged in the jmap-base-client review under JMAP-6r7c.50 (upload_blob positional args) and JMAP-6r7c.48 (DownloadBlobParams expected_sha256 primitive obsession). Forward-major-version flag.\n\nThe fix shape, when this graduates to a major bump, would be either:\n- A typed-params struct: `Email::new(params: EmailRequiredFields) -> Self`\n- Distinct id newtypes: `EmailId`, `BlobId`, `ThreadId` \u2014 though the workspace has historically rejected per-object id newtypes because the JMAP wire treats all ids as opaque strings\n\nThe `mailbox_ids: HashMap<Id, bool>` shape is correct for the JMAP wire (object with id-keyed booleans per RFC 8621 \u00a74.1.1) but should not be a positional argument either \u2014 it forces every caller to construct the HashMap inline.\n\nNot a present-tense bug. Filed as opinion / forward-major-version flag. Cookie-cutter siblings (Mailbox::new at mailbox.rs:164 takes 9 positional args; `#[allow(clippy::too_many_arguments)]` is already applied) inherit the same shape, so the fix would propagate across the canonical-template family in one pass.",
+  "ephemeral": 0,
+  "id": "JMAP-zx3s.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email::new takes six positional arguments (four are bare Id) \u2014 primitive obsession at type level",
+  "updated_at": "2026-05-17T15:22:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:47:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zx3s",
+      "id": "e35a7f6d-b9a9-5686-8462-1dc8f18b3269",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

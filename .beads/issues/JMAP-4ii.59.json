@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:35:08Z",
+  "compaction_level": 0,
+  "content_hash": "18d9f3329fab1c6316a8f0eda189e3b1207f59c1753bb3f01b7bac203429866c",
+  "created_at": "2026-05-02T04:29:57Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs line 577: the onSuccessUpdateEmail loop uses args.get(\"onSuccessUpdateEmail\").and_then(|v| v.as_object()) to borrow the patch map, then passes patch.clone() to update_object. This is the same borrow-forces-clone pattern as JMAP-4ii.53 (fixed for identity.rs) and JMAP-4ii.58 (ban/emoji/invite), but was not fixed in the submission handler in rounds 1 or 2. The fix is the same: consume the map via remove() and use into_iter() so patch is owned in the loop body and can be passed directly without cloning.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.59",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "submission.rs onSuccessUpdateEmail: patch.clone() passed to update_object",
+  "updated_at": "2026-05-02T04:35:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:29:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "73133393-1e29-5fd7-86b6-5813aa01daf9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

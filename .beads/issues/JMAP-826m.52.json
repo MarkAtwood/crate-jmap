@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added depth-cap consumer-contract rustdoc to validate_metadata_filter at metadata.rs:617-636. Cross-references the foundation-level epic JMAP-xmvz which tracks the proper architectural fix (workspace-shared depth-capped walker helper in jmap-server). Documentation-only; cargo clippy --tests -- -D warnings clean; cargo doc --no-deps --all-features clean with -D warnings.",
+  "closed_at": "2026-05-15T09:06:56Z",
+  "compaction_level": 0,
+  "content_hash": "8b2e1cf716b3aed390748bb4baf90d11581aef81542ffe21e7f760a524fcf0e5",
+  "created_at": "2026-05-15T08:43:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Section C \u2014 untrusted-input boundary, defense-in-depth gap. The two filter walkers in `crate-jmap-metadata-server/src/metadata.rs` recurse unboundedly on attacker-controlled filter trees:\n\n- `walk_filter_for_unknown_keys(node: &Value)` at metadata.rs:656 \u2014 recurses on every `conditions[]` child of an operator node (Value tree).\n- `walk_filter_for_related_ids_constraint(filter: &Filter<MetadataFilterCondition>)` at metadata.rs:697 \u2014 recurses on every `op.conditions` child (typed tree).\n\nBoth functions run after `serde_json::from_slice` has produced the request body, and `serde_json`'s default 128-level deserializer recursion cap therefore bounds the worst-case depth. `crate-jmap-server/src/parse.rs:42-47` further documents that HTTP integrators SHOULD reject bodies with more than ~32 levels of JSON nesting. So in the kit's intended deployment posture this is **not exploitable** \u2014 by the time control reaches these walkers, depth is already capped.\n\nWhat goes wrong if this stays as-is: an integrator who skips the HTTP-layer depth cap (the disclosure is in jmap-server's rustdoc, not enforced at the type level) ships a process where a malicious `/query` call with a 128-deep `Filter::Operator` tree triggers ~128 stack frames per walker \u00d7 2 walkers = ~256 frames of recursion in this code path before the request even reaches the backend. Rust's default 8 MiB thread stack absorbs this, but a tokio worker on a smaller stack (e.g. `Runtime::worker_stack_size` tuned down for an embedded deployment) would not.\n\nWhy this is filed as defense-in-depth (P3), not P1:\n\n- The kit explicitly documents the depth-cap responsibility on the consumer side (jmap-server parse.rs:42-47).\n- The 32-level recommendation is well above any legitimate JMAP filter shape (operator-nesting of 3-4 is the realistic upper bound in observed JMAP traffic).\n- No actual stack-overflow demonstration exists; this is a 'what if the consumer skips the cap' finding.\n\nMitigation (one of):\n1. Document on `validate_metadata_filter` and the two walker functions that 'the caller MUST ensure the filter tree depth is bounded; this code does not enforce its own cap.' Cross-link to jmap-server parse.rs depth notes.\n2. Add an internal walker-side counter (constant: 32 to match the jmap-server recommendation) that returns `unsupportedFilter` with a 'filter nesting exceeds server limit' description on overflow. Symmetric with the MergePatch `DepthExceeded` pattern at memory.rs:1013-1025.\n3. Both \u2014 defense-in-depth in the same spirit as the workspace's `apply_jmap_patch` depth cap (bd:JMAP-wlip.1).\n\nCanonical-template note: `jmap-mail-server` should be reviewed for the same pattern in `EmailFilterCondition` walkers before propagating this fix here. Per workspace AGENTS.md propagation rule, fix canonical first, then sweep siblings.\n\nRefs:\n- crate-jmap-metadata-server/src/metadata.rs:656 (walk_filter_for_unknown_keys)\n- crate-jmap-metadata-server/src/metadata.rs:697 (walk_filter_for_related_ids_constraint)\n- crate-jmap-server/src/parse.rs:42-47 (depth-cap consumer contract)\n- crate-jmap-metadata-server/src/memory.rs:1013-1025 (MergePatch DepthExceeded \u2014 symmetric precedent)",
+  "ephemeral": 0,
+  "id": "JMAP-826m.52",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Filter walkers recurse on attacker-controlled JSON without explicit depth cap (defense-in-depth)",
+  "updated_at": "2026-05-15T09:06:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T01:43:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "8fcb7edc-7f36-5ccb-8ef9-8cbe938705de",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "074ba85d372f60749f14b29ebbc64f32ae7258dfd65691e970ece72440f71bea",
+  "created_at": "2026-06-13T21:49:15Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-client/src/methods/space.rs has 146/264 lines covered (55.3%). Uncovered: space_set with complex SpacePatchOp serialization (role/member/channel/category operations), space_copy, space_query with typed filters, and most of the structural-mutation patch builder paths.",
+  "ephemeral": 0,
+  "id": "JMAP-w8fu.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Test coverage: chat-client space.rs (55.3%)",
+  "updated_at": "2026-06-13T21:49:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:49:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w8fu",
+      "id": "5d72f476-cfc7-5b08-adf5-1dd684954f36",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

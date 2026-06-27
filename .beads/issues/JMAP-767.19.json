@@ -1,0 +1,33 @@
+{
+  "close_reason": "reviewed pass 23: loop converged; no P0/P1/P2 found in current code",
+  "closed_at": "2026-05-01T12:39:56Z",
+  "compaction_level": 0,
+  "content_hash": "c286e04723c4a99508110b24404005e14e1ccc32e87abbc5bc697053eb95d097",
+  "created_at": "2026-05-01T11:50:40Z",
+  "created_by": "Mark Atwood",
+  "description": "Several places use the for+push pattern where iterator .collect() is more idiomatic: (1) email.rs:828-832: refs Vec<&str> is built with for+chain+push; should be .chain().map().collect(). (2) submission.rs:373: non_ref_ids Vec is built by calling non_ref_id_set.into_iter().collect() which is fine, but the set itself is populated in two separate for loops (lines 357-371) that could be .flat_map() chains. (3) common/mod.rs:398-407: id fate accumulation must be a match loop (correct). The for+push cases in (1) are the cleanest target.",
+  "ephemeral": 0,
+  "id": "JMAP-767.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Multiple for+push loops could be .collect() chains",
+  "updated_at": "2026-05-01T12:39:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:50:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "91d12f9b-b956-5895-a37c-3e4209fe3b0d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

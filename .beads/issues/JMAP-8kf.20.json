@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-8kf.20",
+  "title": "SHA-256 computed before data ownership transfer to request body \u2014 no clone needed",
+  "description": "upload_blob computes local_sha256 = compute_sha256_hex(&data) before calling .body(data), which moves ownership. This means no data clone is required for integrity verification. A contributor might move the hash computation after building the request or try to keep a reference \u2014 both would require cloning the data Vec. Computing first is the correct ordering.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:22:14Z",
+  "updated_at": "2026-04-30T01:02:37Z",
+  "closed_at": "2026-04-30T01:02:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-8kf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:22:14"
+    }
+  ]
+}

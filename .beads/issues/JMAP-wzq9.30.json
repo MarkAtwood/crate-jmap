@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "72f80be2df9f589fc4599e8d35470469c671e3b0b21491a7ad0521fbd5a29f1c",
+  "created_at": "2026-05-15T02:45:34Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/metadata.rs:56 (metadata_get) and :204 (metadata_set) \u2014 the public method signatures directly use jmap_metadata_types::Metadata as the generic parameter on response types:\n\n    pub async fn metadata_get(\u2026)\n        -> Result<GetResponse<jmap_metadata_types::Metadata>, jmap_base_client::ClientError>\n\n    pub async fn metadata_set(\u2026)\n        -> Result<SetResponse<jmap_metadata_types::Metadata>, jmap_base_client::ClientError>\n\nThis is a structural major-version pin to jmap-metadata-types \u2014 equivalent in risk shape to the pub-use re-exports wzq9.21 calls out. A major version bump of jmap-metadata-types (e.g. a breaking change to the Annotation/ImapMetadata/WebDavMetadata wire shape, or a non-additive change to the Metadata enum that even #[non_exhaustive] cannot mask) bumps this crate's major version too.\n\nwzq9.21 enumerates jmap-types (re-exports: AddedItem, ChangesResponse, GetResponse, etc., and Session as a parameter) and jmap-base-client (re-export: ClientError; parameter: Session) as the two pinned-major surfaces. It does NOT name jmap-metadata-types. A fix-author addressing wzq9.21 (e.g. by adding a README \"Gotchas\" note about the upstream major-version dependency) could miss the metadata-types pin entirely \u2014 they would document a partial truth.\n\nWorse: a downstream that depends on both jmap-metadata-client AND jmap-metadata-types directly (e.g. to use MetadataFilterCondition for filter construction, since this crate accepts serde_json::Value for filter \u2014 see wzq9.6, wzq9.24) will see two copies of jmap-metadata-types in the crate graph if the minor versions diverge and the workspace ships uncoordinated. The Metadata returned by metadata_get will then have a type-id from one copy and the caller's typed filter shapes from the other \u2014 type-system rejection at the boundary with no obvious diagnostic.\n\nThis finding extends wzq9.21's enumeration. Same mitigation menu applies (pin in Cargo.toml, document in README, accept the risk).\n\nWorkspace-wide: every extension-client has a per-extension-types crate in its return-type generics. Propagate from canonical.\n\nCross-ref: wzq9.21, wzq9.6, wzq9.24.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.30",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "jmap_metadata_types::Metadata in public return types locks crate major version (extends wzq9.21)",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:20:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm.17",
+      "id": "440ccdcd-380d-542b-8519-58117d1828f7",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T19:45:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "914665fb-f330-51cd-88cc-5217dcc89a40",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

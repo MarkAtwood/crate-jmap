@@ -1,0 +1,33 @@
+{
+  "close_reason": "documented purpose in both backend traits",
+  "closed_at": "2026-05-02T06:29:29Z",
+  "compaction_level": 0,
+  "content_hash": "3d4d53cb5783012fee1199fdcd9e5e1d22227d96583c45ea1766da1a04982f2b",
+  "created_at": "2026-05-02T03:56:39Z",
+  "created_by": "Mark Atwood",
+  "description": "Both ChatBackend and MailBackend define fn supports_type<O: JmapObject>(&self) -> bool. Neither register_chat_handlers nor register_mail_handlers calls this method before dispatching. The register_*_handlers functions register all method names unconditionally \u2014 a backend that returns false for, say, SpaceBan still gets SpaceBan/* dispatched to it. Consumers who implement supports_type=false for a type and expect the handler to be absent will get serverFail from a handler that calls a backend method that panics or returns an error. The method is public API with no enforcement: either remove it (if it has no use) or have register_*_handlers consult it.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChatBackend/MailBackend::supports_type undocumented and unused in handlers",
+  "updated_at": "2026-05-02T06:29:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:56:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "71469f8c-9e18-591c-95d5-6900c8c576d3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-13T17:34:37Z",
+  "id": "019e2267-a052-7976-96a6-884c62bbbd96",
+  "issue_id": "JMAP-cf7p.10",
+  "text": "Recommendation accepted (Mark, 2026-05-13): option (a) process-global counter + 1024-event-per-type ring buffer. Testjig-only scope (no propagation to *-server crates). Pair with cf7p.12 in one PR using shared event-id scheme. De-labeling human; bead is now claimable by /do-beads."
+}

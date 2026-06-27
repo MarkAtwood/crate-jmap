@@ -1,0 +1,33 @@
+{
+  "close_reason": "Test-only code; (&'static str, String) keys are correct. Two-level HashMap refactor has no API impact.",
+  "closed_at": "2026-05-02T03:40:22Z",
+  "compaction_level": 0,
+  "content_hash": "8c36fefb232d999e0a449f1abf03daf330b31783d2944f48e2f093fef432e710",
+  "created_at": "2026-05-02T03:24:49Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/common/mod.rs Inner struct uses HashMap<(&'static str, String), \u2026> as the key for objects, states, and change_log. Every read path calls account_id.to_owned() or account_id.to_string() just to construct the lookup key, forcing a heap allocation for every get. The standard idiom is to use a Borrow-based lookup (e.g. .get(&(type_name, account_id.as_ref()) as a reference to a (&&str, &str) tuple)) or to store Arc<str> so the lookup clone is cheap. As-is, every backend call in every test allocates a fresh String for the account_id portion of the key.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Inner HashMap key uses String alloc on every lookup",
+  "updated_at": "2026-05-02T03:40:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:24:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "197680d2-769e-5d32-a487-02d6ebb5c0d6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit d0a0bd4. MetadataChangesParams.filter_metadata_type now carries an explicit semantics note distinguishing None (disable filter, return all types) from Some(vec![]) (legal empty array matching no @type values per draft \u00a73.3, server returns empty arrays).",
+  "closed_at": "2026-05-15T02:36:18Z",
+  "compaction_level": 0,
+  "content_hash": "66acf891dddcc0ca959541041e8dc9fd02af0d061c6cf5544cadb13872b6ee61",
+  "created_at": "2026-05-15T02:04:55Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:49-53 docstring on filter_metadata_type doesn't address the empty-Vec case. Per draft \u00a73.3 'If specified, the response MUST include only changes to Metadata objects whose @type property value is in the specified array.' An empty array therefore matches nothing \u2014 the response will contain only an empty created/updated/destroyed. This is a real footgun: a caller writing Some(vec![]) (perhaps because they computed the filter list and it came out empty) gets a silently-empty response rather than 'all types'. Audience: caller trying to debug 'why are no changes coming through'. Fix: one-sentence doc comment 'Note: Some(vec![]) means \"match no @type values\" per draft \u00a73.3 \u2014 use None to disable filtering instead.' Either as a behaviour note on the field, or as runtime InvalidArgument guard converting Some(vec![]) \u2192 InvalidArgument. Defence-in-depth option is more aggressive than this crate's other guards; doc-comment is the minimum bar.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MetadataChangesParams: empty filterMetadataType array semantics not documented",
+  "updated_at": "2026-05-15T02:36:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:04:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "a97cf9e5-cdea-580f-840b-6db0c0eecc28",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

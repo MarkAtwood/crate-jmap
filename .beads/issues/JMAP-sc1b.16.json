@@ -1,0 +1,40 @@
+{
+  "closed_at": "2026-05-10T21:56:59Z",
+  "compaction_level": 0,
+  "content_hash": "db62b42f634522b84fce93c95710eaa49b22581d52971b732adaed2932827a6e",
+  "created_at": "2026-05-07T20:29:08Z",
+  "created_by": "Mark Atwood",
+  "description": "**SUPERSEDED 2026-05-10** by the reference-impl extraction epic (see related link). The work this bead identified \u2014 adding integration tests to calendars-server, contacts-server, tasks-server \u2014 is now happening as children .5, .6, .7 of that epic, as a side-effect of writing public feature-gated reference implementations.\n\nOriginal text below for history:\n\n---\n\nEmpty/missing tests/ on:\n- crate-jmap-calendars-server/ (no tests/ files)\n- crate-jmap-contacts-server/ (no tests/ files)\n- crate-jmap-tasks-server/ (no tests/ files)\n\nPeer server crates have integration tests:\n- jmap-mail-server: 4 tests\n- jmap-sharing-server: 4 tests\n- jmap-chat-server: 1 test\n- jmap-filenode-server: 1 test\n\nEither tests are missing (and these crates aren't ready to publish) or the test discipline is genuinely asymmetric. Calendars/Contacts/Tasks are also the three crates where the README claims of method counts have drifted (calendars: 19 vs 20; contacts: nonexistent jscontact module). Likely correlated.\n\nFix: add wiremock-based integration tests at parity with the other server crates. Even a smoke test (\"register handlers, dispatch one method, validate response shape\") is better than nothing.\n\n---\n\n**Why superseded:** investigating this bead surfaced that the 4 already-tested server crates carry **5,406 LOC of in-memory backend implementations buried inside their `tests/common/` directories** \u2014 one MemoryBackend per JMAP capability, cookie-cut, invisible to docs.rs and external consumers. Executing this bead as-scoped would add another 1,500\u20139,000 LOC of the same buried pattern to the 3 untested crates.\n\nThe reference-impl extraction epic exits the pattern: each server crate gets a public, feature-gated `memory::MemoryBackend` in `src/`; tests use the public impl; the 3 currently-untested crates get reference impls + tests in one pass. This bead's specific work is its children .5, .6, .7.\n",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: 3 server crates have no integration tests",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "4333e571-4ba4-56b0-874e-adbb5fcada46",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-10T14:56:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-hwdv",
+      "id": "d0561132-122f-5eb2-b714-b5a4ff360993",
+      "metadata": {},
+      "type": "relates-to"
+    }
+  ]
+}

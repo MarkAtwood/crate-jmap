@@ -1,0 +1,33 @@
+{
+  "close_reason": "No-op resolution: defense of the existing resolve_args two-phase atomic design. The pattern (collect references read-only, validate all, then mutate) is preserved. Closing as a no-op; the defended shape stays.",
+  "closed_at": "2026-05-14T13:54:27Z",
+  "compaction_level": 0,
+  "content_hash": "765d8bc51736e76086afdafcd9ecd9575555c68ff224ca9ed7101947eae3a2fc",
+  "created_at": "2026-05-14T12:55:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this choice is correct: resolve_args (crate-jmap-server/src/parse.rs:131-195) collects all ResultReferences into a Vec, validates EVERY one read-only, and only then mutates args. If any single reference fails, args is returned byte-for-byte unchanged. This is enforced by tests at parse.rs:404-421 (resolve_args_atomic_on_partial_failure) and reasserted at lines 365-389 for individual error paths.\n\nWhat a future contributor might incorrectly suggest changing: 1) Single-pass apply-as-you-go: walk and mutate args in place, returning Err on the first failed reference. Pros (simpler code) lose to cons (args is now half-mutated; a retry against the same args would behave differently from the original call). The atomic shape preserves the JMAP idempotency contract \u2014 a client retrying a request after a transient error sees identical behaviour. 2) Optimistic apply with rollback: mutate, on error undo. Adds complexity and a new bug class (rollback that fails). The Vec<resolution> staging buffer is small (bounded by obj.len()) and the allocation is the right tradeoff.\n\nThe pattern is unusual in async Rust code because mutation under error-recovery feels expensive \u2014 but the borrow-checker forces the read-only pass anyway (cannot iterate obj while mutating obj), so we get atomicity essentially for free. Defensible explicitly because reviewer reflex is \"two passes is slow\" \u2014 the answer is \"we are already paying for two passes by construction\".",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Two-phase atomic resolve_args \u2014 args unchanged on partial failure",
+  "updated_at": "2026-05-14T13:54:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:55:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "3cb8e2b8-5242-5360-85bf-ee256d3038f7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

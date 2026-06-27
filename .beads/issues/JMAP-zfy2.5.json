@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "Cascade destroy implemented. All descendant ids in destroyed list.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Implemented onDestroyRemoveChildren cascade: get_descendant_ids, destroy each descendant, cascade failure reports parent in notDestroyed; +1 test; 19 total pass; clippy clean",
+  "closed_at": "2026-05-05T04:18:59Z",
+  "compaction_level": 0,
+  "content_hash": "1772f697b63507bc84fdabc9988e5ba8873762775937dda3035f5069a186f179",
+  "created_at": "2026-05-05T02:57:40Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** When onDestroyRemoveChildren=true and a node is destroyed, destroy all descendants and include their ids in the destroyed response. Oracle: \u00a73.2.3 MUST include ids of all deleted nodes.\n\n**Algorithm:**\n1. When onDestroyRemoveChildren=true:\n   a. Call get_descendant_ids for the node id.\n   b. Call destroy_object for each descendant (leaf-first order preferred; flat order acceptable).\n   c. On any descendant destroy error: insert serverFail for the top-level id in notDestroyed; continue.\n   d. Push each descendant id to destroyed_list.\n   e. Then call destroy_object for the top-level node.\n2. When onDestroyRemoveChildren=false: use get_descendant_ids (from FA) for the nodeHasChildren guard \u2014 already updated in FA.\n3. Update MockBackend: add set_descendants(node_id, [child_ids]) helper.\n\n**Tests:**\n- onDestroyRemoveChildren=true: all descendant ids appear in destroyed list. Oracle: \u00a73.2.3.\n- onDestroyRemoveChildren=true + descendant destroy fails: top-level in notDestroyed with serverFail.\n- onDestroyRemoveChildren=false + node has children not in destroy set \u2192 nodeHasChildren. Already tested in FA.\n- onDestroyRemoveChildren=false + leaf node \u2192 destroys normally.\n\n**Acceptance criteria:** All tests pass. cargo test -p jmap-filenode-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-zfy2.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement onDestroyRemoveChildren cascade in FileNode/set",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:57:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zfy2",
+      "id": "827a1041-2ac3-5b40-98fc-b3702eeb4dd8",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:58:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zfy2.1",
+      "id": "c5111d7a-c458-5690-bc36-a2a211464f36",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

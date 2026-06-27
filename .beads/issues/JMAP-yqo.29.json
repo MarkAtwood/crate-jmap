@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:31Z",
+  "compaction_level": 0,
+  "content_hash": "e551909af006c8a2edef19631f745584bb08eac984537181ccbf9bf100c4ee7a",
+  "created_at": "2026-05-02T02:59:08Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs: role_to_wire(r) is called inside the .filter() closure of the matching iterator (lines ~242, ~456, ~653). Each call serializes the role to a serde_json::Value and then pattern-matches it to extract the String \u2014 allocating a new String per call. In the filter loop this runs once per mailbox per filter evaluation. The idiomatic fix: pre-compute the role string once outside the loop (let role_wire: Option<String> = role_filter.as_ref().map(role_to_wire)) and capture it by reference inside the closure. This avoids repeated heap allocations in the common case where the filter matches few mailboxes. The existing JMAP-yqo.13 finding notes the O(n) full-scan; this is an additional allocation cost within that scan.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "role_to_wire called O(n) times in hot filter loop",
+  "updated_at": "2026-05-02T03:22:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:59:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "762a7e2b-90a8-58af-a271-8e8ebdaf273d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T02:37:09Z",
+  "id": "019e297e-b045-72a1-b08f-b32416a96116",
+  "issue_id": "JMAP-wzq9.19",
+  "text": "Blocked on canonical workspace propagation. Send/Sync contract on async-method futures is workspace-wide \u2014 every extension-client SessionClient has the same uncontracted concurrency posture. Same applies to base-client's JmapClient. Decision (typed-contract via bound, or doc-only assertion, or compile-time assert via fn _assert_send::<T: Send>()) lands at jmap-base-client + canonical mail-client first, propagates."
+}

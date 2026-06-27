@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced m.len()-based counter with a per-(type, account) monotonic counter in Inner.next_ids (feature-gated to non-realistic-demo-ids mode). Counter increments on every mint and never decrements on delete, so a destroyed id is never re-minted. 3 new unit tests lock in the fix. Calendars-server and chat-server have the same shape; workspace sweep tracked at bd:JMAP-h7jp (note: the commit message in 0d14538 incorrectly references JMAP-yfax \u2014 the actual workspace sweep bead is JMAP-h7jp). Implementation in commit 0d14538.",
+  "closed_at": "2026-05-15T10:08:33Z",
+  "compaction_level": 0,
+  "content_hash": "2d9b9feb4ec7571babd96c99e9356b90ac803db19f7acb1742bcc5f3e9449f2e",
+  "created_at": "2026-05-14T19:22:01Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger (only without the realistic-demo-ids feature, i.e. the default deterministic mode):\n\n  let b = MemoryBackend::new().with_account('a');\n  let (id1, _) = b.create_object(&(), &Id::from('a'), 'c1', book1).await?;  // id = 'addressbook0000000000000001'\n  b.destroy_object::<AddressBook>(&(), &Id::from('a'), &id1).await?;        // store now empty (len=0)\n  let (id2, _) = b.create_object(&(), &Id::from('a'), 'c2', book2).await?;  // re-mints 'addressbook0000000000000001'!\n\nmemory.rs:314 computes n = inner.objects_ref(...).map_or(0, |m| m.len()) and then formats new_id from n+1. After a delete, len() goes down, and the next create re-mints the same id as the one that was just destroyed.\n\nFor the change_log this is a real problem: the same Id now appears in destroyed (entry K) AND in created (entry K+2), and a /changes call spanning before K to after K+2 returns destroyed: [id1] AND created: [id1] for the same logical Id. RFC 8620 \u00a75.2 says state strings 'MUST be different in different cases' \u2014 this re-mints, which violates the spirit. The de-dup logic at memory.rs:438-456 silently makes the re-minted id appear ONLY in destroyed because the loop sees destroyed second; that's another silent-correctness issue.\n\nThe debug_assert at memory.rs:318-325 is the saving grace IN DEBUG BUILDS \u2014 it fires if the new_id already exists in the map. But it only fires when the SAME id is still in the map. After a destroy the id is GONE from the map, so the debug_assert does NOT fire. The collision is silent in both debug and release.\n\nThe big block comment at lines 308-313 explicitly says 'collides after deletes (count goes down, next id re-uses)'. So the implementor knows. But knowing-and-shipping is not the same as fixing. Two options:\n\n (a) Switch the default to the timestamp+atomic counter (the realistic-demo-ids feature) and delete the deterministic mode entirely. The comment already says both modes are demonstration-quality and persistent backends need ULIDs.\n (b) Use a monotonic counter that doesn't reset on delete \u2014 store next_id in Inner and increment it forever, mod nothing.\n\nOption (b) is the minimal fix and preserves the 'lex-orderable within a (type, account)' property the deterministic mode is documented to have. Option (a) is the bigger cleanup.\n\nNote: this is a sibling-pattern issue, not unique to contacts. Calendars-server and chat-server have the same demo_next_id shape (verified via grep). If the fix lands here it should propagate to those siblings per the canonical-template rule.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "demo_next_id len()-based deterministic mode collides after a delete; debug_assert fires on round-trip create/destroy/create",
+  "updated_at": "2026-05-15T10:08:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:22:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "2ea50804-9695-5735-9729-f3ead0a32994",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

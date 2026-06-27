@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in next commit. memory.rs:1063 now uses crate::helpers::PLACEHOLDER_BLOB_ID instead of the hardcoded string literal. cargo test, clippy, fmt all clean.",
+  "closed_at": "2026-05-15T07:08:03Z",
+  "compaction_level": 0,
+  "content_hash": "4b52c9f38f4bc1ac0d0da2ddb02da875edac6bed6cc058c390225cf4ddca7c07",
+  "created_at": "2026-05-14T16:21:05Z",
+  "created_by": "Mark Atwood",
+  "description": "src/memory.rs:986 hardcodes 'placeholder-blob' as a string literal, while src/helpers.rs:19 defines PLACEHOLDER_BLOB_ID as pub(crate) const for exactly this kind of cross-module coordination. email.rs (lines 1120, 1586, 1681) uses the constant correctly. memory.rs has only a comment reference to PLACEHOLDER_BLOB_ID but the code path uses a literal.\\n\\nMaintenance hazard: if PLACEHOLDER_BLOB_ID ever changes (e.g. for namespacing reasons, or to use a UUID-like sentinel to avoid clashes with real blob IDs), email.rs and memory.rs will silently desync. Real blob IDs would be treated as placeholders or vice versa, producing wrong wire output with no compile or test signal until the failure shows up in production.\\n\\nThis affects the canonical extension-server template, so the same drift hazard will exist in every sibling crate's MemoryBackend when JMAP-hwdv.2-7 propagate.\\n\\nFix: replace 'placeholder-blob' literal at memory.rs:986 with crate::helpers::PLACEHOLDER_BLOB_ID.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Hardcoded \"placeholder-blob\" literal in memory.rs drifts from PLACEHOLDER_BLOB_ID constant",
+  "updated_at": "2026-05-15T07:08:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:21:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "bc9ba161-92d4-5ea4-89cb-f0b2bd708f52",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

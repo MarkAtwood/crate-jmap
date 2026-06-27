@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "adc74263fc380f76784475f5a9f8ce59c5092d770086d20f4012011c3cc9b272",
+  "created_at": "2026-05-18T05:31:27Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence** \u2014 newtypes in crate-jmap-types/src/id.rs:\n- `Id(String)` (private inner)\n- `UTCDate(String)` (private inner)\n- `Date(String)` (private inner)\n- `State(String)` (private inner)\n- `ValidationError(pub String)` (src/id.rs:10) \u2014 `pub` inner\n\nThe /review-workspace-api.md audit prompt explicitly calls out \"Do newtypes have `pub` inner fields defeating type-safety?\" as a flag-worthy axis.\n\n**Caller-observable cost**: external code can write `let ValidationError(s) = err;` and bypass the Display/Error interface. The `#[non_exhaustive]` attribute on the type prevents struct-literal construction from outside the crate but does NOT prevent tuple-position destructuring once you have an instance. No outside-crate `.0` access exists today (verified by grep), so the divergence is currently latent.\n\n**Maintainer cost**: inconsistent shape between `ValidationError` and the rest of the newtype family in the same file. Forces a future reader to ask \"why is this one different?\" with no documented reason.\n\n**Note on intentional pub**: workspace AGENTS.md documents `pub extra: serde_json::Map<...>` as deliberately pub per \"Caller contract \u2014 wire-key collisions\". That justification does NOT apply to `ValidationError`'s pub-inner \u2014 there is no caller contract requiring outside-crate destructuring.\n\n**Fix**: change `pub String` to `String` in crate-jmap-types/src/id.rs:10. If callers were relying on `.0` access (verify with workspace grep), preserve through a `pub fn message(&self) -> &str` accessor.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.48",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "jmap-types' ValidationError(pub String) has pub-inner; 4 sibling newtypes in the same crate use private inner \u2014 flag-worthy asymmetry per audit prompt",
+  "updated_at": "2026-05-18T05:31:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:31:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "1f882028-c414-5e9d-b1b3-484ec548fc2f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

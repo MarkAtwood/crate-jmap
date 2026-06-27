@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T06:07:39Z",
+  "compaction_level": 0,
+  "content_hash": "01491bf829bbc4737f0df660eeb86365ab17bde171430b4b778a9d6c98ee7bbb",
+  "created_at": "2026-05-01T05:48:13Z",
+  "created_by": "Mark Atwood",
+  "description": "backend.rs line 88: with_properties(mut self, props: Vec<String>) forces every callsite to allocate a Vec<String> for single-property errors: vec![\"name\".to_owned()], vec![\"role\".to_owned()] etc. This appears 6+ times across mailbox.rs and submission.rs. with_description already uses impl Into<String> for ergonomics \u2014 with_properties should use impl Into<Vec<String>> or accept &[impl AsRef<str>] consistently. The current API causes unnecessary heap allocations on every set-error path and requires callers to remember .to_owned() for string literals. Maintainability impact: every new handler must repeat the same boilerplate.",
+  "ephemeral": 0,
+  "id": "JMAP-2qp.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetError::with_properties takes Vec<String> \u2014 ergonomics inconsistency with with_description",
+  "updated_at": "2026-05-01T06:07:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-04-30T22:48:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-2qp",
+      "id": "1df959a2-e043-50f9-a1f3-9c12f98c389a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

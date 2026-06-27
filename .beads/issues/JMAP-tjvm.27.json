@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Extended max_body_value_bytes docstrings on EmailGetParams (line 75) and EmailParseParams (line 312) with the full RFC 8621 \u00a74.1.8/\u00a74.9 truncation contract:\n\n1. Octets terminology (matching the spec word, replacing 'bytes' for consistency with \u00a74.1.8 wording).\n2. UTF-8 character-boundary rounding: the actual returned length may be a few octets short of the limit when the cut would fall inside a multi-byte sequence.\n3. The isTruncated feedback signal on EmailBodyValue, telling callers how to detect truncation.\n4. Recovery path: download the full blob via JmapClient::download_blob if the truncated value isn't enough.\n\nEmailParseParams cross-references EmailGetParams.max_body_value_bytes for the full contract rather than duplicating, since the truncation behavior is identical between /get and /parse (both per RFC 8621 \u00a74.9 cross-refers to \u00a74.1.8). The earlier JMAP-tjvm.29 sweep added the Some(0) magic-value note; this commit adds the UTF-8 + isTruncated semantics that .29 didn't cover.\n\nDoc-only change, no behavior change. Two-site fix in mail-client, no canonical-template propagation needed (these are mail-extension-specific options).",
+  "closed_at": "2026-05-17T14:11:41Z",
+  "compaction_level": 0,
+  "content_hash": "f52e0d58d07516d94d8a862761d0a22c63a963395e5b36cd59e48c35b2e9aad0",
+  "created_at": "2026-05-15T01:55:02Z",
+  "created_by": "Mark Atwood",
+  "description": "mod.rs:55-57 (EmailGetParams) and mod.rs:273-275 (EmailParseParams):\n\n  /// Truncate body values to at most this many bytes (RFC 8621 \u00a74.1.8).\n  #[serde(skip_serializing_if = \"Option::is_none\")]\n  pub max_body_value_bytes: Option<u64>,\n\nRFC 8621 \u00a74.1.8 defines the truncation semantics in more detail than the docstring captures:\n\n  \"If positive, then for each EmailBodyValue object returned, if the\n   string returned exceeds this limit, then it MUST be truncated to a\n   maximum length of this many octets. The string MUST end with a complete\n   UTF-8 character (i.e., trailing bytes that would result in an\n   incomplete code point are dropped). The 'isTruncated' property MUST be\n   set to true on any truncated EmailBodyValue object.\"\n\nContract gaps in the current docstring:\n\n  1. No mention of the `isTruncated` feedback signal on EmailBodyValue. A caller who passes max_body_value_bytes=1024 needs to know they can detect truncation via the returned value, otherwise they cannot decide whether to re-request the full blob via JmapClient::download_blob.\n\n  2. No mention of the UTF-8-boundary-rounding behaviour. A caller assuming byte-precision truncation may be surprised when they get 1019 bytes back from a 1024-byte limit because the message body contained a 5-byte UTF-8 sequence at the truncation boundary.\n\n  3. The unit (\"bytes\" in the docstring vs \"octets\" in the spec) \u2014 these are equivalent for UTF-8 but the spec word is \"octets\" and consistent terminology helps callers find the matching spec text.\n\nRecommendation: rewrite both docstrings to:\n\n  \"Truncate body values to at most this many octets (RFC 8621 \u00a74.1.8).\n   The truncated string ends on a UTF-8 character boundary, so the\n   actual returned length may be slightly less than this limit. Truncated\n   EmailBodyValue objects have `isTruncated` set to true. Callers needing\n   the full body of a truncated value should download the raw blob via\n   `JmapClient::download_blob`.\"\n\nPriority P3 \u2014 docstring rewrite, no behaviour change. Two-site fix, no canonical-template propagation because this is specific to the mail extension's body-fetch options.\n\nMark says NO HUMAN \u2014 clear recommendation, mechanical doc fix.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "EmailGetParams.max_body_value_bytes / EmailParseParams.max_body_value_bytes do not document RFC 8621 isTruncated feedback signal",
+  "updated_at": "2026-05-17T14:11:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:55:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "3c051c2d-67b0-5df1-85d0-6881534d6e14",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

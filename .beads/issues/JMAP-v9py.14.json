@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T041030Z-2473287",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-13T05:01:11Z",
+  "compaction_level": 0,
+  "content_hash": "5823f2eabfb38bcff58955b69ee03360b57238cfddde048bf80cfa8c7895c37b",
+  "created_at": "2026-05-12T23:37:00Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec: draft-atwood-jmap-cid-00 \u00a72 (capability URI urn:ietf:params:jmap:cid).\n\n## Acceptance\n\n- jmap-base-client Session adds (probably via SessionExt or directly on Session): `fn supports_cid(&self) -> bool` \u2014 returns true iff the session capabilities map has urn:ietf:params:jmap:cid as a key\n- The presence of the URI is sufficient (the capability value object is empty per spec \u00a72 \u2014 \"no capability fields defined at this time\")\n- Add adjacent rustdoc cross-referencing the existing supports_quotas, supports_refplus pattern (chat-client/session.rs:supports_quotas is the precedent)\n- Test: a synthesised Session with the URI key returns true; without it returns false\n\n## Out of scope\n\n- Acting on the capability (Blob/upload sha256 field is D.3; FileNode sha256 is deferred)\n- Negotiating a stricter mode (servers either advertise or don't)",
+  "ephemeral": 0,
+  "id": "JMAP-v9py.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Layer D: Add supports_cid() helper on Session in jmap-base-client",
+  "updated_at": "2026-05-13T05:01:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-12T16:37:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py",
+      "id": "106b493b-528d-5c17-8118-630de3f366c9",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-12T16:37:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py.11",
+      "id": "4f8f37eb-799f-5582-907b-d5444c6cc900",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:55:06Z",
+  "compaction_level": 0,
+  "content_hash": "f036575c45171a8b6521e27d08d51c121e1008c6fb50f24514bd084224222065",
+  "created_at": "2026-05-02T00:43:53Z",
+  "created_by": "Mark Atwood",
+  "description": "next_id() seeds a global counter from SystemTime::now() nanoseconds. Persistent backends that do not override find_thread_by_message_ids will silently get thread ID collisions if two process instances start within the same nanosecond (common in containers). The doc says 'Persistent backends should override find_thread_by_message_ids' but does not explain that failing to do so produces silent data corruption across restarts.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "next_id() thread-id collisions across process restarts",
+  "updated_at": "2026-05-02T00:55:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "cf70af1d-3163-5809-91a2-5e7650da5fb6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

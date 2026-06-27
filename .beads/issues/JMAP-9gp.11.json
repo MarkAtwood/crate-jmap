@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-9gp.11",
+  "title": "Mailbox/set destroy fetches ALL emails when only mailbox-member emails are needed",
+  "description": "mailbox.rs handle_mailbox_set destroy loop:523-527 calls get_objects::<Email>(account_id, None, None) to get ALL emails in the account, then filters by mailbox_id. For accounts with many emails, this is O(total_emails) when O(emails_in_mailbox) would suffice. Impact grows with account size. Fix: add a MailBackend::get_emails_in_mailbox(&Id) -> Vec<Email> method, or pass the mailbox_ids filter through query_objects.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:45:17Z",
+  "updated_at": "2026-05-01T02:15:41Z",
+  "closed_at": "2026-05-01T02:15:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9gp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:45:17"
+    }
+  ]
+}

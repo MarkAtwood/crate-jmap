@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-8kf.4",
+  "title": "upload_blob Vec<u8> param forces clone for Bytes callers",
+  "description": "blob.rs upload_blob(data: Vec<u8>) \u2014 callers holding bytes::Bytes must clone to satisfy Vec<u8>; reqwest::Body accepts both. Accepting impl Into<reqwest::Body> or bytes::Bytes would eliminate the copy for the common case of large blob uploads where the caller already holds Bytes.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:21:31Z",
+  "updated_at": "2026-04-30T00:26:05Z",
+  "closed_at": "2026-04-30T00:26:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-8kf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:21:31"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:34Z",
+  "compaction_level": 0,
+  "content_hash": "472afbd1d0cbf51475c903e618537f39bbc18dd08168cf25cee5dca0ae18c633",
+  "created_at": "2026-05-02T03:00:27Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs: HeaderPropertyRequest stores both original: String (the full 'header:Subject:asText' string) and name_lower: String (the lowercased name segment) and form: HeaderForm and all: bool. The original field is used only to re-insert into the response map (line 479: map.insert(req.original.clone(), extracted)). Storing it in the struct forces a String allocation per parsed header property. Since the original is the input to parse_header_property, and the call site has the original string available, the caller could pass it directly at map.insert() time. The struct's data members (name_lower, form, all) are sufficient for the extraction logic \u2014 original is extraneous. Removing original reduces the struct size and eliminates one String allocation per parsed header property request.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "HeaderPropertyRequest.original stores full property string \u2014 redundant with parse input",
+  "updated_at": "2026-05-02T03:22:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:00:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "c20f8404-9b64-556f-ba68-0f627930e468",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

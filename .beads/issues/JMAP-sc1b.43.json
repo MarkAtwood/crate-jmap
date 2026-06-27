@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:46:13Z",
+  "compaction_level": 0,
+  "content_hash": "ddd9ff654b04ad1d49855d32343187a5ca601f4e04fb1105b1c1723ef36f3c39",
+  "created_at": "2026-05-07T20:43:20Z",
+  "created_by": "Mark Atwood",
+  "description": "thiserror is declared in 16 of 25 crate Cargo.toml files but actually used in only 2 (jmap-types, jmap-base-client). All 7 client crates and 7 server crates other than jmap-server declare it as a dep but never `use thiserror`.\n\nAffected:\n- crate-jmap-{calendars,chat,contacts,filenode,mail,sharing,tasks}-server (7)\n- crate-jmap-{calendars,chat,contacts,filenode,mail,sharing,tasks}-client (7)\n\nEither:\n1. Remove the unused dep from those Cargo.toml files (a `cargo machete` run would also catch this; consider adding to CI).\n2. Migrate the hand-rolled Display/Error impls (MockError, MemoryError, TrackError, AvailabilityError, etc.) to `#[derive(thiserror::Error)]` so the dep earns its keep.\n\nOption 2 is the higher-yield fix because it also addresses JMAP-sc1b.X (AvailabilityError). Option 1 is faster and unblocks publish-readiness if the design is to keep error types hand-rolled in those crates.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.43",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: thiserror declared but unused in 14 crates",
+  "updated_at": "2026-05-07T21:46:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "446379da-0938-5d0c-8c3b-82985a26b741",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

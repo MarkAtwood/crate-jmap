@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T21:14:42Z",
+  "id": "019e18e4-654a-7adc-a6fb-d1df215f243d",
+  "issue_id": "JMAP-06zp.3",
+  "text": "Decomposed into .3.1 (scaffolding) \u2192 .3.2 (backend trait + helpers) \u2192 .3.3 (handlers) \u2192 .3.4 (memory backend + integration tests). This parent bead closes when all four children close. Claimed at higher level released \u2014 child .3.1 in progress."
+}

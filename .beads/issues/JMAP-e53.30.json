@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:55:02Z",
+  "compaction_level": 0,
+  "content_hash": "115f770e91be92bdfd0239f1b1aa6f5b2c4dc10a54c0b119674cf21ccba4819d",
+  "created_at": "2026-05-02T00:44:12Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs apply_body_value_args (~line 1147): the body_properties HashSet<&str> (prop_set) is rebuilt inside apply_body_value_args on every call, which is invoked once per email in the Email/get response list (see the per-email closure at ~line 441). For a batch get of N emails with B body properties each, this allocates and hashes B strings N times. The HashSet should be built once before the per-email loop and passed in (or the signature changed to accept a pre-built &HashSet<&str>). Impact grows linearly with batch size and is proportional to the number of body properties.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "apply_body_value_args: body_properties HashSet rebuilt per email",
+  "updated_at": "2026-05-02T00:55:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:44:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "42444b8b-535e-57b3-ad12-2ad878efb75a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

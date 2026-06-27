@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-kmx.3",
+  "title": "keywords/headers/body_values skip_serializing_if=is_empty violates RFC 8621 default-field contract",
+  "description": "RFC 8621 \u00a74.1.1 defines keywords with default:{} and RFC 8620 \u00a75.1 says a server MUST include default-value properties. With skip_serializing_if=\"HashMap::is_empty\", a server using this type serializes an Email with zero keywords as {\"id\":\"...\", ...} omitting \"keywords\" entirely. Same issue for body_values, text_body, html_body, attachments, headers (skip on empty). A server would need to patch the output or avoid using these types for final serialization. This is a silent footgun for jmap-mail-server. Fix: document that these types are not safe for server serialization of full-property responses, or restructure to avoid skip_serializing_if on default-value fields.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:04:48Z",
+  "updated_at": "2026-04-30T05:09:59Z",
+  "closed_at": "2026-04-30T05:09:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-kmx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:04:48"
+    }
+  ]
+}

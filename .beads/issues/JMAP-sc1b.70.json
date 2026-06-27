@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T07:21:42Z",
+  "compaction_level": 0,
+  "content_hash": "88487528861e524b6f1966fac1d3088c10aa21c8ae004048c327cf12e769c839",
+  "created_at": "2026-05-11T06:58:55Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Sites:\n- crate-jmap-mail-server/src/email.rs:1562-1566   \u2014 receivedAt from client on Email/set create\n- crate-jmap-calendars-server/src/principal.rs:46-56  \u2014 utcStart, utcEnd from client on Principal/getAvailability\n\nBoth use `obj_val.get(field).and_then(|v| v.as_str()).map(UTCDate::from)` against client-supplied wire input. `UTCDate::from` is infallible and accepts any String, so malformed timestamps flow into downstream string compares with undefined ordering behaviour.\n\nThe canonical fix pattern was just landed for jmap-chat-server in commit 533ee8a (closing JMAP-g7wu.9.11 and the JMAP-g7wu.9 epic):\n\n```rust\nmatch UTCDate::new_validated(s) {\n    Ok(d) => { /* use d */ }\n    Err(_) => {\n        not_created.insert(\n            create_id.clone(),\n            json!({ \"type\": \"invalidProperties\", \"properties\": [field_name] }),\n        );\n        continue;\n    }\n}\n```\n\nThat fix was applied to all three chat-server wire boundaries (ban.rs, invite.rs, message.rs) but did NOT propagate to the sibling extension-server crates per the cookie-cutter rule in workspace AGENTS.md (\"If you change this crate, propagate the change to every extension-server sibling in the same pass\"). The JMAP-g7wu.9 epic was closed marking the workspace-wide migration complete despite this gap.\n\nWhy P2 (not P1): unvalidated dates flow through but the impact is bounded \u2014 string compares produce undefined ordering, not crashes. Calendars-server availability queries with malformed input would return arbitrary windows. Mail-server email/set with malformed receivedAt would store a bogus timestamp and subsequent sort/filter by receivedAt would return arbitrary ordering. Defensible as P2: client error producing wrong-but-bounded results, not P1 silent data loss or panic.\n\nWhy idiomatic-rust: the entire point of `new_validated` returning `Result<UTCDate, ParseError>` is to push validation to the wire boundary. Using `.from()` (infallible) on client-supplied input defeats the type-system intent.\n\nSibling check via `rg 'UTCDate::from\\(' crate-jmap-*-server/src/`:\n- mail-server: 1 client-boundary site (email.rs:1562)\n- calendars-server: 2 client-boundary sites (principal.rs:49, principal.rs:55)\n- chat-server: 0 client-boundary sites remaining (all migrated)\n- tasks/contacts/filenode/sharing-server: 0 sites with client-supplied UTCDate\n- Server-internal sites that consume `now_utc_string()` are not affected \u2014 those values are well-formed by construction.\n\nNote: a partial mitigation is that the wire parsing in jmap-types::UTCDate is currently lossy by design (no validation in `from`), so even a fully validated boundary needs the `UTCDate::new_validated` ladder; `UTCDate::from` alone is not the answer.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.70",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: UTCDate boundary validation gap \u2014 chat-server fixed, mail-server & calendars-server still unvalidated",
+  "updated_at": "2026-05-11T07:21:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T23:58:55Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "5a08e374-b903-5a0d-afc0-cc19993c7048",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

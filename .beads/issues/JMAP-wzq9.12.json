@@ -1,0 +1,33 @@
+{
+  "close_reason": "Ratified review observation. The manual Debug impl on SessionClient (mod.rs:133-143) is intentional credential-leak prevention \u2014 JmapClient holds the auth credential and jmap-base-client deliberately does not derive Debug; deriving Debug here would either fail to compile (good outcome) or, after some future #[derive(Debug)] on JmapClient, silently leak credentials into logs (bad outcome). The manual impl pins the redaction. No code change required. The follow-up canary-test recommendation is workspace-wide \u2014 applies identically to all 7 extension-client siblings (mail, chat, calendars, tasks, contacts, filenode, sharing, metadata) and to base-client itself; filing a separate workspace-wide bead would be appropriate. Not in scope of this single-crate review.",
+  "closed_at": "2026-05-15T02:33:16Z",
+  "compaction_level": 0,
+  "content_hash": "0d9d26daa7ed5f7b879d2e2d9a4f8768ea9994f922d68890393acabdf31e4eab",
+  "created_at": "2026-05-15T02:05:13Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:133-143 implements Debug manually for SessionClient, showing 'client: <JmapClient>' instead of the real JmapClient internals. Reason: JmapClient holds an HTTP client containing the auth credential, and jmap-base-client intentionally does not derive Debug to avoid that leak. Deriving Debug here would either fail to compile (good) or, after a future #[derive(Debug)] on JmapClient, leak credentials into logs (bad). The manual impl pins the redaction in place. Defend against any future 'simplify by deriving Debug' suggestion \u2014 and against any future change to JmapClient that would make the derive 'just work'. This is consistent with the workspace per-type Debug redaction canary pattern (workspace AGENTS.md \u00a7Security testing). A canary test asserting that a bearer-token literal doesn't appear in format!(\"{sc:?}\") output would harden this guarantee further; tracking separately would be appropriate.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SessionClient manual Debug impl redacts the inner JmapClient",
+  "updated_at": "2026-05-15T02:33:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:05:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "20704513-8249-5961-8e26-6316dd60152e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

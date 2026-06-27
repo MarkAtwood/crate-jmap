@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:34Z",
+  "compaction_level": 0,
+  "content_hash": "4f3bf44e818c0b49731066b594088135e800a0c30fc8efe21c10cd8b35abdbf5",
+  "created_at": "2026-05-02T03:00:11Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs: HeaderForm is used in validate_header_form error messages via format\\!(\"{form:?}\", ...) (lines 232, 237, 244, 250) \u2014 the {:?} Debug format produces Rust identifier names like 'AsAddresses' rather than JMAP wire strings like 'asAddresses'. These error messages are returned to the client as JmapError::invalid_arguments descriptions. A client parsing the error to understand which form they used incorrectly sees 'AsAddresses' (Rust) not 'asAddresses' (JMAP spec term). The fix: impl Display for HeaderForm returning the JMAP wire-format name (matching RFC 8621 \u00a74.1.3), then use {form} in the format strings. This is not a correctness bug \u2014 the error is reported \u2014 but the message is misleading to JMAP clients and the {form:?} form signals missing Display is intentional when it is not.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "HeaderForm lacks Display \u2014 debug format leaks into user-visible error messages",
+  "updated_at": "2026-05-02T03:22:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:00:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "e908b3b3-1955-5572-ba85-1f1ec91fb927",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T06:41:48Z",
+  "id": "019e34ab-651e-76df-aa78-84e03fbfaf0e",
+  "issue_id": "JMAP-h47t.14",
+  "text": "Ratifying committed recommendation after 72h+ with no human reply. Per workspace AGENTS.md 'Stale committed recommendation' anti-pattern: rec is option (a) rustdoc rewrite to reframe enforce_is_draft_atomically as a correctness-handover contract (not a perf knob). Option (b) \u2014 remove the flag entirely \u2014 was explicitly deferred to a separate workspace-coordinated trait sweep. Removing 'human' label; option (b) tracked as separate bead."
+}

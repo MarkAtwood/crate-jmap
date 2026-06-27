@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.14",
+  "title": "subscribe_events: no doc on caller responsibility for reconnect / Last-Event-ID tracking",
+  "description": "client.rs subscribe_events: The function doc mentions 'If last_event_id is Some, sends a Last-Event-ID header' but does not explain that the caller must track SseFrame::id across stream iterations and pass it back on reconnect. A caller who ignores SseFrame::id and passes None on every reconnect will silently miss events. This is not obvious from the signature. The doc should explicitly state: 'Callers must track the last non-None SseFrame::id and pass it back to subscribe_events on reconnect to avoid missing push events.'",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:35:28Z",
+  "updated_at": "2026-04-30T01:43:18Z",
+  "closed_at": "2026-04-30T01:43:18Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:35:28"
+    }
+  ]
+}

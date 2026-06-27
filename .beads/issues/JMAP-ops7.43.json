@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a7512e2a0d5e2abfa6c794b2dcfa97eb8e25dbebe6ace87937ca1a928fe1bbb6",
+  "created_at": "2026-05-18T05:30:12Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence**:\n- crate-jmap-mail-types/AGENTS.md L83-L91 \u2014 Design Constraints table has 6 rows\n- crate-jmap-chat-types/AGENTS.md L130-L140 \u2014 Design Constraints table has 8 rows: adds `Constructors` (cites bd:JMAP-ly0n.7) and `Attribute order`\n\nBoth extra rows describe workspace-wide patterns that apply to ALL extension-types crates, not just chat-types. The Constructors row documents the workspace policy reversal recorded in bd:JMAP-sgrr.27 (the earlier 'no `::new()` methods' rule was effectively retired in favor of 'deserialize-from-JSON is the canonical path').\n\n**Cookie-cutter / canonical-template inversion**: the workspace's canonical-templates rule (workspace AGENTS.md \"Canonical Templates\" section) says contributors mirror the canonical's shape, and that changes to non-canonical siblings that diverge from the canonical must be cascaded canonical-first. Today chat-types describes the policy more fully than the canonical (mail-types) does. A contributor working on calendars-types, tasks-types, contacts-types, etc. would not see either policy unless they happened to read chat-types' AGENTS.md instead of mail-types'.\n\n**Caller-observable cost**: directly \u2014 the Constructors policy applies to whether new code in (e.g.) calendars-types should ship a `pub fn new`. The canonical-template propagation is meaningless against a sibling whose AGENTS.md does not record the workspace-wide policy.\n\n**Cross-reference**: bd:JMAP-sgrr.27 (the workspace policy decision); bd:JMAP-ops7.34 (the jscalendar-types constructor outlier that depends on this policy being in the canonical template).\n\n**Fix**: lift the `Constructors` and `Attribute order` rows from chat-types' Design Constraints table into mail-types'. Word-for-word port is fine; the rows are workspace-policy citations, not chat-specific.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.43",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "chat-types AGENTS.md Design Constraints table includes 'Constructors' and 'Attribute order' rows describing workspace-wide policy; canonical mail-types is silent on both \u2014 inverts canonical-template propagation direction",
+  "updated_at": "2026-05-18T05:30:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:30:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "b486166b-c02d-5c5c-85c1-d705f78fcb3b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

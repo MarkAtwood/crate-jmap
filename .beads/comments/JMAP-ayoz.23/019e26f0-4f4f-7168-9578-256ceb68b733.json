@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T14:42:24Z",
+  "id": "019e26f0-4f4f-7168-9578-256ceb68b733",
+  "issue_id": "JMAP-ayoz.23",
+  "text": "Deferring out of the JMAP-ayoz review-loop frontier. The bead itself notes: 'the canonical must change first. This finding is filed against this crate because the review scope is this crate, but the fix path goes through the canonical.' Workspace-wide canonical-template change \u2014 needs its own epic, not inline in this single-crate review loop. Likely bundle with JMAP-ayoz.22 and JMAP-ayoz.36 in a workspace-wide MemoryBackend hygiene epic."
+}

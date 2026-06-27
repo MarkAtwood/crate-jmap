@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:29Z",
+  "compaction_level": 0,
+  "content_hash": "fa8185ab6e87148b45ba0ef65c8b35aca00394cd7e7294253539b5a37f5af9c3",
+  "created_at": "2026-05-02T02:55:38Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mailbox_set fetches all_mailboxes once before the create/update loop for role uniqueness checks, then re-fetches mailboxes_after_mutations for the destroy loop's child-mailbox check. If the backend does not cache this, a request with creates+destroys incurs 2 full mailbox list fetches. For accounts with many mailboxes (enterprise) this doubles the storage read cost of every Mailbox/set that both creates and destroys. The re-fetch is necessary for correctness but the pattern is not documented.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/set destroy re-fetches all mailboxes after creates/updates \u2014 2 full scans per request",
+  "updated_at": "2026-05-02T03:22:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:55:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "facc35b1-54ff-52f1-b8b4-7b117131642e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

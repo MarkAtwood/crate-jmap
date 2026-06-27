@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T17:54:51Z",
+  "compaction_level": 0,
+  "content_hash": "d63d3114ec92d88908189e0dc0d5bacedca7ca49e68d1af3fe67f468b5218375",
+  "created_at": "2026-05-15T16:54:54Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-calendars-server/src/memory.rs:80 declares 'pub struct MemoryError(pub String);' \u2014 a tuple struct with a public String field.\n\nThe canonical jmap-mail-server (since commit 2941c50) and jmap-filenode-server (since e9b66a3) use a forward-compat shape:\n\n  #[non_exhaustive]\n  pub struct MemoryError { description: String }\n  impl MemoryError {\n      pub fn new(impl Into<String>) -> Self { ... }\n      pub fn description(&self) -> &str { ... }\n  }\n  impl Display for MemoryError { write self.description }\n\nThis is a canonical-template divergence. The propagation rule (workspace AGENTS.md 'Canonical Templates' + this crate's AGENTS.md banner) requires this crate to mirror jmap-mail-server's shape.\n\nMaintenance consequence: every future consumer who studies this MemoryBackend as 'the reference impl' learns a non-forward-compat error shape and copies it. The struct's pub field is also part of MemoryBackend's public API, so changing it later is a SemVer break.\n\nSame fix pattern as bd:JMAP-filenode-server commit e9b66a3 \u2014 about 8 construction sites in src/memory.rs (line 417, 435, 676, 684, 737).\n\nSibling sweep candidates: also check tasks/chat/metadata before bundling.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryError shape diverges from canonical mail-server",
+  "updated_at": "2026-05-15T17:54:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T09:54:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "98d86543-2ae7-5534-be42-e9c80e89435c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

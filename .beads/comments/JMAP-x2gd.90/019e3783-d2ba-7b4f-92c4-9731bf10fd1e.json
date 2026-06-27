@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T19:57:27Z",
+  "id": "019e3783-d2ba-7b4f-92c4-9731bf10fd1e",
+  "issue_id": "JMAP-x2gd.90",
+  "text": "Reviewed and closing as opinion-ratified-no-action per the bead's own recommendation.\n\nThe bead filer captured this in the description: 'opinion-labeled because the engineering basis for either direction is weak' and 'preferred direction would be no, leave the closures'. clippy::redundant_closure_for_method_calls is pedantic-tier and does not fire under the default-warning gate, so the workspace clippy CI gate is unaffected.\n\nVerified 2026-05-17:\n  cargo clippy --workspace -- -D warnings   # clean (this lint does not fire at default level)\n\nThe bead's secondary suggestion \u2014 file a workspace-level allow so future contributors don't re-decide \u2014 requires adding a workspace.lints table (currently absent) and the per-crate lints.workspace = true plumbing. That is a workspace-architectural addition with broader implications (every clippy::pedantic decision would then have to be hard-coded one-by-one in the table) and is out of scope for this P3 opinion bead. The decision-by-precedent is captured here in the bd record.\n\nPer workspace AGENTS.md Bikeshedding rule: 'If you are out of real issues to flag, say so. Do not manufacture problems to fill space.' This bead self-classifies as opinion-grade with weak engineering basis on both sides. The right close is ratification without code change."
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed. Added WsSender (owns sink, has send_text/send_request) and WsReceiver (owns stream, has next_frame), plus WsSession::split(self) -> (WsSender, WsReceiver). WsSession's unified methods preserve backward compat by delegating to embedded halves \u2014 additive shape, no public-API break. Compile-time Send check + integration test (tests/ws_split_smoke.rs against a real tokio_tungstenite server on 127.0.0.1:0) exercise the concurrent-send-while-receiving topology that the unified &mut self handle could not service.",
+  "closed_at": "2026-05-18T04:13:21Z",
+  "compaction_level": 0,
+  "content_hash": "04ea559ba7a117f8ac9a8c3a9bd10264ae22204a02e332e436826965eaf4105b",
+  "created_at": "2026-05-14T23:17:37Z",
+  "created_by": "Mark Atwood",
+  "description": "ws/mod.rs:101-104 \u2014 WsSession { sink, stream }\n\nWsSession is constructed by splitting a tokio_tungstenite::WebSocketStream into sink and stream halves. Internally it has both halves in one struct, with all methods taking `&mut self`:\n\n  - next_frame(&mut self) -> ... \n  - send_text(&mut self, text: String) -> ...\n  - send_request(&mut self, req, id) -> ...\n\nConcurrency contract gaps:\n\n1. **Cannot send while receiving.** A caller needs `&mut WsSession` to call next_frame() and ALSO to call send_request(). These borrows are exclusive \u2014 a typical pattern (one task receiving in a loop, another task occasionally sending) cannot work because both require &mut. The caller must either:\n   - serialize all access through a single task that interleaves send and receive\n   - or store the WsSession behind an Arc<Mutex<_>> and lock-then-await \u2014 which holds the mutex across .await, blocking the receive task while the send task waits for the network\n\n2. **The split exists internally but is not exposed.** The implementation already has them as separate halves; a future split(self) -> (WsSender, WsReceiver) method that returns owned halves would unlock the common one-receive-task + one-send-task topology. The doc-comment says \"Call next_frame in a loop to receive events. Use send_request to transmit JMAP requests.\" but doesn't address the concurrent-send case \u2014 a caller reading the docs would assume single-threaded use is the only supported model.\n\nThis is exactly the kind of \"would the next on-call rotation curse your name\" finding: a caller designing a chat client around this API will hit the concurrency wall on first sprint and have to rewrite around Mutex<WsSession> or some other crutch. Every real-world WebSocket consumer needs concurrent send-while-receiving.\n\nRecommendation: in the next minor release, add WsSession::split(self) -> (WsSender, WsReceiver). The existing WsSession can stay as the convenience handle. The new types are #[non_exhaustive] from day one. This avoids breaking the v0.x callers who use the unified handle while unblocking concurrent-send for everyone else.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "WsSession provides no concurrent-send safety \u2014 sink and stream are split but both behind &mut self",
+  "updated_at": "2026-05-18T04:13:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T13:57:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-prpm",
+      "id": "d9cfb4ed-d95b-51bb-bef9-0a36b70c0c70",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

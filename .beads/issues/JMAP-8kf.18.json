@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-8kf.18",
+  "title": "WsFrame::Unknown carries type_name: String \u2014 unknown frames are observable",
+  "description": "WsFrame::Unknown { type_name: String } preserves the @type value from the server frame (or the sentinel '<no @type>'). This is correct: callers that want to log or debug unknown frame types can do so without re-parsing. A contributor might simplify to WsFrame::Unknown with no payload \u2014 that would lose the type name and make debugging harder when a new server-side frame type appears.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:22:08Z",
+  "updated_at": "2026-04-30T01:02:36Z",
+  "closed_at": "2026-04-30T01:02:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-8kf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:22:08"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Pattern D applied: #[non_exhaustive] + #[derive(Clone)] + manual Debug impl redacting the inner JmapClient. All 6 extension-client siblings now match the canonical mail-client / calendars-client shape. Commit 57af692.",
+  "closed_at": "2026-05-09T08:11:44Z",
+  "compaction_level": 0,
+  "content_hash": "6c39b5798b8f2c257bbb76f6b82db43a7808d333dbe2ee64224b9f7051012833",
+  "created_at": "2026-05-09T08:08:47Z",
+  "created_by": "Mark Atwood",
+  "description": "Apply pattern D to jmap-sharing-client.\n\nPattern (full): SessionClient #[derive(Clone)] + manual Debug impl redacting JmapClient field\n\nReference: see calendars-client (which already has the change) for the exact shape, and the JMAP-tco1 epic description for the source bead that defined the pattern (JMAP-231o.{6,10,19,29,8}).",
+  "ephemeral": 0,
+  "id": "JMAP-tco1.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sweep D -> jmap-sharing-client: SessionClient #[derive(Clone)] + manual Debug impl",
+  "updated_at": "2026-05-09T08:11:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T01:08:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tco1",
+      "id": "b5d2f780-148e-5a8f-ab72-08abe0722cfb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

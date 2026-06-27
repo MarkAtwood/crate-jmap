@@ -1,0 +1,33 @@
+{
+  "close_reason": "Opinion-level observation; no action needed",
+  "closed_at": "2026-05-01T23:09:25Z",
+  "compaction_level": 0,
+  "content_hash": "c5eebb04f1c08c648927a831edd7f384a9de87591dec7f1deeb17049be0b3e8f",
+  "created_at": "2026-05-01T16:29:56Z",
+  "created_by": "Mark Atwood",
+  "description": "SetErrorType has both a hand-rolled Display impl (23-arm match mapping to camelCase strings) and #[serde(rename_all = \"camelCase\")] on the enum. These can diverge: add a new variant, update serde via the derive, forget to update Display (or vice versa). Display is used in error messages; serde is used on the wire. Today they agree, but there's no compile-time enforcement. Fix: remove Display impl entirely and use serde serialization where a string representation is needed (serde_json::to_value(self).ok().and_then(|v| v.as_str().map(str::to_owned))), or use the strum crate's AsRefStr derive.",
+  "ephemeral": 0,
+  "id": "JMAP-wdy.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetErrorType::Display hand-rolled match can drift from serde output",
+  "updated_at": "2026-05-01T23:09:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T09:29:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wdy",
+      "id": "fbff1dd3-e804-539f-9a4d-c38cab4b1df6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

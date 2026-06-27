@@ -1,0 +1,33 @@
+{
+  "close_reason": "Replaced 7 verbose 'iter().map(|id| Value::String((*id).to_owned())).collect()' sites with 'iter().copied().map(serde_json::Value::from).collect()'. Behaviourally equivalent (Value::from(&str) yields Value::String). 36/36 calendars-client tests pass. Commit 39eb335.",
+  "closed_at": "2026-05-09T03:09:14Z",
+  "compaction_level": 0,
+  "content_hash": "dc6a368657d476de82b0683bbf111f2a25addfc38a8d30b43dcd78625b2276de",
+  "created_at": "2026-05-08T03:20:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Pattern appears verbatim in 5 places:\n- calendar.rs:101-105\n- event.rs:110-114\n- event_notification.rs:95-99\n- event_parse.rs:36-41\n- participant_identity.rs:88-92\n- principal_availability.rs:48-53\n\n```\nserde_json::Value::Array(\n    d.into_iter()\n        .map(|id| serde_json::Value::String(id.to_owned()))\n        .collect(),\n)\n```\n\nWhere `d: Vec<&str>`, `id: &&str` (one extra ref because into_iter on Vec<&str> yields &str by value, not &&str \u2014 let me re-check). Actually `into_iter` on `Vec<&str>` yields `&str`, so `id: &str` and `id.to_owned()` is correct. Idiomatic alternative is more concise:\n\n```\nserde_json::Value::Array(d.into_iter().map(serde_json::Value::from).collect())\n```\n\n(`Value::from(&str)` exists and produces Value::String.) Or even shorter:\n\n```\nd.iter().copied().collect::<Vec<_>>().into() // serde_json::Value: From<Vec<&str>>\n```\n\nMinor \u2014 but 5 copies of the same boilerplate when one line would do. Section: idiomatic Rust / clippy-level.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "into_iter().map(|id| Value::String(id.to_owned())).collect() \u2014 to_owned on &str is unnecessary",
+  "updated_at": "2026-05-09T03:09:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:20:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "c10d8c84-d7d5-5bc4-a48f-887915536c5e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

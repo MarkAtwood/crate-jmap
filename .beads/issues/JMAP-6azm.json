@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7c43fc581fe583e54ae0dfc263a5918f212c8e7147e3d3cf0b49eb66aceb7003",
+  "created_at": "2026-05-17T16:35:26Z",
+  "created_by": "Mark Atwood",
+  "description": "Follow-up to bd:JMAP-6xs8.7 (closed 2026-05-17). Filter<T> in jmap-types deserializes a client clause with a misspelled operator key (e.g. {\"opperator\":\"AND\",\"conditions\":[]}) as Filter::Condition(T::default()) \u2014 all-None, which means \"match every record\". The hazard is now documented on Filter's rustdoc + pinned by a regression test in jmap-types, but the canonical mitigation lives in the server crates.\n\nApply to: jmap-server (generic Foo/query handler) AND every extension server's per-method handler that does /query or /queryChanges (mail, chat, calendars, tasks, contacts, filenode, sharing, metadata).\n\nDefense pattern (two options, can combine):\n\n1. After serde decode of the request's filter argument, walk the typed Filter<T> tree. For each Filter::Condition(t), require AT LEAST one field of t to be Some(_). If every field is None, the clause is the silent-fallthrough pre-image of a malformed-operator client typo; map to RFC 8620 \u00a75.5 'unsupportedFilter' MethodError.\n\n2. (Optional, defense-in-depth) Before invoking the per-method handler, walk the raw JSON of the filter argument and reject objects that contain neither 'operator' nor any recognised condition field key. Catches some typos earlier and produces clearer error messages, but option 1 is sufficient for correctness.\n\nTests for each handler should include:\n- the workspace's standard 'happy path' filter tests (already exist)\n- a malformed-operator regression: {\"opperator\":\"AND\",\"conditions\":[]} as the filter argument MUST produce unsupportedFilter (not a successful all-records response)\n- a typo'd condition-field regression: a filter shape with a misspelled per-spec field name MUST produce unsupportedFilter (not match-all)\n\nCross-references:\n- Hazard documented at crate-jmap-types/src/query.rs Filter<T> 'Malformed-operator hazard' section\n- Regression marker test: filter_with_typoed_operator_silently_decodes_as_match_all_condition (crate-jmap-types/src/query.rs)\n- Workspace AGENTS.md 'filter algebra exclusion' (lines 379-408) is the policy that mandates this defense",
+  "ephemeral": 0,
+  "id": "JMAP-6azm",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Server-side defense: reject all-None Filter::Condition as malformed-operator probe",
+  "updated_at": "2026-05-17T16:35:26Z"
+}

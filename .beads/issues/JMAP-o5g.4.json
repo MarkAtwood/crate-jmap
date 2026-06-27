@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-o5g.4",
+  "title": "upToId: non-string value silently ignored instead of invalidArguments",
+  "description": "In handle_email_query_changes and handle_mailbox_query_changes, upToId parsing: Some(_) => None silently ignores non-string/non-null values. If client sends 'upToId': 42 (a number), the handler proceeds with upToId=None. Client intends the query to stop at a specific ID but the server ignores the constraint and returns more results. RFC 8620 \u00a75.6: upToId is Id|null; a non-string is invalid and should return invalidArguments.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T04:53:59Z",
+  "updated_at": "2026-05-01T05:00:11Z",
+  "closed_at": "2026-05-01T05:00:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-o5g",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 21:53:59"
+    }
+  ]
+}

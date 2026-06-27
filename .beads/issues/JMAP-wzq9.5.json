@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Implemented in commit 592c7af. Added a one-paragraph rustdoc note on the merge_extras helper stating the expected extras size is zero (common case) or single-digit, per-key hash lookup is O(1) average, no allocation budget concern in practice, with a pointer to build_request for callers who actually need hundreds of extras.",
+  "closed_at": "2026-05-15T02:32:44Z",
+  "compaction_level": 0,
+  "content_hash": "37f152c8a5aaadc3ff193deb8eed4ea1420b961da4a8633a27d4df477aaabe87",
+  "created_at": "2026-05-15T02:04:11Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/metadata.rs:102-107: iterates p.extra (owned), calling args.as_object_mut().expect(...).entry(k).or_insert(v) per key. Each iteration unwraps the args mutable object reference, does a hash lookup, and inserts. Vendor-extras maps in production are typically tiny (<10 keys); this is fine in practice. Worth a one-line comment noting the expected size to head off well-intentioned 'optimization' PRs. No code change required if the comment is added. Demonstrated impact at scale: none. Listed only because Section 2 protocol requires non-trivial allocation paths be examined; conclusion is 'fine, document it'.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "metadata_changes extras-loop: per-key Map::entry/or_insert with no documented allocation budget",
+  "updated_at": "2026-05-15T02:32:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:04:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "066b04de-bc65-5c9d-91ae-1ecdb3db8782",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

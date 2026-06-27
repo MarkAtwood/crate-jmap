@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "058e72901c9311fb9485bf0656a06fc4d7fc5d401d14ae4dcfaf1d25e567d0c6",
+  "created_at": "2026-05-15T10:27:35Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-filenode-server/src/backend.rs:144 has:\n\n  /// [`MemoryBackend`]: crate::memory::MemoryBackend\n\nThe 'crate::memory' module is gated behind '#[cfg(feature = \"memory\")]' in src/lib.rs:42-43. Running:\n\n  RUSTDOCFLAGS=\"-D warnings\" cargo doc -p jmap-filenode-server --no-deps\n\nfails with 'error: unresolved link to crate::memory::MemoryBackend'. The same command with '--features memory' passes.\n\nFix options:\n\n1. Wrap the doc-link in '#[cfg(feature = \"memory\")]' if rustdoc tolerates that (it does for module-level doc, less so for trait-method doc).\n\n2. Replace the intra-doc link with a plain literal:\n   /// MemoryBackend (when the `memory` feature is enabled)\n\n3. Add a feature-gated reference paragraph at the trait/method docstring level:\n   #[cfg(feature = \"memory\")]\n   /// See [`crate::memory::MemoryBackend::get_ancestors`] for the reference impl.\n   #[cfg(not(feature = \"memory\"))]\n   /// See `crate::memory::MemoryBackend::get_ancestors` (gated behind `memory` feature) for the reference impl.\n\nConfirmed pre-existing on HEAD c436820; not caused by JMAP-510h.14.1. Surfaced while running 'cargo doc' as part of the pre-commit gate after the test-migration change.\n\nSibling check: jmap-mail-server likely has the same shape (its memory module is also feature-gated and its backend.rs probably has similar doc-links). If so, fix mail-server first as the canonical, then propagate per workspace AGENTS.md 'Canonical Templates' rule.",
+  "ephemeral": 0,
+  "id": "JMAP-go45",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "filenode-server: rustdoc intra-doc link to crate::memory::MemoryBackend breaks without 'memory' feature",
+  "updated_at": "2026-05-15T10:27:35Z"
+}

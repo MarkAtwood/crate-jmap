@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.16",
+  "title": "parse_ws_frame sentinel string for missing @type is surprising",
+  "description": "ws/mod.rs parse_ws_frame (lines 117-122): uses \"<no @type>\" as a sentinel string for the case where the @type field is absent. WsFrame::Unknown { type_name } callers who log or match on type_name get a confusing synthetic value that looks like an angle-bracket XML tag. Suggested rewrite: change type_name field to Option<String> so absent-@type and unrecognized-@type are distinguishable, or add a separate WsFrame::NoType variant. The current design conflates two distinct cases.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:30Z",
+  "updated_at": "2026-04-30T01:02:59Z",
+  "closed_at": "2026-04-30T01:02:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:30"
+    }
+  ]
+}

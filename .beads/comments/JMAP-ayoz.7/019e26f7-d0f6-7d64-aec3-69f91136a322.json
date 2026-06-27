@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T14:50:36Z",
+  "id": "019e26f7-d0f6-7d64-aec3-69f91136a322",
+  "issue_id": "JMAP-ayoz.7",
+  "text": "Deferring out of the JMAP-ayoz review-loop frontier. This crosses two crates: a public-API break to jmap-metadata-types (replacing the QueryObject::Comparator = serde_json::Value type alias with a typed MetadataComparator), and a corresponding handler shim change in jmap-metadata-server. The bead itself recommends 'Bundle into a metadata-types child bead AND a metadata-server child bead. Block on the metadata-types fix.' That decomposition can land as a dedicated cross-crate sub-epic in a future session. The crate is pre-1.0 so the public-API break is acceptable; the timing is the concern."
+}

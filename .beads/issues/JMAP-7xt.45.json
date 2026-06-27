@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.45",
+  "title": ".to_string() on &'static str keys in ws/mod.rs send_request",
+  "description": "ws/mod.rs lines 99 and 101 (production send_request): obj.insert(\"@type\".to_string(), ...) and obj.insert(\"id\".to_string(), ...). String literals are &'static str; .to_string() allocates. Idiomatic alternatives: \"@type\".to_owned() (clippy::str_to_string), or use serde_json::json\\! macro to build the insertion. Also line 181: \"invalid auth header value\".to_string() in connect_ws error path \u2014 same pattern, prefer .to_owned() or .into().",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:48:13Z",
+  "updated_at": "2026-04-30T00:55:38Z",
+  "closed_at": "2026-04-30T00:55:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:48:12"
+    }
+  ]
+}

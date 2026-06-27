@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T20:55:04Z",
+  "id": "019e18d2-6a52-705d-be58-1bce2991c5bb",
+  "issue_id": "JMAP-ltx4",
+  "text": "Correction: I re-added the 'human' label earlier in this session without reading the prior comment from Mark on 2026-05-11 02:08 which explicitly removed it (bd-spin no longer halts on human-labeled beads per JMAP-j6td; Categories A/B/C are autonomously drivable). Reverting \u2014 label removed again. Apologies for the churn."
+}

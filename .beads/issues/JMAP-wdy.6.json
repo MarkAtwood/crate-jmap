@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced all .expect() in library code; ser() helper added to helpers.rs; list paths use collect::<Result>()?, individual inserts use unwrap_or_else",
+  "closed_at": "2026-05-01T16:54:51Z",
+  "compaction_level": 0,
+  "content_hash": "fbb6e63711f215572d6fcc36b564ae3e40502cf5c93b5f205bec31e824d4b879",
+  "created_at": "2026-05-01T16:29:47Z",
+  "created_by": "Mark Atwood",
+  "description": "CLAUDE.md states: 'No .unwrap() or .expect() in library code \u2014 propagate with ?'. The handlers contain ~20 .expect(\"type derives Serialize and is always serializable\") calls (email.rs, mailbox.rs, identity.rs, submission.rs, vacation.rs, thread.rs, etc.) for serde_json::to_value(&set_err) and similar. In practice these cannot fail (the types derive Serialize without custom impls and have string-compatible map keys), but they violate the stated policy and set a precedent for contributors to add more. The correct fix is to either: (a) use map_err and propagate, or (b) define a newtype that serializes via hardcoded JSON so the conversion is infallible by construction.",
+  "ephemeral": 0,
+  "id": "JMAP-wdy.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": ".expect() calls in library code violate project no-expect policy",
+  "updated_at": "2026-05-01T16:54:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T09:29:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wdy",
+      "id": "401f9213-b729-55dc-8bb7-550ade6f8891",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

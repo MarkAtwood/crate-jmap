@@ -1,0 +1,52 @@
+{
+  "acceptance_criteria": "All 5 named tests pass; cargo test -p jmap-mail-server --features sieve passes",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:14:45Z",
+  "compaction_level": 0,
+  "content_hash": "b47c76fccb20dc13f061dcc1743f3692c6d4d49225b7450caff81cff03b2d524",
+  "created_at": "2026-05-02T15:23:37Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement handle_sieve_validate in src/sieve.rs (SieveScript/validate handler).\n\nWHAT: Custom method (not /get or /set) that validates a Sieve script blob without storing it.\n\nALGORITHM:\n1. Parse args: extract account_id. Extract blob_id: Id from args[\"blobId\"] \u2014 missing/null \u2192 JmapError::invalid_arguments(\"blobId is required\").\n2. account_exists check.\n3. Call backend.validate_sieve_script(&account_id, &blob_id).await.map_err(|e| JmapError::server_fail(e.to_string()))?\n   - Returns Ok(None) if valid.\n   - Returns Ok(Some(description)) if invalid \u2014 description includes line number per spec \u00a72.6.\n4. Build response:\n   If None: json!({ \"accountId\": account_id.as_ref(), \"error\": null })\n   If Some(desc): json!({ \"accountId\": account_id.as_ref(), \"error\": { \"type\": \"invalidSieve\", \"description\": desc } })\n5. Return Ok((resp, vec![]))\n\nNote: If the blob does not exist, validate_sieve_script returns Ok(Some(\"blob not found\")) \u2014 treated as an invalid script per spec \u00a72.6 (blob must be uploaded first). This is consistent with the spec's silence on notFound for validate.\n\nDEFENSIVE RULES:\n- blobId is required \u2014 missing/null is an error, not a no-op\n- error field must be null (not absent) when valid (spec \u00a72.6 response shape)\n- No .unwrap() or .expect()\n- accountNotFound for unknown account\n\nAGENT TEAM: Implementer + Tester\n\nTESTS (oracle: spec \u00a72.6 response shape; test vectors from valid/invalid scripts):\n- sieve_validate_valid_script: blob contains valid Sieve (e.g., \"keep;\"), error is null\n- sieve_validate_invalid_script: blob contains invalid Sieve, error.type==\"invalidSieve\" and description is non-empty\n- sieve_validate_missing_blob: error.type==\"invalidSieve\"\n- sieve_validate_missing_blob_id: JmapError::invalid_arguments\n- sieve_validate_unknown_account: accountNotFound",
+  "design": "Request: { accountId: Id, blobId: Id }\nResponse: { accountId: Id, error: SetError|null }\n\nSteps:\n1. Parse accountId and blobId from args.\n2. Delegate to backend.validate_sieve_script(account_id, blob_id).\n3. Return { accountId, error: None } if valid, or { accountId, error: { type: invalidSieve, description: ... } } if invalid.\n\nError cases:\n- blobId not found: return { error: { type: invalidSieve, description: blob not found } } \u2014 or alternatively a notFound JmapError. Spec does not specify; treat missing blob as an invalidSieve error for simplicity (blob must be uploaded first per \u00a72.2).\n- accountId unknown: accountNotFound JmapError.\n\nEquivalent to ManageSieve CHECKSCRIPT command (RFC 5804).\n\nNote: the backend is responsible for obtaining the blob content and parsing it. The handler only marshals the request/response.\n\nSpec ref: draft-ietf-jmap-sieve-22 \u00a72.6.",
+  "ephemeral": 0,
+  "id": "JMAP-ogt",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve: SieveScript/validate handler",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T11:29:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-82ty",
+      "id": "2c157e6c-9e55-5af4-921a-148e04f6d672",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-02T08:24:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3uh",
+      "id": "63f8e989-35ed-5e3a-b839-6b9665d77858",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T12:01:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-589",
+      "id": "a364569c-30d4-532b-97ac-073c8e9e8fa8",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

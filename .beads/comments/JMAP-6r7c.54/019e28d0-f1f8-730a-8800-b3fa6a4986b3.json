@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T23:27:23Z",
+  "id": "019e28d0-f1f8-730a-8800-b3fa6a4986b3",
+  "issue_id": "JMAP-6r7c.54",
+  "text": "Self-flagging as opinion per /review-rusty calibration rule. Re-reading: the existing expect() comment is sufficient \u2014 the workspace rule that 'every expect() in production needs a comment' is already satisfied. My suggested improvement is 'add another sentence' which is bikeshedding, not engineering. Reviewer convergence signal: when the suggested fix is 'add a line to a doc comment that already meets the policy', that's noise. Leave open as opinion; a /do-beads pass should close as wontfix."
+}

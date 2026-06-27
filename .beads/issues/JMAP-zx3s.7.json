@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added new() constructors to all four Mdn*Request/Response types in crate-jmap-mail-types/src/mdn.rs, matching the sibling pattern in submission.rs (Address::new, Envelope::new, EmailSubmission::new) and vacation.rs (VacationResponse::new): required fields are positional args, optionals default to None, extra defaults to empty Map. Added one round-trip-against-spec test (mdn_request_response_constructors_match_spec_minimal_shape) asserting each constructor produces the minimal RFC 9007 \u00a73.1/\u00a73.3 wire shape with no extra keys. Test oracle is hand-written JSON from RFC 9007, not derived from code under test. Tests + clippy clean.",
+  "closed_at": "2026-05-17T15:08:18Z",
+  "compaction_level": 0,
+  "content_hash": "356363464b3c5747a5dfb5b9b7483f3708ad243618f45a44cc18200657ab69dd",
+  "created_at": "2026-05-15T04:47:39Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-types/src/mdn.rs defines four request/response types with `#[non_exhaustive]`:\n\n- MdnSendRequest (line 238)\n- MdnSendResponse (line 269)\n- MdnParseRequest (line 290)\n- MdnParseResponse (line 307)\n\nNone of the four has an associated `new()` or any other constructor. `#[non_exhaustive]` makes struct-literal syntax unavailable to callers outside this crate (workspace AGENTS.md design rule), so a client crate that needs to construct these for outgoing requests has no API surface to do so.\n\nThe sibling `Mdn` (line 200) has `Mdn::new(disposition)` and `Disposition::new(action_mode, sending_mode, type_)`. Every other migrated type in the diff has a `new()` (Address, Envelope, DeliveryStatus, EmailSubmission, Thread, Identity, SearchSnippet, VacationResponse, SieveScript, Mailbox, MailboxRights, Email, EmailAddress, EmailAddressGroup, EmailHeader, EmailBodyValue).\n\nThis is a pre-existing condition (the four types existed pre-9c0d34f without constructors), but the extras-preservation migration adds `extra: serde_json::Map` as a new field. Even though `extra` is `#[serde(default)]`, the type still cannot be struct-literal-constructed externally. A consumer who needs to build an `MdnSendRequest` today must either deserialize one from JSON or fall back to `serde_json::Value` and `from_value`.\n\nThe MDN gating note: this is all behind `#[cfg(feature=\"mdn\")]` so the impact is limited to consumers who enable the mdn feature. But that's still the case where ergonomics matters most \u2014 those consumers want to USE the MDN types.\n\nFix: add four `new(account_id: Id, ...)` constructors taking only the required fields, defaulting optional fields and `extra` to empty. Pattern is established by sibling types in the same file (see Mdn::new at line 215).\n\nConstruction:\n- `MdnSendRequest::new(account_id, identity_id, send) -> Self` \u2014 send defaults to empty? Or required?\n- `MdnSendResponse::new(account_id) -> Self`\n- `MdnParseRequest::new(account_id, blob_ids) -> Self`\n- `MdnParseResponse::new(account_id) -> Self`\n\nPriority P2 because the gap blocks external client-side construction; pre-existing means it's not strictly a regression from this diff, but the diff is the natural time to close it because the migration touches all four types.",
+  "ephemeral": 0,
+  "id": "JMAP-zx3s.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MdnSendRequest, MdnSendResponse, MdnParseRequest, MdnParseResponse are non_exhaustive but have no new() constructor \u2014 unconstructible externally",
+  "updated_at": "2026-05-17T15:08:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:47:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zx3s",
+      "id": "a1fafad1-e293-5129-8c4e-de2fa7329e05",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

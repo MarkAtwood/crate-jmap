@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:34Z",
+  "compaction_level": 0,
+  "content_hash": "3fbaa2b200a22b30f380357f8ee0b109e176b58185fd5059cb5e962f980d634f",
+  "created_at": "2026-05-02T03:00:19Z",
+  "created_by": "Mark Atwood",
+  "description": "Across email.rs, mailbox.rs, submission.rs, identity.rs, and vacation.rs, the pattern 'if m.is_empty() { Value::Null } else { Value::Object(m) }' and 'if v.is_empty() { Value::Null } else { Value::Array(v) }' appears at least 30 times. This is not wrong but it is repeated without abstraction, which means any future change to the null-vs-omit semantics requires touching every site. The idiomatic approach is a small module-level or crate-level helper: fn map_or_null(m: serde_json::Map<String, Value>) -> Value and fn array_or_null(v: Vec<Value>) -> Value. These are two-liners. The repetition is a maintainability issue: a reviewer checking RFC 8620 \u00a75.3 compliance cannot grep for a single function to audit all set-response null handling.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Repeated empty-map-to-null pattern should be a helper function",
+  "updated_at": "2026-05-02T03:22:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:00:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "769a7644-870f-56e4-bdd2-7bed11fa18d8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

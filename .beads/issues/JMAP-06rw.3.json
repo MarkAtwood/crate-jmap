@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "6 TaskNotification wiremock tests pass. Destroy-only verified.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/task_notification_tests.rs (6 tests: get, changes, set destroy-only verified with no-create/no-update assertion, empty destroy, query filter, queryChanges); clippy clean",
+  "closed_at": "2026-05-05T04:37:08Z",
+  "compaction_level": 0,
+  "content_hash": "b34f1d5388c75d049955bcdf092f74c9a966b06035eb5b2a33e663c4c11958ac",
+  "created_at": "2026-05-05T02:54:56Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-tasks-client/tests/task_notification_tests.rs with 6 async wiremock tests. Key invariant: TaskNotification/set is destroy-only \u2014 client must NEVER send create or update. Oracle: draft-ietf-jmap-tasks-06 \u00a75.4 (destroy-only MUST), \u00a75.5.1 (filter), \u00a75.5.2 (created sort MUST).\n\n**Tests:**\n1. task_notification_get_round_trip: assert resp.list[0].id==\"notif1\", notification_type==NotificationType::Created, task_id==\"task1\".\n2. task_notification_changes_round_trip: assert resp.destroyed==[\"notif-old\"]; assert no maxChanges in request when None passed.\n3. task_notification_set_destroy_only_wire_format: call set([\"notif1\",\"notif2\"]); assert resp.destroyed==[\"notif1\",\"notif2\"]; assert request has destroy==[\"notif1\",\"notif2\"] and NO create key and NO update key. Oracle: \u00a75.4 destroy-only MUST.\n4. task_notification_set_empty_destroy_succeeds: call set([]); assert destroy:[] in request; assert no create/update.\n5. task_notification_query_with_filter: pass filter {\"type\":\"created\",\"taskIds\":[\"task1\"]}, sort [{\"property\":\"created\"}]; assert filter.type==\"created\" and sort[0].property==\"created\" in request. Oracle: \u00a75.5.1 filter fields, \u00a75.5.2 created MUST.\n6. task_notification_query_changes_round_trip: assert request has sinceQueryState==\"qs1\" and maxChanges==20.\n\n**Acceptance criteria:** All 6 tests pass. Destroy-only invariant (no create/update) explicitly asserted.",
+  "ephemeral": 0,
+  "id": "JMAP-06rw.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: TaskNotification/get /changes /set /query /queryChanges",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:55:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-06rw.1",
+      "id": "b034fc77-802d-59e1-899b-d99370326a29",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:54:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-06rw",
+      "id": "d3b56dfe-a403-5834-a36c-0f3fc5ef403b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

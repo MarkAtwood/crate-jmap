@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-5xv",
+  "title": "lib.rs: #![forbid(unsafe_code)] appears before //! crate doc",
+  "description": "In jmap-server/src/lib.rs, #![forbid(unsafe_code)] is the very first line, before the //! crate-level documentation comments. Rustdoc renders fine, but the conventional Rust ordering is: crate doc (//!) first, then inner attributes (#![...]). This is a minor style issue but inconsistent with the rest of the crate family.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:04:00Z",
+  "updated_at": "2026-04-30T06:14:01Z",
+  "closed_at": "2026-04-30T06:14:01Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-e39",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:04:19"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T05:56:17Z",
+  "compaction_level": 0,
+  "content_hash": "3f930dcd0c72c2e547b2c9840d0e514847fd3d99645868af6740e906bb1eb6f6",
+  "created_at": "2026-05-08T03:12:33Z",
+  "created_by": "Mark Atwood",
+  "description": "Multiple unit tests advertise themselves as testing the InvalidArgument guard but never call the function under test. They re-implement the check locally and then assert the local check works.\n\nExamples:\n- src/methods/calendar.rs:127-141 (calendar_get_empty_id_returns_invalid_argument)\n- src/methods/event.rs:194-208 (calendar_event_get_empty_id_returns_invalid_argument)\n- src/methods/event_notification.rs:244-258 (calendar_event_notification_get_empty_id_guard)\n\nThe test body is:\n```\nlet ids: &[&str] = &[\"\"];\nlet mut found_error = false;\nfor id in ids.iter() { if id.is_empty() { found_error = true; break; } }\nassert!(found_error, \"empty id must trigger the InvalidArgument guard\");\n```\n\nThis proves only that `\"\".is_empty()` returns true. It does NOT call `calendar_get`, `calendar_event_get`, etc. The production guard could be deleted entirely and these tests would still pass \u2014 they have no oracle.\n\nThis violates AGENTS.md test-integrity rule: 'Never write a test that uses the code under test as its own oracle.' Worse, this test does not even reach the code under test.\n\nFix: convert to wiremock-backed tokio::test that calls the public method on a SessionClient and asserts the returned Result is `Err(ClientError::InvalidArgument(_))`. The infrastructure already exists in tests/helpers.rs:51 (make_client). Or delete these tests outright if a wiremock harness is unwanted \u2014 they currently provide negative value (false confidence).\n\nNote: src/methods/event_parse.rs and src/methods/principal_availability.rs explicitly comment that the guards 'require a wiremock-backed async harness' \u2014 the harness exists. There is no reason these tests cannot exist.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Test claims to test guard but only re-asserts is_empty()",
+  "updated_at": "2026-05-08T05:56:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:12:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "b4e98e49-1bc7-5ea5-a707-a2f9048d8d5b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

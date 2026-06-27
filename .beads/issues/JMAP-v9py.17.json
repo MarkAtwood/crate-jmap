@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "26fd5b80871ac281a01b11df296c24d9eec8106b21f39cbfe9a795acb16ef51c",
+  "created_at": "2026-05-12T23:37:40Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec: draft-atwood-jmap-chat-calendars-00.\n\nNOT WORKED in the JMAP-v9py compliance sweep; filed for a later session.\n\nCapability: urn:ietf:params:jmap:chat:calendars (meaningful only with both urn:ietf:params:jmap:chat AND urn:ietf:params:jmap:calendars).\n\n## Naming note\n\nWorkspace already has crate-jmap-calendars-* for the IETF draft-ietf-jmap-calendars-26 binding. This bead's crates would be named crate-jmap-chat-calendars-* to disambiguate from the IETF binding.\n\n## What needs to land\n\n- Space extension: calendarId (optional; references Calendar on same account)\n- No new methods. Reuses JMAP Calendars methods.\n- MessageAction \"urn:jmap:chat:cap:calendar-event\" semantics (uri forms, metadata keys: startsAt, endsAt, location, participantCount)\n- MessageAction \"urn:jmap:chat:cap:availability\" semantics\n- RSVP via existing CalendarEvent/set patch (no new method)\n- Capability fields: mayBindCalendar, supportsIcsParsing, supportsAvailabilityLookup\n- ICS auto-creation rules (default needs-action, size limits, rate limits)\n\n## Dependencies\n\n- crate-jmap-calendars-types must be stable (IETF binding; workspace already has it)\n- jmap-chat-types Space extension shape",
+  "ephemeral": 0,
+  "id": "JMAP-v9py.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Layer E: Implement draft-atwood-jmap-chat-calendars-00 (new jmap-chat-calendars-{types,server,client} crates)",
+  "updated_at": "2026-05-12T23:37:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-12T16:37:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py",
+      "id": "34a7130a-73e7-5cc4-b503-57bc6b616800",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T01:52:11Z",
+  "compaction_level": 0,
+  "content_hash": "addbca78051d9cbc7495b412213297c84737b275ad1d7d136676aef96855952d",
+  "created_at": "2026-05-14T12:29:52Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\n\\`ChatBackend::apply_space_metadata_patch\\` at backend.rs:553-555\ninvites validation:\n\n> Backends MAY validate the values further (e.g. reject\n> \\`iconBlobId\\` referencing a non-existent blob) and surface\n> those as [\\`SetError\\`] returns.\n\nBut \\`SetErrorType\\` is a \\`#[non_exhaustive]\\` enum in\n\\`jmap-server\\` with at least these variants potentially applicable\nto a blob-not-found rejection:\n\n- \\`SetErrorType::InvalidProperties\\` (RFC 8620 \u00a75.3 property\n  validation failure)\n- \\`SetErrorType::BlobNotFound\\` (if it exists \u2014 RFC 8620 \u00a75.3\n  defines a \\`blobNotFound\\` *method-level* error, but whether\n  there's an analogous \\`SetErrorType\\` is unstated by the chat-\n  server rustdoc)\n- \\`SetErrorType::NotFound\\` (generic catch-all)\n\nThe third-party implementer either:\n\n1. Picks one (probably wrong; RFC 8620 \u00a75.3 puts \\`blobNotFound\\`\n   at the *method* level, not the SetError level \u2014 so wrapping\n   it in a SetError is itself a spec deviation), or\n2. Reads RFC 8620 \u00a75.3 directly to disambiguate, in which case\n   the doc didn't help.\n\n## Why this matters\n\n\\`iconBlobId\\` is named in the doc as the worked example. A\nthird-party implementer trying to follow the example precisely\nhits the SetErrorType-selection ambiguity on the first try. The\ndoc invites the validation but doesn't close the loop on how to\nreport the result.\n\nThe same gap applies to any value-level validation the trait\nallows the backend to perform \u2014 the doc gives the green light to\nvalidate but not the format to report the rejection.\n\n## Recommendation\n\nAdd a sentence after the existing prose:\n\n> For blob-not-found specifically: use\n> \\`BackendSetError::SetError(SetError::with_type(SetErrorType::InvalidProperties)\n>   .with_properties([\\\"iconBlobId\\\"]))\\`\n> per RFC 8620 \u00a75.3. (\\`blobNotFound\\` is a method-level error,\n> not a SetError variant \u2014 surface it as a property validation\n> failure at the SetError level.)\n\nOr, more generally, point at a \\\"Backend implementer's guide\\\" doc\npage (which would also satisfy the broader gap noted in .59) that\ncovers SetErrorType selection systematically.\n\n## Engineering basis\n\nDirect read of backend.rs:553-555. RFC 8620 \u00a75.3 cross-reference\nverified from spec knowledge per AGENTS.md (the spec lives at\n\\`~/PROJECT/jmap-chat-spec/references/rfc8620.txt\\` and defines\n\\`blobNotFound\\` as a method-level error not a SetError variant).",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.65",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: apply_space_metadata_patch invites SetError validation but doesn't specify which SetErrorType for blob-not-found / invalid properties",
+  "updated_at": "2026-05-18T01:52:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:29:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "d4e82259-1efc-5c1e-9578-e1a51d9bc108",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

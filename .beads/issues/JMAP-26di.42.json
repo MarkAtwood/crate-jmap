@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:33:26Z",
+  "compaction_level": 0,
+  "content_hash": "10dddca65a8dcdd28cdd71930c2fa0694fda263df64fbc5a63950c3f3758c059",
+  "created_at": "2026-05-15T20:41:38Z",
+  "created_by": "Mark Atwood",
+  "description": "Multiple input types in crate-jmap-chat-client/src/methods/mod.rs document a field as \"the X\" but enforce a non-trivial validation at the *method call site*, leaving callers reading just the type's rustdoc unaware of what their values must satisfy. Examples:\n\n1. **ReactionChange::Add.sender_reaction_id** (mod.rs:442-448) \u2014 doc says \"Caller-generated id (e.g. ULID) identifying this reaction slot\". The method `message_update` (message.rs:253-263, 271-281) rejects empty values *and* values containing '/' or '~' (RFC 6901 JSON Pointer special characters) with `ClientError::InvalidArgument`. A caller reading just the type docs (e.g. via rustdoc browsing) gets no warning. A naive caller that synthesizes IDs from user-supplied input \u2014 say, an emoji-keyboard widget that uses the emoji's Unicode codepoint as the ID \u2014 produces strings containing '/' for `:slight_smile:/+1` and gets a runtime error far from the type definition.\n\n2. **client_id** on every CreateInput (MessageCreateInput, CustomEmojiCreateInput, SpaceInviteCreateInput, SpaceBanCreateInput, SpaceCreateInput, PushSubscriptionCreateInput, ChatCreateInput::{Direct,Group,Channel}) \u2014 doc says \"When `None`, a ULID is generated automatically.\" The internal helper `resolve_client_id` (mod.rs:243-248) also generates a ULID when `Some(\"\")` is passed. Callers constructing `MessageCreateInput { client_id: Some(user_input) }` where `user_input` is empty get a silently substituted value rather than a rejection \u2014 surprising and undebuggable from outside the crate.\n\n3. **MessageCreateInput.body** (mod.rs:391) \u2014 doc says \"Message body text (interpreted per body_type)\". No mention of `ChatCapability.max_body_bytes` server limit. Clients have no length-validation hook; oversize bodies fail at the server with no client-side warning.\n\n4. **MessageCreateInput.sent_at** (mod.rs:395) \u2014 doc says \"RFC 3339 timestamp\" but the type is `&UTCDate` (a String newtype) with no format enforcement. Invalid timestamps forward to the server.\n\n5. **PushSubscriptionCreateInput.url** (mod.rs:1171) \u2014 doc says \"Push endpoint URL\". Empty is rejected at the method site (misc.rs); other invalid URLs forward unchanged.\n\n6. **SpaceJoinInput::SpaceId(&Id)** (mod.rs:744) \u2014 no precondition statement; method accepts arbitrary Id including empty.\n\nPattern fix: every input field whose validation is non-trivial should document the validation rule in the *type's* rustdoc, not just in the method that consumes it. Callers read the input type first. Better still: enforce critical preconditions at construction time (e.g. `MessageCreateInput::new` returns `Result<Self, InvalidInput>` if `sender_reaction_id` is malformed); the input type then carries the invariant. But minimum fix is doc-level.\n\nThe single-most-likely-to-bite case is **#1** (sender_reaction_id) \u2014 JSON Pointer characters are unintuitive validation, and emoji-shortcode systems naturally produce slashed identifiers.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.42",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Input-type field-level preconditions documented only at method site",
+  "updated_at": "2026-05-17T17:33:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:41:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "74565b03-6a72-50b2-b0dc-ff0a4b758d3b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

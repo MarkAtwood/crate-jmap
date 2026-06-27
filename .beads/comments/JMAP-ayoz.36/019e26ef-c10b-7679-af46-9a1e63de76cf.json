@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T14:41:47Z",
+  "id": "019e26ef-c10b-7679-af46-9a1e63de76cf",
+  "issue_id": "JMAP-ayoz.36",
+  "text": "Deferring out of the JMAP-ayoz review-loop frontier. This is a workspace-wide canonical-template change touching 6+ crates (canonical jmap-mail-server first, then propagate to chat / calendars / tasks / contacts / sharing / metadata servers). It needs its own epic with per-crate children rather than being worked inline inside a single-crate review loop. Will queue for a dedicated session."
+}

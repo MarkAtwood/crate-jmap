@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added TypeDiscriminator trait with const TYPE_TAG: &'static str and default validate_at_type() -> Result<(), TypeTagMismatch> method. Implemented for all 12 structs (NDay, RecurrenceRule, Location, VirtualLocation, Link, Relation, Participant, OffsetTrigger, AbsoluteTrigger, Alert, TimeZoneRule, TimeZone). Deserialize remains permissive for round-trip preservation per RFC 8984 \u00a74.5.2 preserve-mandate (and per the AlertTrigger Unknown pattern); strict validation is opt-in via validate_at_type(). Added test validate_at_type_rejects_wrong_discriminator covering hostile inputs on NDay, Location, Alert. cargo test + clippy clean. Chose trait + per-struct impl over (a) custom Deserialize that errors on mismatch \u2014 would break forward-compat with future polymorphic sub-types, and (b) wide-stringification newtype \u2014 too invasive for the value delivered.",
+  "closed_at": "2026-05-16T02:24:01Z",
+  "compaction_level": 0,
+  "content_hash": "84d77e773cbf942bff937c83eca6f0ae4737813e6b403c788767237854e1562d",
+  "created_at": "2026-05-15T22:16:23Z",
+  "created_by": "Mark Atwood",
+  "description": "**Contract risk**: every struct in the crate has\n\n    #[serde(rename = \\\"@type\\\")]\n    pub at_type: String,\n\nwith a docstring of the form \\\"Object type discriminator; always\n\\\\\\\"NDay\\\\\\\" on the wire.\\\" But:\n\n    let n: NDay = serde_json::from_value(json!({\n        \\\"@type\\\": \\\"NotAnNDay\\\",\n        \\\"day\\\": \\\"mo\\\"\n    })).unwrap();\n    assert_eq!(n.at_type, \\\"NotAnNDay\\\");  // passes \u2014 discriminator was NOT validated\n\nThe `Deserialize` derived for `NDay` (and every sibling) accepts any\nstring in `@type` and stores it in `at_type` verbatim. Symmetric on\nthe serialize side \u2014 whatever is in `at_type` ships, regardless of\nthe Rust type it's attached to.\n\n**What goes wrong for callers**:\n- A consumer that pattern-matches on `at_type` (\\\"is this really\n  an NDay, or has the server confused itself?\\\") will be misled.\n  The docstring promises \\\"always NDay\\\" but the type doesn't enforce.\n- A consumer constructing one of these types via deserialize-of-an-\n  arbitrary-JSON path (e.g. forwarding a wire blob from an upstream\n  server) can produce a struct whose `at_type` mismatches its type,\n  then ship that back out \u2014 propagating wire-invalid data.\n- Refactoring to a server-side dispatcher that uses `at_type` to\n  decide what to do is unsafe without an external validation step.\n\n**Fix shape** (breaking change):\nOption A: replace the per-struct `at_type: String` with a serde tag:\n`#[serde(tag = \\\"@type\\\")]` on an outer wrapper enum that dispatches\nto the correct variant. This is what serde would normally do, but\nthe crate has deliberately not used it (see PLAN.md \u00a7\\\"@type\ndiscriminator\\\" \u2014 bare `String` was chosen for forward-compat with\nunknown sub-object types). Breaking.\nOption B: add a custom `Deserialize` for each struct that validates\n`at_type == \\\"<TypeName>\\\"` and returns an error otherwise.\nBreaking only for callers depending on the current permissive\ndeserialize.\nOption C (most conservative): leave the type as-is, but amend the\nper-field docstring from \\\"always X on the wire\\\" to \\\"set to X by\nservers; this type does not validate the value on deserialize \u2014\ntreat the field as untrusted if the source is not authenticated.\\\"\nThat's at least an honest contract.\n\nThe existing JMAP-mno4.7 bead defends the bare-String shape against\n\\\"consistency\\\" PRs (correct \u2014 it diverges intentionally from\njscontact's `Option<String>` per RFC). That bead does NOT address\nthis distinct gap: even given the bare String, the type should\neither enforce the value or stop promising it.",
+  "ephemeral": 0,
+  "id": "JMAP-mno4.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "at_type: String fields do not enforce that the discriminator matches the struct type on deserialize \u2014 caller assumption that nday.at_type == \"NDay\" is wrong on hostile input",
+  "updated_at": "2026-05-16T02:24:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:16:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mno4",
+      "id": "08b76bb2-1409-522d-8240-9a6f6ce3db48",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

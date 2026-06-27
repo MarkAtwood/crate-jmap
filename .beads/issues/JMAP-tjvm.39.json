@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added 'Clone' to all 20 borrowed-lifetime public method-input structs across jmap-chat-client (19) and jmap-mail-client (EmailImportInput<'a>): MessageQueryInput, MessageCreateInput, CustomEmojiQueryInput, CustomEmojiCreateInput, SpaceInviteCreateInput, SpaceBanCreateInput, SpaceCreateInput, SpaceQueryInput, AddMemberInput, UpdateMemberRoleInput, SpaceAddMemberInput, SpaceUpdateMemberInput, SpaceAddChannelInput, SpaceAddRoleInput, SpaceUpdateRoleInput, SpaceUpdateChannelInput, SpaceAddCategoryInput, SpaceUpdateCategoryInput, PushSubscriptionCreateInput, EmailImportInput. All fields are either Copy (references &'a str, &'a Id), Clone-impl primitives (u32, u64, bool, Option), or Clone-impl typed values (jmap_types::Id, UTCDate, slice references) \u2014 Clone is trivially derivable on every one. Patch types (ChatPatch, MessagePatch, SpacePatch, etc.) and method-input enums (ChatCreateInput, ReactionChange) are NOT in scope of this bead; they could be a follow-up workspace-template completion if reuse patterns motivate it.",
+  "closed_at": "2026-05-17T13:58:53Z",
+  "compaction_level": 0,
+  "content_hash": "426dac44910dba39a7408cbfebc5e919431fa7b33c9613d7774b1ba7cb75b3d2",
+  "created_at": "2026-05-17T13:50:35Z",
+  "created_by": "Mark Atwood",
+  "description": "Follow-up to JMAP-tjvm.35 (canonical Clone derive sweep on Params/Input method-argument structs).\n\nThe closed bead scoped Clone derives to non-lifetimed Params/Input structs (mirroring the canonical mail-client EmailGetParams/EmailCopyParams/MailboxSetParams/EmailSubmissionSetParams/EmailParseParams) and explicitly carved out the borrowed-lifetime case (cf. bead .35 body: 'EmailImportInput<'a> ... holds borrowed data, so Clone is separately debatable \u2014 not the concern here').\n\nThe chat-client has many more borrowed-lifetime public method-input structs that would benefit from Clone for the same fan-out / loop-reuse pattern that motivated .35. List of affected struct definitions in crate-jmap-chat-client/src/methods/mod.rs: MessageQueryInput<'a>, MessageCreateInput<'a>, CustomEmojiQueryInput<'a>, CustomEmojiCreateInput<'a>, SpaceInviteCreateInput<'a>, SpaceBanCreateInput<'a>, SpaceCreateInput<'a>, SpaceQueryInput<'a>, AddMemberInput<'a>, UpdateMemberRoleInput<'a>, SpaceAddMemberInput<'a>, SpaceUpdateMemberInput<'a>, SpaceAddChannelInput<'a>, SpaceAddRoleInput<'a>, SpaceUpdateRoleInput<'a>, SpaceUpdateChannelInput<'a>, SpaceAddCategoryInput<'a>, SpaceUpdateCategoryInput<'a>, PushSubscriptionCreateInput<'a>. Plus jmap-mail-client EmailImportInput<'a> (the original carve-out at line 158).\n\nAll fields are either Copy types (references, primitives), Clone types (Id, UTCDate, owned strings), or already-Clone enums. Adding Clone is mechanical and pulls no new bound on the lifetime parameter.\n\nThe reason this was punted: borrowed-lifetime structs are typically constructed inline at the call site rather than reused across iterations the way owned Params can be. The motivating use case in .35 was paginated /changes loops; that pattern is less relevant for the per-creation Input structs that already carry one-shot intent.\n\nEngineering basis to revisit: a few of these (MessageCreateInput, SpaceCreateInput, MessageQueryInput) DO show up in retry-with-backoff loops where the caller re-tries the same Create after a transient error. Right now the caller has to either reconstruct the Input or pass it by reference; neither is wrong, but Clone would let them keep the original around for diagnostic logging across retries without ceremony.\n\nRecommendation: add Clone to all ~20 borrowed-lifetime *Input structs in one cookie-cutter pass. Low risk, mechanical change. Workspace-canonical-template label applies because this is the natural completion of .35's scope.\n\nCross-refs: JMAP-tjvm.35 (closed), JMAP-tjvm.16 (closed; the #[non_exhaustive] sweep that established this struct family as forward-compat-safe).",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add Clone derive to borrowed-lifetime chat-client *Input structs",
+  "updated_at": "2026-05-17T13:58:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T06:50:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "998a5780-f120-5f87-8a8a-76600aeb9d6d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-tf6",
+  "title": "lib.rs: register_mail_handlers skeleton + 26 method stubs",
+  "description": "Create src/lib.rs with register_mail_handlers<B: MailBackend> that registers all 26 RFC 8621 method handlers with the Dispatcher. Each handler module is called here.\n\n## What to implement\n\npub fn register_mail_handlers<B>(dispatcher: &mut Dispatcher<CallerCtx>, backend: Arc<B>)\nwhere B: MailBackend + Send + Sync + 'static\n\nRegisters exactly these 26 methods (names must match RFC 8621 \u00a71.4 exactly):\n- Email/get, Email/changes, Email/query, Email/queryChanges, Email/set, Email/copy, Email/import, Email/parse\n- Mailbox/get, Mailbox/changes, Mailbox/query, Mailbox/queryChanges, Mailbox/set\n- Thread/get, Thread/changes\n- Identity/get, Identity/changes, Identity/set\n- EmailSubmission/get, EmailSubmission/changes, EmailSubmission/query, EmailSubmission/queryChanges, EmailSubmission/set\n- VacationResponse/get, VacationResponse/set\n- SearchSnippet/get\n\nEach handler stub: async fn handle_X_get<B: MailBackend>(ctx: CallerCtx, req: MethodRequest, backend: Arc<B>) -> Invocation\n\nStubs can return JmapError::server_fail(\"not implemented\") initially \u2014 individual issues fill them in.\n\n## Source references\n- jmap-chat-server register pattern: ~/PROJECT/crate-jmap-chat-server/src/lib.rs\n- RFC 8621 \u00a71.4 for exact method name strings\n- jmap-server Dispatcher API: crate-jmap-server/src/lib.rs\n\n## Acceptance criteria\n- cargo check -p jmap-mail-server passes with all 26 stubs registered\n- Method name strings tested: one #[test] fn method_names_are_registered that calls register_mail_handlers with a test Dispatcher and checks all 26 method names exist\n- No unwrap/expect; #[forbid(unsafe_code)]\n\nDepends on: JMAP-8ph (backend.rs trait)\nParent: JMAP-445",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:01:55Z",
+  "updated_at": "2026-04-30T20:47:33Z",
+  "closed_at": "2026-04-30T20:47:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-2n8",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:39:38"
+    },
+    {
+      "depends_on_id": "JMAP-8ph",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 13:03:57"
+    }
+  ]
+}

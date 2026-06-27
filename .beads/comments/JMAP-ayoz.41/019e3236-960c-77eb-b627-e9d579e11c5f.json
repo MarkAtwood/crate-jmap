@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T19:14:59Z",
+  "id": "019e3236-960c-77eb-b627-e9d579e11c5f",
+  "issue_id": "JMAP-ayoz.41",
+  "text": "Decomposition complete: .41.1 (foundation) + .41.2-.41.9 (per-extension wire-ups). This parent stays open as the epic anchor; closes when all 9 children close."
+}

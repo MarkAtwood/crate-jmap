@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T05:33:58Z",
+  "id": "019e3993-a639-79b1-81e3-2fa8a906f90c",
+  "issue_id": "JMAP-ops7.43",
+  "text": "Fix spans crate-jmap-mail-types/AGENTS.md (lift Constructors and Attribute order rows from chat-types' Design Constraints table). Pure docs sweep, but verify with `cargo check --workspace` and `cargo doc --workspace` to catch any rustdoc-link breakage."
+}

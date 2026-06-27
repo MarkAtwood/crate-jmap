@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-7xt.33",
+  "title": "JmapClient missing Debug impl",
+  "description": "JmapClient has #[derive(Clone)] but no Debug impl. Any wrapper type that #[derive(Debug)] while holding a JmapClient will fail to compile. reqwest::Client implements Debug (redacting internals); url::Url implements Debug; Arc<dyn AuthProvider> could delegate to the auth provider's Debug. A manual impl that redacts the auth field (similar to BearerAuth's existing Debug impl) would allow downstream #[derive(Debug)].",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:47:16Z",
+  "updated_at": "2026-04-30T00:56:49Z",
+  "closed_at": "2026-04-30T00:56:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:47:16"
+    }
+  ]
+}

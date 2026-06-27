@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Rewrote all 10 named bd:JMAP-* leak sites in backend.rs/lib.rs/permissions.rs as self-contained statements of the rule each reference represented (option 2 in the bead recommendation \u2014 'better' path). Verified clean via grep against the 3 named files. Broader-scope sites in space.rs and memory.rs (which the bead did not enumerate but the grep surfaced) filed as JMAP-x2gd.98 follow-up rather than silently expanded into this bead's scope. Commit ba66f51. clippy + rustdoc -D warnings + lib tests all green.",
+  "closed_at": "2026-05-16T18:23:45Z",
+  "compaction_level": 0,
+  "content_hash": "3fe88f669f574e6053ae3a7bc699c080296a107fff99aee392766ed5cd9c43cd",
+  "created_at": "2026-05-14T12:28:31Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\nThe published rustdoc for jmap-chat-server references the internal\nBeads issue tracker (`bd:JMAP-*` identifiers) in **10 locations**\nspread across three files. These appear inside `///` doc comments,\nnot `//` source comments, meaning they render in `cargo doc` and\nwill appear on `docs.rs/jmap-chat-server` for any third-party\nconsumer.\n\nLocations (verified via grep):\n\n- src/backend.rs:398 \u2014 \\\"See bd:JMAP-sc1b.89\\\"\n- src/backend.rs:409 \u2014 \\\"See bd:JMAP-x2gd.36 follow-ups\\\"\n- src/backend.rs:464 \u2014 \\\"\\`bd:JMAP-g7wu.2.4.7\\` and are NOT yet applied\\\"\n- src/backend.rs:470 \u2014 \\\"it calls this method (bd:JMAP-g7wu.2.4.8)\\\"\n- src/backend.rs:487 \u2014 \\\"\\`bd:JMAP-g7wu.2.4.3\\`\\\"\n- src/backend.rs:566 \u2014 \\\"this method landed in bd:JMAP-g7wu.2.4.13\\\"\n- src/backend.rs:590 \u2014 \\\"(bd:JMAP-g7wu.2.4.12)\\\"\n- src/backend.rs:612 \u2014 \\\"\\`bd:JMAP-g7wu.2.4.3\\`\\\"\n- src/lib.rs:44 \u2014 \\\"(bd:JMAP-ga0q)\\\"\n- src/permissions.rs:102 \u2014 \\\"see bd:JMAP-x2gd.37\\\"\n\n## What goes wrong for a third-party caller\n\nA third-party implementer reading the published docs has **no\nway to dereference \\`bd:JMAP-*\\` identifiers** \u2014 the Beads tracker\nis a workspace-local sqlite database not exposed publicly. They\nsee opaque identifiers and either:\n\n1. Conclude the bead is a normative reference (it isn't \u2014 it's\n   an internal tracker).\n2. Conclude something is \\\"not yet applied\\\" without knowing how\n   to tell when it lands (the rustdoc at backend.rs:464 literally\n   says \\\"NOT yet applied by the reference handler\\\" with no\n   externally-resolvable forward pointer).\n3. Try to grep the published source for the identifier and find\n   it only in other doc comments, creating a circular reference.\n\nThe most consequential case is backend.rs:464 \u2014 `apply_space_patch`'s\npermission-gate-status note tells the implementer \\\"handler-side\ngates tracked in \\`bd:JMAP-g7wu.2.4.7\\` and are NOT yet applied.\\\"\nThat's a stale, externally-unresolvable status note in the\npublished contract for a P0-importance method.\n\n## What this looks like to a consumer\n\nOn docs.rs the strings render verbatim. A consumer at\ndocs.rs/jmap-chat-server/latest/jmap_chat_server/backend/trait.ChatBackend.html\nsees \\\"bd:JMAP-g7wu.2.4.3\\\" as text. There is no link, no\nexplanation, and no externally-resolvable reference. This is a\ncontract leak: the published doc surface tells consumers about\ninternal workflow state they cannot consume.\n\n## Recommendation\n\nTwo paths, in order of cost:\n\n1. **Cheap:** strip bd:JMAP-* references from doc comments before\n   publish, keep them in source comments (`//`) only. Each line\n   converts to either a self-contained statement of the rule or\n   an issue-tracker pointer at the workspace's public GitHub\n   repo.\n\n2. **Better:** replace each \\`bd:JMAP-*\\` reference with a\n   self-contained statement of the rule it represents, so the\n   doc no longer relies on an external bookkeeping system for\n   meaning. e.g. \\`bd:JMAP-g7wu.2.4.3\\` \u2192 \\\"see the role-hierarchy\n   rule in draft-atwood-jmap-chat-00 \u00a7X.Y\\\" or \\\"see\n   \\`MemoryBackend::set_protect_last_admin_for_test\\`\\\".\n\n## Engineering basis\n\nDirect verification: \\`grep -n \\\"bd:JMAP-\\\" src/backend.rs\nsrc/lib.rs src/permissions.rs\\` returns the 10 hits cited\nabove, all inside \\`///\\` doc-comment context (verified by\ninspection of each cited line).",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.60",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: bd:JMAP-* internal beads tracker IDs embedded in 10 published-rustdoc locations",
+  "updated_at": "2026-05-16T18:23:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:28:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "170327aa-4850-5e94-ab43-d47c9ed843d2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

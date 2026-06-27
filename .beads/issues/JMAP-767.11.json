@@ -1,0 +1,33 @@
+{
+  "close_reason": "reviewed pass 23: loop converged; no P0/P1/P2 found in current code",
+  "closed_at": "2026-05-01T12:39:53Z",
+  "compaction_level": 0,
+  "content_hash": "c4bf7a5e83818e5de4260cf1d8878faa4f2489da381946e64ad87be8f165b765",
+  "created_at": "2026-05-01T11:49:36Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_email_set (email.rs:590), update_object::<Email>(&account_id, &id, patch_val.clone()) clones the entire patch JSON Value on every update iteration. The same pattern exists in handle_mailbox_set (mailbox.rs:580) and handle_identity_set (identity.rs:272). For large patches (e.g., setting many keywords) this is an unnecessary allocation. The update_object trait takes O::Patch by value, so the last iteration could move rather than clone. A simple fix: drain the update_map iterator (via into_iter on an owned map) so the last element can be moved. This requires consuming the args object earlier, which is feasible since the update map is processed once. Impact: avoidable clone per update in the hot path.",
+  "ephemeral": 0,
+  "id": "JMAP-767.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/set update: patch_val.clone() on every update; avoidable with Arc",
+  "updated_at": "2026-05-01T12:39:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:49:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "32b09d19-6278-5699-9afc-61321860b357",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

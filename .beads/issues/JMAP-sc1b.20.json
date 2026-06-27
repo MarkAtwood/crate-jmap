@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:46:11Z",
+  "compaction_level": 0,
+  "content_hash": "0e839dcbf1fcf1b9b040f78b1af4aa8d375b79fbd58ce4474f448e2dbe7c2037",
+  "created_at": "2026-05-07T20:29:10Z",
+  "created_by": "Mark Atwood",
+  "description": "Top-level `audit/` directory tracks 24 files (phase{0..4}_*.txt + status.md). The phase markers contain a few bytes each (e.g. `phase0_done.txt` is 5 bytes literally containing 'done\\n'). These look like ephemeral workflow markers that escaped into git history.\n\n`crate-jmap-chat-types/audit/` is a per-crate audit dir tracked separately (5 files) \u2014 leftover from before audits were centralized.\n\nEither:\n1. Move under `.beads/` (which already has its own state mgmt)\n2. Add `audit/` to .gitignore and `git rm -r --cached audit/`\n3. Delete entirely if the marker files have no current meaning\n\nSame for crate-jmap-chat-types/audit/ \u2014 looks vestigial.\n\nDon't bundle into the published tarball: cargo will currently include them (no exclude rule in Cargo.toml or .gitignore) since they're in the crate root for chat-types.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: audit/ directory tracked in git with phase-completion marker files",
+  "updated_at": "2026-05-07T21:46:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "987f8302-6522-55fd-9955-1097e1c07558",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

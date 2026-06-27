@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.6",
+  "title": "reqwest uses native TLS roots, tungstenite uses webpki-roots: inconsistent trust stores",
+  "description": "reqwest has feature 'rustls-tls' (= rustls with native system roots via rustls-native-certs). tokio-tungstenite has feature 'rustls-tls-webpki-roots' (= rustls with bundled Mozilla WebPKI roots). HTTP calls (fetch_session, call, blob) use system roots; WebSocket calls use bundled Mozilla roots. A certificate valid under one trust store may be rejected by the other. On a system where the system store includes a corporate CA not in Mozilla roots (or vice versa), the same server URL would work for HTTP but fail for WS or vice versa. This will generate 'works for HTTP, fails for WebSocket' issue reports that are hard to diagnose.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:55:50Z",
+  "updated_at": "2026-04-30T02:08:49Z",
+  "closed_at": "2026-04-30T02:08:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:55:50"
+    }
+  ]
+}

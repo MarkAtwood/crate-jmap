@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-8kf.5",
+  "title": "auth_header() allocates String for AUTHORIZATION name on every call",
+  "description": "auth.rs BearerAuth::auth_header and BasicAuth::auth_header both call AUTHORIZATION.as_str().to_string() on every invocation, allocating a fresh String for the static literal 'authorization' on every HTTP request. The header name is a known static string; returning (&'static str, String) or caching it would eliminate the per-request allocation.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:21:33Z",
+  "updated_at": "2026-04-30T01:01:20Z",
+  "closed_at": "2026-04-30T01:01:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-8kf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:21:33"
+    }
+  ]
+}

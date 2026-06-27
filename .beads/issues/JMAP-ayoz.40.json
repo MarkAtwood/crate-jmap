@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed commit 6272e6e. handle_metadata_set destroy-array element validator no longer echoes the malformed JSON value via Display in the invalidArguments description. The format string interpolates only the JSON type tag (null / boolean / number / array / object) yielded by a small match arm; the Value::String arm is unreachable because the match enters this branch only after as_str() returned None. Two new oracle tests pin the redaction (set_destroy_non_string_element_does_not_echo_value_in_description uses a canary substring to prove no-echo; set_destroy_non_string_element_reports_each_json_type_tag covers all five non-string JSON shapes). The same anti-pattern exists at smaller surface (per-scalar field) in sibling extension-server crates \u2014 filed as workspace sweep bd:JMAP-zegc (P4 hygiene). Quality gates: cargo fmt, clippy --workspace -D warnings, doc -D warnings, test --workspace all green (155 suites, 0 failures).",
+  "closed_at": "2026-05-17T05:40:05Z",
+  "compaction_level": 0,
+  "content_hash": "6ab40e7076b4d5328a61e8e98b2c035d3d28c5449b5d95a251e8bf32bf808390",
+  "created_at": "2026-05-14T15:15:10Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding (Section C \u2014 Untrusted Input at Protocol Boundaries; hygiene)\n\nIn `crate-jmap-metadata-server/src/metadata.rs:471-479`:\n\n```rust\nfor id_val in &destroy_arr {\n    match id_val.as_str() {\n        Some(s) => id_strs.push(s.to_owned()),\n        None => {\n            return Err(JmapError::invalid_arguments(format!(\n                \"destroy: every element must be a string Id; got {id_val}\"\n            )));\n        }\n    }\n}\n```\n\nThe error description interpolates the entire `id_val` via `{id_val}` Display. `serde_json::Value::Display` re-serializes the JSON value as text \u2014 so a destroy array element of `{\"huge\": \"...10MB...\", \"nested\": {\"deeply\": {...}}}` would produce an error message containing the full re-serialised JSON.\n\n## What goes wrong if this stays as-is?\n\n1. **Response-size amplification within HTTP body cap.** Bounded by the consumer's body-size limit (caller responsibility per `parse.rs:28-53`), but defense-in-depth fix is trivial: format only the JSON type tag, not the value.\n\n2. **Echoing arbitrary client-controlled JSON in the `description` field.** RFC 8620 \u00a73.6.1 specifies `description` as \"an unstructured English text suitable for displaying to a developer\". Echoing a megabyte-sized JSON blob there is unhelpful and creates an indirect oracle: a multi-tenant deployment that buffers the response body for logging would log the attacker-controlled JSON verbatim. Format-string injection is not possible here (Rust's `format!` is type-safe), but if downstream consumers parse the description for diagnostics, a malicious value could include strings shaped like other error markers.\n\n3. **Distinct from finding #1 (Id boundary validation).** Even after Id::new_validated is wired into the destroy loop (the proper fix from JMAP-ayoz.39), the `id_val` here is being rejected because it is NOT a JSON string \u2014 it is some other JSON shape (null, object, array, number, bool). Validation of Id syntax happens AFTER unwrapping to `as_str()`. So this finding is independent of JMAP-ayoz.39.\n\n## Ideal fix\n\nReport only the JSON type tag of the offending value:\n\n```rust\nlet type_name = match id_val {\n    Value::Null => \"null\",\n    Value::Bool(_) => \"boolean\",\n    Value::Number(_) => \"number\",\n    Value::Array(_) => \"array\",\n    Value::Object(_) => \"object\",\n    Value::String(_) => unreachable!(),\n};\nreturn Err(JmapError::invalid_arguments(format!(\n    \"destroy: every element must be a string Id; got {type_name}\"\n)));\n```\n\nThis keeps the error description bounded to a small constant size and conveys the actionable diagnostic (wrong JSON type) without echoing attacker-controlled bytes.\n\n## Scope note\n\nThe existing test `set_destroy_null_element_returns_invalid_arguments` (metadata.rs:838-848) only verifies the error type is `invalidArguments`; it does not assert anything about the description content, so the fix is wire-stable.\n\nThis is a hygiene finding (P3). Not workspace cookie-cut \u2014 the surrounding validate-and-collect pass was added recently (bbde4c3) and is metadata-server-specific in shape. The same fix may be valuable in sibling extension-servers but is not mechanical-copy from a canonical.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.40",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Section C: handle_metadata_set destroy-element error echoes raw serde_json::Value of malformed input",
+  "updated_at": "2026-05-17T05:40:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:15:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "e7b0b616-548a-5049-bf01-b61f0ed94252",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

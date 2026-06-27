@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-5tq.1",
+  "title": "SSE: incomplete UTF-8 sequence at raw_buf head silently dropped",
+  "description": "When valid_up_to==0 and error_len==None (multi-byte sequence arrives with first byte alone in a chunk), the code does drain_end = valid_up_to.max(1) = 1, dropping the start byte. Next chunk sees orphaned continuation bytes, silently discarding the character. Trigger: HTTP chunk boundary falls exactly after the first byte of a 2-4 byte UTF-8 codepoint in SSE data (e.g. any non-ASCII character in JSON payload). Bad behavior: character silently dropped without error, producing malformed JMAP data. Fix: only drain when error_len is Some (definitely invalid); when error_len is None (incomplete), leave the head in raw_buf and wait for the next chunk.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:42:31Z",
+  "updated_at": "2026-04-30T06:46:34Z",
+  "closed_at": "2026-04-30T06:46:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-5tq",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:42:31"
+    }
+  ]
+}

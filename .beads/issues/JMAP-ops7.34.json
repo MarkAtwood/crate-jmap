@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "32341199cc70a4bca30259f3cff4013d0acc8bfd62884ce5a9ec319475fac5b1",
+  "created_at": "2026-05-18T05:29:07Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence**: the two RFC-mapped sub-type foundation crates of the workspace ship fundamentally different public-API construction patterns.\n\n| Crate | Public `fn new(...)` constructors |\n|---|---|\n| jscalendar-types | 14 \u2014 `NDay::new` (src/lib.rs:424), `RecurrenceRule::new` (:539), `Location::new` (:625), `Link::with_href` (:872), `Link::with_blob_id` (:881), `Participant::new` (:1185), `Alert::new` (:1494), `TimeZoneRule::new` (:1591), `TimeZone::new` (:1736), and 5 more |\n| jscontact-types | 0 \u2014 `src/lib.rs` has exactly one impl block in non-test code (`impl Serialize for AnniversaryDate` at :1164); zero `pub fn new` exists |\n\n**Policy context**: workspace AGENTS.md section \"Public-API construction: deserialize-from-JSON is the canonical path\" documents bd:JMAP-sgrr.27 \u2014 \"the kit deliberately does NOT compensate by adding `fn new(...) -> Self` constructors on every type, and the omission is intentional, not a gap.\" That policy was decided 2026-05-17 and aligns with the jscontact pattern. jscalendar-types pre-dates the policy and was not retroactively swept.\n\n**Caller-observable cost**: callers of the two crates write fundamentally different code for analogous work. Building a `Participant` uses `Participant::new(roles)`; building a `Phone` requires `serde_json::from_value::<Phone>(json!({...}))`. A future sibling type crate (e.g. RFC-9554 extensions, JSGroup) has two precedents and no signal which is canonical until they happen across the workspace AGENTS.md section.\n\n**Maintainer cost**: every public constructor in jscalendar is API surface that #[non_exhaustive] freezes at the time of authorship; adding a mandatory field to (e.g.) `Participant` requires either a constructor signature change (semver-major) or threading the value through the call sites of `Participant::new`. The deserialize path adapts automatically when the kit adds optional fields.\n\n**Fix**: remove the 14 `pub fn new(...)` constructors from jscalendar-types and update internal callers to use `serde_json::from_value`. Likely surfaces 1-2 internal call sites that depend on the constructor signature; trivial to migrate. Per workspace AGENTS.md the only allowed compensation is `#[doc(hidden)]` test-only constructors, which jscalendar-types does not currently use.\n\n**Cross-reference**: bd:JMAP-sgrr.27 (the workspace policy decision); bd:JMAP-ops7.43 (chat-types Design Constraints table documents the same policy that mail-types and the rest of the type crates are silent on \u2014 inverts canonical-template propagation direction).",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "jscalendar-types ships 14 'pub fn new(...)' constructors; jscontact-types ships 0 \u2014 workspace policy (bd:JMAP-sgrr.27) aligns with jscontact, making jscalendar the policy outlier",
+  "updated_at": "2026-05-18T05:29:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:29:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "d9329ef1-b714-5ed0-bb70-504b6bd12c24",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

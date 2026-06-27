@@ -1,0 +1,34 @@
+{
+  "close_reason": "not a bug: total is post-collapse count, code is correct",
+  "closed_at": "2026-05-01T11:58:41Z",
+  "compaction_level": 0,
+  "content_hash": "98db55e0bd2ae0c9f4bc801697e526e6c89620f4b15a31fcb001aa6b4bafb9e3",
+  "created_at": "2026-05-01T11:48:31Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_email_query (email.rs:256), 'total' is computed as all_ids.len() *after* collapse_by_thread runs. But the fetched_count < COLLAPSE_THREADS_MAX_EMAILS guard (line 256) compares the pre-collapse fetch count to the cap. If collapse_by_thread reduces 200 emails to 50 threads, total=50 is correct. However, if a filter is applied and the backend returns fewer than COLLAPSE_THREADS_MAX_EMAILS emails but collapse_by_thread further reduces the count, there is a discrepancy between what the 'position' field says (based on start, which is derived from the collapsed list) and what the client expects the total to be. This is an internal consistency issue: 'position' is the index into the collapsed list but 'total' is also computed from the collapsed list \u2013 the computation itself is correct. Real bug: when calculateTotal=false (the default), the code correctly omits 'total', so no wire-visible bug for the common case. However when calculateTotal=true and an anchor is used, the 'total' field reflects the collapsed total (correct) but 'position' is computed against the collapsed list starting from the anchor (correct). On further analysis this is consistent. Downgrading to P1 maintainability \u2013 the total/position logic is scattered and hard to audit. Withdrawing this P0. Filing as P2 elegance instead.",
+  "ephemeral": 0,
+  "id": "JMAP-767.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Actually on review this is a false positive \u2013 withdrawing",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/query collapseThreads total reflects pre-collapse count",
+  "updated_at": "2026-05-01T11:58:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:48:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "678f62b7-87ee-5cfb-9c34-718934df8e0c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

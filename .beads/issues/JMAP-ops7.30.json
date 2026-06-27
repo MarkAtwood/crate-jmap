@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "f8285ad0510db0bd2518b20c1a6342759cdd5b8e34f0ccbe67d9ff39bf43a83f",
+  "created_at": "2026-05-17T23:34:01Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence**: 7 of 8 extension-client siblings mirror the canonical mail-client tests/helpers.rs pattern. sharing-client uses a different layout.\n\n| Crate | helpers.rs | Other shared modules |\n|---|---|---|\n| mail-client (canonical) | YES (53 L: make_session + make_client) | \u2014 |\n| chat-client | YES (226 L: canonical + chat-specific response shape helpers) | \u2014 |\n| calendars-client | YES (61 L) | \u2014 |\n| tasks-client | YES (53 L) | \u2014 |\n| contacts-client | YES (53 L) | \u2014 |\n| filenode-client | YES (53 L) | \u2014 |\n| metadata-client | YES (54 L) | \u2014 |\n| **sharing-client** | **NO** | **tests/common/mod.rs (70 L) + tests/helpers_smoke.rs + tests/fixtures/sharing/*.json** |\n\nStructurally, sharing-client's tests/common/mod.rs:14, 60 defines the SAME functions (make_session + make_client) as the canonical mail-client/tests/helpers.rs:13, 43 \u2014 just in a different file with a different module declaration scheme.\n\n**Caller-observable / maintainer effect**: a contributor opening sharing-client's tests sees common/mod.rs and expects something larger or shared across multiple test files (server-crate convention); finds it's the same thing every other client puts in helpers.rs. Two file extensions for tests are confusing \u2014 `mod common;` vs `mod helpers;` \u2014 the difference signals nothing.\n\n**Plus two sharing-client-only assets**:\n- tests/helpers_smoke.rs (29 L) \u2014 a smoke-test FOR THE HELPER ITSELF. No other extension-client crate has one.\n- tests/fixtures/sharing/*.json \u2014 no other extension-client crate has a fixtures-dir.\n\n**Fix**:\n(a) Rename crate-jmap-sharing-client/tests/common/mod.rs \u2192 tests/helpers.rs; update `mod common;` declarations in sharing-client test files to `mod helpers;`. Matches canonical.\n(b) Decide on the two sharing-client-only assets: either lift to canonical (add tests/helpers_smoke.rs and tests/fixtures/<crate>/ to all 8 client crates) OR remove from sharing-client. Status quo (sharing-specific extras with no precedent in the canonical and no AGENTS.md documenting why) violates the propagation rule.\n\n**Cross-references**: bd:JMAP-ops7.1 (tasks-client receiver shape divergence, closed). Same crate-family cookie-cutter regression class.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "in_progress",
+  "timeout_ns": 0,
+  "title": "sharing-client: uses tests/common/mod.rs + tests/helpers_smoke.rs + tests/fixtures/sharing/ for what every other extension-client sibling puts in a single tests/helpers.rs (cookie-cutter outlier)",
+  "updated_at": "2026-05-18T05:11:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T16:34:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "412dc4fc-4d12-5ca5-880f-4d05c037c248",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

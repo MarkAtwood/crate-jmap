@@ -1,0 +1,33 @@
+{
+  "close_reason": "reviewed pass 23: loop converged; no P0/P1/P2 found in current code",
+  "closed_at": "2026-05-01T12:39:57Z",
+  "compaction_level": 0,
+  "content_hash": "0241f12718e8fe825586c58fc362e4383cf777d479aa3de92f480a273940a204",
+  "created_at": "2026-05-01T11:51:02Z",
+  "created_by": "Mark Atwood",
+  "description": "common/mod.rs Inner uses HashMap<(String, String), ...> for objects, states, and change_log. Every lookup (current_state, objects_ref, objects_mut) calls type_name.to_owned() and account_id.to_owned() to construct the key. This is two String allocations per lookup. In a test harness that does hundreds of operations, this adds up. The standard idiom is to implement Borrow<(str, str)> for a key type (via a wrapper) or use a two-level HashMap<String, HashMap<String, ...>>. Since this is test-only code the impact is limited, but it's a missed teaching example for backend implementors.",
+  "ephemeral": 0,
+  "id": "JMAP-767.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend: (String, String) HashMap keys allocate on every lookup",
+  "updated_at": "2026-05-01T12:39:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:51:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "49dff3f5-1099-56c5-b11c-b6ce4e1e67f1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

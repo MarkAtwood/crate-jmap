@@ -1,0 +1,33 @@
+{
+  "close_reason": "SpacePatchOp + helper types landed in jmap-chat-types/src/space_set.rs. All 12 SpacePatchOp variants present (3 verbs \u00d7 4 collections: Role/Member/Channel/Category). RolePatch/MemberPatch/ChannelPatch/CategoryPatch use Clearable<T> for nullable fields (color, nick, categoryId, topic, slowModeSeconds, permissionOverrides) matching the existing chat-types Patch pattern. ChannelCreate added as the addChannels per-entry input (Chat is too broad for that). 11 new tests, all passing. Doc comments cite draft-atwood-jmap-chat-00 \u00a7Space/set throughout. Scope deviation from bead description: OpResult type was NOT added here because SetError lives in jmap-server which jmap-chat-types cannot depend on (dependencies are jmap-types/serde/serde_json only). OpResult belongs in jmap-chat-server alongside the handler that produces it; file a sub-bead in .4.2 if needed.",
+  "closed_at": "2026-05-11T16:29:47Z",
+  "compaction_level": 0,
+  "content_hash": "c1304efd3cb8449ad7327d02cd94bb7c546ccdde56b8d7294143bb45dd66f637",
+  "created_at": "2026-05-11T13:58:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Foundation slice of JMAP-g7wu.2.4 (Space/set mutations). Must land first; .4.2 through .4.6 depend on these types existing.\n\nAdd to jmap-chat-types:\n\n```rust\npub enum SpacePatchOp {\n    AddRole(Role),\n    RemoveRole(RoleId),\n    UpdateRole(RoleId, RolePatch),\n    AddMember(UserId, Vec<RoleId>),\n    RemoveMember(UserId),\n    UpdateMember(UserId, MemberPatch),\n    AddChannel(Channel),\n    RemoveChannel(ChannelId),\n    UpdateChannel(ChannelId, ChannelPatch),\n    AddCategory(Category),\n    RemoveCategory(CategoryId),\n    UpdateCategory(CategoryId, CategoryPatch),\n}\n\npub struct RolePatch { /* per-field optional updates */ }\npub struct MemberPatch { /* per-field optional updates */ }\npub struct ChannelPatch { /* per-field optional updates */ }\npub struct CategoryPatch { /* per-field optional updates */ }\n\npub struct OpResult {\n    pub op_index: usize,\n    pub outcome: Result<Option<jmap_types::Id>, SetError>,\n}\n```\n\nReference: draft-atwood-jmap-chat-00 \u00a7Space/set lines 1072-1129. Wire keys map 1:1 to enum variants.\n\nAcceptance:\n- All 12 variants present\n- RolePatch/MemberPatch/ChannelPatch/CategoryPatch use Clearable<T> for nullable fields (matching the existing chat-types Patch pattern)\n- Round-trip JSON tests against RFC-style example fixtures\n- Doc comments cite the draft section\n\nNote: this is jmap-chat-types work, not jmap-chat-server. The server crate consumes these in .4.2 onwards.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.2.4.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SpacePatchOp enum + helper types in jmap-chat-types (foundation)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T06:58:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4",
+      "id": "f1a7708b-efba-5c52-a7af-e232cd12030b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

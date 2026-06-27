@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T06:49:30Z",
+  "compaction_level": 0,
+  "content_hash": "117c09cc5014402fc311ab0699fb81286959d8d902cbe3dc2179d0963c38bdbc",
+  "created_at": "2026-05-02T06:46:57Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-mail-server/src/lib.rs:207, crate-jmap-chat-server/src/lib.rs:244\nIssue: Both crates re-export ClosureHandler from jmap_server and their respective register_*_handlers functions document that CallerCtx is not forwarded. However, the ClosureHandler type itself is re-exported pub from both domain crates (last line of each lib.rs), making it available to consumers of jmap-mail-server and jmap-chat-server without those consumers necessarily reading the register_mail_handlers or register_chat_handlers doc comments. A consumer who assembles their own dispatcher using ClosureHandler directly will write code that silently drops their auth context.\nRisk: The limitation is documented in the right place (register_*_handlers docstring) but the export of ClosureHandler from domain crates creates a secondary entry point that lacks the warning. Future maintainers adding per-request auth will search for ClosureHandler usages and may not notice the type-level limitation.\nFix: Add a doc comment on ClosureHandler itself (in jmap-server) that prominently states the CallerCtx limitation; the domain crate re-exports then carry the warning automatically. Alternatively, do not re-export ClosureHandler from domain crates if it has no domain-specific use \u2014 keep it pub(crate) in jmap-server.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClosureHandler CallerCtx limitation undocumented at registration site",
+  "updated_at": "2026-05-02T06:49:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:46:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "64f82969-eef6-5e08-a479-641560e84d73",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

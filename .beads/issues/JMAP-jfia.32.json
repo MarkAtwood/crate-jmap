@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "with_extra now takes impl Into<String> for the key, matching sibling builders on SetError. &str call sites compile unchanged.",
+  "closed_at": "2026-05-14T17:18:50Z",
+  "compaction_level": 0,
+  "content_hash": "4a68b99618f0eedec7e48dd129555bb2bf0090257242f9862c1a8ffc00847e1a",
+  "created_at": "2026-05-14T16:54:09Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/backend.rs:199-210 \u2014 SetError::with_extra has the signature:\n\n  pub fn with_extra(mut self, key: &str, value: serde_json::Value) -> Self {\n      // ...\n      self.extra.insert(key.to_owned(), value);\n      self\n  }\n\nAll other builder methods on the same type use `impl Into<String>`:\n\n  pub fn with_description(mut self, desc: impl Into<String>) -> Self            // line 124\n  pub fn with_properties<I, S>(mut self, props: I) -> Self where ... S: Into<String>   // line 130\n  pub fn with_invalid_recipients<I, S>(...) where ... S: Into<String>            // line 152\n\nA serious Rust practitioner reads the SetError builder API and notices the inconsistency at first call site. Callers that have a `String` (e.g. a key built from `format!`) must write `with_extra(&key, ...)` \u2014 taking a reference just so the function can clone it back into ownership via `.to_owned()`. The reference round-trip is exactly what `impl Into<String>` exists to eliminate.\n\nWhat goes wrong if it stays as-is:\n\n  1. Inconsistent builder ergonomics on a single type. Reviewers second-guess \"is &str intentional here for some reason I am missing?\", chase down whether the reserved-name guard requires &str (it does not \u2014 String would work fine), and conclude there is no reason.\n  2. Callers with an owned String pay a `&owned_string` then `.to_owned()` copy round-trip. The cost is small, but the asymmetry is the cost the next contributor pays in attention every time they read the type.\n  3. A future refactor that wants to take `Cow<str>` or borrow the key longer-term cannot, because the signature already discarded the ownership information.\n\nFix is a one-line signature change:\n\n  pub fn with_extra(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {\n      let key: String = key.into();\n      debug_assert!(\n          !RESERVED_SET_ERROR_WIRE_NAMES.contains(&key.as_str()),\n          // ... same message ...\n      );\n      self.extra.insert(key, value);\n      self\n  }\n\nSemVer-safe: `impl Into<String>` accepts everything `&str` did (via `impl From<&str> for String`), so all existing call sites compile unchanged.\n\nLow priority because the cost is small per call and the bug class is local. Logging here as a P2 because the inconsistency is a workspace-wide \"canonical template\" issue \u2014 `jmap-server` is the canonical *-server foundation, and the extension *-server crates will cookie-cut their own builder shapes from it. Fixing here cuts off the propagation cost.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetError::with_extra takes &str for key \u2014 asymmetric with sibling impl Into<String> builders",
+  "updated_at": "2026-05-14T17:18:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:54:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "83753eef-6f89-5a17-b299-2d1d124357eb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

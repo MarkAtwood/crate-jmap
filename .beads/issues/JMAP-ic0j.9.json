@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:22:03Z",
+  "compaction_level": 0,
+  "content_hash": "f2a89461e6de12b15789fa318f851ccc5a38e6a53db73d2ab925c17f8d9daf93",
+  "created_at": "2026-05-15T16:57:06Z",
+  "created_by": "Mark Atwood",
+  "description": "calendar.rs:127-133 (and the parallel sites in event.rs:267-275, participant_identity.rs:108-117, event.rs:633-642) \u2014 when create-object deserialization fails, the response carries:\n\n  json!({ 'type': 'invalidProperties', 'description': e.to_string() })\n\nwhere 'e' is a serde_json::Error. The description leaks serde-internal phrasing, e.g.:\n  'missing field  at line 1 column 42'\n  'invalid type: string \"foo\", expected struct ... at line 1 column 17'\n\nTwo readability problems:\n\n1. The 'at line X column Y' is the position within the JSON value that the handler built (with a forced placeholder id added at line 119), not within the wire request. The column refers to a re-serialized intermediate the client never sent.\n\n2. A spec-compliant invalidProperties response carries a 'properties' array (RFC 8620 \u00a75.3) naming exactly the bad fields. Falling back to a free-text description is RFC-permitted ('the server MAY also include a 'description' property') but losing the 'properties' array sacrifices structured error handling on the client side.\n\nThe serde error usually identifies the field name in plain text, but parsing it back out is hostile. A better path: peek into the input JSON for required-but-missing keys before deserialize, build a real properties array, and use the serde error only as a last-resort description for unparseable cases.\n\nLower priority than other findings because clients do see SOMETHING actionable today. But every JMAP client author who hits this for the first time files an issue asking 'why is the column number weird and where is the properties array' \u2014 a known maintenance-cost pattern.\n\nP4 because real clients work around it; cleaning up cuts down on first-encounter support questions but no client breaks today.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Calendar/set create error message reveals serde deserialization wording",
+  "updated_at": "2026-05-17T17:22:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T09:57:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "a818a3f6-14be-5052-ad21-78ac8180b468",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

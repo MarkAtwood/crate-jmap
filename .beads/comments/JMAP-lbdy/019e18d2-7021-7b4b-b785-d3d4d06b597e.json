@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T20:55:05Z",
+  "id": "019e18d2-7021-7b4b-b785-d3d4d06b597e",
+  "issue_id": "JMAP-lbdy",
+  "text": "Correction: the prior session note on this epic said 'parent stays open until .12 is resolved or explicitly deferred' but did NOT add the 'human' label \u2014 consistent with Mark's stance on JMAP-ltx4 that the autonomous loop should not be gated. Reverting my earlier label add. The epic remains open; .12 is the gating bead and is itself human-labeled."
+}

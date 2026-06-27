@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Simplified borrow dance: let on_demand; let set = match ... \u2014 eliminated owned Option wrapper",
+  "closed_at": "2026-05-02T21:15:50Z",
+  "compaction_level": 0,
+  "content_hash": "3056063e91211214acc1e36b67b657682f4e8f231df702284aeb4c66e3d97a84",
+  "created_at": "2026-05-02T19:34:50Z",
+  "created_by": "Mark Atwood",
+  "description": "common/mod.rs email_matches_condition (lines 1847-1868): the inMailboxOtherThan on-demand path declares 'let owned: Option<HashSet<&Id>>' before a match, assigns it inside the None branch, then immediately borrows it as 'owned.as_ref().unwrap()'. The two-variable dance (owned + set) is needed to satisfy the borrow checker but forces a reader to trace the ownership across four lines to understand what 'set' points to. This is the fallback path (the pre-built set is passed in the hot path), so it rarely executes. Suggested rewrite: collapse to a single let binding at the start of the if-block: 'let on_demand; let set = excluded_set.unwrap_or_else(|| { on_demand = ...; &on_demand });' or use a Cow, eliminating the intermediate Option.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "email_matches_condition: owned/set borrow dance for on-demand HashSet",
+  "updated_at": "2026-05-02T21:15:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "f82bf17a-7185-5b6c-ad6b-88f380f32b9c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

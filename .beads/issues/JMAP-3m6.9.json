@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.9",
+  "title": "AuthFailed error message says 'authentication failed' for HTTP 403 (authorization, not authentication)",
+  "description": "check_auth_status maps both 401 (authentication failed: credentials missing/invalid) and 403 (authorization failed: credentials present but insufficient) to ClientError::AuthFailed with message 'authentication failed: HTTP 403'. A 403 is an authorization failure, not an authentication failure. A user seeing 'authentication failed: HTTP 403' at 2am will change their password rather than check their account permissions. Suggested fix: rename to AuthOrAuthzFailed, or split into AuthFailed(401) and Forbidden(403), or change the error message to 'HTTP error {code}: unauthorized or forbidden'.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:57:05Z",
+  "updated_at": "2026-04-30T02:49:05Z",
+  "closed_at": "2026-04-30T02:49:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:57:04"
+    }
+  ]
+}

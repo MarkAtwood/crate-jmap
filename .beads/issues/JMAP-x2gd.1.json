@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in 8e4d9fb. Five sites updated (space.rs handle_space_join already_member check + new member id + TOCTOU dedup matchers, invite.rs handle_invite_set createdBy, ban.rs handle_ban_set bannedBy, emoji.rs handle_emoji_set createdBy). Each handler resolves caller_identity = B::principal_id(caller).cloned().unwrap_or_else(|| account_id.clone()) and writes that value into identity-bearing wire fields. The Option::unwrap_or_else fallback preserves the single-user posture per workspace AGENTS.md 'Caller identity (foundation seam)' \u2014 None means the backend has not wired identity and the kit falls back to account_id, matching the existing MemoryBackend / testjig behavior. Multi-user backends override principal_id and get spec-correct semantics. New tests/identity_writes.rs adds 9 tests (4 single-user posture + 4 identity-wired posture + 1 already_member identity-routing) using the existing IdentityBackend test fixture. Workspace tests green (2138). The bead's mention of 'reject with serverFail when None for multi-user' is NOT the chosen design because workspace AGENTS.md treats None as a deliberate signal (single-user posture, fall back to account_id) not an error. Mail-server / calendars-server / sharing-server / metadata-server likely have analogous identity-bearing-field sites that the bd:JMAP-x2gd review pass did not cover (scoped to chat-server only); a workspace-sweep follow-up may be warranted but is out of scope for this bead.",
+  "closed_at": "2026-05-14T04:37:17Z",
+  "compaction_level": 0,
+  "content_hash": "70b860decca3f346d65afa781293602a5858f901fe05d1589c513c0cefd77b4d",
+  "created_at": "2026-05-14T03:12:03Z",
+  "created_by": "Mark Atwood",
+  "description": "Site:\n- crate-jmap-chat-server/src/space.rs:1414 (handle_space_join sets new SpaceMember.id = account_id)\n- crate-jmap-chat-server/src/space.rs:1407 (already_member check uses account_id)\n- crate-jmap-chat-server/src/invite.rs:208 (SpaceInvite.createdBy = account_id)\n- crate-jmap-chat-server/src/ban.rs:139 (SpaceBan.bannedBy = account_id)\n- crate-jmap-chat-server/src/emoji.rs:389 (CustomEmoji.createdBy = account_id)\n\ndraft-atwood-jmap-chat-00 specifies:\n- \u00a7SpaceMember.id (line 645-646): 'The participant's ChatContact.id.'\n- \u00a7ChatContact (line 367-370): 'A ChatContact's id is exactly the userId provided by the authentication layer.'\n- \u00a7SpaceInvite.createdBy (line 773-774): 'ChatContact.id of the member who created this invite.'\n- \u00a7SpaceBan.bannedBy (line 801-802): 'ChatContact.id of the Space member who issued this ban.'\n\nThe kit's identity foundation seam JmapBackend::principal_id(caller) returns Option<&Id> precisely so handlers can identify the *caller's authenticated userId*. Accept criteria 'caller identity (foundation seam)' in workspace AGENTS.md.\n\nTrigger condition: any deployment where accountId != caller's principal_id (multi-user JMAP, shared mailbox, account-on-behalf-of). The user who joins/bans/invites is recorded as the JMAP account itself rather than the actual user. Membership checks elsewhere (handle_space_get line 305-307 in non_member_non_previewable, line 376 in project_space_for_caller) compare principal_id against SpaceMember.id \u2014 but the values written by join are accountIds, so the read paths report 'not a member' for users who actually joined.\n\nIn single-user mode where principal_id returns None, the writes happen to be the only identity anyway so tests pass; the bug is invisible until a real multi-user backend is wired. This is a foundation gap, not a single-line typo: the handler API needs to accept (or derive) the caller's principal id, and reject the operation when principal_id returns None for ops that depend on identity.\n\nFix sketch:\n- Resolve let principal = B::principal_id(caller); at the top of each handler.\n- For ops that require identity (Space/join, SpaceInvite/set create, SpaceBan/set create, CustomEmoji/set create), reject with serverFail (or forbidden) if principal is None and the deployment is multi-user. Single-user-mode opt-out per the workspace AGENTS.md foundation seam rules.\n- Write principal.as_ref().unwrap_or(account_id) into the identity field, or define a stricter contract.\n\nThe 'already_member' check in space.rs:1407 must also use the same identity it writes; today both are account_id, so the check is self-consistent but compares against the wrong values vs handle_space_get's reader-side principal_id check.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Space/join + invite/ban/emoji write caller account_id where spec requires ChatContact.id (principal_id)",
+  "updated_at": "2026-05-14T04:37:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:12:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "c6e979cb-fa89-5868-95de-e5c6e6939ad3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

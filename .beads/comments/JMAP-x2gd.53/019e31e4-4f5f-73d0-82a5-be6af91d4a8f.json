@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T17:45:07Z",
+  "id": "019e31e4-4f5f-73d0-82a5-be6af91d4a8f",
+  "issue_id": "JMAP-x2gd.53",
+  "text": "Re-classified workspace-canonical via JMAP-x2gd.84 (2026-05-16). Confirmed: crate-jmap-mail-server/src/memory.rs lines 370, 378, 945, 953 carry the same as-cast pattern (4 sites; chat-server has 5). Mail-server's limit cast at line 378 already uses the saturating form .min(usize::MAX as u64) per JMAP-x2gd.78 alignment, but the position as usize and the implicit usize -> i64 result casts are still bare 'as' on both crates.\n\nPer workspace AGENTS.md 'Canonical Templates' propagation rule, the fix lands in mail-server first (canonical extension-server template), then propagates here, then to the 6 sibling backends. .53 stays open as chat-server-scope tracking.\n\nRecommendation when this work is picked up: use usize::try_from(i64_val).unwrap_or(usize::MAX) for the i64 -> usize conversions (saturating behavior at the platform-pointer-size boundary) and i64::try_from(usize_val).expect(load-bearing comment about 8 EiB memory bound) for the usize -> i64. Mechanical change; ~5 sites per crate \u00d7 8 crates = ~40 sites total."
+}

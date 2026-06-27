@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-8kf.8",
+  "title": "upload_blob response limit is hardcoded, ignores ClientConfig",
+  "description": "blob.rs defines UPLOAD_RESPONSE_LIMIT = 1 MiB as a private constant unrelated to ClientConfig. ClientConfig has max_session_body, max_call_body, max_download_body but no max_upload_body. A caller reading the ClientConfig docs expects all limits to be configurable; the upload response limit is silently unconfigurable. Future addition of max_upload_body to ClientConfig is a struct-literal breaking change (compounding issue JMAP-8kf.3). The inconsistency will also generate contributor PRs trying to 'fix' it.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:21:41Z",
+  "updated_at": "2026-04-30T00:26:00Z",
+  "closed_at": "2026-04-30T00:26:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-8kf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:21:40"
+    }
+  ]
+}

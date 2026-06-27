@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T14:57:20Z",
+  "id": "019e26fd-fc96-79bc-a62e-ced64ee36f80",
+  "issue_id": "JMAP-ayoz.24",
+  "text": "Deferring out of the JMAP-ayoz review-loop frontier. All 8 sibling MemoryBackend structs (mail/chat/calendars/tasks/contacts/filenode/sharing/metadata) lack #[non_exhaustive]; this is a workspace-wide canonical-template hygiene change. Likely bundle with JMAP-ayoz.22, JMAP-ayoz.23, JMAP-ayoz.36 in a dedicated workspace-wide MemoryBackend hygiene epic."
+}

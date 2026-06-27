@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Implemented in commit 8d8b6c5. metadata_set now takes if_in_state: Option<&State> as the 4th positional arg, mirroring canonical email_set. Wire injection conditional on Some via args['ifInState']. Wiremock test metadata_set_passes_if_in_state asserts the wire field is 's10' when caller passes Some(State::from('s10')).",
+  "closed_at": "2026-05-15T02:31:48Z",
+  "compaction_level": 0,
+  "content_hash": "0c04917491c72969498b5b75d393fea66a79c726a46d0d7b9698e18619c94e4e",
+  "created_at": "2026-05-15T02:03:47Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata_set in src/methods/metadata.rs:130 omits the ifInState argument. RFC 8620 \u00a75.3 defines ifInState as a standard /set arg, and the metadata-server handler at crate-jmap-metadata-server/src/metadata.rs:319 reads and enforces it. Without it, clients cannot do optimistic-concurrency-guarded Metadata/set, which is the standard way to detect 'someone else mutated the account state between my get and my set' \u2014 a common need given the (relatedType, relatedId, @type, isPrivate) uniqueness invariant. The canonical sibling email_set (mail-client/src/methods/email.rs:104) takes if_in_state: Option<&State>; metadata_set is divergent. Note: chat-client and calendars-client extension siblings also omit ifInState on their _set methods, so this is workspace-wide divergence from the canonical mail-client template \u2014 fix needs to propagate. Trigger: client wants to do read-modify-write on Metadata; without ifInState the write may race against a concurrent peer. Fix: add 4th param 'if_in_state: Option<&State>' and conditionally inject \"ifInState\": s into args before create/update/destroy. Mirror email_set wire shape.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "metadata_set: missing ifInState arg",
+  "updated_at": "2026-05-15T02:31:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:03:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "31fa06b7-353e-5b04-b88d-00fcc239b326",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

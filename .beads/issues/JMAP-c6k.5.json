@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-c6k.5",
+  "title": "Keyword: Borrow<str> + Deref enables HashMap<Keyword,bool> queries with bare &str",
+  "description": "Keyword implements Borrow<str>, Deref<Target=str>, and AsRef<str>. This allows HashMap<Keyword,bool> to be queried with a constant &str (contains_key(SEEN)) without allocating. A future contributor might simplify to HashMap<String,bool> or remove Deref, breaking this ergonomics. The Borrow<str> impl is load-bearing and must be preserved.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:24:59Z",
+  "updated_at": "2026-04-30T05:29:27Z",
+  "closed_at": "2026-04-30T05:29:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-c6k",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:24:58"
+    }
+  ]
+}

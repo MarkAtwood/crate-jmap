@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e73e16c8549c9c127d9a61ef228f3af2f89304a3723098cc45b568ddb3e6aab7",
+  "created_at": "2026-05-17T20:29:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Integration test `chat_set_duplicate_direct_cleanup_destroy_failure_redacts_backend_display` in `crate-jmap-chat-server/tests/integration.rs` (line ~1823) passes when run alone (`cargo test -p jmap-chat-server --test integration chat_set_duplicate_direct_cleanup_destroy_failure_redacts_backend_display`) but fails when the full test binary is run (`cargo test -p jmap-chat-server --all-features` or `--workspace`).\n\nConfirmed reproducible on commit 86e185d (current HEAD) before any in-flight changes.\n\nThe failure shows the chat create unexpectedly succeeded:\n- Test expects `notCreated[c0]` with type=serverFail\n- Actual response has `created[c0]` with the full Chat object\n\nThis is a classic test-ordering / shared-state hazard. Either:\n1. The test's chat-cleanup setup leaks state from a prior test that ran in the same binary, causing the duplicate-direct guard to misfire (or not fire).\n2. The 'duplicate direct' detection depends on global state that a parallel test is mutating.\n\nSurfaced during bd:JMAP-qz9v.48 (resolve_query_offset propagation), where the full workspace test run flagged this as a regression \u2014 but it pre-exists the change, so this is its own bead.\n\nInvestigation hints:\n- Check whether the test seeds an Id::from(\"contact-1\") and whether another test in the same binary races on that contact id.\n- Compare with sister tests around line 1820-1885 \u2014 there are several chat-cleanup-failure tests; only this one is flaky.\n- Possibly fix by giving the test a unique contact id per-run, or by spawning the MemoryBackend per-test.\n\nNot caused by JMAP-qz9v.48 propagation; the bead is filed so the resolve_query_offset commit can land without absorbing the responsibility for fixing this pre-existing flake.",
+  "ephemeral": 0,
+  "id": "JMAP-b7jn",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "chat_set_duplicate_direct_cleanup_destroy_failure_redacts_backend_display fails in full suite, passes in isolation \u2014 test ordering / shared state",
+  "updated_at": "2026-05-17T20:29:18Z"
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8270c528bb098a0d91958fd2e345d67567a571ebffee8abdab9c9ad6ebfbee14",
+  "created_at": "2026-05-14T14:21:42Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:512-517 \u2014 position handling:\n\n    let start = if position >= 0 {\n        (position as usize).min(ids.len())\n    } else {\n        let neg = position.saturating_neg() as usize;\n        ids.len().saturating_sub(neg)\n    };\n\nThree smells in 5 lines:\n1.  after the  guard \u2014 assumes i64 fits in usize on 32-bit targets (it doesn't, but the workspace MSRV/target is 64-bit so this is theoretical). The cast is lossy.\n2.  \u2014 saturating_neg returns i64::MIN unchanged (it cannot represent +i64::MAX+1), and casting i64::MIN to usize gives a giant number that saturating_sub then floors to 0. Works by accident, hard to reason about.\n3. The two-branch structure is just (max 0 ... len) clamping with an offset-from-end alternative. Could be a single expression using i64-to-len arithmetic.\n\nSuggested rewrite (clearer, no as-casts):\n\n    let start = if position >= 0 {\n        usize::try_from(position).unwrap_or(usize::MAX).min(ids.len())\n    } else {\n        // -N means 'N from end', clamped at 0.\n        let neg = position.unsigned_abs() as usize;\n        ids.len().saturating_sub(neg)\n    };\n\ni64::unsigned_abs() returns u64 deterministically including for i64::MIN (returns 9223372036854775808). The conversion to usize is then the bounded one \u2014 and on 64-bit targets it's exact. The  path catches the 32-bit usize::MAX-overflow case explicitly.\n\nBonus: position is declared as i64 in the trait signature (memory.rs:491). RFC 8620 \u00a75.5 specifies position as a signed integer with sign convention (negative = from end). The current impl is correct on the happy path; the smells are about reading-it-correctly cost. Strictly P3.\n\nSame pattern is likely in canonical jmap-mail-server (bd:JMAP-x2gd.53 already covers as-casts in chat-server) \u2014 worth checking if this should be a canonical-template sweep across query_objects in all 8 server crates. If so, file as a workspace finding under JMAP-x2gd.67 (workspace canonical-template re-classification).",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.query_objects negative-position handling uses saturating_neg().as usize cast",
+  "updated_at": "2026-05-17T09:06:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:21:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "361587b4-bb8f-5367-a583-66049359bf60",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

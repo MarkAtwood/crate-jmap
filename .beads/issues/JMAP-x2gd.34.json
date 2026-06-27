@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in de2b2df. Added #[non_exhaustive] to OpResult plus typed constructors OpResult::ok(op_index, id: Option<Id>) and OpResult::err(op_index, error: SetError). External consumers MUST use the constructors; field-init is forbidden outside the defining crate. Within crate-jmap-chat-server the existing field-init in memory.rs:1205 is kept (still valid within the defining crate; migrating would require destructuring the Result outcome with no benefit). Pre-1.0 / pre-publish; additive #[non_exhaustive] is free.",
+  "closed_at": "2026-05-14T04:51:14Z",
+  "compaction_level": 0,
+  "content_hash": "91f7793a592b6ff6c79f466c5fdade66b6b51ebaf160382505a58a4fdbb7a531",
+  "created_at": "2026-05-14T03:38:43Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/backend.rs:53-59\n\n  #[derive(Debug)]\n  pub struct OpResult {\n      pub op_index: usize,\n      pub outcome: Result<Option<jmap_types::Id>, SetError>,\n  }\n\nOpResult is constructed BY consumer backends inside their\nChatBackend::apply_space_patch implementation, then returned to the\nkit's handle_space_set handler for mapping into the /set response.\nThis is a true two-way contract: consumers both construct and the\nkit consumes.\n\nThe struct has two pub fields and is NOT #[non_exhaustive]. Future\nnon-breaking additions are impossible without a major bump:\n\n- An audit-log handle to thread through to the consumer's transport\n  for push events.\n- A timestamp/lease-token field for transactional backends that\n  want to expose commit ordering.\n- A diagnostic-only \"would this op have succeeded under different\n  permission set?\" annotation for permission-tool consumers.\n\nCompare with ChatLimits, EmojiSetOp \u2014 both #[non_exhaustive].\n\nFix:\n  #[non_exhaustive]\n  #[derive(Debug)]\n  pub struct OpResult { ... }\n\n  impl OpResult {\n      pub fn ok(op_index: usize, id: Option<Id>) -> Self { ... }\n      pub fn err(op_index: usize, e: SetError) -> Self { ... }\n  }\n\nThe constructor pair replaces the field-init shape so consumers do\nnot depend on positional field order. Per workspace AGENTS.md the\ncanonical-template sweep also lands the same pattern in\njmap-mail-server's equivalent type (none exists yet \u2014 first\nstrike).",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: OpResult missing #[non_exhaustive]",
+  "updated_at": "2026-05-14T04:51:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:38:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "dd8ee427-c7d4-5f44-a547-5c51e91cb436",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

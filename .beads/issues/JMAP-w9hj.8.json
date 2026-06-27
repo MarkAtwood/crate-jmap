@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:28:29Z",
+  "compaction_level": 0,
+  "content_hash": "dd0a770228ed475d58afe6b5ed8a2f0b4745748285b6aeacc4f90d3323de23af",
+  "created_at": "2026-05-04T19:23:03Z",
+  "created_by": "Mark Atwood",
+  "description": "invalidSieve appears 4x across sieve.rs and sieve_integration.rs; sieveIsActive appears 2x. No shared constants. Also handle_sieve_validate builds invalidSieve via raw json!() not SetErrorType::custom(). Fix: define const SIEVE_ERR_INVALID and SIEVE_ERR_IS_ACTIVE in sieve.rs; use them everywhere including validate handler.",
+  "ephemeral": 0,
+  "id": "JMAP-w9hj.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve_set: magic error strings should be named constants",
+  "updated_at": "2026-05-04T19:28:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T12:23:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w9hj",
+      "id": "930237a0-639a-5e23-9cc0-82478346be14",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

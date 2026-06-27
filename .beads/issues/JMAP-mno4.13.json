@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Promoted the jmap-types imports from 'use' to 'pub use jmap_types::{Id, PatchObject, UTCDate}'. Consumers can now name these types via the jscalendar-types crate without taking a separate jmap-types dependency. Internal usages within this crate continue to resolve to the same items (re-exports do not conflict with the original symbol).",
+  "closed_at": "2026-05-16T02:20:01Z",
+  "compaction_level": 0,
+  "content_hash": "e6eb6b5296c7cb056f5af2d099b09aeea6da1d014295eb6b03ceea28e891daef",
+  "created_at": "2026-05-15T22:15:44Z",
+  "created_by": "Mark Atwood",
+  "description": "**Contract risk**: the crate's public surface uses types from\n`jmap-types` directly:\n\n- `Link.blob_id: Option<Id>`\n- `Participant.schedule_updated: Option<UTCDate>`\n- `AbsoluteTrigger.when: UTCDate`\n- `Alert.acknowledged: Option<UTCDate>`\n- `TimeZone.updated/valid_until: Option<UTCDate>`\n- `TimeZoneRule.recurrence_overrides: Option<HashMap<LocalDateTime, PatchObject>>`\n\n\u2026but the crate does NOT `pub use jmap_types::{Id, UTCDate, PatchObject}`\nat the crate root.\n\n**What goes wrong for callers**:\n- A consumer of `jmap-jscalendar-types` that wants to write a function\n  signature like `fn record_acknowledged(t: UTCDate, link: &Link)`\n  must add `jmap-types` as a direct dependency in their own Cargo.toml.\n  Transitive deps cannot be `use`d in Rust.\n- Without a re-export, the consumer's Cargo.toml ends up pinning a\n  specific `jmap-types` version that must match this crate's pinned\n  version. Mismatches produce confusing nominal-type errors\n  (`expected jmap_types::Id, found jmap_types::Id` from different\n  Cargo resolutions).\n- The README example only uses `RecurrenceRule` so it never trips on\n  this \u2014 a consumer who follows the README and then tries to extend\n  the example will hit it.\n\n**Fix shape** (additive, non-breaking):\nAdd at the crate root:\n\n    pub use jmap_types::{Id, UTCDate, PatchObject};\n\nThat way consumers can write `use jmap_jscalendar_types::{Id, Link};`\nand the version pin is enforced by transitive cargo resolution\nthrough THIS crate's pin.\n\n**Risk caveat**: re-exporting locks this crate's major version to\njmap-types' major version (a jmap-types 1.0 \u2192 2.0 forces this crate\nto major-bump). For workspace-internal crates this is already the\nde-facto coupling; for an externally-published crate it's a\ndeliberate contract. Within the workspace, the answer is probably\n\"yes, re-export and document the coupling\".",
+  "ephemeral": 0,
+  "id": "JMAP-mno4.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-types::{Id, UTCDate, PatchObject} appear in the public API surface but are not re-exported \u2014 consumers must add a separate jmap-types dep to name these types",
+  "updated_at": "2026-05-16T02:20:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:15:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mno4",
+      "id": "8f1a80d2-b973-52ed-9148-e687b36ccedc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-bu1.5",
+  "title": "SSE stream dual-buffer: raw_buf and buf each cap at 1 MiB; combined peak is ~2 MiB",
+  "description": "raw_buf and buf are each checked independently against SSE_BUF_SIZE_LIMIT (1 MiB). Both can approach 1 MiB simultaneously: raw_buf accumulates incoming bytes before UTF-8 decode; buf holds decoded text. Peak live memory per SSE stream is ~2 MiB, not ~1 MiB as the constant name implies. At scale with many concurrent SSE connections this doubles the expected per-connection memory budget. The comment 'Use the same limit' is technically correct (same constant) but the combined budget is undocumented.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:25:59Z",
+  "updated_at": "2026-04-30T01:31:35Z",
+  "closed_at": "2026-04-30T01:31:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-bu1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:25:58"
+    }
+  ]
+}

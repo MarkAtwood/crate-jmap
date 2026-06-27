@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "733e5bda946b27bda88c266e7114e1dee39705b794b5d6edfb21db5844c3569c",
+  "created_at": "2026-05-14T22:51:29Z",
+  "created_by": "Mark Atwood",
+  "description": "Pre-existing clippy failure surfaced during workspace-wide clippy gate run after JMAP-3t94 work.\n\nLocation: crate-jmap-metadata-server/src/metadata.rs:787:13\n\n```rust\nerr.get(\"properties\").map_or(true, Value::is_null),\n```\n\nclippy fires `clippy::unnecessary_map_or` (implied by -D warnings). Mechanical fix:\n\n```rust\nerr.get(\"properties\").is_none_or(Value::is_null),\n```\n\nSurfaced when running `cargo clippy --workspace --all-features --all-targets -- -D warnings`. Pre-existing in main (predates the JMAP-3t94 commits 5d516e1 and 8ecc0eb). Sibling crates may have the same shape \u2014 quick sweep before fixing:\n\n```bash\nrg 'map_or\\\\(true,' crate-jmap-*-server/src/\n```\n\nis_none_or stabilised in Rust 1.82. Verify the workspace MSRV (Cargo.toml rust-version) admits 1.82+ before adopting.\n\nP3 \u2014 clippy failure blocks the workspace-wide -D warnings gate but does not affect runtime correctness or wire-protocol behavior. Independent of JMAP-3t94 scope (which was sharing-server only).",
+  "ephemeral": 0,
+  "id": "JMAP-kezk",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "jmap-metadata-server clippy::unnecessary_map_or fires on metadata.rs:787 \u2014 use is_none_or",
+  "updated_at": "2026-05-14T22:51:29Z"
+}

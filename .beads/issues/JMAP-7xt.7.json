@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.7",
+  "title": "subscribe_events double-copies valid UTF-8 chunk data",
+  "description": "client.rs subscribe_events (lines 413-418): on the happy path (valid UTF-8, no split codepoint) the code does s.to_owned() to clone raw_buf contents into a new String, then push_str appends that into buf \u2014 two copies of the same bytes. Fix: use String::from_utf8 with drain to move bytes instead of cloning, or decode directly into buf.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:45:57Z",
+  "updated_at": "2026-04-30T01:12:37Z",
+  "closed_at": "2026-04-30T01:12:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:45:57"
+    }
+  ]
+}

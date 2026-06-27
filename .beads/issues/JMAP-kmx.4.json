@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-kmx.4",
+  "title": "Keyword(pub String) exposes internals, breaks future validation",
+  "description": "Keyword(pub String) \u2014 the inner String is pub. Any caller can construct Keyword(\"\".to_owned()) or Keyword(\"invalid!keyword\".to_owned()) bypassing any validation. If we ever want to add syntax validation (RFC 8621 \u00a74.1.1 keywords must match atom syntax), making the field private is a breaking change. The new(), From<&str>, and From<String> impls already provide a clean construction surface; the pub inner field adds nothing. Fix: make inner field private (Keyword(String)), keep existing trait impls.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:04:56Z",
+  "updated_at": "2026-04-30T05:09:55Z",
+  "closed_at": "2026-04-30T05:09:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-kmx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:04:55"
+    }
+  ]
+}

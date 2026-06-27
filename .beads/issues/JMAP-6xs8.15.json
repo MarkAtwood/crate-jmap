@@ -1,0 +1,33 @@
+{
+  "close_reason": "Ratified \u2014 commendation finding, no action item. The 'Excluded from extras preservation' rationale blocks at workspace AGENTS.md (filter-algebra exclusion section, lines 379-408), crate-jmap-types/src/query.rs (Operator/Filter/FilterOperator), and the README are the canonical workspace text on this exclusion. The bead itself reads as 'defend against any future suggestion to undo this'; the doc text is in three places already and is the model exclusion rationale for cross-crate propagation.",
+  "closed_at": "2026-05-17T16:57:35Z",
+  "compaction_level": 0,
+  "content_hash": "6ea397bea29f238eeaea2424c8c7387c5df343988f0645f8c5c805f0af1d27bb",
+  "created_at": "2026-05-15T05:35:49Z",
+  "created_by": "Mark Atwood",
+  "description": "Commits c0ddb93 and fad2d24 add explicit \\\"Excluded from extras preservation\\\" doc blocks to Operator, Filter, FilterOperator in crate-jmap-types/src/query.rs, and to the README. The exclusion is engineering-grounded: unrecognized filter clauses are a query-correctness hazard, NOT a round-trip-only concern like data-object extras. The rationale is clearly stated in three places (workspace AGENTS.md, this crate's doc-comments, README). Defend against any future suggestion to \\\"complete the extras pattern\\\" by adding an `extra` field to FilterOperator or an `Unknown(String)` to Operator. The exclusion is the correct decision; the doc-comments make it harder to accidentally revert. This is the model exclusion-rationale text to copy when filing similar exclusions in other crates.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sloppy-Value pattern explicitly NOT applied to Filter algebra",
+  "updated_at": "2026-05-17T16:57:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:35:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "0a5d2729-21d3-5c46-a02f-54b61e50f94c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

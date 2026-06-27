@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in e03d136: ChatMessageEntry.sender_id is now SenderId. Constructor signatures take SenderId directly (no impl Into<String>) to surface the variant choice at call sites. New test push_entry_self_sentinel_routes_to_owner covers \"self\" -> Owner deserialize routing.",
+  "closed_at": "2026-05-16T03:11:46Z",
+  "compaction_level": 0,
+  "content_hash": "eb07148a5bc3fb823e7c1947403f1648dfdc1a7b01f429119788fb6d119649c2",
+  "created_at": "2026-05-16T02:54:16Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-types/src/push.rs declares `ChatMessageEntry.sender_id: String` (line ~48). The wire shape is identical to `Message.sender_id` and `Reaction.sender_id` (both `SenderId` per message.rs:67) \u2014 same `\"self\"` sentinel, same `ChatContact.id` opaque-URI semantics, same draft section (\u00a74.11 vs \u00a75.2 in the push draft but both reference the same wire convention).\n\nDiverging here means:\n- A push-payload consumer reading `entry.sender_id` gets back a raw string and has to know to compare against `\"self\"` themselves to detect owner-sent messages. Every other type in the crate already gives them `SenderId::Owner` for that case.\n- Pattern-matching code that handles owner-vs-contact has to be written twice with two different shapes.\n- If the wire form ever evolves (e.g. spec adds a new sentinel for system-bot messages), updating `SenderId` covers the whole crate except this one struct.\n\nJMAP-ly0n.4 already covers the same drift at `ChatTypingEvent.sender_id` (ephemeral.rs). This is the parallel third site. The fix is mechanical \u2014 replace `String` with `SenderId` \u2014 and `SenderId` already has the manual `Serialize` / `Deserialize` impls that round-trip exactly the same wire bytes, so the change is wire-compatible. Worth resolving in the same pass as JMAP-ly0n.4 rather than as a separate sweep, since the rationale and risk are identical.\n\n(Note: the line-of-code itself appears to predate commit 9c0d34f and survived into the diff via doc-comment annotation only. The review scope \"since 9c0d34f\" captures the file as a whole, so the finding is in scope even though the field-declaration line was not added by this diff.)",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChatMessageEntry.sender_id in push.rs is String, not SenderId \u2014 parallel drift to JMAP-ly0n.4 in a different file",
+  "updated_at": "2026-05-16T03:11:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:54:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "baa65681-4f21-570e-8a0a-7c8fbd784815",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

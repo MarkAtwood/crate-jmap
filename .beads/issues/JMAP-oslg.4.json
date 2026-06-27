@@ -1,0 +1,33 @@
+{
+  "close_reason": "Positive confirmation \u2014 no action needed",
+  "closed_at": "2026-05-02T21:07:31Z",
+  "compaction_level": 0,
+  "content_hash": "2be2af6dbdc2247ce69ec00ad9b731f1744eaa85ff7e2f871e6708a20ee69947",
+  "created_at": "2026-05-02T21:03:11Z",
+  "created_by": "Mark Atwood",
+  "description": "All enums (DeliveryState, ReadDisposition, SenderId) and public structs (Attachment, Mention, MessageAction, Reaction, MessageRevision, DeliveryReceipt, Message) are marked #[non_exhaustive]. This prevents breaking changes when spec extensions are added without requiring version bumps or deprecation aliases.",
+  "ephemeral": 0,
+  "id": "JMAP-oslg.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "GOOD: Consistent #[non_exhaustive] across type layer",
+  "updated_at": "2026-05-02T21:07:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:03:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-oslg",
+      "id": "b44f3f79-c84d-5e11-b3e5-92f73aef5c8a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

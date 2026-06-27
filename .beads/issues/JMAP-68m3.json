@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "f65ba77724517203349a7a43a84fc4373d496ee6f7d527d7f87501de566ba883",
+  "created_at": "2026-05-17T19:56:27Z",
+  "created_by": "Mark Atwood",
+  "description": "Commit aad35c1646ef8e0d784aeaa846cc3e3c75945c19 ('test(chat-server): canary for duplicate-Direct cleanup destroy redaction') accidentally included 176 lines of unrelated test additions to crate-jmap-metadata-server/tests/metadata_tests.rs alongside the in-scope chat-server changes.\n\nThe metadata_tests.rs changes were sitting unstaged in the working tree at the start of the /do-beads session for JMAP-x2gd.102. Despite explicit 'git add' of only the chat-server files, the metadata file was already in the staging area from a prior session and got swept into the commit.\n\nThe metadata content appears to be a 'Metadata/queryChanges standard cycle (bd:JMAP-ayoz.6.4)' end-to-end test addition \u2014 substantial, well-formed, and clearly intentional work that just wasn't committed at the time.\n\nWorkspace AGENTS.md 'Git Safety Protocol' allows commit --amend only when:\n  (1) the user explicitly requests amend [FALSE here], OR\n  (2) hooks auto-modified files needing inclusion [N/A]\n\u2026AND (3) the commit was created in this conversation [TRUE], AND (4) the commit has not been pushed [TRUE].\n\nSince (1) is not satisfied and 'git reset *' is denied by the bd-spin permission overlay, autonomous splitting is blocked. Filing this as a 'human' bead so the user can either:\n  - Authorize an amend/split (preferred \u2014 keeps the metadata work as its own commit with its own message and bd-reference)\n  - Leave the mixed commit in place and file a follow-up commit-message-correction (cosmetic only; the code is fine)\n  - Confirm the metadata-tests work was intentionally being held back; revert it from aad35c1 and re-land in a fresh commit\n\nRecommendation: amend aad35c1 to drop the metadata_tests.rs hunk, then 'git add crate-jmap-metadata-server/tests/metadata_tests.rs && git commit' it under whatever bead-ref the metadata work belongs to (likely bd:JMAP-ayoz.6 or a child). I will leave the metadata_tests.rs changes in the working tree post-amend so the human can decide whether to commit them.\n\nAcceptance: aad35c1's diff is restricted to chat-server, and the metadata_tests.rs work lives in its own commit with appropriate bd reference. No data loss.",
+  "ephemeral": 0,
+  "id": "JMAP-68m3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Mixed-scope commit aad35c1 contains JMAP-x2gd.102 work plus unrelated pre-existing metadata-server test additions",
+  "updated_at": "2026-05-17T19:56:27Z"
+}

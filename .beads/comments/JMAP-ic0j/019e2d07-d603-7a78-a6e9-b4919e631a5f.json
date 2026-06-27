@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T19:05:49Z",
+  "id": "019e2d07-d603-7a78-a6e9-b4919e631a5f",
+  "issue_id": "JMAP-ic0j",
+  "text": "Idiom rating (rusty pass #3): ACCEPTABLE \u2014 UNCHANGED from passes #1 and #2. Walked the 11 new fix commits since pass #2 (bca99b3, 51c6096, 5c3dc83, 85571e7, 3bed3e1, 878d59f, 7e83c87, 2ff215e, a8eb7a9, 1e9d41a, 965cb81) line-by-line. Every commit is a strict idiom improvement over its predecessor: bool_arg/take_bool_arg helpers retire ~28 chained .get().and_then(as_bool).unwrap_or sites across mail-server and calendars-server; is_some_and replaces 8 .map().unwrap_or(false) chains; Option::copied propagates cleanly to 6 MemoryBackend siblings; the iterator-chain re-index drops the full event-map clone; the maintain_indexes_after_set helper collapses 3 TYPE_NAME-dispatch sites (with the underlying smell deferred to JMAP-934u per the workspace canonical-template propagation rule); the typed-UTCDate threading at the recurrenceOverrides args boundary mirrors the principal.rs validation pattern; the seed_object precondition validators ship clear panic messages plus a five-case regression suite. No new idiomatic-rust beads filed in this pass \u2014 convergence reached on the rusty axis for the third consecutive time. The two remaining open P2 idiom findings (.41 tuple-keyed HashMap allocation; .26 default-impl philosophy if you count it as idiom-adjacent) are workspace-wide patterns governed by the canonical-template propagation rule, not crate-local issues to fix in calendars-server alone."
+}

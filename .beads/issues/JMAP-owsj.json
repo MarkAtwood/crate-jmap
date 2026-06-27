@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "367ea9d965aff0bce73c92d36cdbc275406c99824ed01671907df25d8903e812",
+  "created_at": "2026-06-13T20:32:59Z",
+  "created_by": "Mark Atwood",
+  "description": "draft-atwood-jmap-chat-federation-00 defines 5 REQUIRED methods (Peer/deliver, Peer/receipt, Peer/typing, Peer/retract, Peer/groupUpdate) and 3 optional. No request/response types exist in crate-jmap-chat-types or handler registrations in crate-jmap-chat-server.",
+  "ephemeral": 0,
+  "id": "JMAP-owsj",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add Peer/* federation method request/response types",
+  "updated_at": "2026-06-13T20:32:59Z"
+}

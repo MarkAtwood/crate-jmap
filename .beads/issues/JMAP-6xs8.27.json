@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T16:44:58Z",
+  "compaction_level": 0,
+  "content_hash": "4b65a3622f45e7dc6535ed679ebf9c850b9c39972ee5f9ceb54c9ecc9eebb4fd",
+  "created_at": "2026-05-15T05:46:10Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-types/src/resultref.rs:17-27 declares the sealed set:\n\n    impl Sealed for String {}\n    impl Sealed for Vec<String> {}\n    impl Sealed for crate::Id {}\n    impl Sealed for Vec<crate::Id> {}\n    impl Sealed for u32 {}\n    impl Sealed for u64 {}\n    impl Sealed for bool {}\n\nNotable absences: `Date`, `UTCDate`, `Vec<Date>`, `Vec<UTCDate>`,\n`State`, `Vec<State>`. These are first-party newtypes in this same\ncrate. They are also the natural argument types for common JMAP\nfilter parameters per RFC 8621:\n\n- `Email/query` filter conditions: `before`, `after` are UTCDate (\u00a74.4.1)\n- `Email/query` filter conditions: `receivedAt`, `sentAt` (Date)\n- `Mailbox/changes`, `Email/changes`: `sinceState` (State)\n- Calendar event filters (RFC 8984 / jmap-calendars): start/end Date\n\nA caller writing client code that constructs a query with a\nresult-reference for a date range argument writes:\n\n    let arg: Argument<UTCDate> = Argument::Value(UTCDate::from(\\\"...\\\"));\n\nand gets:\n\n    error[E0277]: the trait bound `UTCDate: Sealed` is not satisfied\n\nwith no rustdoc explanation of *why*. The `Argument<T>` doc-comment\n(resultref.rs:80-100) explains the invariant generally (\\\"T must not\ndeserialize from a JSON object\\\") but does not list which crate types\nsatisfy that invariant and which don't.\n\n`UTCDate`, `Date`, `State` all serialize as JSON strings via\n`#[serde(transparent)]` on a String newtype. They DO satisfy the\ninvariant. They should be in the sealed set. The absence appears\nto be an oversight rather than a deliberate exclusion.\n\nWhat a caller depending on this API in production accepts:\n\n1. Common JMAP query parameters cannot be expressed as result-references\n   (e.g. a `Calendar/changes` returning a state token can't have that\n   token consumed by a subsequent `CalendarEvent/query`'s `sinceState`\n   argument via ResultReference).\n2. Workarounds: convert to `String` at the call site\n   (`Argument::<String>::Value(date.into_inner())`), losing the typed\n   wrapper, or fork the sealed module (impossible, it's private).\n3. The error message points at `sealed::Sealed` (a private trait); a\n   caller who follows the error to its source hits a `pub(crate)`\n   wall with no rustdoc guidance for what to do next.\n\nFix candidates:\n- Add `impl Sealed for crate::UTCDate {}`, `Sealed for Date`,\n  `Sealed for State`, plus their `Vec<...>` forms. Forward-compat\n  addition, not breaking.\n- Update the rustdoc on `Argument<T>` to list the full sealed set\n  with each entry's rationale (e.g. \\\"State: opaque token, often used\n  as `sinceState` in /changes calls\\\").\n- Document the rejected types explicitly so a caller who tries\n  `Argument<Mailbox>` understands the failure mode.\n\nCross-reference: JMAP-6xs8.14 already covers the `compile_fail`\ndoctest for `Argument<serde_json::Value>`. This finding is the\nopposite end \u2014 types that SHOULD be in the sealed set but aren't.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Argument<T> sealed set excludes Date/UTCDate with no rustdoc explanation; common JMAP arg types fail with cryptic error",
+  "updated_at": "2026-05-17T16:44:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:46:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "f9df198e-a070-5464-b505-b63562e455ab",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

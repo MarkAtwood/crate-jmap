@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T00:05:59Z",
+  "compaction_level": 0,
+  "content_hash": "a060511a66c53f6489b27220a6033df44b895b644b797b6f34a85f7f29a5d97e",
+  "created_at": "2026-05-14T23:15:20Z",
+  "created_by": "Mark Atwood",
+  "description": "request.rs:107 \u2014 pub capabilities: HashMap<String, serde_json::Value>\nrequest.rs:256 \u2014 pub account_capabilities: HashMap<String, serde_json::Value>\n\nThese fields expose serde_json::Value in the public API. Implications:\n\n1. **serde_json major-version lock.** When serde_json eventually goes to 2.0 (with breaking changes \u2014 that's a 'when', not 'if', for any pre-1.0 crate in active use), every consumer that calls session.capabilities.get(...).and_then(|v| v.as_object()) is bound to whatever Value shape serde_json 2.0 ships. If this crate wanted to bump serde_json's major version, every downstream client has to bump too, in lockstep.\n\n2. **No abstraction for extension types.** The Session.websocket_capability() helper (request.rs:166) is the documented way to extract a typed capability. Every other capability \u2014 JMAP Mail, JMAP Chat, JMAP Calendars \u2014 is left as a raw Value the consumer must parse themselves. Each extension crate writes its own ad-hoc extraction code, often with subtle differences (e.g., what to do when the key is present but the value is null vs absent). The cookie-cutter sibling pattern documented in workspace AGENTS.md would be served by a Session::extension_capability::<T: DeserializeOwned>(&str) helper on the foundation.\n\nThe current shape is consistent with workspace policy (Sloppy-Value pattern is documented and intentional for IETF-spec'd extension objects). The leak risk is acceptable for now, but two follow-ups would harden it:\n\n(a) Add a typed helper `Session::extension_capability::<T>(&str) -> Result<Option<T>, ClientError>` that mirrors websocket_capability(). Each extension crate then calls it with their own typed capability struct.\n(b) When the workspace is ready for a major bump, replace `serde_json::Value` with a sealed wrapper type so the inner type can be swapped.\n\nWorkspace policy compatibility: the Sloppy-Value pattern (PLAN.md and workspace AGENTS.md) documents this as the deliberate choice for IETF-spec'd extension objects. This finding does NOT recommend reverting that policy \u2014 it recommends adding a typed accessor on TOP of the Value-typed field so consumers have a non-Value path when they have a typed schema (mirroring how `Session::websocket_capability` already wraps `capabilities[\"urn:ietf:params:jmap:websocket\"]`).",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Session.capabilities and AccountInfo.account_capabilities expose serde_json::Value publicly",
+  "updated_at": "2026-05-15T00:05:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:15:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "b7fdfe16-714e-533c-b112-e8bb17e58f91",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

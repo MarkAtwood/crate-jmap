@@ -1,0 +1,33 @@
+{
+  "close_reason": "Pattern G applied: 54 sites across 6 server crates replaced .unwrap_or_else(|e| serverFail) with .expect('derive(Serialize) on plain data is infallible'). Workspace tests/clippy/fmt green. Commit bc79c70.",
+  "closed_at": "2026-05-09T08:13:48Z",
+  "compaction_level": 0,
+  "content_hash": "c90ae9e0d27240ff68e80021d2bf62eb65fb3325e7dc7f41c9fc056c9c47fbbd",
+  "created_at": "2026-05-09T08:08:53Z",
+  "created_by": "Mark Atwood",
+  "description": "Apply pattern G to jmap-filenode-server.\n\nPattern (full): serde_json::to_value(&obj).expect('derive(Serialize) on plain data is infallible') replacing .unwrap_or_else(|e| serverFail)\n\nReference: see calendars-server (which already has the change) for the exact shape, and the JMAP-tco1 epic description for the source bead that defined the pattern (JMAP-r3pg.{12,13}).",
+  "ephemeral": 0,
+  "id": "JMAP-tco1.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sweep G -> jmap-filenode-server: serde_json::to_value(&obj).expect('derive(Serializ",
+  "updated_at": "2026-05-09T08:13:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T01:08:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tco1",
+      "id": "254944bd-4328-55c9-9097-5a5de84cd4cb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

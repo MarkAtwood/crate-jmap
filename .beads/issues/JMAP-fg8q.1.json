@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:44:01Z",
+  "compaction_level": 0,
+  "content_hash": "e3362be3540a2071a0c9639a24dea998fbd944e402004ab0761fbab6d03740bb",
+  "created_at": "2026-05-04T19:40:06Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec \u00a72.4 MUST: reject create/update exceeding maxSizeScript with tooLarge SetError. The trait has no way to surface this \u2014 validate_sieve_script checks syntax only, and there is no size check before create_object. Fix: add a doc note to validate_sieve_script saying backends SHOULD also enforce maxSizeScript and return Ok(Some(description)) if exceeded. Or add get_sieve_blob call before create_object to check size, and compare against a max_sieve_script_bytes() trait method (default None = no limit).",
+  "ephemeral": 0,
+  "id": "JMAP-fg8q.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve_set: tooLarge not checkable \u2014 maxSizeScript has no backend contract",
+  "updated_at": "2026-05-04T19:44:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T12:40:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-fg8q",
+      "id": "be598a86-7a22-5826-b4f4-8adf0aa2cf79",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

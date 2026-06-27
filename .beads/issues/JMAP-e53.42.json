@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:54:59Z",
+  "compaction_level": 0,
+  "content_hash": "bcec2130b384c251d2c5c54783f39ee40f96f4032927e16623dc0778f6a9b44e",
+  "created_at": "2026-05-02T00:45:14Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8621 \u00a74.2: maxBodyValueBytes MUST truncate so value does not exceed this number of OCTETS. apply_body_value_args() in email.rs lines 1128-1135 uses char_indices().take_while(|(i, _)| *i < limit) which includes any character whose start byte index is below limit. A multi-byte UTF-8 character (e.g. a 3-byte character) starting at byte index limit-1 will be included in the output, making the result up to (char_size - 1) = 2 bytes over the specified limit. Trigger: maxBodyValueBytes=3, body value is the 5-byte string \"ab\u20ac\" (a=byte 0, b=byte 1, \u20ac=bytes 2-4). The \u20ac starts at i=2 < 3, so it is included. Output is 5 bytes, exceeding the 3-byte limit.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.42",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "maxBodyValueBytes truncation may exceed limit by up to char_size-1 bytes",
+  "updated_at": "2026-05-02T00:54:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:45:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "ea64caaf-87c8-5608-958c-83e08508921a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

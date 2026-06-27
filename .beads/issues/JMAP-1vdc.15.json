@@ -1,0 +1,33 @@
+{
+  "close_reason": "duplicate of JMAP-yecd.3 (query_changes completeness), already tracked",
+  "closed_at": "2026-05-02T19:38:27Z",
+  "compaction_level": 0,
+  "content_hash": "ce07bae2d5e5144eb8e376d26cd0e861d1aad44d0f1c18f469a8fa016ad2711a",
+  "created_at": "2026-05-02T19:34:27Z",
+  "created_by": "Mark Atwood",
+  "description": "MemoryBackend.query_changes (common/mod.rs line 520) accepts filter, sort, max_changes, up_to_id, collapse_threads but binds all of them to _ (ignored). Returns only 'all ids added when sinceQueryState==0'. Tests that call Email/queryChanges or Mailbox/queryChanges against MemoryBackend never exercise these parameters. Maintenance consequence: a backend implementor using MemoryBackend tests as a correctness reference gets false confidence; real backends that ignore these params have no test coverage signal from this suite.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend query_changes silently ignores all filter/sort params",
+  "updated_at": "2026-05-02T19:38:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "7f10acff-bd8f-5b70-a70b-f8190461c41f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

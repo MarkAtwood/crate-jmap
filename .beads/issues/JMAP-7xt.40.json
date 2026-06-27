@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-7xt.40",
+  "title": "WsFrame and ClientConfig missing PartialEq",
+  "description": "WsFrame derives Debug but not PartialEq, preventing == comparisons in tests or application logic. ClientConfig derives Debug+Clone but not PartialEq, so callers cannot compare two configs in tests or configuration-reload code. WsFrame contains StateChange (also missing PartialEq) and jmap_types::JmapResponse \u2014 if JmapResponse derives PartialEq, WsFrame could too. The workspace pattern derives PartialEq on all value types.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:47:36Z",
+  "updated_at": "2026-04-30T00:55:33Z",
+  "closed_at": "2026-04-30T00:55:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:47:36"
+    }
+  ]
+}

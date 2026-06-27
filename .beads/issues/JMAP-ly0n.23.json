@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in ab4804f (batch). See commit message for per-bead details.",
+  "closed_at": "2026-05-16T03:27:43Z",
+  "compaction_level": 0,
+  "content_hash": "82889830556f64b134fee143c025fceedf32d435808ca6a8614c6d3773b79b28",
+  "created_at": "2026-05-16T02:54:23Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-types/src/message.rs:240 declares `DeliveryReceipt` with all four fields as `Option<UTCDate>` / `Option<ReadDisposition>`. The natural zero state \u2014 \"nothing acknowledged yet\" \u2014 is all-None.\n\nThe diff already shipped exactly this pattern on `ChatStreamDisable` in ephemeral.rs (now `#[derive(... Default ...)]` because all fields are optional), so the precedent is set within the same crate and the same review scope.\n\nIdiomatic Rust: any struct whose every field is `Option<_>` (or `Vec<_>` etc. with a sensible empty default) should derive `Default`. Today, a consumer constructing a fresh `DeliveryReceipt` to start populating must write:\n\n    DeliveryReceipt { delivered_at: None, device_delivered_at: None, read_at: None, read_disposition: None, extra: serde_json::Map::new() }\n\nWith `Default` derived:\n\n    DeliveryReceipt::default()\n\nThe extras field is `serde_json::Map<String, serde_json::Value>` which is `Default`, so the derive is mechanical. No new dependencies, no API breaking change (Default is purely additive).\n\nWorkspace AGENTS.md \"Idiomatic Rust \u2192 type-design\" calls this out: \"Missing derives: ... Default on types with a sensible zero.\" The empty-receipt case is exactly the sensible zero.",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DeliveryReceipt has four Option fields and no Default derive",
+  "updated_at": "2026-05-16T03:27:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:54:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "b57c9b07-ca48-5114-be00-41e7b96ab32b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

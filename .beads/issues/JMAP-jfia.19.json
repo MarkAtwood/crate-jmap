@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "bdcd31ddd1ee6c8115d47e5da4f15352a653c0711e4e881c3587e4be3c3a1b4c",
+  "created_at": "2026-05-14T16:45:10Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/lib.rs:73-74 \u2014 HandlerFuture is defined as:\n\n    pub type HandlerFuture =\n        Pin<Box<dyn Future<Output = Result<(Value, Vec<Invocation>), JmapError>> + Send>>;\n\nThe `Output = Result<(Value, Vec<Invocation>), JmapError>` shape is the\nreturn type of every JmapHandler::call. The (Value, Vec<Invocation>)\ntuple is anonymous \u2014 no struct wrapper, no #[non_exhaustive] surface,\nno way to add a third field without breaking every existing handler\nimpl.\n\nWhat callers cannot depend on: that the handler return shape can grow.\nA future feature \u2014 handler-emitted metrics, panic-occurrence flag,\nper-call timing, retry hint for the dispatcher, etc. \u2014 cannot be added\nto the trait method's return shape without:\n\n1. A major-version bump\n2. Migration of every JmapHandler impl in every extension *-server\n   crate (8 today, more planned)\n3. Migration of every ClosureHandler closure in every register_*_handlers\n   macro across consumers\n\nWhat goes wrong when this stays as-is: by the time the kit needs to\nreturn one more piece of data per handler call (the existing `extra\ninvocations` parameter is already the second member of this tuple,\nwhich is itself evidence the original `Value`-only shape was wrong),\nthe cost of adding it has already crystallised at every callsite.\n\nResolution: replace the tuple with a named #[non_exhaustive] struct,\ne.g.:\n\n    pub struct HandlerOutput {\n        pub primary: Value,\n        pub extra_invocations: Vec<Invocation>,\n        // future fields land here non-breakingly\n    }\n    pub type HandlerFuture =\n        Pin<Box<dyn Future<Output = Result<HandlerOutput, JmapError>> + Send>>;\n\nThe pre-major-bump cost of this rename is ~7 extension *-server crates\nthat all just landed under JMAP-wlip. The post-major-bump cost of NOT\ndoing this is structurally unbounded because each future field forces\nthe same propagation pass.\n\nThis is the kit's first major opportunity to convert \"tuple-of-two\"\ninto \"named-struct-of-N\" before the type ossifies.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "HandlerFuture output Result<(Value, Vec<Invocation>), JmapError> is anonymous tuple, cannot grow",
+  "updated_at": "2026-05-14T17:10:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:45:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "b14b16b5-e658-5800-b0d1-be72d9292c61",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

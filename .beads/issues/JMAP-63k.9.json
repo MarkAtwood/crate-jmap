@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T06:52:57Z",
+  "compaction_level": 0,
+  "content_hash": "62dc9857e99fd12c0e78a68c7c749232a97edb25fe76e4d0f581c3fc1b18a5d9",
+  "created_at": "2026-05-02T06:45:49Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/chat.rs:448\nIssue: After every successful create_object for a Direct chat, handle_chat_set unconditionally calls get_objects::<Chat> again (line 448) to check for concurrent duplicates. In the no-race case \u2014 which is essentially 100% of production traffic \u2014 this is a full-collection fetch that serves no purpose: there will never be more than one copy, and the newly created object is already known. This means N Direct-chat creates in a single Chat/set request cost N+1 full-collection fetches (1 hoisted + N post-create), not 1.\nImpact: Every successful Direct chat creation pays an extra full backend read. In bulk-create scenarios (e.g. contact sync) this N+1 pattern compounds. For backends where get_objects is a database scan, this is measurable latency.\nFix: Only perform the post-create re-fetch when there is actual evidence of concurrency (e.g., the backend returns a conflict/duplicate error), or gate it behind a runtime flag. Alternatively, replace the optimistic create-then-validate with a backend-level upsert or conditional-create primitive that returns alreadyExists atomically.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat/set: post-create re-fetch on every Direct create (no-race common case)",
+  "updated_at": "2026-05-02T06:52:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:45:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "2f268583-b9d5-5e5c-ae41-8808129e8b5f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

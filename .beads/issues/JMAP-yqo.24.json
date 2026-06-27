@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already documented: submission.rs:356-359 already explains why the pre-fetch must happen before the destroy loop.",
+  "closed_at": "2026-05-04T15:46:18Z",
+  "compaction_level": 0,
+  "content_hash": "b02f1068696f2027b60741d918e877f3f2ecbbb7c82669be1ebfe8f1d15ba03f",
+  "created_at": "2026-05-02T02:56:58Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_submission_set pre-fetches the emailId for all non-creation-reference submission IDs in onSuccess* args BEFORE running any create/update/destroy, then removes failed operations from the map after each loop. This means onSuccessUpdateEmail/onSuccessDestroyEmail works correctly for destroyed submissions (whose emailId would not be recoverable after destroy). A contributor might suggest moving the fetch inside each success handler to avoid an extra round trip when all operations fail \u2014 resist, because onSuccessDestroyEmail on a destroyed submission requires the emailId to have been fetched before destroy.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "EmailSubmission/set pre-fetches submission\u2192emailId map before destroy loop",
+  "updated_at": "2026-05-04T15:46:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:56:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "318c07d2-b825-5b71-8717-b283acc3201f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

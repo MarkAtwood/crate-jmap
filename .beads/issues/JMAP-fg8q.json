@@ -1,0 +1,23 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:44:01Z",
+  "compaction_level": 0,
+  "content_hash": "74744a64f84983335e66769ffb6f4c29153faded086dd386261598aba3a06e9b",
+  "created_at": "2026-05-04T19:38:13Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-fg8q",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Review round 3: Sieve scripting",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

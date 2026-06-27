@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Opinion: two constructors is clearer than Option<impl Into<String>>; unifying would require callers to write Some(...). Closed as opinion.",
+  "closed_at": "2026-05-02T22:11:49Z",
+  "compaction_level": 0,
+  "content_hash": "6e95d0f80aac4033c7331c9ac82fd346a469696e407d3c547db77dffafc366ab",
+  "created_at": "2026-05-02T22:07:01Z",
+  "created_by": "Mark Atwood",
+  "description": "Having unknown_capability() and unknown_capability_with_detail() is two constructors for the same logical state. The design choice is: 'always provide the URI (detail is not optional)' or 'URI is optional'. If the URI should always be provided at the call site (the right answer for this codebase), unknown_capability() should be removed or replaced with a single constructor that requires the URI. If optional, a single fn unknown_capability(uri: Option<impl Into<String>>) would unify them. The current split invites callers to reach for the easy no-detail version.",
+  "ephemeral": 0,
+  "id": "JMAP-nkib.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "two unknownCapability constructors: Option<impl Into<String>> would unify them",
+  "updated_at": "2026-05-02T22:11:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:07:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-nkib",
+      "id": "b9106d3b-7ada-56b6-9bdc-afd75ab05209",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-8kf.2",
+  "title": "SSE stream terminates on multi-byte UTF-8 split across chunks",
+  "description": "subscribe_events calls str::from_utf8(&bytes) on each raw reqwest chunk (client.rs ~line 357). A valid UTF-8 multi-byte sequence (e.g. 3-byte code point) split across two adjacent transport chunks causes str::from_utf8 to return Err on the first chunk, which immediately returns ClientError::Parse and terminates the stream (state=None). The stream is killed by valid data that arrived in two pieces. Correct fix: accumulate raw bytes until a valid UTF-8 boundary, then decode.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:21:25Z",
+  "updated_at": "2026-04-30T00:27:46Z",
+  "closed_at": "2026-04-30T00:27:46Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-8kf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:21:24"
+    }
+  ]
+}

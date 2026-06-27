@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:55:02Z",
+  "compaction_level": 0,
+  "content_hash": "ceebaae2b9c573a62c0a471e8dfe8f8a8f3e6453fada22451f57d56ca7b035d5",
+  "created_at": "2026-05-02T00:44:05Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs extract_header_values (~line 297): for every header entry in the email's headers array, name.to_ascii_lowercase() allocates a new String for comparison against req.name_lower. With H headers per email, R header: property requests, and E emails in the response, this is O(H*R*E) String allocations. The header names in storage are fixed at ingest time; case-folding them to lowercase once on ingest (or storing them pre-lowercased) would eliminate all allocations here. Alternatively, a case-insensitive byte comparison (AsciiExt or manual fold-on-compare) avoids allocation entirely.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extract_header_values: to_ascii_lowercase() alloc per header per request",
+  "updated_at": "2026-05-02T00:55:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:44:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "2efd9e2f-dc91-52d7-b07a-dd7627ec6c31",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

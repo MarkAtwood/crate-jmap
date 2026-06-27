@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied option 1 from the bead \u2014 mechanical wording tightening. Added a clarifying sentence to the SharingBackend stability carve-out noting that (a) the trait currently has no default-method bodies, (b) every present method materially affects wire-protocol correctness and cannot be no-op-defaulted without silently breaking the response, and (c) the carve-out applies only to future additions that can be given a sensible default (capability probes, audit hooks), with a clean SemVer-breaking minor-release bump as the transition path for methods that cannot. This avoids the workspace-architectural decision between options 2 (ship supports_type as default) and 3 (deprecated-trait + new-trait pattern), which the bead itself acknowledges is premature before the first real transition. Propagation to canonical mail-server's stability block: it does not yet carry the stability block at all (this sharing-server crate is the prototype), so propagation is not relevant in this pass. clippy clean, fmt clean. Doc warnings unchanged.",
+  "closed_at": "2026-05-14T22:48:31Z",
+  "compaction_level": 0,
+  "content_hash": "36ccfafae5bed7f2caef52cc27152cc0514484116aee6effaf141192c7afa8cd",
+  "created_at": "2026-05-14T22:35:22Z",
+  "created_by": "Mark Atwood",
+  "description": "**Location**: `crate-jmap-sharing-server/src/lib.rs:34-38`.\n\n**The promise**:\n\n> - **[\\`SharingBackend\\`] trait** (\\`crate::backend\\`): methods MAY be added\n>   in a minor release. Adding a required method is a breaking change for\n>   downstream impls; the workspace will signal such changes via\n>   CHANGELOG entries and (where practical) \\`#[deprecated]\\` warnings or\n>   default-method bodies during a transition release.\n\n**Why this is a contract concern**: the promised mitigation \u2014\ndefault-method bodies during a transition release \u2014 has zero\nprecedent in the current trait shape. Reading `backend.rs:61-234`:\n\n```\nfn create_object<O: SetObject + Send + Sync>(...) -> impl Future<...> + Send;\nfn update_object<O: SetObject + Send + Sync>(...) -> impl Future<...> + Send;\nfn destroy_object<O: SetObject + Send + Sync>(...) -> impl Future<...> + Send;\nfn supports_type<O: JmapObject>(&self) -> bool;\n```\n\nEvery method is required. There is no `supports_type` default body\n(it's required, and the in-tree impls all just return `true`). There\nis no `default` keyword anywhere in the trait. The promise made in\nlib.rs:34-38 is the workspace's GENERAL pre-1.0 stability discipline,\nbut this specific trait gives a downstream implementor no example to\nfollow if a new method is added \"with a default body during a\ntransition release\".\n\n**Three plausible refinements**:\n\n1. **Tighten the promise to match reality**: change \"or default-method\n   bodies\" to \"or default-method bodies where the new method can be\n   given a sensible no-op default\". Acknowledges that the trait is\n   currently shaped such that every method materially affects\n   correctness (no method can be no-op-defaulted without silently\n   breaking the wire protocol).\n\n2. **Demonstrate the discipline now**: ship `supports_type` with a\n   default body `{ true }` so the trait carries one example of the\n   pattern. This would let a downstream impl that doesn't care omit\n   the method. (Note: both in-tree impls already return `true`\n   unconditionally \u2014 bd:JMAP-3t94.20 closed the doc gap on this.)\n\n3. **Reframe the carve-out**: instead of \"default-method bodies\",\n   commit to a \"deprecated-trait + new-trait\" transition pattern\n   (e.g. `SharingBackendV2: SharingBackend` with new methods, then\n   blanket impl `V2` for any `Backend` that doesn't override).\n   Heavier but more honest.\n\n**Severity**: P3, not P0/P1. This is not a wire-protocol bug or a\nsilent breakage. It is a documented carve-out the codebase has not\nyet exercised. The risk is asymmetric \u2014 a downstream implementor\nreads the promise, infers the maintainer plans to use default-method\nbodies, and writes their own trait around that expectation. When the\nfirst SemVer transition happens and the carve-out turns out to be a\nhard break, the implementor's downstream consumers carry the cost.\n\n**Workspace-wide shape**: every `*-server` crate has a similar\nstability statement (bd:JMAP-3t94.23 added the policy block here;\nthe canonical mail-server has the same one). A workspace-wide\ntightening pass on the wording would resolve the same gap in 7\nother crates.\n\n**Confidence**: this is a real engineering concern but it is low-grade\nrelative to the wire-protocol findings already filed under this epic.\nReasonable maintainers could decline this finding on the grounds that\n\"the workspace has not yet had a real opportunity to demonstrate\neither the default-method pattern OR the deprecated-trait pattern,\nand tightening the wording before the first transition is premature\".\nThat counterargument is honored \u2014 file with P3 and decide on the\ncanonical mail-server.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Pre-1.0 stability promise of 'deprecated warnings or default-method bodies during transition' has zero precedent \u2014 SharingBackend has no default methods",
+  "updated_at": "2026-05-14T22:48:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T15:35:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "52faea53-dd9c-5cc3-ab2c-1e5b64e02515",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

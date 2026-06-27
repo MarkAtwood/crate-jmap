@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.16",
+  "title": "Single-pass URL template expansion with error on unresolved variables",
+  "description": "blob.rs expand_url_template: Single-pass expansion that errors on unresolved placeholders is correct. A future contributor might suggest regex replacement (silently leaves {name} in output) or two-pass approach. Current approach guarantees no literal brace syntax leaks into request URLs. Defend this pattern.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:36:23Z",
+  "updated_at": "2026-04-30T01:43:21Z",
+  "closed_at": "2026-04-30T01:43:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:36:22"
+    }
+  ]
+}

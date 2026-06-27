@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied option 1 (wrap the input): format_receipt_timestamp_at now takes (&UTCDate, &UTCDate) instead of (&UTCDate, DateTime<Utc>). Both parameters are JMAP-native; chrono is no longer in the public signature.\n\nchrono stays a private implementation dependency (still pulls into the build, but it's no longer in this crate's SemVer surface). The no-suffix companion format_receipt_timestamp materialises 'now' internally via Utc::now().to_rfc3339_opts(SecondsFormat::Secs, true) and delegates.\n\nAdded regression test 'format_parse_error_on_now' codifying the silent-degradation contract for malformed reference time (returns 'Today' rather than panicking) \u2014 matches the existing malformed-dt fallback.\n\nAPI break: callers passing chrono::Utc::now() must wrap as &UTCDate::from(...rfc3339...). Pre-1.0 so acceptable. Option 2 (feature-gate the helper) is correctly out of scope \u2014 the wrap-the-input fix is smaller and equally effective.\n\ncargo test green, clippy --all-targets -- -D warnings clean, RUSTDOCFLAGS='-D warnings' cargo doc clean. Committed as 67e99ec.",
+  "closed_at": "2026-05-15T21:47:31Z",
+  "compaction_level": 0,
+  "content_hash": "32c7ae2511527c734d30ef8f23215fdc8ed3e46b0db8995350df587ee1b5089b",
+  "created_at": "2026-05-15T20:40:09Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-client/src/utils.rs:33.\n\n`pub fn format_receipt_timestamp_at(dt: &UTCDate, now: DateTime<Utc>) -> String` takes `chrono::DateTime<chrono::Utc>` by value. `chrono` is declared as `chrono = { version = \"0.4\", default-features = false, features = [\"std\", \"clock\"] }` in Cargo.toml line 18 \u2014 chrono is pre-1.0.\n\nCaller impact:\n- A `chrono` 0.4 \u2192 0.5 major bump (or 0.4.x \u2192 0.4.(x+1) compat break) cascades into a breaking signature change here.\n- Consumers who don't want a `chrono` dep at all (small WASM builds, dependency minimisation) cannot avoid it: there is no `[features]` table in `Cargo.toml`, so chrono is unconditionally pulled in for every consumer of jmap-chat-client, solely to support this one function.\n\nTwo fix options:\n1. **Wrap the input**: change the signature to accept `&str` (RFC 3339), `i64` (UNIX timestamp), or `std::time::SystemTime`; convert internally. Consumers who want chrono can still pass `chrono::Utc::now().to_rfc3339()`.\n2. **Feature-gate the helper**: put `utils.rs` behind a `display-helpers` (or similar) feature; default off so consumers who only want the JMAP wire client don't pay for chrono.\n\nThe companion `format_receipt_timestamp(dt: &UTCDate)` (no `_at` suffix) does NOT expose chrono in its signature \u2014 only `_at` does. So the public exposure is one function. Fix is small.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chrono::DateTime<Utc> in format_receipt_timestamp_at signature locks SemVer to chrono 0.4",
+  "updated_at": "2026-05-15T21:47:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:40:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "c563e83a-2d63-5b70-80f5-9ba909bc8e31",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T18:33:38Z",
+  "id": "019e1850-ef99-7cf7-b5c7-e10dea141fd3",
+  "issue_id": "JMAP-sc1b.101",
+  "text": "Resolved per the bead's recommendation (options a + c):\n\n(a) Added a \"Backend trait rule: secret-minting methods require CSPRNG\" section to crate-jmap-server/AGENTS.md immediately after the \"Design Constraints (Settled)\" table. The new section codifies:\n    1. Doc-comment-must-require-CSPRNG rule for any new credential-minting backend method.\n    2. Reference MemoryBackend-must-use-OsRng/getrandom rule.\n    3. Links back to bd:JMAP-sc1b.78 (invite-code trait doc precedent) and bd:JMAP-sc1b.93 (reference-impl audit precedent).\n\n(c) Filed bd:JMAP-sc1b.107 as the concrete implementation work item for the RFC 8620 \u00a77.2 PushSubscription server-side surface. The new bead's description carries the CSPRNG requirement verbatim so it cannot be missed by whoever picks it up.\n\nOption (b) (skeleton trait now) deferred \u2014 premature without the rest of the \u00a77.2 surface around it.\n\nVerified: cargo fmt + cargo clippy --workspace + cargo test --workspace all pass (no code changes in this resolution, only AGENTS.md prose)."
+}

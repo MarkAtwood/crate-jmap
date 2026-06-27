@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:29:27Z",
+  "compaction_level": 0,
+  "content_hash": "82c5ee3e4a4c33b11582bbfd801dc2218722db7a848e0eecd05396cefa6bae5c",
+  "created_at": "2026-05-14T22:00:29Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/lib.rs:19-27 (module-level doc on memory feature):\n\n> Enable the `memory` feature to expose the `memory::MemoryBackend`\n> reference implementation of [`SharingBackend`]. ... **Not production.**\n> API stability is opt-in via this feature and may break across minor\n> versions while the crate is pre-1.0.\n\nThis stability disclaimer applies ONLY to the `memory` module.\nEverything else in the public surface \u2014 `SharingBackend` trait,\n`register_sharing_handlers`, the 10 `handle_*` functions, the URI\nre-exports, the 13 re-exports from `jmap-server` \u2014 has no stability\nstatement at all.\n\nA caller reading this crate's documentation has no answer to:\n\n1. Does the workspace's pre-1.0 \\\"minor version may break\\\" policy\n   apply to `SharingBackend`? The trait has 4 methods; adding a 5th\n   would break every external impl. Is that allowed in 0.x?\n\n2. Does it apply to the `handle_*` functions? Are these functions\n   stable API for callers that bypass `register_sharing_handlers`?\n   Looking at the tests in `principal.rs:309-403`, the handler\n   functions ARE intended for direct caller use (the tests invoke\n   `handle_principal_get` etc. directly).\n\n3. Does it apply to the re-export blocks in `backend.rs:13-17`?\n   These re-export 13 types from `jmap-server` plus 2 from\n   `jmap-sharing-types`. A semver bump on either upstream cascades\n   here.\n\nThe canonical mail-server has the same gap (its module-level doc at\n`lib.rs:31-40` carries the same `memory`-only stability statement).\nFiling here scoped to sharing-server; the workspace-wide propagation\nis a separate follow-up.\n\nWhat goes wrong for callers when this stays as-is: a downstream\nconsumer pinning `jmap-sharing-server = \\\"^0.1\\\"` cannot reason\nabout whether a minor version bump (0.1.1 \u2192 0.2.0) is allowed to\nbreak their `SharingBackend` impl. If the workspace's intent is\n\\\"all 0.x APIs are unstable\\\" then say that. If the intent is\n\\\"the trait and handler signatures are stable; only `memory` is\nopt-in unstable\\\", then say that.\n\nResolution: extend the crate-level rustdoc with one paragraph\nstating the workspace stability policy for pre-1.0. Cross-reference\nto a workspace AGENTS.md section if one exists; create one if not.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Added pre-1.0 stability policy section to the crate-level rustdoc covering: SharingBackend trait (methods MAY be added with CHANGELOG/deprecation signals), handle_* functions (signatures stable within minor), register_sharing_handlers (dispatcher-mutation contract stable), URI re-exports (RFC 9670 normative), jmap_server re-exports (pin upstream major version), memory module (opt-in, may break in any minor). Resolves the gap where the previous statement applied only to the memory feature.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Pre-1.0 stability statement only on memory module \u2014 handler functions, SharingBackend trait, URI re-exports have no stability guidance",
+  "updated_at": "2026-05-14T22:29:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T15:00:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "1e58b91a-4a50-5c77-a684-8731449004fc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

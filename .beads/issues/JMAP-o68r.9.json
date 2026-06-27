@@ -1,0 +1,33 @@
+{
+  "close_reason": "recorded as decision, no code change needed",
+  "closed_at": "2026-05-03T00:17:35Z",
+  "compaction_level": 0,
+  "content_hash": "93912aad38240c9bd2dc0334e0abf8bbeb9e72f2574660f6e8d1aa69b5172cc6",
+  "created_at": "2026-05-03T00:10:45Z",
+  "created_by": "Mark Atwood",
+  "description": "All public MDN types (ActionMode, SendingMode, DispositionType, Disposition, Mdn, MdnSendRequest, MdnSendResponse, MdnParseRequest, MdnParseResponse) carry #[non_exhaustive]. A contributor might suggest removing it to simplify construction. Defend: (1) The draft spec is not finalized \u2014 new enum variants are plausible; (2) non_exhaustive prevents adding new enum variants or struct fields from being a breaking change; (3) the JSON round-trip construction pattern for test infrastructure is the documented workaround. Do not remove non_exhaustive.",
+  "ephemeral": 0,
+  "id": "JMAP-o68r.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Non_exhaustive on all MDN public types \u2014 correct and load-bearing",
+  "updated_at": "2026-05-03T00:17:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:10:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o68r",
+      "id": "de6e1cea-4675-5287-aaf2-385bd45fc730",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

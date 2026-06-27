@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T22:18:28Z",
+  "compaction_level": 0,
+  "content_hash": "8c747a584558f5cf2988f89799f6c3a433af006738edfb801e1389dc461bcf8c",
+  "created_at": "2026-05-07T20:43:23Z",
+  "created_by": "Mark Atwood",
+  "description": "jmap-types provides the `Id` newtype precisely so account/object identifiers don't go through arbitrary string handling. The workspace uses `Id` correctly in 52 sites but has 4 outliers using raw `String`:\n\n(Subagent provided the count but not exact file:line locations. Need to grep for them.)\n\nAction items:\n1. `grep -rn \"account_id: String\" crate-*/src/` to find the offenders.\n2. Change `String` \u2192 `Id` (or `jmap_types::Id`).\n3. Update construction sites to use `Id::from` or `Id::try_from`.\n\nWhy P2: SemVer-affecting (changes a public field's type), and corrects a type-safety regression. `String` admits arbitrary bytes including spec-invalid characters; `Id` validates per RFC 8620 \u00a71.2 (a-z A-Z 0-9 _ -).",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.48",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: 4 sites use account_id: String while 52 sites correctly use Id",
+  "updated_at": "2026-05-07T22:18:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "6f8d1404-1869-537f-bf84-2d0d00af05ba",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

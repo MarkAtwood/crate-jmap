@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced bare Option<bool> 3rd-arg with Option<FileNodeGetParams> wrapper struct matching the mail-client EmailGetParams / metadata-client MetadataGetParams sibling pattern. Struct carries fetch_parents: Option<bool> (the current draft-13 \u00a73.2.1 extension arg) plus #[serde(flatten)] extra: Map for vendor extensions. Re-exported at crate root.\n\nStruct is NOT #[non_exhaustive] \u2014 matches the existing mail-client and metadata-client sibling templates (which also omit non_exhaustive on their *GetParams structs, since the workspace pattern is struct-literal construction for these specific Rust-API helper types). Future fields will be additive Option<T> fields, preserving backward compatibility through Default + struct-literal field assignment.\n\nWorkspace cargo test, clippy, rustdoc all clean. The crate's single client-side filenode_get test call updated to use the struct shape.",
+  "closed_at": "2026-05-17T22:34:02Z",
+  "compaction_level": 0,
+  "content_hash": "3eb52b70a815ab2543281380aef9712fd0c1a3f5cc002576fc2583114a36f629",
+  "created_at": "2026-05-17T22:00:45Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**: crate-jmap-filenode-client/src/methods.rs (file_node_get signature), crate-jmap-mail-client/src/methods/email.rs (email_get signature), crate-jmap-metadata-client/src/methods.rs (metadata_get signature)\n\n**Divergence**: 3 of 8 extension-client \\`<obj>_get\\` methods accept an extension-specific third argument beyond \\`(ids, properties)\\`:\n- mail-client \\`email_get(ids, properties, params: Option<EmailGetParams>)\\` \u2014 struct\n- metadata-client \\`metadata_get(ids, properties, params: Option<MetadataGetParams>)\\` \u2014 struct\n- filenode-client \\`file_node_get(ids, properties, fetch_parents: Option<bool>)\\` \u2014 bare primitive\n\n**What goes wrong**: when the filenode draft inevitably adds a second \\`/get\\` extension argument (e.g. an analog of mail's bodyProperties/fetchTextBodyValues), the bare-primitive 3rd-arg shape forces a 4-arg signature, which is a breaking change. The struct shape (mail, metadata) grows by adding an \\`Option<T>\\` field \u2014 backward-compatible because callers pass \\`None\\` or a partial struct.\n\n**Fix**: introduce \\`FileNodeGetParams\\` struct with one \\`fetch_parents: Option<bool>\\` field, then change the signature to \\`Option<FileNodeGetParams>\\`. The pattern is exactly the mail/metadata one. The crate is pre-1.0 so this is a small breaking change for filenode-client only.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "filenode-client `file_node_get` 3rd-arg is bare `Option<bool>`; mail-client and metadata-client use `Option<XxxGetParams>` struct",
+  "updated_at": "2026-05-17T22:34:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:00:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "d23bc5f8-1760-50a1-bfa9-5d2d8b285e3b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

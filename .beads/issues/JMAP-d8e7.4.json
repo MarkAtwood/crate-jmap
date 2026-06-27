@@ -1,0 +1,59 @@
+{
+  "acceptance_criteria": "Full spec cross-check done. cargo test --workspace exits 0. Epic closed.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Spec cross-check complete: no actionable gaps. Three spec editorial errors noted (assigneee typo, TaskId typo, isVisible/isSubscribed inconsistency) \u2014 crate correctly handles all three. Quality gates: fmt ok, clippy clean, all tests pass.",
+  "closed_at": "2026-05-05T04:04:09Z",
+  "compaction_level": 0,
+  "content_hash": "31f72ca0c7ecef198748b5a9a508bb466b479ec83c9be3d4371768ed93eff233",
+  "created_at": "2026-05-05T02:52:00Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Final spec cross-check and quality gate for jmap-tasks-types.\n\n**Algorithm:**\n1. Re-read spec \u00a71.6, \u00a72.1, \u00a73, \u00a74, \u00a75 against final code state.\n2. If any gap found, file a new bead before proceeding.\n3. cargo fmt --all: no diff.\n4. cargo clippy --workspace -- -D warnings: zero warnings.\n5. cargo test --workspace: all pass.\n6. Close B1, B2, B3.\n7. Close epic JMAP-d8e7.\n\n**Acceptance criteria:**\n- No untracked spec gaps.\n- All three quality-gate commands exit 0.",
+  "ephemeral": 0,
+  "id": "JMAP-d8e7.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Final verification and close JMAP-d8e7",
+  "updated_at": "2026-05-05T04:04:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:52:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-d8e7.3",
+      "id": "0c5221df-2b4a-5539-a33b-c03c21ae1f1a",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:52:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-d8e7.2",
+      "id": "11c255c6-c104-5008-8561-c470fde77a60",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:52:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-d8e7.1",
+      "id": "ab5bce02-0430-59ca-9c67-b2aa3c1a9685",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:51:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-d8e7",
+      "id": "dbd9edeb-4c88-5144-9d74-274675c19b47",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

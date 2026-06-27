@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "20c6bafa2f4a758fb11fc018b5764dec45e1fbae5fb086f38bd994d6e2f8e289",
+  "created_at": "2026-05-13T19:53:22Z",
+  "created_by": "Mark Atwood",
+  "description": "Every `jmap-*-server` crate carries this pattern in its `[dev-dependencies]`:\n\n```toml\n[dev-dependencies]\njmap-mail-server = { workspace = true, features = [\"memory\", \"mdn\", \"sieve\"] }\n```\n\nThe workspace dep expands to `{ path = \"...\", version = \"0.1\" }`. On `cargo publish`, cargo strips `path` and resolves the self-dev-dep against the registry. When the new features (`memory`, `mdn`, `sieve`) didn't exist in the previously-published versions of the crate, resolution fails with:\n\n```\npackage `jmap-mail-server` depends on `jmap-mail-server` with feature `mdn` but `jmap-mail-server` does not have that feature.\nfailed to select a version for `jmap-mail-server` which could resolve this conflict\n```\n\n`--no-verify` doesn't help \u2014 the error fires during pre-publish manifest resolution, not during the build-verify step.\n\nAffects all 8 server crates: mail-server, chat-server, contacts-server, calendars-server, tasks-server, filenode-server, sharing-server, metadata-server.\n\n## Workaround used on 2026-05-13 publish\n\nFor the 0.1.x publish round on 2026-05-13, the dev-dep self-reference was temporarily commented out in each crate's Cargo.toml, the crate was published with `--allow-dirty`, then the comment-out was reverted. This works but is operationally ugly \u2014 every future publish needs the same dance.\n\n## Permanent fix options\n\n1. **Drop the dev-dep self-reference entirely.** Move tests that need the `memory` feature into a separate test-only crate in the workspace, or into the crate's own `tests/` directory with a `#[cfg(feature = \"memory\")]` gate that requires building with `cargo test --features memory`. This is the cleanest fix; cost is documenting how to run tests.\n\n2. **`[target.'cfg(any())'.dev-dependencies]` trick.** Hides the dep from cargo's resolver entirely. But also hides it from `cargo test` of the source tree, so it doesn't actually let tests run with the features. Not a real fix.\n\n3. **Two-step publish.** Publish a version with the dev-dep removed, then add it back and publish the next version. The next-next version can then resolve against the previous (which has the features). Two publishes per release \u2014 operationally worse than the workaround.\n\n4. **Resolver=2 with manifest version pin.** Possibly cargo's v2 resolver handles this better with `version = \"=X.Y.Z\"` pinning. Untested.\n\nRecommended path: option 1. The `memory` feature is intentionally opt-in for downstream callers, and the test entry point can be the same crate's `tests/` directory with `#![cfg(feature = \"memory\")]` at the top.\n\n## Acceptance\n\n- Publishing any `jmap-*-server` crate to a new version succeeds without temporary Cargo.toml edits\n- `cargo test -p jmap-mail-server --features memory,mdn,sieve` still runs the integration tests\n- Documentation in workspace AGENTS.md and RELEASING.md updated to describe the new test invocation\n\nLABELS: publish-readiness, refactor, canonical-template-sweep",
+  "ephemeral": 0,
+  "id": "JMAP-31o4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Server crate publish: self-dev-dep + feature pattern blocks new releases",
+  "updated_at": "2026-05-13T19:53:22Z"
+}

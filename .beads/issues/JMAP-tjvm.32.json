@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Bead's recommendation ratified: for 0.1.x keep the current Vec<String> / &[&str] surface; revisit as a 0.2.0 or 1.0-prep design pass. Follow-up design epic filed at bd:JMAP-tjvm.40 (P4, deferred) tracking the typed-property-selector design questions: const-tuple-struct pattern, header:* selector constructor, vendor-extensions vs workspace property-enum policy, sweep scope across 7 sibling crates, migration story. No 0.1.x code action; the current API surface works and typo bugs surface at runtime via spec-mandated server-side invalidArguments errors.",
+  "closed_at": "2026-05-17T14:18:25Z",
+  "compaction_level": 0,
+  "content_hash": "74b715ecfaa0c692e09c097f1dff1edecce10feb9f6c0efff02a609117ba21ff",
+  "created_at": "2026-05-15T01:57:29Z",
+  "created_by": "Mark Atwood",
+  "description": "mod.rs:45     EmailGetParams.body_properties: Option<Vec<String>>\nmod.rs:260    EmailParseParams.properties: Option<Vec<String>>\nmod.rs:263    EmailParseParams.body_properties: Option<Vec<String>>\n\nPlus the per-method `properties: Option<&[&str]>` arguments on email_get, mailbox_get, thread_get, identity_get, email_submission_get, etc.\n\nRFC 8621 enumerates the property names for each object type:\n\n  Email properties (\u00a74.1): id, blobId, threadId, mailboxIds, keywords, size,\n    receivedAt, messageId, inReplyTo, references, sender, from, to, cc, bcc,\n    replyTo, subject, sentAt, hasAttachment, preview, bodyValues, textBody,\n    htmlBody, attachments, bodyStructure\n  \n  EmailBodyPart properties (\u00a74.1.4): partId, blobId, size, name, type, charset,\n    disposition, cid, language, location, subParts, headers, header:*,\n    bodyStructure\n  \n  Mailbox properties (\u00a72.1): id, name, parentId, role, sortOrder, totalEmails,\n    unreadEmails, totalThreads, unreadThreads, myRights, isSubscribed\n  \n  Thread properties (\u00a73.1): id, emailIds\n\nEtc.\n\nDefensive-code-forcing today: a caller writing `email_get(Some(&ids), Some(&[\"receivedAt\", \"from\", \"to\"]), None)` and accidentally typing \"receivedat\" gets no compile-time signal. Behaviour depends on the server: spec-conformant servers SHOULD reject with invalidArguments, but lenient servers may silently return the default property set or ignore the unknown name.\n\nThree design options:\n\n  (a) Keep Vec<String> / &[&str]. Accept the trade-off.\n\n  (b) Define a typed enum per object type with one variant per spec property name:\n\n      #[non_exhaustive]\n      #[derive(...)]\n      pub enum EmailProperty {\n          Id,\n          BlobId,\n          ThreadId,\n          MailboxIds,\n          // ...\n          // Header(String) \u2014 RFC 8621 \u00a74.1.2 allows header:Name selectors\n      }\n\n      Then properties: Option<&[EmailProperty]> on email_get.\n\n  (c) Define typed PROPERTY-NAME constants on a struct (similar to the\n     workspace's State / Id typed wrappers):\n\n      pub struct EmailProperty(pub Cow<'static, str>);\n      impl EmailProperty {\n          pub const ID: Self = Self(Cow::Borrowed(\"id\"));\n          pub const BLOB_ID: Self = Self(Cow::Borrowed(\"blobId\"));\n          // ...\n      }\n\nTrade-offs:\n\n  - Option (a) is what every callsite has today. Easiest to ship, hardest for callers.\n  - Option (b) gives full typing but rules out vendor-extension property names unless the enum carries an Other(String) variant. Per workspace policy, property-selector enums are NOT in scope for the Unknown(String) pattern (workspace AGENTS.md), so a strict enum may be too rigid.\n  - Option (c) gives ergonomic typed constants AND allows vendor extensions via the public tuple constructor. This matches the workspace's State / Id pattern.\n\nRecommendation: (c), implemented in a follow-up bead. Defer because:\n\n  1. The header:* selector pattern (RFC 8621 \u00a74.1.2) needs a dedicated constructor on EmailProperty for the dynamic header name case, raising the design complexity.\n  \n  2. RFC 8621 has many object types; the typed-properties sweep is a 7-extension propagation per workspace canonical-template rule.\n\nPriority P3 \u2014 meaningful API improvement but not a correctness bug. The current API works; typo bugs surface at runtime via server-side invalidArguments. Worth tracking as a 0.x \u2192 1.0 follow-up.\n\nMark says NO HUMAN \u2014 Recommendation: option (c) as a 0.2.0 or 1.0-prep design epic. For 0.1.x, the current Vec<String> / &[&str] surface is acceptable.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "body_properties / properties parameters use Vec<String> \u2014 RFC 8621 defines enumerated property names",
+  "updated_at": "2026-05-17T14:18:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:57:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "0a57d903-a996-5321-a3cd-6e53953b2f54",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

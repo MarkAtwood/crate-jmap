@@ -1,0 +1,33 @@
+{
+  "close_reason": "no-action: P3/P4 observation, not prioritized for JMAP-39s scope",
+  "closed_at": "2026-05-02T07:05:08Z",
+  "compaction_level": 0,
+  "content_hash": "f2ff2f6a3351653e696d6493ebdad231900b47be05f593a8491df09614889439",
+  "created_at": "2026-05-02T03:57:57Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs Dispatcher::dispatch wraps each handler call in tokio::task::spawn, converting panics to JoinError and mapping them to serverFail rather than crashing the connection. This is the correct design for a production JMAP server: a handler bug in one method call should not terminate the batch or the connection. The security test (panic_message_not_in_response) enforces that the panic payload does not leak to the client. A contributor might suggest removing the spawn to reduce overhead; this should be defended on the grounds that panic safety at the connection level is more important than the overhead of spawning a task per method call.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.40",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Dispatcher panic isolation via tokio::task::spawn is the right design",
+  "updated_at": "2026-05-02T07:05:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:57:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "1f0b67a6-d8b0-5dc3-b4fe-5455d39a36bf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Stale \u2014 work already done under bd:JMAP-826m.4 (closed 2026-05-15). Verified in source: MemoryBackend::query_objects at memory.rs:776-925 now implements both filter (lines 862-875) and sort (lines 879-894); module-level rustdoc at memory.rs:76-92 documents the five filter fields and five sort properties supported. The companion test suite exists at tests/metadata_tests.rs lines 715+ \u2014 21 Metadata/query references covering relatedType, @type, isPrivate, relatedIds, textMatch filter cases plus the five-property sort. Closing as duplicate-of-already-done.",
+  "closed_at": "2026-05-17T09:08:06Z",
+  "compaction_level": 0,
+  "content_hash": "64441293c12f87a482770c388b9540e115a183d12d8deccbca9d5a6327162d46",
+  "created_at": "2026-05-14T14:21:27Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:484-532 \u2014 MemoryBackend::query_objects has _filter, _sort parameters. The function builds the full id list (sorted by id), applies position/limit pagination, and returns the slice. The filter is ignored. The sort is ignored.\n\nWhy this is borderline correctness rather than pure elegance: a user calling /query with a filter against the MemoryBackend will get the entire account's metadata back, paginated. The filter is silently ignored. The user thinks they're filtering by relatedType='Email'; they receive everything.\n\nThe current 'oops we ignored your filter' behavior is masked because tests/metadata_tests.rs has NO /query tests (see JMAP-ayoz.6). Anyone writing a Metadata/query test against this MemoryBackend will surface the bug immediately.\n\nThe behavior is wrong because:\n1. MemoryBackend's stated purpose (per its rustdoc at memory.rs:7-13) is to be 'a documented, complete, source-readable implementation of the MetadataBackend trait to study when writing a real (database-backed) backend.' A contributor studying it for /query semantics gets a misleading template.\n2. The PLAN.md explicitly lists Metadata/query test cases that this impl cannot satisfy.\n\nWhy P3 not P2: it's a known incomplete-impl rather than a regression. The rustdoc and PLAN.md both already disclaim production-readiness; the gap is between disclaimed-incomplete and actually-incomplete.\n\nFix options:\na) Implement the filter and sort honestly. relatedType, @type, isPrivate, relatedIds, textMatch (case-insensitive contains over vendor/extra fields) \u2014 all of these are simple in-memory operations against the cached Metadata. Sort on the five mandated keys.\nb) Loudly fail: return BackendSetError-equivalent for query (but query doesn't use SetError) \u2014 at minimum log a warning, or panic in test builds.\nc) Document the gap on MemoryBackend's rustdoc: 'query_objects ignores filter and sort; returns all account metadata.' This is the cheapest fix and matches the workspace's existing convention of disclaiming reference-impl limitations.\n\nRecommend (a) \u2014 the impl is small (50-100 lines of straightforward predicate code) and unblocks JMAP-ayoz.6's test suite. The whole point of the MemoryBackend is to be the canonical study reference.\n\nIf (a) is out of scope for this review epic, file as a child of JMAP-06zp (the metadata-types/server umbrella) and require (c) in the meantime \u2014 current behavior is silently misleading.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.query_objects ignores filter/sort entirely; returns full account sorted by id",
+  "updated_at": "2026-05-17T09:08:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:21:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "dd14d242-658c-5bc8-a5d8-41ecc9886ab7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

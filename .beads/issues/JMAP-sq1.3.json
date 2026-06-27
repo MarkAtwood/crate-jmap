@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-sq1.3",
+  "title": "scan_from=old_len.saturating_sub(3) overlap is exact and documented",
+  "description": "The 3-byte overlap when resuming SSE delimiter scans is provably correct: the longest delimiter (\\r\\n\\r\\n = 4 bytes) has a 3-byte prefix that could straddle a chunk boundary. The comment in the code explains this clearly. A future contributor might increase this 'just to be safe' or question why it is not larger. The value is exact and has a tight justification in the comment \u2014 do not change it without re-reading the delimiter table.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:49:02Z",
+  "updated_at": "2026-04-30T02:49:13Z",
+  "closed_at": "2026-04-30T02:49:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sq1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:49:02"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T06:00:55Z",
+  "compaction_level": 0,
+  "content_hash": "f67345742a4163a02c32cb6c61957b5a4331d46c48ee90139d7b3490f876a678",
+  "created_at": "2026-05-11T05:44:10Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Add doc comments to documented-by-RFC Chat type-crate enum variants and other items currently lacking missing_docs.\n\nCurrent count (verified 2026-05-10): 276 missing-doc warnings in jmap-chat-types.\n\nVerify with: RUSTDOCFLAGS=\"-W missing_docs\" cargo doc -p jmap-chat-types --no-deps --all-features\n\nBulk are Property enum variants and similar RFC-defined named identifiers. Cite the relevant Chat draft section (e.g. \"draft-atwood-jmap-chat-00 \u00a7X.Y\") on each variant doc. Largest single sub-task of JMAP-sc1b.15.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.15.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "missing_docs sweep: jmap-chat-types (276 warnings)",
+  "updated_at": "2026-05-11T06:00:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T22:44:09Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b.15",
+      "id": "d1029338-c2bf-59d3-a0a3-0af1ab75ee0c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

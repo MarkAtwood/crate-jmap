@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "55124b63e592135c601f3593ba865d5a077724db33ab7817d3dce3863d73a8a7",
+  "created_at": "2026-05-17T21:24:40Z",
+  "created_by": "Mark Atwood",
+  "description": "Pre-existing clippy warning in crate-jmap-mail-types/src/email.rs:597:9 fails 'cargo clippy --workspace --tests -- -D warnings':\n\n```\nerror: doc list item without indentation\n  --> crate-jmap-mail-types/src/email.rs:597:9\n```\n\nDiscovered while running pre-commit gate for JMAP-tjvm.37 (queryChanges wire-shape regression tests sweep). The file was NOT touched by that work \u2014 this is pre-existing.\n\nFix: re-indent the affected list item under its parent doc comment per https://rust-lang.github.io/rust-clippy/master/index.html#doc_list_item_without_indentation. The fix is mechanical and out of scope for any feature/test bead.\n\nCompanion beads tracking other pre-existing clippy issues from the same workspace cargo clippy run: JMAP-79qy / JMAP-taw2 (needless_borrows in metadata_types test), JMAP-l35v (type_complexity in jscontact-types lib test). Two more untracked errors filed alongside this one.",
+  "ephemeral": 0,
+  "id": "JMAP-z26e",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "(BUG) clippy doc_list_item_without_indentation in jmap-mail-types email.rs",
+  "updated_at": "2026-05-17T21:24:40Z"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-xx7.4",
+  "title": "Session::websocket_capability() clones raw JSON Value unnecessarily",
+  "description": "websocket_capability() calls serde_json::from_value::<WebSocketCapability>(raw.clone()). The clone is forced by from_value taking ownership. Since the capability object is small (typically {url, supportsPush}), this is not a hot-path concern. Noted for completeness. Rewrite: deserialize via from_str on a serialized form, or accept the clone as the intended design given the small size.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T14:49:44Z",
+  "updated_at": "2026-04-30T14:59:02Z",
+  "closed_at": "2026-04-30T14:59:02Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-xx7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 07:49:44"
+    }
+  ]
+}

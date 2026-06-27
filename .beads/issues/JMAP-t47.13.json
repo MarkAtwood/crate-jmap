@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.13",
+  "title": "SseFrame::id: tri-state conflation comment buried in struct doc, not in type",
+  "description": "sse.rs SseFrame: The doc comment explains that bare 'id:' (reset) and missing 'id:' (unchanged) both produce id: None. This is a semantically important difference for reconnect logic. The explanation is in the struct-level doc only \u2014 a contributor reading parse_sse_block will see 'id = if v.is_empty() { None } ...' and wonder why a non-empty id check is being used here rather than Option::None vs Some(\"\"). The comment should be co-located with the code that makes the decision (the id: None assignment in parse_sse_block), not only at the struct level. The current placement means a contributor refactoring parse_sse_block could break the semantics without seeing the contract.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:35:27Z",
+  "updated_at": "2026-04-30T01:43:08Z",
+  "closed_at": "2026-04-30T01:43:08Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:35:27"
+    }
+  ]
+}

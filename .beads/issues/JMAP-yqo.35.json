@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:33Z",
+  "compaction_level": 0,
+  "content_hash": "1d42c78982ee319c675cc4e2f2028bd330881b1d5d75b3d0a9a7048565956674",
+  "created_at": "2026-05-02T03:00:03Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/common/mod.rs line 131: pub fn store_blob(&self, blob_id: Id, bytes: Vec<u8>). The bytes parameter takes Vec<u8> by value (move). For a test helper this is fine, but the blob_id takes Id by value rather than &Id (or impl Into<Id>). This is inconsistent with every MailBackend trait method which takes &jmap_types::Id. The practical effect is that test code must clone() or move the id explicitly, creating friction. Since MemoryBackend is the canonical example for MailBackend implementors, the parameter asymmetry (methods take &Id, this helper takes Id) trains readers to think owned is preferred. Should be: pub fn store_blob(&self, blob_id: &Id, bytes: Vec<u8>) consistent with trait method signatures.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.store_blob takes Vec<u8> by value \u2014 forces caller to own",
+  "updated_at": "2026-05-02T03:22:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:00:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "331ae897-faeb-5673-b57c-1fde4e58f8ad",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

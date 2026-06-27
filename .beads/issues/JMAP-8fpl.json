@@ -1,0 +1,23 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T00:00:36Z",
+  "compaction_level": 0,
+  "content_hash": "f05e631b5c47afa838462ba8668ddb6dcde079d59d2ca224275f60342e7fdf63",
+  "created_at": "2026-05-04T23:59:03Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-8fpl",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Review round 3: Port jmapchat-client",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

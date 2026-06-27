@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4120d71dbcddece63a40382ef394113ab181f733ff5294bf13682c395a0caf54",
+  "created_at": "2026-05-14T20:05:38Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/lib.rs:45-49 and\ncrate-jmap-filenode-server/src/backend.rs:14-17.\n\n```rust\n// lib.rs (top level)\npub use backend::{\n    AddedItem, BackendChangesError, BackendSetError, ChangesResult, FileNodeBackend, GetObject,\n    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,\n    SetObject,\n};\n\n// backend.rs (sub-module)\npub use jmap_server::{\n    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,\n    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,\n};\n```\n\nTwelve types (`AddedItem` through `SetObject`) are visible at TWO\npaths from the public API surface:\n\n- `jmap_filenode_server::SetError`\n- `jmap_filenode_server::backend::SetError`\n\nBoth resolve to the same upstream type `jmap_server::SetError`. A\nconsumer choosing which path to import is making a choice with no\nsemantic difference but a stylistic one \u2014 the kind of choice that\nends up split across a codebase (\"I import via `backend::*` so my\ntrait bounds line up; my colleague imports via the top level so\nhis match arms line up\") and then becomes a recurring nit in code\nreview.\n\nThe duplication is mechanical: lib.rs:45 says `pub use backend::{...}`\nto re-export the backend module's types at the top level. That\nre-export only works because backend.rs ALSO `pub use jmap_server::*`\nthose types. The chain is:\n`jmap_server::SetError` \u2192 re-exported in `backend.rs` \u2192 re-exported\nin `lib.rs`. Two re-exports for the same type.\n\nA cleaner shape is one of:\n\n1. **Only re-export at the top level.** `lib.rs` says\n   `pub use jmap_server::{AddedItem, ...};`. Drop the `pub use\n   jmap_server::{...}` block from `backend.rs`. Backend.rs internal\n   code can import via its own scope (`use jmap_server::SetError;`\n   etc.) without the `pub`.\n\n2. **Only re-export from `backend.rs`.** Drop the `pub use\n   backend::{AddedItem, ...}` from `lib.rs`. Consumers always\n   reach through `jmap_filenode_server::backend::SetError`.\n\n3. **Drop both and require consumers to depend on jmap-server\n   directly for these types.** Most painful for consumers, lowest\n   surface area for this crate.\n\nPropagation note: every other extension-server in the workspace\nfollows the same `pub use backend::{...} + pub use jmap_server::{...}`\npattern. The deduplication should sweep the canonical\njmap-mail-server first then propagate per the canonical-template\nrule.\n\n`api-contract,leakage` because two import paths for the same item\nis implementation-detail leakage into the public namespace, and\nbecause trimming the duplication reduces the surface area that\nmust be maintained across upstream revisions.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.46",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Public re-exports duplicate between lib.rs and backend.rs; consumers see two paths to the same upstream type",
+  "updated_at": "2026-05-17T10:50:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:05:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "5a3383ba-b999-5185-b6f4-34e6782facc4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

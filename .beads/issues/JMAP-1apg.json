@@ -1,0 +1,23 @@
+{
+  "close_reason": "Verified in code \u2014 implementation matches decision exactly.",
+  "closed_at": "2026-05-03T13:34:36Z",
+  "compaction_level": 0,
+  "content_hash": "40c715b86c7cb1959006b61c989d37525c9d25e6f04103105ce579c36ce13944",
+  "created_at": "2026-05-02T23:38:13Z",
+  "created_by": "Mark Atwood",
+  "description": "Free-text MDN fields (subject, textBody, reportingUA, finalRecipient, extensionFields keys/values) are checked for CR or LF before building the RFC 5322 message. Bad entries are placed in notSent with invalidProperties rather than aborting the whole request. This matches JMAP's partial-success model and prevents a single invalid entry from blocking all legitimate sends in the same request. The guard also prevents header-injection attacks into the generated RFC 5322 output.",
+  "ephemeral": 0,
+  "id": "JMAP-1apg",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "DECISION: CRLF injection guard is per-entry, not whole-request",
+  "updated_at": "2026-05-03T13:34:36Z"
+}

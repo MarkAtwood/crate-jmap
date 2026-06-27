@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ec28637af77ae6ae4091321e3b5bd2c497561b5dccf2589291d4132efa24662c",
+  "created_at": "2026-05-17T05:52:32Z",
+  "created_by": "Mark Atwood",
+  "description": "## Scope\n\nWorkspace cookie-cutter alignment. The 8 extension-server crates currently have inconsistent rustdoc richness on the module-level explanation of their backend.rs re-exports:\n\n| Crate | Richness |\n|---|---|\n| jmap-sharing-server | RICHEST \u2014 has 'About the re-exports' section with version-pinning + discoverability paragraphs |\n| jmap-metadata-server | RICH \u2014 has version-pinning paragraph (added under bd:JMAP-ayoz.25, 2026-05-16) |\n| jmap-tasks-server | EXPLICIT one-liner \u2014 'so a consumer can write use jmap_tasks_server::backend::* and get the full vocabulary in one import' |\n| jmap-mail-server (CANONICAL) | TERSE \u2014 'they are re-exported here for convenience' |\n| jmap-chat-server | TERSE \u2014 same as mail-server |\n| jmap-calendars-server | NONE \u2014 no rationale text at all |\n| jmap-contacts-server | TERSE \u2014 same as mail-server |\n| jmap-filenode-server | NONE \u2014 only says 're-exports' in module title |\n\nThe canonical-template rule (workspace AGENTS.md) says siblings mirror mail-server. Here two siblings (sharing-server, metadata-server) are RICHER than the canonical, which is backwards.\n\n## Fix\n\nUpgrade jmap-mail-server canonical's backend.rs module-level rustdoc to match the richest sibling (sharing-server's 'About the re-exports' shape, including version-pinning paragraph). Then propagate the same rustdoc to the 6 sparser siblings (chat, calendars, tasks, contacts, filenode \u2014 and metadata-server can stay since it already has the richer version).\n\n## Acceptance\n\n- All 8 extension-server backend.rs files carry equivalent rustdoc richness on the re-export rationale\n- mail-server (canonical) is the source of truth \u2014 siblings mirror it byte-for-byte modulo the spec-specific names\n- cargo doc -D warnings green on each crate\n- No code change \u2014 pure doc edits\n\n## Why P4\n\nPure doc consistency. No behaviour change, no API surface change. Bumps from bd:JMAP-ayoz.25 closure that observed but did not address the workspace-wide divergence.\n\n## Cross-references\n\n- Driving bead: bd:JMAP-ayoz.25 (closed)\n- Workspace AGENTS.md 'Canonical Templates' rule\n- Sibling sweep: bd:JMAP-ejhk (similar register_*_handlers rustdoc propagation)",
+  "ephemeral": 0,
+  "id": "JMAP-r75s",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace sweep: align extension-server backend.rs re-export rustdoc to richest sibling (sharing-server)",
+  "updated_at": "2026-05-17T05:52:32Z"
+}

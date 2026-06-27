@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:26:11Z",
+  "compaction_level": 0,
+  "content_hash": "f65aaeaaa74fe0d4d1116528a3a8ed979230236383b768716cf347cb6a660764",
+  "created_at": "2026-05-07T20:43:25Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs crate-level docs by client crate:\n\n| Crate | Style |\n|---|---|\n| jmap-base-client | (proper //! docs with example) |\n| jmap-tasks-client | //! with runnable rust,no_run example |\n| jmap-mail-client | // line comment (NOT rendered on docs.rs) |\n| jmap-chat-client | // |\n| jmap-calendars-client | // |\n| jmap-contacts-client | // |\n| jmap-sharing-client | // |\n| jmap-filenode-client | // |\n\nThe // comments are invisible on docs.rs. Users land on the crate's docs.rs page and see no description.\n\nFix: convert each `//` to `//!` and expand to a brief crate-level doc with at least an RFC pointer and a short rust,no_run example. Mechanical change, ~6 files.\n\nTied to JMAP-sc1b.X (7 of 8 client crates have no lib.rs doc-test) \u2014 addressing both together is one edit.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.51",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: 6 of 8 client crates use // line comments instead of //! crate docs (docs.rs visibility regression)",
+  "updated_at": "2026-05-07T21:26:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "1be87c2a-2c48-5874-a4be-0b1dc7dd82c8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

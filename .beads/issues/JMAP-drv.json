@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-drv",
+  "title": "Review: jmap-client crate \u2014 my-oss pass",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:34:55Z",
+  "updated_at": "2026-04-30T16:46:03Z",
+  "closed_at": "2026-04-30T16:46:03Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 Three P1 issues: wrong error variant (InvalidSession reused), AuthProvider API lock-in on &'static str header name, and undocumented URI template expansion requirement in subscribe_events. All are pre-1.0 fixable. No memory safety issues, no race conditions, no logic bugs found.\nConfidence: 10% chance of missed bug. Least confident flags: SSE frame detection edge cases for exotic delimiter combinations (covered by tests but complex). Uncertainty driven by: can't exercise full async stream behavior without a real server sending malformed chunks. Would raise confidence if: integration tests with a real JMAP server (Stalwart or Cyrus) or a fuzzer on the SSE frame buffer logic.\nIdiom rating: ACCEPTABLE \u2014 No unsafe, no Box<dyn Error> in API, no unwrap in production code without justification, no index loops, no gratuitous clones. Single non-idiomatic API surface: &'static str for header name in AuthProvider::auth_header (filed JMAP-drv.2). Double-serialization in send_request is a missed optimization (filed JMAP-drv.4). Everything else is idiomatic.\nRust idiom confidence: 8% chance of missed issue. Least confident flags: none \u2014 the idiomatic issues found are clear-cut. Uncertainty driven by: not running clippy against the actual compiled crate (did static review only)."
+}

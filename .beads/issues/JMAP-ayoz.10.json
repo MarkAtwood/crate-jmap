@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied the NOT A PRODUCTION PATTERN convention from demo_next_id to find_uniqueness_conflict's rustdoc. Documents the O(N) per /set-create cost (O(M*N) for a /set with M creates against an account of N records), names the production fix (HashMap<UniquenessKey, Id> secondary index, or DB-backed equivalent), and cross-references demo_next_id as the canonical template for this kind of warning. Commit 4a91932. No code change to the impl \u2014 the linear scan IS the demo pattern, exactly as the bead recommended.",
+  "closed_at": "2026-05-17T09:12:14Z",
+  "compaction_level": 0,
+  "content_hash": "2a4a9da6210029173d89204201088e8bbfcb90b4ef4b67ab32cdcb337556c714",
+  "created_at": "2026-05-14T14:20:38Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:318-334 \u2014 find_uniqueness_conflict iterates every Metadata object in the account and computes UniquenessKey for each, returning the first match. O(N) per /set create, called once per create entry. For a /set call creating M new objects against an account holding N existing Metadata, that's O(M*N).\n\nReference-impl context: this is the in-memory backend used for tests and demos. Real backends will have a (relatedType, relatedId, type_name, isPrivate) \u2192 id index that makes this O(1). The MemoryBackend doesn't need to mirror that complexity.\n\nWhy this is P3 not P2: the documented purpose of MemoryBackend is integration tests and demos, not production. Tests run with N=5 to N=20. The O(M*N) bound is invisible at that scale.\n\nWorth flagging because:\n1. The function name and signature look like a candidate-copy target for a real backend's secondary-index lookup. A contributor copying find_uniqueness_conflict into a Postgres backend would inherit a 'iterate every row' pattern.\n2. The cargo-cult-warning convention is already established for demo_next_id (memory.rs:253-258, the multi-line NOT A PRODUCTION PATTERN comment block). Apply the same convention here: a doc comment block explaining the demo-grade limitation and pointing at what a real backend should index.\n\nFix: add a rustdoc block on find_uniqueness_conflict matching the demo_next_id pattern: warn against copy-paste, sketch the production shape (HashMap<UniquenessKey, Id> maintained alongside ). No code change to the impl itself \u2014 the linear scan IS the demo pattern.\n\nSeverity: P3 because:\n- Performance is not in scope for a demo-grade in-memory backend.\n- The risk is contributor-template-copying, not user-facing performance regression.\n- Single comment block fixes it.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.find_uniqueness_conflict is O(N) linear scan; no secondary index",
+  "updated_at": "2026-05-17T09:12:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:20:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "64c8c2ba-0c64-5573-b29e-e527c33e49fa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

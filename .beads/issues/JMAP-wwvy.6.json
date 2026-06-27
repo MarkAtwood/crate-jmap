@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "3 ShareNotification/set tests pass. Destroy-only invariant verified.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/notification_set_tests.rs (2 tests: destroy-only wire (no create/update keys), empty destroy); clippy clean",
+  "closed_at": "2026-05-05T14:34:46Z",
+  "compaction_level": 0,
+  "content_hash": "9d1981e43f72bb365aac4f7102993bd0f884a3e8c137213f4e370b04f31870b0",
+  "created_at": "2026-05-05T02:53:37Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create tests/share_notification_set.rs with 3 async wiremock tests. Primary invariant: the client must NEVER send create or update keys (RFC 9670 \u00a73.3 destroy-only). Oracle: RFC 9670 \u00a73.3.\n\n**Tests:**\n1. share_notification_set_destroy_single: call with [\"notif1\"]; assert resp.destroyed == [\"notif1\"]; assert request has destroy [\"notif1\"] and NO create key and NO update key.\n2. share_notification_set_destroy_none_sends_empty_array: call with None; assert request has destroy [] and no create/update keys.\n3. share_notification_set_destroy_multiple: call with [\"notif1\",\"notif2\"]; assert resp.destroyed.len() == 2.\n\n**Acceptance criteria:** All 3 tests pass. Absence of create/update keys explicitly asserted in all tests.",
+  "ephemeral": 0,
+  "id": "JMAP-wwvy.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: ShareNotification/set (destroy-only invariant)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:53:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wwvy.1",
+      "id": "2623338b-23aa-5494-bd09-6659f6931981",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:53:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wwvy",
+      "id": "9f7a97ee-bce4-5ce6-9257-a2c1cf3acf38",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

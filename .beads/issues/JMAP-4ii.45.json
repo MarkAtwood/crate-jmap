@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:27:09Z",
+  "compaction_level": 0,
+  "content_hash": "27570278c484926de7f4fc7dfea7f230de3ae853b982c8226c306ba4d7e7e076",
+  "created_at": "2026-05-02T04:17:48Z",
+  "created_by": "Mark Atwood",
+  "description": "identity.rs handle_identity_set update loop uses Ok(_) => { updated.insert(id_str.clone(), Value::Null) }, discarding the Ok(Some(obj)) case. If the backend returns Some(updated_identity) to echo server-modified fields, those fields are silently dropped and the client receives null instead of the updated object. All other /set handlers in this commit were fixed to use Ok(Some(obj)) / Ok(None) pattern; Identity/set was not.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.45",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Identity/set update silently discards Ok(Some(obj)) echo",
+  "updated_at": "2026-05-02T04:27:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:17:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "690f3a14-57b7-5728-95ec-c85624ae0e30",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

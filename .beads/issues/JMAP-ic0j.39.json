@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added bool_arg / take_bool_arg to jmap-server::helpers and re-exported from the crate root. Adopted in canonical mail-server (~21 sites: email.rs, mailbox.rs, submission.rs, sieve.rs) and calendars-server (~7 sites: calendar.rs, event.rs, principal.rs). Excluded ~5 Value-shaped inner-JSON reads in mail-server (bv_entry isEncodingProblem/isTruncated, sort comparator isAscending, build_mailbox_from_props isSubscribed, MDN keyword check) by design \u2014 different helper signature needed. cargo test passes across mail (247), calendars (82), jmap-server (106) crates. Follow-up adoption in chat/contacts/metadata/tasks-server tracked at JMAP-es1s.",
+  "closed_at": "2026-05-15T18:47:22Z",
+  "compaction_level": 0,
+  "content_hash": "9d39dc426740a596f9f6cfc38eec7fce99b01c036c3179e829258dc1019701aa",
+  "created_at": "2026-05-15T17:21:54Z",
+  "created_by": "Mark Atwood",
+  "description": "The chained pattern for parsing an optional boolean JMAP arg is repeated 7 times in this crate:\n  - event.rs:78-80 (reduceParticipants)\n  - event.rs:196-200 (sendSchedulingMessages)\n  - event.rs:560-563 (onSuccessDestroyOriginal)\n  - event.rs:796-799 (calculateTotal)\n  - event.rs:840-843 (expandRecurrences)\n  - principal.rs:61-64 (showDetails)\n  - calendar.rs:73-76 (onDestroyRemoveEvents)\n\nEach site is the same shape:\n  let flag = args\n      .get(\"someKey\")\n      .and_then(|v| v.as_bool())\n      .unwrap_or(false);\n\nWorkspace-wide this pattern is in 30+ sites across jmap-mail-server (13 in email.rs, 7 in mailbox.rs, 2 in submission.rs, 1 each in mdn.rs, sieve.rs) and jmap-calendars-server.\n\nIdiomatic Rust would consolidate this into a small helper, either:\n  pub(crate) fn bool_arg(args: &Map<String, Value>, key: &str, default: bool) -> bool {\n      args.get(key).and_then(|v| v.as_bool()).unwrap_or(default)\n  }\nor an extension trait:\n  trait ArgsExt { fn bool_arg(&self, key: &str, default: bool) -> bool; }\n\nA 4-line, three-method chain repeated 30+ times is a textbook case for extracting a helper. The helper site also gives one place to document the JMAP convention of 'silently coerce non-bool/missing to default' if that ever needs to change (RFC 8620 \u00a73.6.1 permissive parsing).\n\nPer the workspace canonical-template rule: fix the canonical jmap-mail-server first, then propagate to all 7 extension-server siblings in the same pass.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Repeated args.get(K).and_then(|v| v.as_bool()).unwrap_or(false) \u2014 could be a parse_bool_arg helper",
+  "updated_at": "2026-05-15T18:47:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:21:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "0bdf560a-75cb-5b04-a1a4-65ad50677933",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

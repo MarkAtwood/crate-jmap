@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T07:29:15Z",
+  "compaction_level": 0,
+  "content_hash": "ba969ed74b42179a20eea9c983f471a7cb582698dd1be3a26ff3624372abb4c5",
+  "created_at": "2026-05-11T07:00:19Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Sites:\n- crate-jmap-mail-server/src/memory.rs:97       #[derive(Clone, Debug)] struct ChangeEntry  \u2190 canonical\n- crate-jmap-filenode-server/src/memory.rs:?    #[derive(Clone, Debug)] struct ChangeEntry  \u2190 mirrors canonical\n- crate-jmap-chat-server/src/memory.rs:68       #[derive(Clone)] struct ChangeEntry         \u2190 DIVERGES (missing Debug)\n- crate-jmap-sharing-server/src/memory.rs:?     #[derive(Clone)] struct ChangeEntry         \u2190 DIVERGES (missing Debug)\n\nThe MemoryBackend extractions (epic JMAP-hwdv) cookie-cut from the canonical `jmap-mail-server::memory` per the workspace AGENTS.md \"Canonical extension-server template\" rule. Two of four siblings dropped the `Debug` derive on the internal `ChangeEntry` type.\n\nWhy this matters (engineering basis):\n- Section 1 type-design: \"Missing derives: Debug on almost everything.\" Internal types still benefit from `Debug` for `println!(\"{:?}\", entry)` during debugging, panic messages that include log state, etc.\n- Cookie-cutter rule: divergence from the canonical without a documented reason is a regression of the consistency intent.\n\nWhy P3 (not P2):\n- `ChangeEntry` is a private type \u2014 no external API surface.\n- Adding `Debug` to a struct with all-public derive-able fields is a no-op runtime change.\n- One-line fix per crate.\n\nFix: change `#[derive(Clone)]` to `#[derive(Clone, Debug)]` in chat-server/memory.rs:68 and sharing-server/src/memory.rs (similar location).\n\nVerification: `rg -B1 'struct ChangeEntry' crate-jmap-*-server/src/memory.rs` confirms only chat-server and sharing-server diverge; mail-server (canonical), filenode-server, and any future extension-server crate must carry `Debug` per the cookie-cutter rule.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.76",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: chat-server/sharing-server ChangeEntry missing #[derive(Debug)] \u2014 cookie-cutter drift from canonical mail-server",
+  "updated_at": "2026-05-11T07:29:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T00:00:19Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "a099b05f-2cca-54e5-8284-c8a1106f273f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

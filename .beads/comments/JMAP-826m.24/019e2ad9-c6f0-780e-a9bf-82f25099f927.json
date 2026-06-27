@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T08:56:16Z",
+  "id": "019e2ad9-c6f0-780e-a9bf-82f25099f927",
+  "issue_id": "JMAP-826m.24",
+  "text": "Blocked on JMAP-826m.8. Same reasoning as JMAP-826m.25: this bead asks for a shared dedup-walker refactor, but the canonical-or-divergent dedup-algorithm decision in JMAP-826m.8 changes what the refactor target should be (a shared closure walker over the current 'retain + contains' algorithm vs. a port of mail-server's IdFate HashMap-based algorithm). Tackling both .24 and .25 together once .8 is decided is the right sequencing."
+}

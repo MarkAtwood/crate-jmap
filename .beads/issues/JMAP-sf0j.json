@@ -1,0 +1,21 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "ab4afef1394bb0faba35336215da278b2aa13b6391ff9356dbd1fe4573a53459",
+  "created_at": "2026-05-15T05:27:58Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-sf0j",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "in_progress",
+  "timeout_ns": 0,
+  "title": "Review: crate-jmap-cid-types since 9c0d34f",
+  "updated_at": "2026-05-15T05:28:02Z"
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-13T15:31:42Z",
+  "id": "019e21f7-1547-7c02-9e8b-4f94c0b3a7e3",
+  "issue_id": "JMAP-v9py.4",
+  "text": "Rewritten 2026-05-13 per Mark's Option-B decision after the do-beads triage on this bead.\n\nOriginal bead targeted handle_space_query and assumed the /query response carried Space objects to trim. Both assumptions were wrong: (1) handle_space_query in src/space.rs:319-325 already returns the RFC 8620 \u00a75.5 standard ids-only shape; (2) the spec text at draft-atwood-jmap-chat-00.md:1182 conflated /query (which returns ids) with /get (which returns objects + applies properties). The bead has been re-targeted at handle_space_get; the notFound classification for non-previewable spaces is split to JMAP-v9py.20; the spec edit that this implementation depends on is tracked by JMAP-v9py.19.\n\nThis bead is now blocked by JMAP-v9py.19. The spec prompt has been handed to a separate session against ~/PROJECT/jmap-chat-spec; when that commit lands and Mark closes .19, this bead becomes claimable.\n\nRemoving 'human' label \u2014 the architectural ambiguity is resolved."
+}

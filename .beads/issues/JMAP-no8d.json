@@ -1,0 +1,23 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:38:07Z",
+  "compaction_level": 0,
+  "content_hash": "9eae00727b7018b2abf3cb558b1ba93f434adfde2c6278288c2e7b74162125c4",
+  "created_at": "2026-05-05T01:36:58Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-no8d",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "issue",
+  "updated_at": "2026-05-05T01:38:07Z"
+}

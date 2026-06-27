@@ -1,0 +1,33 @@
+{
+  "close_reason": "Positive observation, no action required at metadata-server. The defense-in-depth account guard at memory.rs:680-692 is the right pattern. The bead's cross-reference call-out ('mail-server's canonical MemoryBackend does NOT have this guard. Metadata is the one that got it right; mail-server should follow.') is captured as a separate workspace-canonical-first reverse-propagation epic: JMAP-38f3. Closing this bead as 'noted, what good looks like'.",
+  "closed_at": "2026-05-15T09:02:12Z",
+  "compaction_level": 0,
+  "content_hash": "7d0aa31eb6b612a63e2ab8baafe02dd1c7fca28d902984baa98beaa08583d9a2",
+  "created_at": "2026-05-14T17:58:45Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this is good: memory.rs:687-693 explicitly checks known_accounts.contains(account_id) before doing any state mutation. If the account is unknown, returns BackendSetError::Other(MemoryError(...)). This is a defense-in-depth complementing the handler's account_exists check.\n\nThe rustdoc at memory.rs:680-686 explicitly explains the rationale: '... a backend create_object is also called directly from test seeders and from any future caller that bypasses the handler. Silently extending known_accounts on a per-object call would mean a stray create attaches private metadata records to a phantom account.'\n\nThis is also defended by an explicit unit test (memory.rs:1226-1268, create_object_unknown_account_errors_without_registering) that checks both the error and the post-condition (account NOT silently registered).\n\nA future contributor might suggest 'simplify by removing this guard since the handler already checks account_exists'. Defend: the trait is the public API. Test seeders and future API consumers may call create_object directly. The 'silently materialize an account' alternative is the worst kind of bug \u2014 it succeeds and corrupts state.\n\nCross-reference: mail-server's canonical MemoryBackend at memory.rs:955 does NOT have this guard. Metadata is the one that got it right; mail-server should follow. (Not in scope for this review.)",
+  "ephemeral": 0,
+  "id": "JMAP-826m.42",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Defense-in-depth account guard in MemoryBackend.create_object (memory.rs:680-692) \u2014 refuses to silently auto-register unknown account",
+  "updated_at": "2026-05-15T09:02:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:58:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "95c39c65-f5ad-5723-8517-d14473c3b39d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

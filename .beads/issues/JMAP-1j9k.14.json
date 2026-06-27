@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "27af68d69d5fde406e74477f76adf8393c5ae7fc4b6ff174ab55d6312e4610d2",
+  "created_at": "2026-05-15T01:12:57Z",
+  "created_by": "Mark Atwood",
+  "description": "## Contract risk\n\ncalendars-client uses `Option<&[Id]>` for `destroy` and `ids` arguments\nacross all methods:\n\n- crate-jmap-calendars-client/src/methods/calendar.rs:22-25, 89-93\n- crate-jmap-calendars-client/src/methods/event.rs:23-26, 98-102\n- crate-jmap-calendars-client/src/methods/event_notification.rs:15-18, 106-108\n- crate-jmap-calendars-client/src/methods/participant_identity.rs:12-15, 72-76\n- crate-jmap-calendars-client/src/methods/event_parse.rs:14-17\n\nCanonical mail-client uses owned `Option<Vec<Id>>` for `destroy`:\n\n- crate-jmap-mail-client/src/methods/email.rs:108\n- crate-jmap-mail-client/src/methods/mailbox.rs:86\n- crate-jmap-mail-client/src/methods/identity.rs:81\n\n(For `ids` in `*_get` methods both crates use `Option<&[Id]>`, so the\ndivergence is on the `destroy` arg specifically \u2014 but the broader idiom\nis a calendars-client-wide pattern.)\n\n## Why this matters for a caller\n\nBorrowed-slice destroy forces the caller to keep the source `Vec<Id>`\nalive across the await:\n\n```rust\nasync fn cleanup(sc: &SessionClient, dead_ids: Vec<Id>) -> Result<(), ClientError> {\n    sc.calendar_set(None, None, Some(&dead_ids), None).await?;\n    //                            ^^^^^^^^^^^ dead_ids must outlive this await\n    Ok(())\n}\n```\n\nThe canonical owned `Option<Vec<Id>>` lets the caller hand off ownership:\n\n```rust\nasync fn cleanup(sc: &SessionClient, dead_ids: Vec<Id>) -> Result<(), ClientError> {\n    sc.email_set(None, None, Some(dead_ids), None).await?;\n    Ok(())\n}\n```\n\nFor top-level call sites the difference is negligible. For composed async\ncode (fanout, retry loops, helper layers), ownership is friendlier.\n\nThe divergence from canonical is also undocumented anywhere I could find \u2014\nthere's no PLAN.md or doc comment explaining why calendars-client chose\nborrowed slices.\n\n## Opinion label\n\nThis is borderline taste \u2014 the borrowed-slice form is more flexible at the\ncall site (works on arrays and slices, not just owned `Vec`). The\ncanonical owned form is friendlier in composed async code. There is no\ncorrectness or completeness issue, only ergonomics.\n\nFiling at P3 with `opinion` label because the engineering basis (lifetime\nergonomics across awaits) is real but minor, and the canonical-template\npropagation rule is the strongest argument \u2014 and that's a process concern\nmore than an engineering one.\n\n## Fix shape\n\nPick one shape and propagate workspace-wide. Either:\n\nA. Change calendars-client `destroy` args to `Option<Vec<Id>>` to match\n   canonical. Easy mechanical change.\n\nB. Change canonical mail-client `destroy` args to `Option<&[Id]>`, then\n   sweep all extension-client siblings. More invasive but consistent\n   with the borrowed-slice idiom calendars-client already uses for `ids`.\n\nEither way, decide once at the workspace level.\n\n## Source citations\n\n- crate-jmap-calendars-client/src/methods/calendar.rs:89-93\n- crate-jmap-calendars-client/src/methods/event.rs:98-102\n- crate-jmap-calendars-client/src/methods/event_notification.rs:106-108\n- crate-jmap-calendars-client/src/methods/participant_identity.rs:72-76\n- crate-jmap-mail-client/src/methods/email.rs:104-110\n- crate-jmap-mail-client/src/methods/mailbox.rs:82-88\n- crate-jmap-mail-client/src/methods/identity.rs:77-82",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "destroy: Option<&[Id]> across calendars-client diverges from canonical Option<Vec<Id>>",
+  "updated_at": "2026-05-15T01:12:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:12:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "ae5da268-24a1-5daa-8055-58480880bd52",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-4xv",
+  "title": "Review: jmap-mail-server pass 6 changes",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:57:47Z",
+  "updated_at": "2026-05-01T03:09:44Z",
+  "closed_at": "2026-05-01T03:08:32Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 two correctness gaps: Email/set create silently accepts malformed keywords (inconsistency with Email/import), and Mailbox/query + EmailSubmission/query silently coerce invalid limit (inconsistency with Email/query). The MailboxFilterCondition/handler disconnect is a public API design issue that will confuse implementors.\nConfidence: 90% no missed bugs. Least confident: email.rs build_email_from_create \u2014 the serde-based keyword parsing could have other silent swallows for malformed but parsable input. Uncertainty driven by: no integration tests exercise malformed keyword paths in Email/set create.\nIdiom rating: ACCEPTABLE \u2014 the limit always-Some issue is the main type-level confusion. No unsafe, no gratuitous clones, no unwrap in library code. The vacation.rs map_err on infallible serialize is verbose but follows the crate convention.\nPass 7 review: no new findings at P0-P2. Pass 7 changes are clean. Loop converged \u2014 both passes produce only P3/opinion findings. Confidence: 95%+ no missed bug. Remaining uncertainty: no test for Mailbox/query filter logic via MailboxFilterCondition fields (parentId/name/role), but this was also untested before the refactor."
+}

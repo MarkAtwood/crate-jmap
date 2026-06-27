@@ -1,0 +1,33 @@
+{
+  "close_reason": "Recommendation ratified after no human pushback in ~46 hours; direction is option (i) (migrate inline unit tests + delete MockBackend). Implementation scope (40 tests + 350-line module deletion across 3+ files) exceeds the '>3 files = file an epic, get approval' workspace rule, so the actual migration is now tracked on JMAP-826m.55 with its own human-label authorization.",
+  "closed_at": "2026-05-17T06:38:09Z",
+  "compaction_level": 0,
+  "content_hash": "d87485180cb74b6370f68841e1d6730768f9ddaff164066545a6c3769692c5fe",
+  "created_at": "2026-05-14T17:52:54Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: Maintenance pattern for unit-test infrastructure varies across the workspace. mail-server (canonical) has NO inline #[cfg(test)] unit tests in src/*.rs \u2014 only integration tests in tests/. metadata-server has both: inline #[cfg(test)] in src/metadata.rs (lines 645+) backed by a 350-line MockBackend in src/lib.rs (lines 122-477), AND integration tests in tests/ backed by the public MemoryBackend.\n\nMaintenance burden:\n(a) Two backends, two trait impls, two test surfaces. When the MetadataBackend or JmapBackend trait grows a method (e.g. principal_id was added to JmapBackend at JMAP-ga0q.1), BOTH MockBackend and MemoryBackend need updates.\n\n(b) MockBackend's get_objects (lib.rs:282-287) does a serde_json::to_value(&m) + from_value(v) round-trip to convert Metadata to a generic O. This 'serde-round-trip downcast' is genuinely subtle and the inline tests rely on it. A contributor adding a non-trivial JmapObject impl that doesn't survive the round-trip will hit a confusing error.\n\n(c) MockBackend's get_changes (lib.rs:301-337) implements a simplified 'all-or-nothing' returning all recorded changes if since_state != current. This does not exercise the real cursor semantics, so the inline tests that pre-populate the change log are essentially 'fake' \u2014 they bypass the dedup algorithm and just trust whatever's in the change log vectors.\n\n(d) The 'identical to sharing-server's mock pattern' comment (lib.rs:281) reinforces the wrong canonical (see finding JMAP-826m.11).\n\nResolution options:\n(i) Drop the inline unit tests and inline test_support module. Move all tests to tests/ using MemoryBackend. Pros: single test surface, fewer trait impls to keep in sync. Cons: loses fine-grained unit testing for the cross-field filter validator and the destroy validate-and-collect.\n(ii) Move test_support out of src/lib.rs into tests/common/mod.rs (alongside the existing common module). Pros: stops cluttering library compilation, keeps unit-test capability. Cons: integration tests cannot easily test crate-private items.\n(iii) Accept the duplication and document the canonical workspace pattern (this is what option (a) effectively is now).",
+  "ephemeral": 0,
+  "id": "JMAP-826m.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "test_support::MockBackend is pub(crate) in src/lib.rs, gated #[cfg(test)] but lives in the main crate compilation \u2014 adds 350+ lines, two extra trait impls, a serde_json round-trip downcast, and an explicit per-method comment claiming 'identical to sharing-server'",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:52:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "76b56ea6-6c29-5552-b66f-6254e8b82683",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

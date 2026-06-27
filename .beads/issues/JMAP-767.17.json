@@ -1,0 +1,33 @@
+{
+  "close_reason": "reviewed pass 23: loop converged; no P0/P1/P2 found in current code",
+  "closed_at": "2026-05-01T12:39:56Z",
+  "compaction_level": 0,
+  "content_hash": "900268e3fcfdf258081fe8f940fa80ddf34b85fd2140c86c701d558a5e514dde",
+  "created_at": "2026-05-01T11:50:24Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs:189-203: when anchor is present, query_objects is called with no limit (None), fetching the entire result set just to find the anchor index. For large submission stores this is O(n) when O(log n) is possible with a dedicated anchor-resolution path. The same pattern exists in Email/query (email.rs:235-280) but there it is justified because collapseThreads also needs the full set. For EmailSubmission, there is no collapseThreads; the full fetch is only for anchor. Alternative: pass the anchor to query_objects and let the backend find it, or accept the full-fetch cost and document the limitation. As-is, a backend with 100k submissions does a full scan on every paginated request using anchors. Maintenance consequence: new backend implementors will not see this as a performance trap.",
+  "ephemeral": 0,
+  "id": "JMAP-767.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "submission query: full fetch just for anchor resolution is expensive",
+  "updated_at": "2026-05-01T12:39:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:50:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "97a10925-66a6-511c-b5b2-39d68f6457e7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

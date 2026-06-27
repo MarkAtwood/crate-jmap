@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added a 'Why an associated function and not a method' rustdoc section on JmapBackend::principal_id that explains the deliberate omission of &self. The signature structurally enforces the 'identity is not the JMAP layer's job to mint' rule: auth-layer middleware MUST pre-resolve the principal and stash the result in CallerCtx before calling dispatch(). JIT lookup is not possible from inside principal_id. Documented so a future contributor doesn't file the 'why isn't this a method' PR.",
+  "closed_at": "2026-05-14T13:53:30Z",
+  "compaction_level": 0,
+  "content_hash": "b3e04e50cf19191e869b42973a3fb342dc6bffe69debb9d0e992c0afdfb3abb4",
+  "created_at": "2026-05-14T12:52:56Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: a future *-server consumer (or a third-party building on jmap-server) implements JmapBackend with CallerCtx = JwtClaims { sub: String, ... } \u2014 the upstream auth layer hands the handler a parsed JWT but not yet a resolved local principal Id. The backend wants to map sub \u2192 Id via an internal lookup table or database call. Today: JmapBackend::principal_id (crate-jmap-server/src/backend.rs:777) is declared as fn principal_id(caller: &Self::CallerCtx) \u2014 no &self. The backend has no way to access its own state from inside principal_id, so the JWT\u2192Id mapping cannot live there.\n\nThe docstring is explicit: 'Implementations MUST NOT mint identity \u2014 they MUST read it from the CallerCtx populated by the HTTP/auth middleware before dispatch() was called.' The structural absence of &self enforces the rule. That is a real engineering decision, not an accident.\n\nThe cost: every consumer that wants per-request principal resolution must do it in the HTTP layer (before dispatch) and stash the result in CallerCtx. This is workable but rigid \u2014 it pushes auth integration up a layer and forbids JIT lookup. The reference impl (jmapchat-server) and the kith/stoa consumers already match this pattern, so it's fine for the *known* consumers; but the docs nowhere admit the tradeoff.\n\nRecommendation: keep the signature as is, but add a paragraph to the doc comment naming the structural choice: 'principal_id is an associated function, not a method, by design \u2014 backends cannot use &self to resolve identity at JMAP-call time. The auth-layer middleware MUST pre-resolve the principal and populate CallerCtx before dispatch().' Three sentences saves a future contributor from filing a 'why isn't this a method' PR you'd reject.\n\nMaintenance consequence: low frequency, real PR overhead when someone hits it. Documenting the rationale up front is the cheap fix.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "principal_id is an associated function not a method, locking out backends that need &self to resolve identity",
+  "updated_at": "2026-05-14T13:53:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:52:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "be1e4ea0-ac53-5e42-b9cf-2edc8a736afa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

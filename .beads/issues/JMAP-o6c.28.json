@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already minimized: fetches only query-result IDs with 2-property hint. Full optimization requires a new get_thread_ids backend method.",
+  "closed_at": "2026-05-02T03:40:14Z",
+  "compaction_level": 0,
+  "content_hash": "c923c435b02376f2e7be63275556d851e30362125730f2f913276787d57c87e8",
+  "created_at": "2026-05-02T03:26:29Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs collapse_by_thread: when collapseThreads=true, the handler first calls query_objects (up to COLLAPSE_THREADS_MAX_EMAILS=65536 IDs) then calls get_objects on those IDs to read threadId. For a large account this is 65K IDs fetched from query_objects then 65K objects fetched from get_objects \u2014 two full passes through potentially all email. A backend that supports collapseThreads natively (returns pre-deduplicated IDs from query_objects) could do this in one pass. Consider adding a collapse_threads parameter to query_objects, or a dedicated query_collapsed_threads method, so backends can optimize. Current code is correct but will be extremely slow at the COLLAPSE_THREADS_MAX_EMAILS ceiling.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "collapse_by_thread issues a full get_objects fetch for every Email/query",
+  "updated_at": "2026-05-02T03:40:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:26:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "ead95ee0-84e9-5c1a-ba1a-8a789f2f54aa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

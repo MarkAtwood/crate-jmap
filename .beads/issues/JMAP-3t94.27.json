@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:22:23Z",
+  "compaction_level": 0,
+  "content_hash": "3fe307166f45bf3f758c263a6e716314d214d4591aa156b7e95ed72d46848254",
+  "created_at": "2026-05-14T22:06:52Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/memory.rs:403-408 and memory.rs:448-453\n\nBoth query_objects() and query_changes() build State values like:\n\n    let query_state = State::from(\n        inner\n            .current_state(O::TYPE_NAME, account_id.as_ref())\n            .to_string()\n            .as_str(),\n    );\n\nState (in jmap-types) implements both From<String> and From<&str> via impl_string_newtype!. Calling .to_string().as_str() and then From<&str> performs an extra deref + reconversion that the From<String> impl would skip. Idiomatic Rust:\n\n    let query_state = State::from(\n        inner\n            .current_state(O::TYPE_NAME, account_id.as_ref())\n            .to_string(),\n    );\n\nThe same call site shape is correct at memory.rs:316 (get_state) and memory.rs:378 (get_changes): they pass State::from(n.to_string()) without the .as_str() hop. The inconsistency between line 316 / 378 and lines 405 / 451 is a local style divergence that should be unified to the simpler form.\n\nWhat goes wrong for callers when this stays as-is: nothing functional. This is pure idiom: the .as_str() reads as if the From<&str> impl is preferred, but From<String> exists and is more direct. A reader reasonably wonders 'why does this site convert through &str while the sibling site does not?' \u2014 small but real cognitive cost.\n\nPicked up by clippy::useless_asref in some configurations; not by default. Mirror pattern likely exists in the 6 sibling MemoryBackends.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Removed two .to_string().as_str() chains in query_objects and query_changes; the State::from(String) impl is the direct path. Aligns with the sibling get_state/get_changes sites that already used the simpler form.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Redundant .as_str() after .to_string() before State::from()",
+  "updated_at": "2026-05-14T22:22:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T15:06:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "7def77a1-220c-550d-9dc7-23d30df9d9fc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

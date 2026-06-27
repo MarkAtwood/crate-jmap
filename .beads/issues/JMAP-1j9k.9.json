@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T12:25:56Z",
+  "compaction_level": 0,
+  "content_hash": "81a3c6460086780b7b757a3f51e600188ae7ffd0a25586db0b07336ed0aa7f64",
+  "created_at": "2026-05-15T01:11:07Z",
+  "created_by": "Mark Atwood",
+  "description": "## Contract risk\n\ncalendars-client `CalendarEventGetParams` at\ncrate-jmap-calendars-client/src/methods/mod.rs:101 carries\n`#[non_exhaustive]`.\n\nCanonical mail-client `EmailGetParams` at\ncrate-jmap-mail-client/src/methods/mod.rs:40 does NOT carry\n`#[non_exhaustive]`.\n\nBoth have public fields. Both have `#[derive(Default)]`.\n\n## Why this matters for a caller\n\n`#[non_exhaustive]` on a struct with public fields forbids construction via\nstruct literal from outside the crate. A caller writing:\n\n```rust\nlet params = CalendarEventGetParams {\n    expand_recurrences: Some(true),\n    reduced_participants: Some(false),\n    fetch_calendars: None,\n};\n```\n\ngets a compile error (E0639). They must instead write:\n\n```rust\nlet mut params = CalendarEventGetParams::default();\nparams.expand_recurrences = Some(true);\nparams.reduced_participants = Some(false);\n```\n\nThis is materially worse ergonomics, especially when the caller wants the\nergonomics-friendly `..Default::default()` shorthand that the canonical\n`EmailGetParams` supports:\n\n```rust\nlet params = EmailGetParams {\n    fetch_text_body_values: Some(true),\n    ..Default::default()\n};\n```\n\nThe defensive code is forced on every caller of every `*Params`-style entry\npoint in calendars-client.\n\n## What goes wrong if this stays\n\nOnce shipped, removing `#[non_exhaustive]` is technically not a breaking\nchange (it loosens callers' construction freedom), but the asymmetry with the\ncanonical mail-client surfaces in every example, every docstring, every\ntest using the type. Callers who context-switch between mail and calendars\nclients in the same code keep tripping over the difference.\n\nPlus the canonical-template propagation rule applies \u2014 either change the\ncanonical to match (and sweep all siblings), or change calendars to match.\nThe current state is a regression of cookie-cutter intent.\n\n## Fix shape\n\nRemove `#[non_exhaustive]` from `CalendarEventGetParams`. The forward-compat\nmechanism for public input/param structs in this workspace is the `extra:\nserde_json::Map<String, serde_json::Value>` flatten field (canonical pattern,\nsee also crate-jmap-mail-client/src/methods/mod.rs:62-63), not\n`#[non_exhaustive]`.\n\nNote this fix is related to but independent from the missing `extra` field\n(filed separately) and the missing `Serialize` derive (filed separately).\n\n## Source citations\n\n- crate-jmap-calendars-client/src/methods/mod.rs:101-114\n- crate-jmap-mail-client/src/methods/mod.rs:40-64",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CalendarEventGetParams is #[non_exhaustive] but canonical EmailGetParams is not \u2014 blocks struct-literal construction",
+  "updated_at": "2026-05-17T12:25:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:11:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "b412afd4-1b75-5d3f-b52e-19cc00b6272a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

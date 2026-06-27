@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decision: code uses Some(collapse_cap) not None when capped \u2014 existing comment already explains the cap strategy; issue premise did not match code",
+  "closed_at": "2026-05-02T22:41:17Z",
+  "compaction_level": 0,
+  "content_hash": "dac413f24369de0f940a2b231ff7b93fb27cd5fd8f41ae29866a7215307d890d",
+  "created_at": "2026-05-02T19:19:06Z",
+  "created_by": "Mark Atwood",
+  "description": "When collapseThreads=true, the code fetches at most COLLAPSE_THREADS_MAX_EMAILS ids. It then sets total=None when fetched_count >= cap, rather than reporting the capped slice length as the total. A contributor might simplify to always reporting the length of the collapsed slice. But that would silently lie to clients about the true result set size, causing incorrect pagination UI. None correctly signals that the total is unknown. The cap itself (65536) is documented with its memory cost rationale (~2 MiB), which is the right way to document an anti-abuse decision.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/query collapseThreads cap (COLLAPSE_THREADS_MAX_EMAILS) reports honest total only when not capped",
+  "updated_at": "2026-05-02T22:41:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:19:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "74292319-6007-5d41-897b-703c76305b80",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

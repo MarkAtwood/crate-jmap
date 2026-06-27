@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Expanded SharingBackend::update_object rustdoc to match the .19 destroy_object / .33 create_object contract template. Added: Error contract (NotFound/Forbidden/InvalidPatch/InvalidProperties/OverQuota/WillDestroy/serverFail with RFC 8620 \u00a75.3 anchors and handler-mapping references), State-mutation contract (state-counter + change-log atomicity, plus explicit clause that Ok(None) is a wire-shape signal not a no-op), Idempotency clause, and corrected the generic-method type-scope (was 'an existing Principal', now correctly 'an existing object of type O' with a note that the current handler short-circuits ShareNotification per RFC 9670 \u00a73.3). clippy clean. fmt clean. Doc warnings unchanged (only 2 pre-existing JMAP-23su intra-doc-link warnings, not introduced by this change).",
+  "closed_at": "2026-05-14T22:47:18Z",
+  "compaction_level": 0,
+  "content_hash": "e6b09ec015d318b0b01a8ab14a47987aa58c6995727113b4b47319e809f13025",
+  "created_at": "2026-05-14T22:34:39Z",
+  "created_by": "Mark Atwood",
+  "description": "**Location**: `crate-jmap-sharing-server/src/backend.rs:132-143`.\n\n**The gap**: `SharingBackend::update_object`'s rustdoc says:\n\n> Apply a partial update (patch) to an existing Principal.\n>\n> Returns `Some(updated_object)` if the backend modified any properties\n> beyond what the client requested (RFC 8620 \u00a75.3 server-set field echo),\n> or `None` if the patch was applied verbatim.\n\nThat is the entirety of the doc. By contrast, `destroy_object` (lines\n145-198) carries a full contract block: explicit error mapping for\nNotFound / Forbidden / Other-storage-failure, an explicit\n\"state-mutation contract\" section guaranteeing the state counter and\nchange-log advance atomically with the mutation, and an \"idempotency\"\nnote. `update_object` has NONE of these. A consumer reading the trait\nsees no answer to:\n\n1. **Error contract**: which `SetErrorType`s does the handler accept\n   here? RFC 8620 \u00a75.3 admits at least `notFound`, `forbidden`,\n   `invalidPatch`, `invalidProperties`, `overQuota`, `willDestroy`,\n   `singleton`. The handler at `principal.rs:181-216` accepts any\n   `BackendSetError::SetError(...)` and forwards verbatim, so the\n   backend has wide latitude \u2014 but the trait doc gives the implementor\n   no guidance on which variant maps to which failure mode. By contrast\n   `destroy_object` documents `NotFound` for missing id, `Forbidden`\n   for permission failure, `Other` for storage failure.\n\n2. **State-mutation contract**: must `get_state::<O>` advance only on\n   successful commit? Must `get_changes::<O>` record an `updated` entry\n   atomically? The `destroy_object` doc mandates both; the\n   `update_object` doc is silent. The reference impl\n   (`memory.rs:643-711`) does the right thing, but a downstream\n   implementor has no normative source to consult.\n\n3. **Permission enforcement (backend-canonical rule)**: the workspace\n   AGENTS.md \"Permission enforcement: backend canonical\" rule says the\n   backend MUST re-verify atomically. The `destroy_object` doc\n   restates this; the `update_object` doc does not. A downstream\n   implementor who reads only `update_object`'s doc may miss that they\n   are the canonical enforcement point for per-object update\n   permission.\n\n4. **Account-exists contract**: `destroy_object` doc explicitly says\n   the handler pre-checks `account_exists` and the backend MAY treat\n   the account as verified-to-exist but defense-in-depth is\n   RECOMMENDED. `update_object` doc says nothing \u2014 and the reference\n   impl in fact does the same defense-in-depth re-check (memory.rs:658-662)\n   but with no contract anchor.\n\n5. **Doc body mismatches the generic signature**: \"Apply a partial\n   update (patch) to an existing **Principal**\" \u2014 but the method is\n   generic over `O: SetObject`, which can be `Principal` OR\n   `ShareNotification`. For `ShareNotification` the handler at\n   `notification.rs:106-113` short-circuits with `forbidden` before\n   reaching the backend, so the type-confusion is benign in the\n   current handler set, but the trait doc must not promise\n   `Principal`-specific semantics on a generic method.\n\n**Why this matters as a contract finding**: a downstream backend\nimplementor reading `update_object`'s doc currently has no normative\nsource for any of (1)-(4) and is implicitly told (5) the wrong\ntype-scope. They will guess; some guesses produce silent wire\nbreakage (state-advance-on-failure-path makes /changes consumers see\nphantom updates; missing permission re-check ships a security bug).\n\n**Parallel finding**: bd:JMAP-3t94.19 covers the identical gap on\n`destroy_object` and was closed by adding the contract block now\npresent at backend.rs:145-198. The fix here is the same shape:\nexpand `update_object`'s doc to mirror that contract block,\ntype-corrected to the generic `O`.\n\n**Cookie-cutter propagation**: every extension-server sibling has a\n`SharingBackend`-equivalent trait with the same generic `update_object`.\nIf this gap exists here it likely exists in chat, calendars, contacts,\nfilenode, metadata, tasks. The canonical mail-server is the\nauthoritative shape \u2014 a propagation pass should look there first.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SharingBackend::update_object underspecified \u2014 no error contract, no state-mutation contract, doc body mismatches generic signature",
+  "updated_at": "2026-05-14T22:47:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T15:34:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "0c43f5bd-6088-50dd-a666-f8cafbdcc772",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

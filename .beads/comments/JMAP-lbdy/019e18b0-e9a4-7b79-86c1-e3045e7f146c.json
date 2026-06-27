@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "created_at": "2026-05-11T20:18:28Z",
+  "id": "019e18b0-e9a4-7b79-86c1-e3045e7f146c",
+  "issue_id": "JMAP-lbdy",
+  "text": "Substantially complete: 12 of 13 children closed (.1-.11, .13). Only .12 (Hash-vs-extras tension on Hash-derived JSContact sub-types) remains open \u2014 that's a design question routed to human via the 'human' label, not autonomous work. The parent epic stays open until .12 is resolved or explicitly deferred."
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Superseded by bd:JMAP-zx3s.8 + workspace AGENTS.md 'Caller contract \u2014 wire-key collisions' policy (commit 1bb178f). Contract documented centrally with regression test in jmap-mail-types; propagates to all extras-pattern siblings including tasks-types. See close comment.",
+  "closed_at": "2026-05-17T15:34:04Z",
+  "compaction_level": 0,
+  "content_hash": "4f99d0baf483fdefd8c373f4685526e0ad4c11de0d916ffcc22a6407301bc88a",
+  "created_at": "2026-05-15T05:06:39Z",
+  "created_by": "Mark Atwood",
+  "description": "The extras-preservation pattern, applied across this diff to Person, CheckItem, Checklist, Comment, Task, TaskRights, TaskList, TaskNotification, stores unknown fields in `pub extra: serde_json::Map<String, serde_json::Value>` with `#[serde(flatten, default, skip_serializing_if = ...)]`.\n\nDeserialize-side: serde consumes known wire-renamed fields (e.g. `@type`, `mayRSVP`, `taskListId`) into typed fields and routes the rest into `extra`. Correct round-trip for inputs.\n\nProducer-side hazard: nothing prevents Rust code from inserting a known wire-name into `extra` directly. e.g.:\n\n    let mut t = Task::default();\n    t.at_type = Some(\"Task\".into());\n    t.extra.insert(\"@type\".into(), json!(\"AlsoTask\"));\n    serde_json::to_string(&t).unwrap();\n    // emits: {\"@type\":\"Task\",\"@type\":\"AlsoTask\"}  -- duplicate key in JSON\n\nDuplicate JSON keys are technically valid JSON; consumers picking the \"first\" vs \"last\" key get different values. RFC 8259 \u00a74 forbids it as \"SHOULD NOT\". Server-side parsers vary in behavior.\n\nThis is hypothetical today (no production code does this) but is a footgun on the public API surface. The `extra` field is `pub`, so any contributor can populate it.\n\nFix options:\n  (a) Add a debug_assert in a custom Serialize impl that rejects extras keys colliding with known wire names. Imposes a Serialize boilerplate cost per type.\n  (b) Wrap `extra` in a newtype `ExtraFields(Map<String, Value>)` whose `insert()` rejects reserved keys. Trades public-field-access ergonomics for safety. Worse fit with `#[serde(flatten)]`.\n  (c) Document the constraint on each `extra` field and rely on contributor discipline. Cheapest, weakest.\n\nThe workspace AGENTS.md extras-preservation section does not name this hazard. Recommend at minimum a one-line rustdoc note on each `extra` field: \"Inserting a key that matches a typed field's wire name (e.g. `@type`, `mayRSVP`) will produce duplicate keys on the wire \u2014 do not do this.\" Decide centrally and propagate via the JMAP-lbdy epic.",
+  "ephemeral": 0,
+  "id": "JMAP-ky8g.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Flatten-extras can emit duplicate keys if user populates extra with known wire names",
+  "updated_at": "2026-05-17T15:34:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:06:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ky8g",
+      "id": "d1890044-c894-5417-ac22-c2a48176f0b5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

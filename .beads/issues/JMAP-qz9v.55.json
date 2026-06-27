@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T02:53:55Z",
+  "compaction_level": 0,
+  "content_hash": "9d206959e250c53186c2a9e4f26d7ec21ae5113e17c96cf1ab211c39e26b596b",
+  "created_at": "2026-05-14T19:44:45Z",
+  "created_by": "Mark Atwood",
+  "description": "addressbook.rs:349 inside the onSuccessSetIsDefault block:\n\n    Ok(Some(obj)) => {\n        mutated = true;\n        updated.insert(\n            target_id.to_string(),\n            serde_json::to_value(&obj).unwrap_or(Value::Null),\n        );\n\nThe unwrap_or(Value::Null) here is inconsistent with every other to_value call in this file. The same pattern at addressbook.rs:159-160, 214-215, card.rs:131-132, 187-188 uses:\n\n    serde_json::to_value(&obj).expect(\"derive(Serialize) on plain data is infallible\")\n\n(documented in helpers.rs:14-19 as the workspace policy for \"Serialize-derive on plain data cannot fail\"). The .unwrap_or(Value::Null) at line 349 diverges from this policy without a comment explaining why.\n\nThree possibilities:\n  1. Intentional: the author wanted soft-failure here because \u00a72.3 says \"errors are silently ignored\" \u2014 but \u00a72.3 is about errors from the update_object backend call, not about serialization of the result. Silently producing Value::Null in the response for a successful update is wrong.\n  2. Unintentional: cargo-culted-wrong from another spot; should be .expect to match the file's convention.\n  3. Defensive: the AddressBook type contains a field with non-string map keys that serde_json cannot serialize \u2014 but AddressBook is derive-Serialize on plain data per the workspace pattern.\n\nThe idiomatic Rust answer is to match the file's convention: either .expect everywhere (and document the invariant once) or .map_err everywhere (and propagate). Mixing the two is a cargo-cult smell.\n\nNote line 367 uses `if let Ok(v) = serde_json::to_value(&book) { updated.insert(book_id.to_string(), v); }` \u2014 yet a third pattern in the same file. Three different serializations of the same shape of data, three different error handlers.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.55",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "addressbook.rs:349 serde_json::to_value(&obj).unwrap_or(Value::Null) silently drops post-update serialize error",
+  "updated_at": "2026-05-18T02:53:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:44:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "6be9d1ba-da40-5b8c-b942-65e65edcdd50",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

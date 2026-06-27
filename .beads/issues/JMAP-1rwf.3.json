@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T16:01:59Z",
+  "compaction_level": 0,
+  "content_hash": "120ab208cf7104f273d66edd31842a03379b0ab4f33859e2dc8f932877288670",
+  "created_at": "2026-05-15T05:19:09Z",
+  "created_by": "Mark Atwood",
+  "description": "Hypothesis (cannot confirm without writing a probe; this review is read-only):\n\nCalendarEvent.ical_component has '#[serde(rename = \"iCalComponent\")]' (src/event.rs:111). The doc explicitly mentions that the spec wire name is 'iCalComponent' (capital I, capital C in 'Cal'), and the camelCase rename_all derivation would naturally produce 'icalComponent' (lowercase i). A peer that follows 'obvious' camelCase rules produces 'icalComponent' on the wire. When such a CalendarEvent is deserialized:\n\n  - The typed ical_component field will not match (only 'iCalComponent' matches).\n  - The CalendarEvent.extra catch-all (#[serde(flatten)], src/event.rs:301) WILL capture it.\n  - The typed .ical_component will be None even though the data was present on the wire.\n  - On re-serialize, 'icalComponent' is preserved in .extra and re-emitted, preserving the bug.\n\nTrigger condition: any peer implementation that capitalizes 'iCal' as a brand differently than the spec \u2014 Apple's own iCalendar tooling, third-party calendar exporters, naive code-gen.\n\nProbe required (NOT performed in this read-only review):\n  let json = r#\"{\"id\":\"e1\",\"icalComponent\":\"BEGIN:VEVENT...END:VEVENT\"}\"#;\n  let ev: CalendarEvent = serde_json::from_str(json).unwrap();\n  assert!(ev.ical_component.is_none(),    \"typed field should be None\");\n  assert!(ev.extra.contains_key(\"icalComponent\"), \"should leak into extras\");\n\nWhy not confirmable by reading: serde's #[serde(flatten)] resolution rules around field renames are conservative and would consume 'icalComponent' only if rename_all were strict camelCase on this field. Because the explicit #[serde(rename)] overrides, 'icalComponent' likely falls through to the flatten catch-all. Probe needed to confirm.\n\nIf confirmed: file as a P1 finding (silent data loss for non-conformant peers). Possible mitigations: add a deserialize alias for 'icalComponent' that warns; or do nothing and document the brand-mismatch hazard in Gotchas.\n\nFile path: crate-jmap-calendars-types/src/event.rs:101-113",
+  "ephemeral": 0,
+  "id": "JMAP-1rwf.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "calendars-types: probe \u2014 does 'icalComponent' (naive camelCase) leak into CalendarEvent.extra?",
+  "updated_at": "2026-05-17T16:01:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:19:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1rwf",
+      "id": "80eabc52-1f32-5df8-a91a-17a7252836ca",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-fpp.8",
+  "title": "parse_sse_block empty data_lines arm dispatches to parse_state_data unnecessarily",
+  "description": "sse.rs parse_sse_block: the match data_lines.as_slice() [] arm calls parse_state_data('') which attempts JSON parse of empty string, fails, and returns Unknown. The intent is just Unknown. Suggested rewrite: '[] | [_blank] if _blank.is_empty() => SseEvent::Unknown, [single] => parse_state_data(single)' or more simply just handle [] as Unknown directly without a round-trip through parse_state_data.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:15:43Z",
+  "updated_at": "2026-04-30T01:23:27Z",
+  "closed_at": "2026-04-30T01:23:27Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-fpp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:15:43"
+    }
+  ]
+}

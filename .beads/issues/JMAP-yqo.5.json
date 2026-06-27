@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:27Z",
+  "compaction_level": 0,
+  "content_hash": "279c158a5f59262ff227cb585cffcc019e16eb9ba98c9003f2ae9018e47aba2b",
+  "created_at": "2026-05-02T02:54:37Z",
+  "created_by": "Mark Atwood",
+  "description": "In collapse_by_thread (email.rs:1654-1665), when an email id is in the query result but not in the thread_map (e.g. concurrent delete between query and fetch), the code includes the email unconditionally (result.push(id)). This email may still be in the same thread as an already-included email, causing collapseThreads to return duplicate thread representatives. Trigger: concurrent delete of an email between query_objects and get_objects calls inside collapse_by_thread \u2192 two emails from the same thread both appear in collapsed results.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "collapse_by_thread silently includes emails whose threadId is missing from fetch result",
+  "updated_at": "2026-05-02T03:22:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:54:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "7d331926-e897-557c-bf70-4fc57eea9b4b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

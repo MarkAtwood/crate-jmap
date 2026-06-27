@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in ece17b3. Path A from the bead body \u2014 typed enum RequiredPermissions { Known(&'static [&'static str]), UnknownOp } replaces the &'static [&'static str] return type and the private __unknown_space_patch_op__ sentinel string. Consumers now match on the typed variant; the in-crate consumer in memory.rs validate_space_patch_ops matches exhaustively (no wildcard arm) so a future RequiredPermissions variant forces a deliberate compile-time decision rather than silently going through a catch-all. Public API change: required_permissions_for_op return type changes and the new RequiredPermissions type is added to the chat-server pub use list. Permissions module's 15 unit tests updated to assert against the typed return; 2 new tests pin enum distinctness and function pointer signature stability. Pre-1.0 / pre-publish so the API break is free. The kit's existing typed-enum-over-string preference (EmojiSetOp, ChatLimits) was endorsed by the bead body \u2014 this fix follows that precedent.",
+  "closed_at": "2026-05-14T04:45:48Z",
+  "compaction_level": 0,
+  "content_hash": "6ccf454cea53149504b9327e54682cbe1378db124b04b45ec5323510e535fd67",
+  "created_at": "2026-05-14T03:39:38Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/permissions.rs:50-122\n\n  const UNKNOWN_OP_SENTINEL: &str = \"__unknown_space_patch_op__\";\n\n  pub fn required_permissions_for_op(op: &SpacePatchOp) -> &'static [&'static str] {\n      match op {\n          // ...\n          _ => &[UNKNOWN_OP_SENTINEL],\n      }\n  }\n\nThe fail-closed posture for unknown SpacePatchOp variants is\ncorrect \u2014 SpacePatchOp is #[non_exhaustive] upstream so a\ndownstream caller can't compile-time enumerate. JMAP-x2gd.25 (P3)\nalready endorses the fail-closed intent.\n\nBut the SIGNAL MECHANISM forces every consuming backend to write\ndefensive boilerplate:\n\n  let required = required_permissions_for_op(op);\n  if required.contains(&\"__unknown_space_patch_op__\") {\n      return reject_with_forbidden();\n  }\n  // ...check permissions normally\n\nThree problems:\n\n1. The sentinel string is PRIVATE (`const UNKNOWN_OP_SENTINEL`)\n   but the contract REQUIRES consumers to check for it. A naive\n   consumer who doesn't read the rustdoc closely just sees:\n   'permissions list contains some weird string; treat as\n   permission requirement; call user.has_permission(\"__unknown_space_patch_op__\");\n   which returns false; reject.' That is the intended behavior\n   by accident. The contract is load-bearing on a name no public\n   API exposes.\n\n2. If the sentinel ever changes \u2014 e.g. a future revision wants\n   the variant tag inside the sentinel for diagnostics, like\n   \"__unknown_space_patch_op:SomeNewVariant__\" \u2014 every backend\n   that literally pattern-matched the original string is\n   silently broken.\n\n3. The return type Vec<&str> overloads two roles: 'list of\n   permissions the caller must hold' and 'this variant is\n   unrecognized, give up'. Two contracts in one channel.\n\nFix options:\n\nA. Change the return type to give the unknown case its own arm:\n\n     pub enum RequiredPermissions {\n         Known(&'static [&'static str]),\n         UnknownOp,\n     }\n     pub fn required_permissions_for_op(op: &SpacePatchOp) -> RequiredPermissions\n\n   Consumers match on the enum. Compile-time guarantee that the\n   two cases are distinguished. #[non_exhaustive] on the enum to\n   preserve forward-compat for a future Known+Conditional shape.\n\nB. (Lighter) Make the sentinel `pub` with a stable name:\n\n     pub const UNKNOWN_OP_SENTINEL: &str = \"__unknown_space_patch_op__\";\n\n   Then document that backends MUST check for == UNKNOWN_OP_SENTINEL\n   or use a contains-by-reference comparison. Less type-safe than\n   A but unblocks consumers from the magic-string lottery.\n\nOption A is the workspace-shaped fix; the kit already prefers\ntyped enums over sentinel strings (cf. EmojiSetOp, ChatLimits).\n\n(Note: this is a different concern from JMAP-x2gd.25 which simply\nrecords that the fail-closed posture is correct. This finding is\nabout the contract shape, not the choice to fail closed.)",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: required_permissions_for_op signals 'unknown variant' via magic sentinel string",
+  "updated_at": "2026-05-14T04:45:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:39:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "939c2af9-8036-5c89-a464-4734bd2cdfdc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

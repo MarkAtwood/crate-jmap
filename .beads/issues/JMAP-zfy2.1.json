@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "Trait expanded. Destroy-all-children-in-set passes. cargo test exits 0.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Removed would_create_cycle+node_has_children; added get_ancestors, get_descendant_ids, blob_exists, find_sibling_by_name; refactored destroy loop with all-covered check per RFC \u00a73.2.3; updated MockBackend; 11 tests pass; clippy clean",
+  "closed_at": "2026-05-05T04:12:57Z",
+  "compaction_level": 0,
+  "content_hash": "7bef29daf1a9d9554bc8022cb29921dc98a4a0e1cb1add5bb313172b9e240f1c",
+  "created_at": "2026-05-05T02:56:55Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Bring backend.rs up to the planned interface. Remove would_create_cycle and node_has_children. Add 4 new methods. Update MockBackend. Rewrite handler logic that used the removed methods.\n\n**Algorithm:**\n1. In backend.rs remove would_create_cycle and node_has_children from FileNodeBackend.\n2. Add:\n   fn get_ancestors(&self, account_id: &Id, ids: &[Id]) -> impl Future<Output = Result<Vec<FileNode>, Self::Error>> + Send;\n   fn get_descendant_ids(&self, account_id: &Id, id: &Id) -> impl Future<Output = Result<Vec<Id>, Self::Error>> + Send;\n   fn blob_exists(&self, account_id: &Id, blob_id: &Id) -> impl Future<Output = bool> + Send;\n   fn find_sibling_by_name(&self, account_id: &Id, parent_id: Option<&Id>, name: &str, case_insensitive: bool) -> impl Future<Output = Result<Option<Id>, Self::Error>> + Send;\n3. Add use jmap_filenode_types::FileNode to backend.rs.\n4. In lib.rs test_support MockBackend: remove set_has_children, set_cycle_pair, has_children, cycles fields. Add ancestors: HashMap<String, Vec<FileNode>>, descendants: HashMap<String, Vec<String>>, siblings: HashMap<(Option<String>, String), String>. Implement all 4 new methods.\n5. In filenode.rs:\n   - Replace would_create_cycle call: call get_descendant_ids, check if proposed new parent_id is in result set.\n   - Replace node_has_children call: call get_descendant_ids, check result non-empty.\n   - Add destroy-all-children-first check: before destroy loop, collect all destroy ids into a set. When onDestroyRemoveChildren=false: get_descendant_ids, if any descendant NOT in destroy_id_set \u2192 nodeHasChildren error. If all descendants are in destroy_id_set \u2192 allow (RFC \u00a73.2.3 MUST NOT return error in this case).\n6. Run cargo test --workspace.\n\n**Acceptance criteria:**\n- All existing handler tests pass.\n- New test: destroy parent + all children in same request with onDestroyRemoveChildren=false \u2192 succeeds (MUST NOT return nodeHasChildren). Oracle: \u00a73.2.3.\n- Trait compiles with 4 new methods.\n- MockBackend implements new trait.\n- cargo test --workspace exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-zfy2.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Expand FileNodeBackend trait: add get_ancestors, get_descendant_ids, blob_exists, find_sibling_by_name",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:56:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zfy2",
+      "id": "aefef524-d084-5a7a-8bc5-b1729ab7e5b7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

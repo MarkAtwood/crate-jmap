@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T06:00:56Z",
+  "compaction_level": 0,
+  "content_hash": "9e414fabfa05c2137fa801b94b630a6a5be64167b8cf4da272463110145088e5",
+  "created_at": "2026-05-11T05:44:11Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Verify with: RUSTDOCFLAGS=\"-W missing_docs\" cargo doc -p jmap-chat-client --no-deps --all-features\n\n86 warnings as of 2026-05-10. Likely includes the same module/sub-module pattern that was fixed for the other client crates in commit e704224 (//! conversion in methods/mod.rs and sub-module files), plus undocumented response struct fields. Mirror the fix from the other client crates.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.15.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "missing_docs sweep: jmap-chat-client (86 warnings)",
+  "updated_at": "2026-05-11T06:00:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T22:44:10Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b.15",
+      "id": "7d446326-3fd3-588e-bbd0-770c4124ad31",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

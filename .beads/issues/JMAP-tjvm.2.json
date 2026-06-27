@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in same commit as JMAP-tjvm.1 \u2014 both are the same shape, .1 (email_get) and .2 (email_parse) share crate-jmap-mail-client/src/methods/email.rs. Sweep covered 6 sites across 3 client crates (mail/calendars/filenode); see bd:JMAP-tjvm.1 close comment for full detail.",
+  "closed_at": "2026-05-17T12:53:50Z",
+  "compaction_level": 0,
+  "content_hash": "f0e6c3ed4d744b937203fe455565f8e4471b38fbffb580f4c5ed06a48e1fc9d3",
+  "created_at": "2026-05-15T01:44:45Z",
+  "created_by": "Mark Atwood",
+  "description": "Same shape as bd:JMAP-tjvm.1 but in src/methods/email.rs:314-325 for\n`email_parse`. The serialized EmailParseParams is iterate-merged into args\nAFTER the typed accountId/blobIds are set, so caller-controlled\n`params.extra` can silently clobber the wire arguments computed from the\nbound session and the typed `blob_ids` slice.\n\nTrigger: caller puts `{\"accountId\": \"victim\"}` (or `\"blobIds\"`, `\"properties\"`)\ninto params.extra. The `Email/parse` request goes out with the wrong account\nor blob set.\n\nFix: same as the email_get case \u2014 set typed fields after the merge or filter\nreserved keys.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "email_parse: EmailParseParams.extra can override accountId/blobIds",
+  "updated_at": "2026-05-17T12:53:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:44:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "09c26ff9-bea9-596d-995c-2aed2b2c65f7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

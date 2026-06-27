@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T07:55:25Z",
+  "compaction_level": 0,
+  "content_hash": "d457ab0e6ad23dbdbea98aa36a736d39900bc27bc520ab002155c888edfb1a83",
+  "created_at": "2026-05-10T21:56:36Z",
+  "created_by": "Mark Atwood",
+  "description": "**Greenfield reference implementation.** Write a fresh `memory::MemoryBackend` for `jmap-contacts-server` from scratch, following the canonical pattern landed by .1 (mail-server).\n\nThis crate currently has no `tests/` directory at all. Implementation work, not refactor.\n\n## Mechanical steps\n\n1. Read the canonical pattern from .1 (jmap-mail-server's `src/memory.rs`).\n2. Read the `ContactsBackend` trait surface in `crate-jmap-contacts-server/src/`.\n3. Implement a minimal `MemoryBackend` covering every required trait method. `Arc<Mutex<MemoryState>>`, HashMap storage, hand-rolled change tracking.\n4. Add `feature = \"memory\"` to Cargo.toml. Gate `pub mod memory;` in lib.rs.\n5. Create `tests/common/mod.rs` (\u2264 200 LOC helpers) and `tests/contacts_tests.rs` with 4-8 happy-path tests + 2-4 error-path tests.\n6. Add `[dev-dependencies] jmap-contacts-server = { workspace = true, features = [\"memory\"] }`.\n7. Use RFC 9610 / JMAP Contacts draft examples as test oracle where possible. Hand-written JSON fixtures.\n\n## Test minimum\n\n- `AddressBook/get`, `AddressBook/changes`, `AddressBook/set`, `AddressBook/query`, `AddressBook/queryChanges` (5 tests)\n- `ContactCard/get`, `ContactCard/changes`, `ContactCard/set` (3 tests)\n- 2-4 error-path: invalidProperties, notFound, forbidden\n\nTotal: ~10-12 tests, ~400-600 LOC for tests file.\n\n## Coordination with architecture work\n\nThe architecture work in JMAP-sehw (create jmap-jscontact-types) and JMAP-lbdy is mostly API-preserving for contacts-server:\n- sehw: new typed sub-types in a new crate; contacts-types re-exports. contacts-server's view is unchanged.\n- lbdy: additive `extra` field on in-scope structs.\n\nRecommend: construct types via `serde_json::from_value` from JSON fixtures in this child's tests. Style is immune to additive type changes.\n\n## Acceptance\n\n- `cargo test -p jmap-contacts-server --features memory` clean \u2014 at least 8 tests pass.\n- `cargo test -p jmap-contacts-server` clean.\n- `cargo check -p jmap-contacts-server --no-default-features` clean.\n- `cargo clippy -p jmap-contacts-server --features memory --tests -- -D warnings` clean.\n- `cargo doc -p jmap-contacts-server --features memory --no-deps` clean.\n- Naming, layout, feature flag exactly match canonical (.1).\n- Total new LOC: 800-1500 (reference impl) + 400-700 (tests) \u2248 1200-2200 LOC.\n\n## Depends on\n\nJMAP-hwdv.1 (mail-server canonical).\n\n## Effort estimate\n\n1-3 days.\n",
+  "ephemeral": 0,
+  "id": "JMAP-hwdv.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Greenfield MemoryBackend + tests in jmap-contacts-server (mirror canonical)",
+  "updated_at": "2026-05-11T07:55:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T14:56:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-hwdv.1",
+      "id": "68194680-f1e5-5764-b8b0-2e4a46f4c285",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-10T14:56:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-hwdv",
+      "id": "6d29deb9-555e-5c4e-8268-d68f18196c71",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

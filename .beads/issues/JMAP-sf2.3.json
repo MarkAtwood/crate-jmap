@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-sf2.3",
+  "title": "onSuccessDestroyEmail not implemented in EmailSubmission/set",
+  "description": "RFC 8621 \u00a77.5 defines onSuccessDestroyEmail: Id[]|null alongside onSuccessUpdateEmail. The submission handler (submission.rs) reads and processes onSuccessUpdateEmail but entirely ignores onSuccessDestroyEmail. A client sending onSuccessDestroyEmail gets no error and no destroy happens \u2014 silent spec non-compliance.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:28:42Z",
+  "updated_at": "2026-05-01T02:41:00Z",
+  "closed_at": "2026-05-01T02:41:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sf2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:28:42"
+    }
+  ]
+}

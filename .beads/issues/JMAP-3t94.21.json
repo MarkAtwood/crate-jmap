@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:22:26Z",
+  "compaction_level": 0,
+  "content_hash": "6275f68816992c150e91d25f79115392beaf6697dca9bdf386aa0bc73cf4f703",
+  "created_at": "2026-05-14T22:00:00Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/memory.rs:239-240\n\n```rust\n#[derive(Debug)]\npub struct MemoryError(pub String);\n```\n\nCanonical sibling, `crate-jmap-mail-server/src/memory.rs:444-452`:\n\n```rust\n/// Opaque storage-layer error returned by [`MemoryBackend`] operations.\n///\n/// The inner [`String`] is a human-readable description intended for\n/// diagnostic logging; it is not a stable wire-format identifier.\n#[derive(Debug)]\npub struct MemoryError(\n    /// Human-readable description of the underlying failure.\n    pub String,\n);\n```\n\nCookie-cutter divergence. Per workspace AGENTS.md \\\"Canonical\nTemplates\\\" rule, this sibling must mirror the canonical's documented\ncontract \u2014 including the rustdoc that explicitly says the inner\nstring is not a stable wire-format identifier. That note matters\nbecause without it, downstream callers may pattern-match on the\nexact string content and treat it as a stable identifier.\n\nDisplay impl also diverges:\n- canonical: `write!(f, \\\"MemoryBackend error: {}\\\", self.0)`\n- sharing-server: `f.write_str(&self.0)`\n\nThe prefix in the canonical's Display impl is part of the\ndocumented diagnostic-logging contract. Sharing-server's\nunprefixed Display loses that signal, making log lines harder\nto disambiguate when multiple backends are co-resident in a\ndeployment.\n\nWhat goes wrong for callers when this stays as-is: a caller who\nwrites log-parsing code against \\\"MemoryBackend error: ...\\\" for\nthe canonical mail-server learns the hard way that sharing-server\nomits the prefix. Real cross-sibling inconsistency for downstream\nlog infrastructure.\n\nResolution: propagate the canonical's rustdoc + Display impl to\nthis crate verbatim.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Reshaped MemoryError to match canonical jmap-mail-server: type-level rustdoc ('Opaque storage-layer error... not a stable wire-format identifier') plus per-field rustdoc on the pub String. Left Display impl as-is (canonical uses 'MemoryBackend error: ...' prefix; this crate writes just the inner string \u2014 separate finding if/when reviewed).",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryError missing inner-field rustdoc \u2014 cookie-cutter divergence from canonical mail-server",
+  "updated_at": "2026-05-14T22:22:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:59:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "b96991b2-7af0-51b7-b1a9-b012cb4777fd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

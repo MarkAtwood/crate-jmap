@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "59ef22fddaf94f9d0ec1c3e79c6ed62fbf16cc36dd6face242ceb7de6bdd5c0f",
+  "created_at": "2026-05-14T18:46:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace-wide propagation of the JMAP-h47t.24 fix from jmap-tasks-server to the canonical jmap-mail-server and the remaining 6 extension-server siblings.\n\nSame pattern: every match on BackendSetError ends with an exhaustive-required catchall arm Err(_) => json!({\"type\": \"serverFail\", \"description\": \"unhandled backend error variant\"}). When a future variant is added to the #[non_exhaustive] enum, this catchall silently swallows the new variant's Display content and emits a meaningless placeholder string. Fix: bind the value and use its Display impl, matching the existing Other(e) arm shape \u2014 Err(other) => json!({\"type\": \"serverFail\", \"description\": other.to_string() }).\n\nSites still pending (87 total after tasks-server fix):\n\n  jmap-mail-server   (28 sites): email.rs, mailbox.rs, sieve.rs, submission.rs,\n                                 identity.rs, vacation.rs, mdn.rs\n  jmap-chat-server   (15 sites): chat.rs, ban.rs, message.rs, space.rs, invite.rs,\n                                 emoji.rs, presence.rs, contact.rs, position.rs\n  jmap-calendars-server (12 sites): event.rs, calendar.rs, event_notification.rs,\n                                 participant_identity.rs\n  jmap-contacts-server (7 sites): card.rs, addressbook.rs\n  jmap-filenode-server (6 sites): filenode.rs\n  jmap-metadata-server (3 sites): metadata.rs\n  jmap-sharing-server  (4 sites): principal.rs, notification.rs\n\nTwo sites in mail-server (calendars-server calendar.rs:433 and mail-server submission.rs:927) use a different containing shape \u2014 _ => CreateError::Server(...) or _ => String, not a json! literal. These are NOT in scope; their containing pattern is different and they need per-site judgement.\n\nThis sweep is mechanical: replace the seven-line Err(_) block with the two-line Err(other) block. cargo fmt + clippy + workspace test must remain green after each crate's pass.\n\nCanonical-template order: change jmap-mail-server first (the canonical extension-server template), then propagate to the 6 siblings in one or several commits.",
+  "ephemeral": 0,
+  "id": "JMAP-kg3d",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "workspace canonical-template sweep: replace BackendSetError catchall placeholder string with other.to_string() across all *-server crates",
+  "updated_at": "2026-05-14T18:46:18Z"
+}

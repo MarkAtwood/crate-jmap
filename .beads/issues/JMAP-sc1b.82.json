@@ -1,0 +1,33 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T15:26:37Z",
+  "compaction_level": 0,
+  "content_hash": "23c3f8c3fd56e182e24eaec33c47d2563419423a6851fb52cd1d891eb283419d",
+  "created_at": "2026-05-11T14:10:41Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Canonical reference (crate-jmap-mail-server/src/memory.rs:110-114) uses:\n\n    objects: HashMap<(&'static str, String), HashMap<Id, serde_json::Value>>,\n    states: HashMap<(&'static str, String), u64>,\n    change_log: HashMap<(&'static str, String), Vec<ChangeEntry>>,\n\nSix siblings still use HashMap<(String, String), _>:\n\n  crate-jmap-calendars-server/src/memory.rs:124-128\n  crate-jmap-chat-server/src/memory.rs:81-85\n  crate-jmap-contacts-server/src/memory.rs:115-119\n  crate-jmap-sharing-server/src/memory.rs:81-85\n  crate-jmap-tasks-server/src/memory.rs:121-125\n  (crate-jmap-filenode-server/src/memory.rs uses a different shape \u2014 not in scope)\n\nThe type_name comes from O::TYPE_NAME which is &'static str on the JmapObject trait. Every read site in the 6 siblings does type_name.to_owned() solely to fit the key shape \u2014 ~28 needless String allocations across the affected files (grep '.to_owned\\(\\), account_id\\.to_owned\\(\\)' confirms). Canonical mail-server got it right; the siblings drifted.\n\nWorkspace AGENTS.md 'Canonical Templates' makes this a propagation finding, not an opinion: per the rule, siblings cookie-cut from the canonical and any divergence is a regression of the cookie-cutter intent.\n\nWhy P2 (not P3): the canonical's chosen shape is a deliberate idiom improvement that the siblings missed; the propagation rule explicitly classifies this as a regression to fix; the fix is mechanical (sed s/HashMap<(String, String)/HashMap<(&'static str, String)/ and update get/entry sites to drop type_name.to_owned()).",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.82",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: MemoryBackend HashMap key type cookie-cutter drift \u2014 6 siblings use (String, String); canonical mail-server uses (&'static str, String)",
+  "updated_at": "2026-05-11T15:26:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:10:41Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "7a703fba-f1b4-5436-842c-39d600b2df4d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

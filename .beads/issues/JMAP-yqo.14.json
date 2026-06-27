@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:30Z",
+  "compaction_level": 0,
+  "content_hash": "7d65cf6a06097ce5ff33371f26a242a4d3cb682fad6a51566646a6e0d36166b7",
+  "created_at": "2026-05-02T02:55:44Z",
+  "created_by": "Mark Atwood",
+  "description": "When onDestroyRemoveEmails=true, the destroy loop issues query_objects + get_objects to find emails in the mailbox, then calls destroy_object or update_object for each email individually. N=1000 emails in a mailbox = 1002 backend calls. There is no batch destroy or batch update path in the MailBackend trait. The trait would need batch operations to fix this, which is a larger design change. Worth flagging because this is the hot path when a user deletes a folder with thousands of messages.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/set email cascade: 1 query + 1 fetch + N individual destroys/updates per mailbox",
+  "updated_at": "2026-05-02T03:22:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:55:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "b7243fe1-99ce-5f08-b610-d802fdd12673",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

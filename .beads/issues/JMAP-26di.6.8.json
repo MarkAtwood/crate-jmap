@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added tests/presence_status_smoke_tests.rs with 6 smoke tests: presence_status_get singleton-shape (ids:null wire form + USING_CHAT assertion for PresenceStatus/* family + populated record decode covering all three optionals), presence_status_update (patch with presence+statusText+receiptSharing serialises with camelCase keys and Patch::Keep fields absent + Patch::Clear expiresAt emits null + Patch::Set(&UTCDate) emits verbatim wire string), presence_status_changes (passthrough + empty since_state guard). All 6 pass; clippy -D warnings clean.",
+  "closed_at": "2026-05-16T01:54:02Z",
+  "compaction_level": 0,
+  "content_hash": "aba983a117087ff54a8f4ef356004163b7dccaa6bd88878f47c7964ac4ff2da8",
+  "created_at": "2026-05-16T01:48:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Add to tests/misc_smoke_tests.rs (or new file): presence_status_get (threads ids/properties), presence_status_update (patch serialization), presence_status_changes (passthrough + empty guard). Spec: draft-atwood-jmap-chat-00 \u00a7PresenceStatus. Uses USING_CHAT.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.6.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "PresenceStatus/* smoke tests: 3 methods, no coverage",
+  "updated_at": "2026-05-16T01:54:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T18:50:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "b1e44a57-1aec-5eab-b4e2-fb88aab5ccdc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

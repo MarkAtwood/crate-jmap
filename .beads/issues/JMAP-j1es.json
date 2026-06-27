@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "26a1c42f6437e2ed56de4727c7335378c26bf57de9995c8f355fe737e54cfe23",
+  "created_at": "2026-05-17T16:08:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Sibling-pattern propagation of the design defense landed at bd:JMAP-1rwf.7.\n\nPrincipalCalendarsCapability.account_id (crate-jmap-calendars-types/src/capability.rs:121) uses the same 'required-and-nullable' wire shape as CalendarAlert.recurrence_id \u2014 Option<Id> with no skip_serializing_if attribute, deliberately serializing as null when None. The current rustdoc says 'Required-and-nullable: always present on the wire, as null or an Id' but does NOT carry the 'do NOT add skip_serializing_if' maintainer-defense paragraph that CalendarAlert.recurrence_id now has.\n\nThe same anti-pattern hazard applies: a clippy clean-up or consistency PR could trivially propose adding skip_serializing_if, silently breaking the wire contract.\n\nAcceptance:\n  - Add the maintainer-defense paragraph to PrincipalCalendarsCapability.account_id rustdoc, naming the regression test that pins the null-serialization (grep crate for that test if one exists; if not, file a follow-up bead).\n  - Cross-reference bd:JMAP-1rwf.7 as the precedent.\n\nOut of scope: searching the workspace for OTHER required-and-nullable Option<T> fields. If a sibling crate has the same pattern, file separate beads.",
+  "ephemeral": 0,
+  "id": "JMAP-j1es",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "calendars-types: extend required-and-nullable defense to PrincipalCalendarsCapability.account_id",
+  "updated_at": "2026-05-17T16:08:16Z"
+}

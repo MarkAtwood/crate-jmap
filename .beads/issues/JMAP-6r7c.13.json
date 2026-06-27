@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in 55f6c89. Replaced derive(Debug) on CustomCaTransport with manual impl printing 'CustomCaTransport { der_cert: <NN bytes> }'. Mirrors BearerAuth/BasicAuth/Session/AccountInfo redacting Debug pattern. Added Debug-redaction canary test (workspace Pattern 1) asserting 32-byte 0xCA sentinel does not leak via lowercase-hex, uppercase-hex, or decimal-byte rendering; positive assertion that length annotation is present. No-op SemVer-wise \u2014 Debug output text is not API.",
+  "closed_at": "2026-05-17T11:18:27Z",
+  "compaction_level": 0,
+  "content_hash": "3572cbf2843621b181f49758f123dd52fb24fb1f5d44a16ca5ea8915c3355b94",
+  "created_at": "2026-05-14T23:10:12Z",
+  "created_by": "Mark Atwood",
+  "description": "auth.rs:62-64:\n\n    #[derive(Debug, Clone)]\n    pub struct CustomCaTransport {\n        der_cert: Vec<u8>,\n    }\n\nA DER-encoded CA certificate is not a private key, so this is not a credential-leak in the strict sense \u2014 but it is deployment-identifying material. The byte sequence uniquely identifies the deployment's PKI: its Subject DN, public key, signing algorithm, validity window, and any X.509 extensions. In federated/multi-tenant scenarios, leaking the byte sequence in logs reveals which private-CA-using customer the client is configured to talk to.\n\nThe derived Debug prints the full Vec<u8>, which for a typical 2048-bit RSA CA cert is around 1 KB of base16-like hex output \u2014 actionable to a log-reader who can decode it.\n\nWorkspace pattern (auth.rs:183-188 for BearerAuth, 233-238 for BasicAuth, request.rs:212-227 for Session) handles similar cases with manual redacting Debug. CustomCaTransport is the outlier.\n\nSeverity: low. The DER bytes are not a credential. The risk profile is 'a sysadmin tailing application logs learns which deployment this client is configured for', which is fine in most cases but matters in compartmentalised multi-tenant setups.\n\nFix: manual Debug impl that prints CustomCaTransport { der_cert: <NN bytes> } where NN is der_cert.len(). One-line change, matches the cookie-cutter pattern of the other Debug-redacting types in this file.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CustomCaTransport.der_cert derives Debug, prints raw byte vector for deployment-identifying material",
+  "updated_at": "2026-05-17T11:18:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:10:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "bba117c9-fd33-58ff-8590-b1060fc8f2fa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:15:22Z",
+  "compaction_level": 0,
+  "content_hash": "3d5b5a413e792fb266bd113817970362d748a5b8a0f7fb2c7ee673b9215b8d84",
+  "created_at": "2026-05-02T03:56:36Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/src/chat.rs, message.rs, space.rs, ban.rs, contact.rs, emoji.rs, presence.rs, position.rs, invite.rs: all call 'serde_json::to_value(&set_err).unwrap_or_else(|e| json!(...))' inline for every notCreated/notUpdated/notDestroyed entry. crate-jmap-mail-server/src/helpers.rs extracted this pattern into a 'set_error_value' helper and uses it everywhere. The chat-server crate has its own helpers.rs but it does not export this helper. The repeated inline pattern is a DRY violation that will drift. The chat-server should add an equivalent helper, as the mail-server did.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat-server /set handlers: serde_json::to_value(&set_err).unwrap_or_else vs mail-server set_error_value helper",
+  "updated_at": "2026-05-02T04:15:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:56:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "d982aaf9-769b-52a9-937a-6716c8453658",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

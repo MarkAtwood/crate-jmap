@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "No action needed. This bead documents that the current Clearable<T> + Option<Clearable<T>> + some_clearable factoring is correct for JMAP /set tri-state patch semantics (absent / null / set). The bead's primary value is as a tripwire for future contributors who might propose Option<Option<T>>, plain T with default+deserialize_with, or adding #[non_exhaustive] to Clearable (which would break exhaustive matching). The factoring is already explicitly documented in clearable.rs:32. Keeping the bead's reasoning preserved in the close comment.",
+  "closed_at": "2026-05-16T03:28:25Z",
+  "compaction_level": 0,
+  "content_hash": "18c501c3fca41c615d91bca67b5abf9ec34a339ac3ab9e07443113d73df87d29",
+  "created_at": "2026-05-16T02:39:46Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this is correct: JMAP /set update operations have three patch-field states per nullable field: absent (leave unchanged), present-as-null (clear), present-with-value (set). A na\u00efve Option<Option<T>> deserialize collapses absent and null to the same None. The na\u00efve fix (custom Deserialize on each field) is verbose and fails to compose.\n\nThe current approach (crate-jmap-chat-types/src/clearable.rs):\n- Clearable<T> as a two-variant enum (Clear / Set(T)) \u2014 deliberately NOT #[non_exhaustive] because exhaustive match-ability is the whole point.\n- Field shape: #[serde(default, skip_serializing_if = Option::is_none, deserialize_with = some_clearable)] pub field: Option<Clearable<T>>.\n- some_clearable wraps the inner Deserialize in Some so absent (caught by default) stays None while present (including null) goes through Clearable's own deserialize.\n- Serialize: Clearable::Clear \u2192 serialize_none \u2192 null; Clearable::Set(v) \u2192 v. The wrapping Option handles 'skip when None'.\n\nWhat a future contributor might incorrectly suggest changing:\n- 'Use #[serde(default, deserialize_with)] on a plain T?' \u2014 loses the null-vs-absent distinction.\n- 'Use Option<Option<T>>?' \u2014 loses the null-vs-absent distinction in the deserialize layer; serde collapses them.\n- 'Add #[non_exhaustive] to Clearable for consistency with the rest of the crate?' \u2014 breaks exhaustive matching, which is the entire point of this helper. Already correctly documented in clearable.rs:32 with 'Not #[non_exhaustive] \u2014 callers must be able to match exhaustively on Clear / Set.'\n- 'Inline the deserialize_with closure instead of factoring out some_clearable?' \u2014 sprays the same trick across 5+ patch struct fields, all of which need #[allow(dead_code)] for the rustc tracking issue.\n\nThe three-piece factoring is the minimum needed to make patch fields ergonomic and the wire semantics exact. Preserve.",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Clearable<T> + Option<Clearable<T>> + some_clearable helper: the right shape for tri-state patch semantics",
+  "updated_at": "2026-05-16T03:28:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:39:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "d5f165e6-4da0-5a67-a816-6386151136c9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

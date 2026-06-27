@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Resolved as Path B (document why) per the bead's own 'if unchanged, document why in the rustdoc' instruction. Path A (HashMap<Id, _>) would require either accepting non-deterministic JSON output (breaks snapshot tests) or adding Ord to Id in jmap-types (workspace-wide canonical-template propagation pass). The runtime duplicate-accountId check is small, shared via build_chat_push_map, and unit-tested. Rustdoc on PushSubscriptionCreateInput.chat_push explains the trade-off.",
+  "closed_at": "2026-05-17T17:37:27Z",
+  "compaction_level": 0,
+  "content_hash": "6eef4ea0f8d44d567aceeaa4ebca474d0689d7fde8cce20078493dbb4d42084e",
+  "created_at": "2026-05-15T20:28:49Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:1163-1180. chat_push: Option<&'a [(&'a Id, jmap_chat_types::ChatPushConfig)]>. The wire format is a JSON object mapping accountId \u2192 ChatPushConfig; the slice-of-tuple shape forces callers to construct Vec<(Id, ChatPushConfig)> first, and makes the runtime duplicate-accountId check in misc.rs:230-240 necessary. A &HashMap<Id, ChatPushConfig> or a dedicated newtype would eliminate the runtime check. Trade-off: requires &HashMap argument lifetimes to work; not all callers may have one ready. Consider whether the ergonomic loss outweighs the type-safety win. If unchanged, document why in the rustdoc.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "PushSubscriptionCreateInput.chat_push uses tuple slice instead of HashMap",
+  "updated_at": "2026-05-17T17:37:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:28:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "b9526dc1-68ed-5c39-a074-066387bd5869",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

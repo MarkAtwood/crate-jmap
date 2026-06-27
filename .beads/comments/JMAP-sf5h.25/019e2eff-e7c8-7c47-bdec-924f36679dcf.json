@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T04:16:23Z",
+  "id": "019e2eff-e7c8-7c47-bdec-924f36679dcf",
+  "issue_id": "JMAP-sf5h.25",
+  "text": "Paired with bd:JMAP-sf5h.9 (decision-record on #[serde(try_from)] adapter). See .9 for the full rationale and recommendation. Resolving .25 forces a resolution on .9."
+}

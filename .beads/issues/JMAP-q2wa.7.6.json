@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "eb939bfafa86ef1440ffb010ef10cd66a9c31b3b8634fb33cd52f202936b31b9",
+  "created_at": "2026-05-15T07:04:43Z",
+  "created_by": "Mark Atwood",
+  "description": "Apply these jmap-mail-server P0/P1 patterns to crate-jmap-sharing-server: (1) Pattern G silent-fallback: grep for serde_json::to_value(...).unwrap_or(Value::Null) and serde_json::to_value(f).ok().and_then(|v| serde_json::from_value(v).ok()) \u2014 replace with .expect(\"derive(Serialize) on plain data is infallible\") pairs citing why the roundtrip is infallible. (2) server_fail_from_backend sweep miss: grep for JmapError::server_fail(e.to_string()) and equivalent .to_string() interpolation \u2014 route through server_fail_from_backend(&e). (3) Silent-drop non-string property: audit any build_X_from_props equivalents for if let Some(s) = v.as_str() {} else (silent ignore) \u2014 replace with explicit match arms that return invalidProperties. (4) MemoryError forward-compat: if a public MemoryError tuple-struct with pub String exists, reshape to #[non_exhaustive] named-field + ::new + ::description. (5) SeedData forward-compat: if a public SeedData-like fixture struct exists without #[non_exhaustive], add it + Default + ::new. (6) supports_type doc rewrite: if the supports_type trait doc has 'NOT called internally' or omits the in-scope types list, rewrite to match the new mail-server doc. References: bd:JMAP-q2wa.1, .2, .3, .4, .14, .15, .16, .18. Commits: 84bcb9b, b3059e4, b9d8808, 215ad30, 0bc3ec3, 2941c50, cb7915e, 18531e5.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.7.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Sibling sweep: jmap-sharing-server P0/P1 propagation from JMAP-q2wa",
+  "updated_at": "2026-05-15T07:04:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T00:04:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa.7",
+      "id": "4f8bf106-1628-5087-9e0e-9b2d94f994f5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

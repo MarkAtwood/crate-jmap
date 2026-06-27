@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "AddressBook/set onDestroyRemoveContents cascade now implemented: queries contained cards, destroys cards in only this book and patches addressBookIds for shared cards. 4 new integration tests cover exclusive/shared/mixed/empty-book scenarios end-to-end via MemoryBackend. Cascade failure rejects the book destroy (notDestroyed serverFail) rather than leaving orphaned cards. Implementation in commit a8ef332.",
+  "closed_at": "2026-05-15T09:57:03Z",
+  "compaction_level": 0,
+  "content_hash": "e14893be4cfc791d017cd08377ac7ea15df35b74e7ea409e8dd775910a2c3858",
+  "created_at": "2026-05-14T19:19:29Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: AddressBook/set destroy [book_id] with onDestroyRemoveContents: true on a book containing ContactCards.\n\nBad behavior: per RFC 9610 \u00a72.3, the server MUST remove the AddressBookId from every ContactCard in the book, and destroy any ContactCard that ends up with zero AddressBookIds. The handler in addressbook.rs (lines 263-277) only bypasses the address_book_has_contents check and then calls backend.destroy_object::<AddressBook>(...). MemoryBackend.destroy_object (memory.rs:704-736) just removes the AddressBook entry and recomputes the derived index. No ContactCard mutation happens.\n\nConcrete trace:\n 1. Seed AddressBook ab1 and ContactCard card1 with addressBookIds: {ab1: true}.\n 2. AddressBook/set destroy: [ab1] with onDestroyRemoveContents: true.\n 3. After: ab1 is gone. card1 still exists with addressBookIds: {ab1: true} pointing at a now-nonexistent book.\n 4. ContactCard.addressBookIds invariant (\u00a73) says 'A card MUST belong to at least one AddressBook at all times'. We just violated that invariant silently.\n\nREADME \u00a7AddressBook/set \u2014 onDestroyRemoveContents cascade explicitly documents the cascade behavior. The implementation does not match the documentation. Either (a) the cascade must be implemented in handle_address_book_set (and MemoryBackend), or (b) the README and handler doc-comment must be retracted and the spec compliance gap called out loudly.\n\nTest gap: tests/contacts_tests.rs has no cascade test; src/addressbook.rs::set_destroy_with_on_destroy_remove_contents_true_proceeds asserts only that the contents check is bypassed (notDestroyed['ab-nonempty']['type'] != 'addressBookHasContents'), and that assertion succeeds vacuously because the mock backend returns notFound for the destroy. A real cascade test would seed the book and the card, run /set with onDestroyRemoveContents: true, and assert the card was either updated (removed from addressBookIds) or destroyed.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AddressBook/set onDestroyRemoveContents:true is a silent no-op cascade \u2014 README claims behavior the code does not implement",
+  "updated_at": "2026-05-15T09:57:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:19:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "e11220d0-ca02-5163-8ec6-667db9172c18",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

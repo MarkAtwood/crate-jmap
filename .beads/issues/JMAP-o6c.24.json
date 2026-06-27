@@ -1,0 +1,33 @@
+{
+  "close_reason": "Structural constraint: in-process filter requires full mailbox fetch; no way to push filter to backend without a new trait method.",
+  "closed_at": "2026-05-02T03:40:11Z",
+  "compaction_level": 0,
+  "content_hash": "e69b51ab6c2efb53fccfb7e41a4d1213885d7aa1f7acf64f90df73259e595354",
+  "created_at": "2026-05-02T03:26:14Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs handle_mailbox_query: the handler calls get_objects::<Mailbox>(None) to load all mailboxes, then filters in-process. For accounts with thousands of mailboxes this is O(n) in data loaded. The handler cannot push filter predicates to the backend because the filter is applied in-process. This is documented but the design means a backend with 10K mailboxes loads all 10K per query. The MailBackend::query_objects interface does accept a filter, so the handler could call query_objects::<Mailbox> and let the backend filter. The in-process approach was chosen because the backend impl may not support Mailbox filtering, but this could be made opt-in via a capability method (similar to can_calculate_mailbox_query_changes).",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox/query always fetches all mailboxes O(n) before filtering",
+  "updated_at": "2026-05-02T03:40:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:26:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "970827f0-86ff-50ee-bf4c-3afc184f34cf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

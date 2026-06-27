@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in commit 5a11ac0. TasksBackend::compute_task_utc_times renamed to compute_utc_times, args (caller, account_id) added, return type changed sync tuple \u2192 impl Future + Send. Regression test compute_utc_times_receives_validated_account_id added. cargo fmt / clippy --workspace -D warnings / test --workspace / doc -D warnings all green. The naming alignment opportunity mentioned in the bead body was taken (calendars-canonical name).",
+  "closed_at": "2026-05-18T05:09:36Z",
+  "compaction_level": 0,
+  "content_hash": "0b18f59cbd0a5a01d457ba7a75a97efc3bffd7f082575bf4dae746acbb90ba89",
+  "created_at": "2026-05-17T23:32:37Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence**: same semantic ('project local time + tz hint into UTC, return (start, end)-or-(None, None)'), two different argument sets.\n\n- CalendarsBackend::compute_utc_times (crate-jmap-calendars-server/src/backend.rs:445):\n    fn compute_utc_times(&self, caller: &Self::CallerCtx, account_id: &Id, event: &CalendarEvent, tz_hint: Option<&str>) -> Result<(Option<UTCDate>, Option<UTCDate>), ...>\n- TasksBackend::compute_task_utc_times (crate-jmap-tasks-server/src/backend.rs:325):\n    fn compute_task_utc_times(&self, task: &Task, tz_hint: Option<&str>) -> Result<(Option<UTCDate>, Option<UTCDate>), ...>\n\n**Caller-observable effect**: a backend that wants to vary UTC computation per caller \u2014 e.g. resolve a per-user default tz when `tz_hint` is `None` from the calling user's preferences, not from a global default \u2014 works in calendars and is structurally impossible in tasks without a trait-shape break. This is workspace AGENTS.md 'Backend caps and limits' policy applied to a non-caps method: plumb `caller, account_id` even when the default ignores them.\n\n**Outlier**: tasks-server. Calendars-server is the more future-proof shape and is consistent with the workspace policy precedent (caller/account threaded into every method that *might* one day need to vary per caller, even if the reference impl ignores them).\n\n**Fix**: extend `TasksBackend::compute_task_utc_times` signature to take `caller: &Self::CallerCtx, account_id: &Id` in front, like the calendars version. Default impl can still ignore them (`let _ = (caller, account_id);`). Breaking change to TasksBackend trait; pre-1.0 so acceptable. The handler call site in tasks-server passes them already (the dispatcher has them).\n\n**Naming alignment opportunity**: the calendars version is `compute_utc_times` (no spec-object prefix); the tasks version is `compute_task_utc_times` (with prefix). Since the methods live on object-specific traits (`CalendarsBackend`, `TasksBackend`), the prefix is redundant. Calendars's name is canonical. Either rename tasks to `compute_utc_times` (also breaking) or document the prefix as an intentional convention. Same change touches both consistency axes.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "calendars-server / tasks-server: compute_utc_times signature divergence (calendars takes caller/account; tasks does not)",
+  "updated_at": "2026-05-18T05:09:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T16:32:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "4b66e79a-e00c-58c4-82e5-6ba293095bb2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

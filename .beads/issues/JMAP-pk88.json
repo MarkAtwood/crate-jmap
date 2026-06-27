@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "90a9b8bed48d54b681181708f7a366b2d835ddfe0edf2cc33efd33eca064eff3",
+  "created_at": "2026-05-15T08:49:03Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace-wide pattern: every extension-server MemoryBackend has many `std::sync::Mutex::lock().unwrap()` sites without a documented panic policy. Workspace AGENTS.md says 'No `.unwrap()` or `.expect()` in library code \u2014 propagate errors with ?', but Mutex::lock returning PoisonError only on prior-thread-panic-with-guard-held is the canonical implicit exception in std-library Rust. The current bare `.unwrap()` at every call site is what downstream contributors will copy from these 'reference implementations' without thinking about the policy.\n\nSite counts (cargo grep, 2026-05-15):\n- jmap-mail-server (CANONICAL): 31 sites of .lock().unwrap() in src/memory.rs; 3 sparse 'test only: mutex is never poisoned in tests' comments at lines 2438/2543/2682; no module-level policy.\n- jmap-metadata-server: ~23 sites across src/memory.rs and src/lib.rs (per bd:JMAP-826m.48); no policy comment.\n- Other 6 extension-server siblings (chat/calendars/tasks/contacts/filenode/sharing): unaudited, expected similar.\n\nApproach options:\n(a) Add a single module-level rustdoc paragraph in mail-server's src/memory.rs explaining the policy ('Mutex::lock unwrap is intentional: poisoning indicates a prior-thread panic-with-guard-held, which is a programmer bug under #[forbid(unsafe_code)]. Tests in this crate never trigger it; a production backend that wants graceful poison handling should re-implement the trait with non-bare-unwrap locking.'). Propagate the same paragraph to all 7 siblings.\n(b) Introduce a private `fn lock_state(&self) -> MutexGuard<'_, Inner>` helper in each MemoryBackend; document the policy once at the helper; replace all bare .lock().unwrap() sites with the helper. Same propagation across 7 siblings.\n(c) Convert all bare .unwrap() to .expect('Mutex poisoned \u2014 prior thread panicked with guard held') with a stable greppable string. Per-site cost but per-panic discoverability.\n\nRecommendation: (a). Cheapest, signals policy without churn, leaves the call sites readable. (b) reads cleaner but a sweep of 31+23+6\u00d7~20 \u2248 180 sites for a no-behavior-change refactor is harder to justify than the module-level paragraph. (c) is fine in principle but verbose.\n\nPer the workspace AGENTS.md canonical-template propagation rule, this MUST start at jmap-mail-server and propagate to all 7 extension-server siblings in the same pass (or a follow-up sweep bead before merging).\n\nDiscovered while triaging bd:JMAP-826m.48; closing that sibling-scoped bead in favor of this workspace-scoped one.",
+  "ephemeral": 0,
+  "id": "JMAP-pk88",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace-canonical-first: document Mutex lock-unwrap panic policy in MemoryBackend (jmap-mail-server canonical, propagate to 7 siblings)",
+  "updated_at": "2026-05-15T08:49:03Z"
+}

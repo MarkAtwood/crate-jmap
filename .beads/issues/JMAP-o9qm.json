@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "269692fd2177da3d184ad5ef884ed6b7ce12bbf8aa47c9050dfdac61bcd11b33",
+  "created_at": "2026-05-17T11:49:34Z",
+  "created_by": "Mark Atwood",
+  "description": "Running 'cargo clippy --workspace --all-targets -- -D warnings' from the workspace root fails at:\n\n  error: very complex type used. Consider factoring parts into 'type' definitions\n   --> crate-jmap-jscontact-types/src/lib.rs:1735:20\n\nThe line:\n  let cases: &[(&str, serde_json::Value, fn(&AnniversaryDate) -> bool)] = &[...];\n\nTwo clean options:\n1. Add 'type AnniversaryDispatchCase = (&'static str, serde_json::Value, fn(&AnniversaryDate) -> bool);' just above the test fn and rebind 'let cases: &[AnniversaryDispatchCase] = &[ ... ];'. Pure refactor; no test behavior change.\n2. Add '#[allow(clippy::type_complexity)]' on the test fn with a one-line rationale comment.\n\nOption 1 is preferred per workspace style. Affects only the one test fn.\n\nFiled from JMAP-6r7c review-loop session: noticed in passing while running workspace-wide clippy after closing out JMAP-6r7c.38. Out of scope for the base-client review epic but should not stay in the workspace clippy frontier indefinitely.",
+  "ephemeral": 0,
+  "id": "JMAP-o9qm",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "cargo clippy --workspace -- -D warnings fails on jmap-jscontact-types test type_complexity",
+  "updated_at": "2026-05-17T11:49:34Z"
+}

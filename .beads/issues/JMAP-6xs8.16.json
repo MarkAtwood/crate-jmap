@@ -1,0 +1,33 @@
+{
+  "close_reason": "Ratified \u2014 commendation finding, no action item. ChangesResponse.updated_properties carries the explicit 'which extensions populate this' doc-comment + the test changes_response_omits_updated_properties_when_none pins the byte-clean wire shape. bd:JMAP-6xs8.5 (closed) expanded the doc with the explicit architectural-decision rationale (foundation-coupling trade-off + cautionary precedent). The bead's 'defend against the separately-filed suggestion to move the field off the base type' concern is now backstopped by the JMAP-6xs8.5 rustdoc that names that exact alternative and rejects it.",
+  "closed_at": "2026-05-17T16:57:42Z",
+  "compaction_level": 0,
+  "content_hash": "65a07278d6faba9f331f68be8999d526a6e761b15030df3ac4bf06d0366d53ac",
+  "created_at": "2026-05-15T05:35:49Z",
+  "created_by": "Mark Atwood",
+  "description": "ChangesResponse.updated_properties (commit 52a3704) lists exactly which extensions populate it (RFC 8621 \u00a72.2 Mailbox/changes, RFC 9425 \u00a75 Quota/changes) and explicitly notes \\\"For all other /changes methods the field is absent on the wire and None here.\\\" This prevents the future-contributor question \\\"why is this field always None for my extension?\\\" by answering it inline. The associated test `changes_response_omits_updated_properties_when_none` proves the serialized wire output is byte-clean when the field is None. Defend against the (separately-filed) suggestion to move the field off the base type \u2014 if it stays on the base type, the doc-comment is the right way to keep it from becoming a foot-cannon.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "updated_properties carries explicit doc-comment about extension-only semantics",
+  "updated_at": "2026-05-17T16:57:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:35:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "abbac5a8-a333-5abb-b4fd-796fb87e9dbc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

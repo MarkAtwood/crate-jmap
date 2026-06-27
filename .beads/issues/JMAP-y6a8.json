@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "cfeb4b634dc22eb1b8ef12bc7ea6fae286ba0eb80ffe1e0f3923725867825655",
+  "created_at": "2026-05-17T16:03:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Sibling propagation of the fix from bd:JMAP-1rwf.2 (the calendars-types alias).\n\nTwo type crates carry the same anti-pattern:\n\n  - crate-jmap-tasks-types/src/lib.rs:45 \u2014 'pub use jmap_jscalendar_types as jscalendar;'\n  - crate-jmap-contacts-types/src/lib.rs:114 \u2014 'pub use jmap_jscontact_types as jscontact;'\n\nBoth re-export the entire upstream crate under a nested module path that consumers may import via (e.g. 'jmap_tasks_types::jscalendar::*' or 'jmap_contacts_types::jscontact::*'). Any future addition to jmap-jscalendar-types or jmap-jscontact-types silently widens these crates' public surfaces without an intentional decision.\n\nApply the same fix landed at bd:JMAP-1rwf.2: replace the 'pub use X as Y;' alias with 'pub mod Y { pub use X::{... explicit list ...}; }' where the explicit list is exactly the names already in the top-level re-export below (line ~60 in each crate). The legacy nested path stays working; future additions to the upstream crate require an intentional decision in both the alias module and the top-level re-export.\n\nThis is not a canonical-template propagation (jmap-mail-types is the canonical for extension-types and has no equivalent JS* alias). It is a per-crate fix to the two crates that copied the calendars-types pattern.\n\nAcceptance:\n  - crate-jmap-tasks-types/src/lib.rs: 'pub use jmap_jscalendar_types as jscalendar' replaced with explicit re-export module.\n  - crate-jmap-contacts-types/src/lib.rs: 'pub use jmap_jscontact_types as jscontact' replaced with explicit re-export module.\n  - Workspace cargo test green, cargo clippy --workspace -- -D warnings green, RUSTDOCFLAGS='-D warnings' cargo doc green.\n  - No public-API break: existing 'jmap_tasks_types::jscalendar::Location' and 'jmap_contacts_types::jscontact::Name' paths still resolve.",
+  "ephemeral": 0,
+  "id": "JMAP-y6a8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "tasks-types + contacts-types: same uncontrolled-public-surface alias pattern as calendars-types",
+  "updated_at": "2026-05-17T16:03:51Z"
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T01:06:17Z",
+  "compaction_level": 0,
+  "content_hash": "04239297d76d7a332dba150b897901f3ec1f2b4821274a3048dca02a3e4e5a47",
+  "created_at": "2026-05-02T00:59:28Z",
+  "created_by": "Mark Atwood",
+  "description": "Second-pass review of round-1 fixes complete. No new bugs or regressions introduced by the 26 round-1 fixes. Three minor gaps filed as P2 children:\\n- JMAP-sz1.1.2: missing test for failed create + onSuccessUpdateEmail guard\\n- JMAP-sz1.1.3: Mailbox/set destroy silently skips non-string (pre-existing, not fixed in round-1)\\n- JMAP-sz1.1.4: no tests for Email/set and EmailSubmission/set destroy non-string invalidArguments guard\\n\\nAll 8 key areas checked: sendAt=now (OK), onSuccess creation ref guard (OK by construction), truncation (OK), TOCTOU mutex (OK - no async in lock), blob_exists default (OK - MemoryBackend overrides), OnceLock HashSet (complete), header colon parsing (OK - find(':') is correct for RFC 5322), destroy invalidArguments (correct per RFC 8620 \u00a73.6.2).",
+  "ephemeral": 0,
+  "id": "JMAP-sz1.1.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "R2 review complete: 3 minor gaps found, no regressions",
+  "updated_at": "2026-05-02T01:06:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:59:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sz1.1",
+      "id": "e83d9f9f-5450-5183-bcfe-46e8ff881fd3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

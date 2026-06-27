@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-y4j",
+  "title": "jmap-client: implement request.rs (JmapRequestBuilder)",
+  "description": "Implement crate-jmap-client/src/request.rs by extracting JmapRequestBuilder and AccountInfo from crate-jmapchat-client/src/jmap.rs, dropping all type definitions that duplicate jmap-types, and including only the base RFC 8620 Session fields (no Chat-extension fields).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-29T23:30:59Z",
+  "updated_at": "2026-04-29T23:58:30Z",
+  "closed_at": "2026-04-29T23:58:30Z",
+  "design": "jmapchat-client/src/jmap.rs redefines Id, UTCDate, JmapRequest, JmapResponse, Invocation, ResultReference, Session from scratch \u2014 all now come from jmap-types, delete them. Keep: JmapRequestBuilder (with add_call method updated for Invocation tuple shape), AccountInfo. Session struct: include only RFC 8620 \u00a72 fields: capabilities (map of capability URN \u2192 object), accounts (map of accountId \u2192 AccountInfo), primaryAccounts (map of capability URN \u2192 accountId), username, apiUrl, uploadUrl, downloadUrl, eventSourceUrl, state. DO NOT include any jmap-chat extension fields \u2014 those belong in jmap-chat-client's AccountInfo extension or a separate ChatSession wrapper. Capability structs: keep only WebSocketCapability (RFC 8887). ChatCapability and any jmap-chat-specific capability structs move to jmap-chat-types or jmap-chat-client.",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3g1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:38"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.2",
+  "title": "download_blob: empty {type} expansion not documented at call site",
+  "description": "blob.rs download_blob: The comment on the accept_type parameter says 'templates that include ?accept={type} produce ?accept= when accept_type is None' and claims 'if the server does not tolerate an empty ?accept= query parameter, the server should omit {type} from the download_url template'. The logic is correct, but the template expansion silently emits a syntactically valid but semantically empty query parameter. RFC 6570 \u00a72.4.1 specifies that an undefined variable produces an empty string in Level-1 expansion \u2014 that matches. However, the function signature takes Option<&str> and unwraps with unwrap_or(\"\"), so a caller passing None gets a different URL than if they had never passed the type at all. This is not a bug in the code's own spec, but the behaviour diverges from what a developer would expect when they see accept_type: Option<&str>: they expect None to mean 'omit this query parameter entirely', not 'emit an empty value'. This will trigger 400 errors from strict servers and will generate recurring support issues. The parameter should either produce no substitution when None, or the doc comment must be more prominent at the function signature level.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:33:23Z",
+  "updated_at": "2026-04-30T01:42:45Z",
+  "closed_at": "2026-04-30T01:42:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:33:23"
+    }
+  ]
+}

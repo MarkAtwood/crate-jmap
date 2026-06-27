@@ -1,0 +1,33 @@
+{
+  "close_reason": "Added rust,no_run lib.rs Usage doc-tests to all 7 client crates following the tasks-client template. docs.rs landing pages now show a 'fetch_session + with_*_session + a list/get call' example consistently. All 25 workspace doc-tests pass; clippy/fmt clean.",
+  "closed_at": "2026-05-09T07:51:25Z",
+  "compaction_level": 0,
+  "content_hash": "5b426e0fe18e9af289782c650f0df60894e720bdd6a29dd1469af3487bd9e1dd",
+  "created_at": "2026-05-07T20:29:12Z",
+  "created_by": "Mark Atwood",
+  "description": "Inventory of lib.rs doc-tests in client crates:\n\n| Crate | Doc-test in lib.rs |\n|---|---|\n| jmap-tasks-client | 1 (rust,no_run) |\n| jmap-base-client | 0 |\n| jmap-calendars-client | 0 |\n| jmap-chat-client | 0 |\n| jmap-contacts-client | 0 |\n| jmap-filenode-client | 0 |\n| jmap-mail-client | 0 |\n| jmap-sharing-client | 0 |\n\nA `rust,no_run` example is the standard 'what does this crate do' greeting on docs.rs. tasks-client shows the pattern. Replicate to the other 7.\n\nLower priority because client crates without doc-tests still publish fine; the cost is discoverability on docs.rs.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: 7 of 8 client crates have no lib.rs doc-test (only tasks-client does)",
+  "updated_at": "2026-05-09T07:51:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "afd0acde-cfef-5a79-8d34-e0711ba261c6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

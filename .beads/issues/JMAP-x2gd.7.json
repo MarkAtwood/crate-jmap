@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit 3442ac2. Replaced UTCDate::from with UTCDate::new_validated at the two client-input sites (message.rs:357 sentAt, position.rs:166 lastReadAt). Malformed wire values now produce invalidProperties errors mirroring the existing senderExpiresAt / expiresAt patterns in the same crate. Two regression tests added with independent oracles. Out-of-scope follow-up: the bead also flagged that ReadPosition/set update accepts lastReadAt via the generic serde_json::from_value::<PatchObject> path where jmap-types::UTCDate's Deserialize impl uses From not new_validated; closing the deeper update-path exposure requires either patch-side validation in handlers or fixing the Deserialize impl in jmap-types. That is a broader workspace question and not addressed here.",
+  "closed_at": "2026-05-14T16:06:53Z",
+  "compaction_level": 0,
+  "content_hash": "d12fd2795597124ff80334a7ef61743bbed7615235ff189b8e3edd552303edd9",
+  "created_at": "2026-05-14T03:13:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Sites:\n- crate-jmap-chat-server/src/message.rs:354-363 (sentAt) \u2014 wraps client-supplied string via UTCDate::from(s), no validation.\n- crate-jmap-chat-server/src/message.rs:444 (received_at) \u2014 wraps server-side now_str (always valid; OK).\n- crate-jmap-chat-server/src/position.rs:163 (last_read_at) \u2014 wraps client-supplied string via UTCDate::from(at).\n- crate-jmap-chat-server/src/chat.rs:248, src/emoji.rs:351, src/ban.rs:142, src/space.rs:825 \u2014 all wrap now_utc_string() (server-side, always valid).\n\nThe exposure is on the two client-input sites: sentAt and lastReadAt. UTCDate::new_validated would reject malformed input; UTCDate::from accepts any string.\n\nSpec (RFC 8620 \u00a71.4 via jmap-types::id.rs:165): UTCDate must be exactly YYYY-MM-DDTHH:MM:SSZ (20 chars, Z-terminated, all numeric positions ASCII digits).\n\nConcrete failure modes:\n1. Stored malformed timestamp survives serialize/deserialize through jmap-chat-types::UTCDate's Deserialize impl (which uses From, not new_validated \u2014 confirmed by grep). Downstream clients receive nonsense.\n2. iso8601_before in helpers.rs slices on byte index &s[..19]; if the malformed string has a multi-byte UTF-8 char in the first 19 bytes (e.g. emoji, non-ASCII), the slice panics. Currently only space.rs:1321 and message.rs:408 call iso8601_before on UTCDate-derived strings (validated), so this panic is not reachable via those paths \u2014 but adding any future caller that calls iso8601_before on Message.sentAt or ReadPosition.lastReadAt re-opens it.\n3. Date comparison correctness: storing a non-UTC RFC 3339 timestamp like '2025-06-01T12:00:00-05:00' (20 chars but ending in offset rather than Z) bypasses some checks and would be lex-compared incorrectly with UTC timestamps.\n\nFix: replace UTCDate::from with UTCDate::new_validated at both sites, fall through to invalidProperties on failure (the senderExpiresAt site in message.rs:386 already does this \u2014 copy the pattern).\n\nThis is an inconsistency in the same crate: 4 sites use new_validated, 2 client-input sites use unchecked from.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Message/set + ReadPosition/set construct UTCDate from unvalidated client strings",
+  "updated_at": "2026-05-14T16:06:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:13:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "84b8afd2-3142-5ca1-87a6-9a80fa41f4d7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

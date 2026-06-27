@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T14:45:06Z",
+  "id": "019e3665-dc23-7be6-ac1f-5b4e4c9ff842",
+  "issue_id": "JMAP-sgrr.4",
+  "text": "Recommendation ratified after no human pushback in ~58 hours (committed 2026-05-15T03:51Z, ratified 2026-05-17T13Z): option (a) \u2014 DROP JsContactId entirely. Title.organization_id becomes Option<String>. Closes sgrr.13/.23/.25 as moot. Pre-publish; breaking-change cost is zero. De-labeling so the autonomous frontier can pick this up."
+}

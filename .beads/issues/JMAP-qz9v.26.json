@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already implemented. The pub use jmap_server::ClosureHandler at lib.rs:193 carries a Stability paragraph that exactly matches the bead's option (a) recommendation:\n\n> Stability: this re-export pins the major-version contract of jmap_server::ClosureHandler into this crate's public surface \u2014 a breaking change to that type upstream is a breaking change here. Consumers needing a closure handler adapter SHOULD prefer importing from jmap_server directly; the re-export is retained primarily for the in-crate macro and for backward-compatible spelling of the existing handler-registration pattern.\n\nThe bead's options (b) wrap-in-newtype and (c) doc(hidden) are workspace-wide reshapes that touch every extension-server sibling under the canonical-template propagation rule. Either is filed-when-pursued, not blocked by this contacts-server-scoped bead.",
+  "closed_at": "2026-05-18T03:08:03Z",
+  "compaction_level": 0,
+  "content_hash": "740fe69f013481d0546863f488d90c8320903e6bce1e329a9800bec19fbd1ff4",
+  "created_at": "2026-05-14T19:31:08Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/src/lib.rs:137\n\n    pub use jmap_server::ClosureHandler;\n\nPROBLEM:\nRe-exporting an upstream type at the crate root makes that upstream\ntype part of THIS crate's public API. If jmap-server later renames\nClosureHandler, changes its generic parameters, or cuts a major-version\nbump (e.g., switching from `Box<dyn Future>` to `Pin<Box<dyn Future>>`\nin HandlerFuture), this crate's public API is broken too \u2014 even though\nnothing inside crate-jmap-contacts-server changed. Downstream consumers\nget a transitively-broken API, and crate-jmap-contacts-server is forced\nto cut a matching major-version bump to advertise the breakage.\n\nThe workspace AGENTS.md \"Conventions list\" reminds maintainers about\nexactly this category of risk:\n> \"Re-exports from upstream crates that lock the major version.\"\n\nWHAT CALLERS CANNOT DEPEND ON:\nThat this crate's public API stability is independent of jmap-server's\npublic API stability.\n\nASSESSMENT:\nClosureHandler is workspace-internal (jmap-server is a sibling, also\n0.x.y) so the version-skew risk is small in practice. But the precedent\nmatters: every extension-server sibling repeats this re-export, so\njmap-server is now de-facto part of the contracts of seven sibling\ncrates. A single ClosureHandler revision triggers seven major bumps.\n\nThe canonical sibling jmap-mail-server/src/lib.rs has the same\nre-export. Workspace canonical-template propagation rule applies.\n\nRECOMMENDED (any one of):\n(a) Document this as deliberate API surface that intentionally mirrors\n    jmap-server \u2014 add a `# Re-exports` doc-comment block noting the\n    coupling explicitly.\n(b) Wrap in a local newtype `pub struct ContactsClosureHandler<C>(...)`\n    that forwards to jmap_server::ClosureHandler internally; this\n    crate's API stays stable across upstream renames.\n(c) Move the re-export behind a sealed/`#[doc(hidden)]` path so\n    consumers cannot rely on it without explicit opt-in.\n\nThis is filed P3 because the coupling is intra-workspace and the\nbreakage risk is correlated (when jmap-server bumps, contacts-server\nwill bump anyway), but the contract implication is worth flagging now\nbefore the crate publishes to crates.io.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "pub use jmap_server::ClosureHandler \u2014 re-export locks this crate's API to upstream's major version",
+  "updated_at": "2026-05-18T03:08:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:31:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "a9dd7243-62b3-5d2e-afd3-90dd59c20e5f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

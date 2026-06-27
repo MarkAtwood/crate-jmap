@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:28:29Z",
+  "compaction_level": 0,
+  "content_hash": "d43c0d4180bcfc3a2d703b4f492d21980e80590541f3865745ffbd27011a0379",
+  "created_at": "2026-05-04T19:23:04Z",
+  "created_by": "Mark Atwood",
+  "description": "sieve.rs lines ~371 and ~418 use unwrap_or_else to insert a fake serverFail JSON value into the created/updated maps on serialization failure. Should propagate via ? as JmapError::server_fail like all other serialization sites in this codebase.",
+  "ephemeral": 0,
+  "id": "JMAP-w9hj.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve_set: unwrap_or_else on to_value silently corrupts created/updated map",
+  "updated_at": "2026-05-04T19:28:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T12:23:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w9hj",
+      "id": "eba728c1-5245-5f63-95f4-b0ac1495fefb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

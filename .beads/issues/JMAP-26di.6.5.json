@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added tests/space_ban_smoke_tests.rs with 5 smoke tests covering all 4 SpaceBan methods (get/changes/set:create/set:destroy). All 5 pass; clippy -D warnings clean.",
+  "closed_at": "2026-05-16T02:01:28Z",
+  "compaction_level": 0,
+  "content_hash": "8c9ac3d8f7e1b618fd78b1856dfd452db70c608731932d07b169e0d4d5348212",
+  "created_at": "2026-05-16T01:48:48Z",
+  "created_by": "Mark Atwood",
+  "description": "Create tests/space_ban_smoke_tests.rs covering: space_ban_get (omit ids/properties when None), space_ban_changes (passthrough + empty guard), space_ban_create (happy-path serialization), space_ban_destroy (threads ids, empty rejected). Spec: draft-atwood-jmap-chat-00 \u00a7SpaceBan.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.6.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SpaceBan/* smoke tests: 4 methods, no coverage",
+  "updated_at": "2026-05-16T02:01:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T18:50:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "08970287-f6c5-5b63-a40a-d24d18fbe801",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

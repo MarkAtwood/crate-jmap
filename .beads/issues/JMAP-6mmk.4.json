@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "Note recorded. No totalContacts in source.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Recorded in beads memory: contacts-10 has no totalContacts; added explicit note to PLAN.md; no total_contacts in source",
+  "closed_at": "2026-05-05T14:41:10Z",
+  "compaction_level": 0,
+  "content_hash": "7f0ce53bf0056333f6ae30781085ad7d4295478f280802a7f63a0f8b7a361ccd",
+  "created_at": "2026-05-05T02:51:28Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Document that totalContacts is NOT a field in draft-ietf-jmap-contacts-10 (the prior audit was wrong). Add a note to PLAN.md and bd remember.\n\n**Algorithm:**\n1. Run: bd remember \"contacts-10 AddressBook has no totalContacts field. The prior audit finding was incorrect. RFC 9553 is at ~/PROJECT/jmap-chat-spec/references/rfc9553.txt (4043 lines). addressBookIds on ContactCard correctly uses jmap_types::Id not String.\"\n2. Add a note to crate-jmap-contacts-types/PLAN.md AddressBook section: 'totalContacts is NOT a field in draft-ietf-jmap-contacts-10. Do not add it.'\n3. Run cargo test --workspace.\n\n**Acceptance criteria:**\n- PLAN.md contains explicit note about totalContacts.\n- No total_contacts field anywhere in the source.\n- cargo test --workspace exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-6mmk.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Record totalContacts non-gap; note RFC 9553 path in PLAN.md",
+  "updated_at": "2026-05-05T14:41:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:51:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6mmk",
+      "id": "e5ab4aac-5430-5042-8992-3fc617f09562",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

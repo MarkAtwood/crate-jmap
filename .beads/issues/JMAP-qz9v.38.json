@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "README \u00a7'ContactsBackend trait' code block updated to include caller: &Self::CallerCtx on every method, matching the source after the workspace CallerCtx refactor (514352c). Closing paragraph clarifies the relationship to Dispatcher::dispatch. Same staleness in canonical mail-server + other extension-server siblings tracked as workspace sweep at bd:JMAP-50yd. Implementation in commit 9fe2756.",
+  "closed_at": "2026-05-15T10:03:06Z",
+  "compaction_level": 0,
+  "content_hash": "f32d0509f55b494f4a006991b8291c1abe828a9f9d9d9883890ed030a1dae8e5",
+  "created_at": "2026-05-14T19:35:50Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/README.md:54-116\n\nCURRENT BLOCK (excerpt):\n    \\`\\`\\`rust\n    pub trait ContactsBackend: JmapBackend {\n        /// Create a new AddressBook or ContactCard.\n        fn create_object<O: SetObject + Send + Sync>(\n            &self,\n            account_id: &Id,\n            create_id: &str,\n            obj: O,\n        ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;\n        ...\n    }\n    \\`\\`\\`\n\nACTUAL SHAPE (crate-jmap-contacts-server/src/backend.rs:42-49):\n    fn create_object<O: SetObject + Send + Sync>(\n        &self,\n        caller: &Self::CallerCtx,     // \u2190 present in source, absent in README\n        account_id: &jmap_types::Id,\n        create_id: &str,\n        obj: O,\n    ) -> impl std::future::Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;\n\nEVERY METHOD IN THE README TRAIT BLOCK IS MISSING `caller`:\n- create_object (README:66 vs source:42)\n- update_object (README:77 vs source:59)\n- destroy_object (README:85 vs source:68)\n- copy_contact_card (README:99 vs source:87)\n- address_book_has_contents (README:110 vs source:105)\n\nPROBLEM:\nThe README is stale relative to the source. The CallerCtx threading\nlanded in commit 514352c (\"feat(server)!: thread CallerCtx through\nJmapBackend trait family\") on 2026-05-* \u2014 a workspace-wide change.\nThe README was not updated as part of that sweep.\n\nThe README is what consumers read on docs.rs and crates.io. A reader\nwho:\n1. Reads the README and writes `fn create_object(&self, account_id:\n   &Id, create_id: &str, obj: O) -> ...` will get a compile error\n   (\"method missing parameter\").\n2. Reads the README and concludes ContactsBackend does NOT receive a\n   caller context will make architectural decisions on that false\n   premise (e.g., \"I'll thread auth context through a thread-local\n   instead\").\n\nThe README \u00a7\"CallerCtx\" section at lines 202-222 DOES describe the\nmechanism correctly (\"forwards `caller: &B::CallerCtx` into every\nContactsBackend ... method call\"), so the documentation is internally\ninconsistent: the prose says caller is threaded, the trait block says\nit isn't.\n\nWHAT CALLERS CANNOT DEPEND ON:\n- That the trait signatures in the README match the trait source.\n- That the README and the prose-level \"CallerCtx\" description are\n  consistent.\n\nRECOMMENDED:\nUpdate README.md:54-116 to match crate-jmap-contacts-server/src/backend.rs\nverbatim \u2014 add `caller: &Self::CallerCtx` as the FIRST parameter on\nevery method. Make it a doctest-friendly block (`# use ...`-prefixed)\nthat compiles under `cargo test --doc`, so stale prose drift becomes a\nCI failure rather than a release-time discovery.\n\nP1 because (a) this is the primary trait-contract documentation and\n(b) the contradiction with the prose-level CallerCtx section will\nmislead new consumers definitively.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README \u00a7'ContactsBackend trait' code block omits caller: &Self::CallerCtx parameter on every method \u2014 stale post-CallerCtx refactor",
+  "updated_at": "2026-05-15T10:03:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:35:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "ea7da866-cc81-5d7a-92d5-969fc1d4d6bd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

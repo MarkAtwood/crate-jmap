@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-r7g",
+  "title": "Review Round 4: jmap-client final review",
+  "description": "Seven-agent review of jmap-client after JMAP-sev fixes. Check: (1) raw_buf 1 MiB cap correctness and edge cases, (2) push::StateChange canonical type usage in sse.rs and ws/mod.rs, (3) Duration::ZERO rejection, (4) all prior P0/P1 fixes hold. Declare P0/P1/P2 counts.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:35:04Z",
+  "updated_at": "2026-04-30T00:39:05Z",
+  "closed_at": "2026-04-30T00:39:05Z"
+}

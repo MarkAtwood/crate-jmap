@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "all steps complete",
+  "closed_at": "2026-05-05T04:52:06Z",
+  "compaction_level": 0,
+  "content_hash": "80dce4279be3135882f89edea8305cba7411620e24c45f50aca18f5f8d8024e8",
+  "created_at": "2026-05-05T00:47:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement RFC 9670 (JMAP Sharing) method handlers. Defines SharingBackend trait (supertrait of JmapBackend). Registers 10 methods: Principal/get, Principal/changes, Principal/set, Principal/query, Principal/queryChanges, ShareNotification/get, ShareNotification/changes, ShareNotification/set (destroy-only \u2014 handler must enforce), ShareNotification/query, ShareNotification/queryChanges. Entry point: register_sharing_handlers(dispatcher, backend). Spec: RFC 9670. Pattern: follow jmap-mail-server handler layout (backend.rs, per-object modules, helpers.rs). Blocked by: jmap-sharing-types epic.",
+  "ephemeral": 0,
+  "id": "JMAP-q3ze",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-sharing-server: RFC 9670 method handlers",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:47:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qet4",
+      "id": "bc5f5afa-51a3-5e92-9b5d-54fcfb7f6e78",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

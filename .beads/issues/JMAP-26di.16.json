@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T18:02:04Z",
+  "compaction_level": 0,
+  "content_hash": "6a5306dca45a46472505a0f9ff03264569215b9102bfd8e87d98f8b5fb2f178d",
+  "created_at": "2026-05-15T20:29:16Z",
+  "created_by": "Mark Atwood",
+  "description": "src/types.rs:60, 120, 175. BodyType, ChatMemberRole, and QuotaScope are string-shaped wire enums with Unknown(String)/Other(String) catch-alls, matching the workspace 'in-scope result enum' pattern from AGENTS.md 'Extras-preservation policy'. Policy mandates: 'For result enums, the test asserts an unknown wire string deserialises into Unknown(s) and round-trips back to the same wire string.' None of these enums have such a test in types.rs.\n\nThe enum bodies are unchanged by the diff under review (so technically out-of-diff), but the policy applies and this is the right crate-scope review to surface it. Suggest filing as a child of JMAP-lbdy if not already covered. Test shape: serialize_then_deserialize on a non-spec wire string like \"application/x-acme\".",
+  "ephemeral": 0,
+  "id": "JMAP-26di.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BodyType/ChatMemberRole/QuotaScope wire enums lack round-trip preservation tests",
+  "updated_at": "2026-05-17T18:02:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:29:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "28699555-45b4-5bee-b4c5-8fa9c68121b9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

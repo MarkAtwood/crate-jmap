@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Propagated canonical-template handle_* wire-shape rustdoc pattern from jmap-mail-server (bd:JMAP-h47t.30.7) to jmap-metadata-server. 5 handle_* fns + module-level '# Wire-shape contract' paragraph. Pure docs. All gates green.",
+  "closed_at": "2026-05-17T09:39:21Z",
+  "compaction_level": 0,
+  "content_hash": "81284100ac6f70917e96e6b4c054dc50421faeeb5ac4f3a12938d203bff73440",
+  "created_at": "2026-05-17T07:00:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Propagate the workspace-canonical wire-shape rustdoc pattern established in JMAP-h47t.17 (tasks-server, commit 216cc61) and being applied to the canonical jmap-mail-server under JMAP-h47t.30 to jmap-metadata-server.\n\nPattern (extracted from commit 216cc61 in tasks-server, then the canonical jmap-mail-server pass under JMAP-h47t.30):\n\n1. Module-level '# Wire-shape contract' section in each src/*.rs file that defines handle_* fns. Explains the RFC 8620 \u00a75.x \u2192 spec section mapping that all handle_* fns in the module conform to, when the extra Vec<Invocation> is non-empty, and which JmapError variants surface as method-level errors.\n\n2. Per-handler 'args is the RFC 8620 \u00a75.x request shape (...); the returned Value is the \u00a75.x response shape (...)' paragraph, naming the required and optional wire fields explicitly so a consumer reading docs.rs does not need RFC 8620 open in another tab.\n\n3. Per-handler 'Returns (response_args, extra_invocations). The extra list is always empty.' trailer (or '... is populated with ...' for handlers that emit follow-up invocations like /copy with onSuccessDestroyOriginal).\n\nPure docs change. No public API change. Zero test churn. cargo doc -p jmap-metadata-server --no-deps -- -D warnings must stay clean.\n\nParent: JMAP-h47t.30. Cross-reference: JMAP-h47t.17 (tasks-server origin).",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.30.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wire-shape rustdoc propagation: jmap-metadata-server handle_* fns",
+  "updated_at": "2026-05-17T09:39:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T00:00:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t.30",
+      "id": "2c78e5c5-2316-5a08-96dd-5b748fd16712",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

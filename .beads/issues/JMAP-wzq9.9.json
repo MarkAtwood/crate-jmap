@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "6315adc528a7fb8d4335b48ff8c82b001012568579b23bc0e842eeb8e86eb391",
+  "created_at": "2026-05-15T02:04:54Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/metadata.rs:3 module docstring opens with 'Each method follows the standard five-step pattern:' then enumerates SIX steps (1. Validate, 2. session_parts, 3. Build args JSON, 4. build_request, 5. call_internal, 6. extract_response). Cookie-cut verbatim from canonical mail-client which has the same mistake. Audience: contributor learning the pattern. Fix: either change 'five-step' to 'six-step' or fold step 5 (call_internal) and step 6 (extract_response) into a single 'POST + extract' bullet \u2014 the latter matches the README's own 'five-step pattern' phrasing (README \u00a7How it works lists 5 bullets). This is a canonical-template change; the README count is correct; the inline comment should match.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "blocked",
+  "timeout_ns": 0,
+  "title": "metadata.rs five-step doc-comment is mis-numbered 1-6 for 'five-step pattern'",
+  "updated_at": "2026-05-15T02:37:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:04:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "dc7932d0-56b4-5b99-8433-6b6192859171",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

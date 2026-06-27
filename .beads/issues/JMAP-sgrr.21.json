@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Status quo per the bead's own opinion-labeled conditional 'If keeping status quo, document the decision on the README'. README \u00a7Gotchas now names the Resource-trait absence, cites RFC 9553 \u00a71.4.4's documentation-only stance, and points to PLAN.md for the full rationale. Did not add a Resource trait or enum \u2014 that's an architectural decision with canonical-template propagation to jmap-jscalendar-types (which has analogous Link/Location/Trigger families) and is bigger than this crate. Future workspace-wide bead can revisit. While editing the README, also fixed a leftover at_type: String drift line in \u00a7'How it works' to match the code's Option<String> shape (sgrr.1/.2/.3 family). Tests pass; cargo doc -D warnings clean.",
+  "closed_at": "2026-05-15T04:02:28Z",
+  "compaction_level": 0,
+  "content_hash": "7458e6287ca5f5a3417b22a0c2124265bf63fa4dd5d8d86fab9c09872b061242",
+  "created_at": "2026-05-15T03:42:17Z",
+  "created_by": "Mark Atwood",
+  "description": "PLAN.md:82-86 documents the deliberate choice: 'There is no public Resource\ntrait or struct \u2014 the abstraction is documentation-only per the RFC and\ninheritance is irrelevant on the wire.'\n\nThis is a design choice with a real caller-side cost. RFC 9553 \u00a71.4.4 defines\nthe abstract Resource type with shared fields (@type, kind, uri, mediaType,\ncontexts, pref, label) inherited by Calendar (\u00a72.4.1), CryptoKey (\u00a72.6.1),\nDirectory (\u00a72.6.2), Link (\u00a72.6.3), and Media (\u00a72.6.4). A consumer that wants\nto write fn fmt_resource_label(r: &impl Resource) -> String to render any\nof the five types uniformly cannot do so. They have to either:\n\n- Match on each concrete type via an outer enum they define themselves.\n- Copy-paste the five impls.\n- Use serde_json::Value or a private trait they cannot extend.\n\nThe wire-format-flat justification ('inheritance is irrelevant on the wire')\naddresses serialization but not caller-side ergonomics. A sealed Resource\ntrait with field accessors costs nothing on the wire and lets consumers write\ngeneric helpers.\n\nPossible shapes:\n\n(a) pub trait Resource { fn uri(&self) -> Option<&str>; fn kind(&self) -> ... }\n    with impls for the five types. Trait is sealed via a private super-trait\n    so consumers cannot impl it for their own types. Non-breaking to add.\n(b) An enum ResourceRef<'a> { Calendar(&'a Calendar), CryptoKey(&'a CryptoKey),\n    ... } with From impls. Lets consumers match generically.\n\nThe status quo defense \u2014 'callers can write the enum themselves' \u2014 is true,\nand every consumer of this crate (jmap-contacts-types, jmap-contacts-server,\nany third-party) will. The cost is paid five times, not once, and the\nabstractions diverge.\n\nIf keeping status quo, document the decision on the README. Right now it is\nonly in PLAN.md, which most callers will not read.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "No public Resource trait or generic \u2014 five Resource-derived types prevent generic 'process any resource' functions",
+  "updated_at": "2026-05-15T04:02:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:42:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "edb8a5ea-9048-5a46-9b3c-e82f010daed6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

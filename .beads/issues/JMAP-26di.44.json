@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied the bead's main proposal:\n- BlobLookupEntry.id: String -> Id\n- BlobLookupEntry.matched_ids: HashMap<String, Vec<String>> -> HashMap<String, Vec<Id>>\n- BlobLookupResponse.not_found: Vec<String> -> Vec<Id>\n\nStretch goal (typed DataTypeName enum for matched_ids keys) deferred \u2014 those are externally-defined JMAP data-type names not uniformly enumerable across extensions, and BodyType/ChatMemberRole/QuotaScope precedents are for fixed enum sets. The keys stay String with updated rustdoc explaining why.\n\nWire format unchanged (Id is #[serde(transparent)] over String). Existing extras-preservation tests don't access the changed fields, so they pass unchanged. cargo test green, clippy clean, fmt clean.\n\nCommitted as be72d16.",
+  "closed_at": "2026-05-15T21:36:45Z",
+  "compaction_level": 0,
+  "content_hash": "0a7e74b30519b2919fdd9e50ca563da7396fed4a7547c3c794dd4db652dcb765",
+  "created_at": "2026-05-15T20:42:15Z",
+  "created_by": "Mark Atwood",
+  "description": "Files:\n- crate-jmap-chat-client/src/methods/blob.rs:24 (`BlobLookupEntry.id: String`)\n- crate-jmap-chat-client/src/methods/blob.rs:27 (`BlobLookupEntry.matched_ids: HashMap<String, Vec<String>>`)\n- crate-jmap-chat-client/src/methods/blob.rs:50 (`BlobLookupResponse.not_found: Vec<String>`)\n\nEvery other id-bearing field in the crate uses `jmap_types::Id` \u2014 a `String` newtype that gives type safety against mixing arbitrary strings with JMAP object IDs. Blob.rs is the exception: it uses raw `String` for blob IDs, for the values inside `matched_ids` (which are JMAP message/chat/etc. IDs), and for the `not_found` list.\n\nCaller impact:\n- A caller who wants to feed `entry.id` back into another method that takes `&Id` must do `Id::from(&entry.id)` \u2014 boilerplate that defeats the type system.\n- The keys of `matched_ids` are JMAP data-type names (`\"Message\"`, `\"Chat\"`, `\"Email\"`, \u2026) \u2014 these are spec-defined strings, and they too could be typed as a `DataTypeName` enum (with an `Other(String)` for unknown / vendor types) for consistency with `BodyType`, `ChatMemberRole`, etc. patterns elsewhere in the crate.\n- Workspace AGENTS.md \"Sloppy-Value pattern\" rationale does not apply here \u2014 these are JMAP-native id values, not externally-owned schema strings.\n- Once published, changing `id: String` to `id: Id` is a breaking change that ripples through every consumer.\n\nFix (additive, applicable now): change `id: String` to `id: Id`, `matched_ids: HashMap<String, Vec<String>>` to `matched_ids: HashMap<String, Vec<Id>>` (or further to `HashMap<DataTypeName, Vec<Id>>`), and `not_found: Vec<String>` to `Vec<Id>`. Workspace AGENTS.md Canonical Templates patterns suggest the chat-client should mirror mail-client; verify mail-client's blob types use `Id` (likely yes) and propagate the convention.\n\nNote: `BlobLookupEntry.matched_ids` exposes `HashMap` as its container choice as well. Changing to `BTreeMap<...>` or to a typed wrapper later is breaking. The same exposure applies to other `Vec<String>` fields in `ChatCapability.supported_body_types`, `Quota.types`, `ChatPushCapability.supported_urgency_values` \u2014 those use `Vec<String>` for semantically-typed values (MIME types, JMAP type names, urgency enums) but the audit is filing them separately or via in-scope existing beads.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.44",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BlobLookupEntry.id and BlobLookupResponse.not_found use String instead of jmap_types::Id",
+  "updated_at": "2026-05-15T21:36:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:42:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "282b8bc5-e9d2-5337-808a-3fe837c96699",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

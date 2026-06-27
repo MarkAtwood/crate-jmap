@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Extended panic_message_not_in_response to walk the entire methodResponse args Value recursively and assert NO field's string contains the panic canary, not just description. Helper value_contains_recursive is local to the test. Catches a future refactor that surfaces panic-payload text through a typed context field, an innerError object, or any other new field \u2014 the contract is now 'no field anywhere' rather than the implicit 'just description'.",
+  "closed_at": "2026-05-14T13:59:14Z",
+  "compaction_level": 0,
+  "content_hash": "bd1e60679395822ab6b5e6402f21f01028d0e8b8d5369ad04fa6f6813815e3a1",
+  "created_at": "2026-05-14T12:54:31Z",
+  "created_by": "Mark Atwood",
+  "description": "What is unclear and for whom: crate-jmap-server/src/lib.rs:571-584 (the panic_message_not_in_response test) checks args[\"description\"].as_str() against the panic string. A future refactor that surfaces panic-payload text through any other field of the error invocation (a custom 'context' field, an 'innerError' nested object, a typed Debug somewhere in the chain) would not be caught by this test.\n\nA future contributor reading the test might believe it provides a general 'panics cannot leak' guarantee, when in fact it only covers one specific surface. The contract documented at the test ('panic payloads may contain secrets, must not be leaked') is broader than what the assertion enforces.\n\nWhat would make it clear: extend the assertion to recursively walk the entire methodResponse args Value and assert NO field's string serialization contains 'deliberate test panic'. Helper:\n    fn value_contains_recursive(v: &Value, needle: &str) -> bool {\n        match v {\n            Value::String(s) => s.contains(needle),\n            Value::Array(arr) => arr.iter().any(|x| value_contains_recursive(x, needle)),\n            Value::Object(o) => o.values().any(|x| value_contains_recursive(x, needle)),\n            _ => false,\n        }\n    }\nThen the test becomes: assert!(!value_contains_recursive(&args, \"deliberate test panic\"), ...). One trip through the response tree; catches every future leak path including ones that don't exist today.\n\nMaintenance consequence: low \u2014 the current test is correct for the current code. The improved test costs ~10 lines and catches the next refactor that adds a new field.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "panic_message_not_in_response test checks only description field \u2014 could miss future leak paths",
+  "updated_at": "2026-05-14T13:59:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:54:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "134a51f2-de35-50c8-b7fc-da40013f0b96",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

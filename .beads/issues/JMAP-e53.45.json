@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:54:58Z",
+  "compaction_level": 0,
+  "content_hash": "f98fe0aa2a6f32c834ea03cbc6b8c061c489ad13d79155b4c947cebd4069cc8e",
+  "created_at": "2026-05-02T00:46:24Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs handle_email_set() and submission.rs handle_submission_set(): non-string values in the destroy array are silently skipped (id_val.as_str() returns None \u2192 continue). RFC 8620 \u00a75.3 defines destroy as Id[] \u2014 non-string elements are malformed. Trigger: client sends {\"destroy\": [\"validId\", 42]}. Bad behavior: the integer 42 is silently skipped with no error entry in notDestroyed; the client gets no indication the non-string entry was invalid. Should return a notDestroyed entry for the malformed entry or reject the request with invalidArguments.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.45",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "destroy array: non-string elements silently skipped instead of reporting invalidArguments",
+  "updated_at": "2026-05-02T00:54:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:46:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "02262d94-7d72-5f72-887f-fde4344b2fca",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

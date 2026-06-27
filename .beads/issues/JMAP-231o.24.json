@@ -1,0 +1,33 @@
+{
+  "close_reason": "Won't fix in this scope: session_parts(&self) -> Result<(&str, &str), _> is identical in canonical jmap-mail-client (verified at src/methods/mod.rs:197). Changing only calendars-client would violate workspace cookie-cutter rule. The reviewer's own description acknowledges 'Lower priority because it works and has no current bug; flag is for future-self when async pipelining gets requested.' Defer to a workspace-wide refactor PLAN if/when concurrent session_parts() across multiple SessionClients becomes a real requirement.",
+  "closed_at": "2026-05-10T05:32:25Z",
+  "compaction_level": 0,
+  "content_hash": "7b180b73bfb0710830d7bf2d332220aa1be905e27716684be2fcb8e5a401a662",
+  "created_at": "2026-05-08T03:21:42Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:242-253: `pub(crate) fn session_parts(&self) -> Result<(&str, &str), ClientError>`. Both returned slices borrow from `self.session`.\n\nEvery call site is:\n```\nlet (api_url, account_id) = self.session_parts()?;\nlet args = json!({\"accountId\": account_id, ...});  // borrows account_id\nlet req = build_request(...);                        // moves args\nlet resp = self.call_internal(api_url, &req).await?; // holds api_url across await\n```\n\n`api_url` is borrowed across an .await point. This works because `SessionClient: !Sync` is implicit and the future borrows `&self` for its full lifetime. But the moment a caller wants to drive multiple `session_parts()` results concurrently or store one in a struct, the lifetime tie to `&self` becomes a problem.\n\nIdiomatic alternative: return owned `(String, Id)` \u2014 small allocation, clears the lifetime. Or split into `api_url(&self) -> &str` + `primary_account_id(&self) -> Result<&str, ClientError>` so callers know which lives where.\n\nLower priority because it works and has no current bug; flag is for future-self when async pipelining gets requested.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "session_parts() returns &str pair \u2014 caller cannot store the result across an await",
+  "updated_at": "2026-05-10T05:32:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:21:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "293e4ab2-7ea3-5d2d-833c-6ca139f48a39",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

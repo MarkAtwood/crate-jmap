@@ -1,0 +1,33 @@
+{
+  "close_reason": "positive finding, no action needed",
+  "closed_at": "2026-05-02T06:53:38Z",
+  "compaction_level": 0,
+  "content_hash": "de2c3ddb615ed45bc23e91999984102ae56b66bb4c581d1fac8539d2245fb4db",
+  "created_at": "2026-05-02T06:45:48Z",
+  "created_by": "Mark Atwood",
+  "description": "File:crate-jmap-server/src/backend.rs:374\nDecision: The properties parameter in JmapBackend::get_objects changed from Option<&[O::Property]> (an associated type) to Option<&[String]> (plain strings).\nWhy good: The typed enum approach forced every object type to define a Property enum and implement a conversion from wire JSON strings to that enum inside the generic handler \u2014 a compile-time type boundary that doesn't match the actual RFC 8620 semantics, where properties is an open string list and the backend is explicitly permitted to return more than requested. Using String keeps the API honest: the handler parses the JSON array once, the backend receives the raw names, and backend implementations that don't support property projection can simply ignore the slice without needing a no-op enum conversion. It also removes an O::Property associated-type constraint from every call site that calls get_objects internally (e.g. collapse_by_thread).",
+  "ephemeral": 0,
+  "id": "JMAP-63k.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "GOOD: properties passed as Vec<String> not typed enum slice",
+  "updated_at": "2026-05-02T06:53:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:45:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "66dedc24-b89d-5a56-a5aa-8377503cbee2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

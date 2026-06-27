@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T161839Z-2683045",
+  "close_reason": "Landed in commit 3ed6aaf. BlobUploadResponse.sha256 is now Option<jmap_cid_types::Sha256> with #[serde(default, skip_serializing_if = \"Option::is_none\")]. Field placement chosen per the bead's recommendation (a): on jmap-base-client's BlobUploadResponse since the spec text is chat-agnostic. Derived Serialize on the struct to support the round-trip preservation tests. The previous uppercase-hex tolerance is lost; that inter-op question is tracked at bd:JMAP-noz7. Four new tests cover typed deserialize, None-elision on serialize, no-sha256 round-trip, and strict rejection of uppercase hex.",
+  "closed_at": "2026-05-13T16:51:10Z",
+  "compaction_level": 0,
+  "content_hash": "7d82d9981c234fe950aa856dfbce6d489a7492f5a239ca565b539dbf15abdc3c",
+  "created_at": "2026-05-12T23:36:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec: draft-atwood-jmap-cid-00 \u00a73 (Blob upload extension).\n\nSpec text: \"Server advertising the CID capability MUST store the blob exactly as received and MUST compute sha256 from those bytes. The Blob/upload response MUST carry the sha256 field of type Sha256.\"\n\nCurrent state: Blob upload response in jmap-base-client (likely in src/blob.rs or methods/blob.rs of jmap-chat-client) has no typed sha256 field. The value round-trips through extras today.\n\n## Acceptance\n\n- Add `sha256: Option<jmap_cid_types::Sha256>` field to the BlobUploadResponse type (location TBD by reading jmap-base-client; might be in jmap-chat-client/src/methods/blob.rs \u2014 check both)\n- The field uses #[serde(default, skip_serializing_if = \"Option::is_none\")]\n- Option because servers not advertising the CID capability won't send it\n- If the field already serializes via extras with key \"sha256\", the typed-field promotion replaces the entry; verify no double-serialize\n- jmap-cid-types already re-exports Sha256 at the crate root (landed in JMAP-v9py.12 \u2014 `pub use digest::{Sha256, Sha256DigestError, Sha256DigestErrorKind};` in lib.rs)\n- jmap-base-client adds path-dep on jmap-cid-types (workspace member)\n- Test: deserialize a sample Blob/upload response with {\"sha256\": \"deadbeef...\" (64 chars)} \u2192 sha256 field is Some(_) carrying the parsed digest\n- Test: serialize a BlobUploadResponse with sha256: None \u2192 no \"sha256\" key in output\n- Test: round-trip preservation \u2014 if a server sends {\"sha256\": null} (legacy), it parses as None and serializes back as nothing (skip_if)\n\n## Open question (file as bead if can't resolve in-band)\n\nShould the field live on:\n(a) jmap-base-client's BlobUploadResponse \u2014 covers Blob/upload uniformly\n(b) jmap-chat-client's blob types \u2014 chat-specific\n\nRecommendation: (a). The spec says \"Blob upload response\" without chat-coupling; jmap-base-client is the right home. Confirm by reading jmap-base-client/src/blob.rs (or whichever module has the upload type) before opening the edit.\n\n## Out of scope\n\n- Computing sha256 (deployment's job)\n- Cross-blob dedup countermeasures (spec leaves this server-discretion)\n- FileNode sha256 (separate; would be a Layer D.5 if we add filenode integration \u2014 currently out of scope per \"3 crates + CID\" decision)\n",
+  "ephemeral": 0,
+  "id": "JMAP-v9py.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Layer D: Wire sha256 typed field into Blob upload response (jmap-base-client)",
+  "updated_at": "2026-05-13T16:51:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-12T16:37:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py.12",
+      "id": "72f8cf4b-42ac-5d2e-972e-c2b704a2ee4c",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-12T16:36:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py",
+      "id": "dec5a607-6bf6-5545-a103-d6ee6d6781ee",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

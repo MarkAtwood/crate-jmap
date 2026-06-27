@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-sf2.5",
+  "title": "Email/import and Email/copy: malformed keywords silently empty instead of error",
+  "description": "email.rs:865-868 (import) and email.rs:1084-1087 (copy): keywords deserialization uses .ok().unwrap_or_default(). If the client passes invalid keywords (wrong JSON type, unknown keyword format), the error is swallowed and keywords defaults to empty []. The email is stored with no keywords. Should return notCreated with type=invalidProperties, properties=[keywords].",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:28:56Z",
+  "updated_at": "2026-05-01T02:44:07Z",
+  "closed_at": "2026-05-01T02:44:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sf2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:28:55"
+    }
+  ]
+}

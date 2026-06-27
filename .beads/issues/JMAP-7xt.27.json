@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-7xt.27",
+  "title": "ClientError missing #[non_exhaustive]",
+  "description": "ClientError in error.rs has no #[non_exhaustive] attribute. Adding a new variant in a minor release is a breaking change for any downstream crate that exhaustively matches ClientError. The workspace pattern (jmap-types JmapError) applies #[non_exhaustive] to all public enums. Fix: add #[non_exhaustive] to ClientError.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:58Z",
+  "updated_at": "2026-04-30T00:54:26Z",
+  "closed_at": "2026-04-30T00:54:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:57"
+    }
+  ]
+}

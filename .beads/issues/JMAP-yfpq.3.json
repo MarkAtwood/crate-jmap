@@ -1,0 +1,34 @@
+{
+  "close_reason": "duplicate",
+  "closed_at": "2026-05-11T04:44:35Z",
+  "compaction_level": 0,
+  "content_hash": "f5e9a6b05c28d9694a86ace00504f0c97595ddb2ccd424bdc805451d9308b6e2",
+  "created_at": "2026-05-11T00:26:57Z",
+  "created_by": "Mark Atwood",
+  "description": "After JMAP-yfpq.1 and JMAP-yfpq.2 land:\n\nUpdate crate-jmap-tasks-types/PLAN.md 'JSCalendar complex sub-objects are serde_json::Value' section:\n- Replace 'a future crate provides typed JSCalendar types' wording (or equivalent) with: 'JSCalendar typed sub-types are available via the jmap-jscalendar-types crate, re-exported here for symmetry with jmap-calendars-types.'\n- Document the from_value access pattern with a code example.\n- Verify cargo doc -p jmap-tasks-types --no-deps --all-features clean.\n\nAlso: the source-code comment edited in JMAP-g7wu.8 (task.rs:162-166) already points at this \u2014 verify consistency.",
+  "ephemeral": 0,
+  "id": "JMAP-yfpq.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Closed as duplicate of the PLAN.md edits that landed alongside JMAP-yfpq.4 in commit 7dac829.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Update jmap-tasks-types PLAN.md to document jmap-jscalendar-types consumer pattern",
+  "updated_at": "2026-05-11T04:44:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:26:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yfpq",
+      "id": "88897574-8ada-51ed-81fa-f7b034e01ab8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Work was completed in commit 92b46ac 'fix(jmap-metadata-server): MemoryBackend.query_objects applies filter and sort' (2026-05-15). MemoryBackend::query_objects now honors all five MetadataFilterCondition leaves (relatedType, relatedIds, filterMetadataType/@type, isPrivate, textMatch) per draft \u00a73.4.1, and sorts by id+@type+relatedType+relatedId+isPrivate per \u00a73.4.2 with a stable comparator. 14 integration tests in tests/metadata_tests.rs cover the filter and sort surface end-to-end and pass clean. Bead was stale; closing post-hoc.",
+  "closed_at": "2026-05-17T19:52:02Z",
+  "compaction_level": 0,
+  "content_hash": "528ace589be030d29a5ac079f57ef3a9ed3069277d6b74361db5f55160b31aa1",
+  "created_at": "2026-05-14T14:50:21Z",
+  "created_by": "Mark Atwood",
+  "description": "MemoryBackend::query_objects at memory.rs:484-532 currently has params _filter, _sort and returns the entire account's metadata sorted by id (already that). The filter MUST be honored at least for the spec-defined MetadataFilterCondition leaves: relatedType, relatedIds (when relatedType present), filterMetadataType (@type), isPrivate, textMatch (over string properties).\n\nWalk the MetadataFilterCondition tree including FilterOperator AND/OR/NOT. Apply each leaf as documented in draft \u00a73.4.1. Sort on at least id (MUST per \u00a73.4.2) by default, plus @type/relatedType/relatedId/isPrivate as SHOULD.\n\nDecomposed from JMAP-ayoz.6.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.6.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.query_objects: honor MetadataFilterCondition + id sort",
+  "updated_at": "2026-05-17T19:52:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:50:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.6",
+      "id": "85ab57ad-afc8-5ac9-8037-1474005661e0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

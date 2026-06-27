@@ -1,0 +1,23 @@
+{
+  "close_reason": "Question moot \u2014 spec author resolved the .4.11 label/body conflict by reversing the underlying design (no ownerId field, ownership is implementation-defined). See JMAP-g7wu.2.4.11 closure trail and JMAP-g7wu.2.4.12 for the revert.",
+  "closed_at": "2026-05-12T16:12:54Z",
+  "compaction_level": 0,
+  "content_hash": "620f163d2b53ae031e4ed3224045f9f459115c0196c8e2144a5a13660efd1636",
+  "created_at": "2026-05-12T06:57:44Z",
+  "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "description": "The /do-beads loop hit JMAP-g7wu.2.4.11 with conflicting signals and stopped per the strict label rule.\n\nConflict:\n\n  - Label: 'human' \u2014 the do-beads loop rule (AGENTS.md, do-beads.md) is verbatim: 'A human label marks a durable question for the human \u2014 those beads are not actionable autonomously and must be skipped'. The label is authoritative; the loop does not read the body.\n\n  - Body, last comment block (2026-05-11, Mark): 'Explicit authorization (2026-05-11, Mark): land the chat-types implementation ahead of the spec edit.' Per the bead body's pre-publish allowance, the implementation work is explicitly approved to land.\n\nDownstream impact:\n\n  - .4.11 blocks .4.3 (apply_space_patch MemoryBackend Role+Member impl, re-scoped with full permission/hierarchy/owner enforcement). Open, unlabeled, but bd correctly sees the .4.11 blocker.\n  - .4.3 blocks .4.6 (integration tests for 12 Space/set sub-ops). Open, unlabeled.\n\nSo the entire Space/set chain is paused on the .4.11 label.\n\nQuestion for Mark \u2014 pick one:\n\n  (a) Drop the 'human' label from .4.11 (your explicit authorization in the body is the green light; the spec-edit task is tracked separately). The /do-beads loop will then claim .4.11, then .4.3, then .4.6 across one or more sessions. RECOMMENDED \u2014 this matches what the body says.\n\n  (b) Keep the 'human' label on .4.11 and file a NEW unlabeled bead 'JMAP-g7wu.2.4.11-impl' for the chat-types implementation work alone, with .4.11 retained as the spec-coordination tracker. More bookkeeping but preserves the 'human label = do not touch' invariant unambiguously.\n\n  (c) Change the loop rule to 'skip human-labeled beads UNLESS the body contains an explicit authorization marker'. NOT RECOMMENDED \u2014 that turns the label into advisory and removes the bright line that prevents the loop from spinning on questions.\n\nVerdict for this /do-beads session: ready frontier exhausted, all remaining autonomous work is downstream of human-labeled .4.11 or sc1b (a review epic, also human-labeled).",
+  "ephemeral": 0,
+  "id": "JMAP-sb6j",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Clarify: JMAP-g7wu.2.4.11 carries explicit autonomous-impl authorization in body but retains 'human' label, blocking 4.3/4.6 chain",
+  "updated_at": "2026-05-12T16:12:54Z"
+}

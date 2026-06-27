@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.18",
+  "title": "Session and AccountInfo missing Eq derive",
+  "description": "Session and AccountInfo both derive PartialEq but not Eq. Both types contain HashMap<String, serde_json::Value>; serde_json::Value implements Eq, so Eq is correctly derivable. The omission is inconsistent: WebSocketCapability and ClientConfig both derive Eq. Session and AccountInfo are the primary types consumers will compare in tests and assertions \u2014 having PartialEq but not Eq prevents them from being used in HashSet, as HashMap keys, or in contexts that require Eq.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:01:49Z",
+  "updated_at": "2026-04-30T02:09:17Z",
+  "closed_at": "2026-04-30T02:09:17Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:01:49"
+    }
+  ]
+}

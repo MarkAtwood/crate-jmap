@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T05:17:29Z",
+  "compaction_level": 0,
+  "content_hash": "79901b6892c0e9c65f56830184fbcd89ff4e055fb463ce9ab743fc919badd789",
+  "created_at": "2026-05-02T05:11:08Z",
+  "created_by": "Mark Atwood",
+  "description": "MailBackend::blob_exists() has a default impl that always returns false (backend.rs:383). handle_email_parse calls backend.blob_exists() to distinguish 'blob not found' from 'not parsable' (email.rs:1985-1990). When a backend forgets to override blob_exists (which is easy \u2014 the trait has many methods), any parse failure for a blob that actually exists is reported as notFound instead of notParsable. The client may then re-upload the blob or report the email as missing, when in fact the blob is present but unparseable. The default should either panic with a clear message (to force backends to implement it) or the method should return Result<bool, Self::Error> so an unimplemented backend can return an error rather than a silent wrong answer. At minimum, the trait doc should say #[deprecated] or use a compile-time mechanism to make omission visible. Trigger: any backend that does not override blob_exists() + any call to Email/parse with an existing but unparseable blob.",
+  "ephemeral": 0,
+  "id": "JMAP-fr0.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "blob_exists() defaults to false \u2014 Email/parse misclassifies parse errors as notFound",
+  "updated_at": "2026-05-02T05:17:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T22:11:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-fr0",
+      "id": "852defae-4559-5868-b7cb-00aa3a75e6a5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

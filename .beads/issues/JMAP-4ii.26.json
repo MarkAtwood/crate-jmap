@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:12:31Z",
+  "compaction_level": 0,
+  "content_hash": "3c385e4ae2aab522780f0ccee250c5e3aec954065d0cd8e40e6ca3463cc0415e",
+  "created_at": "2026-05-02T03:56:50Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src/mailbox.rs lines 587 and 667: both pass 'patch.clone()' to update_object because the loop borrows patch from the iterator. The Value::Patch type (serde_json::Value) is cloned on every update, even when the patch is not reused after the call. Because update_object takes O::Patch by value (not by reference), and the iterator is borrowing, this clone is structurally forced by the current design. The idiomatic fix is to consume the iterator with into_iter() instead of iter() on the updates map, which would allow moving the Value instead of cloning it. As written this is one unnecessary allocation per updated mailbox per request.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_mailbox_set: passing patch.clone() to update_object in two-pass loop",
+  "updated_at": "2026-05-02T04:12:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:56:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "4df2ae10-e436-5aaa-bd25-25219cf68ab1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "acceptance_criteria": "4 EmailSubmission get/changes wiremock tests pass.",
+  "close_reason": "Child JMAP-3cmx.2.1 and JMAP-3cmx.2.2 completed \u2014 helpers.rs and submission_get_changes.rs done",
+  "closed_at": "2026-05-05T03:49:27Z",
+  "compaction_level": 0,
+  "content_hash": "34adca6a09b497ac06ec6f41dac806dbcd8fc847a14999de6adb453b29822932",
+  "created_at": "2026-05-05T02:55:06Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-mail-client/tests/submission_get_changes.rs with async wiremock tests. Oracle: RFC 8621 \u00a77.1 (get), \u00a77.2 (changes), \u00a77 EmailSubmission object fields.\n\n**Tests:**\n1. email_submission_get_round_trip: mock returns GetResponse<EmailSubmission> with one submission (id, identityId, emailId, undoStatus=Final); assert list[0].id correct; assert request has methodCalls[0][0]==\"EmailSubmission/get\".\n2. email_submission_get_specific_ids: assert request ids==[\"ES-abc\"].\n3. email_submission_changes_round_trip: assert old_state, new_state, created, destroyed; assert request has sinceState correct.\n4. email_submission_changes_no_max_changes: assert maxChanges absent from request when None passed.\n\n**Acceptance criteria:** All 4 tests pass.",
+  "ephemeral": 0,
+  "id": "JMAP-3cmx.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: EmailSubmission/get and /changes",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:55:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx",
+      "id": "0f8f2a91-d5d9-5f31-9fee-9e3c9d4e89d6",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:55:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx.1",
+      "id": "b98b9c31-5c82-590a-a655-54c29ad36fec",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-c6k.7",
+  "title": "Filter<T> untagged serde + Operator-first variant \u2014 correct and load-bearing",
+  "description": "Inherited from JMAP-ez5.6 \u2014 still valid. The Operator variant must come before Condition in the enum for serde's untagged deserialization to work correctly. FilterCondition must NOT have deny_unknown_fields. This is documented in PLAN.md and must be preserved.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:25:01Z",
+  "updated_at": "2026-04-30T05:29:32Z",
+  "closed_at": "2026-04-30T05:29:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-c6k",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:25:01"
+    }
+  ]
+}

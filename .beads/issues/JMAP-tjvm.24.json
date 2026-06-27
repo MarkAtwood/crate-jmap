@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added the defence-in-depth all-None /set guard across 11 /set methods in 7 extension-client crates: mail-client (4: email_set, mailbox_set, identity_set, email_submission_set), calendars-client (3: calendar_set, calendar_event_set, participant_identity_set), contacts-client (2: address_book_set, contact_card_set), filenode-client (1: file_node_set), metadata-client (1: metadata_set), sharing-client (1: principal_set), tasks-client (2: task_set, task_list_set). vacation_response_set (only takes update \u2014 Option), share_notification_set (destroy-only Vec), task_notification_set (destroy-only Vec) intentionally not modified \u2014 their signatures already preclude the all-None case.\n\nGuard shape: top-of-function 'if create.is_none() && update.is_none() && destroy.is_none() { return Err(InvalidArgument(\"<method>: at least one of create, update, destroy must be Some (an all-None /set is a no-op round-trip)\")); }'. Mirrors the existing pattern in email_import (empty emails map) and email_parse (empty blob_ids) cited by the bead.\n\nTest impact: 7 pre-existing tests used 'all-None' as a convenient minimum input; all 7 updated to pass Some(empty_destroy) instead, preserving the actual test oracle (wire-shape assertions about field absence or extras propagation). Test integrity preserved per workspace AGENTS.md \u2014 oracles unchanged, inputs adjusted to satisfy the new precondition. Tests modified: calendar_set_on_destroy_remove_events_none_omits_field, mailbox_set_routes_vendor_extras_to_wire, mailbox_set_without_params_omits_on_destroy_remove_emails, email_submission_set_no_on_success_when_none, metadata_set_propagates_params_extras, metadata_set_params_extras_do_not_overwrite_account_id, task_list_set_without_on_destroy_omits_field.\n\nWorkspace canonical-template propagation: mail-client first, then propagated cookie-cutter to 6 sibling crates in the same pass.",
+  "closed_at": "2026-05-17T14:28:55Z",
+  "compaction_level": 0,
+  "content_hash": "6e2e236b760a945c653b36475e51686933364dceac0083870b5a9cae032c329e",
+  "created_at": "2026-05-15T01:54:07Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs:104       email_set(create: Option<...>, update: Option<...>, destroy: Option<...>, if_in_state: Option<&State>)\nmailbox.rs:82      mailbox_set(create, update, destroy, params)\nidentity.rs:77     identity_set(create, update, destroy)\nsubmission.rs:160  email_submission_set(create, update, destroy, if_in_state, params)\nvacation.rs:54     vacation_response_set(update)   \u2190 only takes update, less acute\n\nA caller can invoke `email_set(None, None, None, None)` and the function will dutifully serialize accountId only, send it to the server, and return a SetResponse that does nothing. This is a wasted HTTP round-trip and a wasted server-side state increment (the server still updates state because /set always advances state per RFC 8620 \u00a75.3, even when no operations are requested \u2014 though spec-conformant servers MAY no-op).\n\nCompare with email_import (line 255) which DOES reject empty input:\n\n  if emails.is_empty() {\n      return Err(jmap_base_client::ClientError::InvalidArgument(\n          \"email_import: emails map may not be empty\".into(),\n      ));\n  }\n\n\u2026and email_parse (line 304) which rejects empty blob_ids. The same defensive guard is missing on the four /set methods.\n\nThe \"all-None /set\" footgun is real: a caller writing a generic /set helper that constructs create/update/destroy from optional inputs may pass all-None and get a no-op round-trip instead of a compile error or runtime rejection. Bug-hiding.\n\nRecommendation: add a defensive guard at the top of each /set method:\n\n  if create.is_none() && update.is_none() && destroy.is_none() {\n      return Err(jmap_base_client::ClientError::InvalidArgument(\n          \"<method>: at least one of create, update, destroy must be Some\".into(),\n      ));\n  }\n\nSame canonical-template propagation applies across the six sibling extension-client crates.\n\nPriority P3 because the wasted round-trip is not a correctness bug \u2014 it succeeds, just does nothing. But the guard adds defence-in-depth at zero cost and mirrors the pattern used in email_import / email_parse.\n\nMark says NO HUMAN \u2014 clear recommendation, mechanical fix.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "/set methods accept create=None update=None destroy=None and generate wasted HTTP round-trip",
+  "updated_at": "2026-05-17T14:28:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:54:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "67808f1d-3f6c-5b98-944d-0778df582025",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Plan C closeout: .github/workflows/ci.yml runs fmt + clippy + test + doc + typos on stable Rust. Workspace typos.toml configures false-positive allowlist. Three follow-up beads filed for the deferred matrix legs: JMAP-gsr5 (beta), JMAP-a2e3 (MSRV 1.75), JMAP-hge6 (cargo-deny, blocked on JMAP-sc1b.10). Each follow-up has a TODO marker in ci.yml. 1432 workspace tests pass.",
+  "closed_at": "2026-05-08T18:41:36Z",
+  "compaction_level": 0,
+  "content_hash": "d1c9a6b0741d6cf748ed5733b63277b419849f41e6b39a80b1af869b15c56662",
+  "created_at": "2026-05-07T20:29:03Z",
+  "created_by": "Mark Atwood",
+  "description": "There is no .github/workflows/ directory. The AGENTS.md pre-commit gate (`cargo fmt --all`, `cargo clippy --workspace -- -D warnings`, `cargo test --workspace`) is not enforced anywhere. Currently:\n\n- Tests pass locally (verified: cargo test --workspace = OK).\n- Clippy fails locally (verified: 46 errors \u2014 see JMAP-sc1b.1).\n\nWithout CI, every push is a roll of the dice. Before publishing 25 crates to crates.io, a working CI pipeline (GitHub Actions, GitLab CI, or whatever Mark prefers) is the minimum safety net.\n\nSuggested matrix:\n- stable + beta + 1.75 (MSRV)\n- ubuntu-latest at minimum\n- jobs: fmt, clippy, test, doc, typos, deny\n\nCoordinate with Mark before adding workflow files (he may have a preferred template/runner).",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P1: No CI configured \u2014 .github/workflows/ does not exist",
+  "updated_at": "2026-05-08T18:41:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "e899bbca-83c4-510b-b33d-6b332fec0eae",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

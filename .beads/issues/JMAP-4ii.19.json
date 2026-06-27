@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:41:31Z",
+  "compaction_level": 0,
+  "content_hash": "2645bc4c855149ca2332fe802d0a6a9365fd785eb67beca78e676510aee8e8d7",
+  "created_at": "2026-05-02T03:56:24Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs handle_mailbox_set fetches all_mailboxes before any mutations and uses this snapshot for role uniqueness checks in both create and update. The snapshot does not reflect mailboxes destroyed earlier in the same request. A request that destroys mailbox A (which holds role 'inbox') and creates mailbox B with role 'inbox' may fail the role uniqueness check because destroyed mailbox A still appears in the pre-mutation snapshot. The post-mutation snapshot is fetched only for the destroy child-check, not reused for the role check. This is a maintainer-visible correctness hazard: it is not obviously wrong from the code, but will generate confusing user reports when a role-swap set fails.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Mailbox role uniqueness uses stale snapshot in cross-operation request",
+  "updated_at": "2026-05-02T04:41:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:56:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "29639852-fb93-599f-a47a-1ea21a92f85b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

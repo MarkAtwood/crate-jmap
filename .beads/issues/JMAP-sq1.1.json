@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-sq1.1",
+  "title": "incomplete Eq derives: Session/AccountInfo/BlobUploadResponse",
+  "description": "Round 6 changelog says 'Added PartialEq/Eq derives to all major types' but Session, AccountInfo, and BlobUploadResponse are missing Eq/PartialEq. A user reading the changelog will expect Session: Eq and be surprised when they can't use it as a HashMap key or in assert_eq! without the PartialEq-only footgun. Session and AccountInfo can trivially derive Eq (all their fields \u2014 String, bool, HashMap<String, serde_json::Value> \u2014 implement Eq). BlobUploadResponse can derive PartialEq + Eq (String, u64, Id, Option<String>). The maintenance consequence: this is a semver cliff \u2014 once callers depend on the absence of Eq, adding it is a non-breaking change, but the window to add it cleanly is now, before 1.0.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:48:35Z",
+  "updated_at": "2026-04-30T01:51:35Z",
+  "closed_at": "2026-04-30T01:51:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sq1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:48:35"
+    }
+  ]
+}

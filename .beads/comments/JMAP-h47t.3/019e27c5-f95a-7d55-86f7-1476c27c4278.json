@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T18:35:46Z",
+  "id": "019e27c5-f95a-7d55-86f7-1476c27c4278",
+  "issue_id": "JMAP-h47t.3",
+  "text": "Decomposed into four child beads per the reviewer's recommendation:\n- .3.1 same-account rejection (smallest fix, largest correctness win \u2014 landing first)\n- .3.2 ifFromInState / ifInState / fromAccountNotFound\n- .3.3 source-id semantics (canonical-template fetch-merge-create pattern from calendars-server)\n- .3.4 onSuccessDestroyOriginal implicit Task/set\n\nNote: the reviewer's note that #3 needs a 'copy_task trait reshape touching every other extension server's analog' overstates the workspace cost. The canonical sibling jmap-mail-server has a bespoke copy_email signature; jmap-calendars-server uses the generic create_object after fetching source via get_objects. Tasks should follow the calendars pattern, which is a tasks-server-local fix. Same for #4: canonical mail-server emits the implicit second call in the extras channel \u2014 no foundation/Dispatcher change required."
+}

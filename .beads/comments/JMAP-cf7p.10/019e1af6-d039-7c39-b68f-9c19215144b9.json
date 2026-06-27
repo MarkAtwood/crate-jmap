@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "created_at": "2026-05-12T06:54:03Z",
+  "id": "019e1af6-d039-7c39-b68f-9c19215144b9",
+  "issue_id": "JMAP-cf7p.10",
+  "text": "Labeling human for /do-beads filter. Bead body presents (a) process-global counter vs (b) state-snapshot-encoded id without a recommendation, and an implicit sub-decision around history bounding. Coupled to cf7p.12 (WS pushState) by the trio's own description (\"these three could land as a coordinated cluster\").\n\nSpecific decisions needed from Mark:\n\n1. Pick (a) vs (b) \u2014 process-global counter (needs bounded event history) vs state-snapshot-encoded id (no history needed, but client/server must agree on token format).\n2. If (a), ring-buffer size + eviction policy.\n3. Confirm testjig-only scope (no propagation to real *-server crates).\n\nRecommendation: option (a) with a 1024-event-per-type ring buffer. Rationale: simpler to implement, matches testjig's NOT-FOR-PRODUCTION posture, doesn't commit any public *-server-crate API to a state-token shape, can be replaced with (b) later if a real consumer pushes back. Land .10 + .12 as one PR with .12 using whatever scheme .10 picks; defer .9 (signal-driven push) as orthogonal polish.\n\nFiled per AGENTS.md \"Turn questions into beads\" rule.\n"
+}

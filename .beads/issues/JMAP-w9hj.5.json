@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:28:27Z",
+  "compaction_level": 0,
+  "content_hash": "9ac850d126c0062e2bb000eddcb6040de01cf52936a2c22bd87344d209a13d21",
+  "created_at": "2026-05-04T19:23:01Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec \u00a72.4 + example: when a newly-created script is activated via onSuccessActivateScript, isActive:true MUST appear in the created[id] entry. Implementation shows isActive:false in created and isActive:true in updated. Fix: after activation succeeds, patch created[creation_id][isActive]=true and remove from updated.",
+  "ephemeral": 0,
+  "id": "JMAP-w9hj.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve_set: activated-on-create isActive:true not shown in created map",
+  "updated_at": "2026-05-04T19:28:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T12:23:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w9hj",
+      "id": "2c6ecbb8-ed91-55c3-abb2-ca42a2b66dfc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-c6k",
+  "title": "Review: jmap-mail-types (round 2)",
+  "description": "Second review pass of jmap-mail-types after fixes from JMAP-ez5. Scope: all source files in crate-jmap-mail-types/src/.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:24:20Z",
+  "updated_at": "2026-04-30T05:29:33Z",
+  "closed_at": "2026-04-30T05:29:33Z",
+  "notes": "Maintainer risk: LOW \u2014 No correctness bugs that fire immediately. One P1 doc mismatch (Email partial deserialization) will generate confused user issues when partial Email/get is attempted. One P2 construction-time validation gap on header field. Wire types are spec-faithful. All types are non-exhaustive. No unsafe, no async leakage.\nConfidence: 8% chance of missed bug. Least confident flags: the Email partial deserialization issue \u2014 need to verify whether RFC 8620 \u00a75.1 guarantees id is always returned and whether any metadata field can ever be legitimately absent in a non-partial response. Uncertainty driven by: not running against a real JMAP server fixture. Would raise confidence if: added a test that tries partial deserialization and verifies the failure.\nIdiom rating: ACCEPTABLE \u2014 No unsafe, no unwrap in production code, no gratuitous clones, no Box<dyn Error> in API. Main concerns: Mailbox::new has too many arguments (lint suppressed without explanation), Email::new requires pre-built HashMap making the common case verbose. The string_enum macro is clean. Keyword trait impls are thorough and correct.\nRust idiom confidence: 12% chance of missed issue. Least confident flags: Email::new HashMap ergonomics (may be intentional given JMAP wire format semantics). Uncertainty driven by: did not examine test files for test-quality issues."
+}

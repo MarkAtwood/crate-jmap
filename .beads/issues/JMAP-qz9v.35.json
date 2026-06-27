@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T20:39:54Z",
+  "compaction_level": 0,
+  "content_hash": "b9483938bc52efad4052cc54f0dfdea6bff8b218d09f2a6dff8a6d5347c9a66e",
+  "created_at": "2026-05-14T19:34:49Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/src/memory.rs:251-266\n\nCURRENT IMPL:\n    pub fn seed_object(\n        &self,\n        account_id: &str,\n        type_name: &'static str,\n        id: &str,\n        value: serde_json::Value,\n    ) {\n        let mut inner = self.inner.lock().unwrap();\n        inner.known_accounts.insert(account_id.to_owned());\n        inner\n            .objects_mut(type_name, account_id)\n            .insert(Id::from(id), value);\n        if type_name == \"ContactCard\" {\n            inner.recompute_address_books_with_contents(account_id);\n        }\n    }\n\nPROBLEM:\nThe function accepts ANY serde_json::Value without validating it\ndeserializes into the type named by `type_name`. Common failure modes:\n\n1. Missing required fields. Seeding `json!({\"id\": \"ab1\"})` as an\n   AddressBook is accepted; subsequent `get_objects::<AddressBook>`\n   call fails with `MemoryError(\"deserialize AddressBook: ...\")` at\n   memory.rs:362. The error surface is far from the seeding call site;\n   the test author debugs the wrong layer.\n\n2. Type-name typo. Seeding under `\"Addressbook\"` (lowercase 'b') \u2014\n   accepted, stored in a bucket no get_objects call ever reads.\n   See JMAP-qz9v.24 for the stringly-typed-parameter angle.\n\n3. Schema drift. Seeding fixtures written for an earlier ContactCard\n   schema (e.g., before a `@type` field was required). The fixture\n   sits silently mis-shaped until a deserialize attempt.\n\nThis forces every test author to write defensive checks AROUND\nseed_object:\n\n    let v = json!({ ... });\n    let _check: AddressBook = serde_json::from_value(v.clone())\n        .expect(\"fixture shape is valid\");\n    backend.seed_object(\"acc1\", \"AddressBook\", \"ab1\", v);\n\n\u2014 which is exactly the defensive boilerplate the prompt section\n\"Defensive-code-forcing\" is designed to prevent.\n\nWHAT EVERY CALLER WILL DO:\n- Either skip validation and debug stale fixtures one-by-one when a\n  test fails late, or\n- Re-implement the typed validation manually at every seed call site.\n\nRECOMMENDED:\nValidate at seed time. Two equivalent forms:\n\n(a) Typed signature (see JMAP-qz9v.33):\n        pub fn seed<O: JmapObject + Serialize>(\n            &self, account_id: &Id, id: &Id, obj: &O\n        )\n    \u2014 no Value passed; the type system guarantees shape.\n\n(b) Validate-on-insert in the current Value-based signature:\n        let typed_check: serde_json::Result<...> = match type_name {\n            \"AddressBook\" => from_value::<AddressBook>(value.clone()).map(|_| ()),\n            \"ContactCard\" => from_value::<ContactCard>(value.clone()).map(|_| ()),\n            other => return Err(format!(\"unknown type_name: {other}\")),\n        };\n        typed_check.map_err(|e| format!(\"invalid fixture: {e}\"))?;\n    Return Result instead of unit; force callers to handle the error\n    at the call site.\n\n(a) is strictly better \u2014 it puts validation in the type system.\n\nP2 because the failure mode is \"test debugging time wasted\" rather\nthan runtime bug, but the test suite is the audience this helper is\ndesigned to serve, and the design actively works against that\naudience.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::seed_object accepts any serde_json::Value \u2014 invalid fixtures fail-late at get_objects, not at seed time",
+  "updated_at": "2026-05-17T20:39:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:34:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "0560c3e6-3d35-50cf-8e1a-e0d437b1f282",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

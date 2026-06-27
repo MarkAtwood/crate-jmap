@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed by commits 2761dea (add jmap_types::methods module) + 4bf3a25 (migrate 7 client crates). SetError now has all 8 RFC 8620 \u00a75.3 fields plus a serde-flatten 'extra' map for extension fields. The 5 response shapes are defined once in jmap-types and re-exported by all 7 jmap-*-client crates. Net -697 LOC across the client crates. 1424 workspace tests pass.",
+  "closed_at": "2026-05-08T06:28:46Z",
+  "compaction_level": 0,
+  "content_hash": "a415c3f06e505ebf1b1a7ab8c2a6029d5a397d82872300698e9e029d7045b87f",
+  "created_at": "2026-05-07T20:43:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Each client crate independently defines its own copies of `GetResponse<T>`, `SetResponse`, `ChangesResponse`, `QueryResponse`, `QueryChangesResponse` in methods/mod.rs. ~35 redundant struct definitions across the workspace.\n\nDrift has already started: server's `SetError` (8 fields) and client's `SetError` (2 fields) are now divergent (see JMAP-sc1b.X).\n\nThese shapes are RFC 8620 \u00a75 normative \u2014 they apply to every JMAP method. They should live in exactly one place.\n\nOptions:\n1. Add to `jmap-types` (LOCKED \u2014 needs Mark's approval). Most natural home given the crate's purpose.\n2. Add to `jmap-base-client` (LOCKED \u2014 needs Mark's approval). Constrains type crates from using them, but the type crates currently don't.\n3. New `jmap-rfc8620-method-shapes` crate. Awkward but unblocks editing.\n\nOnce they live in one place, the 7 client crates re-export instead of redefining.\n\nAction ordering: file with Mark's approval to expand jmap-types or jmap-base-client public API; then PR the change once approved.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.40",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P1: 5 RFC 8620 generic response shapes duplicated across 7 client crates (~35 redundant struct defs)",
+  "updated_at": "2026-05-08T06:28:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "6c1f6b7e-500a-575b-80f8-b0f3f446aff4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

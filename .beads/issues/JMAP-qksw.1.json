@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "CalendarEvent/copy correctly fetches source and applies overrides. Tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Rewrote handle_calendar_event_copy: fromAccountId check, get_objects fetch, merge overrides, onSuccessDestroyOriginal invocation; MockBackend.get_objects updated; 5 new tests; 17+1 pass; clippy clean",
+  "closed_at": "2026-05-05T14:51:36Z",
+  "compaction_level": 0,
+  "content_hash": "42074afedd524b12c07b46a447a48e298b7de958199557b763b986a5217c216d",
+  "created_at": "2026-05-05T03:02:07Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** handle_calendar_event_copy in event.rs does not fetch source events \u2014 it treats the create objects as fully-specified new events. RFC 8620 \u00a75.4 requires fetching the source record and merging client-supplied property overrides. Also missing: ifFromInState check, fromAccountNotFound/fromAccountNotSupportedByMethod errors, onSuccessDestroyOriginal.\n\n**Algorithm:**\n1. Parse fromAccountId from args. Call backend.account_exists(&from_account_id). If false \u2192 fromAccountNotFound error.\n2. If ifFromInState provided: call backend.get_state::<CalendarEvent>(&from_account_id) and return stateMismatch if mismatch.\n3. Check ifInState for destination as before.\n4. For each entry in create map:\n   a. Extract \"id\" field from the spec object \u2192 source event id in fromAccountId. If absent \u2192 invalidProperties.\n   b. Call backend.get_objects::<CalendarEvent>(&from_account_id, &[source_id], None). If not found \u2192 notCreated notFound.\n   c. Serialize source event to a Map; merge in client-supplied properties (client wins); remove \"id\" key.\n   d. Deserialize merged map to CalendarEvent; call backend.create_object on destination account.\n5. After building created map: if onSuccessDestroyOriginal == true, append destroy invocations against fromAccountId.\n\n**Tests:**\n- fromAccountId not found \u2192 fromAccountNotFound error. Oracle: RFC 8620 \u00a75.4.\n- Source id absent in create object \u2192 notCreated invalidProperties.\n- Source id not found \u2192 notCreated notFound.\n- Successful copy with property overrides: merged event stored.\n- onSuccessDestroyOriginal:true \u2192 destroy invocation in returned Vec<Invocation>.\n\n**Acceptance criteria:** All 5 tests pass. cargo test -p jmap-calendars-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-qksw.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix CalendarEvent/copy: fetch source and apply overrides correctly",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:02:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw",
+      "id": "d7ef3922-3884-51da-8cb2-ceae9ee4059e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Resolved together with JMAP-826m.50. The justification string is now hoisted into the INFALLIBLE_SERIALIZE_JUSTIFICATION const at helpers.rs, so the four call sites in this crate (set_error_value, metadata_value, plus the memory.rs filter-roundtrip site that has a different argument shape and keeps its own string) reference the const or use a typed helper rather than re-inlining the literal. The 'panic-message vs reader-justification' distinction the bead noted is preserved by keeping rustdoc on each call site documenting WHY the expect is unreachable; the const itself carries only the short greppable string the user would see at runtime.",
+  "closed_at": "2026-05-15T09:09:54Z",
+  "compaction_level": 0,
+  "content_hash": "5d3255490fc32f4f2367047f0660cbe7256f3c8eadda3c4a1025de6290cd9a10",
+  "created_at": "2026-05-14T17:56:16Z",
+  "created_by": "Mark Atwood",
+  "description": "What is awkward: helpers.rs:108 (and metadata.rs:373, 433) all carry the .expect(\"derive(Serialize) on plain data is infallible\") justification string. The justification is correct, but the same string appears 3 times.\n\nTwo-part awkwardness:\n(a) The justification is for the reader, but the panic-message string is what the user sees if the impossible happens. They are not the same audience. The message reads like a Rust note to the reader, not an actionable diagnostic.\n(b) Could be a const fn or a helper to avoid the repeated 'plain data is infallible' string literal.\n\nSuggested rewrite: hoist into a single helper like serialize_or_panic(&v) -> Value with the one-line justification on the helper. Both arguments (cleaner sites, single justification) move toward each other.\n\nFiling as P3 elegance. Could mark opinion in Section 7.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "set_error_value helper uses .expect('derive(Serialize) on plain data is infallible') instead of .unwrap_or_else default value \u2014 string of justification is verbose for what should be unreachable",
+  "updated_at": "2026-05-15T09:09:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:56:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "a1c12cde-9cd7-5a2a-b571-e0bdb91660aa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

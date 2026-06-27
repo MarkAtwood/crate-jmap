@@ -1,0 +1,33 @@
+{
+  "close_reason": "Filed as standalone issue JMAP-yecd.3 for full implementation; current tests cover the no-filter/no-sort path which is the common case",
+  "closed_at": "2026-05-02T19:23:29Z",
+  "compaction_level": 0,
+  "content_hash": "e8d0f9e8c6e50f09456d0ebc2055632ee8c7e4ba0c962e891052c2ffe62dd541",
+  "created_at": "2026-05-02T19:18:49Z",
+  "created_by": "Mark Atwood",
+  "description": "common/mod.rs MemoryBackend::query_changes takes filter, sort, max_changes, up_to_id, collapse_threads all as _ (ignored). The return value is the full unfiltered id list when since=0 and empty otherwise. Integration tests for Email/queryChanges that pass a filter or maxChanges will silently test against unfiltered results. Any test that relies on Email/queryChanges returning filtered deltas will pass even if the production backend filters incorrectly. Maintenance consequence: false-green tests give false confidence about queryChanges conformance.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::query_changes ignores filter/sort/upToId/maxChanges",
+  "updated_at": "2026-05-02T19:23:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "d6f16d97-8dc1-5e53-8055-09f6138bb253",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

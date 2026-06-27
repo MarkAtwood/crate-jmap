@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-ez5.5",
+  "title": "#[non_exhaustive] on all public types \u2014 correct future-proofing, must defend",
+  "description": "Every public struct and enum in this crate carries #[non_exhaustive]. A future contributor may suggest removing it to allow exhaustive matching or struct update syntax. Do not. #[non_exhaustive] is essential here: (1) RFC 8621 defines these wire types and the IANA registries for roles and keywords grow over time; (2) new fields added to Email, Mailbox, etc. must not be breaking changes for downstream crates; (3) MailboxRole::Other already depends on it being non-exhaustive. Removing it would force semver-major on every field addition.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:44:39Z",
+  "updated_at": "2026-04-30T05:29:34Z",
+  "closed_at": "2026-04-30T05:29:34Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-ez5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:44:39"
+    }
+  ]
+}

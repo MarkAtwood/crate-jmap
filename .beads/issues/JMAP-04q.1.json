@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-04q.1",
+  "title": "Missing test for ~0 JSON Pointer tilde escape (RFC 6901 \u00a73)",
+  "description": "parse.rs json_pointer_ext correctly implements '~0' \u2192 '~' per RFC 6901 \u00a73 (replace '~1' first, then '~0', preventing double-substitution of '~01'). However there is no test for this case \u2014 only '~1' is tested in resolve_args_path_tilde_escaping. If someone rearranged or removed the ~0 branch a test would not catch it. Oracle: RFC 6901 \u00a73 \u2014 {\"a~0b\": \"tilde-value\"} with path /a~0b must resolve to \"tilde-value\".",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:43:49Z",
+  "updated_at": "2026-04-30T17:44:30Z",
+  "closed_at": "2026-04-30T17:44:30Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-04q",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:43:49"
+    }
+  ]
+}

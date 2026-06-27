@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-09T14:36:48Z",
+  "compaction_level": 0,
+  "content_hash": "52abd915beb332b23370c607272ca990faa0428e25664e358faa0c43d65fb899",
+  "created_at": "2026-05-09T07:05:28Z",
+  "created_by": "Mark Atwood",
+  "description": "Mirror the calendars-client conversion in jmap-tasks-client. Same structural change.",
+  "ephemeral": 0,
+  "id": "JMAP-6by7.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "0.2.0 typed-Id: jmap-tasks-client",
+  "updated_at": "2026-05-09T14:36:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T00:05:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6by7",
+      "id": "8f6e379e-fc7b-56ff-bd8b-1e49e72ad28c",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-09T00:05:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6by7.1",
+      "id": "f23b0e93-a96b-5e69-8493-229a52c2ff1b",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

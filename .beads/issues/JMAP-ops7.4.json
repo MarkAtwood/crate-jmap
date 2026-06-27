@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added #[non_exhaustive] to CollisionError. Aligns with workspace pattern set by jmap_mail_types::KeywordError + foundation error types (JmapError, MethodResponseError, SetError). Pre-1.0 v0.1.x \u2014 no external semver impact.\n\nDid NOT reshape struct -> enum per the bead's secondary 'consider' note; the bead lists it as 'a less critical divergence than the #[non_exhaustive] one' and the struct shape is well-justified (a Vec<String> payload + Display impl produces the right error semantics; the enum form would be a single-variant enum which adds no real type-system value).\n\nRustdoc-link gotcha: the doc-comment originally used [`jmap_mail_types::KeywordError`] intra-doc syntax, but contacts-types does not depend on mail-types. Changed to plain backticks so RUSTDOCFLAGS=\"-D warnings\" still passes.\n\nWorkspace cargo test, clippy, rustdoc all clean.",
+  "closed_at": "2026-05-17T22:29:36Z",
+  "compaction_level": 0,
+  "content_hash": "050ed01892c5e716b2081e63357365838db526231ad2ec9fb3be4ea0d6a33fa8",
+  "created_at": "2026-05-17T22:01:31Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**:\n- crate-jmap-contacts-types/src/lib.rs \u2014 \\`pub struct CollisionError { keys: Vec<String> }\\` (private field, no \\`#[non_exhaustive]\\`)\n- crate-jmap-mail-types/src/lib.rs \u2014 \\`#[non_exhaustive] pub enum KeywordError { Empty, InvalidChar(char), ReservedPrefix }\\`\n\n**Divergence**: The two only crate-defined error types in the 8 extension type crates use opposite shapes:\n- contacts: struct with private field, NO forward-compat annotation\n- mail: enum with named variants, WITH \\`#[non_exhaustive]\\`\n\n**What goes wrong**:\n1. Adding a field to \\`CollisionError\\` (e.g. \\`account_id: AccountId\\` to disambiguate cross-account collisions) is a breaking change unless \\`#[non_exhaustive]\\` is added now. Same crate is at v0.1.1 \u2014 pre-1.0 so still cheap to fix.\n2. Adding a variant to \\`KeywordError\\` (e.g. an out-of-range Unicode codepoint) is non-breaking because of \\`#[non_exhaustive]\\`.\n3. Pattern divergence: a future error type in a third type crate (e.g. when sharing or filenode grows a validation-error class) won't know which template to mirror.\n\n**Fix**: add \\`#[non_exhaustive]\\` to \\`CollisionError\\`. If the workspace's policy is 'error types are enums', also consider reshaping \\`CollisionError\\` to enum form (\\`enum CollisionError { Duplicate { keys: Vec<String> } }\\`) for symmetry with \\`KeywordError\\`, though the struct vs enum is a less critical divergence than the \\`#[non_exhaustive]\\` one.\n\n**Related**: AGENTS.md ratifies \\`#[non_exhaustive]\\` on every public wire struct and on all wire-format result enums. The workspace does not explicitly cover crate-defined error types, but the precedent in \\`KeywordError\\` and \\`JmapError\\`/\\`MethodResponseError\\`/\\`SetError\\` (all \\`#[non_exhaustive]\\`) makes the implicit policy clear.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "contacts-types `CollisionError` is a `pub struct` without `#[non_exhaustive]`, vs sibling `KeywordError` (mail-types) which is a `#[non_exhaustive] pub enum`",
+  "updated_at": "2026-05-17T22:29:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:01:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "d285b600-7fde-56e0-b7cf-619deeb2c933",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already addressed: yqo.9 added auth-bypass doc warning to register_mail_handlers. Duplicate finding.",
+  "closed_at": "2026-05-02T03:33:08Z",
+  "compaction_level": 0,
+  "content_hash": "0cde3b48c4ee4fe2941cc3329dabd4a8c54a46f1fd306d4fe7726204af8af019",
+  "created_at": "2026-05-02T03:25:56Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs register_mail_handlers: the Dispatcher generic C (caller context) is silently discarded in ClosureHandler::call. The doc comment warns about this, but it is a public API footgun: any server that needs per-request auth (tenant id, bearer token, ACL) cannot use register_mail_handlers and must re-implement handler registration. Since the docs say 'implement JmapHandler directly', the risk is that most implementors will use register_mail_handlers, discover auth is absent, then either hack auth into the backend (wrong layering) or file an issue. The API design should be reconsidered before it fossilizes \u2014 consider making C a type parameter to the handler closures, or providing a second registration function that includes C.",
+  "ephemeral": 0,
+  "id": "JMAP-o6c.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "register_mail_handlers silently drops per-request auth context C",
+  "updated_at": "2026-05-02T03:33:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:25:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o6c",
+      "id": "23b07c1e-7138-53be-b2a9-b9827eea1915",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

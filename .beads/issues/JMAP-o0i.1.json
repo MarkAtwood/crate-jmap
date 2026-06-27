@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-o0i.1",
+  "title": "ClientError::Parse wraps String, loses error structure",
+  "description": "serde_json deserialization errors (from_slice, from_value) are converted via .to_string() into ClientError::Parse(String), discarding the structured serde_json::Error. Meanwhile serde_json serialization errors flow into ClientError::Serialize(#[from] serde_json::Error), which retains full error structure. The asymmetry means callers can inspect serialization failures (line/column/category) but not deserialization failures. Idiomatic Rust library code embeds the source error directly so callers can match on it or chain it with the 'source' impl from thiserror. Fix: add a ClientError::Deserialize(#[from] serde_json::Error) variant (or rename/split Parse), and replace the .map_err(|e| ClientError::Parse(e.to_string())) calls at client.rs:251, client.rs:308, client.rs:506, blob.rs:167, ws/mod.rs:119 with ? or map_err(ClientError::Deserialize).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:34:06Z",
+  "updated_at": "2026-04-30T01:43:11Z",
+  "closed_at": "2026-04-30T01:43:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-o0i",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:34:06"
+    }
+  ]
+}

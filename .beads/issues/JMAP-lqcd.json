@@ -1,0 +1,22 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-05T01:45:50Z",
+  "compaction_level": 0,
+  "content_hash": "2d319be0d2cf5916717ba40971ac5047e1f80b0e0e6393bf22a24e9485bde727",
+  "created_at": "2026-05-05T01:44:46Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-lqcd",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement ContactsBackend trait",
+  "updated_at": "2026-05-05T01:45:50Z"
+}

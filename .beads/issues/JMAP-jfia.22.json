@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Tightened the existing doc on server_fail_from_backend with an emphatic 'intentionally discarded' note + cross-ref to bd:JMAP-jfia.22. Rename/migrate options rejected (264 call sites, workspace prefers non-breaking changes). The workspace sealed dep set excludes tracing so a built-in log line is not on the table \u2014 callers log explicitly at the call site.",
+  "closed_at": "2026-05-14T17:23:35Z",
+  "compaction_level": 0,
+  "content_hash": "e6033d3611e8445a96f50cfcee2d20fb8c7218098d50599de47258f1b9e1dae4",
+  "created_at": "2026-05-14T16:46:06Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/handlers.rs:69-71 \u2014 function signature is:\n\n    pub fn server_fail_from_backend<E: std::fmt::Display + ?Sized>(_err: &E) -> JmapError {\n        JmapError::server_fail(SERVER_FAIL_INTERNAL_DESC)\n    }\n\nThe function takes an error reference and discards it; the body\nignores the parameter entirely and returns a JmapError whose\ndescription is always the static \"internal error\" string. The\ndiscard is intentional \u2014 the doc comment explains this is the\ndefense-in-depth guard that prevents the backend error's Display\noutput from reaching the JMAP wire response.\n\nWhat callers cannot depend on (and what callers may wrongly assume):\n\nA reader of just the function signature reasonably assumes the\nparameter is used:\n\n    .map_err(|e| server_fail_from_backend(&e))\n\nThe pattern looks like \"wrap this backend error in a serverFail\ninvocation\". The signature suggests the error info is preserved\nsomehow (logged, stashed, included as a `cause`); the body proves it\nisn't. The doc comment clarifies, but reviewers of consumer code\nwho do not chase the function definition will think the error is\ncaptured.\n\nWhat goes wrong when this stays as-is:\n\n1. Consumers add tracing/logging at the call site assuming the\n   error is also being logged \"somewhere by the helper\" and then\n   are surprised when nothing appears in operator logs except the\n   static \"internal error\" wire response.\n\n2. Future maintainers writing per-method handlers in extension\n   *-server crates copy the pattern blindly and don't add their own\n   structured logging, leaving operator-visibility gaps.\n\n3. The `?Sized` bound + generic Display parameter looks like\n   information-carrying \u2014 consumers might pass complex error values\n   expecting some attribute to be picked up.\n\nResolution paths (one is sufficient):\n\n- Rename: `server_fail_internal() -> JmapError` (no parameter).\n  Force the caller to log the backend error separately:\n      .map_err(|e| {\n          tracing::error!(error = ?e, \"backend failure\");\n          server_fail_internal()\n      })\n  The renamed function makes the discard explicit.\n\n- Keep the name, change the signature so the discard is visible:\n  `pub fn server_fail_from_backend() -> JmapError` and remove the\n  err parameter entirely.\n\n- Keep the parameter but actually use it for structured logging:\n  add an optional tracing::error!() call inside the helper, gated\n  behind a `log` Cargo feature. (This adds a dep and is heavier.)\n\nThe current shape is functional but misleading. The first option\ncosts the least.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "server_fail_from_backend signature accepts err: &E but discards \u2014 misleading API shape",
+  "updated_at": "2026-05-14T17:23:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:46:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "8f36aa3b-2969-5429-b825-2b39a211e49d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Opinion: variable naming taste, no engineering consequence",
+  "closed_at": "2026-05-02T21:44:28Z",
+  "compaction_level": 0,
+  "content_hash": "445bb6c72c7a415d04bd1a55c788e2f16283a783658d3904c524ae8fb87473d5",
+  "created_at": "2026-05-02T21:40:26Z",
+  "created_by": "Mark Atwood",
+  "description": "In email_matches_condition, the pre-declared binding 'let on_demand: HashSet<&Id>;' exists purely to satisfy the borrow checker (the set must outlive the match arm that builds it). The name 'on_demand' describes the call-site timing but not the mechanical reason for the declaration, so a reader unfamiliar with this Rust pattern has to figure out why the variable is hoisted. Suggested rewrite: rename to 'built' or 'scratch_set' and add a one-line comment: '// Declared here so it outlives the match arm.' This makes the intent explicit without requiring knowledge of NLL limitations.",
+  "ephemeral": 0,
+  "id": "JMAP-a81m.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "on_demand borrow-lifter name obscures pattern",
+  "updated_at": "2026-05-02T21:44:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:40:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a81m",
+      "id": "8b497019-8db3-520f-aecb-2b7d3d82b73d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

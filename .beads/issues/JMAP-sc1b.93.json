@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "close_reason": "Fixed in 9922e26: MemoryBackend::generate_invite_code now reads 16 bytes from getrandom (OS CSPRNG) and hex-encodes them \u2014 128 bits of entropy, 32 chars wide. getrandom is gated behind the existing 'memory' feature so default builds are unchanged. Reference impl panics on OS-CSPRNG unavailability rather than degrading to a predictable fallback. New structural test asserts 256 distinct 32-char hex codes with low shared-prefix length \u2014 a behavioural canary the pre-fix timestamp impl could not satisfy. tests/common/mod.rs:136 kept as-is per the bead's option (c): it is already cfg(test)-equivalent (only exists in tests/) and never ships.",
+  "closed_at": "2026-05-11T14:34:59Z",
+  "compaction_level": 0,
+  "content_hash": "edc5844127dbcc0109f93487cd3dde2c4a8e182f7a3bd4733f152f8f1e13a754",
+  "created_at": "2026-05-11T14:24:18Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Location: `crate-jmap-chat-server/src/memory.rs:517-527`\n\n  fn generate_invite_code(&self) -> String {\n      // test-only: not a CSPRNG\n      format!(\n          \"{:012x}\",\n          std::time::SystemTime::now()\n              .duration_since(std::time::UNIX_EPOCH)\n              .unwrap_or_default()\n              .as_nanos()\n              & 0xffff_ffff_ffff,\n      )\n  }\n\nCONCERN\nThe trait `ChatBackend::generate_invite_code` doc (`crate-jmap-chat-server/src/backend.rs:74-89`, fixed by closed JMAP-sc1b.78) instructs every implementor:\n\n  /// Implementations MUST use a CSPRNG. `rand::rngs::OsRng` or the\n  /// `getrandom` crate are the recommended choices.\n\nBut the reference implementation in this same crate's `memory.rs:517-527` uses nanosecond-since-epoch truncated to 48 bits. The inline comment labels it 'test-only: not a CSPRNG'.\n\nPer workspace AGENTS.md and per the closed cookie-cutter findings (.82-.87 sweep), `MemoryBackend` is the **public reference implementation** that downstream operators copy-paste from \u2014 it is unconditionally compiled, publicly exported at `jmap_chat_server::memory::MemoryBackend`, and the canonical for the extension-server family per the workspace canonical-templates table. It is NOT `#[cfg(test)]`.\n\n48 bits of nanosecond entropy against a known-second window is trivially brute-forceable: an attacker who knows roughly when an invite was created can enumerate ~10^9 candidate nanos in the window and submit Space/join requests with each. With current network throughput and no per-account rate limit on Space/join attempts (none in the handler), the entire window is searchable in minutes.\n\nWHAT GOES WRONG\nKey recovery \u2014 invite-code recovery \u2192 unauthorized Space membership for any space whose invite-creation time is roughly known.\n\nThe downstream-operator risk is the real concern: a deployment that starts from `MemoryBackend` as a scaffold (the AGENTS.md positions it as exactly this) and never overrides `generate_invite_code` ships a server with predictable invite codes. The inline 'test-only' comment is hedge-text; many operators will not read it.\n\nPROPOSED FIX\nTwo options, in order of preference:\n\n(a) Replace the impl with a CSPRNG:\n        use rand::{rngs::OsRng, RngCore};\n        let mut bytes = [0u8; 16];\n        OsRng.fill_bytes(&mut bytes);\n        hex::encode(bytes)\n    Add `rand` (with `os_rng` feature) or `getrandom` to chat-server deps.\n\n(b) Make the test-only nature unambiguous: `#[cfg(test)] fn generate_invite_code` and require the impl in non-test builds. This would break the 'use MemoryBackend as a scaffold' pattern but match the inline comment's stated intent.\n\n(c) Apply the same change to `tests/common/mod.rs:136` (separate test-backend, also uses nanos) \u2014 that one can stay nanos with a clear cfg(test) gate.\n\nORACLE\n- Closed JMAP-sc1b.78 \u2014 the trait-doc fix this finding is the matching reference-impl bug to.\n- RFC 8620 \u00a71.2 vs the ChatBackend doc \u2014 invite codes are explicitly secret-grade per the trait, distinct from generic JMAP Ids.\n\nRISK CLASSIFICATION\nP2. Predictable secret in the canonical reference backend that the workspace AGENTS.md positions for downstream copy-paste. Higher severity than .78 because .78 only fixed the doc; this is the matching code defect.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.93",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security: chat MemoryBackend::generate_invite_code uses nanosecond timestamp, contradicting trait doc fixed by .78 (crate-jmap-chat-server/src/memory.rs:517)",
+  "updated_at": "2026-05-11T14:34:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:24:17Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "a0590ec8-0316-52c5-8799-ba442fee73b4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

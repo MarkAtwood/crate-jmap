@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-kmx.1",
+  "title": "EmailComparator non_exhaustive with no constructor",
+  "description": "EmailComparator is #[non_exhaustive] but has no new() or builder. External crates (including jmap-mail-client) cannot construct EmailComparator values at all \u2014 struct literal syntax is forbidden by #[non_exhaustive] from outside the defining crate, and no constructor method exists. Email/query sort orders become impossible to build programmatically. Fix: add EmailComparator::new(property: ComparatorProperty) -> Self.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:04:32Z",
+  "updated_at": "2026-04-30T05:09:50Z",
+  "closed_at": "2026-04-30T05:09:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-kmx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:04:32"
+    }
+  ]
+}

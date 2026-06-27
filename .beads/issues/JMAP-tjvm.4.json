@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T12:47:24Z",
+  "compaction_level": 0,
+  "content_hash": "c6b4d5a1984bba0ffd1fbda150761ee985c3cd2be5dace2fb8b5a704604fbee4",
+  "created_at": "2026-05-15T01:45:11Z",
+  "created_by": "Mark Atwood",
+  "description": "Per RFC 8621 \u00a71.3 (lines 260, 350, 408):\n- Identity/* and EmailSubmission/* require `urn:ietf:params:jmap:submission`\n- VacationResponse/* requires `urn:ietf:params:jmap:vacationresponse`\n- Mail/* (Email, Mailbox, Thread, SearchSnippet) requires\n  `urn:ietf:params:jmap:mail`\n\nCurrent code (`src/methods/mod.rs:321`) defines exactly one constant:\n```\nconst USING_MAIL: &[&str] = &[\"urn:ietf:params:jmap:core\",\n                              \"urn:ietf:params:jmap:mail\"];\n```\nand every method in identity.rs, submission.rs, and vacation.rs builds its\nrequest with `super::build_request(method, args, super::USING_MAIL)`.\n\nPer RFC 8620 \u00a73.3: \"Servers MUST NOT use methods from a capability that is\nnot declared in the request's `using` field.\" A strict server rejects every\nIdentity/*, EmailSubmission/*, and VacationResponse/* call this crate makes\nwith `unknownCapability` or `unknownMethod`.\n\nMost lenient servers will accept anyway (Stalwart, Cyrus often do), but the\nclient is non-conformant and any spec-following server (or a future Stalwart\nrelease that tightens) will fail.\n\nFix: add `USING_SUBMISSION` and `USING_VACATION` constants and route each\nmethod through the right one. The submission constant must include\n`urn:ietf:params:jmap:mail` AND `urn:ietf:params:jmap:submission` because\nEmailSubmission references emailId / threadId (mail-typed fields) and the\nonSuccessUpdateEmail mechanism produces an implicit Email/set invocation\non the same request.\n\nWiremock smoke tests do not currently assert on the `using` array \u2014 add\nassertions while fixing.\n\nCanonical-template: every extension-client sibling cookie-cut from this\ncrate will have the same pattern. Audit/fix in lockstep.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Identity/EmailSubmission/VacationResponse methods send wrong 'using' capability set",
+  "updated_at": "2026-05-17T12:47:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:45:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "37329dbf-9953-5686-91ab-f22de4dfedfc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

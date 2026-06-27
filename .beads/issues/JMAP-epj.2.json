@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T12:07:18Z",
+  "compaction_level": 0,
+  "content_hash": "53d5f0717120cf54906b517237365836bd2d2352e18affd51391956f638796b1",
+  "created_at": "2026-05-01T12:04:08Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8621 \u00a74.7: created response for Email/copy MUST contain only id, blobId, threadId, and size. Current code puts the full email object in the created map (email.rs lines 1264-1271). Clients using the created entry to cache updates receive unexpected extra properties.",
+  "ephemeral": 0,
+  "id": "JMAP-epj.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/copy created map must only include 4 fields",
+  "updated_at": "2026-05-01T12:07:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T05:04:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-epj",
+      "id": "48a97931-5eeb-54d9-8b59-d6f6fb9114d6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

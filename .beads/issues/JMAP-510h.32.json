@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T21:18:12Z",
+  "compaction_level": 0,
+  "content_hash": "a4f40a392ca953acf84a0eb0f9bf21530bd2e7be19351c6baeba3ccd786e9e60",
+  "created_at": "2026-05-14T20:01:20Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/backend.rs:74-83\n\n```rust\n/// Returns the ancestor chain of the given nodes from immediate parent\n/// to root.\nfn get_ancestors(\n    &self,\n    caller: &Self::CallerCtx,\n    account_id: &jmap_types::Id,\n    ids: &[jmap_types::Id],\n) -> impl std::future::Future<Output = Result<Vec<FileNode>, Self::Error>> + Send;\n```\n\nThe doc comment says \"the ancestor chain of the given nodes\" \u2014 singular\nchain \u2014 but the input is a slice and the output is a single Vec. Three\ncontract questions go unanswered:\n\n1. **Deduplication.** When ids = [A, B] and A and B share parent P,\n   does the result contain P once or twice? The reference impl\n   (memory.rs:582-614) deduplicates via a visited set, but a database-\n   backed backend doing a `SELECT \u2026 WHERE id IN (parent_ids)` would\n   not deduplicate by default. Different backends will return different\n   results for the same input.\n\n2. **Ordering.** The doc says \"immediate parent first, up to root\".\n   For a single input id, this is well-defined. For multiple ids,\n   what order? Interleaved? All of id[0]'s chain first then id[1]'s?\n   Reference impl does BFS by frontier, so the ordering is \"all\n   parents of input ids, then all grandparents, then ...\" \u2014 not\n   per-id chains. A caller that depends on per-id chains for\n   reconstruction will be wrong.\n\n3. **Mapping back to input.** A caller cannot tell which ancestor\n   came from which input id without re-doing the parent walk. If the\n   intent is fetchParents expansion (handler in filenode.rs:54-86),\n   that intent is fine because the result is dumped into a flat list.\n   But the trait contract should say so explicitly: 'the union of\n   all ancestor nodes, deduplicated, ordering unspecified'.\n\nThe mock backend at lib.rs:404-419 only returns the ancestors for\nthe FIRST id (`ids.first()`), silently ignoring the rest. This\ndisagrees with both the BFS reference impl and any reasonable\ninterpretation of the doc. The fact that two test-double impls in\nthe same crate disagree on what the contract is, is direct evidence\nthat the contract is underspecified.\n\nA real backend implementor will pick the cheapest implementation\n(SELECT \u2026 IN, no dedup) and discover at integration time that\nclients get duplicate parent rows.\n\nSuggested fix: tighten the doc to specify the union semantics,\ndeduplication, and ordering. Or split into a per-id-chain method\nthat returns `Vec<Vec<FileNode>>` so the relationship is explicit.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "FileNodeBackend::get_ancestors multi-id contract is underspecified",
+  "updated_at": "2026-05-14T21:18:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:01:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "c3b20000-3fec-56f8-a67b-005d9bfa0e06",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

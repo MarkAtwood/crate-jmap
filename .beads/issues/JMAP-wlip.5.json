@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "extract_account_id now validates accountId against RFC 8620 \u00a71.2 via Id::new_validated (already available in jmap-types). Malformed inputs \u2014 empty strings, strings containing forbidden ASCII characters like SPACE or DQUOTE, strings exceeding 255 bytes \u2014 now surface as invalidArguments with the validation error message, instead of silently passing through to the backend's account_exists call as either notFound or storage-layer parse errors. Added two helpers tests: one asserts each of the four documented rejection cases produces invalidArguments, the other asserts a well-formed Id passes and the rest of the args are returned intact.",
+  "closed_at": "2026-05-14T13:53:32Z",
+  "compaction_level": 0,
+  "content_hash": "cfaad02d2ad379bf47b74bf46fb1ae2211c6f06780f0586e35b02c66d85f336b",
+  "created_at": "2026-05-14T12:52:42Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: a JMAP client sends {\"accountId\": \"\"} or {\"accountId\": \"a/b\"} or a 1000-char string. crate-jmap-server/src/helpers.rs:42-48 does match args.get(\"accountId\").and_then(|v| v.as_str()) \u2192 Some(s) \u2192 Id::from(s). No length check, no character-set check. The Id wraps the string and flows through to backend.account_exists(caller, &id), where the backend now has to decide: 404 (not found), 400 (invalid), or crash on storage-layer name validation.\n\nRFC 8620 \u00a71.2 specifies Id as a string of 1-255 chars from [A-Za-z0-9_-]. Anything outside that grammar cannot be a valid JMAP Id by spec. A handler that accepts an empty Id and forwards it to the backend either:\n- gets a synthetic notFound from the backend (most likely \u2014 fine but lossy: client doesn't learn the Id is malformed, just that it doesn't exist)\n- triggers a downstream parse error inside the backend with bookkeeping (worst case: SQL parameter binding, S3 key composition, etc.)\n\nThis is pre-existing behaviour \u2014 the diff just touched extract_account_id's signature, not its validation. But the function is now the single ingress point for accountId on every generic handler, so adding RFC-grade validation here pays out across every *-server. The right shape is probably to add fn Id::try_from_str(s: &str) -> Result<Self, JmapError> to jmap-types, then have extract_account_id call it and surface invalidArguments on mismatch.\n\nMaintenance consequence: an issue report 'why does Foo/get return notFound for accountId=\"my account\"' that turns out to be the space character. The fix surfaces as 'invalidArguments: accountId is not a valid Id (RFC 8620 \u00a71.2)' \u2014 actionable, not a CVE \u2014 but the absent validation is a recurring class of bug report waiting to happen, especially as more *-server crates onboard.\n\nWorkspace scope: bump jmap-types to add the validator before changing the helper, then the helper change is one line.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extract_account_id does not validate Id wire format (RFC 8620 \u00a71.2)",
+  "updated_at": "2026-05-14T13:53:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:52:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "97ebae78-dd9f-5767-9826-68603c13004d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

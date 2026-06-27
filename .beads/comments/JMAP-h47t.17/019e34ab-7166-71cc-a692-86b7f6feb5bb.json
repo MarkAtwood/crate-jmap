@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T06:41:51Z",
+  "id": "019e34ab-7166-71cc-a692-86b7f6feb5bb",
+  "issue_id": "JMAP-h47t.17",
+  "text": "Ratifying committed recommendation after 72h+ with no human reply. Per workspace AGENTS.md 'Stale committed recommendation' anti-pattern: rec is option (a) doc-only \u2014 add 'args shape' section to each handle_* fn's rustdoc with section refs into RFC 8620 \u00a75 / draft-tasks-06 \u00a73-\u00a75, document return shape, document JmapError variants. Option (b) was rejected because tests rely on direct calls; option (c) was rejected as a workspace-wide reshape. Removing 'human' label."
+}

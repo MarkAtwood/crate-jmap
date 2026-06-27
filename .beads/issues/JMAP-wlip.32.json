@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Extracted the 6 sites in handlers.rs that match args.remove(...).unwrap_or(Value::Null) for None and serde_json::from_value(...) for Some into a single shared helper, optional_arg(args, name, |err_fn|). Each call site is now one-liner that just supplies the JmapError factory. Exported optional_arg from jmap-server's public surface so the extension *-server crates can use the same shape for their own optional-arg parsing \u2014 propagation to those crates is intentionally left as a follow-up rather than bundled into this bead since this crate's own surface was the focus.",
+  "closed_at": "2026-05-14T14:02:56Z",
+  "compaction_level": 0,
+  "content_hash": "6c980a25e68caa8f43403e0897034485a8d78b7f28f59e54a9444a3b3a58629d",
+  "created_at": "2026-05-14T13:10:47Z",
+  "created_by": "Mark Atwood",
+  "description": "src/handlers.rs repeats the JSON-arg-decode pattern across handle_get, handle_query, handle_query_changes \u2014 at lines 35-41 (ids), 43-49 (properties), 182-185 (filter), 187-193 (sort), 274-277 (filter), 279-285 (sort). The pattern is a 4-line match that maps 'absent or null' to None and 'present' to Some(serde_json::from_value(v).map_err(|_| ...invalidArguments)?). A small helper such as 'fn optional_arg<T: DeserializeOwned>(args: &mut Map<String, Value>, name: &str, on_err: impl Fn() -> JmapError) -> Result<Option<T>, JmapError>' would collapse each of the 6 sites to a single line and keep the error-message customization at the call site. Equivalent fallible pattern with combinators: 'args.remove(\"ids\").filter(|v| !v.is_null()).map(serde_json::from_value).transpose().map_err(|_| ...)?'. Both shapes are more idiomatic than the verbose match. What goes wrong if it stays: 24 lines of effectively-duplicated logic where any future change (e.g. allowing 'absent' to differ from 'explicit null' for one of the args) requires careful 6-site edits; the parsing logic is harder to audit because it is interleaved with the surrounding handler code instead of factored out.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Repeated 'match args.remove(...).unwrap_or(Value::Null) { Value::Null => None, v => Some(serde_json::from_value(v)...) }' pattern",
+  "updated_at": "2026-05-14T14:02:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:10:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "74543dc7-8bf8-5bca-8273-fe3d31c0b1b2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

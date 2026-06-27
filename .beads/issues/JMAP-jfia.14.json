@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decision record landed at panic_message_not_in_response doc \u2014 explicit cross-reference to bd:JMAP-jfia.14 plus rationale defending the recursive-walk shape against future single-field-check 'simplification'.",
+  "closed_at": "2026-05-14T17:21:24Z",
+  "compaction_level": 0,
+  "content_hash": "bb9ddb570c6e6f981beaae726dcfcda184e01b99f624b2c374501351b268f88f",
+  "created_at": "2026-05-14T16:38:22Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/lib.rs:683-705 \u2014 the panic_message_not_in_response test recursively walks the entire methodResponse args Value (object values, array elements, strings) and asserts that no String anywhere in the tree contains the canary literal \"deliberate test panic\".\n\nA future contributor will reasonably suggest \"simplify \u2014 just check args.description, that's where panic-payloads land in the current implementation\". That suggestion is WRONG and the recursive walk should be defended.\n\nWhy recursive walk is the correct shape (the inline comment makes the argument; this is a decision record):\n\n  - The current implementation produces serverFail with description = \"internal error\" (a static string, no panic-payload leak). A targeted description check would pass today.\n  - A future refactor could surface panic-payload text through a typed `context` field, an `innerError` nested object, an `extras` map, or any other field that slipped past a single-field check.\n  - A canary-leak test that only checks the field where the leak currently doesn't land gives no protection against drift. It encodes the current implementation rather than the security invariant.\n  - The recursive walk encodes the actual invariant: \"panic-payload text does not leak to the wire, ANYWHERE in the response shape\". That holds across refactors of the error shape.\n\nTest shape to preserve. Worth a decision record so a future \"simplify\" pass does not narrow the assertion to a single field check.\n\nSame pattern recommended for the BackendChangesError leak test that JMAP-jfia.1 calls for: walk the entire wire response for the canary, do not target a single field.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "panic_message_not_in_response recursive walk is the correct security test shape",
+  "updated_at": "2026-05-14T17:21:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:38:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "ce9f04af-3fdc-57f4-a640-39679de68a57",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in bf895d2: added rustdoc to ContactCard.created/updated and the four ContactCardFilterCondition date fields documenting the UTCDate format ('YYYY-MM-DDTHH:MM:SS[.SSS]Z') and the no-parse-validation contract inherited from jmap-types::UTCDate. Handler-layer rejection responsibility called out. The UTCDate parse-validation gap itself is a jmap-types property out of scope of this diff.",
+  "closed_at": "2026-05-15T23:05:25Z",
+  "compaction_level": 0,
+  "content_hash": "d4b94b5285b5e8de1dbbda46a96ac44150f82870bd04b47e7abe5b4593f2ce0f",
+  "created_at": "2026-05-15T22:46:17Z",
+  "created_by": "Mark Atwood",
+  "description": "The diff migrated six fields from `Option<String>` to `Option<UTCDate>`:\n- ContactCard.created                    (card.rs:52)\n- ContactCard.updated                    (card.rs:81)\n- ContactCardFilterCondition.created_before  (card.rs:242)\n- ContactCardFilterCondition.created_after   (card.rs:246)\n- ContactCardFilterCondition.updated_before  (card.rs:250)\n- ContactCardFilterCondition.updated_after   (card.rs:254)\n\nThe migration is correctly motivated (typed-newtype migration per\nworkspace AGENTS.md \u00a7\"UTCDate\" convention) and wire-format-identical\nto the prior String shape. But `UTCDate` is a transparent String\nnewtype in `jmap-types` with no input validation:\n\n```rust\nlet d: UTCDate = \"not-a-date\".into();             // accepted; no parse\nlet d: UTCDate = \"2024-13-99T99:99:99Z\".into();   // accepted; impossible date\n```\n\nThe epic note (JMAP-glx8 NOTES) already flags this as inherited from\njmap-types and out of scope of this diff. But the contract risk now\nextends to six previously-String fields:\n\n1. A caller building a query in code via\n   `filter.created_before = Some(\"2024-02-30T00:00:00Z\".into())`\n   compiles, serializes, deserializes, and the server returns garbage\n   (no cards, or every card, depending on the backend's date parser\n   leniency).\n\n2. A server returning `card.created = Some(\"invalid\".into())` produces\n   wire data that round-trips through this crate but fails downstream\n   typed date access (chrono::DateTime::parse_from_rfc3339, etc.).\n\nThe doc comment on ContactCard.created says only \"Date and time when\nthe Card was created (UTCDateTime).\" It does not:\n- Link to `jmap_types::UTCDate`\n- Describe the expected format (RFC 3339 \u00a75.6, Z-suffixed)\n- Warn that UTCDate accepts any string without validation\n\nMinimum fix (in scope for this crate): rustdoc clause on each of the\nsix fields:\n\n> Expected format: RFC 3339 \u00a75.6 UTC timestamp (e.g.,\n> `\"2024-01-15T13:45:00Z\"`). Note: [`UTCDate`] is a transparent\n> String newtype and does NOT validate input at construction.\n> Callers passing malformed strings will produce wire output that\n> fails downstream typed date access (e.g., chrono parsing).\n\nStronger fix (out of scope of this crate; file against jmap-types):\nadd a `TryFrom<&str>` implementation to `jmap_types::UTCDate` that\nvalidates RFC 3339 format. File as a separate bead under jmap-types.\n\nCross-reference:\n- jmap-types UTCDate definition (presumably in src/lib.rs)\n- AGENTS.md \u00a7\"workspace conventions\" \u2014 UTCDate convention\n- RFC 9610 \u00a73 created/updated fields\n- RFC 8620 UTCDate type definition",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactCard date fields inherit UTCDate's invisible validation contract; six new sites need format doc",
+  "updated_at": "2026-05-15T23:05:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:46:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "26470480-a597-5443-b767-4bbf202d8c7e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T000911Z-2258131",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-13T01:16:21Z",
+  "compaction_level": 0,
+  "content_hash": "7a74ca4e4f183a2df9c439904431744b0c027746c2165e648c9e5c80e79b4872",
+  "created_at": "2026-05-12T23:35:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec: draft-atwood-jmap-chat-00 commits 48b6a31 (DID URIs acknowledged) and 5bfb16d (federated/DID-URI textual forms for user mentions).\n\nCurrent state: crate-jmap-chat-types/src/contact.rs ChatContact.id has type `Id` (opaque newtype around String). The wire is already correct \u2014 any opaque URI form will round-trip. But there is no doc-comment confirming this latitude.\n\n## Acceptance\n\n- ChatContact.id rustdoc adds a note: \"Spec acknowledges this as any opaque URI form, including but not limited to user@host (federated), DID URIs per W3C DID-Core (did:web:..., did:key:...), and other future forms. Servers and clients MUST treat the value as opaque; do not parse, validate, or normalize.\"\n- Mention.id rustdoc (jmap-chat-types/src/message.rs) carries the same note: \"The mentioned ChatContact.id; any opaque URI form. The textual representation in the message body (e.g. @user@host, @did:web:..., or @display-name) is composer-defined and is NOT recoverable from this field alone.\"\n- One round-trip test in chat-types/src/contact.rs ensures a ChatContact with id = \"did:web:alice.example\" serializes and deserializes cleanly (and the wire JSON has the verbatim string)\n\n## Out of scope\n\n- Any validation of URI form (the point is there is none)\n- Composer-side textual-form parsing (consumer's job)",
+  "ephemeral": 0,
+  "id": "JMAP-v9py.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Layer A: Doc-comment confirmation on ChatContact.id URI-form latitude (DID, federated, etc.)",
+  "updated_at": "2026-05-13T01:16:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-12T16:35:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-v9py",
+      "id": "48805643-fd51-5e90-b58f-4e878c30fe68",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

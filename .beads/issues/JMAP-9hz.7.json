@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-9hz.7",
+  "title": "expand_url_template unmatched-brace error uses InvalidArgument instead of InvalidSession",
+  "description": "In blob.rs, expand_url_template() returns ClientError::InvalidArgument(\"unmatched '{' in URL template\") for a malformed URL template returned by the server. This is wrong: the template comes from Session.download_url / Session.upload_url (server-provided), not from the caller. A malformed server-supplied template is a parse/session error (ClientError::InvalidSession), not an argument error. InvalidArgument implies the caller did something wrong.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:23:43Z",
+  "updated_at": "2026-04-30T06:33:13Z",
+  "closed_at": "2026-04-30T06:33:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9hz",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:23:42"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "5 ContactCard/copy integration tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added 2 dispatcher-based tests for ContactCard/copy (source not found, flat patch applied); 36 total pass; clippy clean",
+  "closed_at": "2026-05-05T15:47:08Z",
+  "compaction_level": 0,
+  "content_hash": "35a026fc9787cb9658006d6e411c32a111e40edeb2524543df2a72b7a6cbdeaf",
+  "created_at": "2026-05-05T03:00:33Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Integration tests for ContactCard/copy. Oracle: RFC 8620 \u00a75.3, \u00a75.4.\n\n**Tests:**\n1. copy_flat_patch_applies: addressBookIds override works correctly.\n2. copy_nested_path_patch: name/full sets nested property, no literal slash key.\n3. copy_null_removes_property: emails/work:null removes the key.\n4. copy_source_not_found: notCopied with notFound.\n5. copy_state_unchanged_when_nothing_copied: newState == oldState.\n\n**Acceptance criteria:** All 5 tests pass.",
+  "ephemeral": 0,
+  "id": "JMAP-jf2h.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Integration tests: ContactCard/copy patch semantics",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:00:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h",
+      "id": "706a1283-1732-59ac-ba27-c5351be81661",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T20:00:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h.5",
+      "id": "f650ccf5-6b5d-57f4-bc97-e607b8a30d08",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

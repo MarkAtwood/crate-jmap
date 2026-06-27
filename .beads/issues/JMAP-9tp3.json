@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "070d034fc204e9fa56ea4fe434b03aaabca44e1b5530867d17ddf9602e7eefce",
+  "created_at": "2026-05-18T02:40:43Z",
+  "created_by": "Mark Atwood",
+  "description": "JMAP-qz9v.12 added a 'Permission enforcement responsibilities' section to crate-jmap-contacts-server/README.md (commit on main) enumerating the RFC 9610 \u00a72.3 / \u00a73 / \u00a76 checks the consumer's backend must perform. The workspace AGENTS.md canonical-template propagation rule requires the canonical sibling jmap-mail-server to carry the equivalent section first, then propagate to the other 5 extension-server siblings.\n\nThe per-RFC content differs \u2014 each crate needs its own enumeration:\n\n- crate-jmap-mail-server (canonical, RFC 8621): role-uniqueness, sharing for shared mailboxes, ACL enforcement on Email/{set,copy}, EmailSubmission auth identity, VacationResponse singleton scope.\n- crate-jmap-chat-server (JMAP Chat draft): SpaceMember/SpaceInvite/SpaceBan permission checks (cf. JMAP-x2gd epic), Message authorship guards.\n- crate-jmap-calendars-server (RFC 9610-adjacent calendars draft): CalendarRights (mayRead/mayWrite/mayShare/mayDelete) on Calendar/set; CalendarEvent participation rules.\n- crate-jmap-tasks-server: TaskList ACLs, Task assignment auth.\n- crate-jmap-filenode-server: FileNode permissions (related to draft); cycle-check vs ACL split.\n- crate-jmap-metadata-server: isPrivate scoping per-caller, Metadata ACL boundaries.\n- crate-jmap-sharing-server: this crate IS the canonical 9670 myRights surface; the section there documents what other backends call into.\n\nEach section should follow the contacts-server template:\n1. Restate handler/backend split (handlers do no auth, backend canonical).\n2. Reference JmapBackend::principal_id foundation seam.\n3. Enumerate the per-method checks the backend MUST perform with the RFC \u00a7 citation per check.\n4. Note that the reference MemoryBackend does not implement these.\n\nRecommended scope: file as a parent epic with one child bead per sibling crate. Land mail-server first (canonical), then propagate.",
+  "ephemeral": 0,
+  "id": "JMAP-9tp3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Propagate 'Permission enforcement responsibilities' README section to mail-server (canonical) and 5 other extension-server siblings",
+  "updated_at": "2026-05-18T02:40:43Z"
+}

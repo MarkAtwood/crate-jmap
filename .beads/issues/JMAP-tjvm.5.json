@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T12:43:40Z",
+  "compaction_level": 0,
+  "content_hash": "d13761942bdf3cb40523b2a80ca3da827663a488d49e69d5420de73fbd47f876",
+  "created_at": "2026-05-15T01:45:12Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8620 \u00a75.6 (rfc8620.txt:2639-2685) defines /queryChanges arguments:\n- accountId, sinceQueryState, maxChanges (already passed)\n- filter, sort  (REQUIRED to match the original /query call)\n- upToId       (optional pagination boundary)\n- calculateTotal (optional)\n\nCurrent implementations:\n- `email_query_changes` (email.rs:175-201): accepts since_query_state,\n  max_changes, collapse_threads. **MISSES filter, sort, upToId, calculateTotal.**\n- `mailbox_query_changes` (mailbox.rs:150-172): accepts since_query_state,\n  max_changes. **MISSES filter, sort, upToId, calculateTotal.**\n- `email_submission_query_changes` (submission.rs:117-147): accepts\n  filter+sort \u2014 partially fixed \u2014 still misses upToId, calculateTotal.\n\nImpact: a client that called `Email/query` with `filter:{inMailbox:\"inbox\"}`\nand caches the queryState cannot reliably get its changes via this client.\nThe spec is explicit: \"The filter argument that was used with Foo/query\"\n(rfc8620.txt:2651) \u2014 the server uses filter+sort to determine which entries\nentered/left the result set since sinceQueryState. Omitting them tells the\nserver \"the original query had no filter and default sort\", which gives the\nwrong added/removed deltas.\n\nMost servers will still return *some* response (often by recomputing the\ndelta against an empty filter, or returning cannotCalculateChanges). Either\nway the cached query is corrupted from the client's perspective.\n\nFix: extend the signatures of email_query_changes, mailbox_query_changes\n(and email_submission_query_changes for completeness) to accept filter,\nsort, upToId, calculateTotal. Add wiremock smoke tests that assert the\nfilter+sort make it onto the wire.\n\nThis is a breaking signature change \u2014 bump 0.1.x \u2192 0.2.0 per workspace\nsemver convention, document in CHANGELOG, propagate to all extension-client\nsiblings.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "email_query_changes / mailbox_query_changes missing filter, sort, upToId args (RFC 8620 \u00a75.6)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:45:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "4ecf9d9b-4de2-58c1-a569-75d110d0ba8e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

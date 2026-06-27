@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T21:44:53Z",
+  "compaction_level": 0,
+  "content_hash": "e6aeba344682cd2aa226d2e8ea617e5fed3699eeb9c2d33c535281269ac133a5",
+  "created_at": "2026-05-14T20:16:58Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: src/backend.rs:116-123 (trait method), src/filenode.rs:232 (handler call site), src/memory.rs:668 (reference impl), src/lib.rs:446 (mock impl).\n\nTrait signature:\n\n    fn find_sibling_by_name(\n        &self,\n        caller: &Self::CallerCtx,\n        account_id: &jmap_types::Id,\n        parent_id: Option<&jmap_types::Id>,\n        name: &str,\n        case_insensitive: bool,                  // <- bool flag\n    ) -> impl Future<Output = Result<Option<jmap_types::Id>, Self::Error>> + Send;\n\nCall site in handler (filenode.rs:232):\n\n    .find_sibling_by_name(\n        caller,\n        &account_id,\n        parent_id_for_collision.as_ref(),\n        &node_name,\n        compare_case_insensitively,\n    )\n\nThe supplement explicitly flags this pattern:\n\n> bool parameters that are really two-variant enums in disguise.\n> fn process(input: &str, verbose: bool) \u2014 the caller cannot tell at the\n> call site what true means. A Verbosity enum is self-documenting.\n\nA two-variant enum makes the call site self-documenting and pre-positions the API for the canonical fix to JMAP-510h.33 (case-folding algorithm is unspecified):\n\n    /// Case-folding mode for sibling-name comparison.\n    #[derive(Debug, Clone, Copy, PartialEq, Eq)]\n    pub enum CaseFolding {\n        /// Byte-for-byte comparison.\n        Sensitive,\n        /// Unicode Default Case Folding per Unicode Standard Annex \u00a73.13\n        /// over NFC-normalized input.\n        Insensitive,\n    }\n\nThen:\n\n    fn find_sibling_by_name(..., folding: CaseFolding) -> ...;\n\n    // call site:\n    .find_sibling_by_name(\n        ...,\n        if compare_case_insensitively { CaseFolding::Insensitive } else { CaseFolding::Sensitive },\n    )\n\nWhat goes wrong as-is \u2014 three things:\n\n1. **Reader cost at every call site.** 'compare_case_insensitively' the local variable spells out the meaning at the inner call site, but a fresh reader of the trait method does not see the variable name \u2014 they see 'true' or 'false' if a downstream caller hardcodes it. The two boolean positions read as bare booleans in the rendered docs at https://docs.rs.\n\n2. **API growth pressure.** The whole reason JMAP-510h.33 exists is that 'case_insensitive: bool' encodes the wrong shape. Real case-folding has more than two states: ASCII, Unicode simple, Unicode full, locale-dependent. A two-variant enum is the minimum step that lets the trait grow new variants (CaseFolding::AsciiOnly, CaseFolding::UnicodeFull) without a SemVer break (assuming #[non_exhaustive]). A bool freezes the API at 'two states, semantics undefined'.\n\n3. **Trait-shape coupling with the spec.** draft-ietf-jmap-filenode-13 \u00a73.2.3 specifies a bool ('compareCaseInsensitively') on the wire. The trait should not mirror the wire shape 1:1 when a better local shape is available. The wire bool can be converted at the handler boundary (the if-else above) \u2014 the trait does not need to be wire-isomorphic.\n\nCanonical comparison: jmap-mail-server has no analogous case-folding bool. The closest equivalent (Mailbox lookup by name) is not part of the typed trait surface. So the bool flag is a filenode-specific shape choice, and the only one in the trait family that takes a boolean control flag.\n\nCombined with JMAP-510h.33, the natural fix lands both findings: enum CaseFolding with documented semantics on each variant. Filed at idiomatic-rust,type-design P2 since the type-design improvement is independent of the algorithm-specification work in .33.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.54",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "FileNodeBackend::find_sibling_by_name takes case_insensitive: bool \u2014 should be a two-variant enum",
+  "updated_at": "2026-05-14T21:44:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:16:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "f4293c4d-6099-5ea7-9342-0131515a5f7a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

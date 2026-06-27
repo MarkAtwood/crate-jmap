@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-x9m",
+  "title": "Fix cannotCalculateChanges mapping in BackendChangesError",
+  "description": "The From<BackendChangesError<E>> for JmapError impl maps TooManyChanges { limit: 0 } to tooManyChanges with limit=0 instead of cannotCalculateChanges (RFC 8620 \u00a75.6). PLAN.md line 167 documents the intended convention: limit=0 signals 'cannot calculate'. A backend that cannot support queryChanges has no correct way to signal this today.\n\nTwo tasks:\n1. Fix the From impl: TooManyChanges { limit: 0 } \u2192 JmapError::cannot_calculate_changes(); TooManyChanges { limit > 0 } \u2192 too_many_changes_with_limit(limit).\n2. Add a test: backend returns TooManyChanges { limit: 0 } \u2192 queryChanges response is cannotCalculateChanges error (PLAN.md line 440).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:28:39Z",
+  "updated_at": "2026-05-01T03:33:54Z",
+  "closed_at": "2026-05-01T03:33:54Z"
+}

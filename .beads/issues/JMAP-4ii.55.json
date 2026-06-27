@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:41:29Z",
+  "compaction_level": 0,
+  "content_hash": "f1a93cbf7eb2e09b9b0a0407466d53641e4adef04b80e6e07afd12835893658c",
+  "created_at": "2026-05-02T04:19:54Z",
+  "created_by": "Mark Atwood",
+  "description": "chat.rs lines 309-310: let kind = serde_json::from_value(Value::String(kind_str.clone())).unwrap_or(ChatKind::Other(kind_str.clone())). kind_str is cloned twice: once to build the Value::String for from_value, and again for the fallback ChatKind::Other. The idiom that avoids the double-clone is to match from_value(Value::String(kind_str)) which consumes kind_str, and in the Err branch reconstruct \u2014 but that does not work directly. Alternative: parse from the already-borrowed &str using serde_json::from_str(\"\\\"{kind_str}\\\"\") or a custom FromStr impl. At minimum the comment should acknowledge that two allocations happen, or the code should be restructured to avoid one of them by moving kind_str into the Err arm via a match rather than using unwrap_or.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.55",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat.rs ChatKind double-clone: kind_str cloned twice in parse+fallback",
+  "updated_at": "2026-05-02T04:41:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:19:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "1fe37130-40af-5d8d-8a06-04b3055fae8f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

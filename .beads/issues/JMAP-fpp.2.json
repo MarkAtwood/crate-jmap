@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-fpp.2",
+  "title": "validate_sha256_format rejects uppercase hex from non-conformant servers",
+  "description": "validate_sha256_format requires all lowercase hex. If a server implementing jmap-cid returns an uppercase or mixed-case sha256, upload_blob and download_blob return ClientError::Parse. Callers cannot distinguish this from a genuinely malformed field. Either accept both cases with normalisation before comparison, or document strictly-lowercase-only as a deliberate interop constraint.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:14:53Z",
+  "updated_at": "2026-04-30T01:23:18Z",
+  "closed_at": "2026-04-30T01:23:18Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-fpp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:14:53"
+    }
+  ]
+}

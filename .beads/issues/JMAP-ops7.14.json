@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Renamed metadata-types README H2 from 'Filter-algebra exclusion' to 'Filter extensibility' matching the 6 sibling type crates. Added one sentence to the body emphasizing metadata-types' role as the IETF-track escape hatch (the special content the original section name was hinting at).",
+  "closed_at": "2026-05-17T22:43:57Z",
+  "compaction_level": 0,
+  "content_hash": "f2401078b96cddecbd3890c0630c9983e6e8a5e372e16d7a630d463a6954a4ae",
+  "created_at": "2026-05-17T22:03:45Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**:\n- crate-jmap-metadata-types/README.md \u2014 H2 heading \\`## Filter-algebra exclusion\\`\n- crate-jmap-mail-types/README.md \u2014 H2 heading \\`## Filter extensibility\\`\n- crate-jmap-calendars-types/README.md \u2014 H2 heading \\`## Filter extensibility\\`\n- crate-jmap-tasks-types/README.md \u2014 H2 heading \\`## Filter extensibility\\`\n- crate-jmap-contacts-types/README.md \u2014 H2 heading \\`## Filter extensibility\\`\n- crate-jmap-filenode-types/README.md \u2014 H2 heading \\`## Filter extensibility\\`\n- crate-jmap-sharing-types/README.md \u2014 H2 heading \\`## Filter extensibility\\`\n\n**Divergence**: 6 of 7 type crates that mention the policy use the H2 \\`## Filter extensibility\\`. metadata-types is the outlier with \\`## Filter-algebra exclusion\\`. Both names describe the same workspace decision (AGENTS.md JMAP-lbdy: filter algebra is excluded from the extras-preservation pattern because silent-drop of unknown clauses is a query-correctness bug).\n\n**What goes wrong**:\n1. Reader scanning READMEs across the workspace can't grep for one consistent heading to find the policy explanation.\n2. \\`metadata-types\\`'s special status (it IS the IETF-track mechanism that gives vendors a way out of the filter-algebra restriction) is real \u2014 the section content does deserve a distinct framing. But the name should still be the workspace-consistent one, with a sub-heading or first-paragraph emphasis on metadata's role.\n\n**Fix**: rename metadata-types README's H2 to \\`## Filter extensibility\\` and let the body text emphasize that this crate provides the canonical escape mechanism. Or rename the OTHER 6 to \\`## Filter-algebra exclusion\\` if that name is judged clearer \u2014 but pick one.\n\n**Priority**: P3 \u2014 purely a documentation surface consistency issue. The cross-crate references between the two names are already in place via prose links in AGENTS.md and PLAN.md.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README section name `Filter-algebra exclusion` (metadata-types) vs `Filter extensibility` (5 sibling crates) \u2014 same workspace policy under two names",
+  "updated_at": "2026-05-17T22:43:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:03:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "6d48c40e-3d84-5ec7-bd07-bb5764114a90",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Merged into JMAP-78lb per user instruction 2026-05-09. Both beads concerned the same line (crate-jmap-mail-types/src/mdn.rs:231); splitting would have meant editing it twice. JMAP-78lb's description now covers both the value-type and the key-type fix as a single coordinated change.",
+  "closed_at": "2026-05-10T00:38:05Z",
+  "compaction_level": 0,
+  "content_hash": "4fa09f01b776f1a11f03921f7def997e6722247e7bce289b2818e1ef2a616041",
+  "created_at": "2026-05-10T00:32:40Z",
+  "created_by": "Mark Atwood",
+  "description": "Cross-cutting key-type fix surfaced during the JMAP-trmz survey.\n\nFile: crate-jmap-mail-types/src/mdn.rs:231\n\n  // Currently\n  pub on_success_update_email: Option<HashMap<String, Value>>,\n  // After (combined with sibling JMAP-78lb's value-type fix)\n  pub on_success_update_email: Option<HashMap<jmap_types::Id, jmap_types::PatchObject>>,\n\nCookie-cutter rationale: the canonical client-side parallel field\ncrate-jmap-mail-client/src/methods/submission.rs::EmailSubmissionSetParams::on_success_update_email\nis already typed as HashMap<Id, PatchObject>. Mail-types is the canonical extension-types\ntemplate; its types should match the canonical client-side shape unless the spec mandates\notherwise. RFC 8621 \u00a77.4 specifies the keys as Email IDs (typed Id, not bare String).\n\nWire format unchanged (Id is #[serde(transparent)] over String).\n\n## Coordination\n\nThis change should land in the SAME commit as JMAP-78lb (the value-type fix on the same field).\nSplitting them would mean editing line 231 twice. JMAP-78lb's notes should be updated to mention\nthis coupling.\n\n## Acceptance criteria\n\ncargo test --workspace clean, lib clippy clean, wire format byte-identical.",
+  "ephemeral": 0,
+  "id": "JMAP-e0g3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix MdnSendRequest::on_success_update_email key type: String \u2192 Id (cookie-cutter)",
+  "updated_at": "2026-05-10T00:38:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T17:32:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-trmz",
+      "id": "353cf434-0f0d-5f3c-bced-7b0960d398d8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

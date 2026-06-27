@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Expanded SharingBackend trait-level rustdoc with two new sections: (1) Caller identity (foundation seam) \u2014 points at JmapBackend::principal_id supertrait method as the sole authorization input, warns that the default None impl makes RFC 9670 myRights unimplementable, exempts single-user dev/test backends and the reference MemoryBackend, notes the workspace-load-bearing nature of this trait's caller-identity contract since it is the canonical myRights propagation source for mail/calendars/tasks/contacts/filenode. (2) Permission enforcement (backend canonical) \u2014 restates the foundation rule that handlers do no permission checking, defense-in-depth pre-checks are optional, backend MUST re-verify atomically. Intra-doc link to principal_id verified resolvable on JmapBackend supertrait. clippy clean, fmt clean, tests green. Doc warnings unchanged (only 2 pre-existing JMAP-23su intra-doc-link warnings in principal.rs, not introduced).",
+  "closed_at": "2026-05-14T22:47:58Z",
+  "compaction_level": 0,
+  "content_hash": "c4035eae803adbe63a556dc8f61c02e74408bfc53e8f8f56eb78d711414eeab1",
+  "created_at": "2026-05-14T22:35:45Z",
+  "created_by": "Mark Atwood",
+  "description": "**Location**: `crate-jmap-sharing-server/src/backend.rs:50-61`.\n\n**The gap**: the `SharingBackend` trait-level rustdoc reads:\n\n> Storage backend for JMAP Sharing method handlers (RFC 9670).\n>\n> Implementors provide the actual data access; the method handler modules\n> in this crate translate between JMAP wire protocol and backend calls.\n>\n> Read-side operations (`get_objects`, `get_state`, `get_changes`,\n> `query_objects`, `query_changes`) are defined on the [`JmapBackend`]\n> supertrait. Only write operations and type introspection are here.\n>\n> This trait is not object-safe by design (generic methods). Use\n> `Arc<impl SharingBackend>` when sharing across tasks.\n\nIt says nothing about caller identity. This is a contract problem\nbecause:\n\n1. **Workspace AGENTS.md is explicit**: \"Caller identity (foundation\n   seam)\" section pins\n   `JmapBackend::principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id>`\n   as \"the ONLY way the JMAP layer asks 'who is the caller'. No\n   alternate path exists, no `caller_identity_blob()` escape hatch, no\n   generic claims map.\"\n\n2. **This crate is the canonical source of `myRights`**: the\n   crate-level AGENTS.md says \"this crate is the canonical source of\n   truth for the `myRights` field that other extension-server crates\n   (mail, calendars, tasks, contacts, filenode) propagate to their own\n   shareable objects. Every ShareNotification / Principal read must be\n   authorized against the caller's effective rights on the target\n   principal.\" That contract is between the trait's implementors and\n   the rest of the workspace \u2014 and is invisible in the trait doc.\n\n3. **Per-method docs do not pick up the slack**: `destroy_object`\n   (lines 145-198) does mention the backend-canonical permission\n   rule and points at the AGENTS.md anchor, but `create_object`\n   (.33) and `update_object` (.32) do not. A downstream implementor\n   who reads only the trait-level doc and a single method doc has no\n   path to the foundation seam.\n\n4. **`Option<&Id>` is semantically loaded**: AGENTS.md says \"A backend\n   that returns `None` from `principal_id` is signalling 'this\n   deployment does not honor identity-dependent JMAP semantics'.\n   Such a backend CANNOT correctly implement chat role-hierarchy,\n   calendar ACLs, sharing/myRights, per-user `$seen` on shared\n   mailboxes, or metadata `isPrivate` visibility scoping.\"\n\n   That last clause includes \"sharing/myRights\" \u2014 meaning a backend\n   that wires this trait without overriding `principal_id` ships a\n   broken `myRights` impl. The trait doc does not warn the implementor.\n\n**Recommended shape**: add a top-level paragraph block to the trait\ndoc:\n\n```\n/// # Caller identity (foundation seam)\n///\n/// Per the workspace AGENTS.md \"Caller identity (foundation seam)\"\n/// rule, this trait reads caller identity via the\n/// [`JmapBackend::principal_id`] method on the supertrait. The\n/// returned `Option<&Id>` is the canonical input to per-object\n/// permission enforcement.\n///\n/// **Production deployments MUST override `principal_id`**. The default\n/// impl returns `None`, which signals \"this deployment does not honor\n/// identity-dependent JMAP semantics\". Such a backend cannot correctly\n/// implement RFC 9670 `myRights` semantics: every Principal /\n/// ShareNotification read SHOULD be authorized against the caller's\n/// effective rights on the target principal, and `None` removes the\n/// authorization input.\n///\n/// **Single-user dev backends and test fixtures** may leave the\n/// default `None` impl in place. The reference [`memory::MemoryBackend`]\n/// does this and is correct for its use case.\n```\n\n**Severity**: P3. Not a wire-protocol bug; not an immediate footgun.\nA real-world consumer wiring multi-user permissions would discover\nthis concern through workspace AGENTS.md and the absence at the\ntrait level wouldn't trap them. But the trait doc is the natural\nhome for the contract \u2014 a downstream implementor reading rustdoc\nalone is the audience this finding targets.\n\n**Cookie-cutter propagation**: every extension-server trait\n(MailBackend, ChatBackend, CalendarsBackend, etc.) faces the same\ngap. The canonical mail-server is the propagation anchor.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SharingBackend trait-level rustdoc silent on caller identity \u2014 workspace foundation seam principal_id is the canonical authorization input but not surfaced here",
+  "updated_at": "2026-05-14T22:47:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T15:35:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "922e1195-04cc-57b5-a1cb-0b7f7f493a33",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

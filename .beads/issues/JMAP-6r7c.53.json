@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in 0714edb alongside .48. The is_valid_sha256_hex private helper had no remaining callers after .48 typed expected_sha256, and the rustdoc on hex_digest_eq lost its mention of that helper. The two findings landed as a single coordinated change per the bead description's recommendation.",
+  "closed_at": "2026-05-18T03:57:08Z",
+  "compaction_level": 0,
+  "content_hash": "f284fde6670a42dbe534e6357e240eaf567ad0f340180c24cd84e3c88c9c931f",
+  "created_at": "2026-05-14T23:27:02Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-base-client/src/blob.rs:414-416 keeps is_valid_sha256_hex as a free helper used only by download_blob's expected_sha256 validation (blob.rs:387-391). After bd:JMAP-v9py.13 promoted the SERVER side (BlobUploadResponse.sha256) to typed Sha256, this validator survives only because the CALLER side (DownloadBlobParams.expected_sha256) is still &str \u2014 see the partnered finding on JMAP-6r7c.48. If .48 is resolved by switching expected_sha256 to Option<&Sha256>, the entire is_valid_sha256_hex function becomes dead code AND the to_ascii_lowercase normalize step (blob.rs:396) disappears AND the InvalidArgument(\"expected_sha256 is not 64-char hex\") branch is unreachable. The function itself is also documented as 'Returns true if s is exactly 64 hex characters (uppercase or lowercase)' but its only caller normalises to lowercase via to_ascii_lowercase immediately after \u2014 so the helper's case-insensitive check is doing work that no caller actually relies on. Recommendation: track is_valid_sha256_hex removal as a follow-up to .48; do NOT delete it independently because the &str API is published. The two findings should land together as a single coordinated change at the next minor-version-with-typed-API bump.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.53",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "is_valid_sha256_hex still gates download_blob expected_sha256 path; redundant if expected_sha256 becomes typed",
+  "updated_at": "2026-05-18T03:57:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T04:39:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c.48",
+      "id": "7a927d8d-ecd3-58ef-974d-a87326cbc5bb",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-17T14:02:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-prpm",
+      "id": "8583dc1f-52fc-56b7-8291-4d018fb19eb1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T23:44:34Z",
+  "compaction_level": 0,
+  "content_hash": "f79a4e462afaac6d077e67864bf41a648b94806f73c6ea0f45ffb6d01d8d1d49",
+  "created_at": "2026-05-17T23:34:27Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence**: the workspace has zero version-string skew (verified via `cargo metadata --no-deps --format-version 1`). However, four dev-deps that appear in 2 or more crates are declared inline with byte-identical specs each time, when the workspace root [workspace.dependencies] table would be the canonical home.\n\n| Dep | Inline callers | Spec |\n|---|---|---|\n| wiremock | 9 crates \u2014 all 8 extension-client crates + jmap-base-client | `\"0.6\"` (no features) |\n| criterion | 3 crates \u2014 jmap-mime, jmap-server, jmap-base-client | `{ version = \"0.8\", default-features = false, features = [\"cargo_bench_support\"] }` |\n| tracing | 2 crates \u2014 jmap-base-client, jmap-metadata-server | `\"0.1\"` (dev-only, both) |\n| tracing-subscriber | 2 crates \u2014 same as tracing | `{ version = \"0.3\", default-features = false, features = [\"fmt\"] }` (dev-only) |\n\n**Caller-observable / maintainer effect**: zero runtime impact today (Cargo's unification produces the same resolved tree). But:\n- Future version bumps require N file edits instead of 1.\n- A contributor adding a new client crate has to know the wiremock spec by precedent (read another sibling's Cargo.toml) instead of writing `wiremock = { workspace = true }`.\n- The tracing / tracing-subscriber pair is the secret-redaction-canary harness from the workspace AGENTS.md 'Security testing' section. The canary pattern is workspace policy; the deps should be workspace-shared by default so the next crate that adds a canary discovers them automatically.\n\n**Fix**: append four lines to the workspace-root Cargo.toml [workspace.dependencies]:\n\n  wiremock = \"0.6\"\n  criterion = { version = \"0.8\", default-features = false, features = [\"cargo_bench_support\"] }\n  tracing = \"0.1\"\n  tracing-subscriber = { version = \"0.3\", default-features = false, features = [\"fmt\"] }\n\n\u2026then rewrite the inline specs in the 9+3+2+2 = 16 call sites to `<dep> = { workspace = true }`. No behavior change at build time. Single sweep PR.\n\n**Verification expected after the change**: `cargo build --workspace` and `cargo test --workspace` produce byte-identical artifacts; `cargo tree --workspace` shows the same dep tree.\n\n**Cross-references**: bd:JMAP-ops7.13 (serde dep declaration consistency, closed) \u2014 same dep-management consistency axis. This bead is the dev-deps continuation of that workspace-deps tidy.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Workspace: hoist wiremock + criterion + tracing + tracing-subscriber to [workspace.dependencies] \u2014 4 dev-deps declared inline in 9 / 3 / 2 / 2 crates respectively, no version skew but redundant per-crate specs",
+  "updated_at": "2026-05-17T23:44:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T16:34:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "06056891-a9d5-555d-88fb-d0758035883b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

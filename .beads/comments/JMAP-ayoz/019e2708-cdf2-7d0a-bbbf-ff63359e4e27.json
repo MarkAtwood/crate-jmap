@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T15:09:09Z",
+  "id": "019e2708-cdf2-7d0a-bbbf-ff63359e4e27",
+  "issue_id": "JMAP-ayoz",
+  "text": "review-rusty re-invocation: NO-OP.\n\nThe Rust-idiom supplement already ran on this epic to current HEAD. The latest pass (verdict + confidence calibration filed 2026-05-14 14:34 UTC, re-run extension at 15:02 UTC) covered all 11 post-14:34 remediation commits up to and including 023a509 ('drop redundant intra-doc link target on MetadataFilterCondition'). Two new idiom findings (.37, .38) were filed in that re-run.\n\nVerified the idiom surface is unchanged since that pass:\n- git log on crate-jmap-metadata-server/ shows zero commits after 023a509 (14:59 UTC).\n- 023a509 was the final commit of the 11-commit remediation series that the 15:02 UTC note explicitly enumerates as its scope.\n\nPer the workspace bikeshedding rule and review-loop convergence rule, the idiom verdict (ACCEPTABLE) and confidence calibration (~88% chance of no further missed idiom issue in the post-14:34 delta) carry forward unchanged.\n\nIdiom verdict (unchanged): ACCEPTABLE.\nIdiom confidence (unchanged): ~88%.\n\nNot running another rubric pass on identical source would be manufactured bikeshedding, exactly what the prompt's convergence/honesty rule prohibits."
+}

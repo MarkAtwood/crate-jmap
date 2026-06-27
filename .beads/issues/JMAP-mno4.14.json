@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added 'Validation' rustdoc section to LocalDateTime, Duration, SignedDuration that explicitly documents the no-validation policy already documented in PLAN.md (parsing left to the backend, to avoid pulling in a heavy date-time parser). The lack of validation is intentional per the crate's PLAN.md design constraint; the fix is making this discoverable from rendered rustdoc rather than only in the PLAN. Considered adding TryFrom variants with full RFC 8984 ABNF validation but rejected: parsing the 4-part LocalDateTime + variable-precision ABNF + the ISO 8601 duration subset is the heavy-parser-dep cost that PLAN.md deliberately defers. Consumers who want strict validation can add a wrapper crate; this crate intentionally stays minimal.",
+  "closed_at": "2026-05-16T02:21:46Z",
+  "compaction_level": 0,
+  "content_hash": "f59e85dcaed91dc87b3cba02a2535a0fede024d55c681e30a12f94dfadb2740d",
+  "created_at": "2026-05-15T22:16:04Z",
+  "created_by": "Mark Atwood",
+  "description": "**Contract risk**: `LocalDateTime`, `Duration`, and `SignedDuration`\nare newtype wrappers around `String` with `From<String>` and\n`From<&str>` impls. None of these impls validates the value\nagainst the format documented in the docstrings:\n\n- `LocalDateTime` says \\\"Format: YYYY-MM-DDTHH:MM:SS\\\"\n- `Duration` says \\\"ISO 8601 duration string\\\"\n- `SignedDuration` says \\\"Like Duration but may be prefixed with + or -\\\"\n\nBut:\n\n    let bogus = LocalDateTime::from(\\\"not a datetime\\\");  // succeeds\n    let also  = Duration::from(\\\"\\\\x00\\\\x00\\\\x00\\\");      // succeeds\n    let huh   = SignedDuration::from(\\\"hello world\\\");    // succeeds\n\n**What goes wrong for callers**:\n- A function signature `fn schedule(at: LocalDateTime)` reads as\n  \\\"give me a valid local date-time\\\", but the type system enforces\n  no such thing. Callers may believe the wrapper enforces the\n  format and skip their own validation \u2014 the type is acting as a\n  false oracle.\n- Server-side code constructing these from user input will accept\n  garbage and serialize it back to the wire, where a downstream\n  client may parse it differently or crash.\n- Round-trip preservation tests (and the existing\n  `recurrence_rule_until_is_bare_string_on_the_wire` etc.) use\n  spec-conformant inputs so they don't surface the gap.\n\n**Defended? Yes \u2014 but the defense is split across two files**:\nThe crate-level doc-comment in `lib.rs` lines 26\u201327 says\n\\\"Validation of internal format is left to the backend.\\\" PLAN.md\n\u00a7\\\"Scalar wrappers\\\" repeats it. README \u00a7\\\"Gotchas\\\" mentions it.\nBut the per-type docstring (e.g. `pub struct LocalDateTime(String)`\nat line 41) does NOT repeat the warning \u2014 a caller reading\nrustdoc on `LocalDateTime` alone will not see it. Existing finding\nJMAP-mno4.3 covers missing Display; this is a separate axis.\n\n**Fix shape** (additive, non-breaking):\nOption A: add a `TryFrom<&str>` / `TryFrom<String>` impl that\nvalidates via a vendored ABNF regex, while keeping `From<&str>`\ninfallible for backward-compatibility. This is the conservative\nmove.\nOption B: repeat the \\\"validation is the backend's job\\\" warning\nin the per-type docstring so callers reading rustdoc on the\nindividual type are forewarned. This is the minimum docs fix.\n\nWithout one of these, the type's contract is \\\"looks typed,\nisn't\\\" \u2014 a defensive-code-forcing situation for every consumer\nwho actually wants validity.",
+  "ephemeral": 0,
+  "id": "JMAP-mno4.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "LocalDateTime/Duration/SignedDuration constructors From<String> and From<&str> accept any string without format validation \u2014 type-level intent is unenforceable contract",
+  "updated_at": "2026-05-16T02:21:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T15:16:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-mno4",
+      "id": "0d0c2d51-250a-5056-9383-a4ed167fd12c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

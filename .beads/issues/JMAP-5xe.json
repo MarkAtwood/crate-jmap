@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-5xe",
+  "title": "Review: jmap-client crate",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:26:55Z",
+  "updated_at": "2026-04-30T17:31:49Z",
+  "closed_at": "2026-04-30T17:31:49Z",
+  "notes": "Maintainer risk: MEDIUM \u2014 ClientError semver trap and false-oracle WS tests are real issues; SSE/blob streaming design is sound; no security holes found\nConfidence: 10% chance of missed bug. Least confident flags: OOM window in streaming (tradeoff well-understood, reqwest API limits options). Uncertainty driven by: cannot test behavior at exact size boundaries without a mock server. Would raise confidence if: streaming size-cap tests with partial-read mock were added.\nIdiom rating: CLEAN \u2014 no unsafe, no Box<dyn Error> in API, no gratuitous clones in hot paths, no unwrap without justification, proper non_exhaustive on public protocol types. Only gaps: ClientError lacks #[non_exhaustive] (filed) and WS tests don't verify WsRequestFrame serde (filed).\nRust idiom confidence: 5% chance of missed issue. Least confident flags: none \u2014 the two filed issues are clear. Uncertainty driven by: cannot statically verify WsRequestFrame serde output without running it."
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "closed_at": "2026-05-11T05:08:12Z",
+  "closed_by_session": "do-beads-20260510-2208",
+  "compaction_level": 0,
+  "content_hash": "7102c33a0705e247ab7559f06348afc6c4d88974c8184f58208a9513a1ce6c55",
+  "created_at": "2026-05-10T21:56:32Z",
+  "created_by": "Mark Atwood",
+  "description": "**Canonical extraction.** Move the `MemoryBackend` currently at `crate-jmap-mail-server/tests/common/mod.rs` (2,750 LOC) and `tests/common/seed.rs` (805 LOC) into a public, feature-gated reference implementation in `src/`.\n\nThis is the **canonical extension-server template** for the new pattern per workspace AGENTS.md. The naming, module layout, feature flag, and tests/ residue chosen here propagate to all 6 sibling crates (.2 sharing-server through .7 tasks-server).\n\n## Mechanical steps\n\n1. Create `crate-jmap-mail-server/src/memory.rs` (or `src/memory/` directory if the seed split makes single-file unwieldy).\n2. Move `MemoryBackend`, `MemoryState`, and all associated impl blocks from `tests/common/mod.rs` to `src/memory.rs`.\n3. Decide on seed.rs: either move to `src/memory/seed.rs` (if generally useful as demo seed data) or leave in `tests/common/seed.rs` (if purely test-shaped). Recommendation: move; it's reference data that downstream contributors will want to study and reuse.\n4. Add `[features] memory = []` to `crate-jmap-mail-server/Cargo.toml`. Gate `pub mod memory;` in `lib.rs` with `#[cfg(feature = \"memory\")]`.\n5. Rewrite `tests/common/mod.rs` to import the public `jmap_mail_server::memory::MemoryBackend` and contain only test-side helpers (small auth/context shortcuts). Expected residual size: 100-300 LOC.\n6. Add `[dev-dependencies] jmap-mail-server = { workspace = true, features = [\"memory\"] }` so tests get the feature without users having to.\n7. Update `Cargo.toml` `[[test]]` entries if needed (probably untouched since tests/common is auto-included).\n\n## Naming decisions (canonical \u2014 propagates to siblings)\n\n- Module name: `memory` (matches `feature = \"memory\"`).\n- Type name: `MemoryBackend` (preserved from current).\n- State type: `MemoryState` (preserved).\n- Feature flag name: `\"memory\"`. Document in lib.rs that this gates a reference impl, not production code.\n- Seed module: `memory::seed` (if seed.rs moves).\n\nSibling crates MUST adopt these names exactly.\n\n## Public API documentation\n\nThe exposed `MemoryBackend` needs rustdoc that:\n\n1. States it's a reference implementation, not production.\n2. States API stability is opt-in via the feature flag and may break across minor versions pre-1.0.\n3. Cross-references the JMAP-r-i epic (this one) so contributors landing here understand the pattern.\n4. Provides one minimal usage example: register handlers, dispatch one method, check response.\n\n## Acceptance\n\n- `cargo test -p jmap-mail-server --features memory` clean (the new public path).\n- `cargo test -p jmap-mail-server` clean \u2014 tests work via dev-dependencies feature wiring.\n- `cargo check -p jmap-mail-server --no-default-features` clean (memory not enabled in default).\n- `cargo clippy -p jmap-mail-server --features memory --tests -- -D warnings` clean.\n- `cargo doc -p jmap-mail-server --features memory --no-deps` clean (no missing_docs warnings on the new module).\n- `tests/common/mod.rs` is now \u2264 300 LOC of test-side helpers only.\n- `git diff --stat` shows net negative LOC at the workspace level (\u2265 2,500 LOC moved + some removed shimming).\n\n## Cookie-cutter contract\n\nThe choices landed here become the workspace convention. Once this child lands, file an addendum in workspace AGENTS.md (or a follow-up in this epic) documenting:\n\n- The `memory` feature flag pattern.\n- The `src/memory.rs` layout.\n- The tests/ residue expectations.\n\nSo that siblings (and future server crates) have a clear template.\n",
+  "ephemeral": 0,
+  "id": "JMAP-hwdv.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Extract MemoryBackend to jmap-mail-server/src/memory.rs (CANONICAL)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T14:56:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-hwdv",
+      "id": "078fc3ea-3146-53b0-8e95-f9decfdd60f2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

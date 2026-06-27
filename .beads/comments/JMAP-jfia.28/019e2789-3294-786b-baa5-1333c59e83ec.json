@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T17:29:23Z",
+  "id": "019e2789-3294-786b-baa5-1333c59e83ec",
+  "issue_id": "JMAP-jfia.28",
+  "text": "Filing as human alongside JMAP-jfia.19 / .26 \u2014 direct parallel: BackendCallFn type alias hardcodes Fn(Arc<B>, String, Value, C) -> HandlerFuture. Adding a 5th param (deadline, trace context, etc.) breaks all ClosureHandler call sites.\n\nMitigation options: (a) replace with a CallContext struct, (b) document closure as 4-arg and add new variants for future shapes. Defer to major-bump."
+}

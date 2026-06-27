@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Migrated CalendarsBackend trait UTCDate signatures: compute_utc_times return is now (Option<UTCDate>, Option<UTCDate>); get_availability params are now &UTCDate. Updated doc comment to say 'UTCDate values' instead of 'RFC 3339 strings'. Updated in-source mock backend impl in lib.rs to mirror. Consumer code in event.rs uses .into_inner() to push the inner String into JSON; principal.rs constructs UTCDate via UTCDate::from on the wire string. Wire format unchanged. All 68 calendars-server tests pass. cargo clippy -D warnings and RUSTDOCFLAGS=-D warnings cargo doc clean.",
+  "closed_at": "2026-05-11T06:41:09Z",
+  "compaction_level": 0,
+  "content_hash": "e1742a75cb304b56903cc5a1042bca303d0b9367ce0618b9992662ba24840197",
+  "created_at": "2026-05-11T06:27:04Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Audit follow-up from JMAP-g7wu.9.5. Two CalendarsBackend trait method signatures still use String/&str for UTCDate values; migrate to UTCDate.\n\nSites (all in crate-jmap-calendars-server/src/):\n\nbackend.rs:\n1. lines 273-280 \u2014 CalendarsBackend::compute_utc_times returns (Option<String>, Option<String>); should be (Option<UTCDate>, Option<UTCDate>).\n   Doc at line 261 says 'Returns (utc_start, utc_end) as RFC 3339 strings' \u2014 should say 'as UTCDate values'.\n   \n2. lines 452-453 \u2014 CalendarsBackend::get_availability takes _utc_start: &str, _utc_end: &str; should be &UTCDate.\n\n3. lib.rs:711-719 \u2014 the in-source test backend impl mirrors compute_utc_times's signature and must move in lockstep.\n\nCoordination context:\n- JMAP-g7wu.9.3 already migrated TasksBackend::compute_task_utc_times to return UTCDate. This is the calendars-side equivalent and was noted as out-of-scope-but-equivalent in that bead's comment.\n- JMAP-g7wu.9.4 already migrated the calendars-client principal_get_availability method to take &UTCDate. The server-side trait is the matching server-half of that wire change \u2014 and they belong in the same SemVer step so a re-implementor of CalendarsBackend isn't broken by .9.4 going first.\n- Consumer call sites in calendars-server/src/event.rs:117-124 will need to adjust to consume Option<UTCDate> directly (instead of inserting Value::String) \u2014 wire JSON unchanged because UTCDate's Serialize impl outputs the same string.\n\nAPI break \u2014 0.2.0 class. Coordinate with the type-crate beads (calendars-types specifically) per workspace cookie-cutter rule, because CalendarsBackend::compute_utc_times's return type and CalendarEvent::utcStart wire field interact.\n\nAcceptance:\n- cargo test -p jmap-calendars-server passes.\n- cargo clippy -p jmap-calendars-server -- -D warnings clean.\n- Both trait signatures use UTCDate.\n- Test backend impl in lib.rs updated.\n- Doc comment at backend.rs:261 corrected to match new types.\n- RUSTDOCFLAGS='-D warnings' cargo doc -p jmap-calendars-server --no-deps clean.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.9.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "UTCDate migration in jmap-calendars-server CalendarsBackend trait (compute_utc_times return + get_availability params)",
+  "updated_at": "2026-05-11T06:41:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T23:27:04Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-g7wu.9",
+      "id": "86781d61-4e85-568f-9ac1-31b39613a938",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.12",
+  "title": "Request/Response body size caps are enforced at two points (Content-Length header + actual bytes)",
+  "description": "fetch_session, call, and blob methods check Content-Length for an early exit, then also check actual bytes read. The comment 'Content-Length can lie' explains why the second check is not redundant. A future contributor might remove the second check as 'already checked via Content-Length'. Both checks are necessary: Content-Length can be forged or absent; bytes() can return more data than the header claimed. The two-check pattern should be preserved.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:57:47Z",
+  "updated_at": "2026-04-30T02:49:12Z",
+  "closed_at": "2026-04-30T02:49:12Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:57:47"
+    }
+  ]
+}

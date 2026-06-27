@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-09T17:51:22Z",
+  "compaction_level": 0,
+  "content_hash": "a80c3d124172cdd3e2341329691376cb70b6064499c0c88fac0a574925cd443b",
+  "created_at": "2026-05-09T08:08:32Z",
+  "created_by": "Mark Atwood",
+  "description": "Apply pattern B to jmap-mail-client.\n\nPattern (full): /get builders omit ids/properties when None instead of sending null\n\nReference: see calendars-client (which already has the change) for the exact shape, and the JMAP-tco1 epic description for the source bead that defined the pattern (JMAP-231o.{6,10,19,29,8}).",
+  "ephemeral": 0,
+  "id": "JMAP-tco1.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Self-contained playbook reference (workspace AGENTS.md cookie-cutter consistency sweep, JMAP-tco1):\n\nPATTERN: /get builders omit ids/properties when None (no explicit JSON null)\nTARGET: jmap-mail-client\nCANONICAL REFERENCE: crate-jmap-calendars-client (commit 0a8f24e)\n\nThe full step-by-step playbook for Pattern B is in JMAP-tco1's notes\nfield (run 'bd show JMAP-tco1' and read the 'Per-pattern playbook' section\nfor PATTERN B). Includes: before/after code snippets, target file\nglob, error-message preservation rules, helper-function signatures,\nvalidation steps.\n\nWHY THIS BEAD EXISTS: 2026-05-09 work session unilaterally applied\nPattern B to calendars-* without propagating to siblings \u2014 the LOCKED\ncrate markers were misread as 'API stability lockdown' rather than\n'canonical-template, propagate or change-canonical-first'. This bead\ncatches jmap-mail-client back up.\n\nCLOSEABLE WHEN: target crate matches the canonical reference (manual diff\nagainst canonical shows only RFC/draft content differences, no shape\ndifferences) AND workspace gates pass (cargo test --workspace, cargo\nclippy --workspace --tests -- -D warnings, cargo fmt --check).",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Sweep B -> jmap-mail-client: /get builders omit ids/properties when None instea",
+  "updated_at": "2026-05-09T17:51:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T01:08:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tco1",
+      "id": "9580c954-f0d4-561c-9ab2-925a5437735e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

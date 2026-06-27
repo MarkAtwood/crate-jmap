@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "7 ContactCard query/queryChanges wiremock tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/contactcard_query_tests.rs (2 tests: query filter, queryChanges); clippy clean",
+  "closed_at": "2026-05-05T15:47:12Z",
+  "compaction_level": 0,
+  "content_hash": "957bf09f1ce7b1ade910bf8a8bbd070c4c09d34a43580e18809d40e84639097c",
+  "created_at": "2026-05-05T02:54:22Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-contacts-client/tests/contacts_query_tests.rs with 7 async wiremock tests. Oracle: \u00a73.3.1 (filter field names including slash-keyed), \u00a73.3.2 (sort property names).\n\n**Tests:**\n1. contact_card_query_no_filter_sends_no_filter_field: assert request has no filter key.\n2. contact_card_query_in_address_book_filter: pass {\"inAddressBook\":\"ab1\"}; assert filter.inAddressBook in request. Oracle: \u00a73.3.1.\n3. contact_card_query_sort_by_name_surname: pass sort [{\"property\":\"name/surname\",\"isAscending\":true}]; assert sort[0].property==\"name/surname\" with literal slash preserved. Oracle: \u00a73.3.2 SHOULD support name/surname.\n4. contact_card_query_position_and_limit: assert position and limit in request.\n5. contact_card_query_changes_returns_correct_response: assert old/new queryState, removed, added.\n6. contact_card_query_changes_with_max_changes: assert maxChanges in request.\n7. contact_card_query_changes_empty_state_returns_invalid_argument: assert InvalidArgument before network.\n\n**Acceptance criteria:** All 7 tests pass. Slash in name/surname wire value preserved (not URL-encoded).",
+  "ephemeral": 0,
+  "id": "JMAP-kh21.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: ContactCard/query and /queryChanges",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:54:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-kh21",
+      "id": "6e64d705-9811-55ea-b40e-4b58e326ffc3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

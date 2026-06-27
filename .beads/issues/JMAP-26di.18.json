@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:59:06Z",
+  "compaction_level": 0,
+  "content_hash": "b41f1b24f3027b4330d90b403a72f5f51ac605b5c3b0d4d51801122e0039d0ef",
+  "created_at": "2026-05-15T20:29:28Z",
+  "created_by": "Mark Atwood",
+  "description": "Multiple tests merge a happy-path assertion with an empty-input-guard assertion in one #[tokio::test]:\n- chat_smoke_tests.rs:571 chat_destroy_threads_ids_and_rejects_empty\n- space_smoke_tests.rs:67 space_changes_passthrough_and_empty_state_rejected\n- space_smoke_tests.rs:129 space_destroy_threads_ids_and_rejects_empty\n- space_smoke_tests.rs:338 space_create_serializes_create_object_and_rejects_empty_name\n- message_smoke_tests.rs:635 message_destroy_threads_ids_and_rejects_empty\n\nWhen a combined test fails, the panic-text shows you which assertion broke but not which half conceptually. Splitting into two tests is cheap (a MockServer::start().await is sub-millisecond) and makes test failures self-describing. Convention: `{op}_serializes_*` and `{op}_rejects_empty_*` as separate tests.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Combined happy-path + empty-guard tests obscure which half fails",
+  "updated_at": "2026-05-17T17:59:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:29:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "ededdd3f-d66a-573e-9870-f869d6319ae9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

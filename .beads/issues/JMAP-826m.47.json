@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T08:27:00Z",
+  "compaction_level": 0,
+  "content_hash": "1daea4e8c3983a4be1a6ed682fbe65b2a38b925d6ade4a6129ec0543a270e87e",
+  "created_at": "2026-05-15T07:37:10Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:434-443 `pub struct MemoryError(pub String)` and lib.rs:142-151 `pub struct MockError(pub String)` are the `Self::Error` types for the two backends. Both follow a primitive-obsession pattern: error context flattened into an arbitrary format-string, Display impl just delegates to the String, no variants, no machine-readable discriminator. \u2014 Idiomatic Rust for a library error type uses `thiserror` or a hand-rolled enum with structured variants (`SerializeFailed { source: serde_json::Error }`, `UnknownAccount { id: String }`, `DeserializeFailed { type_name: &'static str, source: serde_json::Error }`, etc.). Callers can then match on variants instead of substring-matching on Display output \u2014 which is exactly what the unknown_account test at memory.rs:1252-1259 has to do: `msg.contains(\"unknown account\")`. That substring match is the smell. \u2014 Caveat: both types are scoped to reference/test impls and a downstream backend brings its own Error. But the workspace AGENTS.md positions `memory::MemoryBackend` as 'a documented, complete, source-readable implementation \u2026 to study'. Contributors copying this shape will inherit the stringly-typed error and the substring-match test pattern. Engineering impact: medium \u2014 error-variant discrimination is exactly the kind of decision that should be made once at the foundation and then propagated.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.47",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryError and MockError are stringly-typed: pub String tuple field, no variants",
+  "updated_at": "2026-05-15T08:27:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T00:37:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "01730227-8752-583a-8834-c64ac60fdf38",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

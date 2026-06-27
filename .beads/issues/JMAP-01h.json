@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T23:35:19Z",
+  "compaction_level": 0,
+  "content_hash": "fc4bccacdf65e821fbd7433022665f736a8699d59a13673f6667858c716a60b6",
+  "created_at": "2026-05-01T23:01:09Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec \u00a7Message/query (line ~1017): chatId filter is required unless hasMention:true is present in the filter. Current handler passes all filters to the backend without enforcing this constraint. Should return invalidArguments when both are absent.",
+  "ephemeral": 0,
+  "id": "JMAP-01h",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix Message/query: require chatId unless hasMention=true",
+  "updated_at": "2026-05-01T23:35:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T16:10:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x09",
+      "id": "15a97936-529a-53b3-92e1-df968c935a16",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

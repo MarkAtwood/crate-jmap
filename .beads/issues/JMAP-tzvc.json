@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2f8e7cfe122a0baa6fc8d9f442f29635c0dc5cf01f7f700238339a1d2567a107",
+  "created_at": "2026-05-16T03:15:28Z",
+  "created_by": "Mark Atwood",
+  "description": "Surfaced by bd:JMAP-ly0n.20. Attachment.sha256 in jmap-chat-types is currently String with a stale rationale doc-comment. The bead recommended switching to jmap_cid_types::Sha256.\n\nThis is a workspace-architectural decision the agent does not have authorization to make autonomously:\n\n1. The per-crate AGENTS.md for jmap-chat-types lists only {jmap-types, serde, serde_json} as allowed deps and explicitly says 'Do not introduce a dependency that jmap-mail-types does not also have, without explicit user approval.'\n\n2. jmap-mail-types (the workspace-canonical extension-types crate) also does not depend on jmap-cid-types, even though Email/EmailBodyPart carries blob_id which is the field the workspace AGENTS.md cites jmap-cid-types as the canonical home for ('feeds Blob upload responses and FileNode objects in a future jmap-base-client / jmap-filenode-types revision').\n\nThe question: should the canonical (jmap-mail-types) take a hard dep on jmap-cid-types as the first step in a workspace-wide propagation, after which every extension-types sibling that carries a content hash on the wire (Attachment.sha256 in chat-types, future FileNode-style hashes in filenode-types, etc.) follows?\n\nOptions:\n- (A) Propagate jmap-cid-types into the extension-types family canonical-first, starting with jmap-mail-types. Touches the per-crate AGENTS.md dep policies (workspace-wide amendment).\n- (B) Keep jmap-cid-types as a standalone wire-shape crate consumed only by jmap-base-client and the (future) jmap-filenode-types. Extension-types crates that happen to carry content hashes keep them as String with consumer-side validation. The Attachment.sha256 doc-comment refresh in bd:JMAP-ly0n.20 reflects this option.\n- (C) Some narrower scope (e.g. only chat-types takes the dep because it has an explicit Attachment.sha256 wire field that no other current extension carries).\n\nRecommendation: option (A) is the cleanest design but is a workspace-wide change that should be planned, not done one-off. Option (B) is the lowest-energy answer and is what bd:JMAP-ly0n.20 landed pending this decision. Option (C) is a divergence from the canonical-template rule and is least preferred.\n\nUntil this is resolved, the bd:JMAP-ly0n.20 doc-comment refresh is the documented posture; any consumer that needs a typed sha256 can use jmap_cid_types::Sha256 themselves via a TryFrom<&str> at their boundary.",
+  "ephemeral": 0,
+  "id": "JMAP-tzvc",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace: should every extension-types crate carrying a content hash on the wire depend on jmap-cid-types?",
+  "updated_at": "2026-05-16T03:15:28Z"
+}

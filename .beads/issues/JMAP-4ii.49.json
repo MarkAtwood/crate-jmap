@@ -1,0 +1,33 @@
+{
+  "close_reason": "post-write duplicate detection added; race documented; storage must enforce uniqueness",
+  "closed_at": "2026-05-02T06:47:13Z",
+  "compaction_level": 0,
+  "content_hash": "0f6f8fa3e0d12651415cc5db500b177a2d72f83826e21c95e9534f0b9f103647",
+  "created_at": "2026-05-02T04:18:41Z",
+  "created_by": "Mark Atwood",
+  "description": "space.rs handle_space_join: the already_member check on new_members uses the members list fetched from the Space before the invite.uses increment. If the backend is called concurrently for the same (account_id, space_id) by two requests, both will pass the already_member check and both will push a duplicate member entry. This is the same TOCTOU race as JMAP-4ii.24 (VacationResponse) but for Space membership. The fix requires atomic compare-and-swap at the backend level or a backend-level add_member operation.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.49",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Space/join member-already-check uses stale members list from before invite-uses increment",
+  "updated_at": "2026-05-02T06:47:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:18:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "67a9e06c-0539-588e-b48e-f483f54f6a7b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

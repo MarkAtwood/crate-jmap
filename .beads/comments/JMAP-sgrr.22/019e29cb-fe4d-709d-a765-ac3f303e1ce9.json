@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T04:01:35Z",
+  "id": "019e29cb-fe4d-709d-a765-ac3f303e1ce9",
+  "issue_id": "JMAP-sgrr.22",
+  "text": "Cross-reference: this bead is the same shape of decision as bd:JMAP-sgrr.17 (mandatory-as-Option permits invalid wire objects) and bd:JMAP-sgrr.14/.15 (pref / list_as type-level bounds). All four are 'spec-value-bounds the Rust type does not capture' findings. The bead author flagged 'Worth deciding once' \u2014 the answer should be applied uniformly.\n\nDependency: added bd:JMAP-sgrr.17 as a blocker. When bd:JMAP-sgrr.17 resolves (validate() method vs strict-form newtypes vs doc-only), the same answer applies here.\n\nIf bd:JMAP-sgrr.17 chooses validate() / doc-only: this bead becomes a documentation update on PartialDate.month/day saying 'the type does not range-check; callers MUST verify 1..=12 / 1..=31 before treating as spec-conformant'.\n\nIf bd:JMAP-sgrr.17 chooses strict-form newtypes: file a follow-up bead introducing Month(NonZeroU8 capped 12) and Day(NonZeroU8 capped 31) here AND propagating to jmap-jscalendar-types (which has the analogous LocalDateTime sub-types) per the canonical-template rule.\n\nHolding pending bd:JMAP-sgrr.17."
+}

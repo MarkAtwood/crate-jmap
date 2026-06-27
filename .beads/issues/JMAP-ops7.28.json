@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "d9871dd2b5ec0b47ee1576b55f4e75eac019d0e890cfe578b475cfa84b6c1671",
+  "created_at": "2026-05-17T23:33:31Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence**: the canonical jmap-mail-server places its FaultyBackend test harness in tests/common/mod.rs:58 and the canonical AGENTS.md banner says siblings 'mirror its shape'. Actual placements across 7 siblings:\n\n| Crate | FaultyBackend placement |\n|---|---|\n| mail-server (canonical) | tests/common/mod.rs:58 |\n| chat-server | tests/common/mod.rs:40 (matches canonical; AGENTS.md:74-102 documents two extra wrappers IdentityBackend + TrackingBackend) |\n| filenode-server | INLINE in src/filenode.rs:1754 \u2014 single #[cfg(test)] mod |\n| calendars-server | INLINE THREE TIMES \u2014 src/calendar.rs:608, src/event.rs:2420, src/event.rs:2606, src/principal.rs:320 |\n| tasks-server | NONE |\n| contacts-server | NONE |\n| metadata-server | NONE |\n| sharing-server | NONE |\n\n**Caller-observable / maintainer effect**: four extension-server siblings cannot exercise the BackendSetError::Other redaction contract that mail-server's canonical tests (tests/integration.rs:5787-5873) assert against. A backend that violates the redaction contract in tasks-server / contacts-server / metadata-server / sharing-server would not be caught by any test in this workspace. The inlining in calendars-server (three separate definitions of the same struct) and filenode-server (one inline definition) is also undocumented divergence from the canonical's 'live in tests/common/mod.rs' pattern, and the three calendars copies risk drifting apart from each other on a future contributor's update.\n\n**Documented vs undocumented**: chat-server documents its extensions in AGENTS.md:74-102. The four absent-FaultyBackend siblings and the calendars/filenode inline-copies have no recorded justification anywhere. The propagation rule says divergence is a regression 'unless documented' \u2014 these are undocumented regressions.\n\n**Fix sequence** (file as a sweep epic with child beads):\n(a) Consolidate calendars-server's three inline FaultyBackend defs into tests/common/mod.rs, matching canonical shape.\n(b) Move filenode-server's inline FaultyBackend into tests/common/mod.rs, matching canonical shape.\n(c) Add a FaultyBackend to tasks-server, contacts-server, metadata-server, sharing-server tests/common/mod.rs matching canonical shape.\n(d) Port the canonical redaction-contract assertions from crate-jmap-mail-server/tests/integration.rs:5790-5873 to each sibling's integration tests.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace: FaultyBackend placement diverges across 8 extension-server siblings (canonical: tests/common/mod.rs; calendars: 3 inline copies; 4 siblings: none at all)",
+  "updated_at": "2026-05-18T04:57:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T16:33:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "b864e84a-e480-5831-a600-43149b650f3a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

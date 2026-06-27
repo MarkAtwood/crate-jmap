@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Opinion-ratified: closure shape kept workspace-wide per the bead's own recommendation. No code change. Workspace-lints-table plumbing for a forward-looking workspace-level allow is out of scope for a P3 opinion bead.",
+  "closed_at": "2026-05-17T19:57:27Z",
+  "compaction_level": 0,
+  "content_hash": "6691966e04129955c2e7e10a7a860abd0eb076638dc1e516c2dfb38b5349b04a",
+  "created_at": "2026-05-16T17:22:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Sites: clippy::redundant_closure_for_method_calls fires 45 times in chat-server src/, 26 times in mail-server src/ (canonical sibling). Total ~70+ workspace-wide.\n\nRepresentative patterns:\n\n(a) .map(|id| id.as_ref())               \u2192 .map(AsRef::as_ref)\n(b) .and_then(|v| v.as_bool())            \u2192 .and_then(serde_json::Value::as_bool)\n(c) .into_iter().map(|s| s.into()).collect() \u2192 .into_iter().map(Into::into).collect()\n(d) result.iter().map(|id| id.as_ref()).collect() \u2192 result.iter().map(AsRef::as_ref).collect()\n\nWhy opinion-labeled: the clippy default suggests the function-pointer shape, but for a Rust reader the closure shape is often MORE readable than the method-reference shape, especially for (a) and (d). Compare:\n\n    result.removed.iter().map(|id| id.as_ref()).collect()   // closure\n    result.removed.iter().map(AsRef::as_ref).collect()       // method ref\n\nThe closure-shape reads as 'for each id, call .as_ref()'. The method-ref shape reads as 'apply this function to each element', but the reader has to mentally resolve 'which AsRef::as_ref does this dispatch to, given the element type?'. For the chat handler context where id is always &Id (and the AsRef impl is unambiguous), both shapes compile to the same thing, but the closure is what a senior Rust reviewer would actually write \u2014 closure-fn-equivalence is not 'cleaner', it's just 'shorter'.\n\nThe (b) shape (.and_then(|v| v.as_bool())) is slightly stronger for the method-ref rewrite because the chain is longer (and_then takes a fn pointer naturally), but it still doesn't pass the 'a serious Rust practitioner would wince' bar.\n\nWhat goes wrong if left: nothing functionally. clippy::pedantic is opt-in and the warnings are not enabled by default. Filed only to capture that this lint family was reviewed and intentionally not applied workspace-wide.\n\nIf the workspace decides to apply (preferred direction would be 'no, leave the closures'), file the decision as a workspace-level lint allow:\n\n    # at workspace root or via cfg_attr\n    #![allow(clippy::redundant_closure_for_method_calls)]\n\nso future contributors don't have to re-decide. That would be the cleanest closure of this finding.\n\nclippy::pedantic verified 2026-05-16 against current HEAD. Opinion-labeled because the engineering basis for either direction is weak.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.90",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Workspace-canonical: redundant_closure_for_method_calls \u2014 45 sites in chat-server + 26 in mail-server",
+  "updated_at": "2026-05-17T19:57:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T10:22:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "2404cc37-ecb0-5652-9513-cd5408559a74",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T19:00:12Z",
+  "id": "019e27dc-558a-77eb-8213-7310bab0bfd4",
+  "issue_id": "JMAP-h47t.13",
+  "text": "Trait-signature API break \u2014 needs explicit owner approval.\n\nThe bead recommends widening fn compute_task_utc_times to async to match canonical sibling jmap-calendars-server (which has the analog as async). The current sync shape forces backends doing tzdata lookup in-process to either embed the dataset (binary size hit) or block the runtime (correctness hit on tokio). Calendar's analog dodged both.\n\nRecommendation: option (a) widen to async, matching canonical sibling shape. Rationale: workspace canonical-template propagation rule says siblings must mirror canonical idiom; the sync shape here was wrong from day one. Cost is one .await on every call site (currently zero non-test sites because the default impl returns (None, None)).\n\nAlternative: option (b) keep sync, add a separate async fn compute_task_utc_times_async with a default impl that calls the sync version. This is an additive non-breaking change but bakes in the wrong shape permanently.\n\nPre-publish crate; favoring (a) for canonical parity. Escalating because it's a trait-signature API break that hasn't been explicitly authorised."
+}

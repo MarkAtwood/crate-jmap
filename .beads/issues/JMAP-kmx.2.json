@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-kmx.2",
+  "title": "EmailFilterCondition non_exhaustive blocks field-setting from external crates",
+  "description": "EmailFilterCondition is #[non_exhaustive] with only a Default impl. External callers can get an all-None condition via ::default() but CANNOT set any fields \u2014 functional record update syntax (MyType { field: val, ..Default::default() }) is forbidden by #[non_exhaustive] from outside the defining crate. Client code in jmap-mail-client cannot construct filter conditions with specific field values. Fix: add EmailFilterCondition::new() returning Default::default() as a starting point is insufficient; callers need either field-setting builder methods or remove #[non_exhaustive] from this input type.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:04:39Z",
+  "updated_at": "2026-04-30T05:09:52Z",
+  "closed_at": "2026-04-30T05:09:52Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-kmx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:04:39"
+    }
+  ]
+}

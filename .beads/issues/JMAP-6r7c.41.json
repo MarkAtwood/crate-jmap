@@ -1,0 +1,33 @@
+{
+  "close_reason": "wontfix: bikeshedding. Epic JMAP-6r7c explicitly flagged this as 'pure forward-major-version flag or naming preference with no engineering pressure on the current 0.x crate. Filed for completeness, but a /do-beads pass that closes them as wontfix is the right outcome unless the workspace is planning the next major bump.' The doc-comment already states the unit ('Default: 1 MiB.'). Field names like max_call_body are conventional Rust idiom; bytes is the implicit unit for any 'size cap' field. If the workspace ever adopts a unit-in-name discipline workspace-wide, file a sweep bead at that time covering all *-server, *-client, and *-types crates rather than spot-fixing one struct in jmap-base-client.",
+  "closed_at": "2026-05-17T20:57:50Z",
+  "compaction_level": 0,
+  "content_hash": "156ca748c04f63a9de2c43c104394253ae4fa0ecb94eb401b12a9a5fc7da911d",
+  "created_at": "2026-05-14T23:19:58Z",
+  "created_by": "Mark Atwood",
+  "description": "client.rs:43-80 \u2014 ClientConfig\n\nField names: max_session_body, max_call_body, max_download_body, max_upload_response_body, max_sse_frame, max_ws_message.\n\nThe doc-comments correctly state \"Default: 1 MiB.\" etc. But the field names themselves do not include the unit. A caller reading:\n  config.max_call_body = 8000000;\n\n\u2026cannot tell from the line alone whether that's 8 million bytes (probably right) or 8 million KiB (definitely wrong) or 8 million bits. The unit is in the doc-comment, but not at the field-access site.\n\nIdiom in well-engineered Rust APIs: name the unit in the field \u2014 `max_call_body_bytes`, `max_sse_frame_bytes`, etc. This is the same reason std uses `Duration::from_millis()` not `Duration::from(1000)`.\n\nThis applies to the field naming choice on a public struct. Renaming the fields is a breaking change (callers using struct-literal `..ClientConfig::default()` are unaffected, but callers using `let body_cap = config.max_call_body;` would need to update). Pre-1.0 this is OK.\n\nSame applies to `request_timeout: Duration` \u2014 the unit is implicit in the type, so this one is fine.\n\nRecommendation: in next minor or major release, consider renaming to *_bytes consistently. Low priority because (a) all the docs already say \"bytes\", (b) the integer types are correct (u64 / usize), and (c) the workspace cookie-cutter rule keeps the names stable across sibling crates so a rename ripples \u2014 which is fine but the propagation cost should be planned.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.41",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClientConfig fields max_session_body/max_call_body/etc lack stated unit in field name",
+  "updated_at": "2026-05-17T20:57:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:19:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "930f14f2-64d0-51ac-8184-0e84006b84f8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:38:08Z",
+  "compaction_level": 0,
+  "content_hash": "39178b128dc63dfc34f774c825878cfc3d53395654b5452f20ecc1ec07922e63",
+  "created_at": "2026-05-04T19:33:32Z",
+  "created_by": "Mark Atwood",
+  "description": "Two creates in one set call with the same name both pass the pre-loop uniqueness check (both see all_scripts_before_create which has neither). Result: two scripts with same name. Fix: maintain names_created_this_call HashSet, check against it as well as all_scripts.",
+  "ephemeral": 0,
+  "id": "JMAP-l4mj.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve_set: intra-call duplicate name not detected",
+  "updated_at": "2026-05-04T19:38:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T12:33:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-l4mj",
+      "id": "59136965-3661-599f-a13e-182b05f6d8c3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Partly invalid premise: lib.rs DOES have a no_run doc-test at lines 8-18 (verified: cargo test --doc -p jmap-calendars-client runs 'compile ok'). The minimal example is compile-checked. Expanding to include the more elaborate README via #![doc = include_str!(\"../README.md\")] would be a cookie-cutter workspace-wide change across all 7 client crates (each has its own README) \u2014 out of scope for this calendars-client review pass. Reopen as a workspace-wide PLAN if README-as-doc-test is desired across the family.",
+  "closed_at": "2026-05-10T05:32:13Z",
+  "compaction_level": 0,
+  "content_hash": "2a16e93dfa11ffed4ae83d842e5b5c0ddc05ddaa273d83ce4639159b3f298a66",
+  "created_at": "2026-05-08T03:20:06Z",
+  "created_by": "Mark Atwood",
+  "description": "README.md:11-40 contains a ```rust,no_run code block showing the canonical usage. `no_run` means it is compile-checked but never executed. README.md is not in any rust-doc `include_str!` chain and is not visible to `cargo test --doc`.\n\nQuick check: `grep -r README ~/PROJECT/JMAP/crate-jmap-calendars-client/src/` returns nothing. The README example will silently rot if API names change.\n\nTwo fixes (pick one, not both):\n1. Promote the example to a doc-test on the `JmapCalendarsExt` trait in lib.rs:24, removing `no_run` so it is at least compile-checked by `cargo test --doc`.\n2. Add `#![doc = include_str!(\"../README.md\")]` to lib.rs so cargo verifies the README's code blocks compile.\n\nEither approach prevents the README from drifting from the shipped API. Currently `calendar_event_parse(&[blob_id], None)` and `with_calendars_session` will compile-check on next `cargo build` only because they're identical to the inherent method signatures \u2014 no other readers verify. (The README describes `calendars: sc.calendar_get(None, None)` returning a value with `.list.len()` \u2014 if SetResponse refactoring above changes `list` to `Option<Vec<...>>`, no test will catch that the README example breaks.)",
+  "ephemeral": 0,
+  "id": "JMAP-231o.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Doc-test in README is not actually tested (lib.rs has no doc test of usage example)",
+  "updated_at": "2026-05-10T05:32:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:20:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "b38e1952-efd0-5b7c-823e-08699be74f45",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

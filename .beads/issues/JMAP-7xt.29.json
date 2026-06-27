@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.29",
+  "title": "Exhaustive-match guard tests for SseEvent and WsFrame: compile-time protection against variant reintroduction",
+  "description": "sse_event_no_typing_or_presence in sse.rs and ws_frame_has_no_chat_variants in ws/mod.rs each contain exhaustive match arms over the full enum. If any variant (e.g. ChatTyping, ChatPresence) is reintroduced, the test file fails to compile rather than producing a silent behavioral regression. A contributor might argue these tests 'prove nothing' because they just construct a dummy value and match it. The value is in the compile-time exhaustiveness check, not the runtime assertion. Removing them would remove the only automated guard against accidentally adding chat-specific variants to the base client crate's public types. The compile-error-as-test pattern is intentional.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:47:01Z",
+  "updated_at": "2026-04-30T01:02:09Z",
+  "closed_at": "2026-04-30T01:02:09Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:47:00"
+    }
+  ]
+}

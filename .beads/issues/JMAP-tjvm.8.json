@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T13:08:48Z",
+  "compaction_level": 0,
+  "content_hash": "186a4fac2b7d26a33f494367a5ddb5cc553c9d687b87982c66f231ee35929177",
+  "created_at": "2026-05-15T01:45:59Z",
+  "created_by": "Mark Atwood",
+  "description": "README.md \"Registered methods\" table (lines 70-97) and the\nEmailSubmissionSetParams Rust code snippet (lines 107-122) drift from real\nsignatures:\n\n1. `email_submission_query_changes`: README says 3 args (since_query_state,\n   max_changes, filter). Real signature in src/methods/submission.rs:117-123\n   has 4 args (also sort).\n2. `vacation_response_set`: README says `update: Option<Value>`. Real\n   signature in src/methods/vacation.rs:54-57 is\n   `update: Option<HashMap<Id, PatchObject>>`.\n3. EmailSubmissionSetParams Rust snippet in README lines 107-122 shows\n   `on_success_update_email: Option<serde_json::Value>`. Real struct in\n   src/methods/mod.rs:113-137 has\n   `on_success_update_email: Option<HashMap<String, jmap_types::PatchObject>>`.\n4. AGENTS.md (lines 30-32) says this crate \"Implements ... methods for ...\n   MDN, plus extension methods for blob upload/download.\" MDN is NOT\n   implemented; there is no blob-upload/download wrapper in this crate.\n\nImpact: a new contributor or user looking at the README to learn the public\nsurface gets misleading information. This is the kind of doc rot that makes\nthe canonical-template story untrustworthy \u2014 the README is supposed to be\nthe contract.\n\nFix: regenerate the table from a single source of truth (the actual method\nsignatures), and either implement MDN/blob-upload helpers or remove the\nclaim from AGENTS.md. Recommend the latter \u2014 blob upload/download lives in\njmap-base-client and MDN is not implemented per PLAN.md scope.\n\nWill recur unless the doc table is generated or pinned with a doc-test that\nfails when signatures drift.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README 'Registered methods' table out of sync with code signatures",
+  "updated_at": "2026-05-17T13:08:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:45:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "a140ab80-3d07-5954-917e-3940743b0a22",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

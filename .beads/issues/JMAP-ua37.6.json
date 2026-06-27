@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a66a1f1e91ab2d4b228dee6808a335bcc619ccb443bd3e5125e3a03501d2debb",
+  "created_at": "2026-06-05T02:26:15Z",
+  "created_by": "Mark Atwood",
+  "description": "Sweep workspace for stale references to the metadata-01 architecture after the rewrite lands.\n\n**What to sweep:**\n- AGENTS.md: any references to standalone Metadata/* methods, MetadataBackend trait, or the old type shapes\n- bd memories: update or remove memories that reference the old architecture (metadata-server-changes-union-fetch, metadata-server-adopted-canonical-idfate, metadata-types-related-type-optional, metadata-client-errors-rustdoc, memorybackend-change-log-strict-conformance-pattern, method-level-error-ordering, filter-unknown-key-rejection, etc.)\n- README files in all 3 metadata crates: update to reflect -02 architecture\n- Workspace Cargo.toml: verify crate versions bumped to 0.2.0 (breaking change)\n- Any cross-references in sibling crate READMEs or docs that mention standalone Metadata methods\n\n**Depends on:** All other JMAP-ua37 children",
+  "ephemeral": 0,
+  "id": "JMAP-ua37.6",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Clean up stale metadata-01 references in workspace",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-04T19:26:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ua37",
+      "id": "8e794da6-3ec5-5deb-98d3-df4237cb9d5f",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-06-04T19:26:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ua37.5",
+      "id": "e975cca8-1f42-5cbe-bb7c-93ff72a4833a",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

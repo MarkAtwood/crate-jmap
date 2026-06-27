@@ -1,0 +1,33 @@
+{
+  "close_reason": "Superseded by workspace epic JMAP-grs0 (filed 2026-05-17, 'Workspace: restructure Inner-state HashMap to eliminate gratuitous account_id allocations on every read'). The workspace-architectural decision called for in this bead (option (a) nested HashMap vs option (b) tuple-Borrow) has been made: JMAP-grs0 adopts option (a) per the canonical-first rule. Per-sibling propagation children are filed under JMAP-grs0.1 (mail-server canonical) through JMAP-grs0.8 (metadata-server), with the sharing-server propagation tracked as JMAP-grs0.7. Closing here to consolidate the workspace-wide work in one place; the sharing-server fix will land under JMAP-grs0.7 after JMAP-grs0.1 lands the canonical. Anti-pattern 4 ('might already be done' \u2014 the decision and tracking) from workspace AGENTS.md applies.",
+  "closed_at": "2026-05-17T11:07:22Z",
+  "compaction_level": 0,
+  "content_hash": "74787c419bdb34205a69f528ada708e8063fd835a7f50109dfc97df051ee27e8",
+  "created_at": "2026-05-14T22:06:44Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/memory.rs:96-140\n\nThe Inner helpers use HashMap<(&'static str, String), V> for their three core maps (states, objects, change_log). Every read-side helper looks up via:\n\n    self.states.get(&(type_name, account_id.to_owned()))\n\nThe .to_owned() allocates a String solely to construct the temporary tuple key for the lookup, then drops it after .get() returns. This fires on every call to current_state(), objects_ref(), and on the read path of bump_state()/objects_mut()/change_log_mut() that pre-checks before .entry(). In the get_objects / get_state / get_changes / query_objects paths each method calls these helpers at least once, so this is one transient String allocation per JMAP read.\n\nIdiomatic Rust alternatives:\n\n(a) Restructure the key: HashMap<&'static str, HashMap<String, V>>. Outer lookup is &str-keyed (no allocation), inner lookup is by &str via the natural HashMap<String, V>::get(&str) Borrow<str> path (no allocation). Costs: two indirections instead of one, but removes all hot-path allocations.\n\n(b) Use a String-keyed flat map keyed by 'type_name:account_id'. Lookup still requires allocation (format!), so no win.\n\n(c) Box dependency: hashbrown::HashMap::raw_entry, or twox-hash + manual implementation. Out of scope for a workspace-vetoed minimal-deps crate.\n\nThe canonical mail-server uses the same shape (memory.rs in mail-server stores per-account HashMaps in a different layout \u2014 worth cross-checking). If the canonical does (a) already, propagating here is straightforward. If not, the workspace gets to choose: file the canonical-change first.\n\nWhat goes wrong for callers when this stays as-is: clippy doesn't flag this (it's idiomatic-on-paper given the chosen key shape) but every JMAP read allocates one String more than necessary. For the reference impl the cost is trivial; for a downstream implementor who cargo-cults this shape into a heavy backend it compounds.\n\nThe same shape exists in 6 sibling MemoryBackends (chat, calendars, contacts, metadata, tasks, sharing). Propagation belongs in the same sweep as JMAP-3t94.5 / JMAP-3t94.14.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Inner::current_state / objects_ref / change_log_mut allocate String on every lookup via tuple-key construction",
+  "updated_at": "2026-05-17T11:07:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T15:06:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "4ab92721-aff5-58ec-ac02-3f5b0bfd279b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

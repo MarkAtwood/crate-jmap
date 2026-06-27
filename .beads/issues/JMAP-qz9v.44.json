@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already fixed by bd:JMAP-qz9v.4 close (commit 7449bc7). The apply_jmap_patch function was rewritten from the iterative-with-borrow-checker-workaround form (49 lines at card.rs:292-339 at the time of review) to a recursive form (29 lines at card.rs:362-391). The duplicated 'if let Value::Object(ref mut map) = next' pattern is gone \u2014 recursion makes the post-assignment problem disappear, exactly as the bead's parenthetical recommendation suggested ('the recursive form fits this naturally'). Verified at HEAD: src/card.rs:362-391 has no inner re-match, no borrow-checker workaround, and no defensive unreachable return. Workspace canonical-template improvements (invalidPatch returns, array-index support) remain tracked at bd:JMAP-j6ab as the .4 close note states.",
+  "closed_at": "2026-05-17T20:35:14Z",
+  "compaction_level": 0,
+  "content_hash": "bd72c96727484e8183cef02f9b666129bff65dcfd69e1f52dda53c5d7bf35857",
+  "created_at": "2026-05-14T19:42:51Z",
+  "created_by": "Mark Atwood",
+  "description": "card.rs:317-332. The intermediate-walk loop:\n\n    for seg in &parts[..parts.len() - 1] {\n        let next = current.entry(seg.clone()).or_insert_with(...);\n        if let Value::Object(ref mut map) = next {\n            current = map;\n        } else {\n            // Target exists but is not an object \u2014 replace with object.\n            *next = Value::Object(serde_json::Map::new());\n            if let Value::Object(ref mut map) = next {\n                current = map;\n            } else {\n                return;\n            }\n        }\n    }\n\nThe inner else-branch repeats the same \"if let Value::Object(ref mut map) = next\" pattern after just having assigned *next = Value::Object(...). The second match is therefore unreachable-by-construction \u2014 yet the code adds a defensive `return` for the impossible branch, which a reader has to mentally check.\n\nThis is the textbook \"fight the borrow checker\" pattern: the author wanted to reassign `current = map` after the replace, the borrow checker refused, so they re-matched. The idiomatic Rust answer is to use Value::as_object_mut() once and let the type system carry the invariant:\n\n    if !next.is_object() {\n        *next = Value::Object(serde_json::Map::new());\n    }\n    let Value::Object(map) = next else { unreachable!() };\n    current = map;\n\n\u2026or, cleaner, restructure to not require the post-assignment in the first place (the recursive form fits this naturally; an iterative walk requires the awkward pattern).\n\nEngineering cost: low (correctness is OK), but the code reads as a borrow-checker workaround rather than as the intent. A reader cannot tell whether the inner else is defensive or a real edge case. Combined with finding .4 (which deletes the helper entirely in favor of json_merge_patch), this is one more reason to delete rather than refactor.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.44",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "apply_jmap_patch has duplicated 'if let Value::Object(ref mut map) = next' borrow-checker workaround",
+  "updated_at": "2026-05-17T20:35:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:42:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "27cb8ed2-9e03-5100-b798-2c158793d1dd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

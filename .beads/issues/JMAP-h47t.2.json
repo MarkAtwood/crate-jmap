@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Routing classifier rewritten at task.rs:255 to split each PatchObject key on '/' (RFC 6901 JSON Pointer first segment) and match the head against is_per_user_property. Dropped the v.is_null() short-circuit and the empty-patch vacuous-truth case. MockBackend::per_user_calls counter assertions replace the prior self-oracling 'no invalidProperties' assertion; added probes for keywords/done + alerts/0/offset, {title:null} and empty {}. cargo fmt + clippy + workspace test (2179 passing) green. Commit d8507ea.",
+  "closed_at": "2026-05-14T18:34:08Z",
+  "compaction_level": 0,
+  "content_hash": "309941b7ab5f9383cc8cc08a2bac7f3e2d109f1e48347cf3066ef9a2911678e0",
+  "created_at": "2026-05-14T18:03:42Z",
+  "created_by": "Mark Atwood",
+  "description": "task.rs:255-261 classifies a patch as 'per-user-only' by calling B::is_per_user_property(k) on every map key. PatchObject keys are RFC 6901 JSON Pointers (jmap_types::patch.rs:6-8), so a real per-user patch like {\"keywords/done\": true} or {\"alerts/0/offset\": null} contains keys 'keywords/done' / 'alerts/0/offset', not 'keywords' / 'alerts'. is_per_user_property does an exact-match on a small static set ('keywords', 'color', 'freeBusyStatus', 'useDefaultAlerts', 'alerts') and returns false for any pointer with a sub-path. Triggers/bad behavior: (1) the most common shape of per-user mutation \u2014 adding/removing a single keyword via 'keywords/<key>': true \u2014 is routed to update_object, never to update_task_per_user. The draft-tasks-06 \u00a74.5.1 'updated' MUST-NOT-bump-shared-timestamp invariant cannot be honoured. (2) The handler-side 'v.is_null() OR per_user' branch is itself wrong: a {\"title\": null} patch (delete shared property) classifies as 'per-user-only' because null short-circuits is_per_user_property. (3) The empty-patch case (m.iter().all on empty) returns true \u2192 empty patch routes to the per-user path; harmless today but semantically wrong. Fix sketch: parse the first JSON-pointer segment of each key and match THAT against is_per_user_property; drop the null short-circuit; require at least one key. The mock test set_per_user_only_patch_routes_to_per_user_update (task.rs:735) only covers the exact-match 'color' key, missing the JSON-pointer cases entirely \u2014 its oracle is the implementation, not the spec. Note: per JMAP-h47t scope, fix this in handler routing AND extend mock-backend tests to cover 'keywords/<key>' and 'alerts/0/<sub>' patches.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "per-user routing in Task/set misclassifies JSON-pointer patch keys",
+  "updated_at": "2026-05-14T18:34:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:03:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "8f8e980d-c30a-577b-9dab-0eb840cab59a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

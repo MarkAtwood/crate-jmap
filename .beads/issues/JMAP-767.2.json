@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T11:58:40Z",
+  "compaction_level": 0,
+  "content_hash": "4e2272c72d18ca43481f1e1ae2a4bebed82c29c8d93131c00166201a0612612e",
+  "created_at": "2026-05-01T11:48:17Z",
+  "created_by": "Mark Atwood",
+  "description": "In MemoryBackend::import_email (tests/common/mod.rs:616-626), the Thread change-log entry always records the thread_id in 'created', even when the thread already existed and was just updated (a second email appended to its emailIds array). This means Thread/changes will report the thread as 'created' twice if two emails are imported into the same thread. RFC 8620 \u00a75.2 requires that an id appear in exactly one of 'created', 'updated', or 'destroyed' per changes window. Per RFC 8621 \u00a73.2, adding an email to an existing thread is an *update*, not a create. Trigger: import two related emails (second has In-Reply-To pointing to first); Thread/changes will report the thread id in 'created' both times instead of 'created' then 'updated'.",
+  "ephemeral": 0,
+  "id": "JMAP-767.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "import_email always logs Thread as 'created' in change log",
+  "updated_at": "2026-05-01T11:58:40Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:48:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "02ddc5c8-8806-5e51-86f3-fa865acd8f81",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

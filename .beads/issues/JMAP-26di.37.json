@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied standard Rust sealed-trait pattern to all three public extension traits:\n- JmapChatExt (lib.rs) \u2014 sealed over jmap_base_client::JmapClient\n- ChatSessionExt (session.rs) \u2014 sealed over jmap_base_client::Session\n- ChatWsExt (ws.rs) \u2014 sealed over jmap_base_client::WsSession\n\nEach trait gets a private 'mod sealed { pub trait Sealed {} impl Sealed for ...; }' adjacent to its declaration, and gains 'Sealed' as a supertrait bound. Trait rustdoc updated with a paragraph noting the sealing and its rationale (prevents downstream divergence + keeps adding methods non-breaking).\n\nZero impact on intended single-impl case. External downstream that did NOT already impl any of the three traits is source-compatible. cargo test, clippy --all-targets -- -D warnings, RUSTDOCFLAGS='-D warnings' cargo doc all green. Committed as b9e4c70.",
+  "closed_at": "2026-05-15T21:45:55Z",
+  "compaction_level": 0,
+  "content_hash": "5de8486ef21a670826b933fbbce6e4a800e8e67a0b471316c6f1d843ea70a4b1",
+  "created_at": "2026-05-15T20:40:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Files:\n- crate-jmap-chat-client/src/lib.rs:56-61 (`JmapChatExt`)\n- crate-jmap-chat-client/src/session.rs:112-168 (`ChatSessionExt`)\n- crate-jmap-chat-client/src/ws.rs:77-108 (`ChatWsExt`)\n\nAll three traits are declared without the standard sealed-trait pattern (private supertrait or `Sealed` marker). The crate provides exactly one impl per trait:\n- `impl JmapChatExt for jmap_base_client::JmapClient` (lib.rs:63)\n- `impl ChatSessionExt for jmap_base_client::Session` (session.rs)\n- `impl ChatWsExt for jmap_base_client::WsSession` (ws.rs:110)\n\nCaller impact: a downstream crate can write `impl JmapChatExt for MyCustomThing` and break the design intent (these are extension traits over specific types, not capability traits). Once any downstream relies on its own impl, fixing the missing-seal becomes a breaking change.\n\nAdding a method to any of these traits is also currently a breaking change for downstream impls \u2014 sealing eliminates that surface.\n\nThe Rust pattern is well-known: declare a private `mod sealed { pub trait Sealed {} impl Sealed for jmap_base_client::JmapClient {} }`, then make the public trait extend `sealed::Sealed`. Add the impl line for each of the three target types in each respective module.\n\nCost: ~5 lines per trait, no API surface change for the intended single-impl case, prevents downstream divergence and future trait-method-add breakage.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Three public traits not sealed: callers can impl outside crate",
+  "updated_at": "2026-05-15T21:45:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:40:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "c86231ee-3169-5354-9f62-e0460a386266",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

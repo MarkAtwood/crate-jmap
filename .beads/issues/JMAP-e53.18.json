@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed: changed .get() to .remove() for fetchTextBodyValues, fetchHTMLBodyValues, fetchAllBodyValues in both handle_email_get and handle_email_parse, matching bodyProperties and maxBodyValueBytes.",
+  "closed_at": "2026-05-04T15:52:43Z",
+  "compaction_level": 0,
+  "content_hash": "22a6293682a318ab7dcc6308459c722d396ece9eabca76b614d869461d5508b7",
+  "created_at": "2026-05-02T00:43:53Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs handle_email_get (L362-373) and handle_email_parse (L1824-1835): bodyProperties and maxBodyValueBytes use args.remove() but fetchTextBodyValues, fetchHTMLBodyValues, fetchAllBodyValues use args.get(), leaving those keys in the map. No documented reason for the split. Fix: use args.remove() consistently for all six body-fetch arguments in both handlers.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "inconsistent get vs remove for bool body-fetch args",
+  "updated_at": "2026-05-04T15:52:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "349b8186-5b2a-5dd6-bb25-e0fbc7819ff6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

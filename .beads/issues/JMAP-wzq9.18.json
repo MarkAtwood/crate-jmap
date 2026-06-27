@@ -1,0 +1,33 @@
+{
+  "close_reason": "Implemented in commit 8d8b6c5. Every new params struct (MetadataGetParams, MetadataSetParams, MetadataQueryParams, MetadataQueryChangesParams) carries an explicit collision-semantics paragraph on the 'extra' field doc-comment, naming each typed wire field per method and stating 'will silently retain the typed-field value if an extras key collides'. The pre-existing MetadataChangesParams also got the same treatment in this commit. The behaviour is verified by the wiremock test metadata_set_params_extras_do_not_overwrite_account_id (tests/metadata_tests.rs).",
+  "closed_at": "2026-05-15T02:32:08Z",
+  "compaction_level": 0,
+  "content_hash": "d960300c9163d77293dd41eaceea33b568daf471b1bf005065a51dd785773f1b",
+  "created_at": "2026-05-15T02:10:01Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:55-60 \u2014 MetadataChangesParams.extra doc-comment says only:\n\n    Catch-all for vendor / site / private extension fields not covered\n    by the typed fields above. Preserves unknown fields across\n    deserialize/serialize round-trip per workspace extras-preservation\n    policy (see workspace AGENTS.md).\n\nThis does not tell the caller about the wire collision semantics. The actual behaviour in src/methods/metadata.rs:97-107:\n\n    // Vendor extras: flatten any caller-supplied keys directly into\n    // the args object. Note that an extras key colliding with a\n    // typed-field wire name (`filterRelatedType`, `filterMetadataType`,\n    // `accountId`, `sinceState`, `maxChanges`) is the caller's\n    // responsibility to avoid; we do NOT overwrite typed fields here.\n    for (k, v) in p.extra {\n        args.as_object_mut()\n            .expect(\\\"args is constructed as an Object\\\")\n            .entry(k)\n            .or_insert(v);\n    }\n\n\u2026silently drops any extras key that collides with one of the five wire field names. The Map::entry / or_insert pattern is no-op when the key already exists.\n\nA caller who, e.g., wants to override filterRelatedType via extras (for whatever reason \u2014 testing, vendor extension semantics) will see their value silently ignored. There is no warning, no error, no log. Their HTTP request goes out missing the value they thought they were sending.\n\nThis is a contract gap in two senses:\n1. The struct doc-comment doesn't tell the caller this happens.\n2. The behaviour itself \u2014 silent drop \u2014 is a debugging trap. A loud panic or InvalidArgument error would be a better contract.\n\nFix options:\n(a) Add a paragraph to extra's doc-comment listing the reserved wire-field names and stating that collisions are silently dropped.\n(b) Stronger: change Map::entry/or_insert to a collision-detection loop that returns ClientError::InvalidArgument when a reserved key is supplied.\n\nRecommendation: (b) \u2014 silent drop is the wrong default; an explicit error matches the rest of this crate's input-validation style (the two empty-state checks in metadata_changes / metadata_query_changes). Worst case, (a) at minimum.\n\nCaveat: the reserved-key list lives in metadata.rs but the struct lives in mod.rs. Keeping them in sync is a maintainer burden. A constant 'const RESERVED_METADATA_CHANGES_KEYS: &[&str]' near MetadataChangesParams would let both sites reference it.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MetadataChangesParams.extra: wire collision semantics undocumented on struct",
+  "updated_at": "2026-05-15T02:32:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:10:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "a253de44-500d-5edf-8eb5-af3e23996ebb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

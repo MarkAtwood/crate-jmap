@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "close_reason": "Fixed in d3adb1f: SpaceJoinInput has manual Debug impl that redacts the InviteCode variant payload. SpaceId variant still renders verbatim. Two regression tests (one negative, one positive) confirm variant-scoped redaction.",
+  "closed_at": "2026-05-11T14:32:09Z",
+  "compaction_level": 0,
+  "content_hash": "bef74a0fc2e459d709c434666e6a954a96d52d1a5d99293f16ec72e32f5ca53c",
+  "created_at": "2026-05-11T14:23:49Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Location: `crate-jmap-chat-client/src/methods/mod.rs:702-709`\n\n  #[non_exhaustive]\n  #[derive(Debug)]\n  pub enum SpaceJoinInput<'a> {\n      InviteCode(&'a str),   // <-- secret credential\n      SpaceId(&'a Id),\n  }\n\nCONCERN\nThe `InviteCode` variant wraps the same unguessable secret as `SpaceInvite.code` (see sibling bead). This is the caller-facing client API for the `Space/join` method call \u2014 every consumer constructs this enum to pass a code.\n\nAny `{:?}`-format of a SpaceJoinInput value leaks the code:\n- Application-layer logging at the SDK boundary\n- Test fixtures or examples that Debug-print arguments\n- Future tracing instrumentation on the client surface\n\nDirect analogue of JMAP-sc1b.79 (BearerAuth/BasicAuth Debug redaction) applied to a different secret-bearing public type \u2014 got missed by that pass.\n\nWHAT GOES WRONG\nConfidentiality / key recovery \u2014 the invite-link token is leaked through any Debug-format path on the client side, before it ever crosses the wire.\n\nPROPOSED FIX\n1. Remove `Debug` from the derive list at line 703.\n2. Add a manual Debug impl that prints `SpaceJoinInput::InviteCode` as `InviteCode([REDACTED])` and `SpaceJoinInput::SpaceId(id)` verbatim (Id is not a secret per RFC 8620 \u00a71.2).\n3. Add a regression test that constructs SpaceJoinInput::InviteCode with a canary string and asserts the canary does not appear in `{:?}` output.\n\nORACLE\n- Canonical: JMAP-sc1b.79 fix for BearerAuth/BasicAuth in auth.rs:183-189 + test at auth.rs:443-475.\n- ChatBackend trait doc-comment at `crate-jmap-chat-server/src/backend.rs:74-89` defines the code field as a credential.\n\nRISK CLASSIFICATION\nP2. Live confidentiality defect on the canonical client-side API for Space/join. The Chat client is canonical for the JMAP Chat client family per AGENTS.md propagation rules \u2014 fix here, no other sibling has the same shape yet.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.91",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security: SpaceJoinInput::InviteCode derives Debug exposing the invite-code secret (crate-jmap-chat-client/src/methods/mod.rs:702)",
+  "updated_at": "2026-05-11T14:32:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:23:48Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "fea8c4b8-f2da-575d-ace1-5ef91465c35a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

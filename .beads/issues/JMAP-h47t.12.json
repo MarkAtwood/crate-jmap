@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e2d72afe3bdc23912de09be111cee6fc64aae4005af7b1b89d9f694572825c25",
+  "created_at": "2026-05-14T18:15:17Z",
+  "created_by": "Mark Atwood",
+  "description": "The trait method signature is:\n\n    fn task_list_has_tasks(\n        &self,\n        caller: &Self::CallerCtx,\n        account_id: &jmap_types::Id,\n        task_list_id: &jmap_types::Id,\n    ) -> impl std::future::Future<Output = bool> + Send;\n\nThis is the ONLY non-Result-returning method on the TasksBackend trait. Every other operation (create_object, update_object, destroy_object, copy_task) returns Result<_, BackendSetError<Self::Error>>. The downstream consumer who implements TasksBackend has no way to signal a transient error (DB connection lost, lock contention, query timeout, network partition to a remote shard) from this method.\n\nThe two choices a real backend implementor has when the underlying check fails:\n\n  - Return `false`: handler in task_list.rs:244-249 proceeds to call destroy_object<TaskList>. If the list actually had tasks (the backend just couldn't confirm it), the list and its task references are deleted from the parent index but the tasks themselves remain orphaned. DATA LOSS on the spec-mandated invariant that destroying a list with tasks requires onDestroyRemoveTasks=true.\n\n  - Return `true`: handler emits taskListHasTasks SetError to the client even though the list may be empty. Client sees a permanent rejection it cannot work around (no retry hint, no transient-error signal).\n\nBoth are wrong. Spec compliance requires a deterministic answer; transient failures need to propagate as serverFail (per RFC 8620 \u00a73.6.1) so the client can retry. The current contract makes that impossible.\n\nWorkspace-wide propagation: this shape is ALSO present in:\n  - crate-jmap-calendars-server/src/backend.rs:260 (calendar_has_events)\n  - crate-jmap-contacts-server/src/backend.rs:105 (address_book_has_contents)\n\nPer the workspace AGENTS.md \\\"Canonical Templates\\\" propagation rule, fixing this in the canonical extension-server (jmap-mail-server has no analog) and propagating to all three siblings would be a coordinated breaking change. Filing here because the scope is tasks-server; the maintainer should decide whether to do the workspace-wide sweep in one pass.\n\nProposed shape:\n\n    fn task_list_has_tasks(\n        &self,\n        ...\n    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;\n\nCaller (handler) then maps Err to serverFail in notDestroyed entry, same shape as the existing destroy_object error mapping.\n\nThis is a 0.x crate so the breaking change is permissible. The longer the bare-bool ships in 0.1.x, the more downstream implementations bake the no-error-path assumption in.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "TasksBackend::task_list_has_tasks returns bare bool with no error path \u2014 DB error forces data-loss-vs-spurious-error tradeoff",
+  "updated_at": "2026-05-14T18:15:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:15:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "e0eb9ec0-924c-533f-957e-335c857ff756",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

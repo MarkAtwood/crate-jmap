@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.1",
+  "title": "validate_session_urls: prefix check doesn't catch host-injection in templates",
+  "description": "uploadUrl/downloadUrl/eventSourceUrl are URI templates. validate_session_urls checks starts_with(\"http://\") which passes on \"http://{accountId}.evil.com/\" \u2014 if a malicious server sends that URL, expand_url_template later substitutes the accountId into the host position. In practice account_id comes from the caller and a compromised session already controls the server, so real-world risk is low, but the security comment on validate_session_urls claims this 'prevents SSRF via non-HTTP schemes' while missing the host-injection vector entirely. The false sense of security is the bug.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:53:38Z",
+  "updated_at": "2026-04-30T02:09:24Z",
+  "closed_at": "2026-04-30T02:09:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:53:38"
+    }
+  ]
+}

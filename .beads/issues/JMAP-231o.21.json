@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-08T05:51:48Z",
+  "compaction_level": 0,
+  "content_hash": "f77e5e9269b51d15d79619985451c9674f13b1e6de73674a9671f97293026e5d",
+  "created_at": "2026-05-08T03:21:09Z",
+  "created_by": "Mark Atwood",
+  "description": "Public method signatures in calendar.rs:78, event.rs:87, event_notification.rs:82, participant_identity.rs:65 all take `destroy: Option<Vec<&str>>`.\n\nThe method body iterates and clones every element. There is no use of `Vec`'s growable behavior or its ownership. The signature should be `destroy: Option<&[&str]>` (or `impl IntoIterator<Item = &str>` if you want maximum generality).\n\nCaller cost today: a caller who has `&[String]` (typical from a previous /get response's `destroyed` field) must do:\n```\nlet v: Vec<&str> = ids.iter().map(String::as_str).collect();\ncalendar_set(None, None, Some(v), None).await?;\n```\n\nA `&[&str]` parameter would let them pass `&v`, and an `impl IntoIterator` would let them skip the intermediate Vec entirely. Section: ownership \u2014 the function takes ownership of a Vec it never uses as a Vec.\n\nAlso affects calendar_event_parse (event_parse.rs:15) which already takes `blob_ids: &[&str]` \u2014 the inconsistency is its own readability cost. Pick one.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "destroy: Option<Vec<&str>> forces caller to materialize a Vec \u2014 &[&str] would do",
+  "updated_at": "2026-05-08T05:51:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:21:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "d286316d-a884-573e-805c-167d5733afa8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

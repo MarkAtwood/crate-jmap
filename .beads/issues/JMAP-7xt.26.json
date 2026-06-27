@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.26",
+  "title": "BlobUploadResponse.sha256 doc does not say format or when present",
+  "description": "blob.rs BlobUploadResponse.sha256 (lines 22-23): field doc is 'SHA-256 hex digest of the blob, if provided by the server'. Does not say: (1) what format the string is (64-char lowercase hex), (2) under which spec capability the server will include it (JMAP-CID), or (3) that the client verifies this value and returns BlobIntegrityMismatch on mismatch. A user calling upload_blob and receiving an error needs this context. Suggested fix: expand the doc comment with format spec and reference to the JMAP-CID capability.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:56Z",
+  "updated_at": "2026-04-30T01:08:13Z",
+  "closed_at": "2026-04-30T01:08:13Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:55"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fix already committed; parent epic closed",
+  "closed_at": "2026-05-01T15:11:37Z",
+  "compaction_level": 0,
+  "content_hash": "496be4714edf38009d1d1c787229523e7ab96697a2d863dfcb8bfa684f93516b",
+  "created_at": "2026-05-01T05:51:13Z",
+  "created_by": "Mark Atwood",
+  "description": "The VacationResponse/set handler catches NotFound from update_object and creates the singleton before re-applying the patch. The code comment explicitly notes the TOCTOU race and documents that backends must make create_object idempotent for the singleton key. This is the correct design for a handler layer that holds no shared state \u2014 the alternative (pre-checking existence) would not eliminate the race. A future contributor should not remove the comment or simplify to a pre-check without understanding the concurrency implications.",
+  "ephemeral": 0,
+  "id": "JMAP-2qp.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "VacationResponse upsert: create-then-patch singleton with concurrency note",
+  "updated_at": "2026-05-01T15:11:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-04-30T22:51:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-2qp",
+      "id": "a897aa7c-fa50-520d-8def-b65135572ce4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

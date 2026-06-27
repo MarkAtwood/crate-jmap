@@ -1,0 +1,41 @@
+{
+  "close_reason": "Superseded by bd:JMAP-1j9k.9 (closed by commit b6d2ebb on 2026-05-17). Same closure reasoning as the blocking dep JMAP-tjvm.16: the workspace adopted the OPPOSITE policy. Public method-input Params structs in *-client crates do NOT use #[non_exhaustive]; forward-compat for future spec-defined fields is the flatten-ed 'extra: serde_json::Map<String, serde_json::Value>' field per workspace AGENTS.md extras-preservation policy.\n\nAdding #[non_exhaustive] to MetadataGetParams, MetadataSetParams, MetadataQueryParams, MetadataQueryChangesParams (or MetadataChangesParams from the sibling wzq9.15) would now be the regression \u2014 those structs already follow the workspace-canonical shape: a single pub 'extra' flatten field with #[serde(flatten, default, skip_serializing_if = ...)]. Verified in crate-jmap-metadata-client/src/methods/mod.rs:36-167 (all 5 structs carry the extra field; default serialization produces {}; vendor-extras propagate on the wire; round-trip tests at lines 561-642 cover this).\n\nThe bead's own agent-authored recommendation was correct at the time of filing (2026-05-15) but the workspace policy decision rolled the opposite way two days later. The forward-compat path is: add a new typed field on the struct as a new minor version (the struct-literal syntax break the bead describes is real, but the workspace decision was that the extras flatten field is sufficient forward-compat for vendor / site fields, and that typed-field addition warrants a struct-literal break by design \u2014 see the policy note in workspace AGENTS.md and the design-decision comment at calendars-client mod.rs:108).\n\nSibling wzq9.15 (MetadataChangesParams) is currently 'blocked' on the same now-defunct JMAP-tjvm.16 dependency and falls under the identical policy reversal \u2014 flagged for separate closure pass.",
+  "closed_at": "2026-05-17T14:31:38Z",
+  "compaction_level": 0,
+  "content_hash": "57c8b0356d33ba3e4e415f3257bf63d1fab4d3f575cc109ffc7742caf98d44af",
+  "created_at": "2026-05-15T02:45:18Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:36-48 (MetadataGetParams), :58-71 (MetadataSetParams), :125-138 (MetadataQueryParams), :146-159 (MetadataQueryChangesParams) \u2014 all four params structs are declared as:\n\n    #[derive(Debug, Default, serde::Serialize)]\n    #[serde(rename_all = \"camelCase\")]\n    pub struct MetadataXxxParams { pub extra: serde_json::Map<\u2026> }\n\nMissing #[non_exhaustive]. Each currently carries a single pub extra field, but a caller can use struct-literal syntax:\n\n    MetadataGetParams { extra: serde_json::Map::new() }\n\nWhen a future draft revision adds a typed method-level arg (e.g. forAccount, or any new typed knob the draft has not yet committed to), every caller using struct-literal syntax breaks at compile-time, requiring a major version bump.\n\nwzq9.15 already calls out MetadataChangesParams (the one struct with non-extras typed fields) and notes workspace-wide divergence from extras-preservation policy. But wzq9.15's title and explicit-mention naming covers only MetadataChangesParams. A fix-author closing wzq9.15 could plausibly add #[non_exhaustive] to MetadataChangesParams alone and consider the ticket done \u2014 leaving the other 4 metadata-client params structs unprotected at 0.1.0.\n\nThis finding exists to make the scope explicit: all 5 params structs in this crate need #[non_exhaustive] simultaneously, and the fix propagates from canonical mail-client per the canonical-template propagation rule (see wzq9.15's blocking dep on JMAP-tjvm.16).\n\nTrigger: any future draft-or-vendor-defined typed method-level arg.\nFix: add #[non_exhaustive] to MetadataGetParams, MetadataSetParams, MetadataQueryParams, MetadataQueryChangesParams (alongside MetadataChangesParams from wzq9.15).\n\nCross-ref: wzq9.15, JMAP-tjvm.16.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Params structs missing #[non_exhaustive]: MetadataGet/Set/Query/QueryChanges (extends wzq9.15)",
+  "updated_at": "2026-05-17T14:31:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:20:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm.16",
+      "id": "176cfc0c-7351-5fa1-9260-98338927e7db",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T19:45:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "eecf62b0-64ff-59cf-b04b-524764c7f8ef",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

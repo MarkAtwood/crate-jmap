@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T05:48:22Z",
+  "compaction_level": 0,
+  "content_hash": "c8ff9b6728098612bd660107af465757ea5813ffbb57700f13aee7397066fe97",
+  "created_at": "2026-05-11T05:44:15Z",
+  "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+  "description": "Verify with: RUSTDOCFLAGS=\"-W missing_docs\" cargo doc -p jmap-filenode-types --no-deps --all-features\n\n17 warnings as of 2026-05-10. Cite draft-ietf-jmap-filenode on each variant.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.15.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "missing_docs sweep: jmap-filenode-types (17 warnings)",
+  "updated_at": "2026-05-11T05:48:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T22:44:14Z",
+      "created_by": "bd-spin/bd-spin-20260511T043600Z-4169702",
+      "depends_on_issue_id": "JMAP-sc1b.15",
+      "id": "24369fb5-faba-588d-960a-3caee5bd8cb3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

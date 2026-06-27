@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "created_at": "2026-05-12T05:02:10Z",
+  "id": "019e1a90-60ad-72f5-99a7-abbb758f0be6",
+  "issue_id": "JMAP-sc1b",
+  "text": "Re-applying 'human' label pending resolution of JMAP-dibr (the meta-policy question 'should /do-beads delegate review-shaped epics or skip them'). Without this label, /do-beads picks this epic up on every iteration and either (a) burns tokens re-running an already-converged bd-review-loop or (b) deadlocks on a nested permission prompt as the 2026-05-11T17:08Z run did. The /do-beads command spec \u00a71 explicitly warns: 'A human label marks a durable question for the human \u2014 those beads are not actionable autonomously and must be skipped, otherwise the loop will pick the same question-bead every session and never make progress.' Mark previously de-labeled with the note 'this should not be picked up by autonomous /do-beads \u2014 it filters epics from ready anyway'; reality is that /do-beads does NOT filter epics, only human-labeled beads. JMAP-dibr captures the resolution options. This re-label is a stopgap until JMAP-dibr is resolved."
+}

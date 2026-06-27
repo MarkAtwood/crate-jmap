@@ -1,0 +1,35 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T18:25:45Z",
+  "compaction_level": 0,
+  "content_hash": "44420ec6d89569a143ce4dae539242ccd1a94108c00268d0115126e5c16d7c2a",
+  "created_at": "2026-05-08T03:34:32Z",
+  "created_by": "Mark Atwood",
+  "description": "src/lib.rs:213-285 (test_support::MockBackend) uses std::sync::Mutex<HashMap<...>> guarding the test state and locks it inside async fns (account_exists, get_objects, destroy_object, calendar_has_events).\n\nCurrently every such call site drops the guard before any .await \u2014 there are no .await calls between the .lock() and the implicit Drop. So the code is correct today. But this is a fragile pattern: any future contributor adding 'an await for some reason' (e.g. asynchronously serializing one of the values inside the loop) will introduce a deadlock that clippy's await_holding_lock lint will catch only if explicitly enabled.\n\nThree options, in order of robustness:\n1. Switch to tokio::sync::Mutex (already a dep via the workspace tokio). Holds-across-await is fine and async-aware.\n2. Keep std::sync::Mutex but enable #[deny(clippy::await_holding_lock)] at the test_support module level so the antipattern is caught at compile time.\n3. Restructure to clone-out: 'let snapshot = self.state.lock().unwrap().clone();' then operate on the snapshot.\n\nOption 2 is the cheapest. Option 1 is the most idiomatic for an async-only crate. Workspace already depends on tokio.\n\nSeverity P3 \u2014 test-only code, current behaviour correct, hazard is future-proofing.\n\nNote: the same pattern applies to TrackingBackend in event.rs:953-1095 \u2014 Arc<Mutex<bool>> is fine but worth holding to the same standard.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Fixed in commit 6694e27 (option 2: deny lint at module level).\n\nApplied to 10 sites across 7 server crates:\n- jmap-{calendars,contacts,filenode,sharing,tasks}-server/src/lib.rs (cfg(test) test_support)\n- jmap-calendars-server/src/event.rs::tests::routing (TrackingBackend)\n- jmap-{chat,filenode,mail,sharing}-server/tests/common/mod.rs (integration MemoryBackend)\n\nDid NOT touch jmap-mail-server inline test_support \u2014 verified mail-server has no inline test_support module (its mock lives in tests/common/mod.rs only). chat-server src/lib.rs likewise has no inline test_support; its mock is in tests/common/mod.rs.\n\nPer the bead's three options I picked option 2 (deny lint) because:\n- Cheapest, no API churn\n- Catches future hazard at compile time\n- Module docs explain the hazard and point to tokio::sync::Mutex as the right fix if anyone needs to hold across .await\n- No runtime perf or behavior change today\n\nGate: cargo build --workspace --all-targets, cargo clippy --workspace --all-targets -- -D warnings, cargo test --workspace all green.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "test_support::MockBackend uses std::sync::Mutex inside async fns \u2014 tokio::sync::Mutex would be safer",
+  "updated_at": "2026-05-10T18:25:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:34:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "33d03c35-c9f8-58a6-af33-2e9c826bc5bf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

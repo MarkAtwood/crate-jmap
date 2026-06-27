@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed by returning Result<(), MergePatchError> from json_merge_patch. Added MergePatchError::DepthExceeded variant (non_exhaustive). All 6 sibling *-server callers (chat, tasks, sharing, metadata, contacts, calendars) updated to map DepthExceeded \u2192 SetError(SetErrorType::InvalidPatch). chat-server's apply_space_metadata_patch_impl also updated. Stored value never sees the partially-mutated clone on error path, so the natural pattern of clone-mutate-insert is safe. Unit tests: depth-cap returns Err, at-exact-cap applies, shallow patches succeed, Display message stable. Integration test in jmap-chat-server proves end-to-end: 200-level patch produces invalidPatch and stored object is unchanged.",
+  "closed_at": "2026-05-14T13:20:33Z",
+  "compaction_level": 0,
+  "content_hash": "7d2c0c0b2a877bcaa57653a3efd69a27af856e0562eb554b2fe965248f7eb570",
+  "created_at": "2026-05-14T12:51:38Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: a /set update method invocation whose PatchObject nests deeper than MAX_MERGE_PATCH_DEPTH (32 levels). Today: json_merge_patch in crate-jmap-server/src/helpers.rs:128 silently returns at the cap without touching the affected sub-tree. Effect: the JMAP client receives a successful /set response (no entry in notUpdated), but the stored object on the server has not had the deep-nested field updated. The client's view of the data and the server's stored value diverge, with no signal at the JMAP layer.\n\nThis is the exact failure mode the workspace AGENTS.md 'Filter algebra and control enums are explicitly EXCLUDED' section calls out for filter conditions: silent-drop is a server-side correctness bug because 'a query that silently drops a clause returns the wrong result set with no compile-time or runtime signal'. The same logic applies here: a /set update that silently drops a clause stores the wrong object with no compile-time or runtime signal.\n\nRight behaviour: the depth-cap path should signal failure to the caller. Two reasonable shapes:\n  (a) return Result<(), MergePatchError> from json_merge_patch so the caller can map cap-exceeded \u2192 SetError(SetErrorType::InvalidPatch); or\n  (b) return a bool from json_merge_patch indicating whether the patch was fully applied; the *-server update_object impls return SetError::new(SetErrorType::InvalidPatch).with_description(\"patch nesting exceeds server limit\") when the bool is false.\n\nBoth close the silent-drop hole. The DoS mitigation (the cap itself) stays \u2014 we are not removing the cap, just changing the failure surface from 'silent success' to 'invalidPatch'.\n\nNote: the depth cap was added in commit 0d617cd (bd:JMAP-sc1b.97) precisely as a DoS hardening; that bead got the security half right but the integrity half wrong. The 32-level cap will not fire on any legitimate JMAP /set update shape (Email with bodyStructure tops out around 6 levels per the doc comment), so the fix changes only adversarial-input behaviour, not real-client behaviour.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "json_merge_patch silent truncation at depth cap causes silent data-integrity loss on /set update",
+  "updated_at": "2026-05-14T13:20:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:51:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "31060fe3-c5d4-59a9-9ad9-69302b40fbef",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

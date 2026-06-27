@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T01:38:55Z",
+  "compaction_level": 0,
+  "content_hash": "701ea47a42748d109f7414b45f4846ec0ac798662a221514a0205526f8c7f8fa",
+  "created_at": "2026-05-14T15:53:43Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/tests/integration.rs contains 333 occurrences of the bare string literal `\"a1\"` (the account id) and ~250 occurrences of placeholder ids `\"c0\"|\"c1\"|\"s0\"|\"s1\"|\"e0\"|\"m0\"|\"b0\"|\"i0\"`. Example, integration.rs:174-178:\n\n    json!({\n        \"accountId\": \"a1\",\n        \"create\": {\n            \"c0\": { \"kind\": \"group\", \"name\": \"My Group\" }\n        }\n    }),\n\nThe newer sibling test files all use named consts consistently:\n- role_member_apply.rs:29 `const ACCOUNT_ID: &str = \"a1\"` (one bare \"a1\" in the file, namely the const declaration)\n- channel_category_apply.rs:40 const declarations\n- space_set_kitchen_sink.rs:38-40\n- identity_writes.rs:42-44\n- space_metadata_apply.rs\n\nIdiomatic Rust: hoist `ACCOUNT_ID`, `SPACE_ID`, `CHAT_ID_C0`, etc. into tests/common/mod.rs and `use common::*;` them. The hex literal `\"a1\"` is meaningless to a reader skimming the file; `ACCOUNT_ID` self-documents.\n\nEngineering basis: inconsistency with the rest of the test suite. The oldest test file (integration.rs) was written before the convention was settled; the newer files (role_member_apply, channel_category_apply, space_set_kitchen_sink, identity_writes, space_metadata_apply) all follow the const-named convention. integration.rs has not been retrofitted. When the next contributor adds a multi-account test and decides to call the second account `\"a2\"`, the bare `\"a1\"` everywhere obscures whether each call site is intentionally account-1 or just an artifact of copy-paste. This is a textbook test-readability finding with strong sibling-file precedent inside the same crate.\n\nFiled at P3 not P2 because the fix is mechanical (find-replace) and the bug-cost is bounded to readability, not correctness.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.81",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "tests: integration.rs uses bare \"a1\"/\"s1\"/etc magic-string ids 580+ times while sibling test files use const ACCOUNT_ID",
+  "updated_at": "2026-05-18T01:38:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:53:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "9607411c-9758-5347-a140-8cbdea5194c1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

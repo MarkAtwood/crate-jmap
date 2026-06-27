@@ -1,0 +1,34 @@
+{
+  "close_reason": "duplicate",
+  "closed_at": "2026-05-11T04:44:35Z",
+  "compaction_level": 0,
+  "content_hash": "807976eae4fc738b95fe4c957f1ce8bebb433c27a4635e090c1f0d333f4a9054",
+  "created_at": "2026-05-11T00:26:50Z",
+  "created_by": "Mark Atwood",
+  "description": "Once JMAP-x59i.1 lands (jmap-jscalendar-types exists):\n\n1. Add jmap-jscalendar-types = { path = '../crate-jmap-jscalendar-types' } to crate-jmap-tasks-types/Cargo.toml.\n\n2. Optional but recommended: top-level re-export pub use jmap_jscalendar_types::*; (or selective list) in crate-jmap-tasks-types/src/lib.rs so callers can do jmap_tasks_types::Location symmetrically with jmap_calendars_types::Location.\n\nThe 13 Sloppy-Value fields in Task / TaskList stay as Option<serde_json::Value> per workspace policy. Typed access is opt-in via from_value.\n\nBlocked-on: JMAP-x59i.1 (jmap-jscalendar-types crate creation).",
+  "ephemeral": 0,
+  "id": "JMAP-yfpq.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Closed as duplicate of JMAP-yfpq.4, which was filed during a /do-beads pass that did not first scan for existing children. The path-dep + re-export work landed in commit 7dac829 (refactor(tasks-types): consume jmap-jscalendar-types).",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add jmap-jscalendar-types path-dep + re-exports to jmap-tasks-types",
+  "updated_at": "2026-05-11T04:44:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:26:50Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yfpq",
+      "id": "eab61880-66ae-5628-b9c3-2d27be52a767",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

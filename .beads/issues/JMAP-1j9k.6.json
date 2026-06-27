@@ -1,0 +1,33 @@
+{
+  "close_reason": "No-op affirmation bead: bead body says 'this is the right shape for the workspace test-integrity rule' and 'the tests are the correct tripwire'. The two tests at crate-jmap-calendars-client/src/methods/mod.rs are unchanged by the JMAP-1j9k epic work. No action needed \u2014 the protective record is the bead itself.",
+  "closed_at": "2026-05-17T12:27:34Z",
+  "compaction_level": 0,
+  "content_hash": "7db0a2a5878c39e205f3b2494e31e192713901d7452db8d827c79f2ebbb571f4",
+  "created_at": "2026-05-15T01:02:54Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:301-355 \u2014 set_response_updated_accepts_null_values and set_response_updated_accepts_object_values exercise both arms of the RFC 8620 \u00a75.3 'Id[Foo|null]|null' wire type using hand-written JSON oracles independent of any serializer code in the crate. This is the right shape for the workspace test-integrity rule (independent oracle, not derived from code under test) and matches the wire spec line for line. A future contributor who 'cleans up' SetResponse by typing updated as HashMap<Id, T> (dropping the inner Option) would break this with a deserialize failure on the null arm \u2014 the tests are the correct tripwire.",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetResponse<T>.updated Id[Foo|null] null-and-object union round-trip tests use independent oracles",
+  "updated_at": "2026-05-17T12:27:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:02:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "c862403d-441f-5757-878a-fb48816bcb84",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

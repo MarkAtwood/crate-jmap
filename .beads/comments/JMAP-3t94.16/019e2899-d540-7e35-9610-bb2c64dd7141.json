@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T22:27:11Z",
+  "id": "019e2899-d540-7e35-9610-bb2c64dd7141",
+  "issue_id": "JMAP-3t94.16",
+  "text": "Two-direction workspace decision:\n(a) Move JMAP_PRINCIPALS_URI / JMAP_PRINCIPALS_OWNER_URI declarations from jmap-sharing-types to jmap-sharing-server (server-crate canonical, mail-server-style). Touches jmap-sharing-types public API (breaking removal or downgrading to re-export).\n(b) Move canonical mail's JMAP_MAIL_URI etc. into jmap-mail-types and propagate the types-crate-canonical pattern across all 7 siblings. Touches 7 type crates + 7 server crates.\n\nCannot resolve unilaterally in sharing-server: option (a) requires jmap-sharing-types coordination, option (b) requires a sibling sweep. Per /do-beads JMAP-3t94 scope (sharing-server only), filing for workspace direction."
+}

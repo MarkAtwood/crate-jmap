@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "cargo check -p jmap-chat-client passes; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:48:06Z",
+  "compaction_level": 0,
+  "content_hash": "e3705a87475fec50865cd1635312d855ea795d12dbdb00aaa463af1e8faddf8c",
+  "created_at": "2026-05-04T15:06:14Z",
+  "created_by": "Mark Atwood",
+  "description": "WHAT: Port all Message method implementations from ~/PROJECT/crate-jmapchat-client/src/methods/message.rs\n\nALGORITHM: Port message_get, message_query, message_changes, message_create, message_update, message_destroy, message_query_changes.\n\nSPECIAL: message_create checks SetError.server_retry_after for rate limiting. When a notCreated entry has error_type==\"rateLimited\" and server_retry_after is Some, return ClientError::RateLimited { retry_after } (approved variant in jmap-base-client).\n\nType: jmap_chat_types::Message.\nDEFENSIVE RULES: No unwrap(). Validate ids is non-empty for message_get (matches reference).\nACCEPTANCE: cargo check -p jmap-chat-client; clippy clean",
+  "ephemeral": 0,
+  "id": "JMAP-v3yw",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-client: methods/message.rs \u2014 Message/* methods",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T08:07:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ds04",
+      "id": "1375d8d4-01b6-5d90-abd5-969206ecd058",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T08:07:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s1ei",
+      "id": "2ba84205-8c3d-58a7-9306-b5f817669e88",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T11:29:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w",
+      "id": "f8ae9248-5920-5c4d-a2af-406f9e247332",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

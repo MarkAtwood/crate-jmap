@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T19:09:11Z",
+  "id": "019e3231-4766-72c3-9f8d-ea604960339d",
+  "issue_id": "JMAP-wlip.24",
+  "text": "Session-start sweep ratification (2026-05-16): most recent comment (2026-05-14, >24h ago, no human reply) ends with 'Recommendation: (a) \u2014 pair with JMAP-wlip.30 and JMAP-wlip.35 in a single major-bump propagation pass.' Per workspace AGENTS.md anti-pattern 3 ('stale committed recommendation'), removing 'human' label and adding 'deferred' to park this on the major-bump backlog. The leak path was already mostly closed by JMAP-wlip.2; this is an information-restoration improvement, not a security fix. Bead remains open in deferred state; will surface again when a major bump epic is filed."
+}

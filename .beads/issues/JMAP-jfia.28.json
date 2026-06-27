@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7bc9696ccc4e686a96548651cebf0abedd84cbcf72d500ff8387f66bfd49c0e0",
+  "created_at": "2026-05-14T16:48:13Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/lib.rs:349-350 \u2014 public type alias:\n\n    pub type BackendCallFn<B, C> =\n        dyn Fn(Arc<B>, String, serde_json::Value, C) -> HandlerFuture + Send + Sync + 'static;\n\nThe signature is a `dyn Fn(...)` taking exactly four args:\nbackend, call_id, args, caller. Every consumer that uses ClosureHandler\nwrites closures matching this exact signature, e.g. in\nregister_*_handlers macros across extension *-server crates:\n\n    Box::new(|backend, call_id, args, caller| {\n        Box::pin(async move { ... })\n    })\n\nWhat callers cannot depend on:\n\n1. That additional context can be threaded through ClosureHandler\n   later without rewriting every closure. Concrete candidates:\n   - The handler's registered `method` name (currently dropped on\n     the floor in ClosureHandler::call: lib.rs:407-417 takes\n     `_method: String`, then call_fn does NOT receive method).\n     The trait method takes both method and call_id, but\n     ClosureHandler forwards only call_id. Documented at lib.rs:343-345.\n   - A tracing span (for distributed tracing).\n   - A timeout or deadline.\n   - A cancellation token (once the cancellation gap from the\n     existing finding \u2191 Dispatcher::dispatch doc:185-227 is closed).\n\n2. That the closure signature can evolve. A `dyn Fn` is structurally\n   typed \u2014 adding a parameter is a breaking change to every\n   callsite.\n\nWhat goes wrong when this stays as-is:\n\n- The first new field needed (the method name, e.g. for tracing\n  span attributes) cannot be threaded through ClosureHandler\n  without:\n   a. Adding a new field to ClosureHandler (non-breaking under\n      #[non_exhaustive]) AND\n   b. Adding a new type alias BackendCallFnWithMethod alongside\n      the existing one AND\n   c. Forking ClosureHandler::call to accept either alias.\n  \u2026or breaking the BackendCallFn signature.\n\n- The kit currently swallows the method name parameter\n  (lib.rs:410 `_method`) silently when handlers are registered\n  via ClosureHandler. This is a maintainer-known limitation but\n  is invisible from the BackendCallFn signature.\n\nResolution paths (one is sufficient):\n\n- Convert BackendCallFn from a Fn(...) -> HandlerFuture alias to\n  a sealed trait BackendCall<B, C> with a single method `call(&self,\n  cx: BackendCallContext<B, C>) -> HandlerFuture`, where\n  BackendCallContext is a #[non_exhaustive] struct that can grow\n  fields non-breakingly. The closure-form usage stays similar:\n\n    BackendCall::call_fn(|cx| Box::pin(async move {\n        // use cx.backend, cx.method, cx.call_id, cx.args, cx.caller\n    }))\n\n  via a blanket impl for `Fn(BackendCallContext<B, C>) -> HandlerFuture`.\n\n- Add a parallel type alias `BackendCallFnV2<B, C>` that includes\n  method and use it from a new `ClosureHandler::new_with_method`\n  constructor. Keep the original alias and constructor for back-compat.\n  (Less invasive but pushes the cost into \"two ways to do it\".)\n\n- Document the locked-in signature on the type alias itself with\n  a `# Stability` section: \"this signature is locked; if you need\n  more context inside the closure, drop down to a manual\n  JmapHandler impl\".\n\nThe current state silently drops the method name (a real piece\nof context most production handlers want for tracing). The\ncontext-struct approach makes future additions cheap and surfaces\nthe currently-dropped field today.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "BackendCallFn type alias hardcodes 4-arg closure signature \u2014 adds-a-param breaks all ClosureHandler call sites",
+  "updated_at": "2026-05-14T17:29:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:48:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "8cf54c8f-a649-5bab-b874-00c7193d8707",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

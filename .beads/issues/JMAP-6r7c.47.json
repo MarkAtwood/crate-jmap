@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T23:50:34Z",
+  "compaction_level": 0,
+  "content_hash": "e87487cdb1b01bde05a4efa3d75d20344c6bf6f09a93a67bb5d9efdefb5d29e5",
+  "created_at": "2026-05-14T23:25:44Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-base-client/src/client.rs:614-646 extract_response<T> implements the RFC 8620 \u00a73.6.1 error-precedence rule with a hand-rolled accumulator: a mut Option<&Invocation> named first_success threaded through a for loop with an inline early-return on the error branch and a final first_success.unwrap_or_else(MethodNotFound). Idiomatic Rust expresses the same two-priority scan as either (a) one filtered iterator consumed twice via .clone() \u2014 Iterator::clone is cheap for slice::Iter \u2014 with .find() for the error then .next() for the first success, or (b) Iterator::find_map returning Result<&Invocation, MethodError> directly. Either reads as 'find the error first, fall back to the first success' without the mut-accumulator state machine, and removes the dead let mut first_success: Option<...> = None;' pattern that signals 'I gave up on iterator combinators'. The current implementation works and is even slightly cheaper (single pass over the filter), but the readability cost of the manual state is real \u2014 a reader has to trace control flow through the loop, the if first_success.is_none() guard, and the post-loop ok_or_else, instead of reading two Iterator method names. Worth fixing because this function is part of the public API and is the cookie-cutter template every extension client copies; the non-idiomatic shape will be cargo-culted.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.47",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extract_response uses mut Option<&Invocation> accumulator instead of iterator combinators",
+  "updated_at": "2026-05-14T23:50:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:25:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "bde200d8-8d31-5aeb-9f53-4ee1bdb678cd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

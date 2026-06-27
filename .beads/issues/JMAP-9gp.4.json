@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-9gp.4",
+  "title": "Email/import accepts empty mailboxIds without error",
+  "description": "email.rs handle_email_import validates that mailboxIds is present (non-null), but does not check that it is non-empty. When the client sends mailboxIds:{} the code collects an empty Vec and calls backend.import_email(..., &[], ...). RFC 8621 \u00a75.7: 'At least one mailbox MUST be given.' Fix: after extracting mailbox_ids check .is_empty() and return notCreated with invalidProperties:[mailboxIds] if so.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:44:41Z",
+  "updated_at": "2026-05-01T01:51:10Z",
+  "closed_at": "2026-05-01T01:51:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9gp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:44:40"
+    }
+  ]
+}

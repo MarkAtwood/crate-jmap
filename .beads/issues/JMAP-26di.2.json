@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added one populated /get decode test per data type, mirroring calendar_get_smoke shape:\n- chat_get_decodes_populated_chat: Chat with kind, name, members (with optional invitedBy), pinnedMessageIds, lastMessageAt\n- space_get_decodes_populated_space: Space with description, roles, members, categories (each populated), uncategorizedChannelIds\n- message_get_decodes_populated_message: Message with attachments, mentions, reactions (HashMap entry), replyTo, editedAt; also exercises SenderId manual Deserialize 'self' -> Owner sentinel\n\nEach test asserts on every required field plus representative optionals and at least one entry in each nested collection. Regression in any of the typed Deserialize impls (Chat/Space/Message or any nested type) will surface.\n\nAll 3 new tests pass. cargo test -p jmap-chat-client green. cargo clippy -p jmap-chat-client --tests -- -D warnings clean. cargo fmt clean.\n\nCommitted as a804dd8.",
+  "closed_at": "2026-05-15T21:06:37Z",
+  "compaction_level": 0,
+  "content_hash": "39aa3db6de23b7fadd7d8fa6fd28fd2272dfb2126a541a4e21e80bf90fa1794d",
+  "created_at": "2026-05-15T20:27:42Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/chat_smoke_tests.rs:39,106; tests/space_smoke_tests.rs:32; tests/message_smoke_tests.rs:62 \u2014 every /get-shaped mock returns `\"list\": []`. None of the smoke tests exercise the response-decoding path with a populated Chat/Space/Message wire object. Sibling crate-jmap-calendars-client/tests/calendar_smoke_tests.rs::calendar_get_smoke builds a fully-populated Calendar JSON and asserts on resp.list[0].{id,name,is_default}. The chat-client /get tests would still pass if the Deserialize impls were completely broken. Workspace test-integrity principle violated: 'tests that always pass by construction.' Fix: add at least one /get test per data type (Chat, Space, Message) that returns a populated wire object and asserts on the parsed fields. Mirror calendar_get_smoke shape.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "/get response decoding has zero smoke-test coverage",
+  "updated_at": "2026-05-15T21:06:37Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:27:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "d5dce558-b22c-521a-8e65-5e3f335dbd98",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

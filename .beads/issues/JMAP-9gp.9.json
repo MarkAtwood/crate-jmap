@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-9gp.9",
+  "title": "VacationResponse/set upsert is not atomic \u2014 TOCTOU race",
+  "description": "vacation.rs handle_vacation_set:161-209 implements upsert as: update -> if NotFound -> create -> update. Two concurrent requests can both see NotFound, both call create_object, and the second create may produce a duplicate or error without the first update being applied. The backend is Send+Sync so concurrent calls are possible. Fix: the backend should expose an upsert primitive, or the handler should document that it assumes single-threaded access and that real backends must handle idempotent create.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:45:06Z",
+  "updated_at": "2026-05-01T01:51:24Z",
+  "closed_at": "2026-05-01T01:51:24Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9gp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:45:05"
+    }
+  ]
+}

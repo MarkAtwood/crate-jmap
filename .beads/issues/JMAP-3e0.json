@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-3e0",
+  "title": "Rusty review pass 2: jmap-client",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:14:12Z",
+  "updated_at": "2026-04-30T01:23:43Z",
+  "closed_at": "2026-04-30T01:23:43Z",
+  "notes": "Idiom rating: ACCEPTABLE \u2014 code is structurally sound; no unsafe, no unwrap outside tests, error type is non_exhaustive with thiserror. Remaining findings are: two API-level issues (stringly-typed error payloads, unvalidated sha256 type) and a cluster of .to_string()-on-&str/-literal inconsistencies that clippy would catch with str_to_string enabled.\nRust idiom confidence: 85% chance of missed issue. Least confident flags: JMAP-3e0.5 (parse_ws_frame type_name allocation \u2014 the current code is functional and the borrow restructure is a mild preference), JMAP-3e0.9 (literal string inconsistency within same file is real but borderline). Uncertainty driven by: not running cargo clippy with all optional lints enabled (str_to_string, as_conversions); could not inspect full feature matrix for hidden code paths."
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "51700f8289b06e9679268350409472d2fc6a8ba76945fee7729685c214d8c6cb",
+  "created_at": "2026-05-17T06:38:00Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement option (i) from bd:JMAP-826m.14's ratified recommendation (no human pushback in ~46 hours): drop the inline test_support::MockBackend module from crate-jmap-metadata-server/src/lib.rs (lines 144-477, ~350 LoC) and migrate the 40 inline #[tokio::test] functions in crate-jmap-metadata-server/src/metadata.rs (lines 906-2164, ~1250 LoC) to crate-jmap-metadata-server/tests/metadata_tests.rs using the public MemoryBackend.\n\nPer workspace AGENTS.md '>3 files = file an epic, get approval': this work touches src/lib.rs, src/metadata.rs, and tests/metadata_tests.rs at minimum. The recommendation has been ratified per the 24-hour rule on .14, but the actual implementation needs human authorization for the scope.\n\n# Scope and rationale\n\n- mail-server (canonical extension-server template) has ZERO inline #[cfg(test)] unit tests in src/*.rs. Only integration tests in tests/. metadata-server diverges by carrying ~350 lines of MockBackend infrastructure AND 40 inline async unit tests AND parallel integration tests \u2014 three test surfaces where the canonical has one.\n- Every JmapBackend/MetadataBackend trait method addition (e.g. JmapBackend::principal_id at JMAP-ga0q.1, MetadataBackend's unsupported_object_type guard at JMAP-826m.13) must land in BOTH MemoryBackend AND MockBackend, doubling maintenance.\n- MockBackend's get_objects uses a serde_json::to_value + from_value round-trip to convert Metadata to a generic O. This 'serde-round-trip downcast' is subtle and the inline tests rely on it. Contributor confusion risk.\n- MockBackend's get_changes is a simplified 'all-or-nothing' that returns all recorded changes if since_state != current. It does NOT exercise the real RFC 8620 \u00a75.2 dedup. Inline tests that pre-populate the change log essentially bypass the dedup algorithm.\n\n# Suggested decomposition into child beads\n\n- .1 Inventory the 40 inline tests by category: filter-validator unit tests, destroy validate-and-collect tests, /set boilerplate tests, /changes args-parsing tests, etc. Identify any tests that DEPEND on MockBackend's idiosyncrasies (force_create_error injection, get_changes all-or-nothing) and may need oracle adjustment when migrated to MemoryBackend.\n- .2 Migrate batch 1 (e.g. the 6-7 tests added under JMAP-826m.1 + the 7 tests added under JMAP-826m.34). These were the most recently added and have the least migration risk.\n- .3-.7 Migrate remaining batches in groups of ~7-8 tests each.\n- .8 Delete the test_support module from src/lib.rs and confirm metadata.rs has no remaining inline tests. cargo fmt + clippy + test workspace.\n- .9 Close JMAP-826m.14 as superseded by this epic.\n\n# Test discipline\n\nEach migrated test MUST preserve its independent oracle (RFC/draft text quote, not the code under test). Where a test depended on MockBackend's force_create_error injection, the migration MUST find an equivalent MemoryBackend-native way to trigger the same SetError (e.g. seed a uniqueness conflict to trigger alreadyExists, register an unknown account-mismatch to trigger SetError::Other, etc.). If a test cannot be expressed against MemoryBackend without weakening the oracle, file a sub-bead asking whether to keep that specific test inline (option (ii) escape hatch) or accept the coverage loss.\n\n# Out of scope\n\n- Propagating this refactor to other extension-server siblings \u2014 siblings that DO have inline unit tests should not adopt the same pattern, but each crate has its own audit cost and that audit is a separate question.\n- Restructuring the public MetadataBackend trait. The migration is test-only.\n\nAuthorization needed for: source-file deletions and large-scale test relocations.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.55",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Migrate metadata-server's 40 inline unit tests to tests/ integration suite; remove MockBackend test_support module",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T23:37:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "1c09f7b4-31a6-53f5-95e6-380c2d04bf47",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "5e51764c958463413392415e782bd5925cace431a11ac178b265b96e9e931fd3",
+  "created_at": "2026-05-18T03:08:31Z",
+  "created_by": "Mark Atwood",
+  "description": "The canonical jmap-mail-server::MemoryBackend exposes only register_account(&Id). The siblings jmap-calendars-server, jmap-tasks-server, jmap-contacts-server, and jmap-filenode-server all expose additional builder/seeder helpers: with_account(&str) for builder-style chaining and seed_object(account_id: &str, type_name: &str, id: &str, value: Value) for fixture setup.\n\nJMAP-qz9v.25 flagged this as a type-idiom inconsistency:\n- Test-fixture surface: &str (with_account, seed_object)\n- Trait/production surface: &Id (account_exists, create_object, etc.)\n- Different idiom for equivalent ops.\n\nThe bead's two options:\n(a) Drop with_account / seed_object from extension siblings; use register_account everywhere. Test ergonomics regress.\n(b) Add with_account / seed_object to the canonical mail-server (and any other siblings that lack them).\n\nDecide once on whether &str or &Id is the canonical fixture-helper parameter type, then sweep across all 7 extension-server siblings to match.\n\nP3 because the test-fixture surface is gated behind feature = 'memory' (off by default), the inconsistency is observable only to fixture-writers, and either resolution is a small breaking change to the test surface (not the public production API).\n\nCross-references:\n- JMAP-qz9v.25 (the originating bead, contacts-server scope)\n- JMAP-qz9v.17 / JMAP-dx0s (the empty-id debug_assert sweep \u2014 touches register_account in every sibling)",
+  "ephemeral": 0,
+  "id": "JMAP-9f05",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace design: harmonize MemoryBackend test-fixture helpers (with_account, seed_object) across extension-server siblings",
+  "updated_at": "2026-05-18T03:08:31Z"
+}

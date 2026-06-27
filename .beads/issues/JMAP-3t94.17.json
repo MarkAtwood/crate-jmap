@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:18:43Z",
+  "compaction_level": 0,
+  "content_hash": "c012d642820cb5ade2120e42e5ac07810492e6b476dbdac8700f005e30d6d1d3",
+  "created_at": "2026-05-14T21:59:00Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/backend.rs:35-54\n\n```rust\nfn create_object<O: SetObject + Send + Sync>(\n    &self,\n    caller: &Self::CallerCtx,\n    account_id: &jmap_types::Id,\n    create_id: &str,\n    obj: O,\n) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>\n       + Send;\n```\n\nwith rustdoc invariant:\n\n> The returned `O` MUST have its `id` field set to the server-assigned\n> `Id` returned as the first element of the tuple. The handler relies\n> on this to populate the `created` response map per RFC 8620 \u00a75.3 ...\n\nThis is a hand-written invariant that:\n\n1. **Is unenforceable at the type level.** Nothing in the Rust type\n   system links the `Id` element of the tuple to the `id` field of\n   the `O` value. A backend implementor who reads this rustdoc and\n   forgets \u2014 or misreads \u2014 produces a wire-incorrect response. The\n   handler at `principal.rs:117-123` blindly serializes\n   `created_obj` and inserts the result into the `created` response\n   map without any consistency check.\n\n2. **Is already violated by the in-tree MockBackend.** lib.rs:341-346\n   admits this in a code comment:\n\n   ```rust\n   // INVARIANT GAP: the returned `obj` retains whatever placeholder\n   // id was passed in by the caller \u2014 it is NOT patched to\n   // \\\"mock-id-1\\\". This violates the SharingBackend::create_object\n   // invariant ...\n   Ok((Id::from(\\\"mock-id-1\\\"), obj))\n   ```\n\n   A documented in-tree violation by a test fixture is a strong\n   signal that downstream backend implementors will hit the same\n   gap. The mitigation \\\"use MemoryBackend for tests that require a\n   correct create response\\\" is itself a defensive-coding burden\n   on downstream contributors.\n\n3. **Has a known safer shape.** Either:\n   - Return just the `Id` and let the handler call `get_objects`\n     to re-fetch the canonical-stored object. Adds one read per\n     create but removes the invariant.\n   - Return a thin newtype `Created<O>` whose constructor takes\n     `(Id, O)` and writes the Id into `O.id` automatically. The\n     handler can only get an O whose id is consistent.\n   - Make the handler itself patch `O.id = new_id` after the\n     backend call. Backend impls then need not maintain the\n     invariant.\n\nWhat goes wrong for callers when this stays as-is: a downstream\nSharingBackend implementor reads only the trait, returns the original\nclient-supplied `obj` (which the handler at `principal.rs:91-100`\npopulates with `\\\"placeholder\\\"` if missing), and ships a backend\nwhere every `Principal/set create` response echoes the literal string\n\\\"placeholder\\\" as the `id` field. The wire breakage is silent \u2014\nno error, just incorrect JMAP responses. Detectable only by\nend-to-end test, not by `cargo test` of the backend alone.\n\nCross-references: JMAP-3t94.4 (no test coverage for unknown-account\non /set) does not cover this; this is a separate defensive-coding\ngap that would benefit from an in-tree integration test asserting\nthe invariant against every shipped SharingBackend impl.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Three-part fix:\n1. backend.rs: tightened SharingBackend::create_object rustdoc with strong language explicitly calling out the unenforceable-at-the-type-level nature, the silent wire-bug failure mode, the canonical implementation pattern (serialize/mutate-id/deserialize round-trip), and bd:JMAP-3t94.17 tracking.\n2. lib.rs MockBackend: removed the INVARIANT GAP code-comment escape hatch; the mock now serializes obj, patches id field, deserializes back \u2014 matching the canonical jmap-mail-server MemoryBackend pattern.\n3. Regression tests:\n   - src/memory.rs::tests::create_object_returned_o_carries_server_assigned_id\n   - src/lib.rs::tests::mock_backend_create_object_returned_o_carries_server_id\nBoth serialize the stored object and assert val[\"id\"] == tuple Id.\n\nWorkspace-architectural follow-up deferred: the handler-side defensive patch (option 3 from the bead) would touch the canonical jmap-mail-server handler. Tracked separately if/when motivated.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SharingBackend::create_object id-on-O invariant is unenforceable; MockBackend in same crate violates it silently",
+  "updated_at": "2026-05-14T22:18:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:58:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "86eec9de-0fd2-545c-a153-5548dfc1196b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

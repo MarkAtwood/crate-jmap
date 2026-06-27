@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-ez5.9",
+  "title": "EmailComparator::property is String \u2014 enum with Other(String) would make invalid sorts detectable",
+  "description": "RFC 8621 \u00a74.4.2 defines a closed set of valid property names for Email/query comparators: receivedAt, size, from, to, subject, sentAt, hasKeyword, allInThreadHaveKeyword, someInThreadHaveKeyword. The field is String, making it impossible to detect 'keyword is required when property is hasKeyword/allInThreadHaveKeyword/someInThreadHaveKeyword' at the type level. An enum ComparatorProperty { ReceivedAt, Size, ..., HasKeyword, AllInThreadHaveKeyword, SomeInThreadHaveKeyword, Other(String) } with the keyword-required variants calling out in doc comments would make this constraint visible to callers without adding runtime overhead. The relationship between property and keyword is currently documented in prose only; misspelling 'hasKeyword' as 'hasKeywords' silently produces a server error.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:45:14Z",
+  "updated_at": "2026-04-30T04:59:13Z",
+  "closed_at": "2026-04-30T04:59:13Z",
+  "notes": "API-breaking change: changes EmailComparator::property from String to enum ComparatorProperty. Deferred to next semver bump (0.2.0).",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-ez5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:45:14"
+    }
+  ]
+}

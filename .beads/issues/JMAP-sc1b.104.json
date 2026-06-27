@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T18:18:34Z",
+  "compaction_level": 0,
+  "content_hash": "bf907f8a22e1af16ba91c724524b8dc817e8ef8d7fb1b27428d387c7265eaf31",
+  "created_at": "2026-05-11T15:36:48Z",
+  "created_by": "bd-spin/bd-spin-20260511T151456Z-658525",
+  "description": "Location: crate-jmap-base-client/src/request.rs:174-192\n\n  #[non_exhaustive]\n  #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]\n  pub struct AccountInfo {\n      /// Human-readable account name (e.g. the owner's email address).\n      pub name: String,\n      ...\n  }\n\nJMAP-sc1b.99 redacted Session's Debug impl to hide username and state, but explicitly deferred AccountInfo as a follow-up. The same PII concern applies: Session.accounts is HashMap<String, AccountInfo>, and Session's manual Debug impl surfaces the accounts map verbatim. Any {:?}-format of a Session walks into AccountInfo's derive(Debug) and prints AccountInfo.name, which the field's own doc-comment identifies as 'typically the owner's email address'.\n\nThis means the canary regression test added in .99 \u2014 which only verifies that the literal username field is redacted \u2014 does not catch the transitive leak through accounts. A future-proof tripwire test would put the canary email both in username AND in an AccountInfo.name value and assert it does not appear in {:?}.\n\nFix shape (mirror .99):\n1. Drop Debug from AccountInfo derive.\n2. Manual Debug impl that redacts 'name' to '[REDACTED]'.\n3. Extend the .99 canary test (or add a new one) that puts the canary in both Session.username AND Session.accounts[key].name and asserts neither appears in the Debug output.\n\nWhy P3 not P2: same defense-in-depth class as .99. Transitive PII leak only fires when a caller Debug-prints a Session, which RFC 8620 doesn't recommend.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.104",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: AccountInfo derives Debug exposing 'name' (PII \u2014 typically owner's email)",
+  "updated_at": "2026-05-11T18:18:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T08:36:47Z",
+      "created_by": "bd-spin/bd-spin-20260511T151456Z-658525",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "b474b797-c7a7-5aee-a470-65f25d449c69",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

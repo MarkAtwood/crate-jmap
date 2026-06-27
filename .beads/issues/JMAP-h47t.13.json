@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "3e5b28e0b7f8a97a2ff7a378a85a4a854c893ee1f4a0cb40214c7a1d560dfcc8",
+  "created_at": "2026-05-14T18:15:35Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-tasks-server/src/backend.rs:157-164:\n\n    fn compute_task_utc_times(\n        &self,\n        _task: &jmap_tasks_types::Task,\n        _tz_hint: Option<&str>,\n    ) -> (Option<jmap_types::UTCDate>, Option<jmap_types::UTCDate>) {\n        (None, None)\n    }\n\nThe method is synchronous. The canonical-pattern sibling (jmap-calendars-server) defines the corresponding method as async:\n\n    crate-jmap-calendars-server/src/backend.rs:284-293:\n    fn compute_utc_times(\n        &self,\n        _caller: &Self::CallerCtx,\n        _account_id: &jmap_types::Id,\n        _event: &jmap_calendars_types::CalendarEvent,\n        _tz_hint: Option<&str>,\n    ) -> impl std::future::Future<Output = (Option<...>, Option<...>)> + Send {\n        async { (None, None) }\n    }\n\nA real production backend has three realistic paths to tz conversion, all of which are inconvenient or wrong under a sync contract:\n\n  1. Embed a full tzdata blob in-process (e.g. chrono-tz or jiff with bundled-tzdata).\n     Works but: ~1-2 MB binary bloat per process, no live updates when the IANA db\n     ships a new release.\n\n  2. Use the OS tz database (libc tzset()-style or /etc/localtime). Sync but\n     OS-dependent and not portable across containerised deployments where\n     /usr/share/zoneinfo may be stripped.\n\n  3. Query a sidecar service (tzdb-as-an-API, or a redis/kv cache backed by an\n     async-loaded source). Async by nature \u2014 but currently impossible because\n     the trait signature is sync.\n\nThe shape also leaks an internal assumption: \\\"tz conversion is a pure\nfunction of the task + hint\\\". A real backend may want to consult per-account\nstate (\\\"this account has a default tz preference\\\", \\\"this user has a tz\noverride stored in their profile\\\"). The signature does not accept a CallerCtx\nor account_id parameter \u2014 neither of which calendars-server omits.\n\nAdditional differences from the calendars analog:\n  - calendars passes caller and account_id; tasks passes only the object + hint.\n  - calendars is async; tasks is sync.\n  - calendars is on the per-domain trait, returns (utcStart, utcEnd); tasks\n    returns (utcStart, utcDue). Field-name choice is correct per draft-tasks-06.\n\nThe async shape was the deliberate choice in calendars; the sync shape in tasks\nappears to be drift from that canonical pattern. Either the calendars decision\nshould be reverted (in which case file a workspace-wide bead), or tasks should\nfollow it. The cookie-cutter rule in workspace AGENTS.md (\\\"differences should\nbe the specific JMAP capability the crate covers, nothing else\\\") points to the\nlatter.\n\nA 0.x-to-0.x shape change is OK; once 1.0 ships, this is locked.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "TasksBackend::compute_task_utc_times is sync \u2014 diverges from sibling calendars (async), forces backends to embed tzdata in-process or block the runtime",
+  "updated_at": "2026-05-14T18:15:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:15:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "5dd4585b-e2c0-5835-8910-50f547186ace",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

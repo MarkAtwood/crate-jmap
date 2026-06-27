@@ -1,0 +1,32 @@
+{
+  "id": "JMAP-4kq.3",
+  "title": "Update assign_thread to call find_thread_by_message_ids",
+  "description": "Replace the get_objects::<Email>(None, None) full scan in assign_thread (email.rs) with a call to backend.find_thread_by_message_ids. Eliminates O(n) deserialization per email create.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:18:04Z",
+  "updated_at": "2026-05-01T00:21:10Z",
+  "closed_at": "2026-05-01T00:21:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-4kq",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:18:04"
+    },
+    {
+      "depends_on_id": "JMAP-4kq.1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:18:09"
+    },
+    {
+      "depends_on_id": "JMAP-4kq.2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 17:18:09"
+    }
+  ]
+}

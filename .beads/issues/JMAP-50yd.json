@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "adb865c9c9a543194a179181746ee88291d7037dc020c95ef8d649e55d67a75a",
+  "created_at": "2026-05-15T10:02:41Z",
+  "created_by": "Mark Atwood",
+  "description": "Sweep the extension-server siblings' README files for two README-as-contract issues that bd:JMAP-qz9v.37 and bd:JMAP-qz9v.38 fixed in jmap-contacts-server:\n\n1. The 'How to use' section's code block does not compile \u2014 incomplete impl block (no JmapBackend supertrait methods, no type Error / type CallerCtx).\n2. The 'Backend trait' code block omits caller: &Self::CallerCtx on every method despite the source carrying it post-CallerCtx refactor (workspace commit 514352c).\n\nCanonical jmap-mail-server (README.md:30+) has the same stale shape \u2014 its trait block lacks the caller parameter and its 'How to use' example uses the same incomplete impl placeholder. Same probable shape in the other extension-server siblings: jmap-chat-server, jmap-calendars-server, jmap-tasks-server, jmap-filenode-server, jmap-sharing-server, jmap-metadata-server.\n\nFix: bring each crate's README into the shape jmap-contacts-server now uses:\n- Code blocks marked rust,ignore (schematic, not claimed to compile).\n- Trait method signatures include caller: &Self::CallerCtx as the first parameter on every method.\n- 'How to use' block uses a typed Dispatcher<MyCallerCtx> + Arc<my_backend> + a pointer to the lib.rs doctest for the runnable, verified variant.\n\nPer workspace canonical-template propagation rule, fix jmap-mail-server first then propagate to the other siblings in the same pass.",
+  "ephemeral": 0,
+  "id": "JMAP-50yd",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace sweep: extension-server README 'How to use' and trait code blocks omit caller parameter and don't compile",
+  "updated_at": "2026-05-15T10:02:41Z"
+}

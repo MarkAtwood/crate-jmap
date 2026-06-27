@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:26:03Z",
+  "compaction_level": 0,
+  "content_hash": "c561165c15b15305311fb6d4d286d7e429310bfe4a3d9745cb4b915d608b737c",
+  "created_at": "2026-05-07T20:29:03Z",
+  "created_by": "Mark Atwood",
+  "description": "Quick-start examples in 4 client crate READMEs do not compile because they use a constructor signature that does not exist:\n\n- crate-jmap-contacts-client/README.md: `JmapClient::new(\"https://\u2026/.well-known/jmap\")?`\n- crate-jmap-sharing-client/README.md: same\n- crate-jmap-tasks-client/README.md: `jmap_base_client::JmapClient::new(/* ... */)` (placeholder)\n- crate-jmap-filenode-client/README.md: same placeholder\n\nThe actual constructor is `JmapClient::new(transport, auth, base_url, config)` or `JmapClient::new_plain(auth, base_url, config)`. The single-string-argument form has never existed in jmap-base-client.\n\nA fifth crate has a different but equally broken example:\n- crate-jmap-calendars-client/README.md uses `JmapClientBuilder::new().credential(\"user\",\"secret\").build()` and `client.fetch_session(\"https://\u2026/.well-known/jmap\")` \u2014 no `JmapClientBuilder` exists, and `fetch_session(url)` is not a method on `JmapClient`.\n\nFix: rewrite all 5 READMEs' quick-start examples using the actual API. Pin the example to a code snippet that is also a doc-test (`/// ```rust,no_run`) so future API changes break the build instead of silently rotting the README.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P1: 4 client READMEs use nonexistent JmapClient::new(string) signature; 1 uses fictional JmapClientBuilder",
+  "updated_at": "2026-05-07T21:26:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "4b43d287-4cbf-55be-8540-72824ce89771",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

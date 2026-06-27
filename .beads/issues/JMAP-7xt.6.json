@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-7xt.6",
+  "title": "parse_sse_block: bare 'id:' stores Some('') causing empty Last-Event-ID on reconnect",
+  "description": "RFC 8895 \u00a79.2 allows 'id:' with no value; this resets last-event-id to empty string. parse_sse_block strip_prefix('id:') + trim() yields Some('') for this case. RFC 8620 \u00a77.3 says clients send Last-Event-ID on reconnect; sending 'Last-Event-ID: ' (empty value) may be rejected by the server or cause incorrect resume behavior. The fix: map Some('') to None, or only set id when the stripped value is non-empty.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:45:54Z",
+  "updated_at": "2026-04-30T00:54:55Z",
+  "closed_at": "2026-04-30T00:54:55Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:45:54"
+    }
+  ]
+}

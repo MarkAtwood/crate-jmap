@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed by commit 35e56eb: chat-server got both (A) Arc reword and (B) re-registration block from the canonical mail-server pattern.",
+  "closed_at": "2026-05-18T02:15:41Z",
+  "compaction_level": 0,
+  "content_hash": "0b93f42d9d08b51ccb5f18bbf996adfb66170bc11a6995a64ebd1fd4035161d6",
+  "created_at": "2026-05-14T03:41:12Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/lib.rs:113-130\n\n  /// Register all JMAP Chat method handlers with dispatcher.\n  ///\n  /// backend is wrapped in Arc so it is cloned cheaply into each handler.\n  /// Pass the same Arc<B> to both this function and any application-level\n  /// code that needs to access the backend.\n  ///\n  /// After this call, the dispatcher handles:\n  /// Chat/*, Message/*, Space/*, SpaceBan/*, ChatContact/*,\n  /// ReadPosition/*, CustomEmoji/*, SpaceInvite/*, and PresenceStatus/*.\n  pub fn register_chat_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)\n\nThe function silently uses Dispatcher::register, which is\ndocumented (jmap-server lib.rs:113) as last-write-wins:\n'Registering the same name twice replaces the earlier handler.'\n\nThis semantic is correct at the dispatcher level. The problem is\nthat the chat-server's wrapper doesn't carry the warning forward\nto its own caller. A downstream consumer that does:\n\n  register_mail_handlers(&mut dispatcher, mail_backend);\n  // ...\n  register_chat_handlers(&mut dispatcher, chat_backend);\n\n\u2026will pick up no surprise as long as the two crates' method\nnamespaces don't collide. But if a future jmap-mail-server starts\nregistering a 'Message/get' handler (currently it's namespaced\ndifferently, but the workspace's growth is real), or if a\nconsumer writes their own handler before the register_*_handlers\ncall and uses one of the names this crate claims, the previously-\nregistered handler silently disappears. No error, no warning, no\nlog line.\n\nThis is an under-documented contract. Three reasonable fixes:\n\nA. Add a rustdoc warning:\n     /// # Caveat: silent override\n     ///\n     /// This function calls Dispatcher::register for each of the\n     /// 38 method names listed above. Per Dispatcher::register's\n     /// documented semantics, any pre-existing handler for any\n     /// of those names is silently replaced. Callers that want to\n     /// compose chat-server with their own handlers MUST register\n     /// the per-method handlers AFTER this call, not before.\n\nB. Change the signature to return a Result with a 'name-collision'\n   error variant that lists the colliding methods. Breaking change.\n\nC. Provide a 'register_chat_handlers_strict' variant that returns\n   an error on collision, leaving the existing function as the\n   no-questions-asked path. Non-breaking.\n\nMinimum fix is A. Workspace-shape fix is C if any consumer has\nasked for the strict mode; the call sites I can see in the\nworkspace (jmap-testjig, integration tests) don't, so A is\nsufficient until someone asks.\n\nThis is the lightest finding in this pass \u2014 strictly a documentation\ngap. Filing at P3.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.42",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: register_chat_handlers silently overrides previously-registered method names",
+  "updated_at": "2026-05-18T02:15:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:41:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "56bec998-0c9f-5063-a663-dd162b5bd20c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

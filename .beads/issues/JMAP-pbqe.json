@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e14b7930a4987de2e6f0a95f309cd4685de87075177b888953437ad5b6d3f2f2",
+  "created_at": "2026-05-16T03:09:29Z",
+  "created_by": "Mark Atwood",
+  "description": "Found while resolving bd:JMAP-ly0n.3 (ChatPresenceEvent.presence). The bead explicitly flagged this as a parallel issue: ChannelPermission.target_type (crate-jmap-chat-types/src/chat.rs:59) is typed String, but the spec (draft-atwood-jmap-chat-00 \u00a74.15) enumerates 'role' | 'user'.\n\nFix: add a new typed enum (TargetType or ChannelPermissionTargetType) using impl_string_enum! with Role, User, and Other(String) for forward-compat. Same pattern as Presence, DeliveryState, ReadDisposition, ChatKind. Change target_type's type from String to the new enum.\n\nScope: src/chat.rs (one struct field + new enum), test additions for the typed dispatch + Other(_) forward-compat, README update if enum surface is documented there. Probably zero downstream consumer breakage \u2014 no current code matches on ChannelPermission.target_type as a typed string per the bd:JMAP-ly0n.3 investigation, but verify before committing.\n\nSmaller consumer surface than .3 so lower priority, but same canonical-template hygiene rationale: workspace AGENTS.md anoints jmap-chat-types as canonical for the wire format and the spec enumerates the values.",
+  "ephemeral": 0,
+  "id": "JMAP-pbqe",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Retype ChannelPermission.target_type from String to a typed enum (spec: 'role' | 'user')",
+  "updated_at": "2026-05-16T03:09:29Z"
+}

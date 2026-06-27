@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2b50256d272f250b9046445ae4811b27902157879e08e3989a59a127354f9467",
+  "created_at": "2026-05-14T16:11:54Z",
+  "created_by": "Mark Atwood",
+  "description": "## Scope\n\nPropagate the canonical foundation-methods doc shape (written on\nmail-server under JMAP-x2gd.86.1) to sharing-server's\n`create_object` / `update_object` / `destroy_object` rustdoc.\n\nAdapt only for extension-specific content:\n- SetErrorType variants and their sharing-specific triggers\n- Cascade rules that match sharing's actual reference-impl behavior\n- Examples drawn from sharing's types, not mail's\n\nThe 5-contract shape stays identical to canonical mail-server:\nSetErrorType selection, Some/None semantics on update, state-bump\ncontract, cascade rules, atomicity within multi-property updates.\n\n## Dependency\n\nThis bead is blocked on JMAP-x2gd.86.1 (the canonical write).\nPick up only after that bead closes.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.86.8",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Foundation methods doc sweep: propagate canonical to sharing-server",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:12:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd.86.1",
+      "id": "ac8e90ed-dcb4-55dc-8efd-f7d65f3aaf68",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T09:11:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd.86",
+      "id": "b51f6994-c53b-5632-b3ab-ccee579c859b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

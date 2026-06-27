@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in b045f70: chat-types AGENTS.md 'Settled Design Constraints' table now reads option-1 from the bead \u2014 minimal ::new() and named alternates where they enforce a type invariant or absorb required-field boilerplate. The earlier 'no ::new() methods' wording (predating extras-preservation policy) is retired.",
+  "closed_at": "2026-05-16T03:22:25Z",
+  "compaction_level": 0,
+  "content_hash": "f51567ded69aefd82a2137167fe203517fc62a9c1defa5b177e0109f4901d47a",
+  "created_at": "2026-05-16T02:38:08Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: a contributor reads crate-jmap-chat-types/AGENTS.md 'Design Constraints (Settled)' table:\n\n    | Constructors | **None.** No ::new() methods in this crate. Construction\n    |              | is the consumer's responsibility. Downstream crates use\n    |              | serde_json deserialization to create instances. |\n\n\u2026then opens space.rs, chat.rs, message.rs, contact.rs, presence.rs, push.rs, position.rs, emoji.rs and finds ::new methods on Space, SpaceInvite, SpaceBan, Chat, Message, ChatContact, PresenceStatus, ChatMessagePush, ChatMessageEntry::plaintext, ChatMessageEntry::encrypted, ReadPosition, CustomEmoji. The crate-level rule and the implementation are in direct contradiction.\n\nThe ChatMessageEntry::encrypted constructor is independently useful \u2014 it enforces 'spec forbids body_snippet when encrypted' as a type invariant that struct-literal construction does not. That is good code.\n\nThe other ::new methods are mostly thin wrappers around struct-literal construction that exist to insulate callers from the 'extra' field. After commit 2957e6e adopted the extras-preservation policy, every struct grew a public 'extra: serde_json::Map<...>' field that the ::new methods all initialize to Map::new(). Removing the ::new methods would force callers to write '..Default::default()' or list 'extra: serde_json::Map::new()' inline, which is exactly the friction the ::new methods were meant to absorb.\n\nFix: pick ONE policy and edit both the AGENTS.md table and the source to match. Options:\n1. Keep the constructors but rewrite the AGENTS.md row to: 'Constructors: minimal ::new() and named alternates where they enforce a type invariant or absorb required-field boilerplate. Otherwise prefer struct-literal construction.'\n2. Remove all ::new() methods, derive Default where coherent, and document the 'extra: serde_json::Map::new()' boilerplate as the consumer's price for extras-preservation. (This is the harder path; it propagates pressure into jmap-chat-server and jmap-chat-client.)\n\nRecommendation: option 1. The constructors are doing real work after extras-preservation landed; the AGENTS.md row is stale.\n\nPriority P2 because the contradiction is a maintenance trap: a contributor following AGENTS.md literally would propose deleting all the ::new methods, the diff would be plausible, and the consumer breakage would surface only at the downstream crate. A clear written policy heads this off.",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Construction policy: AGENTS.md says 'no ::new() methods', but the crate ships ::new() methods",
+  "updated_at": "2026-05-16T03:22:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:38:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "f49b00d2-1aac-5604-a53e-1cd897e5d9dc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

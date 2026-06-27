@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-450.3",
+  "title": "onSuccessUpdateEmail response: oldState equals newState (both fetched after updates)",
+  "description": "submission.rs:384-399 \u2014 email_old_state is fetched AFTER the update_object loop has already bumped the state. Both oldState and newState in the extra Email/set invocation are set to this post-update value, making them equal. RFC 8620 \u00a75.3 requires oldState = state before the operation and newState = state after. Client delta-sync logic will break.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:34:22Z",
+  "updated_at": "2026-04-30T21:50:16Z",
+  "closed_at": "2026-04-30T21:50:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-450",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:34:22"
+    }
+  ]
+}

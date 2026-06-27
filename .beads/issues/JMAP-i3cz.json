@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "0a4265b49c0ba0bdbec50c4f65ae907625dfd1e007056e5f800ac7c90ee7c0b4",
+  "created_at": "2026-05-15T21:35:05Z",
+  "created_by": "Mark Atwood",
+  "description": "MSRV is already 1.88 (workspace Cargo.toml:46), but let-chains in if/while conditions are gated behind Rust edition 2024, not the toolchain version. The workspace is currently on edition 2021 (Cargo.toml:39).\n\nDiscovered via bd:JMAP-26di.54 attempt: 12 sites in jmap-chat-client/src/methods/space.rs refactored to 'if let Some(x) = expr && !x.is_empty() { ... }' produced 'error: let chains are only allowed in Rust 2024 or later'. Confirmed by subagent compile check.\n\nThe edition bump is a workspace-architectural decision affecting all 30 crates. Considerations:\n- All crates inherit via 'edition.workspace = true' so the change is a single line in workspace Cargo.toml.\n- Edition 2024 changes some name resolution, lifetime defaults (Rust 2024 lifetime capture rules), and pattern matching semantics. Most code is unaffected but the migration may require small fixes.\n- 'cargo fix --edition' can mechanically handle most migration churn.\n- After the bump, the bd:JMAP-26di.54 refactor can be applied immediately, and similar nested-if patterns workspace-wide can be cleaned up.\n\nAcceptance criteria:\n1. cargo fix --edition --allow-dirty --workspace runs to completion.\n2. cargo test --workspace passes.\n3. cargo clippy --workspace -- -D warnings clean.\n4. Cargo.toml workspace.package edition = '2024'.\n5. After the bump, re-open bd:JMAP-26di.54 and apply the let-chain refactor.\n\nScope: workspace-wide, but the migration tool (cargo fix --edition) handles most of it mechanically. Estimate: 1-2 hour task including any manual cleanup.\n\nCross-references:\n- bd:JMAP-26di.54 (blocked on this)\n- Workspace AGENTS.md 'Build & Test' commands stay the same \u2014 no agent-facing churn.\n",
+  "ephemeral": 0,
+  "id": "JMAP-i3cz",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace edition bump to 2024 to unlock let-chains and 2024-edition idioms",
+  "updated_at": "2026-05-15T21:35:05Z"
+}

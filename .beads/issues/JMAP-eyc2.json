@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "bce5de6bace58e19a1940660ecd56f3ab9fcc08ae479145e0ccb30acda8203cf",
+  "created_at": "2026-05-14T23:45:37Z",
+  "created_by": "Mark Atwood",
+  "description": "Pre-existing clippy warning surfaced by cargo clippy --workspace --all-targets -- -D warnings: `err.get(\"properties\").map_or(true, Value::is_null)` should use `is_none_or(Value::is_null)` instead (clippy::unnecessary_map_or, rust 1.95.0+).\n\nLocation: crate-jmap-metadata-server lib test file, line 787.\n\nOut of scope for JMAP-6r7c.1 (which only touches crate-jmap-base-client). Filed separately so the workspace clippy gate is clean.",
+  "ephemeral": 0,
+  "id": "JMAP-eyc2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "clippy: unnecessary_map_or warning in crate-jmap-metadata-server lib test (line 787)",
+  "updated_at": "2026-05-14T23:45:37Z"
+}

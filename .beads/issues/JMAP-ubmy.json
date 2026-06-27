@@ -1,0 +1,23 @@
+{
+  "close_reason": "Fixed in commit 7f1c846. Verified: 'cargo clippy -p jmap-mail-server --all-features --tests -- -D warnings' clean and 'cargo test -p jmap-mail-server --all-features' passes.",
+  "closed_at": "2026-05-10T05:33:54Z",
+  "compaction_level": 0,
+  "content_hash": "116d42e22c49c34b327bd893606ed7e77e1e5fe46ddbad833d2b12a5440c4c66",
+  "created_at": "2026-05-09T17:36:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Two pre-existing clippy warnings in jmap-mail-server tests (NOT introduced by JMAP-tco1.32):\n\n1. crate-jmap-mail-server/tests/common/mod.rs:2621 \u2014 `type_part.splitn(2, '/').next()` should be `type_part.split('/').next()` per clippy::needless_splitn.\n\n2. crate-jmap-mail-server/tests/mdn_integration.rs:153 \u2014 `Some(&[email_id.clone()])` should be `Some(std::slice::from_ref(&email_id))` per clippy::cloned_ref_to_slice_refs.\n\nConfirmed pre-existing on main HEAD a10c926 (before JMAP-tco1.32 changes). Out of scope for the cookie-cutter sweep.\n\n## Acceptance criteria\n- `cargo clippy -p jmap-mail-server --all-features --tests -- -D warnings` is clean\n- `cargo test -p jmap-mail-server --all-features` still passes",
+  "ephemeral": 0,
+  "id": "JMAP-ubmy",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-mail-server tests: fix needless_splitn and cloned_ref_to_slice_refs clippy warnings",
+  "updated_at": "2026-05-10T05:33:54Z"
+}

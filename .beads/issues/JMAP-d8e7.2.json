@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "PrincipalTasksCapability added with correct nullable/optional handling. Tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added PrincipalTasksCapability with account_id (required-nullable), may_share_with, send_to; 4 tests; 31 tests pass; clippy clean",
+  "closed_at": "2026-05-05T03:59:23Z",
+  "compaction_level": 0,
+  "content_hash": "7a47cc3de84eec96739b68927966442b0beb25e4884280d61569e378b3507c90",
+  "created_at": "2026-05-05T02:51:47Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Add PrincipalTasksCapability to capability.rs. Draft-ietf-jmap-tasks-06 \u00a72.1 defines a capability object placed on a JMAP Sharing Principal's capabilities map under \"urn:ietf:params:jmap:tasks\" with three fields: accountId (Id|null), mayShareWith (Boolean), sendTo (String[String]|null).\n\n**Algorithm:**\n1. In capability.rs, add:\n   #[non_exhaustive]\n   #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]\n   #[serde(rename_all = \"camelCase\")]\n   pub struct PrincipalTasksCapability {\n       pub account_id: Option<Id>,          // Id|null \u2014 no skip_serializing_if (required-nullable)\n       pub may_share_with: bool,\n       #[serde(skip_serializing_if = \"Option::is_none\")]\n       pub send_to: Option<std::collections::HashMap<String, String>>,  // String[String]|null\n   }\n2. Add use jmap_types::Id; if not present.\n3. Add pub use in lib.rs.\n4. Add tests:\n   - account_id: None serializes as \"accountId\":null (not absent)\n   - account_id: Some(id) serializes correctly\n   - send_to: None is absent from JSON\n   - Round-trip with all fields set\n5. Run cargo test -p jmap-tasks-types.\n\n**Acceptance criteria:**\n- PrincipalTasksCapability publicly accessible from crate root.\n- account_id serializes as null when None (not absent).\n- send_to absent when None.\n- Wire names: accountId, mayShareWith, sendTo.\n- cargo test -p jmap-tasks-types exits 0. Clippy clean.",
+  "ephemeral": 0,
+  "id": "JMAP-d8e7.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add PrincipalTasksCapability struct (tasks-06 \u00a72.1)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:51:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-d8e7",
+      "id": "bb707a65-a1c6-579a-8367-029e012f1975",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

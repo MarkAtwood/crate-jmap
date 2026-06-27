@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1fdf252c797eb3a7650ed8c03288f800e658a2228f126d2543f85f23c55c57d5",
+  "created_at": "2026-05-15T17:55:11Z",
+  "created_by": "Mark Atwood",
+  "description": "Per the canonical-template rule, propagate the named-field MemoryError shape from canonical jmap-mail-server (commit 2941c50) to the remaining extension-server siblings that still use the tuple-shape:\n\n- crate-jmap-chat-server/src/memory.rs: pub struct MemoryError(pub String)\n- crate-jmap-contacts-server/src/memory.rs: pub struct MemoryError(pub String)\n\nAlready propagated:\n- jmap-filenode-server (e9b66a3)\n- jmap-calendars-server (JMAP-ic0j.1)\n\nNeed confirmation:\n- jmap-tasks-server: 'present (check shape)' \u2014 verify named-field or tuple\n- jmap-metadata-server: same\n- jmap-sharing-server: same\n\nPattern to apply (verbatim from jmap-filenode-server/src/memory.rs lines 65-108):\n\n  #[non_exhaustive]\n  #[derive(Debug)]\n  pub struct MemoryError { description: String }\n\n  impl MemoryError {\n      pub fn new(description: impl Into<String>) -> Self { ... }\n      pub fn description(&self) -> &str { &self.description }\n  }\n\n  impl Display for MemoryError {\n      fn fmt(...) -> ... {\n          write!(f, \"MemoryBackend error: {}\", self.description)\n      }\n  }\n\n  impl Error for MemoryError {}\n\nPlus s/MemoryError(format!(.../MemoryError::new(format!(... at all construction sites.\n\nPer-crate test: cargo test -p jmap-{chat,contacts,tasks,metadata,sharing}-server --features memory.",
+  "ephemeral": 0,
+  "id": "JMAP-7g82",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace sweep: propagate canonical MemoryError shape to chat-server and contacts-server",
+  "updated_at": "2026-05-15T17:55:11Z"
+}

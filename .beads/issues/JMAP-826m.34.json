@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T07:52:36Z",
+  "compaction_level": 0,
+  "content_hash": "0a0feaf68ff7fee03d11d09911cb225051055c179acda7752328f69c3f9abb03",
+  "created_at": "2026-05-14T17:57:08Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:87-102 removes filterRelatedType and filterMetadataType FROM args before calling extract_account_id (line 104) and account_exists (line 105-111).\n\nSequence:\n1. Parse filter args. If filterRelatedType is wrong shape \u2192 invalidArguments.\n2. Then check accountId. If wrong \u2192 accountNotFound.\n\nIf a client sends { accountId: 'wrong', filterRelatedType: 42 } the response is invalidArguments (for the filter), not accountNotFound (for the account). RFC 8620 \u00a73.6.2 says accountId resolution happens first; the canonical jmap-server::handle_changes does the account check first too.\n\nAudience: contributor debugging why their request returns invalidArguments when they expected accountNotFound. They will look at their accountId, see it's wrong, but the server told them the FILTER was wrong, not the account.\n\nWhat would make it clear: reorder the checks so accountId resolves first, then filter args parse. Two-line move. Could also leave a comment explaining the deliberate ordering if there is one.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.34",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Re-classifying to P0 correctness. RFC 8620 \u00a73.6.2 makes account resolution semantically prior to method-arg parsing. The current ordering produces wrong error type for a legitimate failure mode (unknown account + malformed filter).",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "metadata.rs handle_metadata_changes args-parsing block: extracts filter args BEFORE account-exists check \u2014 the 'unknownAccount with garbage filterRelatedType' path returns invalidArguments instead of accountNotFound",
+  "updated_at": "2026-05-15T07:52:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:57:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "c099b6ba-ae4e-500d-8c72-e2417586422d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

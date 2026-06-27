@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "38031325893279137132b8d6d811e99f19476b042a3f83752e3c9036fa76c383",
+  "created_at": "2026-05-14T04:24:10Z",
+  "created_by": "Mark Atwood",
+  "description": "Sites: crate-jmap-chat-server/src/memory.rs:107-150 (Inner::current_state, bump_state, objects_mut, objects_ref, change_log_mut). Same pattern repeats at 528, 588-599 and throughout the file (45 .clone() and ~10 .to_owned() call sites).\n\nCurrent code (objects_ref is the read-only canary):\n\n    fn objects_ref(\n        &self,\n        type_name: &'static str,\n        account_id: &str,\n    ) -> Option<&HashMap<Id, serde_json::Value>> {\n        self.objects.get(&(type_name, account_id.to_owned()))\n    }\n\nThe HashMap key is (&'static str, String). Every lookup, mutating or not, constructs a fresh String to make the temporary tuple lookup key. The .to_owned() allocates a heap buffer and immediately drops it after .get() returns. current_state, objects_ref, and the get-only paths called from query/get/changes all do this on every wire-level method call, multiplied by every object type the dispatcher routes.\n\nWhat idiomatic Rust does: either (a) restructure as a nested map HashMap<&'static str, HashMap<String, ...>> so the outer key never needs to be owned for lookup and the inner key can be borrowed via the standard Borrow<str>-on-String path; or (b) keep the tuple shape but use a key type (&'static str, Box<str>) with a custom Borrow<(&'static str, str)> impl so .get() can take &(&'static str, &str) without allocating. Option (a) is the conventional Rust solution and the one a senior Rust practitioner would expect to see in a reference impl.\n\nWhat goes wrong if left: maintainability \u2014 the gratuitous-allocation pattern is the kind of thing that gets propagated into downstream backends that copy this code as a starting point. The pattern says 'don't think about ownership; clone your way out.' The fix is mechanical and a one-time cost; the cost of leaving it gets paid by every reader and every downstream copy.\n\nThis finding is the textbook 'gratuitous clone' pattern from the rusty pass error-handling/ownership section. The earlier rusty pass at JMAP-x2gd notes (2026-05-14 03:22, idiom rating ACCEPTABLE) explicitly said memory.rs was skipped: 'I read all handler-level src files but only sampled backend.rs (789 lines) and skipped memory.rs entirely (3121 lines)'. This is one of the misses that confidence note flagged.\n\nPer workspace AGENTS.md 'Canonical Templates' rule: crate-jmap-mail-server/src/memory.rs is the canonical extension-server template (2742 lines) and almost certainly carries the same pattern. If propagated, change mail-server's memory.rs first and propagate here; if it does not carry the pattern, this is chat-server-local drift and the fix is local. Spawn an explore agent or grep mail-server to determine which before fixing.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.52",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "blocked",
+  "timeout_ns": 0,
+  "title": "memory.rs Inner: HashMap lookups allocate a String on every read via .to_owned() on account_id",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T21:24:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "10ab7d1e-7b56-5969-837a-3e2d85b9fa6a",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-16T21:44:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-grs0",
+      "id": "ea8e3665-721b-5e82-b063-6ad0e2e6c673",
+      "metadata": {},
+      "type": "relates-to"
+    }
+  ]
+}

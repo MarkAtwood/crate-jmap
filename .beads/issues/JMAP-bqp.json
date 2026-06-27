@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T23:42:06Z",
+  "compaction_level": 0,
+  "content_hash": "4d887389d9e88ba575c95829a5a41a88ed0002cfe5cfafd6fab34b4419c3f45d",
+  "created_at": "2026-05-01T23:01:33Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec \u00a7PresenceStatus: entirely unimplemented. Required methods: PresenceStatus/get, /changes, /set (update only \u2014 no create/destroy, it is a singleton per account). Server auto-creates on account init. Update supports: presence, statusText, statusEmoji, expiresAt, receiptSharing. Server should auto-clear status at expiresAt and reset presence to online.",
+  "ephemeral": 0,
+  "id": "JMAP-bqp",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement PresenceStatus object type (3 methods)",
+  "updated_at": "2026-05-01T23:42:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T16:10:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x09",
+      "id": "3b98fa5f-a7ca-5b05-a20d-b05ab43a6f27",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-01T16:31:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x09.1",
+      "id": "624ceda1-9f62-5294-b622-29e492b00659",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

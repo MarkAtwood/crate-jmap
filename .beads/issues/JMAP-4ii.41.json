@@ -1,0 +1,33 @@
+{
+  "close_reason": "no-action: P3/P4 observation, not prioritized for JMAP-39s scope",
+  "closed_at": "2026-05-02T07:05:08Z",
+  "compaction_level": 0,
+  "content_hash": "afda690e3c41c67eb6221dfd79e31f1b95b9e63b1ebf36d9d5cdf17a273cc9be",
+  "created_at": "2026-05-02T03:57:58Z",
+  "created_by": "Mark Atwood",
+  "description": "parse.rs resolve_args collects all #-key resolutions in phase 1 without modifying args, then applies all mutations atomically in phase 2. This correctly implements RFC 8620 \u00a73.7's requirement that args is either fully resolved or unchanged \u2014 partial resolution would leave args in an inconsistent state that subsequent code could not distinguish from a valid partial args object. A contributor might suggest doing both phases in one pass for simplicity; this should be defended because one-pass mutation-during-iteration would require Clone of the args object or unsafe borrow patterns.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.41",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "resolve_args two-phase atomic design is correct for ResultReference",
+  "updated_at": "2026-05-02T07:05:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:57:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "5c2e81cf-32a6-56e9-bd4c-d94419d0cf1d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

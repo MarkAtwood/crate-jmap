@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added BackendChangesError::CannotCalculate variant alongside the existing TooManyChanges { limit }. Display, Error, From<...>::JmapError all handle the new variant; magic-zero TooManyChanges { limit: 0 } preserved as deprecated alias (same wire error). All seven MemoryBackend impls (mail, chat, metadata, contacts, calendars, tasks, sharing) migrated to CannotCalculate. Doc comments updated across siblings. Workspace test + clippy pass. No wire-format change.",
+  "closed_at": "2026-05-14T17:16:29Z",
+  "compaction_level": 0,
+  "content_hash": "78bf9fe6c674112fdee6b54e19b5ccdd95d6e76ea9015e6a7a000ddf8a3d66a6",
+  "created_at": "2026-05-14T16:53:51Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/backend.rs:499-565 \u2014 BackendChangesError::TooManyChanges carries a u64 limit field whose value 0 is the convention for \"cannot calculate changes\" and any non-zero value is the suggested retry window. The pattern is documented in the type:\n\n  TooManyChanges {\n      // ...\n      // A value of `0` signals a full state\n      // reset is required per RFC 8620 \u00a75.6; any non-zero value is\n      // the suggested maximum the client may retry with.\n      limit: u64,\n  },\n\nThe Display impl pattern-matches on the literal zero (line 526-533):\n\n  Self::TooManyChanges { limit: 0 } => write!(f, \"cannot calculate changes\"),\n  Self::TooManyChanges { limit } => write!(f, \"too many changes (limit: {limit})\"),\n\nAnd the From impl does likewise (line 551-565):\n\n  BackendChangesError::TooManyChanges { limit: 0 } => jmap_types::JmapError::cannot_calculate_changes(),\n  BackendChangesError::TooManyChanges { limit } => jmap_types::JmapError::too_many_changes_with_limit(limit),\n\nA serious Rust practitioner reads this and winces. The pattern is exactly what enums exist to eliminate: distinct semantic states represented as distinct constructors, not as magic-value overloads of one constructor. The corresponding JMAP wire types ARE distinct (\"cannotCalculateChanges\" vs \"tooManyChanges\" \u2014 see JmapError methods called above), but the backend-error envelope flattens them into one variant + a sentinel.\n\nWhat goes wrong if it stays as-is:\n\n  1. A backend implementor reading the type signature `TooManyChanges { limit: u64 }` has to also read the docstring AND the Display impl to learn that limit=0 has different semantics. That is the discoverability cost of bool-ish parameters and magic-value overloads \u2014 the type carries less information than its content actually has.\n  2. A backend that legitimately wants to suggest a 0-entry batch (degenerate but well-defined) cannot \u2014 the value is taken. The chosen sentinel collides with a legitimate value of the same type.\n  3. Pattern-matching on `{ limit: 0 }` is fragile: a refactor that changes limit to a smaller integer type, or that adds derive(Default) and starts initialising limit to 0 in error paths, silently flips the meaning of every `TooManyChanges { limit: 0 }` site.\n  4. `Display` no longer agrees with the Debug derive: a debug-printed TooManyChanges { limit: 0 } looks like a too-many-changes error of zero items, not the documented \"cannot calculate\" reset.\n\nThe idiomatic Rust shape is two variants:\n\n  #[non_exhaustive]\n  pub enum BackendChangesError<E> {\n      /// Backend has no usable change log for this state window \u2014 client\n      /// MUST discard cached state and full-resync. RFC 8620 \u00a75.6.\n      CannotCalculate,\n      /// Window exceeds what the backend can supply in one response;\n      /// `limit` is the suggested smaller window the client may retry.\n      TooManyChanges { limit: u64 },\n      Other(E),\n  }\n\nDisplay then has two intuitive arms, From has two intuitive arms, and the magic-zero discriminator disappears. The variant rename collides with no current consumer because the type is `#[non_exhaustive]` and the From-impl is the only public-API consumer in this crate; downstream backends pattern-match on the construct they care about and were already paying the readability cost.\n\nRelevant Rust-idiom rule: \"bool parameters / two-variant enums in disguise\" \u2014 even though limit:u64 looks like a numeric payload, the documented contract gives one of its values (0) a non-numeric meaning. That is a two-variant enum in disguise.\n\nFix is mechanically safe: the BackendChangesError type is `#[non_exhaustive]`, so adding a `CannotCalculate` variant is an additive change. The deprecation path is to land both variants, migrate the From impl, document `TooManyChanges { limit: 0 }` as deprecated for the same effect, then drop the magic-zero handling at the next major.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BackendChangesError::TooManyChanges { limit: 0 } overloads single variant with two distinct meanings",
+  "updated_at": "2026-05-14T17:16:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:53:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "b22cd0b9-c2c1-5124-8125-f312783fa130",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

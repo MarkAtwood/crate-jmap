@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "8099a758348077601a0866fa982b8b8e5222fc183005946cc228420eedca955b",
+  "created_at": "2026-05-17T05:39:11Z",
+  "created_by": "Mark Atwood",
+  "description": "## Scope\n\nWorkspace-cookie-cut companion to bd:JMAP-ayoz.40 (which closed the metadata-server destroy-array-element case).\n\nMultiple extension-server handlers interpolate a `serde_json::Value` argument into an `invalid_arguments` description via Display. Examples (non-exhaustive):\n\n```\ncrate-jmap-mail-server/src/mailbox.rs:142   position: ... got {v}\ncrate-jmap-mail-server/src/mailbox.rs:152   anchor: ... got {v}\ncrate-jmap-mail-server/src/mailbox.rs:159   anchorOffset: ... got {v}\ncrate-jmap-mail-server/src/sieve.rs:1028    position: ... got {v}\ncrate-jmap-mail-server/src/sieve.rs:1035    limit: ... got {v}\ncrate-jmap-mail-server/src/sieve.rs:1052    anchorOffset: ... got {v}\ncrate-jmap-chat-server/src/message.rs:147   position: ... got {v}\ncrate-jmap-chat-server/src/emoji.rs:139     position: ... got {v}\ncrate-jmap-chat-server/src/contact.rs:332   position: ... got {v}\ncrate-jmap-chat-server/src/space.rs:573     position: ... got {v}\ncrate-jmap-calendars-server/src/event.rs:800 position: ... got {v}\n```\n\nPlus likely the same pattern in tasks-server, contacts-server, filenode-server, sharing-server \u2014 full audit needed.\n\n## Severity vs metadata-server\n\nLower than .40 because each call site interpolates a SCALAR argument from a known shallow field name (position / anchor / anchorOffset / limit). An attacker controls the JSON shape but the values are bounded by typical client behaviour \u2014 a 10MB `position` is unusual.\n\nBut the SAME defense-in-depth fix applies: emit only the JSON type tag, never the value.\n\n## Fix shape\n\nSame as .40 \u2014 a private helper or local match arm that renders just the type tag. Could be extracted into a shared helper in jmap-server if the workspace wants a single point of policy.\n\n## Why P4\n\nHygiene, no behaviour change, no client visible. Bumps fixed by .40 closure; this is the propagation tail.\n\n## Cross-references\n\n- bd:JMAP-ayoz.40 (closed) \u2014 original metadata-server fix\n- bd:JMAP-x2gd.93 / bd:JMAP-ayoz.39 \u2014 related but different (Id boundary validation, not error-message hygiene)\n\n## Acceptance\n\n- All call sites enumerated above audited\n- Either fixed inline OR refactored to a shared helper in jmap-server\n- Each fixed site carries the same rationale comment as the .40 metadata-server fix\n- New oracle tests pin the no-leak property at one site per crate (no need to test every individual site)\n- cargo test --workspace green\n- cargo clippy --workspace -D warnings green",
+  "ephemeral": 0,
+  "id": "JMAP-zegc",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace sweep: invalid_arguments format strings echo serde_json::Value via Display (hygiene)",
+  "updated_at": "2026-05-17T05:39:11Z"
+}

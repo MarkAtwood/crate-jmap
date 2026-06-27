@@ -1,0 +1,33 @@
+{
+  "close_reason": "duplicate of JMAP-1vdc.12",
+  "closed_at": "2026-05-02T19:36:58Z",
+  "compaction_level": 0,
+  "content_hash": "5d952b0466fe768d739a8712d1bf27d87fa1f03feb70e73041aedba5162c2769",
+  "created_at": "2026-05-02T19:35:05Z",
+  "created_by": "Mark Atwood",
+  "description": "common/mod.rs submission_matches_condition (lines 1947-1965): for each of identity_ids, email_ids, and thread_ids the function allocates a fresh HashSet<&Id> from the condition's Vec on every call. In a query loop over N submissions with a filter that specifies all three fields, this is 3N HashSet allocations. The same issue was caught for inMailboxOtherThan in email_matches_condition (JMAP-bx3z.4) but this function is not covered by that fix. Suggested rewrite: either pre-build the three sets before the per-submission loop (same pattern as top_level_excluded_set in query_objects), or add a SubmissionQueryContext struct that holds the pre-built sets and is passed into the condition check.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "submission_matches_condition rebuilds HashSet per call for identity/email/thread ids",
+  "updated_at": "2026-05-02T19:36:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:35:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "071f6b8b-1bd7-5d7d-8502-7c7f96b07a32",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

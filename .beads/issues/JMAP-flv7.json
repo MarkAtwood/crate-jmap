@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "5bcb44d0e937bc81f65ec6c09335d91d72270ca43c9a05c0fd86a70a3ad93e4f",
+  "created_at": "2026-05-17T20:39:41Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace sweep follow-up to bd:JMAP-qz9v.35 (contacts-server, just closed) and bd:JMAP-ic0j.32/.69 (calendars-server, original canonical).\n\nLOCATION: crate-jmap-tasks-server/src/memory.rs:328-353\n\nCURRENT IMPL:\n```rust\npub fn seed_object(\n    &self,\n    account_id: &str,\n    type_name: &'static str,\n    id: &str,\n    value: serde_json::Value,\n) {\n    let mut inner = self.inner.lock().unwrap();\n    inner.known_accounts.insert(account_id.to_owned());\n    // ... (no type_name validation, no value-shape validation)\n}\n```\n\nPROBLEM: tasks-server's seed_object accepts any serde_json::Value without:\n1. Validating type_name is one of the known TaskList / Task / TaskNotification literals \u2014 a typo silently corrupts the fixture into a dead namespace.\n2. Validating value is an object with an `id` field equal to the id arg \u2014 a malformed fixture surfaces much later as opaque MemoryError(\"deserialize ...\") from get_objects, far from the seed call site.\n\nSame finding as bd:JMAP-qz9v.35 on contacts-server. Both crates had identical pre-fix shape, both inherit the gap from a pre-validation-pattern era. calendars-server already has the validation per bd:JMAP-ic0j.32 / .69; the contacts-server fix landing now ports that pattern.\n\nPROPAGATE: port the contacts-server fix verbatim, substituting the two known type names `TaskList` / `Task` / `TaskNotification` (three for tasks, two for contacts). Add the same 6 unit tests (4 #[should_panic] + 2 positive controls). Relax type_name parameter from `&'static str` to `&str` (matching calendars + contacts).\n\nThe contacts-server tests at crate-jmap-contacts-server/src/memory.rs in mod seed_object_validation_tests are the direct template.\n\nNO production callers \u2014 seed_object is test-fixture-only API gated behind feature='memory'.\n\nP3 because the failure mode is wasted test-debug time, not runtime bug. Same priority as the related sibling-sweep bead bd:JMAP-v7c9 for README Gotchas wording.",
+  "ephemeral": 0,
+  "id": "JMAP-flv7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "tasks-server seed_object: port validation pattern from calendars/contacts canonical",
+  "updated_at": "2026-05-17T20:39:41Z"
+}

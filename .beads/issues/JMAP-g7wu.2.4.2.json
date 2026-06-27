@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T151456Z-658525",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T16:41:23Z",
+  "compaction_level": 0,
+  "content_hash": "538a529c03e85e09e9c9173ed7affd75b9d61830cdf78f83b1cbbb2449996dca",
+  "created_at": "2026-05-11T13:58:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Handler layer of JMAP-g7wu.2.4 (Space/set mutations).\n\nIn crate-jmap-chat-server/src/space.rs:416 (currently returns SetError::Forbidden 'not yet implemented'):\n1. Replace the Forbidden short-circuit with patch-key parsing.\n2. For each of the 12 wire keys (addRoles/removeRoles/updateRoles/addMembers/.../updateCategories), parse the value and push corresponding SpacePatchOp variants into a Vec.\n3. Enforce permission checks BEFORE calling backend.apply_space_patch():\n   - manage_space (on space-wide mutations)\n   - manage_roles (on role family ops)\n   - manage_members (on member family ops)\n   - manage_channels (on channel family + category family ops)\n   Reference: draft \u00a7Space/set lines 1093, 1096, 1102, 1105, 1108, 1111, 1114, 1117, 1120, 1123, 1126, 1129.\n4. Enforce count limits (rejecting ops that would exceed maxRolesPerSpace, maxSpaceMembers, maxChannelsPerSpace, maxCategoriesPerSpace) BEFORE backend call.\n5. Call backend.apply_space_patch(caller, account_id, space_id, ops) and map Vec<OpResult> back into the JMAP /set response shape.\n\nDepends on .4.1 (SpacePatchOp enum) landing first.\n\nThis bead sets up the handler/backend boundary. Per-variant impl work (Role/Member/Channel/Category) is in .4.3-.4.5.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.2.4.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_chat_space_set parsing + permission-check helpers + count limits",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T06:58:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4",
+      "id": "9700d02c-e557-53bf-b569-7832c1099fe2",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-11T06:58:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.2.4.1",
+      "id": "9f1b0b30-c29d-520c-863a-7f0ac6da742d",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

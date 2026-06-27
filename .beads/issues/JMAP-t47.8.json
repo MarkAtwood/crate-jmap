@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.8",
+  "title": "Cargo.toml pins reqwest to rustls-tls-manual-roots with no system root bundle",
+  "description": "Cargo.toml: reqwest uses feature 'rustls-tls-manual-roots' which provides rustls TLS but with NO built-in root certificate bundle. DefaultTransport calls reqwest::ClientBuilder::new().build() without adding any root certificates, so HTTPS connections from DefaultTransport will fail with TLS verification errors against public servers. This is almost certainly a bug introduced when the feature flag was chosen: 'rustls-tls-manual-roots' is the right choice only if the caller always supplies roots via add_root_certificate or with_native_certs(). The standard choice for public-CA HTTPS is 'rustls-tls' (which bundles webpki-roots) or 'rustls-tls-native-roots'. The existing integration tests use wiremock on localhost (HTTP, no TLS) so they do not catch this. Any user calling JmapClient::new_plain() against a real HTTPS server will get a TLS error. Maintenance consequence: every new user will file a 'cannot connect to server' issue.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:34:20Z",
+  "updated_at": "2026-04-30T01:42:32Z",
+  "closed_at": "2026-04-30T01:42:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:34:20"
+    }
+  ]
+}

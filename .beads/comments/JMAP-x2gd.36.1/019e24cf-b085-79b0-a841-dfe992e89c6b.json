@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T04:47:31Z",
+  "id": "019e24cf-b085-79b0-a841-dfe992e89c6b",
+  "issue_id": "JMAP-x2gd.36.1",
+  "text": "Recommendation: defer this bead until the workspace decides .50 (5-method sync hook pattern) wholesale. Pre-1.0 / pre-publish is the cheapest moment for the breaking change but bundling sync\u2192async and per-account-args changes for ALL 5 sync hooks into ONE breaking commit gives downstream consumers a single migration step. Path B (separate beads, sequential commits) is also viable but costs N migration steps."
+}

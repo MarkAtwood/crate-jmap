@@ -1,0 +1,42 @@
+{
+  "acceptance_criteria": "4 EmailSubmission query/queryChanges wiremock tests pass.",
+  "close_reason": "Child JMAP-3cmx.3.1 completed \u2014 4 submission_query.rs wiremock tests done",
+  "closed_at": "2026-05-05T03:49:26Z",
+  "compaction_level": 0,
+  "content_hash": "cf631af51d4ed7d53d150c6880144fa0b668c03e9b0607c4fc2b972d29bf1882",
+  "created_at": "2026-05-05T02:55:14Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-mail-client/tests/submission_query.rs. Oracle: RFC 8621 \u00a77.3 (filter: identityIds, emailIds, threadIds, undoStatus, before, after), \u00a77.4 queryChanges.\n\n**Tests:**\n1. email_submission_query_with_filter: pass filter {\"identityIds\":[\"I1\"]}; assert request filter.identityIds==[\"I1\"]; assert resp.ids correct.\n2. email_submission_query_no_filter: assert no filter key in request.\n3. email_submission_query_changes_round_trip: assert old/new queryState, removed, added.\n4. email_submission_query_changes_with_filter: pass filter and sort; assert both present in request.\n\n**Acceptance criteria:** All 4 tests pass.",
+  "ephemeral": 0,
+  "id": "JMAP-3cmx.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: EmailSubmission/query and /queryChanges",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:55:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx.1",
+      "id": "6c921f91-6e59-50d0-ba41-e92f6d33cded",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:55:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx",
+      "id": "839d6e1b-18ca-568b-b4a2-ccfc80ebdaad",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

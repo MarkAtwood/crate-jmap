@@ -1,0 +1,33 @@
+{
+  "close_reason": "Obsoleted by JMAP-1j9k.22 (typed Params struct refactor). The Value::Bool(sd) call site at principal_availability.rs:34 was deleted when show_details moved into PrincipalGetAvailabilityParams and the method body switched to the serde_json::to_value(&p) flatten-Object idiom. Verified by rg: zero Value::Bool occurrences remain in calendars-client/src.",
+  "closed_at": "2026-05-17T12:27:24Z",
+  "compaction_level": 0,
+  "content_hash": "997d5f37d8f685e62382dcdc52917122aab9e4403693345353638ea93dfdb3bb",
+  "created_at": "2026-05-15T01:26:29Z",
+  "created_by": "Mark Atwood",
+  "description": "## What the code does\n\nAt crate-jmap-calendars-client/src/methods/principal_availability.rs:33-35:\n\n```rust\nif let Some(sd) = show_details {\n    args[\"showDetails\"] = serde_json::Value::Bool(sd);\n}\n```\n\nThis is the only place in the crate that constructs a JSON boolean via the explicit `serde_json::Value::Bool(_)` variant. Every other bool insertion uses `.into()`:\n\n- calendar.rs:127 \u2014 `args[\"onDestroyRemoveEvents\"] = flag.into();`\n- event.rs:44 \u2014 `args[\"expandRecurrences\"] = v.into();`\n- event.rs:47 \u2014 `args[\"reducedParticipants\"] = v.into();`\n- event.rs:50 \u2014 `args[\"fetchCalendars\"] = v.into();`\n- event.rs:185 \u2014 `args[\"expandRecurrences\"] = er.into();`\n\n## What idiomatic Rust would do\n\nThe `From<bool> for serde_json::Value` impl is exactly `|b| Value::Bool(b)`. `.into()` is the idiomatic conversion call \u2014 type-inferred, less ceremony, matches the other five sites.\n\n## Why it matters\n\nPure local-consistency improvement; no behavioural difference. Flagged as opinion because the explicit-variant form is defensible on its own (clippy doesn't warn on it). The reason to fix is cookie-cutter consistency: a reader who skimmed the other five sites and then hit principal_availability.rs:34 will spend a second wondering whether the explicit variant is doing something different (it isn't).\n\nNote: this is calendars-internal divergence, not a divergence from the canonical mail-client. mail-client doesn't have a `Principal/getAvailability` analog so there's no canonical reference; the comparison is within the crate.\n\n## Fix shape\n\nOne-line change at principal_availability.rs:34:\n\n```rust\n-    args[\"showDetails\"] = serde_json::Value::Bool(sd);\n+    args[\"showDetails\"] = sd.into();\n```\n\n## Source citations\n\n- crate-jmap-calendars-client/src/methods/principal_availability.rs:33-35 (divergent)\n- crate-jmap-calendars-client/src/methods/calendar.rs:126-128 (canonical idiom within the same crate)\n- crate-jmap-calendars-client/src/methods/event.rs:43-51 (three more canonical idiom sites)",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "principal_get_availability uses Value::Bool(sd) where same crate elsewhere uses sd.into()",
+  "updated_at": "2026-05-17T12:27:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:26:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "3dc4f8d2-6c6c-578c-9613-e33adfe540c6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

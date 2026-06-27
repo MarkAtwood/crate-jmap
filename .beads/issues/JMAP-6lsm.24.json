@@ -1,0 +1,33 @@
+{
+  "close_reason": "Added Eq derive to Session and AccountInfo. All transitive fields (String, HashMap, State, serde_json::Value) implement Eq. Compiles clean. Now matches WebSocketCapability's derive set.",
+  "closed_at": "2026-05-09T07:35:11Z",
+  "compaction_level": 0,
+  "content_hash": "530a4a33cd5834d22b2c3ac7fdf6b4a87705b6ca8352d7858dc75cf90f2a0d91",
+  "created_at": "2026-05-08T03:06:54Z",
+  "created_by": "Mark Atwood",
+  "description": "src/request.rs:99 \u2014 `#[derive(Debug, Clone, PartialEq, Deserialize)]`. `PartialEq` without `Eq` implies the type contains a partial-equality member (e.g. f64). Inspection: every field is HashMap<String, K>, String, or jmap_types::State. None are partial. `Eq` would document that Session equality is total. Same for AccountInfo (also PartialEq only). Filing as opinion-tagged. Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Session struct does not derive Eq even though all fields could",
+  "updated_at": "2026-05-09T07:35:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:06:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "cc4238bd-0eef-5001-a865-df3d30d9e6cf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

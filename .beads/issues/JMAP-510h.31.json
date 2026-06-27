@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T21:26:29Z",
+  "compaction_level": 0,
+  "content_hash": "611bc1a40d9e660f12a477601ee0e860608870128d6a9db37880323534dab232",
+  "created_at": "2026-05-14T20:01:03Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/backend.rs:102-107\n\n```rust\nfn blob_exists(\n    &self,\n    caller: &Self::CallerCtx,\n    account_id: &jmap_types::Id,\n    blob_id: &jmap_types::Id,\n) -> impl std::future::Future<Output = bool> + Send;\n```\n\nThe signature returns `bool`, not `Result<bool, Self::Error>`. A backend\nimplementor whose blob store is a remote service (S3, GridFS, sftp) cannot\ndistinguish three states that the caller actually needs to distinguish:\n\n1. \"Definitely not there\" (blob never uploaded)\n2. \"Definitely there\" (blob present and reachable)\n3. \"I don't know \u2014 connectivity failed\"\n\nState 3 has no representation. The implementor must choose:\n- Return `false` on transient errors \u2192 creates produce a misleading\n  `invalidProperties: blob not found` SetError when the blob *might*\n  exist; the client will retry with the same `blobId` and the operation\n  will succeed once the backend reconnects. Data is not lost but the\n  client receives a wrong-shape error.\n- Return `true` on transient errors \u2192 creates proceed; then\n  `create_object` fails downstream with a different error, possibly\n  after partial state mutation, and the client sees an internally\n  inconsistent response.\n- Panic \u2192 caller sees `serverFail` but with no actionable diagnostic.\n\nThe handler in src/filenode.rs:434 calls `!backend.blob_exists(...)`\nand immediately emits `invalidProperties` with description \"blob not\nfound\". That description is a lie when the backend is unreachable.\n\nContract for a caller depending on this in production: there is no\ncorrect implementation. A database-backed backend must pick a\nsilent-wrong-result behaviour.\n\nPropagation note: canonical sibling `MailBackend::blob_exists`\n(crate-jmap-mail-server/src/backend.rs:188) has the same signature.\nPer the workspace canonical-template rule, fix mail-server first\nthen propagate. The mail-server docstring explicitly mentions the\n\"distinguish two failure cases\" requirement for RFC 8621 \u00a75.8 but\nits own signature does not let the backend signal the third case\n(transient unreachability). Both crates need the same widening to\n`Result<bool, Self::Error>`.\n\nSuggested fix: change to `Result<bool, Self::Error>`, then the\nhandler maps `Err` \u2192 `serverFail` (transient/retryable) and `Ok(false)`\n\u2192 `invalidProperties: blob not found` (deterministic).",
+  "ephemeral": 0,
+  "id": "JMAP-510h.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "FileNodeBackend::blob_exists returns bool, conflating 'not found' with 'backend unreachable'",
+  "updated_at": "2026-05-14T21:26:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:01:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "53aca01a-ff95-5cd7-84fc-20890af12f1d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

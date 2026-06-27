@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T11:40:06Z",
+  "id": "019e35bc-7fa7-7493-8121-9b7d955cabf2",
+  "issue_id": "JMAP-6r7c.53",
+  "text": "Coupled to JMAP-6r7c.48 (added bd dep). The bead's own recommendation is 'do NOT delete it independently because the &str API is published. The two findings should land together as a single coordinated change at the next minor-version-with-typed-API bump.' Releasing the claim; will become actionable when .48 is resolved."
+}

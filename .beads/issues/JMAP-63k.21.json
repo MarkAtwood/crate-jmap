@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T06:50:03Z",
+  "compaction_level": 0,
+  "content_hash": "dbf0b953bd4d4ff86c84d68363508ddd16fcc3787f1d689cdba8688fae1bceb7",
+  "created_at": "2026-05-02T06:46:32Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/chat.rs:39\nIssue: handle_chat_get always passes None as the properties argument to backend.get_objects, discarding any properties field the client sent. The generic handle_get in jmap-server (handlers.rs:40-46) correctly parses and forwards the properties slice. The chat get handler was written as a custom implementation instead of delegating to the generic handler, and in doing so silently dropped this argument.\nRisk: Clients sending a properties field for Chat/get will silently receive all properties regardless, violating RFC 8620 \u00a75.1. This divergence from the pattern set by handle_get means the same bug will reappear in any new Chat-type get handler written by copying the existing one. There is no compiler or test signal that properties is being ignored.\nFix: Delegate to jmap_server::handlers::handle_get::<Chat, B>(backend, args) as handle_chat_changes now delegates to handle_changes. If Chat-specific get behaviour is genuinely needed, document exactly what deviates and why.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_chat_get ignores properties field",
+  "updated_at": "2026-05-02T06:50:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:46:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "a978c293-727e-576b-8f58-267fa39ad7ef",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

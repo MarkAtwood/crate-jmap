@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "onExists collision handling fully implemented. All \u00a73.2.3 cases tested.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Implemented onExists collision detection (Reject/Replace/Rename enum); compareCaseInsensitively; find_sibling_by_name; Rename suffix loop up to 100; +2 tests; 19 total pass; clippy clean",
+  "closed_at": "2026-05-05T04:19:00Z",
+  "compaction_level": 0,
+  "content_hash": "35de3527b1117ab7566f065a99e4c6554da4c34d63e87e0af4c5a4338e1229d0",
+  "created_at": "2026-05-05T02:57:09Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Fill the TODO at filenode.rs:128. Before each create_object call in handle_filenode_set and handle_filenode_copy, query for a sibling with the same name via find_sibling_by_name. Apply onExists policy (null/replace/rename). Oracle: draft-ietf-jmap-filenode-13 \u00a73.2.3.\n\n**Algorithm:**\n1. Parse compareCaseInsensitively: bool (default false) from args.\n2. Parse onExists into enum OnExists { Reject, Replace, Rename }. Unknown string \u2192 invalidArguments.\n3. Inside create loop, after extracting parentId and name from JSON:\n   Call backend.find_sibling_by_name(&account_id, parent_id, name, compare_case_insensitively).\n   On Ok(Some(existing_id)):\n     - Reject: insert notCreated with {\"type\":\"alreadyExists\",\"existingId\":\"<id>\"}; continue.\n     - Replace: check get_descendant_ids for existing_id (for nodeHasChildren guard); call destroy_object for existing_id; push to destroyed_list; proceed with create.\n     - Rename: loop appending numeric suffix until find_sibling_by_name returns None (max 100 attempts \u2192 serverFail); mutate name in JSON object; proceed with create.\n4. Apply same logic in handle_filenode_copy copy loop.\n5. Update MockBackend: add set_sibling(parent_id: Option<&str>, name: &str, existing_id: &str) helper.\n\n**Acceptance criteria (each grounded in \u00a73.2.3):**\n- onExists:null + collision \u2192 notCreated with type=alreadyExists and existingId present.\n- onExists:replace + collision \u2192 existing id in destroyed, new node in created.\n- onExists:replace + collision with non-empty directory (onDestroyRemoveChildren=false) \u2192 nodeHasChildren.\n- onExists:rename + collision \u2192 created response contains new non-colliding name.\n- compareCaseInsensitively:true + \"Foo\" collides with \"foo\" sibling \u2192 triggers onExists path.\n- cargo test -p jmap-filenode-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-zfy2.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement onExists collision detection in FileNode/set and /copy",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:58:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zfy2.1",
+      "id": "15689425-95c5-53a5-aed2-5940487d89b5",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:57:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zfy2",
+      "id": "d693d31a-06b2-5145-ad0a-6ebf6125b749",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced .iter().map(|id| id.as_ref()).collect::<Vec<_>>() with direct result.created/updated/destroyed serialization at metadata.rs:160-162. Matches the canonical jmap-server::handlers::handle_changes shape exactly. Id is #[serde(transparent)] over String so wire format is byte-identical. cargo clippy --tests -- -D warnings clean; cargo test --all-features clean (44 + 3 + 24 + 1 tests pass).",
+  "closed_at": "2026-05-15T09:08:09Z",
+  "compaction_level": 0,
+  "content_hash": "1463afac1af3620e5be508ec389eb827be6e47a75c10a53773d9fab76f535f04",
+  "created_at": "2026-05-14T17:54:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: metadata.rs:148-150 manually serializes the created/updated/destroyed arrays:\n\n  \"created\":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),\n\nThe canonical jmap-server::handlers::handle_changes at handlers.rs:197-199 does the simpler:\n\n  \"created\":   result.created,\n  \"updated\":   result.updated,\n  \"destroyed\": result.destroyed,\n\n\u2026because Id has #[serde(transparent)] (per the bd:JMAP-wlip.28 comment). The metadata handler's manual form works (Id and &str serialize to the same JSON string) but obscures the design choice and adds three lines of pointless adapter code.\n\nMaintenance consequence:\n(a) A future refactor that adds a property to Id (a tag, a hash, whatever) is masked by the &str collect. The direct Vec<Id> serialization would surface the JSON shape change immediately.\n(b) The pattern teaches the wrong idiom to readers studying this crate as a reference for extension-server handler authoring.\n\nFix: replace metadata.rs:148-150 with the direct Vec<Id> form.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "metadata-server's handle_metadata_changes manually serializes Id arrays via .iter().map(|id| id.as_ref()).collect::<Vec<_>>() rather than direct Vec<Id> serialization \u2014 extra code, hides the Id #[serde(transparent)] design",
+  "updated_at": "2026-05-15T09:08:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:54:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "ca0e8c56-9121-53aa-8157-561f90dd76d8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

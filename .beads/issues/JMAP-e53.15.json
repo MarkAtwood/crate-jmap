@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already documented: submission.rs:357 says 'This must happen before the destroy loop so that email IDs are available even for submissions that will be destroyed'.",
+  "closed_at": "2026-05-04T15:53:56Z",
+  "compaction_level": 0,
+  "content_hash": "c8e18d8f28fe335a25687ea7f9f43568d8b88e43edbd1bef9c5cf5f85d61f3a4",
+  "created_at": "2026-05-02T00:43:48Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs pre-fetches emailId for non-creation-reference submission IDs into submission_email_id_map before any create/update/destroy operations. This is required because onSuccessDestroyEmail and onSuccessUpdateEmail must be able to resolve emailIds even for submissions that were destroyed in the same request. Moving this lookup to after the operations would break onSuccess for destroyed submissions, which is a valid and important use case (e.g. cancel a scheduled send and mark the draft as not-sent). The pre-fetch block and its placement are load-bearing.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "submission_email_id_map is pre-populated before the destroy loop",
+  "updated_at": "2026-05-04T15:53:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "df7ffb8e-b713-52d9-b11b-c039d408c3ab",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

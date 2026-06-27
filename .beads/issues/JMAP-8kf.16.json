@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-8kf.16",
+  "title": "add_call returns Result<&mut Self, ...> \u2014 fluent-with-? is the right pattern",
+  "description": "JmapRequestBuilder::add_call returns Result<&mut Self, ClientError> rather than &mut Self with a panic, or collecting errors in the builder for deferred checking. This allows callers to use ? to propagate duplicate-call-id errors early (compile-time expressible), avoids a panic in library code, and still enables fluent chaining on the happy path (.expect(\"r1 must succeed\")). A contributor might argue for panic (it's a programmer error) or for deferring error to build() \u2014 but detecting at the call site gives the clearest location in backtraces and test output.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:22:03Z",
+  "updated_at": "2026-04-30T01:02:36Z",
+  "closed_at": "2026-04-30T01:02:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-8kf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:22:03"
+    }
+  ]
+}

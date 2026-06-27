@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-e39.2",
+  "title": "Dispatcher::Debug impl allocates Vec on every format call",
+  "description": "Dispatcher::Debug collects self.handlers.keys() into a Vec<_> before passing to debug_struct.field(). HashMap::Keys<'_, K, V> implements Debug directly when K: Debug, so the collect is unnecessary. Every call to {:?} on a Dispatcher does a heap allocation that could be avoided.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:06:32Z",
+  "updated_at": "2026-04-30T06:14:04Z",
+  "closed_at": "2026-04-30T06:14:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-e39",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:06:32"
+    }
+  ]
+}

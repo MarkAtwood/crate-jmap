@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:12:29Z",
+  "compaction_level": 0,
+  "content_hash": "0c9051f0cdc3ebc1f1fe56cd818945d88f5df5591562b8c5877c979a466b4bef",
+  "created_at": "2026-05-02T03:56:43Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src/identity.rs lines 316-321: the destroy loop matches on SetErrorType::NotFound / SetErrorType::Forbidden to produce raw JSON strings ('notFound', 'forbidden', 'serverFail') instead of calling set_error_value(&set_err) like every other handler in this crate. This inconsistency means the error response shape for identity destroy can diverge from other methods (e.g. missing 'description' field). The fix is to call set_error_value(&set_err) uniformly, which is what the rest of the mail-server does.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "identity.rs: manual match on SetErrorType instead of using set_error_value",
+  "updated_at": "2026-05-02T04:12:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:56:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "f81585db-0e4d-58dd-b8a0-c42266628cb7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-xx7.1",
+  "title": "ClientError missing #[non_exhaustive] \u2014 adding variant is breaking change",
+  "description": "ClientError has no #[non_exhaustive] attribute. Any downstream crate that matches exhaustively on ClientError will break if a new variant is added in a minor version. The crate intends to add variants (e.g. rate-limiting, streaming errors) as JMAP extensions are implemented. Without #[non_exhaustive], every such addition is a semver-breaking change. The in-crate exhaustive match test (client_error_no_rate_limited_variant) still works with #[non_exhaustive] \u2014 internal code can still match exhaustively \u2014 so adding the attribute costs nothing for the existing test but protects downstream callers.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T14:49:25Z",
+  "updated_at": "2026-04-30T14:54:18Z",
+  "closed_at": "2026-04-30T14:54:18Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-xx7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 07:49:25"
+    }
+  ]
+}

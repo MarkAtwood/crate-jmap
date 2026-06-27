@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-9hz.2",
+  "title": "Session/AccountInfo/WebSocketCapability missing #[non_exhaustive]",
+  "description": "Session, AccountInfo, and WebSocketCapability in request.rs are Deserialize-only structs that represent RFC 8620 \u00a72 wire types. They have no #[non_exhaustive] annotation. RFC 8620 \u00a72 server session fields will grow over time (extensions, new base-protocol fields). Without #[non_exhaustive], adding any new field to these structs is a semver-breaking change. All three should be #[non_exhaustive].",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:21:16Z",
+  "updated_at": "2026-04-30T06:33:04Z",
+  "closed_at": "2026-04-30T06:33:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9hz",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:21:15"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-o5g",
+  "title": "Review: jmap-mail-server pass 12",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T04:53:41Z",
+  "updated_at": "2026-05-01T05:02:00Z",
+  "closed_at": "2026-05-01T05:02:00Z",
+  "notes": "Confidence: 15% chance of missed bug. Least confident flags: calculateTotal compliance impact (depends on client behavior), BackendSetError::Other intent in mailbox.rs (may be intentional defensive abort). Uncertainty driven by: no integration test with a full JMAP client, no test exercising calculateTotal=false, no test exercising non-string upToId. Would raise confidence if: tests for each filed issue existed.\nMaintainer risk: MEDIUM \u2014 calculateTotal gap is a silent spec violation that will generate user confusion when a compliant client omits it and gets unexpected data. The BackendSetError::Other inconsistency will confuse contributors implementing new handlers.\nIdiom rating: CLEAN \u2014 no unsafe, no unwrap in hot paths, ownership model is correct. The sort+dedup and unwrap_or issues are minor. All other Rust patterns are idiomatic."
+}

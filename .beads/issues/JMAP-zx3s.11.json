@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Changed MdnSendRequest.on_success_update_email from HashMap<Id, PatchObject> to HashMap<String, PatchObject>. Reasoning: (1) the doc comment itself admitted keys can be '#creationId' references per RFC 8620 \u00a75.7; (2) Id's contract (RFC 8620 \u00a71.2: URL-safe base64 alphabet) forbids '#'; (3) jmap-types::SetResponse canonical pattern keys creation-id maps by String, real-id maps by Id (JMAP-zx3s.15 counter-research). Updated rustdoc on the field. Updated downstream jmap-mail-server::mdn.rs comments that incorrectly said 'patches is HashMap<Id, PatchObject>'. Updated the existing mdn_send_request_on_success_update_email_roundtrip test to use String key lookup instead of Id::from('#k1'). cargo test --workspace clean; cargo clippy --workspace clean.",
+  "closed_at": "2026-05-17T15:18:48Z",
+  "compaction_level": 0,
+  "content_hash": "9af8263d1ebc34d3eca5f8f9af2d0b441ce35e324a7a8d2bd1b5501bef33f845",
+  "created_at": "2026-05-15T04:56:21Z",
+  "created_by": "Mark Atwood",
+  "description": "## Caller contract risk: the typed shape for \\`on_success_update_email\\` uses Id to hold values that Id's own type contract forbids.\n\nThis diff changed:\n\n```rust\n// Before\npub on_success_update_email: Option<HashMap<String, Value>>,\n// After\npub on_success_update_email: Option<HashMap<Id, PatchObject>>,\n```\n\nwith a doc comment that admits:\n\n> Keys are Email IDs (or \\`#creationId\\` references resolved by the dispatcher); values are PatchObjects (RFC 8620 \u00a75.3). Both [\\`Id\\`] and [\\`PatchObject\\`] are \\`#[serde(transparent)]\\`, so the wire format is byte-identical to a \\`HashMap<String, Object>\\`.\n\nBut \\`Id\\` is defined in \\`jmap-types\\` (\\`crate-jmap-types/src/id.rs:20-29\\`) with the doc contract:\n\n> Character set: URL-safe base64 alphabet (A-Za-z0-9, \\`-\\`, \\`_\\`), max 255 octets. Clients MUST treat Id values as opaque strings \u2014 no parsing of structure.\n\nThe character \\`#\\` is NOT in the URL-safe base64 alphabet. So per \\`Id\\`'s own type contract, \\`Id::from(\\\"#k1\\\")\\` produces an Id that violates the contract \u2014 and the type accepts it silently because \\`From<String>\\` performs no validation (only \\`Id::new_validated\\` does, and the diff does not use it).\n\n### Two unresolved positions in the diff\n\nThe current code holds two contradictory positions:\n\n1. \\\"\\`on_success_update_email\\` keys are \\`Id\\`\\\" \u2014 but Id's contract forbids \\`#\\`.\n2. \\\"\\`Id\\` is just a String newtype with no validation\\\" \u2014 but Id's docstring says otherwise.\n\nThe diff's own test (\\`mdn_send_request_on_success_update_email_roundtrip\\`) calls \\`Id::from(\\\"#k1\\\")\\` and treats this as valid, leaning on position (2). The test passes because there is no validation. The doc contract on \\`Id\\`, written years before this change, leans on position (1).\n\n### Why this matters for callers\n\nA caller who reads the \\`Id\\` doc and writes a strict validator (\\\"only base64-URL chars, max 255 octets\\\") will reject \\`#k1\\` and fail to construct an \\`on_success_update_email\\` entry that the dispatcher actually accepts. A caller who notices the \\`Id::from\\` is permissive and ignores the doc loses the type-safety the \\`Id\\` newtype was intended to provide.\n\nEither:\n\na. **Fix the \\`Id\\` doc** to say \\\"any non-empty string up to 255 octets, including the wire \\`#\\`-prefixed creation-id reference form per RFC 8620 \u00a75.7\\\" \u2014 accepting that \\`Id\\` is wire-permissive. This is the realpolitik option but undermines the type-safety story of every other Id field in the workspace.\n\nb. **Fix the \\`on_success_update_email\\` type** to admit creation-id references explicitly:\n\n   ```rust\n   pub enum EmailIdOrCreationRef {\n       Real(Id),\n       Creation(String), // wire form: \\\"#k1\\\"\n   }\n   pub on_success_update_email: Option<HashMap<EmailIdOrCreationRef, PatchObject>>,\n   ```\n\n   Or revert to \\`HashMap<String, PatchObject>\\` (still typed-value but not lying about keys), matching the workspace pattern in \\`SetResponse.not_created\\` which uses \\`HashMap<String, SetError>\\` for the same creation-id shape.\n\nThe current type-the-doc-disagrees-with state is the worst of both worlds.\n\n### Cross-references\n\n- \\`crate-jmap-types/src/id.rs:20-29\\` \u2014 Id type contract.\n- \\`crate-jmap-types/src/methods.rs:282\\` \u2014 workspace canonical \\`HashMap<String, T>\\` for creation-id keys.\n- bd JMAP-zx3s.6 (main review): same uncertainty acknowledged in its calibration note \u2014 this finding pins the resolution.",
+  "ephemeral": 0,
+  "id": "JMAP-zx3s.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "on_success_update_email keys typed as Id but doc admits `#creationId` references \u2014 violates Id's RFC 8620 \u00a71.2 alphabet contract",
+  "updated_at": "2026-05-17T15:18:48Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:56:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zx3s",
+      "id": "dd2e290b-ebfe-55f2-8dc3-1390bc978d61",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

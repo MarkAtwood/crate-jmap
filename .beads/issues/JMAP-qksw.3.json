@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "Per-user routing added. Patch routing tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added is_per_user_property, update_per_user_properties to CalendarsBackend; routing logic in handle_calendar_event_set; 3 routing tests; 26 total pass; clippy clean",
+  "closed_at": "2026-05-05T15:47:09Z",
+  "compaction_level": 0,
+  "content_hash": "58e535ae3c83d2bdcadb04ef43d6ce6ff0e2eeb0b59e3696d897a56dfda9ec8b",
+  "created_at": "2026-05-05T03:02:09Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Draft-ietf-jmap-calendars-26 \u00a75.4 defines per-user CalendarEvent properties: keywords, color, freeBusyStatus, useDefaultAlerts, alerts. The handler must route per-user-only patches to a separate backend path.\n\n**Algorithm:**\n1. Add static fn is_per_user_property(prop: &str) -> bool to CalendarsBackend.\n2. Add fn update_per_user_properties(&self, account_id, id, patch) \u2192 default delegates to update_object.\n3. In handle_calendar_event_set update loop: if all top-level patch keys are per-user \u2192 call update_per_user_properties. Otherwise \u2192 update_object.\n4. Document: backend MUST store per-user properties separately for shared calendars; default is single-user only.\n\n**Tests:**\n- Patch {\"keywords\":{}} \u2192 update_per_user_properties called.\n- Patch {\"title\":\"New\"} \u2192 update_object called.\n- Mixed patch {\"keywords\":{},\"title\":\"New\"} \u2192 update_object called.\n\n**Acceptance criteria:** cargo test -p jmap-calendars-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-qksw.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add per-user calendar property routing contract to CalendarsBackend",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:02:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qksw",
+      "id": "b1cf84fd-0adc-542e-a6a4-6e508a5c49ef",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

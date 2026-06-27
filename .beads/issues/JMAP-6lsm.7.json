@@ -1,0 +1,33 @@
+{
+  "close_reason": "Docstring on max_sse_frame now explicitly notes the 2x memory peak (raw_buf + decoded buf tracked independently) so a caller tuning for a tight budget plans for the worst case. No code change.",
+  "closed_at": "2026-05-09T07:30:13Z",
+  "compaction_level": 0,
+  "content_hash": "d7104cf408d310fb302e3329693c186567d458783d68b1b55c26ee7eb036ffae",
+  "created_at": "2026-05-08T03:05:00Z",
+  "created_by": "Mark Atwood",
+  "description": "src/client.rs:496-524 \u2014 both raw_buf (incoming bytes pre-UTF-8-decode) and buf (decoded text) are checked against `sse_frame_limit`. In the worst case, the actual memory in flight is approximately 2\u00d7 the configured limit (raw_buf at limit + buf decoded but not yet drained). The doc on ClientConfig::max_sse_frame says \"raw bytes and decoded text\" but doesn't clarify they are tracked independently. Caller setting max_sse_frame=1 MiB may see up to ~2 MiB of allocator residency. Document or change to a single combined cap.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "subscribe_events buffer cap doc says 'limit' but raw_buf and decoded buf are checked separately",
+  "updated_at": "2026-05-09T07:30:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:04:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "21e619fd-60d7-5eb6-b459-3d2e7646b8ac",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-o0i",
+  "title": "Rusty review pass 4: jmap-client",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:32:58Z",
+  "updated_at": "2026-04-30T01:43:12Z",
+  "closed_at": "2026-04-30T01:43:12Z",
+  "notes": "Section: ownership/borrowing \u2014 CLEAN. All clones are necessary; no gratuitous allocation. No String-param-when-&str-would-do in production API (JmapRequestBuilder::new takes &[&str], auth constructors take &str).\nSection: unsafe \u2014 CLEAN. #![forbid(unsafe_code)] at crate root. No unsafe anywhere.\nSection: iterators/collections \u2014 CLEAN. No for-push loops that should be collect, no index loops, no len()==0, no .get(0). compute_sha256_hex uses fold correctly.\nSection: lifetime annotations \u2014 CLEAN. No unnecessary explicit lifetimes; elision used correctly throughout.\nSection: macros \u2014 CLEAN. No public-API macros. Standard derives only.\nSection: clippy/language idioms \u2014 CLEAN except items covered by JMAP-o0i.1. No return-as-last-statement, no match-on-bool, no .len()==0, no .get(0)/.get(n-1), no String::from(''), no vec push in loop.\nSection: traits \u2014 Findings filed as JMAP-o0i.2 and JMAP-o0i.3 (missing PartialEq derives on public types). No missing Display (ClientError has thiserror Display, all public error types display). No missing From impls \u2014 conversions are covered by #[from] in thiserror. No missing AsRef. No manual impls that should be derived (Debug on BearerAuth/BasicAuth is intentionally manual to redact credentials).\nIdiom rating: ACCEPTABLE \u2014 auth, blob, SSE, WS, and request builder code is idiomatic. Two structural gaps: (1) deserialization errors lose structure vs serialization errors (Parse/String asymmetry), (2) three clusters of public types missing PartialEq derives.\nRust idiom confidence: 10% chance of missed issue. Least confident flags: JMAP-o0i.3 (Session/AccountInfo PartialEq \u2014 serde_json::Value PartialEq but not Eq, so Eq cannot be derived; issue text notes this). Uncertainty driven by: did not run clippy locally to mechanically verify no additional clippy lints; reviewed by reading only."
+}

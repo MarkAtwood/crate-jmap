@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-18T03:01:22Z",
+  "compaction_level": 0,
+  "content_hash": "cd9a2b99c677a7d604705e25359c9f520bc267f3c4a14f7b0d88b7012fe002a4",
+  "created_at": "2026-05-14T19:36:23Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/src/backend.rs:100-110\n\nCURRENT DOC:\n    /// Check whether an AddressBook has any ContactCards in it.\n    ///\n    /// Called by `AddressBook/set` destroy processing when\n    /// `onDestroyRemoveContents` is false (the default). If this\n    /// returns `true`, the destroy is rejected with\n    /// `addressBookHasContents`.\n    fn address_book_has_contents(...) -> impl Future<Output = bool> + Send;\n\nPROBLEM:\nThe doc describes the trait method from the HANDLER's perspective\n(\"Called by ... destroy processing\", \"If this returns true, the\ndestroy is rejected ...\"), not from the BACKEND IMPLEMENTOR's\nperspective. Trait method docs should state the contract the backend\nimplementor must satisfy. The current shape mixes the two audiences.\n\nWhy this matters:\n- A backend implementor reads \"If this returns true, the destroy is\n  rejected with addressBookHasContents\" and thinks they have some\n  influence over the response code. They don't \u2014 they just return\n  bool, the handler decides everything else.\n- An implementor reading the doc gets no guidance on what\n  \"has any ContactCards in it\" actually means: any card in any\n  account? cards in this specific account? cards owned by this\n  caller? cards visible to this caller? The doc skips all of that.\n- \"addressBookHasContents\" is a wire-format error name, not a contract\n  point the backend can influence. Putting it in the trait doc is\n  layer-violation.\n\nRECOMMENDED:\nRestate as a pure backend contract:\n\n    /// Return `true` if `address_book_id` (in `account_id`) currently\n    /// references one or more ContactCards.\n    ///\n    /// \"References\" is defined by `ContactCard.addressBookIds[id] =\n    /// true` per RFC 9610 \u00a73 (a JMAP addition over RFC 9553). Cards\n    /// referencing this address book in addition to others still\n    /// count.\n    ///\n    /// Called by `AddressBook/set` destroy processing; see the handler\n    /// docs for the full RFC 9610 \u00a72.3 destroy semantics. Backends\n    /// SHOULD NOT inspect `caller`'s permissions here \u2014 visibility\n    /// checks happen in `destroy_object`.\n\nP3 because the doc is not WRONG (the handler does call it, the\nhandler does emit addressBookHasContents on true); it just describes\nthe wrong layer. Pairs with JMAP-qz9v.27 (the underlying bool-vs-\nResult signature problem).",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.40",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactsBackend::address_book_has_contents doc mixes caller contract with handler-side flow \u2014 describes the wrong audience",
+  "updated_at": "2026-05-18T03:01:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:36:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "7e8097fd-04c3-5bb5-ac66-640a48378c51",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

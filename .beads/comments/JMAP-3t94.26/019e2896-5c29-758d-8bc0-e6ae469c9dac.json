@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T22:23:23Z",
+  "id": "019e2896-5c29-758d-8bc0-e6ae469c9dac",
+  "issue_id": "JMAP-3t94.26",
+  "text": "Canonical jmap-mail-server (crate-jmap-mail-server/src/memory.rs:111-115) has the same HashMap<(&'static str, String), V> shape. Fixing this in sharing-server alone would diverge from the canonical and from all 6 other extension-server siblings. Per workspace AGENTS.md 'Canonical Templates': change canonical first, then propagate.\n\nOut-of-scope-for-/do-beads JMAP-3t94 \u2014 needs a workspace-architectural decision and a sibling sweep, not a unilateral sharing-server change."
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-8kf.6",
+  "title": "upload_blob and download_blob ignore request_timeout",
+  "description": "ClientConfig.request_timeout is documented as applying to upload_blob and download_blob. fetch_session and call correctly apply .timeout(). blob.rs has no .timeout() call anywhere. Callers setting a timeout will discover it is silently ignored on blobs only after a production hang. Will generate a class of bug reports.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:21:35Z",
+  "updated_at": "2026-04-30T00:24:29Z",
+  "closed_at": "2026-04-30T00:24:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-8kf",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:21:34"
+    }
+  ]
+}

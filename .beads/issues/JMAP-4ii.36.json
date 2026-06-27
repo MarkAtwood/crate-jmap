@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:12:32Z",
+  "compaction_level": 0,
+  "content_hash": "9347185be843a72e3fd684b10b80e8d9cfa993866cbbe88c5eed0498362fa614",
+  "created_at": "2026-05-02T03:57:18Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src/identity.rs line 19, thread.rs line 20, vacation.rs line 31: use 'args[\"ids\"].take()' to extract and consume a field. All other handlers (mailbox.rs, submission.rs, email.rs, all chat-server handlers) use 'args.remove(\"ids\")' or 'args.get(\"ids\")'. The take() pattern on an index operator is non-idiomatic: Value::Index panics on non-objects (unlike get), and .take() leaves a null behind. args.remove(\"ids\") is the correct ownership-consuming idiom for Value::Object. This inconsistency creates different panic profiles across similar code paths.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "identity.rs handle_identity_get: args[\"ids\"].take() vs args.get pattern used elsewhere",
+  "updated_at": "2026-05-02T04:12:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:57:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "96e45405-426e-5549-b95f-8bc35f7ca1c3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

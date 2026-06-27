@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.35",
+  "title": "ClientError missing non_exhaustive",
+  "description": "ClientError is public with no #[non_exhaustive]. Adding any new variant is semver-breaking for downstream matchers. The exhaustive-match test in error.rs enforces this constraint intentionally but the tradeoff should be documented. Must be resolved before any 1.0 release.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:47:21Z",
+  "updated_at": "2026-04-30T00:52:21Z",
+  "closed_at": "2026-04-30T00:52:21Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:47:20"
+    }
+  ]
+}

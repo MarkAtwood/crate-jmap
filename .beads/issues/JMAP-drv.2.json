@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-drv.2",
+  "title": "AuthProvider::auth_header forces &'static str for header name \u2014 API lock-in",
+  "description": "fn auth_header(&self) -> Option<(&'static str, &str)> \u2014 the first element requires the header name be 'static. All three built-in implementations return the literal \"authorization\", which is static. But any custom AuthProvider that computes its header name (e.g. X-Api-Key, X-HMAC-Signature, or a per-request nonce prefix) must either use a string literal or Box::leak, both of which are unergonomic or wrong. The natural signature is fn auth_header(&self) -> Option<(&str, &str)> with both lifetimes tied to &self. The 'static constraint on the name provides no benefit \u2014 the built-in implementations would still compile. This will fossilize once external crates implement AuthProvider. Pre-1.0: change is breaking for any downstream implementor but the audience is small now.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:36:21Z",
+  "updated_at": "2026-04-30T16:41:33Z",
+  "closed_at": "2026-04-30T16:41:33Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-drv",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:36:20"
+    }
+  ]
+}

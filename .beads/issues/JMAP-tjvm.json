@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "compaction_level": 0,
+  "content_hash": "6d8715ac662f588e77f588abc77e5e4bbce3428d094fd1dd6b5f4223f1229443",
+  "created_at": "2026-05-15T01:38:19Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {
+    "dispatcher": "bd-review-loop",
+    "dispatcher_run": "bd-review-loop-20260518T031926Z-129507",
+    "final_failures": 0,
+    "final_iter": 1,
+    "final_verdict": "genuine_convergence",
+    "log_dir": "/home/mark/.local/state/bd-review-loop/crate-jmap/20260518T031926Z",
+    "model": "anthropic/claude-opus-4-7",
+    "scope": "crate-jmap-mail-client since 9c0d34f",
+    "variant": "max"
+  },
+  "no_history": 0,
+  "notes": "Maintainer risk: HIGH \u2014 two spec-correctness bugs ship today that produce silently wrong wire requests (fetchHTMLBodyValues capitalization at JMAP-tjvm.3 + wrong 'using' capability set at JMAP-tjvm.4), and the extras-policy implementation diverges from the documented policy in two directions (clobber at .1/.2, silent-drop at .7). Each of these would generate a user issue with no obvious symptom \u2014 server returns empty htmlBody, or rejects the method, or loses vendor extras, with no error from the client. Canonical-template propagation amplifies every finding 7x across sibling extension-client crates.\nConfidence: ~15% chance of missed bug.\nLeast confident flags:\n  - JMAP-tjvm.5 (queryChanges filter/sort) \u2014 confident the spec REQUIRES filter+sort for correctness, but uncertain whether any production server in the wild actually enforces it. Stalwart in particular is lenient. The bug is real per RFC 8620 \u00a75.6; the operational severity is server-dependent.\n  - JMAP-tjvm.6 (search_snippet thread_ids) \u2014 confident the spec does not define threadIds for SearchSnippet/get, less confident about whether to remove the parameter or keep it as a documented vendor extension. Filed as a P0 to force the conversation, but the resolution is a design call.\nUncertainty driven by:\n  - Did not exercise against a real JMAP server. All testing was wiremock + code reading + spec reading.\n  - Did not test what serde_json does when a #[serde(flatten)] map contains a key that conflicts with a named field. Per the rule against probing without filing a bead first, the EmailImportInput per-entry extras clobber is left as a hypothesis under JMAP-tjvm.1/.2 sibling pattern, not a confirmed bug.\n  - Did not audit jmap-base-client extract_response error handling, which sits downstream of every method here.\nWould raise confidence if:\n  - One round of real-server smoke (Stalwart in a container) confirming JMAP-tjvm.3 actually produces silent empty-htmlBody.\n  - A second reviewer pass focused on the EmailImportInput per-entry extras clobber question.\nAPI contract risk: MEDIUM \u2014 no single finding is a release blocker, but the cumulative shape of the API surface forces every caller into defensive boilerplate. The highest-value fixes are the typed filter/sort/create surface (JMAP-tjvm.18, .19, .20) and the missing #[non_exhaustive] on input params (JMAP-tjvm.16). Both are mechanical fixes that unlock safe spec-driven growth post-publish. The re-export coupling to jmap-types and jmap-base-client (JMAP-tjvm.17) is the single largest 1.0-stability hazard; the workspace's coordinated path-dep model masks it today but will bite hard at first publish. Documentation contract gaps (JMAP-tjvm.23, .26, .27, .28, .29) are low-individual-cost but high-aggregate-cost for callers writing production error-handling. The sealed-trait fix (JMAP-tjvm.31) is cheap now, expensive later.\nAPI contract confidence: ~25% chance of missed issue. Least confident flags:\n  - JMAP-tjvm.18 (untyped create) \u2014 confident the asymmetry exists, less confident about the right fix. The view-type design (EmailCreate omitting server-set fields) is non-trivial and may produce a worse API than the current Value escape hatch. Filing as P2 forces the conversation; resolution is a design call.\n  - JMAP-tjvm.19 (untyped filter/sort) \u2014 confident the typed filter/comparator types exist in jmap-mail-types and SHOULD be used. Less confident about whether the workspace's typed FilterCondition fully covers the spec's filter algebra including FilterOperator nesting. Did not exercise the typed-filter path against a real query.\n  - JMAP-tjvm.30 (search_snippet account_id override) \u2014 confident the inconsistency is real, less confident about the original intent. Possible the override was deliberate to support a future multi-account SessionClient design. Filed as P2 to force the discussion.\nUncertainty driven by:\n  - Did not exercise typed-filter construction against jmap-mail-types::EmailFilter. The recommendation to use it depends on that type's completeness; I read its existence but not its full surface.\n  - Did not audit the seven sibling extension-client crates to confirm propagation impact. Some findings here may apply unchanged; others may already have been addressed in the canonical-template propagation. The cookie-cutter rule means most apply.\n  - Did not test what jmap_base_client::JmapClient and Session's auto-trait inheritance actually surfaces today (Send + Sync assumed from common patterns; not verified).\nWould raise confidence if:\n  - One round of propagation impact audit across the six sibling extension-client crates (chat, calendars, tasks, contacts, filenode, sharing).\n  - Static assertion test added per JMAP-tjvm.25 to confirm Send + Sync today.\n  - Round-trip serialize/deserialize of a typed-filter construction against a real Stalwart server to verify the workspace's typed filter shape is wire-correct.\nbd-review-loop: iter=1 verdict=question_tool_invoked failures=1 history=; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=2 verdict=low_priority_only failures=0 history=iter=1 p012=1 total=2 opinion=0 fails=0; iter=2 p012=0 total=1 opinion=0 fails=0; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; ",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "in_progress",
+  "timeout_ns": 0,
+  "title": "Review: crate-jmap-mail-client since 9c0d34f",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

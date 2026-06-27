@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:55:12Z",
+  "compaction_level": 0,
+  "content_hash": "69461305f79b6d1a8a997410cb870407dde795cb9275b1a10e5765c4454eb8ca",
+  "created_at": "2026-05-02T04:48:16Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_email_import (line 1696-1699) uses args.get(\"emails\").and_then(|v| v.as_object()) (borrow) then .clone() on the resulting map reference. The function takes args: Value by ownership and could use args.remove(\"emails\") to take ownership of the map directly, avoiding the full Map clone. Same pattern as JMAP-4ii.68 (email_set update loop).",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.70",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "email_import: args.get(\"emails\") borrow forces Map clone",
+  "updated_at": "2026-05-02T04:55:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:48:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "4d1e9f78-945a-5e77-a85a-d4ed75636426",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

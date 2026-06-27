@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "c53b5cd5af0861753bfc734692c0a7137209e26a1de49211c0126dec06e78485",
+  "created_at": "2026-05-14T20:03:14Z",
+  "created_by": "Mark Atwood",
+  "description": "Location: crate-jmap-filenode-server/src/lib.rs:45-49 and 118; src/backend.rs:12 and 14-17.\n\n```rust\n// lib.rs\npub use backend::{\n    AddedItem, BackendChangesError, BackendSetError, ChangesResult, FileNodeBackend, GetObject,\n    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,\n    SetObject,\n};\n...\npub use jmap_filenode_types::JMAP_FILENODE_URI;\n...\npub use jmap_server::ClosureHandler;\n\n// backend.rs\npub use jmap_filenode_types::backend::FileNodeProperty;\n...\npub use jmap_server::{\n    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,\n    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,\n};\n```\n\nFifteen upstream types are re-exported from this crate's public surface.\nEvery one binds the upstream major version: if `jmap-server` cuts a\nSemVer-major to change e.g. `BackendSetError`, `jmap-filenode-server`'s\nown public surface breaks at the same boundary even if no FileNode\nbehaviour changed.\n\nTwo questions for the maintainer:\n\n1. **Are all of these actually used by consumers?** A consumer that\n   implements `FileNodeBackend` needs `JmapBackend`, `SetError`,\n   `SetErrorType`, `BackendSetError`, `BackendChangesError`,\n   `ChangesResult`, `QueryResult`, `QueryChangesResult`. They probably\n   also need `JmapObject`, `GetObject`, `QueryObject`, `SetObject`\n   as trait bounds. They do NOT need `AddedItem` \u2014 it is a wrapper\n   used internally by `QueryChangesResult`. They do NOT need\n   `ClosureHandler` \u2014 it is the concrete handler type that\n   `register_filenode_handlers` constructs internally. They do NOT\n   need `FileNodeProperty` \u2014 it is only referenced by the trait but\n   not by handler code.\n\n2. **Should the re-exports go through `jmap_filenode_server::types`\n   or similar namespace?** Top-level re-exports collide with the\n   crate's own types and force consumers to disambiguate. A\n   sub-module re-export (`jmap_filenode_server::backend::JmapBackend`)\n   keeps the namespacing explicit and signals \"this is an upstream\n   convenience\".\n\nThe lib.rs:118 `pub use jmap_server::ClosureHandler` is particularly\nsuspect \u2014 it is the concrete type built by the `reg!` macro inside\n`register_filenode_handlers`. No external consumer should need to\nname it. Either `#[doc(hidden)]` it or remove the re-export.\n\nSame propagation pattern across siblings (the canonical\njmap-mail-server has the same kind of top-level re-export shape).\nApply the fix to mail-server first per the canonical-template rule,\nthen propagate.\n\nThis is `api-contract,versioning` because every re-export increases\nthe public-surface area that must be maintained across upstream\nrevisions. Trim what consumers do not need; keep what they do.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Re-exports of upstream types lock jmap-server's major version into this crate's public surface",
+  "updated_at": "2026-05-15T10:58:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T13:03:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "bee321e0-3404-5475-bc6d-ea094f4d9868",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

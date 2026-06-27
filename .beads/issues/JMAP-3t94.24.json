@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:29:27Z",
+  "compaction_level": 0,
+  "content_hash": "7869e6d3aab07c80d7dd33b60f5297bfac07b9d0ea4294c6959b974c4bb5d3e6",
+  "created_at": "2026-05-14T22:00:47Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/lib.rs:71-90\n\n```rust\n/// Register all RFC 9670 JMAP Sharing method handlers with `dispatcher`.\n///\n/// `backend` is wrapped in [`Arc`] so it is cloned cheaply into each\n/// handler. Pass the same `Arc<B>` to both this function and any\n/// application-level code that needs to access the backend.\n///\n/// After this call, the dispatcher handles:\n/// `Principal/get`, `Principal/changes`, `Principal/set`,\n/// `Principal/query`, `Principal/queryChanges`,\n/// `ShareNotification/get`, `ShareNotification/changes`,\n/// `ShareNotification/set`, `ShareNotification/query`,\n/// `ShareNotification/queryChanges`.\n///\n/// The dispatcher's `CallerCtx` is taken from `B::CallerCtx`; every\n/// registered closure forwards it as `&ctx` into the wrapped `handle_*`\n/// function. Backends that use `type CallerCtx = ()` therefore see\n/// `&()` inside every handler.\npub fn register_sharing_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)\nwhere\n    B: SharingBackend + 'static,\n```\n\nThe doc covers what gets registered but not:\n\n1. **Re-registration on conflict.** If `dispatcher` already has a\n   handler for `Principal/get`, what happens? The behavior is\n   inherited from `jmap_server::Dispatcher::register` (likely a\n   silent HashMap overwrite, but the doc doesn't say). A caller who\n   wants to wire \\\"my custom Principal/get plus the default\n   everything else\\\" cannot tell whether they should register their\n   custom one before or after this call.\n\n2. **Idempotency.** Is calling `register_sharing_handlers` twice on\n   the same dispatcher safe? With two different `Arc<B>` values? The\n   doc doesn't say. If silent overwrite, the second call wins; if\n   panic-on-conflict, both calls are unsafe in sequence.\n\n3. **Capability advertisement.** The doc says \\\"After this call, the\n   dispatcher handles ...\\\" \u2014 but the dispatcher is just method-name\n   dispatch, not a JMAP Session capability advertiser. A caller who\n   reads this and assumes the JMAP Session response automatically\n   includes `urn:ietf:params:jmap:principals` will be wrong (per the\n   workspace's consumer-brings-everything posture documented in the\n   workspace AGENTS.md).\n\n4. **Ordering relative to capability check.** The handlers do not\n   inspect the `using` field \u2014 that validation is the\n   dispatcher/framework layer's responsibility. The canonical\n   mail-server's `register_mdn_handlers` (lib.rs:265-273) explicitly\n   spells this out (\\\"Callers MUST ensure `check_known_capabilities`\n   is called ...\\\"). Sharing-server has the same constraint but the\n   doc is silent.\n\nWhat goes wrong for callers when this stays as-is: a consumer\nwires `register_sharing_handlers` without also wiring capability\nvalidation, ships a deployment that accepts JMAP requests omitting\n`urn:ietf:params:jmap:principals` in the `using` array, and serves\nthose requests as if the capability were present. RFC 8620 \u00a73.3 is\nviolated silently.\n\nResolution: add a \\\"caller MUST also\\\" paragraph following the\n`register_mdn_handlers` precedent. Document overwrite vs error on\nre-registration (depends on upstream `Dispatcher::register`\ncontract).",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Expanded register_sharing_handlers rustdoc with (a) re-registration semantics (silent overwrite per Dispatcher::register HashMap shape, with override / try_register / double-call guidance), and (b) explicit note that this function does NOT advertise urn:ietf:params:jmap:principals in any Session capability response \u2014 that's the consumer's responsibility per workspace 'consumer-brings-everything' posture.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "register_sharing_handlers \u2014 re-registration semantics undocumented; silent overwrite on conflict",
+  "updated_at": "2026-05-14T22:29:27Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T15:00:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "1e234163-e659-59e1-8167-57447efcd352",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

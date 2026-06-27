@@ -1,0 +1,33 @@
+{
+  "close_reason": "Duplicate of JMAP-ayoz.36 (the workspace-wide tracker for the silent auto-register-via-objects_mut footgun, identified by the same memory at bd prime). Per the canonical-template propagation rule, the fix lands in jmap-mail-server first and then propagates to calendars-server (and the other 5 siblings) in the same pass. Tracking through JMAP-ayoz.36 avoids the per-crate duplicate.",
+  "closed_at": "2026-05-15T17:56:03Z",
+  "compaction_level": 0,
+  "content_hash": "a357c302c7b8155699b994adc391cc2eadf632bb71cda4892ac2324149104322",
+  "created_at": "2026-05-15T16:59:07Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:670 (and 277 in seed_object, 163 in objects_mut, 188 in aux_mut) \u2014 every write path silently does:\n\n  inner.known_accounts.insert(account_id.as_ref().to_owned());\n\nThe comment at line 666-669 calls out the intent: 'silently auto-register so seed_object + create flow without explicit register_account calls in tests does not error spuriously'.\n\nTwo problems:\n\n1. The handler at calendar.rs:65-71 (and every other /set handler) calls backend.account_exists() FIRST and short-circuits to accountNotFound if it returns false. The MemoryBackend's account_exists at memory.rs:393-396 reads known_accounts. So if a test creates a MemoryBackend WITHOUT with_account() or register_account(), then directly calls backend.create_object(), the create proceeds \u2014 but if it had gone through the dispatcher, accountNotFound would have fired. The two code paths behave inconsistently. The 'silent auto-register' on the backend method makes the backend more permissive than the handler.\n\n2. Production-grade backends MUST NOT auto-register accounts on write \u2014 that is a security boundary issue (a request that bypasses the handler's account_exists check would create accounts the operator never authorized). A consumer who reads MemoryBackend as a study example and copies the 'auto-register inside create_object' pattern into a SQL backend has introduced a subtle privilege bug.\n\nThe fix is to NOT auto-register inside the backend write methods, and require tests to call with_account() or register_account() explicitly. The 'spurious test failure' the comment alludes to is a feature, not a bug \u2014 it ensures the test fixture matches what the handler will check.\n\nMake the test ergonomics nicer instead: add a 'MemoryBackend::new_with_account_and_seeds([(type, id, value)])' helper or similar.\n\nP2. Real maintenance burden if this pattern propagates to other backends.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend in-band auto-register of accounts on first write masks accountNotFound contract",
+  "updated_at": "2026-05-15T17:56:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T09:59:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "ae3567f6-a82c-5443-907a-95c497c1fa5e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

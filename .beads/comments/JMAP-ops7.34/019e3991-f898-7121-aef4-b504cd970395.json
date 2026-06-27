@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T05:32:08Z",
+  "id": "019e3991-f898-7121-aef4-b504cd970395",
+  "issue_id": "JMAP-ops7.34",
+  "text": "Related to canonical-template-propagation work; cross-references workspace policy bd:JMAP-sgrr.27. The jscalendar constructors are the workspace's largest remaining outlier against that policy."
+}

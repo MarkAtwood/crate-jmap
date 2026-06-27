@@ -1,0 +1,33 @@
+{
+  "close_reason": "Won't fix. On closer reading, the call is NOT 'pure overhead'. The crate ships an integration test at tests/integration.rs:797 (chat_typing_consults_is_contact_blocked_on_direct_chat) that uses TrackingBackend to assert the kit invokes is_contact_blocked on the direct-chat path. The kit's design intent \u2014 documented at chat.rs:573-584 \u2014 is that a production backend's is_contact_blocked impl observes the call for telemetry/audit, even though the kit's own typing handler does not gate fan-out on it (fan-out is the consumer's transport layer's responsibility). Removing the call would break the integration contract that the test fixture encodes. The bead's 'remove it' option would require deleting the integration test, which violates the workspace's test-integrity rule. The alternative 'actually gate on it' option requires a consumer contract that the JMAP Chat draft does not currently specify. The current shape is a deliberate observability hook with a load-bearing test fixture, not an awkward dead path.",
+  "closed_at": "2026-05-17T04:31:09Z",
+  "compaction_level": 0,
+  "content_hash": "266c26145327c2e21c0370eb89eabb46ec8e4b70981f4e84fdd77cac3c28196b",
+  "created_at": "2026-05-14T03:15:33Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/chat.rs:605-628 (handle_chat_typing direct-chat branch).\n\nCurrent code fetches the chat, identifies the contact_id, calls backend.is_contact_blocked, and assigns the result to let _blocked = ... \u2014 then discards it. The handler returns success regardless.\n\nThe doc comment at the call site (lines 621-625) explains the intent: 'Result intentionally observed but not gated on here \u2014 see the doc-comment on this function. A consumer transport layer reads is_contact_blocked itself and suppresses accordingly.'\n\nThe 'hook' framing doesn't survive scrutiny: a consumer's transport layer that wants to consult is_contact_blocked already has all the necessary inputs (caller, account_id, contact_id) and is consulting its OWN backend instance \u2014 not the kit's. The kit's call is pure overhead. Worse, it changes observability shape: production logging will record a backend call that does nothing.\n\nTwo acceptable fixes:\n(1) Remove the call entirely. Update the doc-comment to say 'consumers' transport layers consult ChatBackend::is_contact_blocked directly'. No behavior change for any current consumer.\n(2) Actually gate on it. If blocked, return a success response that the kit knows means 'do not fan out' \u2014 perhaps an in-band marker in the response Value. This requires a consumer contract.\n\n(1) is straightforward and matches the 'kit defines the hook' doc-comment posture. The current shape is awkward without being useful.\n\nSuggested rewrite (option 1):\n    // handle_chat_typing returns success; transport-layer fan-out\n    // consults ChatBackend::is_contact_blocked per-recipient.\n    Ok((json!({\"accountId\": account_id.as_ref()}), vec![]))\n\nThe pre-fetch of Chat to learn the direct contact_id (line 605-628) can also go.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat.rs:617-620 calls is_contact_blocked, discards result with let _blocked \u2014 pure overhead masquerading as a 'hook'",
+  "updated_at": "2026-05-17T04:31:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:15:32Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "1c72d150-8d8c-5d8f-a8fa-e960f27f0fc5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

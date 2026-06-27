@@ -1,0 +1,33 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T02:38:04Z",
+  "compaction_level": 0,
+  "content_hash": "bbdce624d98e08ccc81a24d367472ad961d2cdc161a1cda6c4f4b91a0930349e",
+  "created_at": "2026-05-11T00:05:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Every *-server crate has the same helpers.rs comment about consolidating arguments into a builder struct, marked as a 'natural follow-up but would break public API'.\n\nSites (all the same boilerplate, all not bead-tracked):\n- crate-jmap-mail-server/src/helpers.rs:151\n- crate-jmap-chat-server/src/helpers.rs:35\n- crate-jmap-calendars-server/src/helpers.rs:32\n- crate-jmap-contacts-server/src/helpers.rs:40\n- crate-jmap-tasks-server/src/helpers.rs:32\n- crate-jmap-filenode-server/src/helpers.rs:37\n- crate-jmap-sharing-server/src/helpers.rs:41\n\nCanonical template is jmap-mail-server per workspace AGENTS.md. Lock the shape there first, propagate the change to all six siblings in the same pass per the cookie-cutter rule.\n\nChildren: 1 per crate, with mail-server first as canonical.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "EPIC: *-server helpers.rs builder-struct refactor (7 sites, canonical pattern)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:05:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu",
+      "id": "14d2950c-c2ef-5a4f-a1e6-5269640be308",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

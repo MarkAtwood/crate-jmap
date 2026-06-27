@@ -1,0 +1,33 @@
+{
+  "close_reason": "Design-validated: review confirmed the existing shape is correct. No code change required. Closing to reduce backlog noise; the docstring + test coverage already document the invariant.",
+  "closed_at": "2026-05-09T07:25:34Z",
+  "compaction_level": 0,
+  "content_hash": "69bd995d7d293a28f9999e338585b3ebb850709a81e7dc6bf1941ff9ddf2fb9d",
+  "created_at": "2026-05-08T03:07:28Z",
+  "created_by": "Mark Atwood",
+  "description": "src/client.rs:419-525 + src/client.rs:592-621 \u2014 the SSE state machine decodes UTF-8 incrementally because reqwest's bytes_stream() emits HTTP chunks at network-layer boundaries that can split a multi-byte UTF-8 codepoint. A naive .map(|b| String::from_utf8_lossy(&b)) would corrupt every multibyte char straddling a chunk boundary into a U+FFFD replacement. The raw_buf retain-incomplete-head + valid_up_to drain is the correct shape. The 3-byte scan_from overlap is calibrated to the longest delimiter prefix that can be incomplete. Test coverage at src/client.rs:712-748 documents the exact scenarios. Defend this against any 'just decode each chunk with from_utf8_lossy' suggestion.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SSE raw_buf + decode_utf8_chunk split-sequence handling is necessary, not optional",
+  "updated_at": "2026-05-09T07:25:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:07:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "47a20f2f-57c0-5beb-8ce6-ba7a8eb2f483",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

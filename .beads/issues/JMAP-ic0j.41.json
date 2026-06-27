@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "cc84a33592aa940a5927058c18ff9388add9fc6396c33bf281ed40bb5ea1b071",
+  "created_at": "2026-05-15T17:22:26Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs uses HashMap<(&'static str, String), V> for its three primary stores (objects at line 130, states at line 132, change_log at line 134). Every read calls .to_owned() on the &str account_id to construct the lookup key:\n\n  fn current_state(&self, type_name: &'static str, account_id: &str) -> u64 {\n      *self\n          .states\n          .get(&(type_name, account_id.to_owned()))   // <-- alloc on every read\n          .unwrap_or(&0)\n  }\n\nThis pattern fires on every JmapBackend read method (account_exists, get_objects, get_state, get_changes, query_objects, query_changes) \u2014 each call path eventually calls one of current_state(), objects_ref(), or change_log accessors and pays a String allocation per call. The (type_name, account_id.to_owned()) tuple is dropped immediately after lookup.\n\nThis is workspace-wide: the canonical jmap-mail-server has the same pattern at the same lines (memory.rs:137, :144, :157, :166, :213, etc.). Per workspace AGENTS.md, fix the canonical first, propagate to all 7 extension-server siblings.\n\nThree idiomatic fixes available:\n(a) Use a nested HashMap: HashMap<&'static str, HashMap<String, V>>. Lookups: self.objects.get(type_name).and_then(|m| m.get(account_id)). No tuple-key allocation. Costs one extra hash op per lookup but each hash is over a short &str.\n(b) Use HashMap<(&'static str, &str), V> via a custom Borrow impl on a (&'static str, &str) wrapper. Stdlib doesn't give you Borrow<(&str, &str)> on (&str, String) tuples directly, so this needs a newtype.\n(c) Cow<'static, str> for the second field, but you still pay allocation on the cold path.\n\nOption (a) is the cleanest. It also makes the per-type indexing structure explicit (matching how the chat-server canonical describes 'multi-type-store' \u2014 see memory.rs:52-53).\n\nThis is a Rust-idiom concern (the .to_owned() at every key-read is unidiomatic for a hot path) and a minor performance concern (every state read does a heap allocation). For the reference impl's role as a 'documented example for backend implementors', the current shape teaches the wrong pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.41",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "MemoryBackend tuple-keyed HashMap allocates a String on every read",
+  "updated_at": "2026-05-15T18:38:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:22:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "a2befec3-4cdb-5fe1-8b53-3740e0285127",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

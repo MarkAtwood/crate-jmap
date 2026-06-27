@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T08:49:14Z",
+  "id": "019e2ad3-55bf-7de7-a785-4abada4102e8",
+  "issue_id": "JMAP-826m.48",
+  "text": "Re-classifying as 'won't fix here' per workspace canonical-template propagation rule. The Mutex .unwrap() pattern is workspace-wide:\n\n- jmap-mail-server (CANONICAL): 31 sites in src/memory.rs, no documented policy.\n- jmap-metadata-server: 23 sites (this bead's scope).\n- 6 other extension-server siblings: unaudited but expected to share the pattern.\n\nPer workspace AGENTS.md 'Canonical Templates': 'If you reshape this crate in a way that diverges from jmap-mail-server, change jmap-mail-server first, then propagate to every other extension-server sibling in the same pass.' A metadata-server-only fix would create a divergence; documenting a panic policy only here while the canonical and 6 siblings keep bare .unwrap() is exactly the cookie-cutter regression the rule guards against.\n\nFiled canonical-first sweep epic: JMAP-pk88 (jmap-mail-server canonical + 7 sibling propagation). Closing this sibling-scoped bead in favor of that one."
+}

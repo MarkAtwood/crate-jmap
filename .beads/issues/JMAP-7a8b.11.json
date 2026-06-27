@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decision recorded: CRLF validation on all fields including server-set ones is intentional header-injection defense",
+  "closed_at": "2026-05-03T13:08:16Z",
+  "compaction_level": 0,
+  "content_hash": "ca73607941fcbdff7b05ebce5f1da83e7ae9a25ac5d6b3b84d4afe2256cc01dc",
+  "created_at": "2026-05-03T13:00:57Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_mdn_send step 4 validates CRLF-cleanliness on ALL Mdn string fields before passing to the backend, including fields the spec marks as server-set (mdn_gateway, original_message_id, etc.) because the Mdn struct is shared between send and parse and a client can supply those fields. The comment explains this explicitly. A future contributor might suggest removing validation for server-set fields \u2014 don't. The validation is defense-in-depth against header injection in any RFC 5322 generator the backend might use.",
+  "ephemeral": 0,
+  "id": "JMAP-7a8b.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CRLF injection defense: all client-controlled Mdn fields checked before reaching backend",
+  "updated_at": "2026-05-03T13:08:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:00:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7a8b",
+      "id": "dd5f49bb-2d24-58ca-bfec-35d19a5145ff",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

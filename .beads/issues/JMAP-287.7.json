@@ -1,0 +1,33 @@
+{
+  "close_reason": "positive observation or resolved, no action needed",
+  "closed_at": "2026-05-02T07:05:18Z",
+  "compaction_level": 0,
+  "content_hash": "9de5de39792cfd11b7d50b90d9f81f7847b42ceb76847131026be26c20b182a6",
+  "created_at": "2026-05-02T05:36:31Z",
+  "created_by": "Mark Atwood",
+  "description": "find_immutable_patch_key builds the immutable-fields HashSet once via OnceLock::get_or_init and reuses it on every call (O(1) lookup per key). The subsequent linear scan over IMMUTABLE_EMAIL_FIELDS is only for returning a &'static str canonical name, which is done at most once per violation. A future contributor might simplify to a linear scan for all lookups (O(n) per key); for 23 fields this is fine in practice but the OnceLock pattern is correct and worth preserving for correctness-by-construction.",
+  "ephemeral": 0,
+  "id": "JMAP-287.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_immutable_patch_key uses OnceLock<HashSet> for O(1) per-call lookup",
+  "updated_at": "2026-05-02T07:05:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T22:36:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-287",
+      "id": "27c377f2-5141-5e17-95f5-6564e90462b8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

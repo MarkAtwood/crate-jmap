@@ -1,0 +1,33 @@
+{
+  "close_reason": "SEED CONTRACT comment corrected: future assertion must check for Trash ID, not absence of inbox",
+  "closed_at": "2026-05-02T22:12:51Z",
+  "compaction_level": 0,
+  "content_hash": "3849c8926313fc67159fbe771ba7ac12813a155b06413f2430fa467084944803",
+  "created_at": "2026-05-02T22:06:37Z",
+  "created_by": "Mark Atwood",
+  "description": "The SEED CONTRACT comment says: 'assert ids does not contain the inbox ID (verifying role filtering is specific), rather than asserting empty.' If setup_seed_data adds a Trash mailbox, the correct assertion is that ids contains exactly the Trash mailbox ID, NOT merely that it does not contain the inbox ID. The suggested assertion would pass even if role filtering were completely broken and returned every mailbox. A future contributor following this comment would write a test that passes whether or not the implementation is correct.",
+  "ephemeral": 0,
+  "id": "JMAP-nkib.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SEED CONTRACT comment: suggested future assertion is logically wrong",
+  "updated_at": "2026-05-02T22:12:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T15:06:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-nkib",
+      "id": "5e3dffe5-319c-5220-9c90-e5f855540137",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

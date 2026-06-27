@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T16:20:28Z",
+  "compaction_level": 0,
+  "content_hash": "00e95938a4eca6080a37fe873b281641909d7ec28dbbb3d09257f3aec82836f4",
+  "created_at": "2026-05-15T05:35:02Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-types/src/methods.rs:193-196 (commit 9c66783) reads: \\\"Uses serde_json::Map (which preserves insertion order) rather than HashMap to match the workspace extras-preservation policy and to give callers deterministic serialized output.\\\" This is FACTUALLY WRONG. `serde_json::Map` is backed by BTreeMap unless the `preserve_order` feature is enabled (it is NOT in this workspace; verified with `cargo tree -e features | grep preserve_order` \u2014 no match). BTreeMap iterates in SORTED order, not insertion order. The serialized JSON output IS deterministic \u2014 but it is deterministic by lexicographic sort, not by insertion. Trigger: any contributor reading this doc and writing code that relies on insertion-order semantics (e.g. \\\"the first error I added is rendered first\\\"). Bad behavior: the rustdoc lies, leading to wrong contributor mental model and to bugs in tests that assume insertion order. Fix: change \\\"preserves insertion order\\\" to \\\"deterministically serializes in lexicographic key order under the workspace's default serde_json features (no preserve_order feature enabled)\\\". The \\\"deterministic serialized output\\\" half of the claim IS correct and should remain. Same false claim is the implicit justification for the HashMap \u2192 Map migration in the workspace extras policy text (workspace AGENTS.md line ~370). Audit and correct everywhere.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetError.extra doc-comment falsely claims Map preserves insertion order",
+  "updated_at": "2026-05-17T16:20:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:35:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "fb1b633f-696d-5bc6-b58a-41ff955bf549",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:38:06Z",
+  "compaction_level": 0,
+  "content_hash": "019d93c0f18bfbe90ac2db9e64c7f3a66889e98cd56196ddf0fea03735576111",
+  "created_at": "2026-05-04T19:33:31Z",
+  "created_by": "Mark Atwood",
+  "description": "Round 1 fix R3 (vacation_response_script_id trait method + forbidden checks in destroy/update) was overwritten by the parallel R1/R2/R4-R9 rewrite. Need to re-add: vacation_response_script_id default method on SieveBackend trait, plus forbidden checks in destroy loop and blobId update path of handle_sieve_set.",
+  "ephemeral": 0,
+  "id": "JMAP-l4mj.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve_set: VR-backed script protection was lost in merge",
+  "updated_at": "2026-05-04T19:38:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T12:33:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-l4mj",
+      "id": "840c4621-a2f6-5631-961b-4780a52f61ed",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

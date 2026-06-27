@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "MemoryBackend::query_changes now applies filter/sort/collapse_threads, upToId, maxChanges; added 3 conformance tests",
+  "closed_at": "2026-05-02T20:17:17Z",
+  "compaction_level": 0,
+  "content_hash": "f8f2262f74beca17d03fff0a8738d75424d151217d7d54c0741f89dcb835cf6f",
+  "created_at": "2026-05-02T19:23:21Z",
+  "created_by": "Mark Atwood",
+  "description": "query_changes currently ignores filter, sort, up_to_id, max_changes, and collapse_threads. Tests for Email/queryChanges with these arguments silently test unfiltered results, giving false confidence. The parameters need to be implemented in the test backend for the conformance tests to be meaningful. Source: JMAP-bx3z.25 review finding.",
+  "ephemeral": 0,
+  "id": "JMAP-yecd.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::query_changes: implement filter/sort/upToId/maxChanges/collapseThreads",
+  "updated_at": "2026-05-02T20:17:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:23:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yecd",
+      "id": "6b935c91-e248-59e4-a162-c62e6033dbc6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

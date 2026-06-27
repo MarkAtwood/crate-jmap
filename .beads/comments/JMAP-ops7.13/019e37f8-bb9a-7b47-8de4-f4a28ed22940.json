@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T22:05:08Z",
+  "id": "019e37f8-bb9a-7b47-8de4-f4a28ed22940",
+  "issue_id": "JMAP-ops7.13",
+  "text": "Fix spans many crates (per Cargo.toml changes in tasks-client, sharing-client, calendars-server, contacts-server, filenode-server, sharing-server, metadata-server). /do-beads must verify with cargo check --workspace."
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a6146067124817ade06537d6151aeaadf0329a49dd4af13f45ded99957356b44",
+  "created_at": "2026-05-16T02:21:00Z",
+  "created_by": "Mark Atwood",
+  "description": "Surfaced from bd:JMAP-mno4.12 (review of crate-jmap-jscalendar-types). All workspace type crates currently use std::collections::HashMap<K, V> on public wire types (jmap-types, jmap-mail-types, jmap-chat-types, jmap-jscalendar-types, jmap-jscontact-types). serde_json's Serialize for HashMap iterates in RandomState order \u2192 byte output of any struct containing a HashMap with \u22652 entries is non-deterministic.\n\nThis is a workspace-wide question, not a per-crate question. Possible workspace answers:\n\n1. **Keep HashMap** (status quo). Document the non-determinism as a known property; consumers who need byte-stable output normalize externally. Lowest-blast-radius, but the determinism gap stays.\n\n2. **Switch all to BTreeMap**. Deterministic lexicographic order. Adds Ord bound on key types (most are String which already has Ord; LocalDateTime/Id would need PartialOrd+Ord derive \u2014 non-breaking additions). Breaking the field-type contract but workspace is pre-1.0 and all relevant structs are #[non_exhaustive].\n\n3. **Switch all to indexmap::IndexMap**. Insertion-order preserved. Requires adding indexmap dep \u2014 currently forbidden by the per-crate AGENTS.md restrictions (jscalendar-types limits deps to jmap-types/serde/serde_json). Would need workspace-policy revision.\n\nRecommendation: option 2 (BTreeMap). Reasons: (a) determinism is the workspace default per RustCrypto-stance and reproducible-build concerns; (b) the canonical-template consistency rule means doing it crate-by-crate is wrong, the sweep should land workspace-wide in one pass; (c) key types in scope are all String or simple newtypes-around-String, so the Ord bound is free; (d) #[non_exhaustive] + pre-1.0 means the API-break is acceptable; (e) avoids adding indexmap dep across 7+ crates.\n\nScope-of-sweep: would cover jmap-types::wire, jmap-types::methods, jmap-mail-types::email/mdn/submission, jmap-chat-types::message, jmap-jscalendar-types (this crate), jmap-jscontact-types if any. Per-crate child beads under this epic.\n\nTest discipline: each crate adds a deterministic-serialization test (\u22652-entry map serializes to lexicographically-sorted JSON).\n\nFiling as 'human' because workspace-architectural posture decisions require human judgment per workspace AGENTS.md \u2014 see 'When NOT to file human' policy, this does NOT fall into any of the four anti-patterns: not frontier-cycling, not deferred+human, no stale committed recommendation, work has not been done. The recommendation above is provided so the human can ratify quickly if they agree.",
+  "ephemeral": 0,
+  "id": "JMAP-o7v4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace-architectural: HashMap vs BTreeMap on JMAP wire types",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

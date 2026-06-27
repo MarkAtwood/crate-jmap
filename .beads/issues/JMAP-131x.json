@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "all steps complete",
+  "closed_at": "2026-05-05T04:22:31Z",
+  "compaction_level": 0,
+  "content_hash": "fe4bcbb0e495b6e9846c8849c8b5d70dd518ee431b84773d15a5461cb4ded4d8",
+  "created_at": "2026-05-05T00:47:48Z",
+  "created_by": "Mark Atwood",
+  "description": "Implement draft-ietf-jmap-tasks-06 method handlers. Defines TasksBackend trait. Registers 14 methods across TaskList, Task, TaskNotification. Notable: onDestroyRemoveTasks cascade, TaskNotification/set is destroy-only, utcStart/utcDue computed on fetch (not stored), isDraft immutability enforcement (once false, cannot be set true), per-user properties in shared TaskLists, copy_task backend method. Entry point: register_tasks_handlers. Spec: draft-ietf-jmap-tasks-06. Pattern: jmap-mail-server. Blocked by: jmap-tasks-types epic.",
+  "ephemeral": 0,
+  "id": "JMAP-131x",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-tasks-server: JMAP Tasks method handlers",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T17:48:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-d8e7",
+      "id": "fda0be8f-22c6-5d17-a098-bb113221f11d",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

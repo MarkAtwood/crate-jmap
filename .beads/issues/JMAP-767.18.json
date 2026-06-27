@@ -1,0 +1,34 @@
+{
+  "close_reason": "Non-finding after closer inspection",
+  "closed_at": "2026-05-01T11:50:32Z",
+  "compaction_level": 0,
+  "content_hash": "29509088099a4f92f4940d8679100b6cfa830674ca1281d9b14e37ccc8875ff4",
+  "created_at": "2026-05-01T11:50:32Z",
+  "created_by": "Mark Atwood",
+  "description": "backend.rs MailBackend trait signatures are well-typed (&Id, &State, &str) \u2014 no gratuitous owned parameters found. This is a non-finding. Placeholder filed during idiom sweep; can be closed immediately.",
+  "ephemeral": 0,
+  "id": "JMAP-767.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Non-finding; close on triage",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "create_id param in create_object takes &str correctly; query_changes State takes &State \u2014 consistent, no issue",
+  "updated_at": "2026-05-01T11:50:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:50:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "58bcaaea-158b-5746-81df-bcb38d1105d6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

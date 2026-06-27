@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T17:11:10Z",
+  "id": "019e36eb-95e0-7d4a-b8a5-be73d55d9494",
+  "issue_id": "JMAP-ic0j.10",
+  "text": "Fixed. Introduced PLACEHOLDER_ID const in src/helpers.rs (pub(crate), mirroring the canonical jmap-mail-server::helpers::PLACEHOLDER_ID at crate-jmap-mail-server/src/helpers.rs:39). Updated all three call sites (calendar.rs, event.rs, participant_identity.rs) to use the const instead of the literal 'placeholder' string. Adding a fourth createable type now triggers an obvious 'add a new use' rather than a fresh literal-duplication. Rustdoc on the const cites the relevant draft section and the canonical sibling. Did NOT pursue option (b) (the heavier 'CreatedCalendar with Option<Id>' refactor) \u2014 that requires changes to jmap-calendars-types which is out of scope for the calendars-server review epic and would also need to propagate through every server sibling. Did NOT add a read-side placeholder-detection in memory.rs \u2014 calendars-server's MemoryBackend overwrites the id at create-time unconditionally, so the canonical mail-server's detection-then-replace pattern is not applicable here. Verified: cargo fmt clean, clippy --all-features --all-targets -D warnings clean, 120+13+1 tests passed."
+}

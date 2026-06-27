@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0ke",
+  "title": "jmap-client: port error.rs and auth.rs",
+  "description": "Port ClientError and all auth providers from crate-jmapchat-client into crate-jmap-client/src/error.rs and src/auth.rs. These are prerequisites for every other module in this crate. NOTE: this is NOT a verbatim copy \u2014 one variant must be removed and a doc comment updated.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-29T23:30:47Z",
+  "updated_at": "2026-04-29T23:57:46Z",
+  "closed_at": "2026-04-29T23:57:46Z",
+  "design": "Copy src/auth.rs verbatim \u2014 AuthProvider trait, BearerAuth, BasicAuth, NoneAuth, CustomCaTransport, DefaultTransport, TransportConfig have no Chat-specific types. Update crate name in doc comments. For src/error.rs: copy ClientError but REMOVE the ClientError::RateLimited variant \u2014 it is Chat-specific (rate limiting is handled by the Chat server, not the base JMAP client). Confirm no other Chat-specific variants exist before copying.",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3g1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:36"
+    }
+  ]
+}

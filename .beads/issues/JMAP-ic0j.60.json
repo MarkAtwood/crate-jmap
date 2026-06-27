@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added pub fn new(new_default, previous_default) -> Self mirroring CalendarEventParseResult::new. Purely additive; existing callers continue to work via Default impl + field assignment. Construction-pattern asymmetry within the same file resolved.",
+  "closed_at": "2026-05-16T01:35:30Z",
+  "compaction_level": 0,
+  "content_hash": "8bcfb26bb40e87bac09a642c0f8dbefca3a3cd0bce6841c9cf81e0bf69d45099",
+  "created_at": "2026-05-15T18:08:22Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-calendars-server/src/backend.rs:618-630 defines `#[non_exhaustive] pub struct SetDefaultResult` with two `pub` fields and a `Default` impl. It has no `SetDefaultResult::new(new_default, previous_default)` constructor.\n\nCompare the same file: `ParseResult` at :590-606 has an explicit `pub fn new(parsed, not_found, not_parsable)` constructor and the doc-comment at :590-594 cites the rationale: \"Required because the struct is #[non_exhaustive] \u2014 external crates cannot use struct-literal syntax.\"\n\nThat rationale applies identically to SetDefaultResult: it's `#[non_exhaustive]`, and external backend implementors cannot use struct-literal syntax. They must use `SetDefaultResult::default()` and then assign individual fields (or wait for `..Default::default()` FRU which is forbidden on foreign `#[non_exhaustive]` structs).\n\nThe in-crate test_support MockBackend uses struct-literal at lib.rs:828 and :857 \u2014 which compiles because it's in-crate, but is exactly the pattern the `#[non_exhaustive]` is supposed to prevent shipping. External consumers do not have this option.\n\nWhat callers cannot rely on:\n- A clear single way to construct a fresh SetDefaultResult with both fields set. (Default::default() then mutate, or some-future-new(), or struct-literal-if-they're-in-crate.)\n- That the two sibling result types follow the same construction pattern.\n\nFix: add `pub fn new(new_default: Option<Id>, previous_default: Option<Id>) -> Self` mirroring ParseResult::new at :595-605. This is purely additive (no SemVer impact).",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.60",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetDefaultResult missing new() constructor; asymmetric with ParseResult::new in same file",
+  "updated_at": "2026-05-16T01:35:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T11:08:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "3099b00a-19e5-5423-8cf6-00fef6ad6716",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

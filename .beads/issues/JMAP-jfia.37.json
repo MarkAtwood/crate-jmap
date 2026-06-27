@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Resolved by replacing the doc-only deprecation with permanent-legacy-alias framing. Type-level #[deprecated] is impossible (Rust can't deprecate a single discriminator value of an enum variant), and removing the alias at any future major bump would silently break backends still emitting TooManyChanges{limit:0} \u2014 their returns would stop mapping to cannotCalculateChanges and start producing a malformed RFC 8620 \u00a75.6 tooManyChanges{limit:0}. The honest contract is 'preserved permanently'. Updated jmap-server backend.rs (variant doc, type doc, Display impl comment, From impl comment, limit field doc, two test docs) plus the two sibling-crate copies of the same language (jmap-metadata-server/memory.rs, jmap-sharing-server/principal.rs). Match arms in extensions SHOULD treat TooManyChanges{limit:0} and CannotCalculate as a single 'full-resync required' case. Commit 7fef1d2.",
+  "closed_at": "2026-05-15T07:24:59Z",
+  "compaction_level": 0,
+  "content_hash": "160e941e2db57ea0f7f92f1be4d841c320ccccbb8bc0041bfda84bc94429c583",
+  "created_at": "2026-05-14T17:36:36Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/backend.rs:610 says:\n\n> **Deprecated sub-case (bd:JMAP-jfia.31)**: a `limit` of `0`\n> historically meant 'full state reset required' and is\n> preserved as an alias for the new [`Self::CannotCalculate`]\n> variant. New code SHOULD use `CannotCalculate` directly; the\n> alias may be removed at the next major-version bump.\n\nThe documentation promises a deprecation path. But:\n\n1. The `TooManyChanges` variant itself cannot be marked #[deprecated] \u2014 that would also deprecate non-zero `limit` values, which are the canonical path.\n\n2. The magic-zero sub-case cannot be marked #[deprecated] at the type level because enum-variant pattern shapes don't support discriminator-conditional deprecation in Rust.\n\n3. There is NO runtime warning, NO clippy lint, NO log emission when a backend returns TooManyChanges { limit: 0 }. The only signal to a downstream consumer is the docstring \u2014 which they may never read.\n\n4. The 'may be removed at the next major-version bump' commitment in the doc is incompatible with the workspace's actual versioning posture. The crate is pre-1.0; major bumps are cheap. But every *-server extension that pattern-matches on TooManyChanges (e.g. for logging, for retry decisions) must include the magic-zero discriminator or its match becomes wrong:\n\n     match e {\n         BackendChangesError::TooManyChanges { limit } if limit > 0 => /* retry path */,\n         BackendChangesError::TooManyChanges { limit: 0 } => /* full-resync path */,\n         BackendChangesError::CannotCalculate => /* full-resync path */,\n         ...\n     }\n\n   That's the burden \u2014 every consumer carries two arms for one logical case.\n\n5. When the variant is removed at the major bump, callers that ONLY emitted CannotCalculate are forward-compatible. But callers using the canonical 'sometimes I emit zero to mean cannotCalculate' shape (kith and stoa both predate this refactor) will silently change behaviour. Their TooManyChanges { limit: 0 } returns will become well-typed but stop mapping to cannotCalculateChanges \u2014 they'll map to tooManyChanges with limit 0 on the wire, which is a malformed RFC 8620 \u00a75.6 response.\n\nMitigations the doc could promise but doesn't:\n\n(a) Add a `legacy_cannot_calculate()` constructor on BackendChangesError that returns CannotCalculate but is marked #[deprecated] \u2014 gives migration callers a deprecation warning at the construction site rather than at the match site.\n\n(b) Add a #[doc(hidden)] feature flag `legacy-cannot-calculate-zero` that, when off, converts the magic-zero alias into a hard error at the From impl (production should run with this off; only the existing-consumer migration window should turn it on).\n\n(c) Add a compile-time helper `BackendChangesError::cannot_calculate()` that wraps the canonical variant; document that any code constructing `TooManyChanges { limit: 0 }` directly is using the legacy shape.\n\nThe current shape: 'doc says deprecated, but every match arm in every extension still has to support it' is the worst of both worlds.\n\nFiled P2 under api-contract,versioning because the deprecation path is doc-only and the wire-format risk on removal is real.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BackendChangesError::TooManyChanges { limit: 0 } documented as deprecated alias but not marked #[deprecated]",
+  "updated_at": "2026-05-15T07:24:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:36:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "5b32feaa-55eb-5412-a58a-346dc5ac9d51",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

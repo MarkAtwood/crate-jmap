@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Resolved: the at_type shape divergence is spec-driven and intentional, not a cookie-cutter inconsistency. RFC 8984 marks every @type (mandatory) \u2014 12 such annotations and zero defaultType in the spec \u2014 so jmap-jscalendar-types correctly uses bare 'at_type: String'. RFC 9553 \u00a71.3.4 introduces the defaultType notation, which the workspace canonical-templates rule explicitly accommodates: 'differences mandated by the relevant RFC or draft' are permitted. The bead's hypothesis that RFC 8984 also has defaultType rules turned out to be wrong on inspection \u2014 no defaultType in RFC 8984. Documented the resolution in both crates' PLAN.md and AGENTS.md so future contributors don't try to harmonize the spec-driven difference. No code change. Tests pass (17 jscalendar + 58 jscontact).",
+  "closed_at": "2026-05-15T03:59:54Z",
+  "compaction_level": 0,
+  "content_hash": "ea444bd1b40e1637a0d723a18124eb59aa2b91113ca1897c2dec9238e63855ec",
+  "created_at": "2026-05-15T03:35:19Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace AGENTS.md mandates cookie-cutter consistency: 'every type crate looks like every other type crate'. crate-jmap-jscalendar-types/src/lib.rs:123 et al. uses 'pub at_type: String' (mandatory, no Option, no default). crate-jmap-jscontact-types/src/lib.rs:95 et al. uses 'pub at_type: Option<String>' with default + skip_serializing_if. The jscontact choice is arguably more correct for RFC 9553 \u00a71.3.4 defaultType-omission (and the AnniversaryDate.PartialDate-default test at lib.rs:1486 depends on it), but the divergence is undocumented. Future contributor (a) tries to harmonize by changing one to match the other and breaks the spec-driven behaviour, or (b) writes new types in one crate using the other's idiom. Resolution: pick one canonical shape for @type across both crates, document the decision (including the defaultType-omission story for RFC 8984 sub-types that have analogous defaults), and propagate. Most likely jscalendar-types should adopt the Option<String> shape since RFC 8984 also has defaultType rules.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "at_type shape diverges from canonical sibling jmap-jscalendar-types",
+  "updated_at": "2026-05-15T03:59:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:35:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "3596cbc4-d627-545f-9f08-b79e2e0e7b62",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

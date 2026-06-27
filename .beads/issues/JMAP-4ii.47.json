@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already fixed in round 3: args.remove('update') with into_iter gives owned patch_val, no clone needed",
+  "closed_at": "2026-05-02T04:39:33Z",
+  "compaction_level": 0,
+  "content_hash": "28c655f667f014bef9938e00ef3b5ed9c8b112beca257d8e589d16157b918513",
+  "created_at": "2026-05-02T04:18:02Z",
+  "created_by": "Mark Atwood",
+  "description": "message.rs update loop: let mut augmented = patch_val.clone() clones the entire patch even though the patch reference is borrowed from the update_map. The take() fix applied elsewhere reduces allocations on the get path, but the message update path still clones every patch unconditionally. With large message patches (e.g. long body text in an edit), this doubles the allocation. The loop could take ownership via an into_iter() partition as was done for mailbox.rs.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.47",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Message/set update: augmented patch clones patch_val even after take() fix",
+  "updated_at": "2026-05-02T04:39:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:18:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "8aeeb4f7-d455-5817-b9c8-b18f62433004",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

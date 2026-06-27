@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2fe86dfc46df395049841665bf4042547481fc567aeb22a37683f877b6143942",
+  "created_at": "2026-05-14T03:15:00Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/memory.rs:980-994 (MemoryBackend::is_contact_blocked).\n\nThe implementation queries inner.objects_ref(\"ChatContact\", account_id) for contact_id. Per draft-atwood-jmap-chat-00 \u00a7ChatContact (line 367-370), ChatContact.id is 'the userId provided by the authentication layer: it is the single, global identity key for that user within this deployment.'\n\nSo 'is contact X blocked by account A?' is well-defined: look up ChatContact with id=X in account A's contact list. The implementation does this. OK.\n\nBut the trait method signature (backend.rs:598-605) takes account_id AND contact_id, and the doc comment on the trait method says 'when the requesting account corresponds to a ChatContact whose blocked is true on the recipient's contact list, the server MUST silently suppress'. The handler at chat.rs:617-620 calls is_contact_blocked(caller, &account_id, contact_id) where contact_id is the chat's contact_id (the OTHER party in a direct chat).\n\nReading sequence (handler perspective): account_id is the SENDER's account; contact_id is the RECIPIENT (who might have blocked the sender). But MemoryBackend reads from account_id's ChatContact store \u2014 i.e. it's checking 'is the recipient blocked by the sender' (the wrong direction).\n\nSpec intent (commit d68b4e3 per the trait doc): suppress the event for the RECIPIENT if the recipient has blocked the sender. The reference impl checks the wrong direction.\n\nTrigger condition: a sender attempts to send a typing indicator to a recipient who has blocked them. Spec says: silently suppress. Current code: returns whether the SENDER has blocked the RECIPIENT (a different question).\n\nThis is reachable but its impact is bounded because the kit doesn't gate fan-out on the result \u2014 it 'observes' it (chat.rs:617-620 has  and discards). So today the wrong-direction check has zero effect. But when a future consumer wires the predicate into transport fan-out, the bug surfaces.\n\nFix: the trait signature needs to be clearer about whose perspective. Either:\n- rename: is_blocked_by(blocker_principal, blockee_principal) \u2014 explicit direction.\n- OR: keep the name but document that the predicate is invoked from the RECIPIENT's transport, with account_id == recipient's account, contact_id == sender's ChatContact.id.\n\nThe current naming is ambiguous and the reference impl reads the wrong direction.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.is_contact_blocked uses get_objects(account_id) but ChatContact.id is global identity; cross-account scoping unclear",
+  "updated_at": "2026-05-14T03:15:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:15:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "794a41a5-56ca-570b-8e97-33a05609e670",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

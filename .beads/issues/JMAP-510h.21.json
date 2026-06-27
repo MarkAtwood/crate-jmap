@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "README Gotchas entry now describes MemoryBackend behind feature='memory' as the reference impl, and marks MockBackend as internal #[cfg(test)] not part of the public surface. The bead also suggested mentioning the silent-failure bugs as known limitations \u2014 those are now fixed (.4/.5/.6/.8 closed in this session), so no limitation note is needed. Committed in 40c7214.",
+  "closed_at": "2026-05-14T20:45:35Z",
+  "compaction_level": 0,
+  "content_hash": "589d4ff8ac8bc4ddcbfb4a3fb8ecfd89ae794cf1303e536b1171fac13d524a9d",
+  "created_at": "2026-05-14T19:52:24Z",
+  "created_by": "Mark Atwood",
+  "description": "README.md:239-241:\n\n  'A tree-backed MockBackend exists in the test_support module inside src/lib.rs for unit testing only; it is not suitable for production use.'\n\nThis was written before commit c30d7ed extracted MemoryBackend to src/memory.rs behind feature='memory'. The current state:\n\n- src/lib.rs:124-458 still has test_support::MockBackend (#[cfg(test)] \u2014 internal only, not pub).\n- src/memory.rs provides memory::MemoryBackend (#[cfg(feature='memory')] \u2014 public reference impl).\n\nThe README mentions neither the feature flag nor MemoryBackend. A downstream contributor reading the README will not know:\n1. That feature='memory' exists.\n2. That MemoryBackend is the public reference impl they should be looking at.\n3. That MockBackend is private and not the intended example.\n\nRequired edits:\n- Remove the MockBackend mention (or rewrite to clarify it is cfg(test)-only and not the public reference).\n- Add a 'Memory feature' or 'Reference implementation' section pointing to MemoryBackend and the feature gate.\n\nAlso: README.md:6-9 still describes the crate well, but lines 233-241 ('Gotchas' section) should mention the JMAP-510h.4/5/6 silent-failure cases as known limitations, OR those bugs should be fixed (preferred).",
+  "ephemeral": 0,
+  "id": "JMAP-510h.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README.md is stale: claims test_support module exists 'inside src/lib.rs' but the canonical reference impl is now memory::MemoryBackend",
+  "updated_at": "2026-05-14T20:45:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:52:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "26d37727-587d-5bf7-a43d-22e1c481227b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

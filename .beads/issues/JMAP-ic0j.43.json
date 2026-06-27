@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced all eight .map(|v| !v.is_null()).unwrap_or(false) sites in event.rs with .is_some_and(|v| !v.is_null()). Matches the existing workspace idiom (mail-server email.rs:1712-1714, calendars-server memory.rs:452 / event.rs:902). MSRV 1.88 supports is_some_and (stable since 1.70). fmt/clippy/test all green.",
+  "closed_at": "2026-05-15T18:33:41Z",
+  "compaction_level": 0,
+  "content_hash": "1a615a71a81d253cc480e2f5994b4530b615c29e6f02068fcbcc607958ab264c",
+  "created_at": "2026-05-15T17:22:47Z",
+  "created_by": "Mark Atwood",
+  "description": "event.rs uses the chained pattern '.map(|v| <bool predicate>).unwrap_or(false)' 8 times to test 'present-and-not-null' on JSON args:\n\n  - event.rs:216-219 (has_utc_start in create)\n  - event.rs:220 (has_start in create)\n  - event.rs:221-224 (has_utc_end in create)\n  - event.rs:225-228 (has_duration in create)\n  - event.rs:316-319 (has_utc_start in update)\n  - event.rs:320-323 (has_start in update)\n  - event.rs:324-327 (has_utc_end in update)\n  - event.rs:328-331 (has_duration in update)\n\nEach looks like:\n  let has_utc_start = obj_json\n      .get(\"utcStart\")\n      .map(|v| !v.is_null())\n      .unwrap_or(false);\n\nOption::is_some_and (stabilised Rust 1.70) is exactly this pattern:\n  let has_utc_start = obj_json.get(\"utcStart\").is_some_and(|v| !v.is_null());\n\nShorter, names what you mean ('is Some AND predicate'), and clippy's bool_assert_comparison family flags the longer form in some configurations. The repo's MSRV needs to be \u2265 1.70 for this \u2014 quick check needed, but most workspace crates target a recent stable.\n\nPure clippy-level idiom; behaviour is byte-identical.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.43",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": ".map(|v| !v.is_null()).unwrap_or(false) should be .is_some_and(|v| !v.is_null())",
+  "updated_at": "2026-05-15T18:33:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:22:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "ee64f54e-e5cc-5357-89d2-7ed12f8c6cb7",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

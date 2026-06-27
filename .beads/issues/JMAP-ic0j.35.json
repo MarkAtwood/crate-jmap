@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:05:18Z",
+  "compaction_level": 0,
+  "content_hash": "a7f4430d27adff817f7a148ed4289d3bf39c932e4af90b3f78d4ed9007ee9354",
+  "created_at": "2026-05-15T17:14:29Z",
+  "created_by": "Mark Atwood",
+  "description": "src/memory.rs:247-259 \u2014 same struct, two builder/init methods with\ninconsistent argument types:\n\n    #[must_use]\n    pub fn with_account(self, account_id: &str) -> Self {\n        self.register_account(&Id::from(account_id));\n        self\n    }\n\n    pub fn register_account(&self, account_id: &Id) {\n        ...\n    }\n\nwith_account accepts &str (uses Id::from internally), register_account\naccepts &Id. A consumer who reads the documentation expecting one\nconvention writes:\n\n    let id = Id::from(\"acc1\");\n    let backend = MemoryBackend::new().with_account(&id);   // type error\n\n\u2026or the inverse:\n\n    let backend = MemoryBackend::new();\n    backend.register_account(\"acc1\");   // type error\n\nBoth errors compile-fail; not a runtime hazard. But the friction is\nreal for cookie-cutter test setup that switches between calendars\nand mail-server (mail-server's register_account is also &Id).\n\nNote the inline test_support::MockBackend at src/lib.rs:272 has a\nTHIRD convention: new_with_account(account_id: &str) \u2014 neither &str-\nadapter-internally NOR &Id directly. So a contributor writing test\nfixtures across MockBackend (test_support) and MemoryBackend faces:\n\n  - MockBackend::new_with_account(&str)\n  - MemoryBackend::with_account(&str)        // &str adapter\n  - MemoryBackend::register_account(&Id)     // &Id direct\n  - MemoryBackend::seed_object(account_id: &str, ...)   // &str\n  - JmapBackend::account_exists(... account_id: &Id ...)   // &Id (trait)\n\n\u2026five \"give me an account id\" surfaces in the same crate.\n\nWhat goes wrong for the caller: every fixture write triggers a brief\ncontext-switch (\"which one wants &Id, which wants &str?\"). A\ncookie-cutter test author writing one helper that accepts an &str and\ncalls into multiple MemoryBackend methods has to call Id::from twice\nwhere the consistency could be one allocation.\n\nFix: pick one convention and apply consistently. Two coherent options:\n\n  (a) All public MemoryBackend constructors and seed methods take\n      `impl Into<Id>` or `&str`. The current with_account pattern wins,\n      register_account adapts internally.\n\n  (b) All take `&Id`. The current register_account pattern wins,\n      with_account is dropped or restricted.\n\n(a) is more ergonomic for test setup; (b) matches the workspace-wide\ncanonical convention (jmap_types::Id is the wire type).\n\nThis finding is taste-adjacent \u2014 file as opinion if maintainer prefers\nto keep both conventions and document the difference. P3 because no\ncorrectness is at stake and the compile errors are clear.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::with_account takes &str but register_account takes &Id; argument-type inconsistency within the same struct",
+  "updated_at": "2026-05-17T17:05:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:14:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "605af095-aadb-530c-b915-83e50f7b3623",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

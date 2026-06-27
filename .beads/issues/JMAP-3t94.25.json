@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:29:28Z",
+  "compaction_level": 0,
+  "content_hash": "29320e255d7e44a1f28b328d1a2010af53f39791c2cca6aada7948e6d2a8adbe",
+  "created_at": "2026-05-14T22:01:02Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/backend.rs:13-17\n\n```rust\npub use jmap_server::{\n    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,\n    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,\n};\npub use jmap_sharing_types::backend::{PrincipalProperty, ShareNotificationProperty};\n```\n\n15 types re-exported in one block. Two problems:\n\n1. **No per-item rustdoc.** A caller writing\n   `use jmap_sharing_server::backend::ChangesResult;` has no\n   indication that this type lives in `jmap-server`, not in this\n   crate. Discoverability is poor (\\\"where is this from?\\\") and\n   stability reasoning is hard (\\\"if I depend on this, what\n   upstream am I pinned to?\\\").\n\n2. **15-way version pin.** Each `pub use` pins this crate's\n   public API to the upstream crate's major version for that type.\n   A semver bump in either `jmap-server` or `jmap-sharing-types`\n   cascades into a semver-bump-required event here.\n\nThe canonical mail-server has the same shape and the same gap.\nFiling here scoped to sharing-server.\n\nA bulk re-export through a `pub mod backend;` is the standard\nworkspace pattern; the per-item doc on these re-exports lives in\nthe upstream crate. So requiring per-item rustdoc here is\nmaintenance duplication.\n\nThe actionable contract gap is the absent module-level doc on\n`backend.rs` that says \\\"This module re-exports types from\n`jmap-server` and `jmap-sharing-types` for caller convenience.\nThese re-exports are version-pinned to whatever this crate's\nversion pins of those upstream crates.\\\" Currently the module\ndoc only describes `SharingBackend`.\n\nWhat goes wrong for callers when this stays as-is: callers who\nwrite `cargo doc --no-deps` on their integration crate see the\n15 re-exports listed with no upstream context, get confused\nabout which crate is the canonical home, and link to the wrong\nupstream documentation.\n\nResolution: extend the existing module-level doc on `backend.rs`\nto mention the re-exports and the upstream pin. Low-priority\n(P4) \u2014 this is documentation polish, not a functional risk.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Added a module-level rustdoc section to crate-jmap-sharing-server/src/backend.rs explaining: the re-export grouping pattern (canonical homes are the source crate), version-pinning consequences (upstream SemVer breaks cascade here), and per-item discoverability via an enumerated link list pointing each name back to its canonical crate. Canonical mail-server has the same gap; aligned in shape but documented here. Per-item rustdoc on the 15 re-exports themselves remains a separate workspace-wide decision.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "backend.rs 13-type bulk re-export from jmap-server has no per-item doc; pins workspace cross-crate version",
+  "updated_at": "2026-05-14T22:29:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T15:01:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "e70c0600-4ca9-50a4-9450-f15d4d152e98",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

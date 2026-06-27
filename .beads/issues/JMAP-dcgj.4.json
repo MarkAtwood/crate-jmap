@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "New Beads issue created. Lists used types, compares registry vs local, recommends fix.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Gap documented in PLAN.md \u00a7Known Limitations #3: mime-tree pinned to registry 0.1, local checkout at ~/PROJECT/MIME/ may diverge; this bead IS the tracking issue",
+  "closed_at": "2026-05-05T01:05:38Z",
+  "compaction_level": 0,
+  "content_hash": "b29d599ed84208d0bdb4f49ee923b686a9a969e3961b7a0904e168cd25b5115e",
+  "created_at": "2026-05-05T01:00:18Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** File a tracked gap issue documenting that crate-jmap-mime/Cargo.toml\npins mime-tree to version `\"0.1\"` from crates.io, but the local workspace\ndevelopment copy at ../MIME/ (or ~/PROJECT/MIME/) is a newer development\nversion that may have different APIs.\n\n**Algorithm:**\n1. Read crate-jmap-mime/Cargo.toml and note the exact mime-tree dep line.\n2. Find the local mime-tree source: check ~/PROJECT/MIME/ and any workspace\n   path references.\n3. Compare the public API of the local copy vs what is imported in lib.rs:\n   - Check if ParsedPart, ParsedMessage, DecodedBodyValue, TransferEncoding,\n     ParseError all exist in registry mime-tree 0.1.0.\n   - Note any fields/variants in local copy absent from registry 0.1.0.\n4. Create a standalone Beads issue titled:\n     'jmap-mime: mime-tree dep should use path = not version = during development'\n   with priority P2, type task, description covering:\n   - The current Cargo.toml line\n   - The risk: `cargo build` on a clean checkout uses registry 0.1.0 which\n     may differ from what was tested locally\n   - The fix options: (a) switch to `path = \"../crate-mime-tree\"` (or wherever\n     the local copy lives) during dev, or (b) verify registry 0.1.0 API matches\n     exactly what is used and add a CI note\n   - What API differences were found between local copy and registry 0.1.0\n\n**Defensive programming rules:**\n- This bead creates a Beads issue only \u2014 no code changes.\n- Do not guess at whether local and registry APIs match \u2014 read both.\n- Cite exact file paths and line numbers.\n\n**Subagent instructions:**\nSpawn two parallel subagents:\n  Subagent A: reads crate-jmap-mime/Cargo.toml and crate-jmap-mime/src/lib.rs\n    imports; lists every mime-tree type used.\n  Subagent B: finds the local mime-tree source (check ~/PROJECT/MIME/ and\n    ~/.cargo/registry/src/ for mime-tree-0.1.0) and lists its public types.\nWait for both, then write the issue.\n\n**Tests:** N/A \u2014 tracking issue only.\n\n**Acceptance criteria:**\n- New Beads issue created with exact title above.\n- Issue lists the exact mime-tree types used in lib.rs.\n- Issue states whether registry 0.1.0 has those types (with evidence).\n- Issue recommends a specific fix (path dep or explicit version lock).",
+  "ephemeral": 0,
+  "id": "JMAP-dcgj.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-mime gap: mime-tree version dep vs local workspace copy",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:00:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-dcgj",
+      "id": "2d028b7a-b23b-5baf-886c-7d9257caf338",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T18:00:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-dcgj.1",
+      "id": "e8a06436-669d-58e1-81d9-7e8721c6fda1",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

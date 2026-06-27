@@ -1,0 +1,33 @@
+{
+  "close_reason": "Design-validated: review confirmed the existing shape is correct. No code change required. Closing to reduce backlog noise; the docstring + test coverage already document the invariant.",
+  "closed_at": "2026-05-09T07:25:36Z",
+  "compaction_level": 0,
+  "content_hash": "005c2addc8e54027d2ca5c52c088cb5e7bb9b46ccbb52c480cc51bab0b521935",
+  "created_at": "2026-05-08T03:07:40Z",
+  "created_by": "Mark Atwood",
+  "description": "src/auth.rs:30,94 \u2014 TLS/trust-root concerns and per-request credential injection are kept in two independent traits. Result: CustomCaTransport can be paired with BearerAuth (private CA + bearer), DefaultTransport with NoneAuth (public + anon), and any combination works without combinatorial type explosion. A future contributor will be tempted to merge into a single 'JmapAuth' trait \u2014 that would force every credential scheme to know about TLS roots. Defend the split.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AuthProvider and TransportConfig as separate traits is the correct split",
+  "updated_at": "2026-05-09T07:25:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:07:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "8fcf2686-0a6e-530c-81d4-48dc917319cc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

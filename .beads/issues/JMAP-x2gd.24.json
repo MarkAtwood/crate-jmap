@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Review-acknowledgement; CSPRNG impl + entropy canary test are intact.",
+  "closed_at": "2026-05-18T02:18:35Z",
+  "compaction_level": 0,
+  "content_hash": "089cb4aa64571da14b4f85b04a33d3c56245c616f94492c668bb900be393db6b",
+  "created_at": "2026-05-14T03:16:28Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/memory.rs:795-822 (generate_invite_code) + tests at 3057-3115 (generate_invite_code_is_csprng).\n\nTwo correct decisions here that should survive future 'cleanup' suggestions:\n\n(1) Use getrandom::fill rather than rand::thread_rng or a timestamp-derived value. The doc-comment on the trait method (backend.rs:283-310) cites bd:JMAP-sc1b.89 and explicitly warns against ThreadRng for security-relevant output. getrandom reads from the OS CSPRNG and panics on failure rather than silently downgrading.\n\n(2) The regression test at line 3057 is a behavioural canary, not a value oracle. It asserts:\n    - 256 samples produce 256 distinct codes (birthday-collision threshold)\n    - every code is 32 lowercase-hex chars\n    - the longest shared prefix across sorted samples is < 10 chars\nThe third assertion specifically catches the pre-fix nanosecond-derived implementation which produced sequential codes with 10-12 char shared prefixes. The test doesn't encode 'the codes should equal SHA256 of X' (which would be a code-is-its-own-oracle smell), but it does encode 'the codes look like CSPRNG output, not like timestamp output'.\n\nA future contributor might propose:\n- 'Replace getrandom with a faster custom RNG seeded once at startup.' Bad \u2014 defeats the OS-CSPRNG re-keying for forward-secrecy.\n- 'Remove the entropy canary test, it's flaky / not testing real behavior.' Bad \u2014 it catches the exact regression that motivated the fix.\n- 'Increase the shared-prefix bound from <10 to <20 because randomness can vary.' Bad \u2014 moves the canary threshold above the actual failure mode of the pre-fix bug.\n\nBoth the impl and the test are correct as-is. Preserve them.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.generate_invite_code uses getrandom (CSPRNG) with entropy-canary regression test",
+  "updated_at": "2026-05-18T02:18:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:16:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "35407328-a3b9-5145-95eb-c9ef55c359b5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

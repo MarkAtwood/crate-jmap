@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: identity update uses inline sub-path prefix check (same logic as find_immutable_patch_key) for exact and path-prefix matches",
+  "closed_at": "2026-05-02T19:30:57Z",
+  "compaction_level": 0,
+  "content_hash": "86ede85dec6d3fee918ed370f04266159f7e3436f30d1342e52cc6d58648089e",
+  "created_at": "2026-05-02T19:18:29Z",
+  "created_by": "Mark Atwood",
+  "description": "identity.rs handle_identity_set update pass checks for exact key matches against IDENTITY_READONLY=['email','id','mayDelete'] using patch_val.get(field).is_some(). A patch containing 'email/subfield' passes this check (is_some() returns false because the key is 'email/subfield' not 'email'). The same guard that email.rs uses (find_immutable_patch_key checks both exact and path-prefix matches) is not applied here. Maintenance consequence: a client sending {\"email/0\": \"new@example.com\"} in an Identity update patch bypasses the immutability check; the backend receives a patch it was never expected to handle.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Identity update does not check sub-path immutability (email/*, id/*, mayDelete/*)",
+  "updated_at": "2026-05-02T19:30:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "fbe0b4a0-e30c-5215-98a7-c354113940b8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

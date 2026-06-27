@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.15",
+  "title": "Response body size is capped both on Content-Length and on actual bytes read",
+  "description": "In fetch_session(), call(), and download_blob(), the size limit is enforced twice: once on the Content-Length header and once on the actual bytes returned by resp.bytes(). The code comment explains why: 'Content-Length can lie'. A contributor might remove the second check as redundant. But a malicious or buggy server can send a small Content-Length header and then stream arbitrarily many bytes. The Content-Length check is an optimization (early exit before buffering); the actual-read check is the enforcement guarantee. Both are required. Do not remove either check.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:40Z",
+  "updated_at": "2026-04-30T01:02:39Z",
+  "closed_at": "2026-04-30T01:02:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:40"
+    }
+  ]
+}

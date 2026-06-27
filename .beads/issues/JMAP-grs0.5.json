@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "f10eda921b94ed1bcb3038eb1c4fc8f50393f119ffef8e30e3df0db2757a831f",
+  "created_at": "2026-05-17T05:49:13Z",
+  "created_by": "Mark Atwood",
+  "description": "## Sibling propagation of canonical bd:JMAP-grs0.1\n\nDepends on bd:JMAP-grs0.1 (mail-server canonical fix) landing first. Mirror the canonical fix byte-for-byte modulo TYPE_NAME constants.\n\n## Fix shape\n\nSee bd:JMAP-grs0 epic body and bd:JMAP-grs0.1 for the canonical pattern. The Inner struct becomes:\n\n```rust\nstruct Inner {\n    objects: HashMap<&'static str, HashMap<String, HashMap<Id, Value>>>,\n    states: HashMap<&'static str, HashMap<String, u64>>,\n    change_log: HashMap<&'static str, HashMap<String, Vec<ChangeEntry>>>,\n}\n```\n\nRead-path helpers take `&str` and don't allocate; write-path helpers preserve auto-register-via-or_default.\n\n## Acceptance\n\n- Mirror the canonical fix\n- All read-path helpers take `&str` and don't allocate\n- cargo test -p jmap-contacts-server green\n- cargo clippy -p jmap-contacts-server -- -D warnings green",
+  "ephemeral": 0,
+  "id": "JMAP-grs0.5",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Propagate: jmap-contacts-server Inner-state nested HashMap restructure",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T22:49:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-grs0.1",
+      "id": "5c5d866d-1c07-5b01-ae8c-c801a623a692",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-16T22:49:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-grs0",
+      "id": "b5c7d102-e951-5613-affd-f769c830abe1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

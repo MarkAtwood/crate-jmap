@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-kmx.8",
+  "title": "Borrow<str> on Keyword enables HashMap lookup with bare &str",
+  "description": "Keyword implements Borrow<str>, AsRef<str>, and Deref<Target=str>. This allows HashMap<Keyword,bool>::contains_key(keyword::SEEN) without any conversion. Without Borrow<str>, every lookup would require Keyword::from(keyword::SEEN) allocating a String. A contributor might suggest 'just use String' \u2014 that would lose the semantic type identity that distinguishes keyword strings from arbitrary strings. The Borrow impl is the idiomatic Rust solution to the owned-key-queried-by-borrowed-key problem.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T05:05:26Z",
+  "updated_at": "2026-04-30T05:15:37Z",
+  "closed_at": "2026-04-30T05:15:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-kmx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 22:05:25"
+    }
+  ]
+}

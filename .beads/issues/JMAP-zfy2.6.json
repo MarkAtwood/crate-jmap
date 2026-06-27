@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "depth recursion implemented. Tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Implemented depth recursion in handle_filenode_query: extracts depth, calls generic handler for level-0, then loops calling query_objects with parentId filters; MockBackend set_children added; 5 new tests (absent/0/1/stops-at-1/2-levels); 24 total pass; clippy clean",
+  "closed_at": "2026-05-05T04:30:34Z",
+  "compaction_level": 0,
+  "content_hash": "2f8069345b7518fd186de480dcedba3fdd6966fcd7235f2f65cfcf42265758c1",
+  "created_at": "2026-05-05T02:57:48Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Replace the one-liner handle_filenode_query with an implementation that handles the depth argument. Oracle: \u00a73.2.5.\n\n**Algorithm (Option B \u2014 avoids touching locked types crate):**\n1. Extract depth: Option<u64> from args (absent/null/0 \u2192 no recursion).\n2. Call generic handle_query as before \u2192 initial result ids.\n3. If depth > 0:\n   a. For each directory node id in the initial result: issue query_objects with parentId filter.\n   b. Merge new ids into result (deduplicate).\n   c. Repeat up to depth total levels.\n   d. Update total count and position in response.\n4. Return combined result.\n\n**Tests:**\n- depth absent \u2192 same as before (regression test).\n- depth 0 \u2192 same as before.\n- depth 1 \u2192 returns direct children of matching directories.\n- depth 2 \u2192 returns children of children.\n- depth 1 with deep tree \u2192 stops at 1 level.\n\n**MockBackend**: update query_objects to support parentId filter for realistic testing.\n\n**Acceptance criteria:** All 5 tests pass. cargo test -p jmap-filenode-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-zfy2.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement depth parameter in FileNode/query",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:58:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zfy2.1",
+      "id": "d46f2fbc-0054-5c18-b740-2a174d93edad",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:57:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zfy2",
+      "id": "fdcc056f-8814-543a-b15b-05ba44a80c0f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T00:46:07Z",
+  "compaction_level": 0,
+  "content_hash": "38cb1e001ad76e756b638fbbef54a059a2bfb9318f2b856a39df37ca77ad49b4",
+  "created_at": "2026-05-09T00:41:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Follow-up to closed JMAP-zk6m.4. The field crate-jmap-tasks-types/src/notification.rs:88 is currently:\n\n    /// A patch encoding the change between `task` and the state after\n    /// the update. Encoded as a PatchObject (RFC 8620 \u00a75.3).\n    pub task_patch: Option<serde_json::Value>,\n\nDoc says 'Encoded as a PatchObject'; type is Value. Like CalendarEventNotification.event_patch, this is a notification *payload* field, not an *update argument*, which is why the closed PatchObject adoption epic JMAP-zk6m.4 did not migrate it.\n\nProposed change (jmap-tasks-types/src/notification.rs:88):\n\n    pub task_patch: Option<jmap_types::PatchObject>,\n\nWire format unchanged (PatchObject is #[serde(transparent)]). Public API change: any caller pattern-matching on the field type or constructing TaskNotification from a Value literal must migrate.\n\n## Scope\n\n- 1 line change + import in jmap-tasks-types/src/notification.rs.\n\n## Acceptance criteria\n\n'cargo test --workspace' clean, lib clippy clean, wire format byte-identical.\n\n## Coordination\n\nShould land alongside the parallel calendars-types migration (separate bead) so the two notification structs stay typographically congruent. The mail-types parallel field (MdnSendRequest.on_success_update_email) has a separate LOCKED approval gate.",
+  "ephemeral": 0,
+  "id": "JMAP-s0p5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Re-opened 2026-05-09 after the wider-scope survey identified 5 additional sibling fields. Now a child of parent epic JMAP-trmz. See epic for full sweep context.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Migrate TaskNotification::task_patch to typed PatchObject",
+  "updated_at": "2026-05-10T00:46:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T17:32:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-trmz",
+      "id": "c3100d04-9256-57d1-9c68-738adac3861b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

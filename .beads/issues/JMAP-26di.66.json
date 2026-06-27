@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ac440be2ed5e94fc9f34a7192219077b9ba5b07d4553b758546c5f39d74b77f5",
+  "created_at": "2026-05-15T20:53:22Z",
+  "created_by": "Mark Atwood",
+  "description": "space.rs:274-286, 304-322 (and similar) \u2014 closures inside .iter().map() carry explicit type annotations: '|m: &SpaceAddMemberInput<'_>| -> Result<serde_json::Value, jmap_base_client::ClientError> { ... }'. Type inference works from the outer .collect::<Result<Vec<_>, _>>() (which is itself fine), but the explicit annotations are necessary because the closure body has an early 'return Err(...)' that ambiguates the closure's Result type. Engineering basis: noisy. The cleaner Rust idiom is to restructure to avoid the early return \u2014 convert the if-guard to a let-else with a Result chain, or use 'if c.name.is_empty() { Err(...) } else { Ok(...) }' as a tail expression. Counter-argument: the explicit annotation is documentation \u2014 it says 'this closure produces a Result<Value, ClientError>' which a reader appreciates. Marking opinion because the engineering basis is contested \u2014 type-inference brevity vs explicit-annotation documentation is a genuine preference axis.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.66",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "space.rs map closures carry redundant explicit type annotations",
+  "updated_at": "2026-05-15T20:53:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:53:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "4db95c4c-baba-580c-ac5c-91b3f2f763a3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

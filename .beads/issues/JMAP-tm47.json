@@ -1,0 +1,23 @@
+{
+  "close_reason": "Completed in same pass: sieve.rs handlers reshape applied (4 handle_* signatures, 4 extract_account_id call sites). tests/sieve_integration.rs also updated (~40 handler call sites). cargo test -p jmap-mail-server --features sieve --all-targets passes clean.",
+  "closed_at": "2026-05-11T16:23:52Z",
+  "compaction_level": 0,
+  "content_hash": "e58f2767f18bffcb45c7920c8f80781ce5b39ec9328d0d6526965b7af505d74e",
+  "created_at": "2026-05-11T16:08:09Z",
+  "created_by": "bd-spin/bd-spin-20260511T151456Z-658525",
+  "description": "Confirmed during JMAP-z4cz: the sieve handler bodies are not exercised by any test in tests/ (no test calls register_sieve_handlers). cargo check -p jmap-mail-server --features sieve --tests does NOT surface sieve handler errors -- only seed.rs errors (34 of them, all from JMAP-5tkw). Sieve handler body errors only surface when a downstream consumer instantiates register_sieve_handlers with a concrete backend. Still a real lib bug, just latent.",
+  "ephemeral": 0,
+  "id": "JMAP-tm47",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mail-server: migrate src/sieve.rs handlers to CallerCtx",
+  "updated_at": "2026-05-11T16:23:52Z"
+}

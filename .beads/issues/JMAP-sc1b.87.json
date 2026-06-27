@@ -1,0 +1,33 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T15:33:29Z",
+  "compaction_level": 0,
+  "content_hash": "04e3c688cc827d09eeb59451c5a5e2700b05dbb39c96a0c2f079eb8979e3539c",
+  "created_at": "2026-05-11T14:11:46Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Five sibling MemoryBackends have:\n\n  crate-jmap-calendars-server/src/memory.rs:799\n  crate-jmap-chat-server/src/memory.rs:540\n  crate-jmap-contacts-server/src/memory.rs:718\n  crate-jmap-sharing-server/src/memory.rs:529\n  crate-jmap-tasks-server/src/memory.rs:723\n\n    fn json_merge_patch(target: &mut serde_json::Value, patch: serde_json::Value) {\n        match patch {\n            serde_json::Value::Object(patch_map) => {\n                let target_map = target\n                    .as_object_mut()\n                    .expect(\"merge patch target must be an object\");\n                ...\n\nThis .expect() fires whenever the caller-supplied target is not a JSON Object \u2014 e.g. if a future code path passes in a JSON Value::Number or Value::Array. Currently impossible because callers always serialize a SetObject (which serializes to an Object), but the function is private and the invariant is implicit, not type-enforced.\n\nPer AGENTS.md error-handling rule: '.unwrap() or .expect() outside of tests, examples, or provably unreachable paths. Every one in production code needs a comment explaining why it cannot fail.' The comment here is the panic-message string itself, which states the invariant but doesn't explain WHY it holds (i.e. that all call sites guarantee Object inputs).\n\nWhy P3 not P2: feature-gated behind 'memory'; private function; reachable only via the module's own create_object/update_object which both pass typed-serialized objects. The panic is well-bounded.\n\nTwo acceptable fixes:\n1. Change fn signature: fn json_merge_patch(target: &mut serde_json::Map<String, serde_json::Value>, patch: serde_json::Value) \u2014 bake the invariant into the type. Callers do .as_object_mut() once at the entry point.\n2. Add a //   SAFETY-style comment before the .expect() explaining why every call site is statically guaranteed to pass a Value::Object.\n\nCanonical mail-server does NOT have json_merge_patch in this shape \u2014 it merges via a different path (search for 'merge_patch' in crate-jmap-mail-server/src/memory.rs returns no matches), so the 5 siblings introduced this independently. Cookie-cutter divergence as well as the error-handling smell.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.87",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: json_merge_patch panics via expect('merge patch target must be an object') in 5 sibling MemoryBackends \u2014 internal data path, but unreachable on success",
+  "updated_at": "2026-05-11T15:33:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:11:46Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "d39f6611-9ea5-5b92-bef1-7232e350ddcc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

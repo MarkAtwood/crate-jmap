@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added SetErrorType::Custom(String) + SetErrorType::custom() constructor. mdn.rs uses custom(\"mdnAlreadySent\"). Manual serde: serialize as bare string, deserialize unknown \u2192 Custom.",
+  "closed_at": "2026-05-03T13:31:28Z",
+  "compaction_level": 0,
+  "content_hash": "a82ae9e2b50e87680606b79a5ce1d1a19dfc35b26e404b13bbbd62ae1e6dfcae",
+  "created_at": "2026-05-03T00:10:11Z",
+  "created_by": "Mark Atwood",
+  "description": "SetErrorType::MdnAlreadySent is defined in jmap-server/src/backend.rs, the base server crate that is supposed to be unaware of JMAP extensions. Every future extension (calendar, contacts, tasks) that needs a domain-specific error type would also need to add a variant to this enum in the base crate. This creates a design that scales poorly \u2014 the base crate grows with each extension rather than being stable. The consequence: adding jmap-calendar-server requires a version bump to jmap-server to add CalendarAlreadyProcessed. The right fix is either (a) a Custom(String) variant in SetErrorType for extension-defined errors, or (b) moving SetErrorType to an open-coded string approach for extension errors. This decision needs to be made before jmap-server 1.0 or the API is locked in.",
+  "ephemeral": 0,
+  "id": "JMAP-o68r.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Deferred: requires architectural decision \u2014 either add Custom(String) variant to SetErrorType, or accept that extension errors live in jmap-server. The existing RFC 8621 errors (MailboxHasChild etc.) already established this pattern. Needs human input.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MdnAlreadySent bleeds extension concern into jmap-server base crate",
+  "updated_at": "2026-05-03T13:31:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:10:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o68r",
+      "id": "898ec412-8d47-5d4c-9b6d-1d9c1f1ea778",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

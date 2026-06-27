@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-amk.6",
+  "title": "Missing EmailSubmissionFilter type alias",
+  "description": "EmailFilterCondition has EmailFilter = Filter<EmailFilterCondition> type alias in query.rs. EmailSubmissionFilterCondition has no corresponding EmailSubmissionFilter alias. The doc comment on EmailSubmissionFilterCondition references Filter<EmailSubmissionFilterCondition> by spelling it out, but a type alias would be consistent and save users from writing the full generic. Should define type EmailSubmissionFilter = Filter<EmailSubmissionFilterCondition> in submission.rs and re-export it from lib.rs.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:29:33Z",
+  "updated_at": "2026-04-30T04:34:28Z",
+  "closed_at": "2026-04-30T04:34:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-amk",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:29:33"
+    }
+  ]
+}

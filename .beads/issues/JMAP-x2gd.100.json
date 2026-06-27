@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T04:42:09Z",
+  "compaction_level": 0,
+  "content_hash": "52b06f88ec9180405129a8814792ac29e7ad48a52854df6fd60ef0dc6a8c54f8",
+  "created_at": "2026-05-17T04:21:54Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-types/src/message.rs:492-542 (Message::new constructor).\n\nThe chat-types Message::new constructor takes 13 positional args, of\nwhich 4 are zero-valued containers (vec![], vec![], vec![],\nHashMap::new()) and the remaining 9 are 'required' but several\n(e.g. attachments, mentions, actions, reactions) are routinely empty\non first construction.\n\nThe canonical extension-types sibling, jmap-mail-types::Email::new\n(crate-jmap-mail-types/src/email.rs:352-393), takes ONLY 6 args \u2014\nthe truly-required fields per RFC 8621 \u2014 and internally defaults\nevery empty collection and every optional metadata field to its\nzero value. Callers then assign optional fields via struct-update\nafter construction.\n\nPer workspace AGENTS.md \"Canonical Templates\", jmap-mail-types\nis the canonical extension-types template and chat-types must\nmirror its shape. Message::new at 13 args is drift from that\ncanonical.\n\nPer chat-types AGENTS.md 'Constructors' policy:\n'Minimal ::new() and named alternates where they enforce a type\ninvariant ... or absorb required-field boilerplate that callers\nwould otherwise repeat for every struct ... Otherwise prefer\nstruct-literal construction.'\n\nEmpty Vec<Attachment> / Vec<Mention> / Vec<MessageAction> /\nHashMap<String, Reaction> are not type-invariant requirements;\nthey are 'this field defaulted to empty' assertions. They belong\nin the body of new() not the signature.\n\nRecommended fix: shrink Message::new to the truly-required wire\nfields per draft-atwood-jmap-chat-00 \u00a7Message:\n   pub fn new(\n       id: Id,\n       sender_msg_id: Id,\n       sender_id: SenderId,\n       chat_id: Id,\n       body: impl Into<String>,\n       body_type: impl Into<String>,\n       sent_at: UTCDate,\n       received_at: UTCDate,\n       delivery_state: DeliveryState,\n   ) -> Self\n\n\u2026with attachments / mentions / actions / reactions defaulted in\nthe body. Existing callers (one: chat-server message.rs:470)\nremove the four empty-container args.\n\nEngineering basis:\n\n- jmap-mail-types Email::new is the canonical pattern; chat-types\n  has drifted.\n- The 4 'empty vec' args at the call site contribute the most to\n  the 'positional-arg slot confusion' risk that JMAP-x2gd.32 flags\n  for the call-site review.\n- Sole production caller is single-edit-of-known-shape; not a\n  propagation hazard.\n\nScope: chat-types reshape + chat-server call-site update. Test\nfixtures in chat-types tests/ (message_deser_minimal etc.) test\ndeserialize round-trip, not the constructor, so they are unaffected.\n\nBackground: JMAP-x2gd.32 closed the chat-server-local part of this\nfinding (the std::collections::HashMap::new() fully-qualified path);\nthis is the wider type-design half referenced in .32's description\n('the wider Message::new shape lives in jmap-chat-types and would\nneed a propagation bead there').",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.100",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat-types Message::new takes 13 positional args; canonical mail-types Email::new takes 6 \u2014 drift from canonical extension-types template",
+  "updated_at": "2026-05-17T04:42:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T21:21:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "eaf87326-9304-5bb2-9be3-4bbb420e0d48",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

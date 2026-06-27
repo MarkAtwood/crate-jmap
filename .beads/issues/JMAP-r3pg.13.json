@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Replaced 8 unwrap_or_else(|e| json!(serverFail)) sites with .expect('derive(Serialize) on plain data is infallible'). Sites: helpers.rs:13 (set_error_value), calendar.rs:144,190; event.rs:285,389,621; participant_identity.rs:127,169. Workspace tests pass (96 result entries, all ok), clippy clean, fmt clean. Commit c5693e5.",
+  "closed_at": "2026-05-09T02:49:23Z",
+  "compaction_level": 0,
+  "content_hash": "efce9097c19f828843b7934252007557303e7d9fcf7d3d96c31e2df4a9ce1461",
+  "created_at": "2026-05-08T03:33:05Z",
+  "created_by": "Mark Atwood",
+  "description": "src/helpers.rs:7-11:\n\n    pub(crate) fn set_error_value(e: &crate::backend::SetError) -> serde_json::Value {\n        serde_json::to_value(e).unwrap_or_else(\n            |err| serde_json::json!({ \"type\": \"serverFail\", \"description\": err.to_string() }),\n        )\n    }\n\nThis silently downgrades a SetError serialization failure to a free-form serverFail with the serde error in the description.  serde_json::to_value cannot fail on a SetError unless the type's Serialize impl panics or hits an integer-overflow edge case \u2014 for a stable typed SetError it is effectively infallible. The unwrap_or_else branch is dead code paying for itself in noise.\n\nTwo reasonable fixes:\n1. Use serde_json::to_value(e).expect(\"SetError serializes infallibly\") with a clear panic message \u2014 explicit about the invariant.\n2. Use Value::Object(\"type\" -> SetErrorType -> str) directly, bypassing serde for the trivial case.\n\nEither way is more honest than the current silent-fallback. The current form would also obscure a real bug (custom SetErrorType variant with a non-trivial Display impl that fails) by emitting the error as a 'description' field that no client will know to look at.\n\nAside: the same set_error_value style with .unwrap_or_else appears at 5+ sites in event.rs/calendar.rs/etc. for serde_json::to_value(&created_obj). Same observation applies \u2014 Calendar/CalendarEvent/ParticipantIdentity Serialize impls are auto-derived via #[derive(Serialize)] and cannot fail at runtime.\n\nIdiom note: 'unwrap_or_else with an error fallback that hides the real bug' is a known Rust antipattern. .expect() with a clear invariant message is preferable for infallible-in-practice cases.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "set_error_value swallows serde failure into 'serverFail' description string",
+  "updated_at": "2026-05-09T02:49:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:33:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "5f69c07c-c4e4-56a0-9dbd-5925538b6a57",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

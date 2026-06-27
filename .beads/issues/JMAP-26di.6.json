@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decomposed into 10 sibling beads under JMAP-26di: .6.1 ChatContact, .6.2 CustomEmoji, .6.3 Quota, .6.4 Blob, .6.5 SpaceBan, .6.6 SpaceInvite, .6.7 ReadPosition, .6.8 PresenceStatus, .6.9 PushSubscription, .6.10 grab-bag (space_join/space_update/message_query_changes/non-muted chat_update paths/BodyType::Rich). Children reparented to JMAP-26di directly so they surface on the epic-scoped ready frontier. Helpers from JMAP-26di.11 (closed) are available \u2014 see crate-jmap-chat-client/tests/helpers.rs. ChatCreateInput::Channel coverage is tracked separately under JMAP-26di.1 (already closed).",
+  "closed_at": "2026-05-16T01:50:29Z",
+  "compaction_level": 0,
+  "content_hash": "0dce1ff074bd222c52751648ef51222923d92f262d41a363ec77bb36255ff4b7",
+  "created_at": "2026-05-15T20:28:11Z",
+  "created_by": "Mark Atwood",
+  "description": "Commit 3f48e3b claims 'wiremock smoke tests for production methods' but the actual coverage is ~60%. Methods with zero smoke-test coverage:\n\n- chat_contact_* (5 methods in contact.rs) \u2014 no contact_smoke_tests.rs\n- custom_emoji_* (5 methods in custom_emoji.rs) \u2014 no custom_emoji_smoke_tests.rs\n- quota_get, quota_changes \u2014 no quota_smoke_tests.rs\n- blob_lookup, blob_convert \u2014 no blob_smoke_tests.rs\n- space_ban_* (4 methods)\n- space_invite_* (4 methods)\n- read_position_get / update / changes\n- presence_status_get / update / changes\n- push_subscription_create / update / destroy\n- space_join (chat-specific, non-/set shape)\n- space_update (only space create/destroy/query tested)\n- message_query_changes\n- chat_update non-muted paths (name, description, add_members, remove_members, update_member_roles)\n- ChatCreateInput::Channel variant (also see JMAP-26di.1)\n- BodyType::Rich (only text/plain and text/markdown tested)\n\nEither narrow the commit message scope or file follow-up beads to fill the gaps. The mail-client canonical sibling has per-method coverage; chat-client should match before publishing.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "~40% of public SessionClient methods have no smoke-test coverage",
+  "updated_at": "2026-05-16T01:50:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:28:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "92edd1d4-14ac-5ec4-a362-18beb359910a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

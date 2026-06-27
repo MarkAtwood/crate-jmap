@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added validate_id_field / validate_ids_field helpers using jmap_types::Id::new_validated for full RFC 8620 \u00a71.2 syntax checking. Replaced 11 inline is_empty() guards in calendars-client (9 slice + 2 single-Id sites). Public API unchanged \u2014 still &str / &[&str]. Smoke tests continue to pass via substring assertions on key fields. Decision: Option A from the JMAP-231o.6 policy choice (full internal validation). Commits 00df1e3 + c266fb5 (latter for cleanup).",
+  "closed_at": "2026-05-09T06:54:10Z",
+  "compaction_level": 0,
+  "content_hash": "6421623e74f2850ac2c49816a9078989a818f95791627dee514b99e0f6456eaa",
+  "created_at": "2026-05-08T03:12:21Z",
+  "created_by": "Mark Atwood",
+  "description": "Every method has `if id.is_empty() { return Err(InvalidArgument(...)) }` guards (calendar.rs:25, event.rs:27, event_copy.rs:22, event_notification.rs:22, event_parse.rs:24, participant_identity.rs:16, principal_availability.rs:22, etc).\n\nTwo issues:\n\n1. The guards check ONLY emptiness. RFC 8620 \u00a71.2 specifies Ids are non-empty strings of [A-Za-z0-9_-] up to 255 octets. The client accepts \"\\x00bad\\n\", \" \", \"#$%\", arbitrarily long strings, etc \u2014 all will be sent to the server and rejected there with confusing error_type. The pre-flight guard exists to give a better error, but only catches one of the obvious cases.\n\n2. `jmap_types::Id` already exists for this. Methods take `&[&str]` instead of `&[Id]` (or `impl IntoIterator<Item: AsRef<str>>`). Strongly typed Ids would let `Id::new_validated` enforce all of \u00a71.2 at construction, eliminating this entire class of guard.\n\nLower priority because the server WILL reject invalid Ids \u2014 this is defense in depth, not soundness \u2014 but the current guards are a partial fix that signals 'we validate input' while letting most invalid input through. Either validate fully (call `Id::new_validated`) or remove the half-measure and document that callers are responsible.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Closed 2026-05-09 with Option A (full internal validation, &str API kept). Option C (typed Id API) was the better engineering choice; deferred to JMAP-6by7 for the 0.2.0 cycle. The validate_id_field / validate_ids_field helpers and the 11 call sites added by this bead's commit are throwaway scaffolding that JMAP-6by7.1 will delete.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Empty-string guards reject server-legal Id (single space, etc) inconsistently",
+  "updated_at": "2026-05-09T07:05:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:12:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "571d50fd-7ed1-5e31-b51e-ecbda85f405a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

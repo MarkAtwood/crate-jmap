@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T22:34:07Z",
+  "compaction_level": 0,
+  "content_hash": "2f2671870522288c22b87cc444d8fc84908d7e0fd33e4ea9ceb58ca03c969d32",
+  "created_at": "2026-05-02T19:19:06Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/common/mod.rs lines 389-419: query_objects recovers EmailFilter and EmailSubmissionFilter from O::Filter by checking O::TYPE_NAME == 'Email' / 'EmailSubmission' and performing a serde JSON roundtrip. The type information is available at compile time (O::TYPE_NAME is a const) but cannot be used for trait-based dispatch without additional trait machinery. The current approach works but the string matching makes the intent implicit. The comment above each arm ('Decode EmailComparator list for Email queries (JSON roundtrip via O::Comparator)') partially explains it. A clearer approach is to add a private helper enum FilterKind { Email(EmailFilter), Submission(EmailSubmissionFilter), Other } and extract the roundtrip into a named function, making the three branches read as three explicit cases rather than two if-chains followed by a fallthrough else.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::query_objects: TYPE_NAME string dispatch for filter type recovery",
+  "updated_at": "2026-05-02T22:34:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:19:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "b832e580-40fb-5977-af7b-39b3b987b1fe",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

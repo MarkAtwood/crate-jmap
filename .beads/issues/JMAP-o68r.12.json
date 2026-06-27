@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-03T00:17:28Z",
+  "compaction_level": 0,
+  "content_hash": "a8c693d885a474d35eae67910c26706d419b38939e7b74e134934251de91c0f2",
+  "created_at": "2026-05-03T00:11:24Z",
+  "created_by": "Mark Atwood",
+  "description": "MemoryBackend::send_mdns checks dnt_address.is_none() then calls dnt_address.unwrap() on the next line. Clippy flags this as clippy::manual_let_else (or clippy::unwrap_used depending on config). Idiomatic Rust: 'let Some(dnt_address) = dnt_address else { not_sent.insert(...); continue; };'. Note: JMAP-77p9 already tracks this at P3 \u2014 the rusty pass re-scores it as P2 because clippy would catch it in CI. Fix: replace the is_none()/unwrap() pattern with let-else.",
+  "ephemeral": 0,
+  "id": "JMAP-o68r.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "dnt_address.is_none() + unwrap() in MemoryBackend send_mdns (clippy::manual_let_else)",
+  "updated_at": "2026-05-03T00:17:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T17:11:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o68r",
+      "id": "6f5a3adf-c81d-5c2d-ade3-25008c120ed4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

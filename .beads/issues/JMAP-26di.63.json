@@ -1,0 +1,33 @@
+{
+  "close_reason": "Substantially addressed by bd:JMAP-26di.5's commit c626efa, which delegated both chat_capability and chat_push_capability to the foundation helper account.account_extension_capability::<T>(URI). Each function is now 4 lines (account lookup early-return + one-line delegate), and the duplicated body (the bead's original target) is eliminated.\n\nThe remaining 3-line account-lookup boilerplate exists because the foundation helper is on AccountInfo, not Session. Pushing the entire helper to Session-level (so callers can write 'session.account_extension_capability::<T>(account_id, URI)') is a foundation-crate change with workspace-wide propagation implications \u2014 not in scope for this chat-client review epic.\n\nThe workspace-template-propagation aspect remains a valid follow-up: sibling extension-client crates (jmap-mail-client, jmap-calendars-client, etc.) likely have the same 4-line shape post-.5-style refactor and could benefit from a Session-level helper landing in jmap-base-client. Filing as out-of-scope for this review pass; closing this bead.",
+  "closed_at": "2026-05-15T21:56:30Z",
+  "compaction_level": 0,
+  "content_hash": "17f1d7296379a813ee480aa4ce3d034ea6948092d65abe2ff3938a8806fe1863",
+  "created_at": "2026-05-15T20:52:47Z",
+  "created_by": "Mark Atwood",
+  "description": "session.rs:179-213 \u2014 chat_capability and chat_push_capability differ only in the capability URI string and the typed return value. Same null-check chain, same Option<T> handling, same map_err. A generic helper 'fn parse_account_capability<C: for<'de> Deserialize<'de>>(session: &Session, account_id: &str, capability_uri: &str) -> Result<Option<C>, ClientError>' would consolidate the two into 4-line wrappers. Engineering basis: DRY \u2014 two copies will drift; adding any third capability (e.g. ChatWebsocketCapability if its shape becomes structured rather than empty) will copy-paste the body again. The base-client (jmap-base-client) is a natural place for the helper since it owns the Session type. Workspace-template-propagation candidate \u2014 sibling extension-client crates (jmap-mail-client, jmap-calendars-client, etc.) likely have the same shape.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.63",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "session.rs chat_capability and chat_push_capability bodies are near-identical",
+  "updated_at": "2026-05-15T21:56:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:52:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "2d81d7a3-de07-59e0-8de9-b2384745d8a1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

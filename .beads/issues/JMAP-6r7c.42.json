@@ -1,0 +1,33 @@
+{
+  "close_reason": "wontfix: bikeshedding. Epic JMAP-6r7c explicitly flagged this as pure forward-major-version flag. Pre-1.0 crate (currently 0.1.1); any const-folding lock-in only matters AFTER a 1.0 cut. The pub const is the workspace-conventional shape for advertising a sensible default. If future evidence shows downstream consumers branching on equality with this constant, escalate to a real bead at that time. Until then, the constant is just a documented default \u2014 the only consumer of DEFAULT_WS_MAX_MESSAGE_BYTES today is ClientConfig::default(), and rebinding it to a different default is a non-breaking change to the default value (consumers explicitly setting max_ws_message would be unaffected).",
+  "closed_at": "2026-05-17T20:57:54Z",
+  "compaction_level": 0,
+  "content_hash": "7a222daa951ca3c8b0e4951df261a416c055338ddbda193297828c14ca7a6774",
+  "created_at": "2026-05-14T23:20:11Z",
+  "created_by": "Mark Atwood",
+  "description": "ws/mod.rs:46 \u2014 pub const DEFAULT_WS_MAX_MESSAGE_BYTES: usize = 1 << 20;\n\nA public `pub const` is the strongest immutability commitment in Rust. It compiles into every caller \u2014 changing the value changes the cached value already shipped in downstream binaries (for any caller that const-folds it). For library users:\n- `match cap { DEFAULT_WS_MAX_MESSAGE_BYTES => ... }` is valid syntax (const in pattern)\n- `if my_value == DEFAULT_WS_MAX_MESSAGE_BYTES` compiles to a literal in the caller binary\n- Increasing the value silently means downstream code that branches on equality changes meaning\n\nToday's value is sensible (1 MiB). The question is whether the crate wants to commit to that value forever. If the workspace later decides \"1 MiB is too small for some Mailbox/changes pushes on busy accounts; bump to 4 MiB\", that bump:\n  - is technically additive (allows larger frames)\n  - is observable to downstream code that consts-on or matches-on the value\n  - propagates to downstream binaries only on rebuild\n\nThis isn't a bug per se; it's a long-term shape choice. The alternative is to make it a `pub fn default_ws_max_message_bytes() -> usize { 1 << 20 }`, which can be relaxed later without breaking const-pattern matchers. The const is more ergonomic; the fn is more flexible.\n\nSame pattern applies to `MAX_CONSECUTIVE_NON_TEXT_FRAMES` (ws/mod.rs:120), but that one is `const` (not `pub const`) so it's an internal detail and freely tunable.\n\nLow priority. The current `pub const` is a reasonable choice for a 0.x crate. Flagging so a future major bump can consider whether to demote to a `pub fn`.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.42",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ws::DEFAULT_WS_MAX_MESSAGE_BYTES is pub const \u2014 change would be a SemVer break, locks the constant forever",
+  "updated_at": "2026-05-17T20:57:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:20:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "694d6c1f-ae7b-592d-8067-c1ce296c4d36",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

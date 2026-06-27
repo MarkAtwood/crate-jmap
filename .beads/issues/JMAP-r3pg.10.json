@@ -1,0 +1,34 @@
+{
+  "assignee": "mark@reviewcommit.com",
+  "close_reason": "Dropped shadowed let, registered dst account via add_object (which auto-creates account entry), and strengthened oracle: title==Overridden, calendarIds carries through (merge semantic), assigned id != source id. Override-merge logic in the handler now actually exercised. Workspace 96 results all green. Commit 4c8af71.",
+  "closed_at": "2026-05-09T03:04:41Z",
+  "compaction_level": 0,
+  "content_hash": "1f75cf93b8e4905d00a86bee951d1ed8f5c8d7323116c63471759b61a8dc7fe2",
+  "created_at": "2026-05-08T03:32:19Z",
+  "created_by": "Mark Atwood",
+  "description": "src/event.rs:771-822 (copy_successful_with_overrides) has a structural defect:\n\nLines 773-785: declares 'let mut backend = MockBackend::new_with_account(\"src\")', adds an 'ev1' object, then adds a '_placeholder_' object to the 'dst' account.\n\nLines 787-797: re-declares 'let mut backend = MockBackend::new_with_account(\"src\")', adds 'ev1' AGAIN. The first 'backend' and its three add_object calls are SHADOWED and entirely discarded.\n\nThe '// For dst we need a registered account \u2014 re-use src account as both src and dst.' comment on line 798 is the author's note that they could not figure out how to register the dst account in the mock and gave up.\n\nThen lines 813-821 assert resp[\"notCreated\"] is Null and resp[\"created\"][\"c1\"] is_object \u2014 but never checks that the override was applied. The test name promises 'with_overrides' but no override is verified. A test 'copy_successful' with no overrides would exercise the same code path and fail the same way.\n\nCompare to the existing test copy_on_success_destroy_original_generates_set_invocation (event.rs:1213-1257) which is structurally clean and asserts a real wire shape.\n\nFix:\n1. Drop the dead first 'let mut backend = ...' block.\n2. Either fix MockBackend to support multi-account setups (new_with_accounts(&[\"src\", \"dst\"])) or document the workaround visibly with a real test using 'src' as both src and dst.\n3. Strengthen the assertion: read back the created event and assert title == \"Overridden Title\".\n\nSeverity rationale: this is a test-integrity issue (the test gives false confidence). It is a Section-1 finding for the /review-rusty test integrity rule. P2 because it does not affect production code, but it does mean the override-merge logic at event.rs:448-454 is effectively untested.",
+  "ephemeral": 0,
+  "id": "JMAP-r3pg.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Test copy_successful_with_overrides has shadowed setup (dead code) and weak oracle",
+  "updated_at": "2026-05-09T03:04:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:32:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-r3pg",
+      "id": "af4790ac-8104-5e69-8a43-094b48dd25a5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

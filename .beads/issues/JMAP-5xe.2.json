@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-5xe.2",
+  "title": "ClientError missing #[non_exhaustive]: adding variant is semver break",
+  "description": "ClientError is a public error enum in a library crate with no #[non_exhaustive] attribute. Every downstream caller that matches exhaustively (which is natural for Result error handling) will get a compile break when any variant is added. The client_error_no_rate_limited_variant test proves external callers can already write exhaustive matches. Fix: add #[non_exhaustive] to ClientError, update the internal exhaustive-match test to use a catch-all arm for the sentinel check.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T17:27:12Z",
+  "updated_at": "2026-04-30T17:29:59Z",
+  "closed_at": "2026-04-30T17:29:59Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-5xe",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 10:27:11"
+    }
+  ]
+}

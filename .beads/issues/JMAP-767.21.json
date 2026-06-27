@@ -1,0 +1,34 @@
+{
+  "close_reason": "Non-finding",
+  "closed_at": "2026-05-01T11:50:54Z",
+  "compaction_level": 0,
+  "content_hash": "5b5ded8dfc6d2769d5132e3d211986c0312eb6b0cc355bd6f9654c6c02cb8c9c",
+  "created_at": "2026-05-01T11:50:54Z",
+  "created_by": "Mark Atwood",
+  "description": "Clippy return_expr check: all handlers use '?' and Ok(expr) as last expression without trailing semicolons on return. No issue found. Placeholder; close immediately.",
+  "ephemeral": 0,
+  "id": "JMAP-767.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Non-finding",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "No trailing 'return expr;' pattern found \u2014 clean",
+  "updated_at": "2026-05-01T11:50:54Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:50:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "cee40302-93d0-5407-9132-ef50f35f76c2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

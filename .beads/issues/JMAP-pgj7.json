@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "eb4b44dc0970b34dfbf574b26ab1d3d8ff003678807904cec28b3694863aa254",
+  "created_at": "2026-05-15T08:50:43Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace-wide pattern: every extension-server MemoryBackend's `query_objects` (and related pagination call sites) uses bare `as` casts for the i64 position \u2192 usize and u64 limit \u2192 usize conversions required by RFC 8620 \u00a75.5 pagination. These are flagged by clippy::cast_possible_truncation (32-bit targets) and clippy::cast_sign_loss (positive i64 \u2192 usize). On 64-bit targets the casts are correct-by-platform; on 32-bit targets they silently truncate.\n\nSite counts (cargo grep, 2026-05-15):\n- jmap-mail-server (CANONICAL): 11 sites across src/{memory.rs, submission.rs, sieve.rs, mailbox.rs, email.rs}.\n- jmap-metadata-server: 4 sites in src/memory.rs (per bd:JMAP-826m.45).\n- Other 6 extension-server siblings: unaudited; expected ~4-10 sites each.\n\nApproach options:\n(a) Single `fn clamp_position(position: i64, len: usize) -> usize` helper + `fn limit_or_max(limit: Option<u64>) -> usize` helper in jmap-server (foundation), exported, used by all 8 extension MemoryBackends. Each helper does usize::try_from + saturating fallback for 32-bit targets and documents the policy at one site.\n(b) Per-crate inline #[allow(clippy::cast_possible_truncation)] + // SAFETY: comment on every cast site, justifying the 64-bit-target assumption. Verbose.\n(c) Per-crate inline usize::try_from + saturating fallback (no helper extraction). Idiomatic but ~5x the code for the same correctness.\n\nRecommendation: (a). RFC 8620 \u00a75.5 pagination clamp semantics are identical across every JMAP /query method; centralising the policy in jmap-server makes the implementation correct on 32-bit targets, documents the clamp rule at one site, and prevents copy-paste drift. The helpers belong on the foundation crate so consumer-implemented backends (the kit's actual audience) get them too.\n\nPer the workspace AGENTS.md canonical-template propagation rule, this MUST start with the foundation helper + jmap-mail-server adoption, then propagate to all 7 extension-server siblings in the same pass.\n\nDiscovered while triaging bd:JMAP-826m.45; closing that sibling-scoped bead in favor of this workspace-scoped one.",
+  "ephemeral": 0,
+  "id": "JMAP-pgj7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace-canonical-first: lossy as-casts in query pagination (i64\u2192usize, u64\u2192usize) \u2014 jmap-mail-server canonical, propagate to 7 siblings",
+  "updated_at": "2026-05-15T08:50:43Z"
+}

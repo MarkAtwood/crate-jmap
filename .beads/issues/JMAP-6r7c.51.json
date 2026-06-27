@@ -1,0 +1,33 @@
+{
+  "close_reason": "Wontfix.\n\nThe bead is correctly self-labeled 'opinion' and self-acknowledges 'the current shape IS boring and readable; the smell is the maintenance compound, not legibility per block.'\n\nWorkspace AGENTS.md 'Scope and Style' rule: 'Keep solutions simple and direct; prefer boring, readable code.' Each of the 8 sequential 'if x == 0 { return Err(...) }' blocks is independently readable, the error message is colocated with the field name, and a reader following a clippy report or a fuzzing failure can jump straight to the right block.\n\nExtracting a check_nonzero_<T> helper trades 8 boring lines for 4 lines of helper + 8 call-sites, with one indirection added between the field check and the error text. Net legibility wins are negligible; the 'easier to extend when the 9th field arrives' argument is real but small \u2014 extending the boring shape adds one boring block, and that has not been a maintenance burden historically.\n\nClosing per workspace AGENTS.md anti-bikeshedding policy: 'If you are out of real issues to flag, say so. Do not manufacture problems to fill space.' bd:JMAP-6r7c.51.",
+  "closed_at": "2026-05-15T00:01:15Z",
+  "compaction_level": 0,
+  "content_hash": "757851d0c3ea6f594eeebbab13bc97430dc91a5dfe55dabd836a03604c9fe881",
+  "created_at": "2026-05-14T23:26:17Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-base-client/src/client.rs:108-146 ClientConfig::validate hand-rolls seven near-identical 'if self.<field> == 0 { return Err(ClientError::InvalidArgument(format!(\"ClientConfig.<field> must be > 0\"))); }' blocks plus one Duration::ZERO variant. The repetition is mechanical: each block differs only in field name and the field's friendly name embedded in the error string. Idiomatic Rust collapses this either via a tiny check-helper that takes (field-value, field-name) and returns Result<(), ClientError>, or \u2014 more aligned with this crate's style of pre-validating at construction \u2014 via a single match over a fixed list of (field, condition) tuples that emits the first failure. Neither is dramatic, both are easier to extend when the ninth field arrives (it always does). The 8 == 0 checks today expand to the 9th, 10th, 11th sequentially as new ClientConfig fields are added per the cookie-cutter pattern. Recommendation: extract a check_nonzero_<T> helper per type (Duration, usize, u64) \u2014 three helpers \u2014 and call site shrinks to one line each. Defended against by: workspace AGENTS.md prefers boring readable code, and the current shape IS boring and readable; the smell is the maintenance compound, not legibility per block.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.51",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ClientConfig::validate is 8 sequential 'if x == 0 { return Err(...) }' blocks \u2014 repetition smell",
+  "updated_at": "2026-05-15T00:01:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:26:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "f8fe594c-e142-5a1a-b10b-b86789211f8f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

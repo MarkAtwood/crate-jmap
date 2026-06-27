@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-u2e.5",
+  "title": "header field: newtype wrapper cleaner than deserialize_with",
+  "description": "In crate-jmap-mail-types/src/query.rs lines 110-115, the header field uses #[serde(deserialize_with = \"deserialize_header\")] to enforce the 1-2 element constraint. A cleaner Rust pattern would be a validated newtype: pub struct HeaderFilter(Vec<String>) with TryFrom<Vec<String>> that enforces the constraint, converting it from a runtime deserialization check to a type-level invariant. This would: (1) make it impossible to construct an invalid HeaderFilter in Rust code (not just during deserialization), (2) eliminate the need for a special deserialize_with function, (3) give the constraint a named type that can appear in docs. The deserialize_with approach is common and not wrong, but it leaves the constraint invisible in the type signature \u2014 a Vec<String> could be 0 or 3 elements at the Rust level. Priority: moderate, since this is a public API design choice.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:27:24Z",
+  "updated_at": "2026-04-30T04:34:20Z",
+  "closed_at": "2026-04-30T04:34:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-u2e",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:27:24"
+    }
+  ]
+}

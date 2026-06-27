@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-450.22",
+  "title": "SetErrorType lacks Display impl \u2014 error messages are opaque to users",
+  "description": "backend.rs:100-150 \u2014 SetErrorType is a user-visible type (it appears in JMAP error responses). It derives Debug but has no Display. A backend developer trying to log 'why did this create fail?' gets 'InvalidProperties' from {:?} but no natural .to_string() for log lines or error chain messages. Implement Display with human-readable descriptions matching the RFC error type names.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:36:44Z",
+  "updated_at": "2026-04-30T21:53:38Z",
+  "closed_at": "2026-04-30T21:53:38Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-450",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:36:43"
+    }
+  ]
+}

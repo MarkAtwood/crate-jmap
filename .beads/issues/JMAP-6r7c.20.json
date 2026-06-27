@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed paired with .62. The trait's signature now returns Option<AuthHeader<'_>>, and the trait rustdoc explicitly documents the static/single-header/per-connection limitation with the AWS SigV4 / OAuth-refresh workaround (custom TransportConfig with per-request middleware). The shape of the return type itself encodes the limitation, so the 'document the trait' recommendation in .20 is satisfied not by adding paragraphs to a Option<(&str, &str)>-shaped trait but by replacing the shape with one that conveys the limitation in the type system.",
+  "closed_at": "2026-05-18T04:26:07Z",
+  "compaction_level": 0,
+  "content_hash": "805538af5e46137558ccf17c7ed0b46acc942d472eb536cd9d8ede8ac16bddde",
+  "created_at": "2026-05-14T23:14:50Z",
+  "created_by": "Mark Atwood",
+  "description": "auth.rs:138 \u2014 fn auth_header(&self) -> Option<(&str, &str)>\n\nThe trait signature commits the library to:\n\n1. **Exactly one header.** A caller that needs a custom AuthProvider injecting BOTH Authorization and a vendor-specific header (e.g., X-Tenant-Id, X-Account-Hint, AWS SigV4's X-Amz-Date + Authorization pair) cannot do so. AWS SigV4 specifically requires 3+ headers per request including X-Amz-Date and X-Amz-Security-Token. Any real-world SigV4-style auth scheme is unimplementable against this trait. The current signature should have been Option<&[(&str, &str)]> or an iterator from day one.\n\n2. **String-only values.** A custom AuthProvider that needs to compute a per-request HMAC signature (AWS SigV4, OAuth-style request signing where the signature depends on the request body) cannot do it: auth_header(&self) takes only &self, not the request. The trait should have taken &reqwest::Request or at least the URL/method/body. As shipped, only constant-credential schemes (Bearer, Basic, mTLS via TransportConfig) can be expressed.\n\n3. **No async.** A custom AuthProvider that needs to refresh an expired OAuth token cannot do so without blocking-IO inside auth_header (and even then, sync IO inside a sync trait method called from an async path is a footgun). A future fix requires either async-trait or splitting into a separate refresh() method, both breaking changes.\n\nThe maintainer note (auth.rs:34, auth.rs:105) flags that 3 blanket impls must stay in sync \u2014 that's the cost of the current shape. The deeper issue is that the shape is wrong for the real-world auth schemes downstream consumers will hit (OAuth refresh, SigV4, request signing).\n\nWorkaround for callers today: implement the auth as a custom TransportConfig that injects per-request headers via reqwest middleware. That's an awkward layering inversion \u2014 TransportConfig should be about TLS, AuthProvider should be about auth \u2014 and it doesn't compose because TransportConfig builds the client once, not per-request.\n\nRecommendation: before the next minor release, document explicitly in the trait docstring that this trait is intentionally limited to \"static, per-connection single-header auth schemes\" so callers know to use TransportConfig for anything more sophisticated. A future major bump can address the shape.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AuthProvider::auth_header signature locks header into single static pair",
+  "updated_at": "2026-05-18T04:26:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T13:57:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-prpm",
+      "id": "34ecdfe5-7530-5101-99b3-22ebc6c9d568",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

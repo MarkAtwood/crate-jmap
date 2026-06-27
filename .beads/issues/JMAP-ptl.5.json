@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T15:59:30Z",
+  "compaction_level": 0,
+  "content_hash": "6ed17fd1b473fa128d6d88221160cb45035ab294c4b99f14bd1b5cba607880b7",
+  "created_at": "2026-05-01T15:31:30Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs:254 compares mailbox role via r.to_string() \\!= role_str, where role_str is the raw filter value from the client. This is correct only if MailboxRole::Display produces the exact camelCase wire format. If jmap_mail_types ever adds or changes a role's Display impl (e.g. for debug formatting), the in-process filter silently breaks. The comparison should go through serde instead: serialize the role to a JSON string and compare, or add a dedicated as_str() method that is explicitly the wire format.",
+  "ephemeral": 0,
+  "id": "JMAP-ptl.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MailboxRole::to_string() used for filter comparison: Display-format coupling risk",
+  "updated_at": "2026-05-01T15:59:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:31:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ptl",
+      "id": "6d8272c7-d550-5918-bfc6-f9d6222053ff",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

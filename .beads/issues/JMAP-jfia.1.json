@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fix landed in commit redacting BackendChangesError::Other Display via SERVER_FAIL_INTERNAL_DESC in the From impl. Added backend_changes_error_other_drops_display_text test mirroring server_fail_from_backend_drops_display_text. Test verified to catch the bug (fails when fix reverted).",
+  "closed_at": "2026-05-14T16:58:47Z",
+  "compaction_level": 0,
+  "content_hash": "7b38b6a2790dfd7c59e501ad2669f3fd73df58f930d0dbe5f5754a310de0240c",
+  "created_at": "2026-05-14T16:35:30Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/backend.rs:551-565 \u2014 impl From<BackendChangesError<E>> for jmap_types::JmapError uses JmapError::server_fail(inner.to_string()) for the Other(inner) arm. handlers.rs handle_changes (line 174) and handle_query_changes (line 346) both call .map_err(JmapError::from)? on BackendChangesError, which routes Other(e) through this From impl. This bypasses the server_fail_from_backend helper that the same handlers.rs module-doc and handle_get / handle_query carefully use elsewhere to STRIP backend-error Display output before it reaches the wire (bd:JMAP-wlip.2 contract).\n\nTrigger: any *-server consumer whose backend returns BackendChangesError::Other(e) with an Error whose Display interpolates credential / blob / PII text. The text lands in serverFail.description on the JMAP wire.\n\nThe handlers module doc and JmapBackend::Error doc both establish \"backends MUST NOT leak this in Display, AND we redact at the handler layer as defence-in-depth\". The From impl is the third layer that should redact but does not.\n\nFix: change the Other(inner) arm to JmapError::server_fail(SERVER_FAIL_INTERNAL_DESC) (or delete the From impl and require handlers to use server_fail_from_backend explicitly via .map_err(|e| match e { TooManyChanges{..} => JmapError::from(e), Other(inner) => server_fail_from_backend(&inner) }) \u2014 the latter is more explicit, the former is one line).\n\nAlso need a parallel test in handlers.rs that constructs a BackendChangesError::Other with a canary-bearing error and confirms the canary does not appear in the wire response, mirroring server_fail_from_backend_drops_display_text in handlers.rs:391.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BackendChangesError::Other leaks backend Display via From<...> for JmapError",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T23:25:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-atwe",
+      "id": "a93138d0-26e9-5861-a063-af8089fea326",
+      "metadata": {},
+      "type": "relates-to"
+    },
+    {
+      "created_at": "2026-05-14T09:35:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "bb54bdb1-eb94-57f0-9d17-2368aed77397",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

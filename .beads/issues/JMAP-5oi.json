@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T23:40:21Z",
+  "compaction_level": 0,
+  "content_hash": "bd6d680f3b062c6c9ee49dee796136bce3d380220540de534b0a2fabfe8a09c4",
+  "created_at": "2026-05-01T23:01:24Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec \u00a7CustomEmoji: entirely unimplemented. Required methods: CustomEmoji/get, CustomEmoji/changes, CustomEmoji/set (create/update/destroy), CustomEmoji/query, CustomEmoji/queryChanges. Create requires name (shortcode, must match /^[a-z0-9_-]+$/) and blobId. Permissions: manage_emoji for Space-scoped, server admin for global.",
+  "ephemeral": 0,
+  "id": "JMAP-5oi",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement CustomEmoji object type (5 methods)",
+  "updated_at": "2026-05-01T23:40:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T16:10:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x09",
+      "id": "519ba7e7-6901-5768-aa61-4611891a4364",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-01T16:31:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x09.1",
+      "id": "f0c98fd5-db47-5a7e-96c2-7ad4d0aae39c",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

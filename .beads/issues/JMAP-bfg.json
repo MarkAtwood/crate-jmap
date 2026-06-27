@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-bfg",
+  "title": "jmap-client: port ws/ (WebSocket session)",
+  "description": "Port WebSocket session from crate-jmapchat-client/src/ws/mod.rs into crate-jmap-client/src/ws/mod.rs. This is NOT a verbatim copy: Chat-specific frame variants must be removed, Invocation type shape has changed, and RFC 8887 compliance requires adding an @type field that the reference implementation is missing.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-29T23:30:52Z",
+  "updated_at": "2026-04-29T23:58:42Z",
+  "closed_at": "2026-04-29T23:58:42Z",
+  "design": "Copy WsSession and WsFrame. REMOVE WsFrame::ChatTyping and WsFrame::ChatPresence variants \u2014 these are Chat extension events. Replace jmapchat_types:: imports with jmap_types:: equivalents. IMPORTANT: jmapchat-client's Invocation is a named struct {method, args, call_id}; jmap-types Invocation is a tuple (String, Value, String) \u2014 update all tuple field accesses accordingly (index 0=method, 1=args, 2=call_id). RFC 8887 COMPLIANCE FIX: add @type: 'Request' field to outgoing WebSocket JMAP request frames (\u00a74.3.2 requires this; jmapchat-client omits it \u2014 this is a protocol bug that must be fixed here, not copied).",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3g1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 16:31:37"
+    }
+  ]
+}

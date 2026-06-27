@@ -1,0 +1,33 @@
+{
+  "close_reason": "All 11 children complete. Workspace-wide UTCDate newtype migration is done: extension types (calendars, contacts, filenode, tasks), backend trait signatures (calendars-server CalendarsBackend, tasks-server compute_task_utc_times), and client method args (calendars-client principal_get_availability) all use jmap_types::UTCDate. Wire format unchanged across all migrations (transparent newtype). UTCDate::new_validated() now used at client-supplied date boundaries in jmap-chat-server.",
+  "closed_at": "2026-05-11T06:44:55Z",
+  "compaction_level": 0,
+  "content_hash": "9824b8d72fd61ebaa782429a03d41952e756b46c0646c2c8982e1763b3e41dbc",
+  "created_at": "2026-05-11T00:06:21Z",
+  "created_by": "Mark Atwood",
+  "description": "Sites:\n- crate-jmap-calendars-client/src/methods/principal_availability.rs:15\n- crate-jmap-calendars-client/PLAN.md:254-255\n\nBoth say a 'workspace-wide UTCDate newtype migration is a separate refactor' / 'out of scope for the typed-Id epic'.\n\njmap-types ships a UTCDate newtype. *-client methods currently take &str for date params (utc_start, utc_end, etc.) instead of &UTCDate. Same engineering argument as JMAP-6by7 (typed-Id epic, already closed): typed params make invalid states unrepresentable, eliminate redundant validation, and improve workspace consistency.\n\nScope:\n- Convert &str / String 'this is a UTC date' params to &UTCDate across all *-client methods.\n- Update call sites in tests and wiremock fixtures.\n- Update README + PLAN drift sections in each crate.\n\nThis is a 0.2.0-class API break, but should be tracked as active work, not deferred. Coordinate with any other 0.2.0 changes if they cluster.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "EPIC: workspace-wide UTCDate newtype migration",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:06:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu",
+      "id": "009d3a65-0439-56f9-9a91-812aaaf4749f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

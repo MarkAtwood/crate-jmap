@@ -1,0 +1,33 @@
+{
+  "close_reason": "duplicate of JMAP-1vdc.7",
+  "closed_at": "2026-05-02T19:36:58Z",
+  "compaction_level": 0,
+  "content_hash": "28d24a0d0b0a1ce53159238c60b34cf75f912c227e4e0369087db1e16ff2efaa",
+  "created_at": "2026-05-02T19:34:58Z",
+  "created_by": "Mark Atwood",
+  "description": "mailbox.rs handle_mailbox_query (lines 188-206): filter keys are first validated against KNOWN_FILTER_KEYS with a linear scan (args.get then iterate), then the entire filter value is removed and re-parsed via serde_json::from_value into MailboxFilterCondition. This means the filter JSON is visited twice \u2014 once to check key names, once to deserialize \u2014 and the first pass is redundant: serde_json would already reject unknown fields if MailboxFilterCondition had #[serde(deny_unknown_fields)], which is the idiomatic approach. The two-pass pattern also means the validation and parsing diverge if KNOWN_FILTER_KEYS is not kept in sync with the struct fields. Suggested rewrite: add #[serde(deny_unknown_fields)] to MailboxFilterCondition and remove the manual KNOWN_FILTER_KEYS scan; a serde error maps to unsupportedFilter via the existing map_err.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mailbox.rs: KNOWN_FILTER_KEYS validated then re-parsed from args.remove",
+  "updated_at": "2026-05-02T19:36:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "6b1ea2ed-9d5d-5691-8d2a-ec61608bc655",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

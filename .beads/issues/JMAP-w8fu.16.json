@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e3239fa30b0db366ef140db7b4cd1042de6101545a9623d5fe192dc9dc5fc006",
+  "created_at": "2026-06-13T21:49:22Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/src/space.rs has 428/663 lines covered (64.6%). Uncovered: handle_space_join already_member path, accept-invite path, caller identity resolution, update_object error branches, large sections of Space/set update permission validation, and channel-permission override enforcement. Many uncovered lines are in the structural-mutation pipeline (SpacePatchOp dispatch).",
+  "ephemeral": 0,
+  "id": "JMAP-w8fu.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Test coverage: chat-server space.rs (64.6%)",
+  "updated_at": "2026-06-13T21:49:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:49:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w8fu",
+      "id": "39369d03-fe58-5bb7-a1b0-2617246ed56c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

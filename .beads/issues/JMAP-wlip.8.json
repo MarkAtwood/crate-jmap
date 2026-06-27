@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added dispatch_single_call and dispatch_batch_of_sixteen criterion benches to surface the per-call tokio::task::spawn overhead in the dispatcher hot path. Compiled with NoopHandler that returns Ok immediately so the timing measures dispatcher overhead, not handler work. The actual replace-spawn-with-catch_unwind decision is filed as JMAP-wlip.36 ('human' labelled, P3) because it requires (a) adding futures-util to the AGENTS.md dep allowlist and (b) accepting the behavioural change where tokio::task::JoinError::is_cancelled() distinction collapses into the panic-only path.",
+  "closed_at": "2026-05-14T13:49:11Z",
+  "compaction_level": 0,
+  "content_hash": "3d2e1a4b580e74f11a30013416baf8e23edb8a73c6981dd5e3cb904612e33476",
+  "created_at": "2026-05-14T12:53:32Z",
+  "created_by": "Mark Atwood",
+  "description": "Path: crate-jmap-server/src/lib.rs:177 task::spawn(async move { handler.call(...).await }).await. For a batch of N method calls (typical max_calls = 16; RFC 8620 \u00a73 default), the dispatcher pays N tokio::task::spawn allocations (~120 bytes per JoinHandle + future heap alloc) and N scheduler context switches. Since the JoinHandle is awaited immediately, only one method call runs at a time. The spawn is purely for panic isolation, as documented.\n\nImpact at scale: a server handling 10k JMAP requests/sec at avg 4 calls each = 40k extra spawns/sec. On a tokio multi-threaded runtime this is measurable: tokio::task::spawn benches at ~200ns + alloc overhead per call on x86_64. Net: ~8ms of CPU per second of wall-clock, plus heap pressure. Not catastrophic, but visible in a flamegraph.\n\nCheaper alternative for panic isolation: std::panic::AssertUnwindSafe + FutureExt::catch_unwind from futures-util. Catches panic without spawn \u2014 saves the alloc and the scheduler hop, keeps panic_message_not_in_response semantics intact. Adds one dep (futures-util) which the workspace already pulls in transitively.\n\nThe new benches in benches/dispatcher.rs cover parse_request and resolve_args but NOT Dispatcher::dispatch, so the spawn overhead is currently invisible in the regression baseline. Adding bench_dispatcher_single_call and bench_dispatcher_batch_of_16 would surface the cost and gate the alternative.\n\nExpected impact at scale: low for non-hot-path consumers (kith, stoa at current scale); meaningful for a high-throughput proxy or a multi-tenant Mailbox server. The change is non-breaking \u2014 Dispatcher::dispatch's external behaviour is identical.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Dispatcher::dispatch spawns a tokio task per method call but immediately awaits \u2014 heap allocations with no concurrency benefit",
+  "updated_at": "2026-05-14T13:49:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:53:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "0c91f472-e924-5a56-a945-7423fdd52f5a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Rewrote 6 sites in space.rs as self-contained statements of the rule. Verified via per-site visibility audit (python script attached to commit description) that memory.rs's 19 candidate leak sites are ALL on #[doc(hidden)] test helpers, trait impl method overrides (which inherit the trait method rustdoc), private fn items, or items inside #[cfg(test)] modules. None render in published rustdoc regardless of docs.rs config landing (JMAP-ch6h). The bead's premise that those memory.rs sites would 'become visible once docs.rs config is fixed' was incorrect on re-verification. The space.rs edits stand because they improve source-readable comments for developers reading the source without access to the Beads tracker. Commit 38570af. clippy + rustdoc -D warnings + lib tests all green.",
+  "closed_at": "2026-05-16T18:25:59Z",
+  "compaction_level": 0,
+  "content_hash": "3998852385a49b495eb99c17dafeafa0071bccfbff10be485b0be4a3c5c83497",
+  "created_at": "2026-05-16T18:23:32Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\nJMAP-x2gd.60 enumerated 10 `bd:JMAP-*` references in `backend.rs`,\n`lib.rs`, and `permissions.rs` that leak into rendered rustdoc.\nThat bead was closed by rewriting those sites. A broader grep across\n`crate-jmap-chat-server/src/` finds the same pattern in `///` and\n`//!` doc-comment positions in:\n\n- `src/space.rs`: lines 289, 313, 335, 353, 610, 634\n- `src/memory.rs`: lines 267, 291, 296, 327, 346, 363, 855, 867, 868,\n  869, 881, 913, 948, 1107, 1281, 1412, 2682, 3062, 3101\n\n(Verify with `grep -n 'bd:JMAP-' src/space.rs src/memory.rs` then\ninspect each hit for `///` vs `//` prefix.)\n\n`memory.rs` is feature-gated behind `memory` and currently invisible\non docs.rs (tracked as JMAP-ch6h). Once docs.rs config is fixed,\nthose leaks become visible.\n\n`//` source comments (e.g. `space.rs:603`, `space.rs:1054`,\n`message.rs:446`) are NOT in scope of this sweep \u2014 they are\ninternal source-tree pointers, not rendered docs.\n\n## Fix shape\n\nSame as JMAP-x2gd.60: replace each `bd:JMAP-*` reference with a\nself-contained statement of the rule, or remove the reference\nentirely when it adds nothing to consumer-facing meaning.\n\n## Scope policy\n\nThis sweep is chat-server-LOCAL. A broader workspace-wide audit\n(every `crate-jmap-*/src/`) is a separate, larger effort that\nshould be filed as its own epic if and when it's prioritised.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.98",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: bd:JMAP-* in published rustdoc \u2014 broader sweep beyond .60's 10 named sites",
+  "updated_at": "2026-05-16T18:25:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T11:23:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "df380b76-ec94-5aa0-ad2a-9cff64fef0c1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

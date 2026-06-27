@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed: renamed qs \u2192 query_state and ccc \u2192 can_calculate_changes in email.rs lines 707-708 and the tuple at line 758.",
+  "closed_at": "2026-05-04T15:57:12Z",
+  "compaction_level": 0,
+  "content_hash": "2f38e6bc32ec0ad9a4aa11b525c0cb95d9ab9f72f1a466f8b1409c1794e9d552",
+  "created_at": "2026-05-02T06:45:48Z",
+  "created_by": "Mark Atwood",
+  "description": "File:/home/mark/PROJECT/JMAP/crate-jmap-mail-server/src/email.rs:623\nIssue: Variables qs and ccc are cryptic abbreviations for query_state and can_calculate_changes respectively. They are declared 15+ lines before being used at line 663, making the tuple destructure hard to follow without mentally tracking what each abbreviation means.\nFix: Rename qs to query_state and ccc to can_calculate_changes to match the field names they shadow.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Abbreviations qs/ccc in email_query",
+  "updated_at": "2026-05-04T15:57:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:45:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "7bd5089e-d2fa-59f7-93d1-d02b4b677c7b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

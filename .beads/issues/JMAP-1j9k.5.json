@@ -1,0 +1,33 @@
+{
+  "close_reason": "No-op affirmation bead: bead body says 'the docstring is exemplary' and the only request is 'worth preserving verbatim if a refactor PR tries to compress it'. The docstring at crate-jmap-calendars-client/src/methods/event_notification.rs:80-105 is still present (I added the if_in_state arg per JMAP-1j9k.12 but did not touch the rationale comment). No action needed for this bead \u2014 the protective record is the bead itself, which any future contributor proposing to compress that comment will see.",
+  "closed_at": "2026-05-17T12:27:33Z",
+  "compaction_level": 0,
+  "content_hash": "859b93fa443e96885d392698b78111d7a1dbfb26f96e25ab42046e463a15e701",
+  "created_at": "2026-05-15T01:02:49Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/event_notification.rs:80-105 \u2014 the docstring is exemplary: it (a) names the side-effect (always sends destroy:[] and always hits the network), (b) shows the caller-side skip pattern, and (c) explains why short-circuiting client-side would be wrong (cannot synthesize correct oldState/newState tokens). A drive-by contributor will inevitably propose 'optimizing' this to short-circuit when destroy is empty/None \u2014 this comment block is the correct defence. Worth preserving verbatim if a refactor PR tries to compress it. Cross-references bd:JMAP-231o.9.",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "calendar_event_notification_set unconditional-call rationale is explicit and well-justified",
+  "updated_at": "2026-05-17T12:27:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:02:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "d516f708-1d29-58c1-aa55-77a62c125095",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

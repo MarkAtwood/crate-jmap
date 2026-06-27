@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-4xv.2",
+  "title": "Mailbox/query and EmailSubmission/query silently coerce invalid limit",
+  "description": "Pass 6 fixed Email/query to reject non-u64 limit with invalidArguments. Mailbox/query (args.get(\"limit\").and_then(|v| v.as_u64())) and EmailSubmission/query (v.as_u64() in match arm) still silently treat invalid limit as None/no-limit. Inconsistency: same request pattern gets invalidArguments from Email/query but silent success from Mailbox/query.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:57:57Z",
+  "updated_at": "2026-05-01T03:05:50Z",
+  "closed_at": "2026-05-01T03:05:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-4xv",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:57:56"
+    }
+  ]
+}

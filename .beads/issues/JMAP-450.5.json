@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-450.5",
+  "title": "extract_account_id duplicated verbatim in every handler module",
+  "description": "email.rs, mailbox.rs, thread.rs, identity.rs, snippet.rs, vacation.rs, submission.rs each contain a private fn extract_account_id with identical body. A contributor adding a new handler module will copy it again. Any change (e.g. better error message, tracing) must be made 7+ times or a divergence bug is introduced. Move to a crate-level private helper.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:34:39Z",
+  "updated_at": "2026-04-30T21:50:23Z",
+  "closed_at": "2026-04-30T21:50:23Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-450",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:34:39"
+    }
+  ]
+}

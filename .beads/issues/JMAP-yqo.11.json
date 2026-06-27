@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:13:29Z",
+  "compaction_level": 0,
+  "content_hash": "aa86b42a65c0bf3a924c3d7fa4b390fad21cfa29b992fb692fbda9123e90dbcf",
+  "created_at": "2026-05-02T02:55:20Z",
+  "created_by": "Mark Atwood",
+  "description": "apply_header_form returns Value::Null for all structured header forms (AsAddresses, AsGroupedAddresses, AsDate, AsMessageIds, AsURLs) with TODO comments. validate_header_form correctly rejects incompatible forms, but a well-typed request like header:From:asAddresses will get null back with no error. RFC 8621 \u00a74.1.3 requires these forms to return structured values. Users will file issues thinking the server is broken. Each TODO should at minimum return an error or be documented as a known limitation so callers know not to rely on it.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AsAddresses/AsDate/AsMessageIds/AsURLs header forms return null \u2014 silent wrong value",
+  "updated_at": "2026-05-02T03:13:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:55:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "2a78f890-6327-52f9-87e5-1b644b659ffd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:12:28Z",
+  "compaction_level": 0,
+  "content_hash": "0e897872e38f5a1539603db7cc2dc523994e824396e415507ef6729971947f4f",
+  "created_at": "2026-05-02T03:55:16Z",
+  "created_by": "Mark Atwood",
+  "description": "identity.rs destroy loop: id_val.as_str() returns None \u2192 continue, silently swallowing non-string array elements. mailbox.rs and submission.rs both call find(|v| !v.is_string()) and return Err(invalidArguments) for the whole request. RFC 8620 \u00a75.3 says the destroy array is Id[] \u2014 a non-string element is a malformed request, not a per-item error. Identity/set is inconsistent and masks client bugs.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Identity/set silently skips non-string destroy elements",
+  "updated_at": "2026-05-02T04:12:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:55:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "6289a3af-e04f-52d0-b34a-2b1528bb42fd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

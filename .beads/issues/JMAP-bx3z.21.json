@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: fetch cap+1 to detect truncation; exactly cap results no longer triggers total=None",
+  "closed_at": "2026-05-02T19:28:23Z",
+  "compaction_level": 0,
+  "content_hash": "88b4ec1f39b0873ea94af6072d5dee09ff1584c0e9c9eeaa944874a2b0af26ba",
+  "created_at": "2026-05-02T19:18:44Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs handle_email_query: when collapseThreads or anchor is set and the backend returns exactly COLLAPSE_THREADS_MAX_EMAILS=65536 IDs, the code treats that as 'might be capped' and sets total=None, so the response omits the total even if calculateTotal=true. A client that sends calculateTotal:true with collapseThreads:true on an account with exactly 65536 emails will receive no total, with no indication why. The off-by-one means a legitimately cap-free result (fetched_count < cap check) produces None for the boundary case. Maintenance consequence: intermittent missing-total bug reports from accounts near the cap boundary.",
+  "ephemeral": 0,
+  "id": "JMAP-bx3z.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "COLLAPSE_THREADS_MAX_EMAILS cap silently omits total from response",
+  "updated_at": "2026-05-02T19:28:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:18:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-bx3z",
+      "id": "909c947b-8c5f-542f-b3f1-fb1fa89043ce",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

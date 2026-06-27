@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-09T14:43:11Z",
+  "compaction_level": 0,
+  "content_hash": "8d1cb7c34a7c2317268980a445bc9aad3a240b58c5b80f60431fd7a629136fec",
+  "created_at": "2026-05-09T07:05:28Z",
+  "created_by": "Mark Atwood",
+  "description": "Mirror the calendars-client conversion in jmap-filenode-client. Same structural change.",
+  "ephemeral": 0,
+  "id": "JMAP-6by7.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "0.2.0 typed-Id: jmap-filenode-client",
+  "updated_at": "2026-05-09T14:43:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T00:05:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6by7.1",
+      "id": "95a38d5c-2389-5872-963c-7a2b6375a7f5",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-09T00:05:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6by7",
+      "id": "c38aa936-52c6-5f2d-8d19-c0d94506b05b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-450.2",
+  "title": "Email/parse conflates blobNotFound with notParsable",
+  "description": "email.rs:869-886 \u2014 backend.parse_email() returns Err for both 'blob not found' and 'not a valid RFC 5322 message'. Handler puts ALL errors in notParsable. RFC 8621 \u00a75.8 requires: blob not found \u2192 notFound; exists but unparseable \u2192 notParsable. The not_found Vec is declared but never populated. Clients relying on notFound to detect missing blobs will silently get incorrect notParsable entries.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:34:21Z",
+  "updated_at": "2026-04-30T21:56:15Z",
+  "closed_at": "2026-04-30T21:56:15Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-450",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:34:21"
+    }
+  ]
+}

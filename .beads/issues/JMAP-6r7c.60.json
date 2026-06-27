@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T00:07:29Z",
+  "compaction_level": 0,
+  "content_hash": "f67df8576ed66a4ab0595fb4da97e8fa5c20ad2c2977676e23f60fb8dc14789d",
+  "created_at": "2026-05-14T23:36:42Z",
+  "created_by": "Mark Atwood",
+  "description": "Section F \u2014 Logging Output Safety (example-as-template anti-pattern).\n\nThe existing JMAP-6r7c.9 finding flags 'examples/session_fetch.rs prints session.state via Display, bypassing the Session Debug redaction.' The same example prints two additional fields via Display that bypass the redaction this crate landed in bd:JMAP-sc1b.99 and bd:JMAP-sc1b.104:\n\n- examples/session_fetch.rs:99 \u2014 println!(\"username:        {}\", session.username); bypasses Session.username [REDACTED] PII redaction.\n- examples/session_fetch.rs:117-119 \u2014 the loop over session.accounts iterates account ids only (good), but does NOT print AccountInfo.name. So account names are OK here.\n\nThe state finding is real and already filed as JMAP-6r7c.9. The username finding is the parallel defect for the username PII (email shape under GDPR/CCPA per the Debug impl docstring at request.rs:200-211).\n\n# What goes wrong (privacy / training-by-example)\n\nTwo effects:\n\n1) The example, run against a real JMAP server, prints the user's email address (or other identifier) to stdout. If the operator runs the example in CI, in a screenshare, or pipes the output to a log aggregator, that PII lands in operator-accessible storage outside the user-data scope. The session.state print has the same shape (session-cookie-equivalent leak), and JMAP-6r7c.9 already flags it.\n\n2) Example code is the canonical reference for downstream consumers. A consumer writing their own JMAP client copies the pattern from session_fetch.rs and reproduces the same PII bypass in their production code. The whole point of the bd:JMAP-sc1b.99/104 Debug-redaction work was to teach the discipline 'do not print these fields'; the example then turns around and prints them.\n\n# Suggested fix\n\nReplace lines 99-104 with:\n\n```rust\nprintln!(\"username:        [REDACTED]\");\nprintln!(\"api_url:         {}\", session.api_url);\nprintln!(\"upload_url:      {}\", session.upload_url);\nprintln!(\"download_url:    {}\", session.download_url);\nprintln!(\"event_source:    {}\", session.event_source_url);\nprintln!(\"state:           [opaque]\");\n```\n\nOr use the Debug impl which is already redaction-correct:\n\n```rust\nprintln!(\"{session:#?}\");\n```\n\nOr replace the prints entirely with a 'fetched OK; N capabilities, M accounts' summary, keeping the URL fields if they are useful for the demo (URLs are deployment metadata, not credentials/PII).\n\n# Scope note\n\nThis is filed as a separate bead from JMAP-6r7c.9 because the underlying defect is the same shape (Display bypass) but different field (username vs state). Closing JMAP-6r7c.9 alone won't fix this. Either fold both into a single fix bead or treat them as siblings.\n\n# References\n\n- request.rs:212-227 Session manual Debug impl (bd:JMAP-sc1b.99)\n- request.rs:278-288 AccountInfo manual Debug impl (bd:JMAP-sc1b.104)\n- JMAP-6r7c.9 (parallel session.state bead)",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.60",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "examples/session_fetch.rs prints session.username via Display, bypassing AccountInfo/Session PII redaction",
+  "updated_at": "2026-05-15T00:07:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:36:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "7d15e163-052e-5969-ab70-565480fdf127",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

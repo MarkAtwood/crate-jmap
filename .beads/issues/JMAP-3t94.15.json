@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:22:22Z",
+  "compaction_level": 0,
+  "content_hash": "4f83c96c1a854a3a6b714aec2638ba45d3eeb6c9f38cc10b2a7282101038f9ad",
+  "created_at": "2026-05-14T21:58:23Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/lib.rs:152\n\n```rust\npub use jmap_server::ClosureHandler;\n```\n\nThis is the same orphan re-export already flagged by JMAP-3t94.9 for\nits positional oddity. The contract-risk angle is separate:\n\n1. **Forever pin to upstream.** A `pub use` of a type from another\n   crate pins the major version of the upstream crate into this\n   crate's public API. If `jmap-server` cuts a major version that\n   changes `ClosureHandler`'s shape (adds a generic parameter,\n   removes a public method, changes a trait bound), every consumer\n   of `jmap_sharing_server::ClosureHandler` is broken.\n\n2. **No documentation.** The re-export has no rustdoc explaining\n   why it is here, whether it is intended for caller use or only for\n   the `register_sharing_handlers` macro internals, or whether it is\n   stable. By default, `pub use` items are part of the SemVer\n   contract.\n\n3. **Workspace-coordinated release does not relax this.** The\n   workspace currently ships `jmap-server` and `jmap-sharing-server`\n   together with path deps, but the spec for the published-to-crates.io\n   surface is what matters. A consumer that pins\n   `jmap-sharing-server = \\\"0.1\\\"` and accepts `jmap-server = \\\"0.2\\\"`\n   in a different transitive path could in principle hit a version\n   mismatch on `ClosureHandler`'s identity.\n\nThe canonical mail-server has the same re-export at lib.rs:252 \u2014 the\ndivergence here is structural (placement) but the contract risk is\nshared across the whole sibling family.\n\nResolution options (in order of preference):\n- Make it `#[doc(hidden)]` if it is purely for the macro internals.\n  Mark in rustdoc as \\\"not stable; do not depend on this path\\\".\n- If it IS intended for caller use, add rustdoc citing the\n  workspace's coordinated release policy and stating that the\n  upstream `jmap-server` version is implicitly pinned to whatever\n  this crate's version pins.\n- Remove the re-export and require callers who want `ClosureHandler`\n  to depend on `jmap-server` directly. This is the cleanest contract.\n\nWhat goes wrong for callers when this stays as-is: an upstream\nbreaking change to `ClosureHandler` cascades into a major-version\nbump for this crate even though the sharing-server functionality\nitself did not change.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Added rustdoc on the ClosureHandler re-export explaining: (a) it exists for the register_sharing_handlers macro body, (b) the re-export pins jmap_server's major-version contract into this crate's surface, (c) consumers SHOULD prefer importing from jmap_server directly for new code. Combined with .9's positional fix.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "pub use jmap_server::ClosureHandler is an undocumented version-pinned cross-crate re-export",
+  "updated_at": "2026-05-14T22:22:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:58:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "61306b9b-7835-58e2-8ca1-04b678193207",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

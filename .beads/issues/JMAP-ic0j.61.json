@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Rustdoc 'Errors' section added covering: Err = genuine storage/runtime failure \u2192 method-level serverFail via server_fail_from_backend (no Self::Error Display leak); malformed-but-readable blobs \u2192 not_parsable; unknown blob ids \u2192 not_found. Bundled with JMAP-ic0j.66 since both findings target the same rustdoc.",
+  "closed_at": "2026-05-16T01:29:58Z",
+  "compaction_level": 0,
+  "content_hash": "370515de2a95b8411fbe4c897bab1a77fc30ec2908d7b28739ecd4b2a2986219",
+  "created_at": "2026-05-15T18:08:38Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-calendars-server/src/backend.rs:521-542 defines `parse_calendar_event_blobs(...) -> Result<ParseResult, Self::Error>` with rustdoc describing only the `Ok` shape and the default impl behavior.\n\nThe rustdoc says NOTHING about what happens when the backend returns `Err(Self::Error)`. Possible interpretations a backend implementor could read into the type:\n\n1. The error propagates up as a method-level `serverFail` (correct, but unstated).\n2. The error gets swallowed and ALL the blob ids land in `not_parsable` (legitimate if the backend wants to be permissive).\n3. The error aborts the request entirely (incorrect \u2014 `not_found` / `not_parsable` were designed for this).\n\nCompare `set_default_calendar` in the SAME FILE at :486-488 which EXPLICITLY documents:\n\n> `Err` is reserved for genuine backend storage failures. The handler silently swallows storage errors per \u00a74.3 (\"No error is returned to the client in this case\") rather than escalating to `serverFail`.\n\n`parse_calendar_event_blobs` has no such clause. The implementation in event.rs:994-1003 (the handler call site) treats `Err` as `server_fail_from_backend(&e)` \u2014 so the de-facto contract is \"propagates as serverFail\" \u2014 but this is not stated in the trait method's rustdoc.\n\nWhat callers cannot rely on:\n- Whether they should classify \"blob exists but is malformed\" as `notParsable` (data classification) or `Err` (storage failure). Reasonable backends could disagree.\n- Whether the handler will swallow the error or surface it. They can read event.rs:994 to find out today, but the trait method is the contract surface.\n\nFix: add a 2-line `# Errors` section to the rustdoc:\n\n    # Errors\n    Returns `Err` for genuine backend storage failures (connectivity loss,\n    serialisation corruption). Malformed-but-readable blobs go in\n    `not_parsable`; unknown blob ids go in `not_found`. `Err` propagates\n    to the client as a method-level `serverFail`.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.61",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "parse_calendar_event_blobs Err(_) propagation contract undocumented; sibling methods document Err semantics",
+  "updated_at": "2026-05-16T01:29:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T11:08:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "70eb1830-fcee-5e44-9e9b-5cac2f7ed8e0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

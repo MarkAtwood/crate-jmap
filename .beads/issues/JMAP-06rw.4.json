@@ -1,0 +1,59 @@
+{
+  "acceptance_criteria": "17 wiremock tests pass. Clippy clean.",
+  "assignee": "Mark Atwood",
+  "close_reason": "22 total tasks-client tests pass; clippy clean; all TaskList/Task/TaskNotification methods covered by integration tests",
+  "closed_at": "2026-05-05T04:37:47Z",
+  "compaction_level": 0,
+  "content_hash": "926d671afadcfc976737109616e4726d685aee33d9b349798b64a3b62f5fd3ba",
+  "created_at": "2026-05-05T02:55:01Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Final quality gate for jmap-tasks-client.\n\n**Algorithm:**\n1. cargo test -p jmap-tasks-client: all pass including 17 new integration tests.\n2. cargo clippy -p jmap-tasks-client -- -D warnings: zero warnings.\n3. Close epic JMAP-06rw.\n\n**Acceptance criteria:** All commands exit 0. All 14 method names appear in at least one integration test.",
+  "ephemeral": 0,
+  "id": "JMAP-06rw.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Done signal: tasks-client wiremock coverage complete",
+  "updated_at": "2026-05-05T04:37:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:55:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-06rw.3",
+      "id": "037e0639-13e1-5955-9810-3fc2760fb8a3",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:55:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-06rw.1",
+      "id": "424a5555-f4c3-59bd-bef4-306ff8e17015",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:55:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-06rw.2",
+      "id": "9c3de7eb-a925-5648-8f8e-12a56595efe7",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:55:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-06rw",
+      "id": "f2f6b6b1-c89b-53f3-8872-7b8221c555d5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

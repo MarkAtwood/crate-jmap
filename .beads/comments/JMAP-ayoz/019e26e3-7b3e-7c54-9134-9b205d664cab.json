@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T14:28:23Z",
+  "id": "019e26e3-7b3e-7c54-9134-9b205d664cab",
+  "issue_id": "JMAP-ayoz",
+  "text": "API contract risk: MEDIUM \u2014 seven findings filed (.22-.28). Two P1s lock the maintainer to upstream releases (ClosureHandler re-export, MemoryError pub String); one P1 is the canonical-template-shared MemoryError shape that needs canonical-first propagation. Two P2s are forward-compat hygiene (MemoryBackend non_exhaustive; register_metadata_handlers idempotency doc). Three P3s are contract gaps: an unused upstream re-export (MetadataProperty), an unspecified account-validation responsibility in the get_metadata_changes default impl, and a documented-but-unenforced id-must-be-set invariant on create_object. The crate's transport-less posture (no HTTP / SSE / WS in this crate) keeps the contract footprint smaller than it could be; the most material risk is the pre-1.0 'memory feature may break across minor versions' gate covering most of the leakage findings adequately for now."
+}

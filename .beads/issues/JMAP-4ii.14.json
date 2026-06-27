@@ -1,0 +1,33 @@
+{
+  "close_reason": "SetError base moved to jmap-server",
+  "closed_at": "2026-05-02T06:34:56Z",
+  "compaction_level": 0,
+  "content_hash": "5bd4904a94dff7424d24410fc2cba3e95e24df798add96be1bf9ae1897675344",
+  "created_at": "2026-05-02T03:56:06Z",
+  "created_by": "Mark Atwood",
+  "description": "chat-server/backend.rs and mail-server/backend.rs each define their own SetError struct and SetErrorType enum with identical base variants (Forbidden, OverQuota, TooLarge, RateLimit, NotFound, InvalidPatch, WillDestroy, InvalidProperties, Singleton, AlreadyExists). mail-server/backend.rs adds mail-specific variants on top. When a new base variant is needed (e.g. a future JMAP extension), it must be added to both files separately and both Display impls must be updated. A bug fixed in one SetError (e.g. a missing Display arm) will not be fixed in the other. The base type should live in jmap-server or jmap-types and be extended by domain crates.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "SetError/SetErrorType duplicated in chat-server and mail-server",
+  "updated_at": "2026-05-02T06:34:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:56:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "92001b0f-0b75-53f6-bc1c-70bf1cbf18de",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

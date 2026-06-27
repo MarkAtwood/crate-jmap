@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added jmap_server::server_fail_from_backend(&err) helper that returns JmapError::server_fail with a static 'internal error' description, dropping the backend error's Display text rather than echoing it onto the wire. Public const SERVER_FAIL_INTERNAL_DESC exposes the static description for reference. Replaced 7 .map_err(|e| JmapError::server_fail(e.to_string())) call sites in crate-jmap-server/src/handlers.rs with the new helper. Tests: canary-leak proves the helper drops the backend Display text and the resulting wire description is exactly SERVER_FAIL_INTERNAL_DESC; bound is Display + ?Sized so it works on String/&str/JmapBackend::Error/BackendSetError/etc. Filed JMAP-wlip.33 to propagate the helper to the ~203 analogous call sites in the 8 extension *-server crates per canonical-template rule.",
+  "closed_at": "2026-05-14T13:29:06Z",
+  "compaction_level": 0,
+  "content_hash": "9c41e79eb39ae0f96c2a8e337c946df0f0d103839a56cde1681547fd48a2cfec",
+  "created_at": "2026-05-14T12:51:56Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: any backend impl whose Error::Display output contains credential material, blob content, or PII shaped like an email address. Today: every generic handler in crate-jmap-server/src/handlers.rs (handle_get:30,55,60; handle_changes:99; handle_query:153,205; handle_query_changes:242) wraps backend errors with JmapError::server_fail(e.to_string()). That string lands in the wire-format JmapError.description field of the error invocation returned to the JMAP client at HTTP 200.\n\nThe new bd:JMAP-sc1b.100 security contract added in commit 8099de3 (crate-jmap-server/src/backend.rs:618-645) imposes a MUST-NOT on backend Error Display output. The contract is correct as far as it goes, but the contract is on the *backend implementor*. The handler is where the blast radius gets magnified \u2014 it sends the backend's Display text not just to operator logs (where a careful operator might redact) but to the JMAP client over HTTP.\n\nA backend impl that accidentally violates the Display contract today produces:\n  HTTP 200 \u2192 methodResponses[i] = [\"error\", {\"type\":\"serverFail\", \"description\":\"<leaked secret>\"}, callId]\n\u2026visible to any client that can dispatch a method whose backend call fails.\n\nRight behaviour (defense-in-depth at the handler layer):\n- handlers SHOULD construct serverFail without a description for unexpected backend errors that originated as Error::Other / Self::Error \u2192 operator-log the full text via tracing::error!, return JmapError::server_fail(\"internal error\") to the wire. RFC 8620 \u00a73.6.2 explicitly permits omitting description.\n- handlers SHOULD only echo description for JmapError variants whose description is part of the API contract (limit, invalidArguments, invalidResultReference, etc. \u2014 methods that constructed the JmapError themselves with caller-meaningful detail).\n\nThis is a real defence: it changes a backend Display-contract bug from a *wire-format security incident* to a *server-side log issue*. The backend Display contract is necessary but insufficient on its own \u2014 handlers are the canonical leak path and need the matching guard.\n\nScope: applies to all five .map_err(|e| JmapError::server_fail(e.to_string())) call sites in handlers.rs plus any analog in extension *-server crates.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Generic handlers leak JmapBackend::Error Display verbatim into serverFail.description on the wire",
+  "updated_at": "2026-05-14T13:29:06Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T05:51:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "6a475e86-d228-595a-82b5-adac7f985b08",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

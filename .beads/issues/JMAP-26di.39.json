@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied option 1 (minimum fix): pub(crate) -> pub on CALL_ID. The expanded doc explains the use case (external indexing into SetResponse-shaped maps) and gives a concrete blob_convert example. Also fixed an incidental rustdoc private-intra-doc-link warning that surfaced when the visibility changed (build_request stays private, the link was rewritten as plain prose).\n\nOption 2 (rewrap *_create methods to return inner-value directly, hiding the map) is correctly out of scope \u2014 it's a workspace-wide API design change touching many *_create methods.\n\ncargo build, test, clippy --all-targets -- -D warnings, RUSTDOCFLAGS='-D warnings' cargo doc all green. Committed as 88af5c5.",
+  "closed_at": "2026-05-15T21:41:08Z",
+  "compaction_level": 0,
+  "content_hash": "88ad05c3df3df801cf569d147b3bd9d87f99d812d62e62bc062aa297f604f8f5",
+  "created_at": "2026-05-15T20:40:48Z",
+  "created_by": "Mark Atwood",
+  "description": "Files:\n- crate-jmap-chat-client/src/methods/blob.rs:176-177 (public doc references the constant)\n- crate-jmap-chat-client/src/methods/mod.rs:195 (constant is `pub(crate)`)\n\n`blob_convert`'s rustdoc contains:\n```\n/// `response.created[CALL_ID]`.  On failure the error is in\n/// `response.not_created[CALL_ID]`.\n```\n\n`CALL_ID` is declared `pub(crate) const CALL_ID: &str = \"r1\"`. External callers cannot import or read this constant. They are told to index into a HashMap using a key they cannot see.\n\nIn practice today the key is `\"r1\"`, hardcoded \u2014 so callers who read the source can recover the value. But:\n- The doc is misleading as written: an external caller types `let result = response.created[jmap_chat_client::methods::CALL_ID];` and gets a private-item error.\n- A future internal refactor that changes `CALL_ID` (e.g. to UUIDs per request) silently breaks every external caller who hardcoded `\"r1\"` instead of the constant.\n\nTwo fixes, pick one:\n1. **Expose the constant**: change to `pub const CALL_ID: &str = \"r1\";`. Now callers can write `response.created[jmap_chat_client::methods::CALL_ID]` and the doc is honest.\n2. **Wrap the access**: change `blob_convert` to return the inner value directly (`Result<Option<BlobObject>, ClientError>` instead of `Result<SetResponse, ClientError>`), eliminating the index-the-map step entirely.\n\nOption 2 is the cleaner caller experience and matches what `message_create` does. Option 1 is the minimum fix.\n\nNote: this also affects every other method that returns `SetResponse` and tells the caller to index into `created[CALL_ID]` \u2014 applies to roughly every `*_create` method. The audit only spot-checked `blob_convert` explicitly, but the same docstring pattern recurs in `chat.rs`, `space.rs`, `message.rs`, `misc.rs`. A workspace-wide pattern decision is needed.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CALL_ID referenced in public blob_convert doc but is pub(crate)",
+  "updated_at": "2026-05-15T21:41:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:40:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "2adcf4b0-6e02-5680-a3fe-8195026b8a12",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

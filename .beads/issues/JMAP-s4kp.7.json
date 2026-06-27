@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ac66f4b2e852e378720429344fb273501686b84965eb106ce8be243f43d04909",
+  "created_at": "2026-06-05T03:57:07Z",
+  "created_by": "Mark Atwood",
+  "description": "Propagate canonical mail-server metadata-02 integration (JMAP-s4kp.1) to jmap-sharing-server MemoryBackend. Same 3 integration points: query_objects filter matching for 6 metadata conditions, get_changes ignoreMetadataOnlyChanges, /set patch validation. Adapt to sharing-server's type set (Principal, ShareNotification). See JMAP-s4kp.1 for canonical pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-s4kp.7",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "sharing-server: wire metadata-02 helpers into MemoryBackend",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-04T20:57:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s4kp.1",
+      "id": "10c1c09e-ad65-566e-91df-5a5a8e4c3322",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-06-04T20:57:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s4kp",
+      "id": "7d47d4ab-6471-5ed0-8a85-64632fe175a3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

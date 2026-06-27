@@ -1,0 +1,33 @@
+{
+  "close_reason": "Confirmed: find_immutable_patch_key byte-index check correctly rejects paths not prefixes; no change needed",
+  "closed_at": "2026-05-01T16:13:50Z",
+  "compaction_level": 0,
+  "content_hash": "fedea0ac95434dfcff012eab6998268889874824a45a3c51f2036ab8131d6c76",
+  "created_at": "2026-05-01T15:42:44Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs:714-716. The patch-key immutability check uses key.as_bytes().get(field.len()) == Some(&b'/') to distinguish three cases: exact match (e.g. 'messageId'), sub-path match ('messageId/0'), and a longer field name that happens to share a prefix ('messageIdExtra'). A plain starts_with check would incorrectly block the third case. The byte-index check is correct and the comment explains all three cases. A reviewer might suggest simplifying to starts_with without reading the explanation; the current approach is necessary.",
+  "ephemeral": 0,
+  "id": "JMAP-ptl.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_immutable_patch_key: byte-index check correctly rejects paths, not prefixes",
+  "updated_at": "2026-05-01T16:13:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:42:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ptl",
+      "id": "96d41cd5-e0a9-5f62-af43-569ef54bd9bf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

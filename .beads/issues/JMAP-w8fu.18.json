@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "350b2b45617aae890a02af6676e9ce19c2bcdd12bd035371478f0f7137b139fc",
+  "created_at": "2026-06-13T21:49:29Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/src/lib.rs has 0/86 lines covered (0%). These are the register_chat_handlers and register_X_handlers functions \u2014 pure registration boilerplate. Coverage requires spawning a Dispatcher and calling through it. Low value \u2014 the same code paths are exercised indirectly by every integration test. Consider whether these warrant direct coverage or should be explicitly excluded from coverage targets.",
+  "ephemeral": 0,
+  "id": "JMAP-w8fu.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Test coverage: chat-server lib.rs (0%)",
+  "updated_at": "2026-06-13T21:49:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:49:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w8fu",
+      "id": "0165b352-7529-560f-9c74-cb2147e4f12a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

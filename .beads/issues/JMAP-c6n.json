@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-c6n",
+  "title": "Review: fix(jmap-mail-server): review pass 2",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T00:04:20Z",
+  "updated_at": "2026-05-01T00:07:18Z",
+  "closed_at": "2026-05-01T00:06:02Z",
+  "notes": "Maintainer risk: LOW \u2014 One correctness bug found and fixed (process_update wrong error type). All other correctness, efficiency, and idiomatic-Rust items were either already fixed in the first pass or are decision-confirmed acceptable.\nIdiom rating: CLEAN \u2014 No new idiom findings. Box instead of Arc for call_fn, exhaustive SetErrorType::Display, From impl for BackendChangesError all landed in first pass.\nConfidence: 95% chance of no missed bug. Least confident: assign_thread O(n) scan (deferred, not a correctness issue). Uncertainty driven by: absence of integration tests with a real SMTP backend."
+}

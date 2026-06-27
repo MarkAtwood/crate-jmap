@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "a59657b710f8e7118973ef9a169d0990066a6336f86576d14a6f0818beb3006e",
+  "created_at": "2026-05-17T05:28:40Z",
+  "created_by": "Mark Atwood",
+  "description": "## Sibling propagation of canonical bd:JMAP-k9va.1\n\nDepends on bd:JMAP-k9va.1 (mail-server canonical fix) landing first.\n\nPer workspace AGENTS.md 'Canonical Templates' rule, this sibling must mirror the shape mail-server adopts. Read the canonical commit before starting.\n\n## Candidate sites\n\nAudit via:\n\n```\nrg -n 'Id::from\\(.*str' crate-jmap-tasks-server/src/\n```\n\n7 `Id::from` matches as of 2026-05-16. Separate wire-boundary (in scope) from backend-return-value (out of scope) per the .39 / .93 cross-walk:\n\n- Wire-boundary: `/set` update map keys, `/set` destroy array elements, method-arg fields like `chatId` / `spaceId` / `blobId`.\n- Out of scope: Ids returned by `get_*` backend calls, synthetic Ids constructed from server-generated content, references to existing entries.\n\n## Acceptance\n\n- Mirror the canonical fix shape from bd:JMAP-k9va.1\n- All wire-boundary sites use `Id::new_validated` with appropriate error mapping\n- Internal sites carry an inline `// out of scope: <reason>` comment\n- `cargo test -p jmap-tasks-server` green\n- `cargo clippy -p jmap-tasks-server -- -D warnings` green\n- At least one negative test added\n\n## Cross-references\n\n- Canonical: bd:JMAP-k9va.1\n- Triggering finding: bd:JMAP-ayoz.39 (metadata-specific) / bd:JMAP-x2gd.93 (chat-specific)",
+  "ephemeral": 0,
+  "id": "JMAP-k9va.4",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Propagate: jmap-tasks-server wire-boundary Id::new_validated migration (7 candidate sites)",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T22:28:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-k9va",
+      "id": "09f00e98-d65e-5b56-b15f-ebc2b0325614",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-16T22:28:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-k9va.1",
+      "id": "7d435829-4b55-5310-8e2f-30c9fae9e62a",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

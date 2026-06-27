@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T17:42:47Z",
+  "compaction_level": 0,
+  "content_hash": "f12884854dc86d4a6d09d7ba77db0b06bee3dca625d7e0892ec7d03271a1a1c1",
+  "created_at": "2026-05-15T16:56:05Z",
+  "created_by": "Mark Atwood",
+  "description": "principal.rs:21-103 \u2014 handle_principal_get_availability validates utcStart and utcEnd individually via UTCDate::new_validated, but does NOT check the ordering invariant utcStart <= utcEnd before forwarding to backend.get_availability.\n\nTrigger: client supplies utcStart='2024-06-15T10:00:00Z', utcEnd='2024-06-15T09:00:00Z' (end before start). The handler forwards both to the backend default impl which returns an empty list, so today the client sees a successful empty response.\n\nThis is OK with the default impl. But the backend trait contract at backend.rs:464-484 documents utc_start/utc_end as bounding a 'half-open interval' \u2014 and an interval with end < start is not just empty, it is malformed. A production backend that translates this into a SQL query 'WHERE start BETWEEN x AND y' silently returns empty; one that translates into a recurrence-expansion loop 'for t in start..end step duration' could loop forever or panic depending on how the iteration is written.\n\ndraft-ietf-jmap-calendars-26 \u00a72.2 does not explicitly say 'utcStart MUST be before utcEnd' but the field semantic only makes sense that way. RFC 8620 \u00a73.6.1 invalidArguments is the natural error.\n\nFix: after both UTCDate validations, add\n\n  if utc_end <= utc_start {\n      return Err(JmapError::invalid_arguments('utcEnd must be strictly after utcStart'));\n  }\n\n(Half-open interval [utc_start, utc_end) requires utc_end > utc_start; equal is also empty and arguably also invalidArguments. Choose one \u2014 the canonical spec for similar windowing in \u00a75.11 says 'before > after', so consistent here would be utc_end > utc_start.)\n\nTest gap: principal.rs:117-174 has only positive-path coverage. Add a test that asserts invalidArguments on reversed bounds.\n\nP1 (not P0) because today the default backend cannot loop or panic on this input; the bug is latent and lands when a real backend ships. Worth fixing now because it's a backend-contract issue not a handler-internal issue, and pinning it down avoids every backend implementor re-discovering it.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Principal/getAvailability accepts utcEnd < utcStart silently",
+  "updated_at": "2026-05-15T17:42:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T09:56:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "683fe64a-73c6-5c6d-9b2c-31c98de55435",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

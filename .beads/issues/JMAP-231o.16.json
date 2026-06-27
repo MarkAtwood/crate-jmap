@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already defended: USING_CALENDARS/USING_PARSE/USING_AVAILABILITY are named const slices at src/methods/mod.rs:105-124 with doc-comments naming the capability and spec section. Section-6 'good-decision' note, no code change required.",
+  "closed_at": "2026-05-10T05:29:35Z",
+  "compaction_level": 0,
+  "content_hash": "7b108aa3f8e773e0bb075c52bd3f5cca623689d245b55d471154e3858a49f79d",
+  "created_at": "2026-05-08T03:20:16Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:185-203 defines USING_CALENDARS, USING_PARSE, USING_AVAILABILITY as separate const slices. Each method picks the correct set. This is correct \u2014 JMAP servers may reject calls whose `using` array does not declare the capability the method requires (RFC 8620 \u00a73.3). Centralizing the URIs in named constants prevents drift between methods.\n\nA contributor might be tempted to 'simplify' by always sending the union of all three (it would work, since servers tolerate extra capabilities). DO NOT \u2014 that defeats the auditability. The current shape lets a reader check at the call site which capabilities the method depends on.",
+  "ephemeral": 0,
+  "id": "JMAP-231o.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Capability URI sets are named constants per method family",
+  "updated_at": "2026-05-10T05:29:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:20:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-231o",
+      "id": "5687b510-823a-5814-a0e6-df2ad7a37f6e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

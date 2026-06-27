@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed. Crate-level rustdoc section documents the serde_json/preserve_order dependency canonically; each of the 5 in-scope structs (BlobUploadResponse, Session, AccountInfo, WebSocketCapability, StateChange) carries a brief cross-reference to the canonical section. Regression-guard test extra_equality_is_order_insensitive_under_workspace_flags in push.rs locks in the BTreeMap behavior under the workspace's current feature posture \u2014 if a future Cargo.lock change accidentally enables preserve_order, the test fails loudly. Doc-only change, no behavioural break.",
+  "closed_at": "2026-05-18T04:21:02Z",
+  "compaction_level": 0,
+  "content_hash": "e39ef4fb3028259a365ba309f5af8ba49eedaeda316c70fd37a01a9be35b08de",
+  "created_at": "2026-05-14T23:20:25Z",
+  "created_by": "Mark Atwood",
+  "description": "blob.rs:48-92 \u2014 BlobUploadResponse, derives Debug, Clone, PartialEq, Eq, Deserialize, Serialize\n\nLikewise: Session/AccountInfo/WebSocketCapability/StateChange all derive PartialEq + Eq.\n\nPartialEq + Eq on a struct containing `extra: serde_json::Map<String, serde_json::Value>` commits the public API to a specific equality semantics:\n\n1. **serde_json::Map preserves insertion order.** Two maps with the same keys/values but inserted in different orders compare EQUAL via PartialEq (because Map deref is BTreeMap or IndexMap depending on serde_json feature flags). For the default serde_json feature flag, this is BTreeMap (alphabetical-key order), so equality is order-insensitive.\n\n2. **But!** If a downstream consumer enables serde_json's `preserve_order` feature anywhere in their dependency graph (it's a global feature toggle), Map becomes IndexMap (insertion-order). Two maps with the same content but different insertion order would then compare UNEQUAL.\n\n3. **PartialEq is part of the public API.** Callers writing `assert_eq!(response_a, response_b)` in tests, or `if state_change == previous_state_change` in app code, rely on the equality semantics. The semantics change silently if `preserve_order` is enabled.\n\nThis isn't this crate's fault directly \u2014 it's a serde_json feature-flag global-state bug. But it's a contract gap: the equality semantics of these public types depend on a third-party feature flag the consumer may unwittingly enable.\n\nRecommendation: document on each in-scope struct that \"equality of the `extra` field is dependent on serde_json::Map's behavior, which can be modified by feature flags elsewhere in the dependency graph. For deterministic equality on these fields, use `serde_json::to_value(&self) == serde_json::to_value(&other)` instead of `==` directly.\"\n\nLow priority because the failure mode is rare (most consumers don't enable `preserve_order`) and the docs/code can be kept correct by following standard serde_json idioms. Flagging because the deriving of PartialEq on Map-containing types commits the crate to whatever serde_json decides.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.43",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BlobUploadResponse derives PartialEq + Eq \u2014 extra serde_json::Map ordering may cause unexpected inequality",
+  "updated_at": "2026-05-18T04:21:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T13:57:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-prpm",
+      "id": "61049398-3d75-561d-8487-4e8f88b48570",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

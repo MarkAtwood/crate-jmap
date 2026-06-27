@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added a parallel realistic-demo-ids section to both src/lib.rs //! crate-level rustdoc and README.md (sibling to the existing 'memory' feature section). Both copies explain: the default deterministic id format and its two known bugs (recycle-after-destroy, reset-on-process-restart), what the feature flip changes (process-global timestamp+counter minter matching canonical jmap-mail-server's email.rs:1748 pattern, survives deletes, lex-orderable within a process, NOT repeatable across runs), and the workspace-wide implication that a downstream Cargo feature unification can flip the id format for every MemoryBackend in the build. Commit 1f0ac84.",
+  "closed_at": "2026-05-17T09:13:43Z",
+  "compaction_level": 0,
+  "content_hash": "940574838409a844f61b757371f62b434f9cdc133111fbb9eedff2f874f13fdb",
+  "created_at": "2026-05-14T14:22:28Z",
+  "created_by": "Mark Atwood",
+  "description": "Cargo.toml:21-28 declares a 'realistic-demo-ids' feature. The doc comment in Cargo.toml explains the toggle. But:\n\n- lib.rs does not mention realistic-demo-ids in its //! crate-level rustdoc (lib.rs:1-29 documents only the memory feature).\n- README.md does not mention it either.\n- Only demo_next_id's body comment (memory.rs:253-313) explains the behavior.\n\nA user reading the README or rustdoc sees: 'memory' (documented), 'realistic-demo-ids' (invisible). Worse: enabling realistic-demo-ids changes the id format for all backends generated from the same workspace build, so a downstream consumer using MemoryBackend in their test suite who accidentally enables realistic-demo-ids via their own Cargo features will see test output change (deterministic '00000000...' \u2192 process-start-timestamp) with no doc trail.\n\nThe exact same pattern was flagged as bd:JMAP-x2gd.63 against chat-server. This is the metadata-server propagation of the same issue.\n\nFix: add a short paragraph to the lib.rs //! block AND README.md 'memory feature' section explaining what realistic-demo-ids does and when to use it. Cross-reference the canonical jmap-mail-server demo_next_id pattern.\n\nSeverity: P4 because the feature is opt-in and the failure mode is 'test fixtures look different across feature flips', not anything user-visible at runtime. Documenting it costs nothing and avoids a class of 'why did my snapshot test break' bug reports.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Cargo.toml feature 'realistic-demo-ids' is undocumented in lib.rs and README",
+  "updated_at": "2026-05-17T09:13:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:22:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "df3db3ab-3e4b-5912-aa5d-51c2d49bc38a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T16:12:11Z",
+  "compaction_level": 0,
+  "content_hash": "cfdd274aa614ce795041acb3cfd22fc94e2e6a7a404c908b22548131cebf8423",
+  "created_at": "2026-05-15T05:19:35Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs:240-251: the 'pinning test' compares PER_USER_CALENDAR_EVENT_PROPERTIES to a hardcoded literal list containing the same five strings in the same order as the const initializer. If a future contributor reorders or modifies the const, the test fails \u2014 which is the intent \u2014 but the test does not actually pin against the spec. It pins against a duplicated literal that the same author can update.\n\nWorkspace AGENTS.md (Test Integrity section) says: 'Tests must have an independent oracle: known test vectors from an external source, cross-validation between two independent implementations, or bit-exact comparison against a reference path.'\n\nThe independent oracle here is draft-ietf-jmap-calendars-26 \u00a75.4 / \u00a710.8.2 \u2014 the IANA-registered per-user property list. Two ways to make the test honest:\n\n  1. Add a leading doc comment to the test that quotes the spec section verbatim, so anyone updating the literal has to reconcile against the quoted spec text in the same file.\n\n  2. Stronger: pull the literal list out into a separate module-private const named like SPEC_REGISTERED_PER_USER_PROPERTIES that is documented as 'mirror of draft \u00a710.8.2 IANA registry; update only when the spec list changes' \u2014 then both the production const PER_USER_CALENDAR_EVENT_PROPERTIES and the test compare against that anchored const.\n\nTrigger condition: a contributor updates the const without checking the spec, updates the test to match. The test catches their own typo, not a spec drift.\n\nFile path: crate-jmap-calendars-types/src/backend.rs:240-251",
+  "ephemeral": 0,
+  "id": "JMAP-1rwf.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "calendars-types: per_user_calendar_event_properties_match_spec test has no independent oracle",
+  "updated_at": "2026-05-17T16:12:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:19:35Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1rwf",
+      "id": "2f00d14c-0ca2-5ad3-9175-dfede24f0544",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

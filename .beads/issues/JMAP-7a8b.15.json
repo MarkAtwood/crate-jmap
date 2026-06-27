@@ -1,0 +1,33 @@
+{
+  "close_reason": "Superseded by JMAP-7a8b.1 (same issue, idiomatic-rust framing)",
+  "closed_at": "2026-05-03T13:02:49Z",
+  "compaction_level": 0,
+  "content_hash": "e5ce5328212dd5c33b50132b9e35f4d72c4ebbd9a1af1c46e2b027760af23885",
+  "created_at": "2026-05-03T13:01:24Z",
+  "created_by": "Mark Atwood",
+  "description": "MdnBackend::send_mdns receives send: HashMap<Id, Mdn> where keys are client creation IDs. In JMAP, client creation IDs are arbitrary strings; Id is the type for server-assigned identifiers (RFC 8620 \u00a73.6). Using Id for creation IDs conflates two distinct namespaces. Idiomatic JMAP Rust: use String (or a newtype CreationId) for client creation IDs. This also affects MdnSendResult. Fix both the trait method signature and MdnSendResult together.",
+  "ephemeral": 0,
+  "id": "JMAP-7a8b.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "send_mdns trait method takes HashMap<Id, Mdn> \u2014 Id is wrong type for client creation IDs",
+  "updated_at": "2026-05-03T13:02:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-03T06:01:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-7a8b",
+      "id": "706057e2-61b2-52d5-8ba3-df75ad09c771",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

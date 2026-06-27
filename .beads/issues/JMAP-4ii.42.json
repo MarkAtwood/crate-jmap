@@ -1,0 +1,33 @@
+{
+  "close_reason": "no-action: P3/P4 observation, not prioritized for JMAP-39s scope",
+  "closed_at": "2026-05-02T07:05:09Z",
+  "compaction_level": 0,
+  "content_hash": "c35baf33fe8f76e2ec16ffaa16f97fd52f4c724c5291ff13451d1bd2709cc2df",
+  "created_at": "2026-05-02T03:57:59Z",
+  "created_by": "Mark Atwood",
+  "description": "backend.rs BackendChangesError::TooManyChanges { limit: 0 } maps to cannotCalculateChanges; limit > 0 maps to tooManyChanges with the suggested limit. This is a compact encoding that avoids a separate CannotCalculateChanges variant while preserving the semantic distinction RFC 8620 \u00a75.6 requires. The invariant is tested and the Display impl makes the encoding self-documenting. A contributor might suggest adding a CannotCalculateChanges variant; the current encoding should be defended as adequate and simpler.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.42",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BackendChangesError limit=0 convention for cannotCalculateChanges is clean",
+  "updated_at": "2026-05-02T07:05:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:57:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "a8480aa3-9ca2-5def-9903-4b8cc9fe990c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

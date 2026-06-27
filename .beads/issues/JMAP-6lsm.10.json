@@ -1,0 +1,33 @@
+{
+  "close_reason": "connect_ws_with_limit and url_scheme both rewritten to use split_once + eq_ignore_ascii_case instead of to_ascii_lowercase. Zero-alloc scheme checks. Behaviour preserved (case-insensitive scheme matching per RFC 3986 \u00a73.1). Also cleaned up a stray duplicate docstring from the JMAP-6lsm.23 rename.",
+  "closed_at": "2026-05-09T07:27:25Z",
+  "compaction_level": 0,
+  "content_hash": "5a51d950deba5495d5c87c7127e9e8b125909335f94cd1168a2be3647d0d1c22",
+  "created_at": "2026-05-08T03:05:18Z",
+  "created_by": "Mark Atwood",
+  "description": "src/client.rs:629-633 \u2014 `url_scheme` returns String via `url[..i].to_ascii_lowercase()`. Called from require_http_url and validate_session_urls; each call allocates. The scheme is then compared to two literals (\"http\", \"https\"). Idiomatic alternative: return Option<&str> via `split_once(\"://\")` and compare with `eq_ignore_ascii_case`, avoiding the allocation. Equivalently, keep the function signature but return `Cow<'_, str>`. Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "url_scheme allocates a String for each scheme check",
+  "updated_at": "2026-05-09T07:27:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:05:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "327b3db1-dcda-558b-8143-991256e1be83",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

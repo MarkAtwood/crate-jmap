@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Refactored filenode_copy to accept FileNodeCopyParams as primary arg, matching mail-client's canonical email_copy(params, create) shape. Moved on_destroy_remove_children, on_exists, compare_case_insensitively onto the struct; threaded params.extra onto wire via entry().or_insert() (typed wins on collision). Vendor-extras escape hatch now reachable for FileNode/copy. 4 filenode-client tests pass, full workspace tests + clippy + rustdoc clean. Commit f251cec.",
+  "closed_at": "2026-05-17T23:03:01Z",
+  "compaction_level": 0,
+  "content_hash": "d4e4adbcd6c13676c40875502dc18269dc620113e96f5872127e711bbdae1d69",
+  "created_at": "2026-05-17T22:55:29Z",
+  "created_by": "Mark Atwood",
+  "description": "**Files**:\n- crate-jmap-filenode-client/src/methods/filenode.rs:106-128 (`FileNodeCopyParams` definition)\n- crate-jmap-filenode-client/src/methods/filenode.rs:376-406 (`filenode_copy` signature and impl)\n- crate-jmap-filenode-client/src/methods/filenode.rs:722-731 (unit test exercising `FileNodeCopyParams.extra` serialization)\n- crate-jmap-filenode-client/src/lib.rs:26 (`FileNodeCopyParams` in public re-export list)\n- crate-jmap-filenode-client/PLAN.md:276 (documents intended use)\n\n**Divergence and near-bug**:\n\nThe crate publicly exports `FileNodeCopyParams { from_account_id: Id, extra: Map<String, Value> }` and documents in the doc comment at line 722:\n\n> `FileNodeCopyParams.extra` flattens into serialized JSON.\n\nA unit test (line 724, `filenode_copy_params_propagates_vendor_extras`) exercises serialization of the struct directly. **But the actual `filenode_copy` method at line 376 does not accept the struct**. Its signature is:\n\n    pub async fn filenode_copy(\n        &self,\n        from_account_id: &Id,            // <-- bare &Id, not FileNodeCopyParams\n        create: serde_json::Value,\n        on_destroy_remove_children: Option<bool>,\n        on_exists: Option<FileNodeOnExists>,\n        compare_case_insensitively: Option<bool>,\n    ) -> ...\n\nA caller who follows the rustdoc and constructs a `FileNodeCopyParams { from_account_id, extra: {\"acmeCorpFoo\": ...} }` has NO API path to send that struct through `filenode_copy`. The vendor extras the type was designed to carry are unreachable.\n\n**Compare with `filenode_get` (the sibling that already had this treatment \u2014 closed bead JMAP-ops7.2)**:\n\nAfter JMAP-ops7.2 landed, `filenode_get(ids, properties, params: Option<FileNodeGetParams>)` correctly accepts the Params struct as the 3rd arg and threads `params.extra` into the request via `args_obj.entry(k).or_insert(v)` (line 197-210). The same plumbing is missing from `filenode_copy`.\n\n**What goes wrong**:\n- Dead public API: `FileNodeCopyParams` is exported but cannot be used end-to-end.\n- Vendor-extras escape hatch is broken: the workspace's extras-preservation policy guarantees vendor fields round-trip through every JMAP object \u2014 but for FileNode/copy, a caller has no parameter to put them in.\n- Doc / test mismatch: the doc says extras flatten, the test verifies serialization, but a caller cannot call `filenode_copy` with the struct.\n- Inconsistent with the canonical `_copy` shape: mail's `email_copy(params: EmailCopyParams, create: ...)` accepts the Params struct as the primary arg (carries `from_account_id` AND `on_success_destroy_original`); filenode-client's prior refactor (JMAP-ops7.2) brought `_get` into Params-shape but stopped short of doing `_copy`.\n\n**Fix** (one of):\n1. Change `filenode_copy` to accept `FileNodeCopyParams` (with `on_destroy_remove_children`, `on_exists`, `compare_case_insensitively` added as fields on the struct). Matches the mail-canonical `email_copy(params: EmailCopyParams, create)` shape and finishes the JMAP-ops7.2 refactor.\n2. Or remove `FileNodeCopyParams` from the public API entirely (deletes a public type \u2014 minor breaking change; matches calendars/tasks/contacts' inline `_copy` shape).\n\nOption 1 is the canonical-propagation answer. Option 2 is the divergence-acceptance answer.\n\nThis finding is independent of, but adjacent to, the broader `_copy` cross-crate shape question (mail uses Params struct; calendars/tasks/contacts inline). Resolution of this bead may inform that broader decision.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "filenode-client `filenode_copy` declares public `FileNodeCopyParams` but doesn't accept it; callers cannot plumb vendor extras through the wire",
+  "updated_at": "2026-05-17T23:03:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:55:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "d7fa43c1-9995-5305-99dc-e44e56560f83",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

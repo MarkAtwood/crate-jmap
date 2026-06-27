@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ae37aff475d3713ee1803fc884297869bf8daed3ae906030fbd10bcb446825e4",
+  "created_at": "2026-05-16T18:02:03Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\nWorkspace-wide: zero of 32 crates declare `[package.metadata.docs.rs]`\nor use `#[cfg_attr(docsrs, doc(cfg(feature = \"...\")))]` annotations\non feature-gated public items.\n\nVerified absent via:\n`grep -rn 'package.metadata.docs.rs\\|cfg_attr(docsrs' --include=Cargo.toml --include=*.rs` returns zero hits workspace-wide.\n\n## Impact\n\nEvery extension-server crate gates its reference `MemoryBackend` impl\nbehind `feature = \"memory\"`. Default features are empty. Consequence:\ndocs.rs builds with default features \u2192 reference impls are invisible\non rendered docs. The kit's own lib.rs doc strings point readers at\nthe gated module, so the published docs.rs page contradicts the\ncrate's own pointer.\n\n## Scope\n\nAll 32 workspace crates. The extension-server crates (mail, chat,\ncalendars, tasks, contacts, filenode, sharing, metadata) feel this\nmost because they all gate `memory::MemoryBackend`.\n\n## Fix shape\n\nPer crate Cargo.toml:\n```toml\n[package.metadata.docs.rs]\nall-features = true\nrustdoc-args = [\"--cfg\", \"docsrs\"]\n```\n\nPer crate src/lib.rs (and any gated submodule):\n```rust\n#[cfg(feature = \"memory\")]\n#[cfg_attr(docsrs, doc(cfg(feature = \"memory\")))]\npub mod memory;\n```\n\n## Workspace propagation rule\n\nPer workspace AGENTS.md Canonical Templates: change jmap-mail-server\n(canonical extension-server template) first, then propagate to all\n8 extension-server siblings + foundation crates in same pass.\njmap-types and the type-only siblings need only the Cargo.toml block\n(they have no feature gates today).\n\n## Provenance\n\nFiled via JMAP-x2gd.61 (chat-server-local symptom of the workspace-\nwide gap). Bead .61 closed with pointer to this epic.",
+  "ephemeral": 0,
+  "id": "JMAP-ch6h",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "(EPIC) Workspace-wide docs.rs config + #[cfg_attr(docsrs)] gate annotations",
+  "updated_at": "2026-05-16T18:02:03Z"
+}

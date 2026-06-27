@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added '# Size and depth' rustdoc section on ContactCard. Documents serde_json's 128-level recursion-limit-vs-memory-budget gap and recommends a 10 MiB HTTP-layer body cap. No code change. Commit: 8ed86b8.",
+  "closed_at": "2026-05-15T23:48:56Z",
+  "compaction_level": 0,
+  "content_hash": "bedc5ec37cf51c11f6ea8605b562037421b6b9a16d31be89974e03ade9b7e986",
+  "created_at": "2026-05-15T23:26:47Z",
+  "created_by": "Mark Atwood",
+  "description": "## Hypothesis\n\n`ContactCard` exposes 22 `Option<serde_json::Value>` fields (the Sloppy-Value pattern, documented at card.rs:124-137). Each accepts arbitrarily-shaped, arbitrarily-deep, arbitrarily-large JSON. The type crate documents the value-shape contract (RFC 9553 sub-object types) but **does not** document the size/depth budget.\n\n`serde_json`'s default `RECURSION_LIMIT` is 128, which provides stack-overflow protection but does not bound:\n\n- Heap memory allocated by the `Value` tree (a 50 MiB JSON blob deserialises into a ~150 MiB `Value`).\n- CPU spent parsing a deeply-nested but-shallow blob.\n- Total request-body size.\n\nA downstream consumer reading this crate's docs has no signal about what size/depth they should reject at the HTTP layer **before** the JSON reaches `serde_json::from_slice`. The result is a documentation drift hazard: each consumer re-derives the body-size limit from scratch, with varying outcomes.\n\n## What goes wrong without the docs\n\nThis is not a P0/P1 \u2014 a competent server author imposes a body-size limit at the HTTP layer regardless. But the workspace ships this crate as a 'kit' for downstream consumers (per workspace AGENTS.md 'What this workspace builds'), and a kit ought to document the boundary contract.\n\nConcretely: a memory-DoS via 'this field claims to be 4 GiB long' is the classic Section C bullet \u2014 and the workspace's transport-less posture means this crate cannot defend against it directly. The defence belongs at the consumer's HTTP body-size limit. The contract that this crate's docs should pin:\n\n> Consumers of `ContactCard` SHOULD impose a request-body size limit AT THE HTTP LAYER before deserialising. The Sloppy-Value fields accept arbitrarily-large JSON blobs. `serde_json`'s default 128-deep recursion limit protects against stack overflow but does not bound memory or CPU. The handler-library convention is a 10 MiB body cap; consumers MAY raise or lower it.\n\n## Acceptance criteria\n\nAdd a rustdoc section to `ContactCard` (and reference it from each sloppy-field doc-comment) titled `# Size and depth` with the wording above, calibrated for the workspace's conservative reference defaults.\n\nCross-reference card.rs:124-137 (Sloppy-Value contract) so the two contracts are co-located.\n\n## Probe / downstream session\n\nA downstream `/do-beads JMAP-glx8` session executes the bead under appropriate permissions:\n\n1. Add the `# Size and depth` rustdoc section to `ContactCard` at card.rs:31-41 (the existing `# Construction` section is the model).\n2. Verify `cargo doc --no-deps -p jmap-contacts-types` renders cleanly.\n\nOut-of-scope per workspace transport-less posture: adding a body-size constant to this crate. The size budget is consumer policy, not type-crate policy.\n\n## Cross-reference\n\n- Workspace AGENTS.md 'What this workspace builds' \u2014 kit posture, consumer brings transport.\n- card.rs:124-137 \u2014 Sloppy-Value contract.\n- bd:JMAP-glx8.23 \u2014 the negative-deserialise tests that pin the `serde_json` 128-deep recursion behavior.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Document deep-nesting / size-budget contract for sloppy serde_json::Value fields",
+  "updated_at": "2026-05-15T23:48:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T16:26:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "5b1cfb6d-86e8-5fad-aadf-af24a0dcc5f8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

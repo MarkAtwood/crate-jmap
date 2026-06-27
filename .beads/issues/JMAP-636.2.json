@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-636.2",
+  "title": "SSE_BUF_SIZE_LIMIT is hardcoded, not in ClientConfig",
+  "description": "client.rs: SSE_BUF_SIZE_LIMIT (1 MiB) is a module-level const, not a field in ClientConfig. Every other limit (max_session_body, max_call_body, max_download_body, max_upload_body) is configurable. A caller who needs to allow larger SSE push notifications (e.g. servers that batch many state changes) cannot tune this without forking. Inconsistency will generate a class of issues from users who hit the limit.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:54:05Z",
+  "updated_at": "2026-04-30T16:00:32Z",
+  "closed_at": "2026-04-30T16:00:32Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-636",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:54:04"
+    }
+  ]
+}

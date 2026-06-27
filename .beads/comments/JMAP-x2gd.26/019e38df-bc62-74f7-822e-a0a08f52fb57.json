@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T02:17:27Z",
+  "id": "019e38df-bc62-74f7-822e-a0a08f52fb57",
+  "issue_id": "JMAP-x2gd.26",
+  "text": "Verified preserved at crate-jmap-chat-server/src/memory.rs:50-51:\n\n    #![allow(async_fn_in_trait)]\n    #![deny(clippy::await_holding_lock)]\n\nThe deny lint and accompanying doc-comment at lines 36-42 are intact. No action required \u2014 this finding is a review-acknowledgement of an existing correct pattern, not a defect. The bead's recommendation 'preserve both the lint and the doc-comment' is the status quo."
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "All 6 children complete: zk6m.1 (contacts), zk6m.2 (filenode), zk6m.3 (sharing), zk6m.4 (tasks), zk6m.5 (chat-client), zk6m.6 (chat-types+server LOCKED, approved).",
+  "closed_at": "2026-05-08T23:24:27Z",
+  "compaction_level": 0,
+  "content_hash": "ec818a62f111f80ebac3f97e0ba92ed98a054c2d4549913b4ab0c5b9b36cef7c",
+  "created_at": "2026-05-08T20:32:51Z",
+  "created_by": "Mark Atwood",
+  "description": "Adoption sweep across the remaining type/server/client crate triples: chat (LOCKED types), contacts, filenode, sharing, tasks. Replace serde_json::Value patch sites and migrate SetObject::Patch associated-type impls. Wire format unchanged.\n\nApproval gate: jmap-chat-types is LOCKED; the others are not. Mark per-crate boundaries explicitly when planning the work. Adoption-only \u2014 base type already lives in jmap-types per JMAP-o7cj.",
+  "ephemeral": 0,
+  "id": "JMAP-zk6m",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Adopt PatchObject in jmap-{chat,contacts,filenode,sharing,tasks}-* crates",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-08T13:32:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-o7cj",
+      "id": "b794d8fb-d550-5190-8ce9-92c194653c49",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

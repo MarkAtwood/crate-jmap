@@ -1,0 +1,33 @@
+{
+  "close_reason": "reviewed pass 23: loop converged; no P0/P1/P2 found in current code",
+  "closed_at": "2026-05-01T12:39:51Z",
+  "compaction_level": 0,
+  "content_hash": "e4a88d72661446650eac2d0bb63e91effda98ee79169538ebbce2bf8dc28ec3b",
+  "created_at": "2026-05-01T11:49:06Z",
+  "created_by": "Mark Atwood",
+  "description": "In handle_email_set (email.rs:619-621) and handle_submission_set (submission.rs:432-434), when a destroy array contains a non-string value (e.g. a number or object), the code does 'None => continue' \u2014 the id is silently ignored rather than placed in notDestroyed with an invalidArguments error. RFC 8620 \u00a75.3 is ambiguous but the convention is to report errors per-id rather than silently drop them. The same pattern exists in Mailbox/set (mailbox.rs:619-621). A client that sends a malformed destroy id gets no feedback. Maintenance consequence: debugging silently-dropped ids requires reading source code.",
+  "ephemeral": 0,
+  "id": "JMAP-767.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/set destroy: non-string id_val silently skipped instead of rejected",
+  "updated_at": "2026-05-01T12:39:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:49:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "a868ef31-6d47-5ce1-ad82-58445f6b9219",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Positive confirmation \u2014 no action needed",
+  "closed_at": "2026-05-02T21:07:31Z",
+  "compaction_level": 0,
+  "content_hash": "f6aa638404c60200f2c8f4341906924b448c69187dfc85105b2d8095f68064df",
+  "created_at": "2026-05-02T21:03:08Z",
+  "created_by": "Mark Atwood",
+  "description": "In Message/set update handler (lines 463-467 of message.rs), when readAt is set without readDisposition, the default 'displayed' value is injected at the dispatcher level, not in the Message type. Keeps type layer free of protocol-specific logic. Matches JMAP Chat spec \u00a7557 + \u00a71029: readDisposition defaults to displayed.",
+  "ephemeral": 0,
+  "id": "JMAP-oslg.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "GOOD: Protocol-layer injection of spec defaults",
+  "updated_at": "2026-05-02T21:07:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:03:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-oslg",
+      "id": "e76e3171-b120-59a7-9b1f-516109e27a68",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

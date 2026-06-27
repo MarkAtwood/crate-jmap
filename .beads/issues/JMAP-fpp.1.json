@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-fpp.1",
+  "title": "SSE id: empty vs absent distinction lost",
+  "description": "RFC 8895 \u00a79.2: an empty 'id:' line (id field present with empty value) means reset the last-event-ID buffer; a missing id: line means leave it unchanged. parse_sse_block maps both to None. A caller tracking SseFrame::id across frames cannot distinguish 'reset the ID' from 'no ID in this frame'. If frame A has id Some('x') and frame B has an empty id: line, the caller retains id Some('x') and incorrectly sends Last-Event-ID: x on reconnect. Fix: use a tri-state (enum or Option<Option<String>>) or document the semantic loss and note it is intentional.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:14:43Z",
+  "updated_at": "2026-04-30T01:23:16Z",
+  "closed_at": "2026-04-30T01:23:16Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-fpp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:14:42"
+    }
+  ]
+}

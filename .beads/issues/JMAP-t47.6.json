@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.6",
+  "title": "ClientConfig is #[non_exhaustive] but default() hard-codes all limits \u2014 no way to override one",
+  "description": "client.rs: ClientConfig is #[non_exhaustive], which forces external callers to use '..ClientConfig::default()' for struct literal construction. This is correct API design. However, all fields are pub, so callers can mutate individual fields after construction. The doc comment on #[non_exhaustive] says 'new fields to be added in minor versions without breaking callers' \u2014 this is true. But there is an undocumented interaction: if a future field is added with a non-default value that affects behavior (e.g. a retry count), existing callers using the struct-literal form with default() will get the new behavior transparently. This is intentional by #[non_exhaustive] design. The maintenance risk: the zero-value guards in JmapClient::new check max_session_body, max_call_body, max_download_body, max_upload_body individually but not symmetrically \u2014 request_timeout has a special Duration::ZERO check. If a new field is added with its own zero-value guard, a contributor may forget to add it to new(). Consider a validate() method on ClientConfig that new() calls, making the guard pattern extensible.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:34:01Z",
+  "updated_at": "2026-04-30T01:42:57Z",
+  "closed_at": "2026-04-30T01:42:57Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:34:00"
+    }
+  ]
+}

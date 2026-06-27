@@ -1,0 +1,35 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added 3 integration tests in crate-jmap-metadata-server/tests/metadata_tests.rs covering negative-position clamp-from-end, over-large-negative clamp-to-zero, and positive-position clamp-to-len behavior. All three pass on first run; the existing implementation matches RFC 8620 \u00a75.5. The i64-to-u64 cast structural concern raised by the bead is in scope of the workspace-canonical-first epic JMAP-pgj7 (lossy as-casts in query pagination).",
+  "closed_at": "2026-05-15T09:01:09Z",
+  "compaction_level": 0,
+  "content_hash": "96ad54450f80cb050a4d0556eaa0d11477b45ba4bfafa44bedcf7ff6f741c876",
+  "created_at": "2026-05-14T17:50:22Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: client supplies position: -5 in /query against MemoryBackend. memory.rs:594-599 handles negative position by ids.len().saturating_sub(neg). For a small object set (e.g. 3 objects, position=-100), start becomes 0 (correct). But the position field reported back in QueryResult is 'start as u64' (memory.rs:609) \u2014 which loses the i64 signedness. RFC 8620 \u00a75.5 says position is the 0-based index from start of results.\n\nLess severe than the filter-no-op finding above, but worth filing because:\n(a) the i64-to-u64 cast in memory.rs:609 happens through saturating logic that silently coerces \u2014 a future caller who passes a negative position and expects an echo back of the same negative number gets a clamped 0/N value with no diagnostic.\n(b) RFC 8620 \u00a75.5 says position can be negative in the request (offset from end) but the response always echoes a non-negative position. The current impl computes position correctly but the test surface against MemoryBackend has no coverage for this path.\n\nThis is reference-impl-quality, not production. But the rustdoc on memory.rs:5-13 calls itself a 'reference implementation' to study. The negative-position contract is one of the easier-to-get-wrong corners of /query.\n\nProbe (do not run): integration test asserts that handle_metadata_query with position=-1 and 3 objects returns position=2 (or similar correct value) and a single-item ids array. Currently would need to be verified to be sure the i64-to-u64 cast does the right thing across edge cases.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Re-classifying as P2 efficiency/edge-case: the negative-position path computes correctly (saturating_sub handles overflow), and an unfiltered total is consistent with the unfiltered behavior. The concern is reference-impl documentation/quality, not a correctness bug.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.query_objects total reports unfiltered count; QueryResult.position is u64 but i64 input negative offsets are accepted (silent semantic drift)",
+  "updated_at": "2026-05-15T09:01:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:50:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "1b9e8ff3-4da6-567f-ae6f-4e9a876f402c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

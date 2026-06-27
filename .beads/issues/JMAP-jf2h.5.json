@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "JSON Pointer patch semantics correct in ContactCard/copy. All 4 copy tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Added apply_jmap_patch helper with RFC 6901 decoding; fixed naive insert in copy loop; 2 new tests (flat patch, source not found); 21 pass; clippy clean",
+  "closed_at": "2026-05-05T15:00:39Z",
+  "compaction_level": 0,
+  "content_hash": "e8602952e2e70778ee30f5c5a730109125502450dc74e863fbe84bcbaa91ebfb",
+  "created_at": "2026-05-05T03:00:19Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** RFC 8620 \u00a75.3 patch paths use JSON Pointer /-separated paths. The current copy handler in card.rs does naive m.insert(k, v) which treats a key like 'name/full' as a literal top-level key (corrupting the data). Oracle: RFC 8620 \u00a75.3, \u00a75.4.\n\n**Algorithm:**\n1. Replace the naive insert loop in the copy handler with a JSON Pointer walk-and-set function:\n   fn apply_patch(card_val: &mut Value, path: &str, val: Value) {\n       // split on '/', decode ~0 as '~' and ~1 as '/' per RFC 6901\n       // walk into nested objects, creating intermediate maps as needed\n       // if val is Value::Null, remove the key (RFC 8620 \u00a75.3 null = delete)\n       // otherwise set the value at the leaf\n   }\n2. Apply this to each key-value pair in the copy spec object.\n3. Tests:\n   - copy_with_flat_patch_applies_correctly: spec object {\"id\":\"card1\",\"addressBookIds\":{\"ab2\":true}} \u2192 copied card has addressBookIds overridden. Oracle: RFC 8620 \u00a75.4.\n   - copy_with_nested_path_patch: spec object {\"id\":\"card1\",\"name/full\":\"Alice Smith\"} \u2192 card.name.full==\"Alice Smith\" with no literal key \"name/full\" at top level. Oracle: RFC 8620 \u00a75.3.\n   - copy_with_null_removes_property: spec {\"id\":\"card1\",\"emails/work\":null} \u2192 card.emails.work removed. Oracle: RFC 8620 \u00a75.3 null means delete.\n   - copy_source_not_found: returns notCopied with type notFound.\n4. cargo test -p jmap-contacts-server.\n\n**Acceptance criteria:**\n- name/full patch correctly sets nested property.\n- null patch removes nested property.\n- cargo test -p jmap-contacts-server exits 0.",
+  "ephemeral": 0,
+  "id": "JMAP-jf2h.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix: ContactCard/copy must use JSON Pointer semantics for patch paths",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:00:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jf2h",
+      "id": "21bb460e-0806-56a3-bfc5-c18a74f5373b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

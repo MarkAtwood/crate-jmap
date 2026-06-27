@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "wontfix \u2014 the bead's premise (8 of 24 crates omit serde 'inconsistently') is incorrect on inspection. The workspace already follows a consistent convention: declare 'serde = { workspace = true }' as a direct dep iff the crate uses 'serde::*' or 'use serde::...' directly anywhere in src/.\n\nVerification:\n- tasks-client: 0 direct serde uses (only serde_json) \u2014 correctly omits\n- sharing-client: 0 direct serde uses \u2014 correctly omits\n- calendars-server: 0 direct serde uses (all 'Serialize' refs are in rustdoc comments) \u2014 correctly omits\n- contacts-server: 0 direct serde uses \u2014 correctly omits\n- filenode-server: 0 direct serde uses \u2014 correctly omits\n- sharing-server: 0 direct serde uses \u2014 correctly omits\n- chat-server: HAS direct serde use ('fn parse_entry<T: serde::de::DeserializeOwned>') \u2014 correctly declares\n- mail-server / mail-client / chat-client / calendars-client / contacts-client / filenode-client / metadata-client / metadata-server / tasks-server: all have direct serde uses and correctly declare\n\nSo the workspace already follows the bead's option (a) verbatim. The 'inconsistency' the bead survey reports is actually a consistency: each crate's decl reflects its direct usage. The bead's metadata-server 'NO (dev-only)' entry is also factually wrong \u2014 metadata-server/Cargo.toml has 'serde = { workspace = true }' under [dependencies], not [dev-dependencies].\n\nDoc-only follow-up that WOULD have engineering value: explicitly document this convention in workspace AGENTS.md 'Conventions & Patterns' so new sibling crates know to declare serde-direct iff they have a direct serde reference. Not filing as a follow-up because it's a 2-line addition that any contributor can make ad-hoc; deferred until someone is editing that AGENTS.md section for another reason.\n\nPer workspace AGENTS.md 'When NOT to file human' rule 4 (might-already-be-done / analysis-shows-no-real-bug): closing with evidence rather than labeling human.",
+  "closed_at": "2026-05-17T22:45:45Z",
+  "compaction_level": 0,
+  "content_hash": "1901656eb8fa32436d20839bb81a10036d0579bf85b11bbc4b824e64b298898f",
+  "created_at": "2026-05-17T22:03:44Z",
+  "created_by": "Mark Atwood",
+  "description": "**Survey result** (\\`[dependencies] serde =\\` declared directly):\n- mail-client: yes\n- chat-client: yes\n- calendars-client: yes\n- tasks-client: NO\n- contacts-client: yes\n- filenode-client: yes\n- sharing-client: NO\n- metadata-client: yes\n\n- mail-server: yes\n- chat-server: yes\n- calendars-server: NO\n- tasks-server: yes\n- contacts-server: NO\n- filenode-server: NO\n- sharing-server: NO\n- metadata-server: NO (dev-only)\n\n**Divergence**: 8 of 24 *-server and *-client crates omit serde from their \\`[dependencies]\\`. They all use serde via the transitive dep from \\`serde_json\\` (which depends on serde with default features) and from sibling jmap-* type crates (which re-export serde derives). At runtime there is no difference \u2014 but the surface is inconsistent.\n\n**What goes wrong** (small but real):\n1. \\`cargo audit\\` and \\`cargo deny\\` reproducibility: a crate that declares its own serde dep can pin a feature set; one that relies on transitive resolution gets whatever the union-of-features happens to compute. If a future workspace member needs \\`serde\\` with non-default features (e.g. \\`rc\\`, \\`alloc\\`), the transitive-only crates may compile differently than expected.\n2. Copy-paste-from-canonical: a contributor adding a new sibling crate copies one of the existing Cargo.tomls. Depending on which one they grab, they get serde declared or not. They have no way to know which is 'right'.\n3. \\`cargo tree -e features\\` output differs across siblings for no semantic reason \u2014 noise.\n\n**Fix**: pick one workspace policy and propagate. Two reasonable choices:\n- (a) Always declare \\`serde = { workspace = true }\\` in any crate that uses \\`#[derive(Serialize, Deserialize)]\\` or \\`serde::*\\` types directly. Crates that only re-export from sibling type crates can omit it.\n- (b) Only declare it when needed for serde-only features (e.g. \\`serde = { workspace = true, features = [\"derive\"] }\\`). Otherwise rely on transitive.\n\nDocument the choice in AGENTS.md 'Conventions & Patterns' so new crates know.\n\n**Priority**: P3 \u2014 no runtime bug, no breaking change risk. Annoyance + drift potential only.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Direct `serde` Cargo dependency declared inconsistently across the 8+8+8 sibling cluster: tasks/sharing client+types omit it, mail/chat/calendars/contacts include it",
+  "updated_at": "2026-05-17T22:45:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:03:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "3a0c10eb-413c-536c-a9d7-bac1961bcd82",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

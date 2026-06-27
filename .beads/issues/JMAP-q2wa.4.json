@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in next commit. All 5 sites named in the bead (mailbox.rs:1030, sieve.rs:1226 [renumbered from 1195], vacation.rs:281/294/305) now route through server_fail_from_backend(&e). Also caught 2 additional sweep misses in mdn.rs:390-391 (inline-match arm shape that c64d655 didn't sweep) and folded them into the same fix. cargo test, clippy, fmt all clean.",
+  "closed_at": "2026-05-15T07:03:53Z",
+  "compaction_level": 0,
+  "content_hash": "3528dd37285b04cee7f51de8ed0121680d4ee23d2ac5c134c382d6f6ea8d5164",
+  "created_at": "2026-05-14T16:20:59Z",
+  "created_by": "Mark Atwood",
+  "description": "Commit c64d655 swept ~197 sites of .map_err(|e| JmapError::server_fail(e.to_string())) across all extension *-server crates, replacing them with server_fail_from_backend(&e). Five sites in jmap-mail-server still use the old pattern and leak backend Display text into the wire-bound serverFail description:\\n\\n- src/mailbox.rs:1030 \u2014 onDestroyRemoveEmails cascade, multi-mailbox patch failure\\n- src/sieve.rs:1195 \u2014 handle_sieve_validate get_sieve_blob failure (added in JMAP-sc1b.96, after the sweep)\\n- src/vacation.rs:281,294,305 \u2014 VacationResponse/set BackendSetError::Other handling\\n\\nAll five carry the same risk: backend error messages may contain internal storage details (table names, file paths, SQL fragments, account identifiers) that should not appear on the wire. The whole point of c64d655 was to make the leak impossible by routing through a single helper.\\n\\nMailbox.rs:1002 is a separate case (id + static string) and was kept by design per the c64d655 commit message; that one is fine.\\n\\nFix: replace JmapError::server_fail(e.to_string()) with server_fail_from_backend(&e) at all 5 sites.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "server_fail_from_backend sweep miss: 5 sites still leak backend Display text",
+  "updated_at": "2026-05-15T07:03:53Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:20:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "4398236d-6633-5eb9-aff9-99d987dc631a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

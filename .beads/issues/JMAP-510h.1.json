@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "handle_filenode_copy now parses on_destroy_remove_children + on_exists + compare_case_insensitively (matching handle_filenode_set's parsing exactly) and applies the Reject/Replace/Rename branches against the destination account. Cascade-destroy honors on_destroy_remove_children. Five integration tests in tests/filenode_tests.rs exercise the full matrix end-to-end against MemoryBackend. Follow-up gap (RFC silence on destroyed field for Foo/copy responses) filed as bd:JMAP-510h.55 with human label. Committed in 59ecb36. Gates: fmt/clippy/test/doc green; full workspace test suite green.",
+  "closed_at": "2026-05-14T20:37:26Z",
+  "compaction_level": 0,
+  "content_hash": "4d2c75fd391894a6cf0c793080a33acc734d2caab5b75b8fd6e9e51d78aa7d44",
+  "created_at": "2026-05-14T19:49:03Z",
+  "created_by": "Mark Atwood",
+  "description": "draft-ietf-jmap-filenode-13 \u00a73.2.4: 'This is a standard Foo/copy function with the same additional top-level arguments as FileNode/set, onDestroyRemoveChildren and onExists, with the same behaviour.'\n\nThe current handle_filenode_copy (src/filenode.rs:737-882) parses fromAccountId, accountId, ifInState, and the create map, then for each copy entry: fetches the source node via get_objects, applies parentId/name overrides from obj_val, and calls create_object. It does NOT parse onExists, compareCaseInsensitively, or onDestroyRemoveChildren, and it does NOT perform collision detection via find_sibling_by_name.\n\nTrigger: client sends FileNode/copy with onExists='rename' to copy a node whose name already exists at the destination. Bad behavior: instead of renaming, the backend create_object returns alreadyExists SetError, surfacing under notCreated. The client sees a copy failure that the spec says MUST succeed.\n\nThe README (lines 195-197) and PLAN.md (\u00a73.2.4 'FileNode/copy shares top-level arguments with FileNode/set') both explicitly claim this is implemented.\n\nRequired: replicate the onExists / compareCaseInsensitively / onDestroyRemoveChildren handling block from handle_filenode_set (src/filenode.rs:155-179, 213-367) inside handle_filenode_copy, using the destination account_id for find_sibling_by_name (NOT from_account_id).",
+  "ephemeral": 0,
+  "id": "JMAP-510h.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_filenode_copy ignores onExists / compareCaseInsensitively / onDestroyRemoveChildren",
+  "updated_at": "2026-05-14T20:37:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:49:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "b74f8ad4-a503-5822-b91f-2e924a766d78",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

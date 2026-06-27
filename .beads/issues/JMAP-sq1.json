@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-sq1",
+  "title": "Review: jmap-client convergence check (round 7)",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:44:09Z",
+  "updated_at": "2026-04-30T01:51:46Z",
+  "closed_at": "2026-04-30T01:51:46Z",
+  "notes": "Maintainer risk: LOW \u2014 the only identified risk is an incomplete derives pass from round 6; no security or API correctness issues found.\nConfidence: 95% chance of no missed P0/P1 bug. Least confident flags: none \u2014 the one finding (JMAP-sq1.1) is a P1 API completeness gap, not a correctness bug. Uncertainty driven by: inability to exercise live network paths (SSE/WS behavior under real chunked delivery; auth header silent-drop behavior in reqwest). Would raise confidence if: integration tests against a real JMAP server (e.g. Cyrus or Fastmail) were run."
+}

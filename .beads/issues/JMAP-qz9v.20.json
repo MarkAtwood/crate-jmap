@@ -1,0 +1,33 @@
+{
+  "close_reason": "Acknowledged. 'What is good' beads are decision/note observations \u2014 no code change required. They document good practices that the workspace already uses, retained for future reviewer reference if needed.",
+  "closed_at": "2026-05-18T03:01:41Z",
+  "compaction_level": 0,
+  "content_hash": "d7cce80d8634aadb0e45805abd5bb371970cb165be0c5379d0fa95d40ea2ca93",
+  "created_at": "2026-05-14T19:23:24Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:62-68 explicitly imports json_merge_patch from jmap-server and notes 'every reference backend imports it; the canonical RFC 7396 tests live with the function there (including the bd:JMAP-sc1b.97 depth-cap and bd:JMAP-sc1b.87 absent-field regression tests)'. This is the right call \u2014 a single shared merge-patch implementation across all 7 reference backends prevents the class of bug where one sibling diverges from another on patch semantics. The MergePatchError::DepthExceeded handling at memory.rs:677-682 maps cleanly to SetErrorType::InvalidPatch with a descriptive message. A future contributor might suggest 'just inline the merge-patch here for clarity' \u2014 the answer is no, the shared helper is doing real work.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "What is good: explicit decision to use the foundation seam jmap_server::json_merge_patch for /set update \u2014 defends against silent regress",
+  "updated_at": "2026-05-18T03:01:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:23:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "1c3b437d-57b5-50a0-a86a-91717e3688e3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

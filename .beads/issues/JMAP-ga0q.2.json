@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T000441Z-1660907",
+  "close_reason": "Identity-seam policy now documented in workspace AGENTS.md (new section), crate-jmap-server AGENTS.md ('Auth' constraint row) + PLAN.md (JmapBackend supertrait block), and crate-jmap-chat-server/src/lib.rs module doc ('Permission enforcement: backend canonical'). The chat-server site landed in lib.rs rather than a per-crate AGENTS.md because only jmap-mail-server has one today; whether all 8 extension-server crates should adopt the AGENTS.md cookie-cutter is filed for human decision as JMAP-2koi.",
+  "closed_at": "2026-05-12T00:23:36Z",
+  "compaction_level": 0,
+  "content_hash": "0cd572c28fce11eb2279082e1e51cb54213b728b3e2f3a29111d6d3d64f95997",
+  "created_at": "2026-05-11T22:27:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Reflect the foundation identity-seam decision (JMAP-ga0q) in the workspace's authoritative AGENTS.md and PLAN.md files.\n\n## Sites to update\n\n### workspace AGENTS.md (/home/mark/PROJECT/JMAP/AGENTS.md)\n\nAdd a new top-level section 'Caller identity (foundation seam)' after the existing 'TLS stack' bullet, with the following rules:\n\n  - `JmapBackend::principal_id(&Self::CallerCtx) -> Option<&jmap_types::Id>` is the ONLY way the JMAP layer asks 'who is the caller'.\n  - **Backends are canonical for permission enforcement.** Handlers do NO permission checking. Defense-in-depth handler-side pre-checks are allowed but the backend MUST re-verify atomically with the mutation.\n  - Identity is a foundation concept. Future extensions that need richer caller info (groups, claims, roles) add it to their OWN backend trait, NOT to `JmapBackend`. Foundation provides the id; extensions own the meaning.\n  - Federation does NOT bypass this seam \u2014 the federation handler maps peer identity to a local principal once, before invoking the JMAP method. JMAP method code sees a normal `principal_id()`.\n  - Returning `None` from `principal_id` is a deliberate deployment choice signifying 'this server does not honor identity-dependent JMAP semantics'.\n\n### crate-jmap-server/AGENTS.md\n\nUpdate the 'Design Constraints \u2014 Settled \u2014 Do Not Revisit' table row 'Auth' from:\n  'Not in dispatcher | Caller's responsibility \u2014 do it before `dispatch()`'\nto:\n  'HTTP layer authenticates; JMAP layer reads caller via `JmapBackend::principal_id` | Foundation provides the identity seam; backends decide what to do with it. Handler-side permission gates are FORBIDDEN \u2014 backends are canonical.'\n\n### crate-jmap-server/PLAN.md\n\nDocument the principal_id method in the public-API section with cross-references to consumer beads (JMAP-g7wu.2.4 chat Space/set as first consumer; future: jmap-mail-server $seen on shared mailboxes, jmap-calendars-server ACLs, jmap-sharing-server myRights, jmap-metadata-server isPrivate scoping).\n\n### crate-jmap-chat-server/AGENTS.md\n\nAdd a new section 'Permission enforcement: backend canonical' documenting:\n  - All Space/set permission gates live in `MemoryBackend::apply_space_patch` (or the equivalent in real backends).\n  - Handler `handle_space_set` does NOT permission-check.\n  - The `required_permissions_for_op(&SpacePatchOp) -> &'static [&'static str]` helper (filed under JMAP-g7wu.2.4.10 if numbered there) is pure and may be consumed by any backend; the GATING using it is backend-side only.\n\n## Acceptance\n\n  - All four files updated with the verbatim text above (or close paraphrase preserving the normative content).\n  - No code changes \u2014 docs only.\n  - `cargo doc --workspace --no-deps` clean.\n  - The phrase 'handler-side permission gates are forbidden' appears in crate-jmap-server/AGENTS.md so future contributors hit it on first read.\n\n## Depends on\n\nJMAP-ga0q.1 (method must exist before docs reference it).",
+  "ephemeral": 0,
+  "id": "JMAP-ga0q.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Document identity-seam policy in workspace AGENTS.md files",
+  "updated_at": "2026-05-12T00:23:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T15:27:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ga0q",
+      "id": "b4c6b082-efd6-56ce-a5e0-c624eda787f4",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-11T15:28:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ga0q.1",
+      "id": "fc3bfccf-cbde-591e-8d07-16f2238f8e46",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Test now uses non-empty known set, properly testing the real boundary",
+  "closed_at": "2026-05-02T22:04:34Z",
+  "compaction_level": 0,
+  "content_hash": "5d489cfd8f133bab260c997c0230113e1c5739e8ed26f01d6b5fd1cfb9e22984",
+  "created_at": "2026-05-02T21:57:03Z",
+  "created_by": "Mark Atwood",
+  "description": "check_known_capabilities_empty_using_is_ok passes known:&[] (empty). The real boundary case is empty using[] against a non-empty known set \u2014 that should also return Ok. The test as written doesn't distinguish between 'correctly returns Ok for empty using' and 'loop never executes so we never reach the contains check'. A client could break this invariant \u2014 e.g., if the implementation were changed to require at least one declared capability \u2014 and this test would not catch it.",
+  "ephemeral": 0,
+  "id": "JMAP-kgyn.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "empty-using test uses empty known set \u2014 vacuously true, misses real boundary",
+  "updated_at": "2026-05-02T22:04:34Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:57:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-kgyn",
+      "id": "4f655cad-da56-51ba-a63d-1104ef78212f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

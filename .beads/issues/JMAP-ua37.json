@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "c662a0594054c0a075ff334e6b3a03e8dc0c0dc0dac44093ff92f4556adb6e2c",
+  "created_at": "2026-06-05T01:09:58Z",
+  "created_by": "Mark Atwood",
+  "description": "draft-ietf-jmap-metadata has been rewritten from -01 to -02. The -02 draft is a COMPLETE architectural rewrite that eliminates the standalone Metadata object type entirely.\n\n**-01 model (what we built):** Metadata is a standalone JMAP object type with its own Metadata/get, Metadata/set, Metadata/query, Metadata/queryChanges, Metadata/changes methods. The Metadata type is a #[serde(tag = \"@type\")] enum over Annotation/ImapMetadata/WebDavMetadata variants with common properties (id, relatedType, relatedId, isPrivate).\n\n**-02 model (what the spec now says):** Metadata is NOT a standalone type. Instead, each opted-in JMAP data type gains two new properties: 'metadata' (shared) and 'privateMetadata' (per-user). Values are objects keyed by namespace identifier. Clients use the EXISTING /get, /set, /changes, /query methods on the parent type to read/modify metadata \u2014 no separate Metadata/* methods exist.\n\n**Impact on workspace crates:**\n- jmap-metadata-types: Complete rewrite. Metadata enum (Annotation/ImapMetadata/WebDavMetadata) is eliminated. Need new types for namespace-keyed metadata properties. MetadataFilterCondition may need rework for inline query support.\n- jmap-metadata-server: Complete rewrite. All 5 standalone method handlers (handle_metadata_get/set/query/queryChanges/changes) are eliminated. MetadataBackend trait needs redesign. MemoryBackend needs redesign. The metadata capability now augments existing type handlers rather than registering its own.\n- jmap-metadata-client: Complete rewrite. All 5 client methods are eliminated. New API surface for metadata-augmented requests on existing types.\n- AGENTS.md references, bd memories, and test suites all need updating.\n\n**Spec file:** ~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-metadata-02.txt\n\nThis is a P1 because the published crates (0.1.1) implement a spec revision that no longer exists. The -02 rewrite is incompatible with -01 at every level \u2014 types, methods, wire format.",
+  "ephemeral": 0,
+  "id": "JMAP-ua37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Align metadata crates with draft-ietf-jmap-metadata-02",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

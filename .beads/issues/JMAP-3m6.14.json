@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.14",
+  "title": "AuthProvider::auth_header clones String on every request",
+  "description": "auth_header() returns Option<(&'static str, String)>. BearerAuth and BasicAuth pre-compute the credential string at construction but must .clone() it on every call (fetch_session, call, upload_blob, download_blob, subscribe_events). The clone is not gratuitous \u2014 the owned return type mandates it \u2014 but the trait API is the root cause. Idiomatic Rust would return Cow<'_, str> so pre-computed credentials (BearerAuth, BasicAuth) return Borrowed without allocating, and dynamic credentials (hypothetical custom impls) can still return Owned. As-is, every single HTTP request allocates a new String for the auth header even when the credential is constant.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T02:00:46Z",
+  "updated_at": "2026-04-30T02:09:35Z",
+  "closed_at": "2026-04-30T02:09:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 19:00:46"
+    }
+  ]
+}

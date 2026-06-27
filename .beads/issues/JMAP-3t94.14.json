@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:23:09Z",
+  "compaction_level": 0,
+  "content_hash": "7543840352e6e9ab3b7b8433dd97412568913ae5a2bf83d9019fb7afd3c75cc6",
+  "created_at": "2026-05-14T21:58:08Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/memory.rs:164\n\n```rust\npub fn new_with_accounts(account_ids: &[&str]) -> Self {\n    let b = Self::new();\n    {\n        let mut inner = b.inner.lock().unwrap();\n        for id in account_ids {\n            inner.known_accounts.insert((*id).to_owned());\n        }\n    }\n    b\n}\n```\n\nThis is a cookie-cutter divergence from the canonical extension-server\ntemplate. Confirmed by grepping all six extension-server siblings:\n\n| Crate | Add-known-account API |\n|---|---|\n| jmap-mail-server (canonical) | `register_account(&self, account_id: &Id)` |\n| jmap-chat-server | `register_account(&self, account_id: &Id)` |\n| jmap-calendars-server | `register_account(&self, account_id: &Id)` |\n| jmap-contacts-server | `register_account(&self, account_id: &Id)` |\n| jmap-tasks-server | `register_account(&self, account_id: &Id)` |\n| **jmap-sharing-server** | `new_with_accounts(account_ids: &[&str]) -> Self` (divergent) |\n| jmap-filenode-server | `with_account(self, &str) -> Self` (also divergent) |\n\nPer workspace AGENTS.md \"Canonical Templates\" rule: if you reshape a\nsibling in a way that diverges from `jmap-mail-server`, change\n`jmap-mail-server` first then propagate. This crate diverged without\nthat. The propagation choice is reversible (either bring sharing-server\nin line with `register_account(&self, &Id)`, or change the canonical\nto a `new_with_accounts` pattern and propagate).\n\nAPI-contract specifics of the divergent shape:\n\n1. Constructor-only access. Callers that need to register an account\n   *after* MemoryBackend construction (the common test pattern of\n   \"construct, exercise some methods that populate one account, then\n   add a second account\") cannot. The canonical `&self`-receiver shape\n   supports this naturally.\n\n2. `&[&str]` is the most restrictive str slice shape. Callers with\n   `Vec<String>` must write\n   `&accs.iter().map(String::as_str).collect::<Vec<_>>()` boilerplate\n   every time. `impl IntoIterator<Item = impl AsRef<str>>` is the\n   idiomatic alternative. The canonical `&Id` shape sidesteps this\n   by accepting an owned-or-borrowed Id newtype.\n\n3. The constructor-shape signature is locked. A future\n   `register_account(&self, ...)` addition is non-breaking, but the\n   workspace already has a 6-sibling convention that callers will\n   reach for first. Documenting the divergence is one option; the\n   cleaner option is to add `register_account` and either deprecate\n   or document `new_with_accounts` as a convenience.\n\nWhat goes wrong for callers when this stays as-is: a downstream user\nof multiple extension-server crates (e.g. someone wiring the testjig)\nwrites ergonomic test setup against `register_account` for five\ncrates and runs into a different idiom for sharing-server. Bug\nreports of the form \"why does sharing-server work differently\" are\nthe predictable cost.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Added register_account(&self, &Id) matching the canonical jmap-mail-server shape. Reshaped new_with_accounts to delegate to register_account so the two APIs share the underlying register-by-Id path. new_with_accounts is retained as an ergonomic constructor (with rustdoc explaining the canonical alignment and preferred-for-new-code status of register_account).",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::new_with_accounts(&[&str]) diverges from canonical register_account(&self, &Id) \u2014 locks awkward constructor shape",
+  "updated_at": "2026-05-14T22:23:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:58:08Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "229cb28e-5a5a-595e-a97e-6e264fb5e04f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

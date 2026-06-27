@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Verified independently: the README warning was stale. All five client queryChanges methods (Chat, Message, Space, ChatContact, CustomEmoji) have matching server handler registrations in crate-jmap-chat-server/src/lib.rs:166-274. Git log shows the handlers have existed since the chat-server's first commit (59ecc32). 5-for-5 match.\n\nThere is no actual client/server surface mismatch. The fix is removing the stale doc paragraph, not building a runtime helper or feature gate (options a / b in the bead) for a problem that doesn't exist. This is the 'might already be done' anti-pattern from workspace AGENTS.md.\n\nCommitted as 4ea7884.",
+  "closed_at": "2026-05-15T21:23:01Z",
+  "compaction_level": 0,
+  "content_hash": "07b126335ec75a31d07fbcab7716a5c4305281b8a6cfefa5101d2a3a719c35b2",
+  "created_at": "2026-05-15T20:28:29Z",
+  "created_by": "Mark Atwood",
+  "description": "README.md:248-250 documents: 'Some object types have queryChanges on the client without a corresponding handler in jmap-chat-server; check server capability before calling.' This is a known client/server contract gap. The client exposes methods that may produce server errors at runtime, with no compile-time gate, no feature flag, no runtime probe helper. Downstream callers have to read the README, remember to check capability themselves, and discover at runtime which methods are server-supported. Options: (a) add a runtime helper like has_query_changes(&self, type_name: &str) -> bool that consults Session capability advertisements; (b) feature-gate the unsupported methods; (c) accept the prose warning and live with the support tickets. The prose-only approach is the most honest in a kit-library posture (the consumer brings auth and policy), but a one-line helper would meaningfully reduce caller surprise.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "queryChanges client/server surface mismatch is prose-only, no runtime helper",
+  "updated_at": "2026-05-15T21:23:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:28:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "957f42c8-8bc4-57cf-af92-d978b184fbb4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in 48ee0be. Added one paragraph to README \u00a7extract_response covering RFC 8620 \u00a73.2 multi-invocation case + error-precedence rule + first-non-error fallback. Refers to function rustdoc for the full contract (JMAP-6r7c.23 method-name caveat included by reference).",
+  "closed_at": "2026-05-17T11:20:28Z",
+  "compaction_level": 0,
+  "content_hash": "d2b8fab2ba284ed6e7d0f9f9eadf56a8efe67c0d22bdec0a6e04ce72184f0e1a",
+  "created_at": "2026-05-14T23:09:56Z",
+  "created_by": "Mark Atwood",
+  "description": "extract_response<T>'s function-level rustdoc at client.rs:586-613 explains in detail what happens when multiple invocations share a call_id: 'Errors take precedence. If any invocation matching call_id has method name error, this function returns that error. A success response cannot mask a sibling error response with the same call_id \u2014 silently returning the success while the server reported failure would be data loss for the caller.'\n\nThis is the semantic that the test suite pins (test_extract_response_error_after_success_takes_precedence at client_tests.rs:958, test_extract_response_first_success_when_no_error at line 999, test_extract_response_error_after_multiple_successes at line 1045).\n\nREADME.md:308-323 documents extract_response but only says: 'Returns ClientError::MethodError if the server returned a JMAP error response for that call (RFC 8620 \u00a73.6.1).' It does not say what happens when the same call_id has both a success and an error invocation \u2014 which is exactly the case for Foo/copy with onSuccessDestroyOriginal:true (RFC 8620 \u00a75.8).\n\nThis is a footgun: a downstream consumer wiring extract_response without reading the function-level rustdoc may not realize the error-precedence guarantee. They may write retry logic that assumes success-returned implies no sibling failure occurred.\n\nFix: one paragraph in the README extract_response section that names the multi-invocation case and the error-precedence rule. Same prose as the function rustdoc is fine.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extract_response error-precedence semantic documented on function but not in README API reference",
+  "updated_at": "2026-05-17T11:20:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:09:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "e7a7ed64-f55c-5ef7-800d-391a2d82e001",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

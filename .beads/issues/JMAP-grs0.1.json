@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "faa5779cdd6eee84aadcca9451f2f25790a7f91fbd2a64f11cc7cc96ec9bffff",
+  "created_at": "2026-05-17T05:49:10Z",
+  "created_by": "Mark Atwood",
+  "description": "## Canonical-first per workspace AGENTS.md\n\nThis is the canonical extension-server template. The Inner-state restructure lands HERE FIRST, then propagates to the 7 sibling extension-server crates in subsequent child beads of bd:JMAP-grs0 (.2-.8). Each sibling bead blocks on this one.\n\n## Sites\n\nmail-server/src/memory/mod.rs lines 109-167. Six known `.to_owned()` sites at lines 131, 138, 149, 151, 160, 207 per bd:JMAP-x2gd.84.\n\n## Fix shape (option (a) per epic body)\n\nReplace:\n\n```rust\nstruct Inner {\n    objects: HashMap<(&'static str, String), HashMap<Id, Value>>,\n    states: HashMap<(&'static str, String), u64>,\n    change_log: HashMap<(&'static str, String), Vec<ChangeEntry>>,\n}\n\nfn objects_ref(&self, type_name: &'static str, account_id: &str)\n    -> Option<&HashMap<Id, Value>> {\n    self.objects.get(&(type_name, account_id.to_owned()))\n}\n```\n\nwith the nested form:\n\n```rust\nstruct Inner {\n    objects: HashMap<&'static str, HashMap<String, HashMap<Id, Value>>>,\n    states: HashMap<&'static str, HashMap<String, u64>>,\n    change_log: HashMap<&'static str, HashMap<String, Vec<ChangeEntry>>>,\n}\n\nfn objects_ref(&self, type_name: &'static str, account_id: &str)\n    -> Option<&HashMap<Id, Value>> {\n    self.objects.get(type_name)?.get(account_id)\n}\n```\n\nInner HashMap key is `String` so `.get(account_id: &str)` works via the standard `HashMap<String, V>::get<Q: Borrow<str>>(...)` path \u2014 no allocation.\n\nThe `objects_mut` / `bump_state` write paths follow the same nested-entry pattern (`.entry(type_name).or_default().entry(account_id.to_owned()).or_default()`) \u2014 the `.to_owned()` here is on the mutation-only path which is unavoidable for HashMap insertion.\n\n## Public API surface\n\nMailBackend trait signatures unchanged. This is an internal storage shape refactor.\n\n## known_accounts invariant\n\nThe bd-prime kb note 'memorybackend-objects-mut-silently-auto-registers-accounts-via-known_accounts-insert' (bd:JMAP-ayoz.36) records that objects_mut auto-registers accounts. The new nested shape preserves this \u2014 `.entry(account_id.to_owned()).or_default()` is still the auto-register call. Behavior is byte-identical from the caller's perspective.\n\n## Acceptance\n\n- Inner struct uses nested HashMap shape\n- All read-path helpers take `&str` and don't allocate\n- Write-path helpers preserve the auto-register-via-or_default invariant\n- cargo test -p jmap-mail-server green\n- cargo clippy -p jmap-mail-server -- -D warnings green\n- Bead closure prompts next sibling propagation (chat-server .2)",
+  "ephemeral": 0,
+  "id": "JMAP-grs0.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Canonical: jmap-mail-server Inner-state nested HashMap restructure (eliminates per-read account_id .to_owned)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T22:49:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-grs0",
+      "id": "5a1ad093-e482-5dfa-bcfd-7ffbd94dd75c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

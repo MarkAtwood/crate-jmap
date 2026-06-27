@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-isx.9",
+  "title": "filter_properties rebuilds HashSet on every call \u2014 O(N*M) instead of O(N+M)",
+  "description": "email.rs:560: let prop_set: HashSet<&str> = properties.iter().map(|s| s.as_str()).collect(); This is inside filter_properties which is called once per returned Email object (email.rs:56-62 and snippet.rs). For a request returning 1000 emails with 10 properties, this builds 1000 HashSets each of size 10 instead of building one HashSet once before the loop. Fix: build the HashSet before the .map() in handle_email_get (and any other callers), pass it as a parameter or compute it once before the collect loop.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T23:20:34Z",
+  "updated_at": "2026-04-30T23:29:54Z",
+  "closed_at": "2026-04-30T23:29:54Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-isx",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 16:20:34"
+    }
+  ]
+}

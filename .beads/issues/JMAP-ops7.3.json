@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "wontfix \u2014 the current name handle_principal_get_availability IS the workspace pattern, not a violation.\n\nEvidence: the workspace pattern is handle_<object_snake>_<verb_snake> where both parts may be multi-word snake-case. Examples:\n\n- Email/queryChanges -> handle_email_query_changes (object=Email, verb=queryChanges; both single-word object, two-word verb)\n- AddressBook/queryChanges -> handle_address_book_query_changes (object=AddressBook, verb=queryChanges; two-word object, two-word verb)\n- CalendarEvent/queryChanges -> handle_calendar_event_query_changes (object=CalendarEvent, verb=queryChanges; two-word object, two-word verb)\n- Principal/getAvailability -> handle_principal_get_availability (object=Principal, verb=getAvailability; single-word object, two-word verb)\n\nThe bead's own description acknowledges this reading is correct: 'The correct name is `handle_principal_get_availability` would parse as object=principal, verb=get_availability \u2014 which actually IS the right reading.' The bead then proposes handle_principal_availability_get as the 'fix', but that would invert the verb words and introduce a different pattern (sub-object naming) not used anywhere else in the workspace.\n\nThe alternative ambiguous reading the bead worries about (object=principal_get, verb=availability) is not a real ambiguity \u2014 there is no PrincipalGet object anywhere in the workspace; only Principal exists. A reader can always recover the intended parse by looking at the JMAP method registration string (Principal/getAvailability), which is explicit.\n\nClosing wontfix. No code change made.\n\nPer workspace AGENTS.md 'When NOT to file human' rule 4 (might-already-be-done / analysis-shows-no-real-bug): the bead's premise was incorrect on inspection; the right move is to close-with-evidence rather than label human.",
+  "closed_at": "2026-05-17T22:30:22Z",
+  "compaction_level": 0,
+  "content_hash": "35cea738d63760a1f6a0fb20a36e299f21f79728eb0b0ebce0eaff16700bbafe",
+  "created_at": "2026-05-17T22:00:46Z",
+  "created_by": "Mark Atwood",
+  "description": "**File**: crate-jmap-calendars-server/src/handlers/principal.rs (function \\`handle_principal_get_availability\\`)\n\n**Divergence**: Every server crate uses \\`handle_<snake_case_object>_<verb>\\`:\n- mail: handle_email_get, handle_mailbox_set, handle_thread_changes, handle_search_snippet_get, handle_mdn_send, handle_sieve_validate\n- chat: handle_chat_get, handle_space_set, handle_message_query, handle_chat_typing, handle_space_join\n- contacts: handle_address_book_set, handle_contact_card_query_changes\n- calendars: handle_calendar_event_query_changes, handle_calendar_event_copy, handle_participant_identity_set\n- (etc.)\n\nThe single outlier is \\`handle_principal_get_availability\\` \u2014 a verb-after-attribute name. The RFC method is \\`Principal/getAvailability\\` (camelCase verb \\`getAvailability\\`), but the handler naming convention is \\`handle_<obj>_<verb>\\`, which for \\`Principal/getAvailability\\` should snake-case the verb the same way \\`Email/queryChanges\\` becomes \\`handle_email_query_changes\\`. The correct name is \\`handle_principal_get_availability\\` would parse as object=principal, verb=get_availability \u2014 which actually IS the right reading. But the alternative reading is object=principal_get, verb=availability \u2014 which is wrong.\n\n**What goes wrong**: tooling (regex auto-discovery, code search for \\`handle_principal_*\\` to find all principal methods, IDE jump-to-definition by method name) treats the handler ambiguously. More importantly: any future \\`Principal/<verb>\\` method will collide visually with this one \u2014 \\`handle_principal_get\\` vs \\`handle_principal_get_availability\\` look like one is a prefix of the other.\n\n**Fix**: rename to \\`handle_principal_availability_get\\` (object=principal, sub-object=availability, verb=get \u2014 matching the \\`handle_calendar_event_query\\` pattern where the second underscore separates object from verb). This is a non-breaking rename: the dispatcher registration string (\\`Principal/getAvailability\\`) is unchanged; only the Rust function symbol changes.\n\n**Note**: this is calendars-server-specific but it's the workspace's only handler-naming outlier \u2014 flagging here as cross-crate-divergence rather than per-crate review issue because per-crate reviews wouldn't compare against the 95-handler convention.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "calendars-server handler fn `handle_principal_get_availability` violates the `handle_<obj>_<verb>` naming used by all 95 other handler fns",
+  "updated_at": "2026-05-17T22:30:22Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T15:00:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "9de7b659-c028-5d45-bad6-5b5d9a6c8e22",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

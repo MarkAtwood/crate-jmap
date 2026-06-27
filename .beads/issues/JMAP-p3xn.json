@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b0bc7fd948a70894b9880bac361bd4e017140f489ed1dd6953b042b6d81a4ce7",
+  "created_at": "2026-05-17T20:02:46Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace-wide canonical-template hygiene sweep across all 8 extension-server crates (mail, chat, calendars, tasks, contacts, filenode, sharing, metadata). Bundles 5 deferred per-crate review findings that were filed against jmap-metadata-server but identified as workspace-wide canonical-template propagation needs:\n\n## Deferred-from-JMAP-ayoz children\n\n1. **bd:JMAP-ayoz.22 (P1)** \u2014 `pub use jmap_server::ClosureHandler` re-export in every extension-server lib.rs leaks foundation type ownership through the extension's public API. Verified present in all 8 siblings. Fix: drop the re-export across all 8 extension-servers; consumers reach for jmap_server::ClosureHandler directly.\n\n2. **bd:JMAP-ayoz.23 (P1)** \u2014 `MemoryError(pub String)` public tuple field locks error representation. Same shape in canonical jmap-mail-server::memory::MemoryError. Fix: make the inner field private, add `pub fn message(&self) -> &str` accessor, add `#[non_exhaustive]`.\n\n3. **bd:JMAP-ayoz.24 (P2)** \u2014 `MemoryBackend` struct missing `#[non_exhaustive]` across all 8 sibling crates. Fix: add the attribute uniformly.\n\n4. **bd:JMAP-ayoz.36 (P1)** \u2014 `MemoryBackend::objects_mut` helper silently `known_accounts.insert`s on every call, creating phantom-account surface even after the per-create fix in bd:JMAP-ayoz.2. Workspace-wide cookie-cut in 7 of 8 siblings (filenode uses a different shape). Three fix options enumerated in the bead description.\n\n5. **bd:JMAP-ayoz.7 (P1)** \u2014 `QueryObject::Comparator = serde_json::Value` in jmap-metadata-types::backend is a control-surface escape vs the typed comparator pattern in jmap-mail-types (EmailComparator, MailboxComparator). Decompose into type-crate (typed MetadataComparator + MetadataSortKey enum) and server-crate (handler shim validates) children. Pre-1.0 API break.\n\n## Canonical-first propagation rule\n\nPer workspace AGENTS.md \"Canonical Templates\", each finding must land in jmap-mail-server first (the canonical extension-server template), then propagate to the 7 sibling crates in the same pass. Decompose into one child per finding \u00d7 one wire-up per sibling (~5 \u00d7 7 = 35 child beads, give-or-take where filenode's shape diverges).\n\n## Out of scope\n\n- The pre-existing rustdoc gap in metadata-server (newly filed) and the parallel jmap-sharing-server gap at bd:JMAP-ha4n \u2014 these are doc-fix beads, not canonical-template hygiene.\n- bd:JMAP-ayoz.14 (negative-position cast hygiene) and bd:JMAP-ayoz.28 (id-invariant) \u2014 those are human-labeled judgment calls, not workspace-canonical drift; they stay in their own beads.\n\n## Acceptance\n\nPer child bead: cargo fmt + clippy + test + doc clean for the touched crate. Workspace cargo test --workspace clean on the final propagation commit. The 5 source review findings (.7, .22, .23, .24, .36) close when their per-sibling sweeps finish.",
+  "ephemeral": 0,
+  "id": "JMAP-p3xn",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace canonical hygiene: extension-server MemoryBackend / MemoryError / ClosureHandler re-export shape",
+  "updated_at": "2026-05-17T20:02:46Z"
+}

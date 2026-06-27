@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T23:00:47Z",
+  "compaction_level": 0,
+  "content_hash": "1dfe486380925ac8176c0a016eabbbf1bc0565b1734b0eb46b69f33a38575ceb",
+  "created_at": "2026-05-10T18:19:54Z",
+  "created_by": "bd-spin/bd-spin-20260510T180814Z-3657541",
+  "description": "Sweep follow-up to JMAP-sc1b.53 / JMAP-sc1b.66.\n\nType crate test fixtures using clone-subtree pattern:\n- crate-jmap-types/src/methods.rs: 4 sites (340, 456, 504, 603)\n- crate-jmap-sharing-types/src/notification.rs: 2 sites (224, 264)\n- crate-jmap-sharing-types/src/principal.rs: 2 sites (174, 310)\n- crate-jmap-sharing-types/src/capability.rs: 2 sites (91, 106)\n\nAll are #[cfg(test)] inside the type crates. Most are roundtrip tests of the form 'let json = ...; let v = from_value(json.clone()); ...' where json is not used after. T::deserialize(&json) avoids the clone cleanly.\n\nP4 because test-only code path; correctness unaffected. Bundling these together because the change is mechanical and they all live in *-types crates.\n\nIf a workspace-wide cargo-machete-style sweep is later done, this could roll up into it.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.68",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P4: 10 from_value(v.clone()) sites in type-crate cfg(test) fixtures",
+  "updated_at": "2026-05-10T23:00:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T11:19:54Z",
+      "created_by": "bd-spin/bd-spin-20260510T180814Z-3657541",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "755a3805-dcec-5bff-b693-e0a02d20be90",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

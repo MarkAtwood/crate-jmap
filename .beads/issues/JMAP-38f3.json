@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "28355f83e124f7ba7cf8f00e33624d11e0afb6e6f367859e7f443b292eac1a5b",
+  "created_at": "2026-05-15T09:01:58Z",
+  "created_by": "Mark Atwood",
+  "description": "Reverse propagation: jmap-metadata-server's MemoryBackend.create_object has a defense-in-depth account guard at memory.rs:680-692 that refuses to silently auto-register an unknown account when a caller bypasses the handler-layer accountNotFound check (e.g. test seeders, future direct trait callers). Canonical mail-server's MemoryBackend at memory.rs:955+ does NOT have this guard.\n\nThis is the rare case where the sibling got the pattern right and the canonical needs to follow. Per workspace AGENTS.md canonical-template propagation rule, the right move is to:\n1. Add the same defense-in-depth guard to jmap-mail-server's MemoryBackend.create_object (canonical).\n2. Audit and add it to 6 other extension-server siblings (chat, calendars, tasks, contacts, filenode, sharing) that share the canonical's lax shape.\n\nRationale (per metadata-server's own rustdoc at memory.rs:680-686): 'a backend create_object is also called directly from test seeders and from any future caller that bypasses the handler. Silently extending known_accounts on a per-object call would mean a stray create attaches private metadata records to a phantom account.' The same reasoning applies to every extension's data type (Email/Mailbox/Calendar/Task/Contact/FileNode/SharingPrincipal).\n\nEngineering impact: prevents a class of state-corruption bugs where a fixture or future API caller bypasses accountNotFound enforcement. Worst-case under the current (un-guarded) canonical pattern: an undeclared account silently materialises with one stray record, no error surfaces, and later /get/changes/query against that account succeed against partial data.\n\nDiscovered while triaging bd:JMAP-826m.42 (positive-observation bead noting that metadata-server's guard exists).",
+  "ephemeral": 0,
+  "id": "JMAP-38f3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace-canonical-first reverse propagation: defense-in-depth account guard in MemoryBackend.create_object \u2014 propagate metadata-server pattern up to canonical mail-server, then to 7 siblings",
+  "updated_at": "2026-05-15T09:01:58Z"
+}

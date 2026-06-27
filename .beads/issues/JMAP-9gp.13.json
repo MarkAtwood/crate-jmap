@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-9gp.13",
+  "title": "now_utc_string: hand-rolled civil_from_days is needlessly complex for this use",
+  "description": "helpers.rs now_utc_string uses a full Howard Hinnant calendar algorithm. The only caller is generating a default receivedAt timestamp (EmailSubmission/set sendAt). The algorithm is correct but is 13 lines of bit-twiddling integer arithmetic for a function that has exactly one call site and could instead just return a fixed-format string from SystemTime and a stdlib formatter. Alternatives: add chrono (already likely in workspace) or use jmap_types::UTCDate::now() if that exists. Leave as-is only if no dependency is available.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T01:45:33Z",
+  "updated_at": "2026-05-01T02:19:44Z",
+  "closed_at": "2026-05-01T02:19:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-9gp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 18:45:32"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Bead is opinion-adjacent (bead author flagged 'low-stakes \u2014 flag as an opinion-adjacent stylistic note'). Kept the #[non_exhaustive] attribute on RequestError because (a) it documents forward-compat intent at the type-definition site, (b) a future pub field then does not need to add the attribute as a separate change. Added a comment explaining the rationale so a future reader doesn't re-litigate the same bikeshed.",
+  "closed_at": "2026-05-14T13:59:15Z",
+  "compaction_level": 0,
+  "content_hash": "b09f1d57257f727f167b6c4c25ff27c0de5feaaa191a3ff6da78291e3c5b337f",
+  "created_at": "2026-05-14T13:10:26Z",
+  "created_by": "Mark Atwood",
+  "description": "src/response.rs:84-89 declares 'pub struct RequestError' with #[non_exhaustive] but both fields ('status: StatusCode' and 'err: JmapError') are private. #[non_exhaustive] on a struct prevents (a) outside-crate struct-literal construction and (b) exhaustive pattern matching from outside the crate. Private fields already prevent both \u2014 there is no way to construct or destructure a struct with all-private fields from another crate to begin with. The attribute is functionally a no-op here. Idiomatic Rust uses #[non_exhaustive] when at least one field is pub (where it does protect against breaking changes from adding more pub fields), or omits it when all fields are private. Defensible counter-argument: 'leaves the door open for a future field to be pub without further consideration', and the attribute documents intent. Low-stakes \u2014 flag as an opinion-adjacent stylistic note. What goes wrong if it stays: very little; a future reader may wonder why the attribute is there when the privacy already prevents the same outcomes.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.31",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "RequestError is #[non_exhaustive] but all fields are private \u2014 the attribute is largely redundant",
+  "updated_at": "2026-05-14T13:59:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:10:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "7ccde8d0-9447-55a5-9e89-f4b0881c132b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

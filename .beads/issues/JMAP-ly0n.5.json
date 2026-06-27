@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in b045f70: ChatContact.id rustdoc gained an 'Id-layer constraints' subsection citing the RFC 8620 \u00a71.2 limits (255 bytes, SAFE-CHAR, no '\"') and the Id::new_validated vs Id::from boundary. Mention.id's cross-reference now points at that subsection.",
+  "closed_at": "2026-05-16T03:22:25Z",
+  "compaction_level": 0,
+  "content_hash": "2c2f12ab9ea8c194781263c359a50208d6e9be982996733da73d29ef3d7b2809",
+  "created_at": "2026-05-16T02:37:33Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: a downstream consumer reads the new rustdoc on ChatContact.id (contact.rs:36-54) and Mention.id (message.rs:138-152), and concludes that ANY opaque URI form is acceptable. They then build a ChatContact with Id::new_validated(some_long_did_uri) and get a ValidationError.\n\nBad behavior: the doc claims 'Servers and clients MUST treat the value as opaque: do not parse, validate, or normalize.' But the underlying Id type from jmap-types DOES validate when constructed via Id::new_validated:\n- max 255 bytes (RFC 8620 \u00a71.2)\n- SAFE-CHAR only: %x21 / %x23-7E (visible ASCII, excluding '\"')\n\nThis is fine for did:web:short-name and user@host, but a long did:key value plus a key-multibase encoding can run close to or over 255 bytes, and any URI containing the literal '\"' character is rejected. The doc's 'any opaque URI form' is, in practice, 'any printable-ASCII URI form that fits in 255 bytes'. Downstream consumers will hit this when:\n- A federation peer's identity URI gets longer than expected (DID method changes encoding).\n- A site policy starts namespacing federated ids and pushes them over 255.\n\nFix options (pick one):\n- Tighten the doc to call out the Id constraints (max 255 bytes, RFC 8620 \u00a71.2 SAFE-CHAR) and note that consumers using Id::new_validated will get ValidationError for non-conforming forms.\n- Loosen Id::new_validated for ChatContact.id specifically \u2014 but that breaks the canonical-template Id contract, which is worse.\n- Leave the rustdoc alone but add a one-line test that constructs a representative did:key Id::new_validated and asserts success \u2014 that's a tripwire if jmap-types Id tightens further.\n\nRecommendation: tighten the doc. The Id-layer constraints are the truth.\n\nPriority P2 because this is a doc-vs-reality mismatch that a careful reader can catch by reading the Id type, but a hasty reader who has only the chat draft in mind will be surprised. Not P1 because the failure mode is a clean ValidationError, not silent misbehavior.",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "URI-latitude doc on ChatContact.id and Mention.id understates Id-layer validation",
+  "updated_at": "2026-05-16T03:22:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:37:33Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "be773c9c-b05d-51fc-b2c0-d2027c98a5b2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

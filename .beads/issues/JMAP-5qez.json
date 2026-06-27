@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "3bdf9504b804eeb43d2ff5ee43123eed9b22655cb80773abcbb166dec785bf5f",
+  "created_at": "2026-06-13T20:32:44Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec session-extensions: ownerUserId (REQUIRED for federation), ownerLogin, ownerEndpoints (Endpoint[]), ownerDirectAddress. Cannot be expressed through current jmap-types Session struct. Need typed fields or documented convention for populating via extra field.",
+  "ephemeral": 0,
+  "id": "JMAP-5qez",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add Session extensions (ownerUserId, ownerLogin, ownerEndpoints)",
+  "updated_at": "2026-06-13T20:32:44Z"
+}

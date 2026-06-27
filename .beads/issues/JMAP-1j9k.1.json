@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T12:05:33Z",
+  "compaction_level": 0,
+  "content_hash": "5f74e115caa6327188ff7b5d7107d6936d919e5b117f00cd854a50eb71523cc0",
+  "created_at": "2026-05-15T01:01:40Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: caller invokes calendar_set or participant_identity_set with a create map. Calendar.id (crate-jmap-calendars-types/src/calendar.rs:106) and ParticipantIdentity.id (crate-jmap-calendars-types/src/participant_identity.rs:19) are typed as required (non-Option) Id and lack skip_serializing_if. The typed create-map values therefore force callers to construct objects carrying an id and the JSON serializer emits id:\"<placeholder>\" on the wire inside each create-map value. Per RFC 8620 \u00a75.3, id MUST NOT be set by the client on creation \u2014 the server assigns the id and either ignores or rejects a client-supplied id (jmapd-class servers may treat any leading '#' as a creationId reference). Bad behavior: malformed wire payload that depends on server tolerance; non-tolerant servers reject the request with invalidProperties. CalendarEvent.id is correctly Option<Id> + skip_serializing_if (event.rs:43-44), so calendar_event_set is fine. The existing smoke test tests/participant_identity_smoke_tests.rs::participant_identity_set_create_round_trip sets id:\"placeholder\" and the assertion does NOT check that id is absent from the wire create map \u2014 the test is too weak to catch this. Fix is in jmap-calendars-types (make id Option<Id> with skip_serializing_if on Calendar and ParticipantIdentity to match CalendarEvent), but the client-side test should also assert id absence on the wire create-map values.",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "calendar_set / participant_identity_set create map serializes required id field on the wire violating RFC 8620 \u00a75.3",
+  "updated_at": "2026-05-17T12:05:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:01:40Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "8986ecb2-5b05-562b-85e0-4241bc8d8e97",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260510T180814Z-3657541",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T18:15:02Z",
+  "compaction_level": 0,
+  "content_hash": "2f88c0641a1918edd65c31b80c33433f0ea2bca41e475ecc8859f9ffec93d2f0",
+  "created_at": "2026-05-07T20:43:32Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-base-client/src/ws/mod.rs:162-170 clones `val` before `from_value(val)`, but the clone is only needed in the error path:\n\n```rust\n\"StateChange\" => {\n    let raw = val.clone();                                // always allocated\n    match serde_json::from_value::<StateChange>(val) {\n        Ok(sc) => Ok(WsFrame::StateChange(sc)),           // raw discarded\n        Err(_) => Ok(WsFrame::Unknown { type_name, raw }),\n    }\n}\n```\n\nReplacing with `StateChange::deserialize(&val)` (borrowing) lets the success path drop val and the error path move it into Unknown.\n\nWhy P3: only fires on hot WS frame paths. Negligible unless WS event spam is a real workload.\n\njmap-base-client is the foundation client crate per workspace AGENTS.md; coordinate any change with the canonical extension-client (jmap-mail-client) and its 6 siblings if a parallel pattern exists there.\n",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.62",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Already fixed in commit afecf2d (closing JMAP-6lsm.11) on 2026-05-09. The current crate-jmap-base-client/src/ws/mod.rs:248-284 parses text once into Value (for @type extraction + Unknown fallback) and parses text directly into typed StateChange/JmapResponse \u2014 no Value clone on the success path. The bead's described shape ('let raw = val.clone()') is gone.\n\nVerified at HEAD: rg 'val\\.clone' crate-jmap-base-client/src/ws/mod.rs returns nothing.\n\nClosing as already-resolved (duplicate of JMAP-6lsm.11).",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: WsFrame parser pre-clones value before consuming it",
+  "updated_at": "2026-05-10T18:15:02Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "a502ea56-a1a2-538e-a6ba-101a738884e3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

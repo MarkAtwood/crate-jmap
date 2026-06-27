@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in 5805464 alongside JMAP-t307.16. All three doc surfaces (example, src/lib.rs:7-33 rustdoc, README How-to-use) now use ? + Result. find_by_id().expect() replaced with if-let-Some + log-and-skip, which is what a real backend would write. Each surface adds a one-sentence preface naming RFC 8620 \u00a73.6.2.",
+  "closed_at": "2026-05-15T06:28:18Z",
+  "compaction_level": 0,
+  "content_hash": "7d37c05d3bd3745076da98f738faaf863e3c448655d7a30f062cbc4bdc4efb90",
+  "created_at": "2026-05-15T05:54:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Trigger: a consumer reads examples/parse_eml.rs (referenced from README \u00a7Examples) as a starting point for a real Email/get body materialisation path, copies the pattern verbatim into their backend, ships, and then receives hostile or malformed .eml input from a client (or a Sieve forward, or a federated peer).\n\nConsequence: every .expect() in the example becomes a panic in a server context. parse(RAW).expect(...) panics on malformed MIME. find_by_id(...).expect('part must exist') panics if the part disappeared. decode_body_value(...).expect('decode failed') panics on charset trouble. A panicking JMAP server is a DoS surface \u2014 one crafted message kills the worker thread.\n\nThe workspace AGENTS.md rule 'No .unwrap() or .expect() in library code \u2014 propagate errors with ?' technically applies to library code only, so the example is not strictly violating the rule. But the example is the canonical 'how to use jmap-mime' artifact (README \u00a7Examples points at it), and consumers will copy from it. The lib.rs rustdoc example at src/lib.rs:7-33 has the same pattern, doubling the copy hazard.\n\nFix: rewrite examples/parse_eml.rs to:\n- Return Result<(), Box<dyn Error>> from main and use ? throughout.\n- For find_by_id, demonstrate the if-let-Some pattern (which is what a real backend writes anyway).\n- Replace .expect('decode failed') with explicit match-on-Err that logs and skips, or returns the error.\n- Add a comment near main() noting: 'A real backend MUST surface parse/decode errors as JMAP method errors, never panic.'\n\nSame fix applies to src/lib.rs:7-33 rustdoc.\n\nBelt-and-suspenders alternative: keep .expect() but add // SAFETY-IN-EXAMPLE-ONLY comments at each site explaining what a production caller does instead. Worse than the rewrite, because it leaves the panicking pattern visible.",
+  "ephemeral": 0,
+  "id": "JMAP-t307.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "examples/parse_eml.rs uses .expect() heavily; copy hazard for consumers",
+  "updated_at": "2026-05-15T06:28:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:54:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-t307",
+      "id": "826f8b6a-1f2d-58ae-9e33-8a26758a5b0d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

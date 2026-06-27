@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-drv.5",
+  "title": "parse_state_data: four identical SseEvent::Unknown return arms",
+  "description": "parse_state_data has four separate return SseEvent::Unknown { event_type: event_type.to_owned() } arms: JSON parse failure, non-object value, missing changed field, and changed field deserialization failure. All four produce the same result. Could be refactored with a ? operator on a helper that returns Option<SseEvent>: fn try_parse(event_type: &str, data: &str) -> Option<SseEvent> { let mut v = serde_json::from_str::<Value>(data).ok()?; let obj = v.as_object_mut()?; let changed_val = obj.remove(\"changed\")?; let changed = serde_json::from_value(changed_val).ok()?; Some(SseEvent::StateChange(push::StateChange { changed })) } then parse_state_data = try_parse(...).unwrap_or(SseEvent::Unknown { ... }).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:36:38Z",
+  "updated_at": "2026-04-30T16:45:20Z",
+  "closed_at": "2026-04-30T16:45:20Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-drv",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:36:37"
+    }
+  ]
+}

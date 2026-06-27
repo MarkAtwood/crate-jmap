@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T14:34:10Z",
+  "id": "019e26e8-c547-74c5-a05e-ef492e527e15",
+  "issue_id": "JMAP-ayoz.35",
+  "text": "Scope correction: Convention B is NOT a metadata-server-specific divergence. The same to_string().as_str() pattern lives at the equivalent line in 5 cookie-cut siblings:\n\n- crate-jmap-calendars-server/src/memory.rs:569-574, 614-619\n- crate-jmap-contacts-server/src/memory.rs:514-519, 559-564\n- crate-jmap-metadata-server/src/memory.rs:505-510, 547-552  (this finding's site)\n- crate-jmap-sharing-server/src/memory.rs:403-408, 448-453\n- crate-jmap-tasks-server/src/memory.rs:517-522, 562-567\n\nThe canonical jmap-mail-server uses Convention A everywhere \u2014 meaning the 5 siblings ALL diverged from the canonical at the same place during the original cookie-cut. Per workspace AGENTS.md 'Canonical Templates' rule: this is a propagation regression, not a metadata-server bug. Fix in one pass across all 5 siblings, no canonical change needed (mail-server is already correct).\n\nTracking the cross-sibling fix here is fine if the bead is treated as the gate for all 5. Alternatively split into 5 sibling beads with this one as parent \u2014 but for a P3 chore-priority alloc tidy, that's overhead."
+}

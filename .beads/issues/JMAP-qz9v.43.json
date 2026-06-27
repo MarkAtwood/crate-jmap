@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already fixed by bd:JMAP-qz9v.4 close (commit 7449bc7). The apply_jmap_patch function was rewritten from the Vec<String>-allocating iterative form to a recursive form (src/card.rs:362-391) that calls path.find('/') and slices &path[..slash] / &path[slash+1..] without collecting a Vec. decode_segment is called only on actual segments (head and leaf), never on the full path. Both idiom concerns (per-segment String allocation; verbose 'all but the last segment' walk) evaporate with the recursive form. Verified at HEAD via grep \u2014 no Vec<String>, no parts.last, no parts.split_last in card.rs. The bead's parenthetical 'this finding becomes moot if .10 lands' applies similarly via .4.",
+  "closed_at": "2026-05-17T20:35:31Z",
+  "compaction_level": 0,
+  "content_hash": "8e0cba5d8d41df1ccb175811acd5467d6c0c89ae5ba9b21dc58b8c800979f36a",
+  "created_at": "2026-05-14T19:42:43Z",
+  "created_by": "Mark Atwood",
+  "description": "card.rs:292-339. apply_jmap_patch collects path segments into Vec<String>:\n\n    let parts: Vec<String> = path.split('/').map(decode_segment).collect();\n\nthen takes parts.last().cloned() and slices &parts[..parts.len() - 1].\n\nTwo idiom problems:\n\n1. decode_segment returns a String even for segments that contain no ~0 or ~1 escapes. Most JMAP patch paths are simple property names (e.g. \"name\", \"addressBookIds\", \"addresses/work\") with no escapes. The non-escape case should return Cow::Borrowed(s); the escape case Cow::Owned(s.replace(...)). Allocating a fresh String for every segment, escaped or not, is wasteful.\n\n2. The \"all but the last segment\" walk is the textbook split_last() use case:\n\n    let Some((leaf, parents)) = parts.split_last() else { return; };\n    for seg in parents { ... }\n\nvs the current code which clones the last segment and re-slices the vector with parts[..parts.len() - 1].\n\nEngineering cost: every /copy patch path triggers per-segment String allocation. Distinct from the correctness bugs already filed under .4 (data destruction on non-object intermediates, array indexing missing) \u2014 this is purely about the shape of the helper.\n\nNote the duplicate-helper finding .10 already covers replacing the whole function with the shared jmap-server json_merge_patch. If that propagation lands, this finding becomes moot.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.43",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "apply_jmap_patch allocates Vec<String> for path segments where &str borrows would do",
+  "updated_at": "2026-05-17T20:35:31Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:42:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "0d9ee3f7-b021-5627-970a-7baf611e0cd9",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

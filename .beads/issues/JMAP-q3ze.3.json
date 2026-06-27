@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "args.remove used. All tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Changed args.get('create'/'update') to args.remove in notification.rs; all 12 tests pass; clippy clean",
+  "closed_at": "2026-05-05T04:52:05Z",
+  "compaction_level": 0,
+  "content_hash": "9ae2f8a43929bf78b6bd3e7ec1f8b4ad3f1936a4a436eb3ffe6a8b12d4bf66a0",
+  "created_at": "2026-05-05T02:55:58Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** In notification.rs handle_share_notification_set, change args.get(\"create\") and args.get(\"update\") to args.remove(\"create\") and args.remove(\"update\") for consistency with principal.rs and identity.rs patterns.\n\n**Algorithm:**\nReplace:\n  if let Some(create_map) = args.get(\"create\").and_then(|v| v.as_object()) {\n      for create_id in create_map.keys() { ... }\n  }\nWith:\n  if let Some(Value::Object(create_map)) = args.remove(\"create\") {\n      for (create_id, _) in create_map { ... }\n  }\nSame for update. Adjust borrow checker as needed.\n\n**Acceptance criteria:**\n- All existing notification tests pass.\n- Pattern matches principal.rs and identity.rs.",
+  "ephemeral": 0,
+  "id": "JMAP-q3ze.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix: use args.remove() for create/update in ShareNotification/set",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:55:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q3ze",
+      "id": "6af95838-1d76-58b6-a950-7b0fbb995134",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

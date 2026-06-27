@@ -1,0 +1,33 @@
+{
+  "close_reason": "Positive confirmation \u2014 no action needed",
+  "closed_at": "2026-05-02T21:07:30Z",
+  "compaction_level": 0,
+  "content_hash": "bac65b4b734fc83851c1ecda9eafde090c21d8887009acbc036181acd477da93",
+  "created_at": "2026-05-02T21:03:06Z",
+  "created_by": "Mark Atwood",
+  "description": "Tests use independent hand-crafted JSON fixtures (documented as 'Oracle: hand-crafted...') derived from spec text, never from code under test. Verified contracts: camelCase field names, skip_serializing_if behavior for Option fields, roundtrip fidelity for enums with Other variant. Prevents silent serialization bugs.",
+  "ephemeral": 0,
+  "id": "JMAP-oslg.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "GOOD: Wire format contracts verified via test oracles",
+  "updated_at": "2026-05-02T21:07:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T14:03:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-oslg",
+      "id": "8dd4165e-9dc5-5c93-b3e9-57ac2ee4e196",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

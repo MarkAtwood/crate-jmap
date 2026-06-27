@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4903e5f42427dd3921891cee5483dcbef84dad311b76a3343e8ea87db0d8a57e",
+  "created_at": "2026-05-14T21:25:59Z",
+  "created_by": "Mark Atwood",
+  "description": "RUSTDOCFLAGS='-D warnings' cargo doc -p jmap-sharing-server --no-deps --all-features fails:\n\n    error: unresolved link to BackendChangesError::CannotCalculate\n    error: unresolved link to BackendChangesError::CannotCalculate\n\nLikely two doc comments reference BackendChangesError::CannotCalculate\nwithout importing or fully-qualifying the path.\n\nSurfaced while running workspace gate for bd:JMAP-510h.31. Not caused\nby that work \u2014 pre-existing condition; just newly noticed.",
+  "ephemeral": 0,
+  "id": "JMAP-gi19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "sharing-server: rustdoc unresolved link BackendChangesError::CannotCalculate",
+  "updated_at": "2026-05-14T21:25:59Z"
+}

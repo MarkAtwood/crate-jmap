@@ -1,0 +1,33 @@
+{
+  "close_reason": "Acknowledged. FileNodeBackend::query_subtree as a trait method (with default impl) is the seam where a backend with a tree-aware index can outperform the default O(depth) loop. The default-impl error-swallow bug was JMAP-510h.4 (closed in eec6d59) and was an independent correctness fix; the trait-method separation itself is correct and stays.",
+  "closed_at": "2026-05-14T20:43:28Z",
+  "compaction_level": 0,
+  "content_hash": "8f20882e5d41b2140cbcaaddc76c0a1638a82720fced45fc90320d1348185f5d",
+  "created_at": "2026-05-14T19:54:29Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs:134-194 defines query_subtree as a trait method with a default impl. The handler in src/filenode.rs:938-948 calls a single 'backend.query_subtree(...)' instead of looping query_objects(parentId=...) at the handler level.\n\nThis is the right separation: the handler describes WHAT it needs (all descendants up to depth N); the backend chooses HOW to fulfill it. Backends with a closure table, nested sets, or recursive CTE override query_subtree with one SQL query. The default impl falls back to O(depth) round-trips for backends that have not bothered to override.\n\nA future contributor might be tempted to inline the loop into the handler (the default impl already exists, why have the indirection?). Defend the trait method: it is the seam where a backend with a tree-aware index can dramatically outperform the default. Inlining the loop into the handler eliminates that optimization point and is a one-way door.\n\nSeparate issue: the default impl swallows errors (JMAP-510h.4) \u2014 that is a correctness bug, not a flaw in the trait-method separation. Fix .4 without removing the trait method.",
+  "ephemeral": 0,
+  "id": "JMAP-510h.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Good: separate FileNodeBackend::query_subtree trait method (vs. handler doing recursion)",
+  "updated_at": "2026-05-14T20:43:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:54:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h",
+      "id": "cff48460-2b1e-56a7-93dc-148790d5827f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

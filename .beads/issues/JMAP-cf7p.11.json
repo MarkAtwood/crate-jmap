@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "close_reason": "Fixed in commit 4a1159d. Replaced backtick intra-doc links to crate-private get_session/post_jmap with plain identifier names in the router fn doc. RUSTDOCFLAGS='-D warnings' cargo doc -p jmap-testjig --no-deps now clean. Workspace fmt/clippy/test stay green.",
+  "closed_at": "2026-05-12T06:32:45Z",
+  "compaction_level": 0,
+  "content_hash": "2beb17c18865f8c21decc47e27022cf06e553eb5b29ed1b836f335301dcfead6",
+  "created_at": "2026-05-12T06:31:20Z",
+  "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "description": "Pre-existing rustdoc breakage in crate-jmap-testjig/src/http.rs:\n\n```\nerror: public documentation for `router` links to private item `get_session`\n   --> crate-jmap-testjig/src/http.rs:158:35\nerror: public documentation for `router` links to private item `post_jmap`\n   --> crate-jmap-testjig/src/http.rs:159:24\n```\n\nThe pub fn `router` doc comment uses [`get_session`] and [`post_jmap`] intra-doc links, but both functions are crate-private (`async fn`, not `pub async fn`). RUSTDOCFLAGS='-D warnings' cargo doc -p jmap-testjig --no-deps fails as a result.\n\nThe workspace pre-commit gate (per workspace AGENTS.md) is fmt + clippy + test, not doc, so this slipped through. The bug pre-dates bd:JMAP-cf7p.4 (verified by git stash + cargo doc on main).\n\nFix is trivial \u2014 rewrite the doc to use plain identifiers without backtick links:\n```rust\n/// - `GET /.well-known/jmap` \u2192 get_session\n/// - `POST /jmap` \u2192 post_jmap\n```\n\n(or make both pub fn \u2014 but they don't need to be on the testjig's public surface.)\n\nAcceptance:\n- RUSTDOCFLAGS='-D warnings' cargo doc -p jmap-testjig --no-deps succeeds.\n- The doc still names the two handler functions in a useful way (don't just delete the references).\n- Workspace fmt + clippy + test stay clean.",
+  "ephemeral": 0,
+  "id": "JMAP-cf7p.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "testjig http.rs: router rustdoc links to private get_session/post_jmap",
+  "updated_at": "2026-05-12T06:32:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T23:31:20Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p",
+      "id": "d42c27c0-b8b4-5a2b-9aef-b2e94c2c63bd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

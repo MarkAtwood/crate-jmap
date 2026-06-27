@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T12:49:36Z",
+  "compaction_level": 0,
+  "content_hash": "d23193ed7c9528430e44ffefc1ead5f462da14da5e73e121417ff99657a04b9c",
+  "created_at": "2026-05-15T01:44:46Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8621 \u00a74.2 (Email/get) and \u00a74.9 (Email/parse) define the wire field as\n`fetchHTMLBodyValues` \u2014 *HTML* in uppercase. See rfc8621.txt lines 2327, 2438,\n3163.\n\nCurrent code (`src/methods/mod.rs:50` for EmailGetParams.fetch_html_body_values,\nplus same in EmailParseParams at line ~267) uses\n`#[serde(rename_all = \"camelCase\")]` which produces `fetchHtmlBodyValues`\n(lowercase html). Inline test at mod.rs:665 even asserts the wrong wire\nspelling: `assert_eq!(v[\"fetchHtmlBodyValues\"], json!(false));`.\n\nImpact: a spec-strict server treats the field as unknown (RFC 8620 \u00a73.6.3\nfor unknown invocation arguments; usually silently ignored for unknown\nbody-fetch hints), HTML body values are NEVER inlined, and the client\nsilently gets empty htmlBody bodyValues for every Email/get and Email/parse\ncall the caller asked for HTML inlining. Caller sees no error.\n\nThis is the kind of bug that survives indefinitely because misalignment is\nsilent and the deserializer is happy with the resulting empty bodyValues map.\n\nFix: add `#[serde(rename = \"fetchHTMLBodyValues\")]` to the\n`fetch_html_body_values` field on both EmailGetParams and EmailParseParams.\nUpdate the inline test oracle to the correct wire spelling.\n\nThis bug is the canonical-template kind: every extension-client sibling will\nhave been cookie-cut from the same shape. Audit chat/calendars/tasks/contacts/\nfilenode/sharing/metadata clients for the same misspelling pattern when fixing.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "EmailGetParams/EmailParseParams: fetchHtmlBodyValues vs RFC fetchHTMLBodyValues (HTML uppercase)",
+  "updated_at": "2026-05-17T12:49:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:44:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "91f160e4-78ac-5e18-99da-31ca87fe778e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

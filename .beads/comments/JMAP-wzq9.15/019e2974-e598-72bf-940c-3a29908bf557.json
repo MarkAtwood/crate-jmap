@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T02:26:27Z",
+  "id": "019e2974-e598-72bf-940c-3a29908bf557",
+  "issue_id": "JMAP-wzq9.15",
+  "text": "Blocked on canonical mail-client propagation (JMAP-tjvm.16). Per workspace canonical-template propagation rule, #[non_exhaustive] must land on canonical mail-client's params structs first (EmailGetParams, EmailCopyParams, MailboxSetParams, EmailSubmissionSetParams, EmailImportInput, EmailParseParams), then propagate to all 7 extension-client siblings in one pass. Adding #[non_exhaustive] to MetadataChangesParams alone would put metadata-client AHEAD of canonical, which is the inverse of the propagation rule. Will become unblocked when JMAP-tjvm.16 closes."
+}

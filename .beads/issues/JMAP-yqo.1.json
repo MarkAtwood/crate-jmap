@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:25Z",
+  "compaction_level": 0,
+  "content_hash": "7d732af999a2dad16e4f90e3c0ea5b9065ceeb6d76d50fe2ff8213a3439a3c79",
+  "created_at": "2026-05-02T02:54:11Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_email_parse accepts header: property names in its properties arg but only calls filter_properties (which checks exact key equality), so a client requesting header:Subject:asText gets back null instead of the extracted value or an error. Email/get correctly handles this; Email/parse does not. Trigger: client sends properties=[\"header:Subject:asText\"] to Email/parse \u2192 server returns object with no matching key, silently empty.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/parse silently drops header: dynamic properties",
+  "updated_at": "2026-05-02T03:22:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:54:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "7dbf5cfd-66f7-5c31-8dc2-e3245eb3649c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

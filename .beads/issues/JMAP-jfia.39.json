@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Resolved via decision record on the variant doc. The variant stays unit-shaped because: (1) Display already interpolates MAX_MERGE_PATCH_DEPTH for log/UI use; (2) all 6 workspace consumers just map to InvalidPatch with a generic description, none destructure depth programmatically; (3) the finding's 'non-breaking' claim is wrong \u2014 changing a unit variant to a struct variant breaks pattern syntax even on #[non_exhaustive] (the existing 'if let Err(MergePatchError::DepthExceeded)' patterns would stop compiling). The additive escape hatch documented in the variant doc: a future consumer needing programmatic depth access can add a separate DepthExceededDetail variant alongside, with json_merge_patch emitting the new variant. Commit ed5011c.",
+  "closed_at": "2026-05-15T07:32:03Z",
+  "compaction_level": 0,
+  "content_hash": "ca50add1420f048d28ab6453f775ebeac402f4611fbcffa311182ababa8233be",
+  "created_at": "2026-05-14T17:37:16Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/helpers.rs:336-348:\n\n  #[non_exhaustive]\n  #[derive(Debug, Clone, PartialEq, Eq)]\n  pub enum MergePatchError {\n      /// The patch nests deeper than the crate's `MAX_MERGE_PATCH_DEPTH`\n      /// DoS-guard cap.\n      DepthExceeded,\n  }\n\nMAX_MERGE_PATCH_DEPTH is documented to be 'intentionally not exposed; consumers see the behaviour via the typed error rather than reading the constant' (lines 374-376).\n\nBut the variant carries no payload. A consumer that catches DepthExceeded cannot:\n\n1. Log how deep the rejected patch was. (Telemetry / abuse-detection signal: was it 65 or 6500?)\n2. Show the user a useful error message ('your patch is too deeply nested \u2014 max is N levels'). The constant is gated as private so the consumer cannot even include the cap in the user-facing message.\n3. Decide whether to flag the request as malicious (>1000 levels) vs accidentally-deep (66 levels).\n\nA consumer that needs any of these has to either:\n- Run their own depth-counting RFC 7396 parser BEFORE calling json_merge_patch (duplicate work).\n- Hardcode the same cap value, hoping it matches the crate's internal constant.\n\nThe shape that preserves both the 'cap is private' invariant AND the diagnostic information:\n\n  pub enum MergePatchError {\n      DepthExceeded {\n          /// The depth the patch reached before the cap fired.\n          reached: usize,\n          /// The cap value enforced. Exposed in the error variant so\n          /// callers can include it in user-facing error messages\n          /// without depending on a separately-imported pub const.\n          max: usize,\n      },\n  }\n\nBoth fields are u-sized, no extra dependency. The cap value being in the variant doesn't break the 'consumers see the behaviour via the typed error' principle \u2014 the cap is now ONLY visible through this error, not as a pub const, so the crate can still change MAX_MERGE_PATCH_DEPTH freely between versions and consumers learn the new value via the error.\n\nOr, less invasively, add just `reached: usize` and keep the cap private. Consumers can still log 'depth reached: 67'.\n\nEither fix is non-breaking \u2014 adding fields to a struct variant on a #[non_exhaustive] enum is the additive evolution shape per workspace AGENTS.md.\n\nFiled P3 under api-contract,underspecified. The current shape is correct but minimal; the diagnostic information loss is real but not security- or correctness-critical.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MergePatchError::DepthExceeded carries no depth context \u2014 caller cannot log actual vs allowed",
+  "updated_at": "2026-05-15T07:32:03Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:37:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "e123a8bf-e07b-5479-8609-273dc6ecac75",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:27:20Z",
+  "compaction_level": 0,
+  "content_hash": "5ca013a87b3fba00489620a8c130fc4f9dea7a75c7b61fb143077b0a3befa961",
+  "created_at": "2026-05-02T04:17:42Z",
+  "created_by": "Mark Atwood",
+  "description": "Message/changes, SpaceBan/changes, ChatContact/changes, CustomEmoji/changes, SpaceInvite/changes, ReadPosition/changes, PresenceStatus/changes all omit the required updatedProperties field. RFC 8620 \u00a75.2 requires it. Chat/changes and Space/changes were fixed; these 7 were not. A conformant client calling any of these will receive an invalid response.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.44",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "updatedProperties missing from 7 chat-server /changes handlers",
+  "updated_at": "2026-05-02T04:27:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:17:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "2d1972d0-5652-53d4-a76f-233ce15cde0c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

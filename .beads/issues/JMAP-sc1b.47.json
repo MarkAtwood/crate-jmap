@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:46:14Z",
+  "compaction_level": 0,
+  "content_hash": "322dfd67cbeffaba866d719f4d658525bf57004b9da15bf21c0d958a0ed2e96e",
+  "created_at": "2026-05-07T20:43:22Z",
+  "created_by": "Mark Atwood",
+  "description": "AGENTS.md notes that jmap-mail-types uses `#[non_exhaustive]` as a pattern for spec-defined enums likely to grow. The pattern should apply to every type-crate's Property enum, since RFCs add property names over time.\n\nAffected (greenfield, no lock):\n- jmap-tasks-types: TaskProperty, TaskListProperty, TaskNotificationProperty (3)\n- jmap-calendars-types: 3-4 Property enums\n- jmap-contacts-types: AddressBookProperty, ContactCardProperty (2)\n- jmap-filenode-types: FileNodeProperty (1)\n- jmap-sharing-types: PrincipalProperty, ShareNotificationProperty (2)\n- BackendSetError in jmap-server (LOCKED \u2014 separate finding)\n\nTotal: ~12 enums lacking `#[non_exhaustive]` that should have it.\n\nWhy P2: missing `#[non_exhaustive]` means adding a new variant in a future RFC update is a SemVer breaking change. For a 0.x crate this is technically allowed, but the workspace's stated convention is that property enums are non_exhaustive.\n\nFix: add `#[non_exhaustive]` to the affected enum declarations. ~12 lines changed across 5 crates.\n\nNote: clippy 0.74+ has a lint for missing non_exhaustive on public enums (`exhaustive_enums`); could be added to the lint config.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.47",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: 12 greenfield Property enums missing #[non_exhaustive]",
+  "updated_at": "2026-05-07T21:46:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:22Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "34a12785-0410-59e5-aac7-980381e38cb3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

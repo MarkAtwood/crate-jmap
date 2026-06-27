@@ -1,0 +1,57 @@
+{
+  "id": "JMAP-kjt.7",
+  "title": "Review loop: myoss + rusty pass on jmap-mail-types",
+  "description": "Run the same review loop used for jmap-client: PROMPT-review-myoss.md + PROMPT-review-rusty.md in parallel, triage findings, fix P0/P1, iterate until both agents report no P0/P1 correctness bugs. Exit criteria: myoss confidence >=90% no missed P0/P1; rusty rates CLEAN or ACCEPTABLE.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:05:50Z",
+  "updated_at": "2026-04-30T04:38:10Z",
+  "closed_at": "2026-04-30T04:38:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-kjt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:05:50"
+    },
+    {
+      "depends_on_id": "JMAP-kjt.1",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:05:54"
+    },
+    {
+      "depends_on_id": "JMAP-kjt.2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:05:54"
+    },
+    {
+      "depends_on_id": "JMAP-kjt.3",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:05:55"
+    },
+    {
+      "depends_on_id": "JMAP-kjt.4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:05:55"
+    },
+    {
+      "depends_on_id": "JMAP-kjt.5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:05:56"
+    },
+    {
+      "depends_on_id": "JMAP-kjt.6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:05:56"
+    }
+  ]
+}

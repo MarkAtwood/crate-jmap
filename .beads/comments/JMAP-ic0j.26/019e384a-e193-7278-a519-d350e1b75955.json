@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T23:34:52Z",
+  "id": "019e384a-e193-7278-a519-d350e1b75955",
+  "issue_id": "JMAP-ic0j.26",
+  "text": "Related workspace-API findings extending the same default-impl-silent-spec-violation pattern across the workspace: bd:JMAP-ops7.23 (tasks-server update_task_per_user \u00a74.5.1) and bd:JMAP-ops7.24 (metadata-server get_metadata_changes \u00a73.3). When the canonical resolution for this bead lands, the propagation must include those two sibling cases. ops7.23 is parallel-correctness-violation (drop default like calendars); ops7.24 has a partial-compliance handler post-filter that adds a third pattern variant to the workspace and needs an explicit choose-one decision."
+}

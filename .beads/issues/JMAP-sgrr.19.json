@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied option (a) per the bead's own recommendation: documented the serde_json version-pin contract in both README \u00a7Gotchas and a new PLAN.md \u00a7'serde_json version-pin contract'. Option (b) (opaque newtype) was rejected because the workspace extras-preservation policy commits to serde_json::Map<String,Value> as the public type across ~30 sibling crates; wrapping here alone would diverge. Tests + cargo doc -D warnings clean. Commit pending.",
+  "closed_at": "2026-05-15T04:04:49Z",
+  "compaction_level": 0,
+  "content_hash": "eca1beb1a48497ae31aabc838ca07f40c693a5df15b016fe7e64816586b9d20f",
+  "created_at": "2026-05-15T03:41:52Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs:964 declares AnniversaryDate::Unknown(serde_json::Value) as a public\nenum variant. A caller pattern-matching this variant binds to a concrete\nserde_json::Value type from whatever version of serde_json is pinned by this\ncrate's Cargo.toml.\n\nIf serde_json cuts a 2.0 release, this crate's API is broken twice:\n- The public enum variant changes Value-type identity, so any caller that\n  pattern-binds .Unknown(v) compiles against a different upstream major.\n- The flatten-typed extras field carrying serde_json::Map<String,\n  serde_json::Value> has the same issue 28 times over.\n\nWorkspace AGENTS.md explicitly tolerates the serde_json re-export in the\nSloppy-Value pattern section. So this is not a 'must fix' \u2014 it is a 'document\nthe version-pin contract so consumers know to also pin serde_json to the same\nmajor'.\n\nThree resolutions, pick one:\n\n(a) Add a README and PLAN.md clause: 'This crate re-exports serde_json::Value\n    and serde_json::Map in public APIs. Consumers MUST coordinate their\n    serde_json major version with this crate's. A serde_json 2.0 upgrade\n    requires a major-version bump here.'\n(b) Wrap the Value in an opaque newtype: AnniversaryDate::Unknown(OpaqueValue),\n    where OpaqueValue exposes only Serialize+Deserialize+Debug+Clone+PartialEq\n    and no other public API. Costs a tiny adapter, hides the version pin.\n    Breaking change to apply later.\n(c) Status quo, no documentation change. Consumers discover the constraint\n    when serde_json 2.0 lands and breaks their build.\n\nReading workspace policy, (a) is the lowest-cost answer that respects the\nSloppy-Value posture. The README \u00a7Gotchas already documents other footguns;\nadding one line is harmless.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AnniversaryDate::Unknown(serde_json::Value) re-exports serde_json types via public enum variant \u2014 locks major version",
+  "updated_at": "2026-05-15T04:04:49Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:41:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "049d33ae-dce8-571a-8619-ff0958a69ae1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

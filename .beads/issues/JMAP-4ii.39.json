@@ -1,0 +1,33 @@
+{
+  "close_reason": "no-action: P3/P4 observation, not prioritized for JMAP-39s scope",
+  "closed_at": "2026-05-02T07:05:07Z",
+  "compaction_level": 0,
+  "content_hash": "02fcf4cfd5c5c12bad229ae67150904358aaf7499fdf42f6632a54c32b0edc3e",
+  "created_at": "2026-05-02T03:57:27Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/src/helpers.rs is: 'pub(crate) use jmap_server::{extract_account_id, not_found_json, now_utc_string, ser};'. This adds a module that does nothing but rename the import path. Callers inside chat-server use 'crate::helpers::{...}' while mail-server similarly re-exports from jmap_server. Both crates have this pattern. It is not harmful but it is a noise file that confuses new contributors who open it expecting to find implementations. If the re-export is retained, it should at minimum have a doc comment explaining why it exists (to allow future chat-specific helpers to live here). If no such helpers are planned, import directly from jmap_server.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.39",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat-server helpers.rs is a one-liner re-export \u2014 adds confusion without adding abstraction",
+  "updated_at": "2026-05-02T07:05:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:57:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "1dbef0cf-dafe-50cf-af67-892750831609",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

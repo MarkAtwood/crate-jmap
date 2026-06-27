@@ -1,0 +1,33 @@
+{
+  "close_reason": "Removed redundant id injection from process_create in submission.rs; matches identity.rs pattern",
+  "closed_at": "2026-05-01T16:18:23Z",
+  "compaction_level": 0,
+  "content_hash": "a4ea369f3be76ef3c67ae84cdf5c7d7c49131ea1881616484e49838946df45c4",
+  "created_at": "2026-05-01T16:17:30Z",
+  "created_by": "Mark Atwood",
+  "description": "process_create (line 822-832 of submission.rs) still manually re-injects server_id into the serialized obj_json after calling create_object. identity.rs was cleaned up (JMAP-ptl.9) to rely on the create_object contract guaranteeing the returned object has its id set. submission.rs should be consistent. \u2014 Remove the if let Value::Object block; rely on the same contract as identity.rs.",
+  "ephemeral": 0,
+  "id": "JMAP-5jz.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "submission.rs process_create: redundant id injection after create_object",
+  "updated_at": "2026-05-01T16:18:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T09:17:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-5jz",
+      "id": "0169fd58-eb32-5090-97cf-6057051e8d5f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

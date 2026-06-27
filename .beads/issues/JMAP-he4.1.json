@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-he4.1",
+  "title": ".to_string() on &str in production code (3 sites)",
+  "description": "client.rs:490-494, client.rs:495-499, ws/mod.rs:189 call .to_string() on a &str value (clippy::str_to_string). All three should use .to_owned(). Two are in extract_response() (unwrap_or fallback literals); one is in connect_ws() error construction. cargo clippy -- -W clippy::str_to_string confirms all three.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:25:02Z",
+  "updated_at": "2026-04-30T01:31:25Z",
+  "closed_at": "2026-04-30T01:31:25Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-he4",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:25:01"
+    }
+  ]
+}

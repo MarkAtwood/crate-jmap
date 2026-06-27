@@ -1,0 +1,33 @@
+{
+  "close_reason": "completed",
+  "closed_at": "2026-05-11T15:19:01Z",
+  "compaction_level": 0,
+  "content_hash": "696a369b1226bcfd7494dbdea75483896c4fae40fba4cf55611ab1281b653819",
+  "created_at": "2026-05-11T14:11:21Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "crate-jmap-mail-client/src/methods/mod.rs:171-182\n\n    /// Per-creation success entry in an [`EmailImportResponse`] (RFC 8621 \u00a74.8).\n    #[derive(Debug, Clone, serde::Deserialize)]\n    #[serde(rename_all = \"camelCase\")]\n    pub struct EmailImportCreated {\n        pub id: Id,\n        pub blob_id: Id,\n        pub thread_id: Id,\n        pub size: u64,\n    }\n\nBoth sibling types in the same module ARE #[non_exhaustive]:\n\n  EmailImportResponse  line 185  #[non_exhaustive]\n  EmailParseResponse   line 239  #[non_exhaustive]\n\nEmailImportCreated is the per-creation success entry for a created Email \u2014 RFC 8621 \u00a74.8 could conceivably grow new fields (the spec is silent on whether the created-map entry shape is closed), and JMAP extensions could add per-server fields. Without #[non_exhaustive], adding even one new field is a breaking change in the next 0.1.x \u2014 which contradicts the 'pre-publish readiness sweep' goal of this epic.\n\nJMAP-sc1b.47 already filed (and closed) the same finding for 12 greenfield Property enums missing #[non_exhaustive]. This one slipped through because it landed in commit 72fc913 (feat(mail-client): add typed Email/import and Email/parse methods, 2026-05-10) AFTER the .47 sweep.\n\nFix: prepend #[non_exhaustive] before the #[derive] line. Cookie-cutter propagation rule: jmap-mail-client is canonical for the extension-client family, so any newly-added response struct here must carry #[non_exhaustive] before sibling crates copy the pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.85",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P2: EmailImportCreated lacks #[non_exhaustive] while EmailImportResponse and EmailParseResponse in the same module have it",
+  "updated_at": "2026-05-11T15:19:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:11:21Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "be252167-e361-528b-8bdf-1da395eb5579",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

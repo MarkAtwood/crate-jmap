@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-14T22:29:26Z",
+  "compaction_level": 0,
+  "content_hash": "700adc4b14d6fff51cf9806311ddefe7bac6bcff1c7e1346e1fa989f49ec3d7f",
+  "created_at": "2026-05-14T22:00:13Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-sharing-server/src/memory.rs:151-154\n\n```rust\n#[derive(Clone, Default)]\npub struct MemoryBackend {\n    inner: Arc<Mutex<Inner>>,\n}\n```\n\nThe `#[derive(Clone)]` produces a `Clone` impl that clones the\n`Arc`, producing another handle to the same shared state. This is\nintentional \u2014 the workspace pattern across all extension-server\nsiblings is `Arc<Mutex<Inner>>` for shared-state mock backends.\n\nBut the rustdoc on `MemoryBackend` (`memory.rs:147-150`) says:\n\n> A fully in-memory implementation of [`SharingBackend`].\n>\n> Stores objects as serialized JSON; each mutation bumps a monotonic\n> state counter and records a change log entry.\n\nNothing about Clone. A caller who reads this and writes:\n\n```rust\nlet b1 = MemoryBackend::new_with_accounts(&[\\\"acc1\\\"]);\nlet b2 = b1.clone();\n// expects b1 and b2 to be independent\nb2.create_object::<Principal>(&(), &Id::from(\\\"acc1\\\"), \\\"c1\\\", p).await?;\n// surprise: b1 now sees the same Principal\n```\n\n\u2026sees their assumption violated silently. The mutex inside the\nshared `Arc` means concurrent access from b1 and b2 is safe, but\nthe semantic question of \\\"do these share state\\\" is not in the\ndocs.\n\nThe canonical mail-server has the same shape and the same gap.\n\nWhat goes wrong for callers when this stays as-is: a downstream\ntest author writes a parameterized test that builds a `MemoryBackend`\nonce, clones it across test cases for \\\"independent state\\\", and gets\ntest-cross-contamination that is hard to diagnose because both\nclones report identical `get_objects` results.\n\nResolution: add one sentence to the `MemoryBackend` rustdoc making\nthe sharing semantics explicit. The pattern is `Arc`-style cheap\nclone for sharing across tasks; deep clones for independence\nrequire building a second backend from scratch.\n\nNote: propagating this doc to the canonical mail-server and the\nother siblings would be a separate workspace-wide sweep bead \u2014 file\nthat follow-up if accepted here.",
+  "ephemeral": 0,
+  "id": "JMAP-3t94.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Added Clone semantics paragraph to MemoryBackend rustdoc: cheap Arc clone, mutations visible across clones, build a new instance via Self::new()/Self::default() for independent state. Matches canonical jmap-mail-server pattern; aligned in shape but documented here.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend::Clone semantics undocumented \u2014 Arc-shared state, not independent",
+  "updated_at": "2026-05-14T22:29:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T15:00:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3t94",
+      "id": "8ced433e-33ad-56ed-8944-4b4ae4127ac1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

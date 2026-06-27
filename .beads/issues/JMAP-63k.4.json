@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T06:52:56Z",
+  "compaction_level": 0,
+  "content_hash": "3829e442effcc37e4a43b4572669cc78dc34f762bd03452642dbacd1165a429e",
+  "created_at": "2026-05-02T06:45:41Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/chat.rs:284\nIssue: get_objects::<Chat> is hoisted before the create loop and called unconditionally, even when the batch contains zero Direct-kind creates (e.g., all Channel creates, or a mixed batch where only non-Direct objects are created). This results in a full-collection backend fetch on every Chat/set call that contains a 'create' map, regardless of whether deduplication is needed.\nImpact: Every Chat/set with any create (including Channel-only creates) pays the cost of a full chat fetch. For large accounts or high-traffic deployments this is a wasted round-trip to storage on every set call.\nFix: Defer the fetch (and HashSet construction) until the first Direct-kind create is encountered in the loop. Guard the fetch with: if kind == ChatKind::Direct && existing_chats.is_none() { existing_chats = Some(backend.get_objects...) }. Use Option<Vec<Chat>> initialized to None before the loop.",
+  "ephemeral": 0,
+  "id": "JMAP-63k.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "chat/set: unconditional get_objects hoist before create loop",
+  "updated_at": "2026-05-02T06:52:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T23:45:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-63k",
+      "id": "ee885e46-f78a-5826-96ce-1ab912926214",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

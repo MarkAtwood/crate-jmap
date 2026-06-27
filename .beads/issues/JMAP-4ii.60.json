@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:50:33Z",
+  "compaction_level": 0,
+  "content_hash": "358984a1c9f136a6a0528972840831d25552a049d1ab68312c48e0ed02571249",
+  "created_at": "2026-05-02T04:45:43Z",
+  "created_by": "Mark Atwood",
+  "description": "vacation.rs handle_vacation_set uses Ok(_) arm in both the direct-update path (lines 148-153) and the upsert post-create update path (lines 175-186). This discards the update_object Some(obj) return, so server-modified fields are silently omitted from the updated map \u2014 always inserts Value::Null instead. Same class as JMAP-4ii.1/45/50 but vacation.rs was missed in all fix rounds. Acceptance: updated map must echo obj when update_object returns Ok(Some(obj)), matching the pattern fixed in identity.rs and email.rs.",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.60",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "VacationResponse/set update discards Ok(Some(obj)) echo",
+  "updated_at": "2026-05-02T04:50:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:45:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "0dd78069-acb9-5c71-9ef3-590624962e0d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

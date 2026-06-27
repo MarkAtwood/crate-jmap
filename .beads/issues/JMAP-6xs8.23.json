@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d0f7cbaf03183f820ecde6fbcd761fe6659c8081870852f7ea6f4d28167f266f",
+  "created_at": "2026-05-15T05:44:58Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-types/src/methods.rs:274-286 declares `SetResponse<T>`\nfields:\n\n    pub created: Option<HashMap<String, T>>,\n    pub updated: Option<HashMap<Id, Option<T>>>,\n    pub not_created: Option<HashMap<String, SetError>>,\n    pub not_updated: Option<HashMap<Id, SetError>>,\n    pub not_destroyed: Option<HashMap<Id, SetError>>,\n\n`HashMap` is `std::collections::HashMap`. Three coupled consequences:\n\n1. **Non-deterministic iteration order.** A client logging\n   `for (id, err) in &resp.not_created { ... }` will see the entries\n   in random order between runs. The exact same wire payload may be\n   logged as `[a, b, c]` on Monday and `[c, a, b]` on Tuesday. This\n   leaks through to integration tests that compare log output, to\n   bug reports that paste log snippets, and to operator dashboards\n   that depend on stable ordering.\n\n2. **Inconsistent with the extras pattern.** This crate has just\n   migrated `SetError.extra` from `HashMap` to `serde_json::Map`\n   (commit 9c66783) explicitly for deterministic serialized output\n   (the rustdoc on `SetError.extra` says so \u2014 see methods.rs:194-196,\n   though that doc-comment lies about the *mechanism*; cf. JMAP-6xs8.10).\n   The same struct that contains those `HashMap`s also contains an\n   `extra: serde_json::Map`. Two different choices for two different\n   maps on the same type. A reader cannot deduce the principle.\n\n3. **Public type leaks the storage choice.** Once shipped, the\n   maintainer cannot replace `HashMap` with `IndexMap`,\n   `BTreeMap`, or `serde_json::Map` without breaking every caller\n   that has `let map: &HashMap<Id, _> = resp.not_updated.as_ref().unwrap()`.\n   The choice committed at 0.1.1 is a forever commitment.\n\nWhat a caller depending on this API in production accepts:\n- Non-deterministic iteration in logs, dashboards, and tests.\n- The need to wrap iteration in `let mut entries: Vec<_> = map.iter().collect(); entries.sort_by_key(|(id, _)| id.clone());` boilerplate any time they want stable output.\n- No future hardening to a deterministic map type without major bump.\n\nFix candidates:\n- Replace `HashMap` with `serde_json::Map<String, T>` (where keys\n  serialize as strings) for consistency with extras. Iterates in\n  lexicographic key order under default features. Wire-compatible.\n- Or: replace with `BTreeMap<Id, T>` / `BTreeMap<String, T>`. Same\n  benefit, std-only. Wire-compatible.\n- Or: introduce a workspace newtype `pub struct SetMap<K, V>(BTreeMap<K, V>)`\n  and use it everywhere.\n\nThe same finding applies to `JmapRequest.created_ids` and\n`JmapResponse.created_ids` (`Option<HashMap<Id, Id>>` in wire.rs).\nSame justification.",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "SetResponse uses std::collections::HashMap; non-deterministic iteration; inconsistent with extras serde_json::Map choice",
+  "updated_at": "2026-05-17T16:48:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:44:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "cf836d2f-fbef-5892-bdf0-738400c8352f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

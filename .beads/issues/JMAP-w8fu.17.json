@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7f8b11581101aedf4152e69018c4f19a293c2fef0b02928f58b9381956a23103",
+  "created_at": "2026-06-13T21:49:26Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/handlers.rs has 116/156 lines covered (74.4%). Uncovered: handle_query_changes body (called by extension servers but not directly tested in foundation), some handle_query edge cases (negative position, anchor resolution), and handle_changes error branches. These are exercised by extension-server integration tests but not by foundation-crate unit tests.",
+  "ephemeral": 0,
+  "id": "JMAP-w8fu.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Test coverage: jmap-server handlers.rs (74.4%)",
+  "updated_at": "2026-06-13T21:49:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:49:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w8fu",
+      "id": "dc2a0e84-8e5c-5e94-943e-66b6c0d58f34",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

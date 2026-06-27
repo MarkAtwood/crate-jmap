@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T12:25:57Z",
+  "compaction_level": 0,
+  "content_hash": "4a1e4969eea0af6bfeb310b17a961cae43d92ea7874d6d448089134f55466531",
+  "created_at": "2026-05-15T01:11:48Z",
+  "created_by": "Mark Atwood",
+  "description": "## Contract risk\n\nCanonical `EmailGetParams` at crate-jmap-mail-client/src/methods/mod.rs:40-64\nis `#[derive(Debug, Default, serde::Serialize)]` with\n`#[serde(rename_all = \"camelCase\")]` and `#[serde(skip_serializing_if = ...)]`\non each field. The mail-client `email_get` builder serialises it via a single\ncall: see the canonical pattern in `email_get`.\n\ncalendars-client `CalendarEventGetParams` at\ncrate-jmap-calendars-client/src/methods/mod.rs:101-114 is\n`#[derive(Debug, Clone, Default)]` \u2014 NOT Serialize, no `rename_all`, no\n`skip_serializing_if`. Each field is manually destructured and inserted into\nthe args JSON in crate-jmap-calendars-client/src/methods/event.rs:42-52:\n\n```rust\nif let Some(p) = params {\n    if let Some(v) = p.expand_recurrences {\n        args[\"expandRecurrences\"] = v.into();\n    }\n    if let Some(v) = p.reduced_participants {\n        args[\"reducedParticipants\"] = v.into();\n    }\n    if let Some(v) = p.fetch_calendars {\n        args[\"fetchCalendars\"] = v.into();\n    }\n}\n```\n\n## Why this matters for a caller\n\nIt does NOT, directly. The caller sees `CalendarEventGetParams { ... }` and\npasses it to `calendar_event_get(...)`. The wire effect is identical between\nmanual destructuring and `serde_json::to_value`.\n\nThe contract risk is to the maintainer: adding a new field requires changing\nthe struct AND remembering to plumb it through `event.rs:42-52`. Forget the\nplumbing and the field silently does nothing \u2014 no compile error, no test\nfailure (the current tests assert positive presence of named keys; a\ndefault-None field that never gets plumbed will just be silently absent on\nthe wire). The maintenance burden is a tax on every contributor.\n\nAlso, the manual destructuring opens the door for camelCase typos: a future\nfield added as `args[\"expand_recurrences\"]` (snake_case) instead of\n`args[\"expandRecurrences\"]` (camelCase) would silently send the wrong wire\nshape. With `#[serde(rename_all = \"camelCase\")]` the rename is enforced\ntype-system-wide.\n\nThe canonical mail-client pattern centralises the camelCase + skip-None\ncontract on the struct definition, removing the manual-plumbing tax. Every\ncontributor adding a field to `EmailGetParams` just needs the `#[serde]`\nattributes; the wire shape follows automatically.\n\n## What goes wrong if this stays\n\nMaintenance defect class: a new field added to `CalendarEventGetParams` will\nsilently not appear on the wire unless someone remembers to update the\nmanual plumbing. The plumbing site (event.rs:42-52) is far from the struct\ndefinition (methods/mod.rs:101); the connection is implicit.\n\nThis will surface as 'I set `params.new_field = Some(true)` and it didn't\nwork' debugging in some future caller's session. Solvable by Serialize +\nsingle `to_value` call.\n\n## Fix shape\n\nAdd `#[derive(serde::Serialize)]` and `#[serde(rename_all = \"camelCase\")]`\non `CalendarEventGetParams`, add `#[serde(skip_serializing_if = \"Option::is_none\")]`\non each field, and replace event.rs:42-52 with:\n\n```rust\nif let Some(p) = params {\n    let p_value = serde_json::to_value(&p).map_err(|e| {\n        jmap_base_client::ClientError::InvalidArgument(format!(\n            \"calendar_event_get: serializing params failed: {e}\"\n        ))\n    })?;\n    if let serde_json::Value::Object(map) = p_value {\n        for (k, v) in map {\n            args[k] = v;\n        }\n    }\n}\n```\n\n(Or use `args.as_object_mut().unwrap().extend(map)` if you prefer.)\n\nThis is related to the missing `extra` field finding \u2014 both require the\nstruct to be `Serialize`. Address together.\n\n## Source citations\n\n- crate-jmap-calendars-client/src/methods/mod.rs:101-114\n- crate-jmap-calendars-client/src/methods/event.rs:42-52\n- crate-jmap-mail-client/src/methods/mod.rs:40-64",
+  "ephemeral": 0,
+  "id": "JMAP-1j9k.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CalendarEventGetParams not #[derive(Serialize)]; manual field-by-field plumbing in event.rs:42-52 \u2014 diverges from canonical",
+  "updated_at": "2026-05-17T12:25:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:11:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1j9k",
+      "id": "0ecfd5c6-9eec-5409-b75e-f6715b2cbc4e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

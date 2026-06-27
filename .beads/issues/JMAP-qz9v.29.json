@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T20:45:56Z",
+  "compaction_level": 0,
+  "content_hash": "d315a66e402b5490bca276300b2648e6481e9d3feb5882791e152fc020c2e923",
+  "created_at": "2026-05-14T19:32:23Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/src/backend.rs:35-49\n\nDOC:\n    /// Create a new AddressBook or ContactCard.\n    ///\n    /// Returns `(assigned_id, created_object)` on success. `create_id`\n    /// is the client-side creation id used in the `/set` request. Per-\n    /// request auth context is available via the `caller` parameter,\n    /// which the `register_contacts_handlers` closures forward unchanged\n    /// from [`jmap_server::Dispatcher::dispatch`].\n    fn create_object<O: SetObject + Send + Sync>(\n        ...\n        obj: O,\n    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;\n\nPROBLEM:\nThe doc does not say what the backend MUST do with `obj` before\nstoring it. The handler at addressbook.rs:122-138 / card.rs:103-110\ninjects a `\"placeholder\"` string into the `id` field of `obj_val` so\nthat the typed deserialize succeeds \u2014 the trait impl is REQUIRED to\noverwrite this placeholder with the server-minted id before storing,\nor the store will contain a card with `id == \"placeholder\"` and every\nsubsequent /get / /set lookup will fail.\n\nThe reference impl at memory.rs:612-622 does the right thing:\n    let server_id = Self::demo_next_id(&mut inner, O::TYPE_NAME, ...);\n    let mut val = serde_json::to_value(&obj)?;\n    if let Some(map) = val.as_object_mut() {\n        map.insert(\"id\".to_owned(), Value::String(server_id.as_ref().to_owned()));\n    }\n\n\u2026but a backend implementor reading ONLY the ContactsBackend doc\ncomment will not know:\n- That `obj.id` is a meaningless placeholder.\n- That they MUST overwrite `obj.id` before storage.\n- That they MUST return the rewritten obj as the second tuple element.\n\nThe canonical sibling jmap-mail-server/src/backend.rs at \"create_object\"\ndocs this sentinel-field contract explicitly (per the explore subagent's\ninspection: \"Missing the mail-canonical 'Sentinel fields the backend\nMUST replace' subsection\"). Contacts diverged without justification.\n\nThis is JMAP-qz9v.13's broader trait-doc analog. JMAP-qz9v.13 flags the\nspecific placeholder mechanic in the handler; this finding flags that\nthe trait contract itself omits the rule that makes the placeholder\nmechanic work.\n\nWHAT BACKEND IMPLEMENTORS CANNOT DEPEND ON:\n- That `obj.id` is the id they should store under.\n- That returning `obj` unchanged is correct.\n- That the handler will retry/repair if they store a placeholder id.\n\nEVIDENCE OF CONFUSION RISK:\nThe MockBackend in lib.rs:386-394 returns the input obj unchanged:\n    async fn create_object<O: SetObject + Send + Sync>(...) -> ... {\n        Ok((Id::from(\"mock-id-1\"), obj))\n    }\nThis silently ships a card with the original (placeholder) obj.id\neven after returning a different Id from the tuple. The MockBackend\nshape suggests the contract is \"return any id and the object as-is\";\nthe MemoryBackend reference impl says \"rewrite id, then return\".\nThese disagree. A new backend implementor has two divergent canonical\nexamples in the same crate.\n\nRECOMMENDED:\nDocument the contract on ContactsBackend::create_object. Minimum:\n\n    /// # Server-assigned fields\n    ///\n    /// `obj.id` arrives carrying a placeholder; the backend MUST\n    /// overwrite it with the server-minted id (returned as the tuple's\n    /// first element) before storing, and the returned `O` MUST reflect\n    /// the server-minted id. Failing to overwrite produces a record\n    /// that subsequent /get and /set calls cannot reach.\n    ///\n    /// Other server-set fields (timestamps, default flags, etc.) MAY\n    /// be added to the returned `O` and the handler will surface them\n    /// in the /set response per RFC 8620 \u00a75.3.\n\nPROPAGATION: this is a sibling-of-canonical cookie-cutter regression;\nalign the doc with jmap-mail-server's contract.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactsBackend::create_object doc lacks 'sentinel fields the backend MUST replace' contract",
+  "updated_at": "2026-05-17T20:45:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:32:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "32928106-54c4-597b-a306-320dea26e739",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

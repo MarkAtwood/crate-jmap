@@ -1,0 +1,33 @@
+{
+  "close_reason": "Fixed in commit (above)",
+  "closed_at": "2026-05-07T21:26:00Z",
+  "compaction_level": 0,
+  "content_hash": "42fb2591aa9358e0a862a880a3959602fb07038cff6bcd4bd7746bd5c02412a5",
+  "created_at": "2026-05-07T20:29:02Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-contacts-types/README.md and PLAN.md describe an extensive 'jscontact/' typed-struct hierarchy with 18+ types (`Name`, `NameComponent`, `Nickname`, `Organization`, `OrgUnit`, `SpeakToAs`, `Pronouns`, `Title`, `EmailAddress`, `OnlineService`, `Phone`, `LanguagePref`, `Address`, `AddressComponent`, `Calendar`, `SchedulingAddress`, `CryptoKey`, `Directory`, `Link`, `Media`, `Anniversary`, `PartialDate`, `Note`, `PersonalInfo`, `Relation`) under modules `jscontact::name`, `jscontact::email`, `jscontact::phone`, etc.\n\n**None of these modules exist.** Source layout is just `addressbook.rs`, `backend.rs`, `capability.rs`, `card.rs`, `lib.rs`, `string_enum.rs`. There is no `jscontact/` directory and no `pub mod jscontact`.\n\nREADME 'How it works' explicitly says: \"Typed sub-object structs (`Name`, `EmailAddress`, `Phone`, `Address`, etc.) are defined in the `jscontact/` module and are exported from the crate root\" \u2014 false on both halves of the claim.\n\nThis appears to be the residue of the reverted `jmap-jscontact` crate (commit bb17f0f \"revert: remove jmap-jscontact crate\"). The contacts-types README and PLAN were never updated after the revert.\n\nAction: rewrite README 'What' table and PLAN.md to reflect actual exported surface (just `AddressBook`, `ContactCard` (Value-shaped), `ContactsCapability`, `AddressBookProperty`, `ContactCardProperty`, etc.). Note in 'Known Limitations' that JSContact sub-objects are `Value`-shaped, not typed (which is already there but is currently contradicted by the rest of the README).\n\nThis is the most consequential README\u2194code mismatch in the workspace and is a publish-readiness blocker \u2014 readers will hit the docs.rs page and search for types that do not exist.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P1: contacts-types README and PLAN.md describe a jscontact/ module hierarchy that does not exist",
+  "updated_at": "2026-05-07T21:26:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:29:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "ba36586d-666d-54cd-a05e-5d7dd0dde73e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

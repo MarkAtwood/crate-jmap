@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-14T23:51:44Z",
+  "compaction_level": 0,
+  "content_hash": "b0a88a43022e5e55599a9c6404beb44c59aa21aaaa5882c12be0333413f817a3",
+  "created_at": "2026-05-14T23:08:58Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace AGENTS.md mandates: 'The only permitted markdown planning artifact is a crate's PLAN.md, which is a permanent design document checked into the repo, not a scratchpad.'\n\nPLAN.md in crate-jmap-base-client has drifted away from this contract. Drift evidence:\n\n1. Lines 36-55: 'Source Material' section with a per-file extraction recipe ('Rename JmapChatClient \u2192 JmapClient', 'remove Chat-specific methods'). The extraction is done. This is a historical bootstrap artifact.\n\n2. Lines 51-55: 'Key simplification: src/jmap.rs in jmapchat-client redefines Id, UTCDate, JmapRequest, JmapResponse, Invocation, ResultReference, and Session from scratch [...] Delete the redundant definitions.' Past-tense instructions to a doer who completed the work months ago.\n\n3. Lines 59-69: Dependencies block lists 'reqwest = { version = \"0.12\", features = [json, stream, rustls-tls-webpki-roots] }', 'tokio = { features = [\"rt\"] }', 'tokio-tungstenite = \"0.29\"'. Actual Cargo.toml uses workspace inheritance and feature lists do not match (e.g. tokio = { features = [\"time\"] }). The PLAN.md is prescribing dependencies that no longer reflect reality.\n\n4. Lines 71-73: 'Note: jmapchat-client also pulls in chrono, base64, sha2, ulid. Audit these after extraction \u2014 several likely exist only because the client redefined types that are now in jmap-types or jmap-chat-types.' The audit happened (base64 and sha2 survived, the others did not). Note has never been removed.\n\n5. Lines 75-82: 'Impact on jmap-chat-client' section is a forward-looking plan for a crate that has long since absorbed those changes.\n\n6. Lines 84-99: 'Module Layout' lists 'auth.rs blob.rs client.rs error.rs request.rs sse.rs ws/mod.rs'. Missing push.rs which actually exists in src/. Lines 122-129 of the same PLAN.md DO reference src/push.rs, so the file is known \u2014 but the canonical Module Layout block is wrong.\n\n7. Lines 161-169: 'Test Strategy' bullets read as a to-do list for someone implementing tests, not as documentation of the test strategy that exists.\n\nThe Extras-preservation section at lines 101-159 is current and design-doc-worthy. The rest is scratchpad.\n\nFix: delete the historical extraction recipe (Source Material, Key simplification, Impact on jmap-chat-client sections), update the Dependencies block to match Cargo.toml or replace with 'see Cargo.toml', update Module Layout to include push.rs, and either delete the Test Strategy bullets or replace with a description of what is actually tested.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "PLAN.md drifted into scratchpad: extraction recipe, stale deps, obsolete forward-looking sections",
+  "updated_at": "2026-05-14T23:51:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:08:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "b209cd36-1553-5519-bb7e-8da6c926c7f6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

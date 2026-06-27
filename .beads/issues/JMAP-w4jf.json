@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "02163ecc4f7df940d8853f36ac841f89d53fc385f70ce6e5a0be25f0c5293b4d",
+  "created_at": "2026-05-15T08:19:49Z",
+  "created_by": "Mark Atwood",
+  "description": "**Pattern source**: bd:JMAP-826m.21 noted that jmap-metadata-server's handle_metadata_changes duplicates the canonical jmap-server::handle_changes maxChanges parsing logic. The duplication exists because handle_metadata_changes does its own arg-parsing pass to extract Metadata-specific filter args (filterRelatedType, filterMetadataType) before delegating, and that pass needs maxChanges too.\n\n**Current duplication**:\n- jmap-server/src/handlers.rs:176-181 \u2014 canonical maxChanges parser in handle_changes.\n- jmap-metadata-server/src/metadata.rs (around line 130) \u2014 copy: 'maxChanges: Option<u64> = match args.get(\"maxChanges\")... filter(|&n| n > 0)'.\n\nOther extension-server crates with custom /changes handlers (whichever ones do pre-delegate filter validation) likely have the same duplication. Confirmed at least in jmap-metadata-server; needs sibling audit.\n\n**Fix shape**: extract pub fn parse_max_changes(args: &Map<String,Value>) -> Result<Option<u64>, JmapError> into jmap-server::helpers or handlers. Use from both jmap-server::handle_changes AND from extension-server pre-delegate paths.\n\n**Workspace canonical rule**: per AGENTS.md, changes to jmap-server (foundation) ripple through every consumer. Plan the downstream propagation in the same pass.\n\n**Out of scope**: changing the semantic of maxChanges=0 (the bead title was misleading \u2014 '0 is silently None' is not the actual bug; the code DOES reject 0 with invalidArguments. The bug is code duplication, not semantic ambiguity.)\n\n**Acceptance**:\n- jmap-server exposes a single pub parser.\n- jmap-metadata-server uses the shared parser.\n- Audit of all other *-server crates: if they have a custom /changes handler with pre-delegate parsing, switch to the shared parser.\n- Regression test in jmap-server locks in the maxChanges=0 \u2192 invalidArguments behavior so the shared parser cannot regress.\n\nFiled as P2 because the actual divergence risk (jmap-server changes maxChanges parsing without metadata-server following) is low \u2014 no maxChanges-shape changes are likely without a workspace-wide review pass.",
+  "ephemeral": 0,
+  "id": "JMAP-w4jf",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Extract maxChanges arg-parser into jmap-server, reduce 7-crate duplication",
+  "updated_at": "2026-05-15T08:19:49Z"
+}

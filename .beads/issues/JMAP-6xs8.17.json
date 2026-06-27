@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d589d3ab452f62007a6f431aab6985e3b254395effc239c1a647758f98d71e2e",
+  "created_at": "2026-05-15T05:43:05Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-types/src/wire.rs:10 declares `pub type Invocation = (String, serde_json::Value, String)`.\n\nOnce shipped at 0.1.1, this 3-tuple shape is locked into the public API\nfor the entire `jmap-*` family. Two concrete cost paths for callers:\n\n1. **Positional access locks the contract.** Every consumer (kith, stoa,\n   the 7+ extension crates, third-party JMAP clients) writes\n   `inv.0`, `inv.1`, `inv.2` to pull out method name, arguments, and\n   call id. There is no rustdoc-hover assistance: the field positions\n   are documented in prose on the alias but not on the values. Once\n   downstream code ships, the maintainer cannot replace `Invocation`\n   with a struct with named fields without a major-version break.\n\n2. **`serde_json::Value` in the middle slot pins the crate's public API\n   to serde_json's major version forever.** If serde_json 2.x ever ships\n   with a renamed/reshaped `Value`, `Invocation` breaks transitively for\n   every consumer. The contract committed in 0.1.1 is implicitly:\n   \\\"`jmap-types` ^0.1 requires serde_json ^1\\\". A reasonable mitigation\n   would be a newtype like `pub struct Invocation { name, args, call_id }`\n   where `args` is `serde_json::Value` for now but could be wrapped or\n   typed in a future minor without changing the outer shape.\n\nA caller depending on this API in production accepts: (a) `inv.N`\npositional access for the lifetime of `jmap-types ^0.1`; (b) recompile\nwhen serde_json's major version moves; (c) no rustdoc-hover help on what\nposition 1 vs 2 means.\n\nFix candidates (any of which is a breaking change requiring a major\nbump and so is the wrong way around \u2014 file now while still 0.x):\n- Convert to `pub struct Invocation { pub name: String, pub args:\n  serde_json::Value, pub call_id: String }` with `#[serde(into = \"...\"`\n  / `from = \"...\"` to keep the 3-element-array wire form.\n- Or accept the lock and add `Invocation::name()`, `args()`,\n  `call_id()` accessor methods so callers can opt out of positional\n  access (and `inv.0`-using callers stay buildable forever).",
+  "ephemeral": 0,
+  "id": "JMAP-6xs8.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Invocation 3-tuple type alias locks API shape and pins to serde_json major version",
+  "updated_at": "2026-05-17T16:30:25Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T22:43:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6xs8",
+      "id": "6231d8e9-c6b2-5ee4-b188-1255a679048f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

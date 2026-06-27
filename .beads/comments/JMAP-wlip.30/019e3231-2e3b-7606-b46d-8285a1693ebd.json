@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T19:09:04Z",
+  "id": "019e3231-2e3b-7606-b46d-8285a1693ebd",
+  "issue_id": "JMAP-wlip.30",
+  "text": "Session-start sweep ratification (2026-05-16): most recent comment (2026-05-14, >24h ago, no human reply) ends with 'Recommendation: (b) \u2014 pair the reshape with the next planned workspace major. Either keep the named-field struct AND add a custom Serialize/Deserialize for wire-array form, or introduce a NamedInvocation alongside the tuple for ergonomic construction without breaking serialization.' Per workspace AGENTS.md anti-pattern 3 ('stale committed recommendation'), removing 'human' label and adding 'deferred' to park this on the major-bump backlog. Bead remains open in deferred state; will surface again when a major bump epic is filed."
+}

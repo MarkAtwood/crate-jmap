@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "created_at": "2026-05-12T06:54:03Z",
+  "id": "019e1af6-cd3a-7e58-ad04-f06463ff3208",
+  "issue_id": "JMAP-cf7p.9",
+  "text": "Labeling human for /do-beads filter. This is a workspace-wide canonical-template extension (the bead body itself says \"Likely a P2 epic when picked up\"). Per the do-beads-scope-selection-policy memory rule 2d, an unscoped session should not land only the canonical lead because it leaves 7 siblings half-propagated.\n\nSpecific decisions needed from Mark before this can be worked:\n\n1. Trait surface \u2014 new SubscribeBackend trait, method on existing JmapBackend with default-impl polling, or testjig-internal mpsc plumbing only?\n2. Sizing \u2014 decompose into epic with one child per sibling crate (mail-server canonical first, then chat/calendars/tasks/contacts/filenode/sharing/metadata), or keep this as a single bead and scope to testjig-internal only?\n3. Signal payload shape \u2014 bare wake notification (consumer re-reads state) or per-type change vector?\n\nRecommendation: option (1c) testjig-internal mpsc plumbing + option (2) single-bead scoped-to-testjig. Rationale: keeps the workspace *-server traits transport-less per the kit-vs-jig posture documented in AGENTS.md \"What this workspace builds\" section; testjig is the only workspace member that needs signal-driven push; can be promoted to a public *-server trait surface later if/when a real consumer pushes back.\n\nFiled per AGENTS.md \"Turn questions into beads\" rule.\n"
+}

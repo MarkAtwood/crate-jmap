@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-13T15:40:13Z",
+  "id": "019e21fe-e514-7e52-b81d-657b818bddbf",
+  "issue_id": "JMAP-sc1b.112",
+  "text": "Closed 2026-05-13 by backport edit.\n\nInserted 'Permission enforcement: backend canonical' section into crate-jmap-mail-server/AGENTS.md between 'Reference Pattern' and 'Non-Interactive Shell Commands' (same position as chat-server). File grew from 109 to 136 lines.\n\nShape mirrors the canonical chat-server section verbatim for the first two paragraphs (workspace-wide policy on backend-canonical enforcement + the principal_id seam). Third paragraph is mail-specific:\n\n  * $seen / MailboxRights.maySetSeen on shared Mailboxes (RFC 8621 \u00a72)\n  * Mailbox.myRights (RFC 8621 \u00a72)\n  * Identity / EmailSubmission ownership (RFC 8621 \u00a76, \u00a77)\n  * Closing line: 'the backend's /set impl is the canonical point of enforcement' (matches the calendars/contacts sibling phrasing)\n\nThe 'workspace-wide bridge' sentence in the second paragraph was also tuned to mail terms: 'shared-mailbox ACLs or per-user keyword state' replaces chat's 'chat role-hierarchy or per-user visibility scoping'.\n\nCross-verified against calendars-server and contacts-server: the per-sibling implications paragraphs were already swapped under JMAP-sc1b.109 \u2014 the 'Sweep follow-up' note in this bead's original description was outdated. The 6 siblings already carry their own tailored paragraphs; this commit closes out the canonical mail-server to match."
+}

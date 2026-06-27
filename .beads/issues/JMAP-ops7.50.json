@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "ce1a4a99060d09987501a8e871f0d26d13121fcb0b3d4348d00c1068ac83fb8c",
+  "created_at": "2026-05-18T05:31:29Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence** \u2014 production [dependencies] in 1 of 8 extension-client crates:\n- crate-jmap-mail-client (canonical), chat-client, calendars-client, tasks-client, contacts-client, filenode-client, metadata-client all declare `serde = { workspace = true }`\n- crate-jmap-sharing-client declares only `serde_json` (and the 3 jmap-* path deps); no direct serde\n\n**Verification**: sharing-client/src/ does NOT use `#[derive(Serialize/Deserialize)]` or `use serde::` paths today, so the omission is harmless.\n\n**Maintainer cost**: cookie-cutter divergence on the canonical-template client family. The moment a contributor adds the first `#[derive(Deserialize)]` to a sharing-client method-args struct (the most likely next change for any extension-client crate), they'll either silently compile against a transitively-reachable serde or get a confusing macro-resolution error. Either outcome is more friction than matching the canonical's dep set up front.\n\n**Fix**: one-line addition to crate-jmap-sharing-client/Cargo.toml [dependencies]: `serde = { workspace = true }`. No runtime impact.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.50",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "sharing-client lacks direct serde dep that 7 sibling extension-clients declare \u2014 cookie-cutter divergence on canonical-template client family",
+  "updated_at": "2026-05-18T05:31:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:31:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "e3f163a0-7c41-50ad-9e6e-36daa1d5bd39",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

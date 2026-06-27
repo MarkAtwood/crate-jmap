@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T17:52:47Z",
+  "compaction_level": 0,
+  "content_hash": "ef6ff82b4e34bd85b1836fdbb52d2b1b3b38b52d5a83ee6585c0cc07acc2e379",
+  "created_at": "2026-05-15T17:11:21Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs:135-140 \u2014 the rustdoc on CalendarsBackend::supports_type is five lines:\n\n    /// Returns `true` if this account supports the given JMAP object type.\n    ///\n    /// Called by the server consumer (e.g. session capability builder) \u2014 NOT\n    /// called internally by the handler library. Backends that support all\n    /// types unconditionally can return `true` always.\n\nThe canonical mail-server's MailBackend::supports_type doc at\ncrate-jmap-mail-server/src/backend.rs:254-295 carries four explicit sections:\n\n  # Contract: \"global, stateless backend-capability check ... not 'does this\n              user's account have this type enabled?'. That is why the\n              method is synchronous and takes no caller or account_id\n              arguments.\"\n  # Types in scope: list of JMAP object types this trait covers\n  # Callers: \"The handler library calls this method when handling optional\n            methods. For example, handle_search_snippet_get returns\n            accountNotSupportedByMethod when supports_type::<SearchSnippet>()\n            is false ...\"\n  # Default: guidance for backends that support every type unconditionally\n\nThe calendars doc disagrees with mail's doc on a substantive point: calendars\nsays \"NOT called internally by the handler library\" but mail explicitly says\nthe handler library DOES call it (snippet fast-path). Both are accurate per\ncrate, but neither doc says \"scope of this contract is only my crate's\nhandlers\" \u2014 so a backend author cookie-cutting a single supports_type impl\nthat's intended to work across both extensions reads two contradictory\ncontracts.\n\nWhat goes wrong for the caller: a backend author writes a calendars+mail\nshared backend, returns `false` for unsupported types per calendars' doc, and\ninadvertently disables mail-server's snippet short-circuit. Or a calendars\nbackend author copies the mail-server pattern of \"always return true\" and\nwires no per-type gating, breaking session-capability building when calendars\nis enabled per-account.\n\nFix: mirror the canonical four-section structure. Specifically state that\nthe doc-contract is workspace-wide and reference the canonical sibling for\nthe cross-extension semantics. Or, if \"handler library never calls it on\ncalendars\" is intentional and provable from src/, document explicitly that\nthis is calendars-handler-library policy, not a property of supports_type\nitself.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "supports_type rustdoc lacks Contract/Types/Callers sections that canonical mail-server documents",
+  "updated_at": "2026-05-15T17:52:47Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:11:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "3a849e46-ab37-54dd-87fc-0fab72e3b727",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1bbc48a6952d01aac18b5da96206b2fe9c79469ad37464d2af35a2b8233c349e",
+  "created_at": "2026-05-18T01:45:21Z",
+  "created_by": "Mark Atwood",
+  "description": "Follow-up to JMAP-x2gd.79 (which converted 8 public chat-server constructors to const fn). The bead noted 'Likely a workspace-sweep, not chat-server-local.' This bead tracks the broader sweep.\n\nclippy::nursery::missing_const_for_fn fires on approximately 100+ sites across the workspace, distributed roughly:\n\n- jmap-types: 6 sites (id.rs, patch.rs, query.rs, resultref.rs)\n- jmap-server: 6 sites (backend.rs, handlers.rs)\n- jmap-cid-types: 6 sites (digest.rs)\n- jmap-jscalendar-types: 1 site\n- jmap-mail-types: 5 sites (mailbox.rs, query.rs)\n- jmap-contacts-types: 2 sites (card.rs, collision.rs)\n- jmap-tasks-types: 2 sites (filter.rs, task_list.rs)\n- jmap-calendars-types: 1 site (event.rs)\n- jmap-filenode-types: 2 sites (filenode.rs)\n- jmap-metadata-types: 3 sites (metadata.rs)\n- jmap-chat-types: 4 sites (capability.rs, message.rs, space_set.rs)\n- jmap-contacts-server: 10 sites in memory.rs\n- jmap-chat-server: ~12 internal helpers (permissions.rs, space.rs, message.rs, position.rs, memory.rs)\n- jmap-tasks-server: 10 sites in memory.rs\n- jmap-metadata-server: 4 sites in memory.rs\n\nJMAP-x2gd.79 explicitly scoped down to the 8 public chat-server constructors named in the bead (OpResult / ChatLimits / SlowModeError). The canonical-template propagation rule for the extension-server family was honored vacuously \u2014 jmap-mail-server's analogous public types (MdnSendResult, MdnParseResult) take HashMap/Vec arguments and CANNOT be const because the with_* setters assign over fields whose Drop impl is not const-evaluable. No mail-server changes needed.\n\nSeveral categories of remaining sites:\n\n1. **Foundation-crate public surface** (jmap-types, jmap-server, jmap-cid-types) \u2014 high-leverage; these are imported by every other crate. Should be tackled first.\n\n2. **Type-crate constructors** (jmap-mail-types, jmap-chat-types, etc.) \u2014 public surface, moderate-leverage; affects consumers in *-client and *-server.\n\n3. **Internal helpers** (memory.rs sites, chat-server permissions/space/message/position) \u2014 low-leverage; private fns visible only within the crate. The bead JMAP-x2gd.79 explicitly called these out as 'lower-leverage and could be folded in or skipped depending on workspace policy'.\n\n4. **String-arg constructors** (e.g. site-counter helpers, error builders) \u2014 many will fail to convert because String fields have non-const Drop. Triage per-site.\n\nPlan when this is worked:\n- Start with jmap-types foundation; it propagates downstream automatically.\n- For each crate, run clippy --fix to apply automatically; review the resulting diff.\n- For sites that fail to compile after const conversion (Drop-non-const fields), revert and add a brief comment explaining why.\n- Consider a workspace-wide `#[allow(clippy::missing_const_for_fn)]` on internal helpers if the maintenance burden of per-site judgment exceeds the value.\n\nEngineering basis: cosmetic + library-kit-API-surface. Zero runtime cost. Real benefit for downstream consumers that want const construction (e.g., DEFAULT_LIMITS in a stoa/kith config module).",
+  "ephemeral": 0,
+  "id": "JMAP-ljr6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace sweep: clippy::nursery::missing_const_for_fn across all crates (~100+ sites)",
+  "updated_at": "2026-05-18T01:45:21Z"
+}

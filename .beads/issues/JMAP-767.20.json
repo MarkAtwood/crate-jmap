@@ -1,0 +1,33 @@
+{
+  "close_reason": "reviewed pass 23: loop converged; no P0/P1/P2 found in current code",
+  "closed_at": "2026-05-01T12:39:57Z",
+  "compaction_level": 0,
+  "content_hash": "b25c8ad047087a379512b5265be496d60c91533f29328c286b8a75a8008325f2",
+  "created_at": "2026-05-01T11:50:47Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs:899: seen_threads.insert(tid.clone()) where tid is &Id borrowed from thread_map. Since seen_threads takes ownership and thread_map already holds the Id values, the clone is necessary here \u2014 Id does not implement Copy, and the borrow from thread_map prevents moving. This is a genuine Rust ownership constraint, not gratuitous cloning. However, rebuilding thread_map as HashMap<&Id, &Id> borrowing from the emails slice (which lives for the function's duration) would eliminate all Id allocations in the inner loop. Filing as a taste-level suggestion.",
+  "ephemeral": 0,
+  "id": "JMAP-767.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "collapse_by_thread: tid.clone() on HashSet insert is avoidable",
+  "updated_at": "2026-05-01T12:39:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:50:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "1a5f0a12-fedb-5006-9647-08cf115960d0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

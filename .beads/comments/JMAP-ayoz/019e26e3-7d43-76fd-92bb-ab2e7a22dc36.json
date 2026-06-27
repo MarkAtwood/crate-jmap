@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T14:28:23Z",
+  "id": "019e26e3-7d43-76fd-92bb-ab2e7a22dc36",
+  "issue_id": "JMAP-ayoz",
+  "text": "API contract confidence: ~80% chance of no further missed API issue. Least confident flags: JMAP-ayoz.22 (whether dropping the ClosureHandler re-export is in fact a workspace-wide canonical change vs an isolated metadata-server change \u2014 sibling jmap-mail-server has not been audited for the same re-export in this pass), JMAP-ayoz.28 (whether the handler should defensively re-inject _new_id into created_obj before serialization is a workspace convention question that touches every extension-server sibling, not just metadata-server). Uncertainty driven by: not having canvassed all 7 extension-server siblings for matching re-export and id-injection patterns; not having read jmap-server::ClosureHandler's stability tag (#[doc(hidden)] vs ordinary pub) to see if upstream already treats it as not-stable. Would raise confidence if: (a) a side audit of jmap-mail-server / jmap-chat-server / jmap-calendars-server / jmap-tasks-server / jmap-contacts-server / jmap-filenode-server / jmap-sharing-server confirmed which siblings carry the same re-export and id-invariant patterns, (b) the upstream ClosureHandler rustdoc explicitly declared an extension-server-only stability tier."
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-4so.2",
+  "title": "identity_op in client_tests.rs size cap test",
+  "description": "client_tests.rs:194 uses '1 * 1024 * 1024 + 1' \u2014 the leading '1 *' is a no-op that clippy::identity_op flags under -D warnings. Breaks 'cargo clippy -p jmap-client --tests -- -D warnings'. Should be '1024 * 1024 + 1'. (All other size cap tests in the same file use the correct form without the leading 1.)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:47:34Z",
+  "updated_at": "2026-04-30T01:48:40Z",
+  "closed_at": "2026-04-30T01:48:40Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-4so",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:47:34"
+    }
+  ]
+}

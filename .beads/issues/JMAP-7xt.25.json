@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.25",
+  "title": "Separate AuthProvider and TransportConfig traits: any auth composes with any TLS config",
+  "description": "Auth credential injection (Authorization header) and TLS/transport configuration (trust roots, client certs, connect timeout) are split into two separate traits. This allows CustomCaTransport + BearerAuth, DefaultTransport + BasicAuth, or NoneAuth + any custom transport without combinatorial implementations. A contributor might suggest collapsing them into a single 'ClientConfig' or 'ConnectionConfig' trait to reduce the number of types. That would require a separate implementation for every (transport, auth) combination or a single god-object. The orthogonal design is correct; the blanket impls for Box<dyn> and Arc<dyn> handle the erasure case.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:53Z",
+  "updated_at": "2026-04-30T01:02:04Z",
+  "closed_at": "2026-04-30T01:02:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:53"
+    }
+  ]
+}

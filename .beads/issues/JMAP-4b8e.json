@@ -1,0 +1,22 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-05T01:47:47Z",
+  "compaction_level": 0,
+  "content_hash": "e8768961dfb5c8473cc170e2886714935500d02ab9c224a29a9e62c879894b69",
+  "created_at": "2026-05-05T01:44:47Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-4b8e",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement ContactCard handlers",
+  "updated_at": "2026-05-05T01:47:47Z"
+}

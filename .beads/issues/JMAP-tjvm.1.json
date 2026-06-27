@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T12:53:51Z",
+  "compaction_level": 0,
+  "content_hash": "63cb624baa1b1cb4728f3b427ed9ea89c9acdd65607154cb178795f1f3f300a0",
+  "created_at": "2026-05-15T01:44:26Z",
+  "created_by": "Mark Atwood",
+  "description": "In src/methods/email.rs:55-60, the loop\n```rust\nif let serde_json::Value::Object(map) = pv {\n    for (k, v) in map {\n        args[k] = v;\n    }\n}\n```\nblindly merges every key from the serialized EmailGetParams (including the\n`#[serde(flatten)] extra` map) into the top-level args object AFTER the typed\n`accountId`, `ids`, and `properties` keys have been set. A caller that puts\n`{\"accountId\": \"victim\"}` (or `\"ids\"`, `\"properties\"`) into `params.extra`\nwill silently override the value computed from the bound session.\n\nTrigger: any caller using EmailGetParams who puts a top-level JMAP-arg name\nin extra. The workspace extras-preservation policy guarantees pass-through of\nvendor fields, but the implementation here goes further and lets extras clobber\ntyped fields. Same pattern in `email_parse` (bd:JMAP-tjvm sibling finding).\n\nFix: set the typed fields AFTER the iterate-merge, or filter out reserved keys\n(`accountId`, `ids`, `properties`, `blobIds`, `ifInState`) during the merge,\nor reshape so EmailGetParams cannot contribute top-level args at all and the\ntyped builder owns key placement. The current contract is the worst of all\nworlds: the merge is order-dependent and the order is wrong.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "email_get: EmailGetParams.extra can override accountId/ids/properties",
+  "updated_at": "2026-05-17T12:53:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:44:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "741d1d82-9155-5b35-bc69-9f1ffb8e1a61",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

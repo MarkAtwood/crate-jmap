@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-7xt.3",
+  "title": "subscribe_events unfold state=None drops pending data silently",
+  "description": "The subscribe_events unfold closure begins with: let SseStreamState { .. } = state?; When state is None the ? operator returns None from the closure, terminating the stream. This is the intended termination path and does not panic. However, once SseFrameTooLarge is returned the closure passes state=None as the new state, which means on the next poll the stream immediately terminates via the state? shortcircuit. This is correct. The actual issue: after a transport error (Some(Err(e))) the closure returns Some((Err(...), Some(state))) \u2014 the stream continues. A caller who ignores the error and keeps polling will re-enter the loop, call stream.next().await again on an already-errored stream, and likely get repeated errors or a hang. The error case should return state=None to force stream termination after a transport error, consistent with the SseFrameTooLarge handling.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:45:38Z",
+  "updated_at": "2026-04-30T00:56:41Z",
+  "closed_at": "2026-04-30T00:56:41Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:45:37"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added crate-jmap-metadata-server/tests/log_redaction.rs with 3 tests (harness self-test, negative control, metadata canary tripwire). Copied LogCapture harness from crate-jmap-base-client/tests/common/log_capture.rs into crate-jmap-metadata-server/tests/common/log_capture.rs per the bead's 'copy-vendor rather than cross-crate import' recommendation. Added tracing + tracing-subscriber as dev-deps (matching jmap-base-client shape). cargo clippy --workspace --all-features -- -D warnings clean; cargo test --all-features clean (44 + 3 + 24 + 1 tests pass). Workspace-canonical-template note: mail-server still lacks an equivalent canary \u2014 that gap is documented in the test file's doc comment as out-of-scope for this bead.",
+  "closed_at": "2026-05-15T09:05:28Z",
+  "compaction_level": 0,
+  "content_hash": "251a0f0f76526c53b47110029c6396ffc9fbc721ad88697ee8bdf2a47939860c",
+  "created_at": "2026-05-15T08:43:39Z",
+  "created_by": "Mark Atwood",
+  "description": "Section F \u2014 logging output safety, preventive hygiene. The crate currently emits ZERO `tracing::*` / `log::*` calls (verified by `grep -rn 'tracing\\|log::\\|info!\\|debug!\\|warn!\\|error!' src/ tests/` returning empty). That is the right baseline.\n\nThe workspace has an established log-redaction canary pattern for crates that handle sensitive data, documented in workspace AGENTS.md 'Security testing' \u00a72 and demonstrated in:\n- `crate-jmap-base-client/tests/log_redaction.rs` \u2014 canary test\n- `crate-jmap-base-client/tests/common/log_capture.rs` \u2014 reusable harness\n\nWhat goes wrong if this stays as-is:\nA future contributor adds a debug log statement like `tracing::info!(record = ?stored_obj, 'created');` to `MemoryBackend::create_object` or to a future production-backed `MetadataBackend`. The `Metadata::Annotation` variant carries vendor-specific private content in its `.extra` flatten map (per draft-ietf-jmap-metadata-01 \u00a71.2.1 the `maySetPrivate` gating exists precisely because this content is per-user-private). `{stored_obj:?}` interpolates the full `.extra` map via the derived `Debug` impl. The private vendor data \u2014 which may include workflow state, comments, decryption hints, or anything the spec permits a client to store \u2014 leaks to logs at the level the contributor chose.\n\nConcrete attack scenarios this prevents:\n1. A debug-logging refactor merged in a hurry interpolates `Metadata` Debug into a structured-logging field. Log aggregator stores the field. `isPrivate: true` annotations now exist in plaintext in centralised logs.\n2. A panic message during a stuck migration includes the offending record. Panic backtrace + record content reach the crash reporter, which ships to a third-party SaaS.\n3. An error variant interpolated via `Display` or `Debug` carries the description string from `SetError::with_description(format!(...meta...))` (already present at memory.rs:925, 935-936 for non-private uniqueness fields \u2014 but a future variant could include a private property name or value).\n\nThe canary test pattern installs a thread-local buffering tracing subscriber, exercises the code paths a future instrumenter would write, and asserts a canary literal does not appear in the captured output. The test exists BEFORE instrumentation is added so that the first contributor to add `tracing::*` discovers the canary failing in CI rather than shipping the leak.\n\nWhat to file (P3 work bead, not part of this review):\n- Add `crate-jmap-metadata-server/tests/log_redaction.rs` mirroring the base-client harness.\n- Canary: store an `Annotation` with `.extra` value \"REDACTION-CANARY-METADATA-826m\" and exercise `/get`, `/changes`, `/set` create/update/destroy paths with a buffering subscriber. Assert the canary literal does not appear.\n- Re-use `crate-jmap-base-client/tests/common/log_capture.rs` as the harness (copy-vendor rather than cross-crate import \u2014 base-client is the canonical pattern, not a public dependency).\n\nCanonical-template note: `jmap-mail-server` does NOT have a log-redaction canary either (verified by `ls crate-jmap-mail-server/tests/`). Per workspace AGENTS.md propagation rule, add the canary to the canonical first if a workspace-wide sweep is desired; or accept this finding as metadata-server-specific because `isPrivate` content has a stronger spec-level confidentiality contract than Email body content (which is plainly visible to every authorised reader of an Email anyway).\n\nRefs:\n- workspace AGENTS.md 'Security testing' \u00a72\n- crate-jmap-base-client/tests/log_redaction.rs (reference pattern)\n- crate-jmap-base-client/tests/common/log_capture.rs (reference harness)\n- draft-ietf-jmap-metadata-01 \u00a71.2.1 (maySetPrivate gating \u2014 the spec-level confidentiality contract for the .extra content)",
+  "ephemeral": 0,
+  "id": "JMAP-826m.53",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "No log-redaction canary test for future tracing instrumentation that could leak Metadata.isPrivate content",
+  "updated_at": "2026-05-15T09:05:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T01:43:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "c98c4ca6-499d-52fc-86d2-91438e971867",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

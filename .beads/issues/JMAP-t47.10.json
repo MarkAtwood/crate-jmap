@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.10",
+  "title": "SSE CR normalization: frame string is cloned unconditionally when CR present",
+  "description": "client.rs subscribe_events: CR normalization calls slice.replace(\"\\r\\n\",\"\\n\").replace('\\r','\\n') \u2014 two sequential String allocations when CR is present. A single-pass normalizer avoids the second allocation. Low impact for typical JMAP push traffic (low-frequency state changes) but measurable at 1 MiB frames.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:34:47Z",
+  "updated_at": "2026-04-30T01:43:00Z",
+  "closed_at": "2026-04-30T01:43:00Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:34:47"
+    }
+  ]
+}

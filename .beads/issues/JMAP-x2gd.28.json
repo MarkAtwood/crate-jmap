@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed via Option 1 from the bead description: .iter().map(...).collect::<Result<Vec<(String, String)>, String>>() short-circuits on the first Err and replaces the loop+flag+break+post-loop-check pattern. The map closure returns Err on either suffix-validation failure or value-shape failure; the post-collect match dispatches Ok(decoded) into the success path and Err(desc) into the not_updated table + continue. No behavior change; all chat-server tests still pass.",
+  "closed_at": "2026-05-14T04:52:16Z",
+  "compaction_level": 0,
+  "content_hash": "654ebc2c445d3f41d434a8254881b82d2e53ec7cbb42b69747c95670d5ab3dfa",
+  "created_at": "2026-05-14T03:20:04Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/message.rs:620-651 (handle_message_set update branch \u2014 reaction patch validation).\n\nCurrent code:\n\n    let mut decoded: Vec<(String, String)> = Vec::with_capacity(reaction_pointer_keys.len());\n    let mut bad_desc: Option<String> = None;\n    for raw_key in &reaction_pointer_keys {\n        let suffix = &raw_key[\"reactions/\".len()..];\n        if suffix.is_empty() || suffix.contains('/') || suffix.contains('~') {\n            bad_desc = Some(format!(...));\n            break;\n        }\n        let val = augmented.get(raw_key).cloned().unwrap_or(Value::Null);\n        if !val.is_null() {\n            let ok = val.as_object().is_some_and(|m| ...);\n            if !ok {\n                bad_desc = Some(format!(...));\n                break;\n            }\n        }\n        decoded.push((raw_key.clone(), suffix.to_owned()));\n    }\n    if let Some(desc) = bad_desc {\n        not_updated.insert(id_str, json!({ \"type\": \"invalidPatch\", \"description\": desc }));\n        continue;\n    }\n\nThis is the classic non-idiomatic 'mutable flag + break + post-loop check' pattern that Rust iterator combinators were designed to replace. Three idiomatic rewrites exist:\n\n1. .map().collect::<Result<Vec<_>, String>>() \u2014 collects (raw_key, suffix) pairs OR short-circuits on first Err:\n\n    let decoded: Result<Vec<(String, String)>, String> = reaction_pointer_keys\n        .iter()\n        .map(|raw_key| {\n            let suffix = &raw_key[\"reactions/\".len()..];\n            if suffix.is_empty() || suffix.contains('/') || suffix.contains('~') {\n                return Err(format!(...));\n            }\n            let val = augmented.get(raw_key).unwrap_or(&Value::Null);\n            if !val.is_null() && !val.as_object().is_some_and(|m| ...) {\n                return Err(format!(...));\n            }\n            Ok((raw_key.clone(), suffix.to_owned()))\n        })\n        .collect();\n    let decoded = match decoded {\n        Ok(d) => d,\n        Err(desc) => { not_updated.insert(...); continue; }\n    };\n\n2. Validate-then-decode in two passes via .find_map() + .map().collect():\n\n    if let Some(desc) = reaction_pointer_keys.iter().find_map(|raw_key| { /* validate, return Some(err) or None */ }) {\n        not_updated.insert(...); continue;\n    }\n    let decoded: Vec<(String, String)> = reaction_pointer_keys.iter().map(|rk| (rk.clone(), rk[\"reactions/\".len()..].to_owned())).collect();\n\n3. Inline validation into the subsequent transformation loop (lines 708-732) and skip the decoded vec altogether \u2014 the suffix is recomputed cheaply from the raw_key.\n\nWhat goes wrong if left: the loop has TWO error exits and ONE success exit; a future contributor adding a third validation rule (e.g. max suffix length) must remember to .break with bad_desc set, which is easy to forget, and the diagnostic for the new rule will get filed but with no error consumed at the post-loop check unless the contributor copies the bad_desc = ... pattern exactly. The Result-collecting form makes 'one Err short-circuits' a structural property of the API, not a hand-coded invariant.\n\nThis is the same anti-pattern as a Go-style 'errored := false; for { if ... { errored = true; break } }' \u2014 exactly what Rust iterators replace.\n\nScope: P1 iterators (real Rust idiom, not bikeshed).",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.28",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "message.rs reaction-pointer-validation: loop+flag+break replaces .find_map / .try_for_each",
+  "updated_at": "2026-05-14T04:52:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:20:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "7eceb5d9-7b95-5bab-9f3a-9ffab31a180f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

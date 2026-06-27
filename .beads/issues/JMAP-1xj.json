@@ -1,0 +1,23 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T12:39:28Z",
+  "compaction_level": 0,
+  "content_hash": "74477ad9cd1aca521975766e4d64fee3376d541cb20e685ba30765fbf4b1cb38",
+  "created_at": "2026-05-01T12:38:17Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-1xj",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Review: jmap-mail-server pass 23",
+  "updated_at": "2026-05-01T12:39:28Z"
+}

@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-sf2.4",
+  "title": "Email/query: invalid limit type silently coerced to no-limit",
+  "description": "email.rs:169-172: 'Some(v) => v.as_u64()' returns None if limit is a float, string, or negative integer. limit=None is then passed to the backend (no-collapse path) meaning all results are returned. A client passing limit=10.0 or limit='10' expects a page of 10 but gets everything. RFC 8620 \u00a75.5 says limit is UnsignedInt|null \u2014 invalid type should return invalidArguments.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T02:28:49Z",
+  "updated_at": "2026-05-01T02:44:05Z",
+  "closed_at": "2026-05-01T02:44:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-sf2",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 19:28:49"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added README Gotchas entry for CallerCtx clone-per-call cost + Arc<T> mitigation. The cost is one CallerCtx clone + two String clones per method call in the batch.",
+  "closed_at": "2026-05-14T17:24:19Z",
+  "compaction_level": 0,
+  "content_hash": "a637d775d212174cfad0a8b5579b69928af6ca2f571cdec5eb866f466c5430cc",
+  "created_at": "2026-05-14T16:36:53Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/lib.rs:154 + lib.rs:255 \u2014 Dispatcher requires CallerCtx: Clone + Send + 'static, and the dispatch loop clones the caller value per method call (caller_clone = caller.clone() before each task::spawn). The Dispatcher rustdoc mentions this briefly (\"CallerCtx is cloned for each method call in the batch\"), but the README \"Gotchas\" section does not.\n\nAn integrator who passes a heavy CallerCtx (e.g. a struct embedding a session token, a permissions vector, a user profile, an opaque auth blob) pays the clone cost on every method call. For a 16-call batch, that is 16 deep clones per request, in addition to the unconditional method.clone() and call_id.clone() at lib.rs:256-257.\n\nThe right pattern (Arc<T>) is mentioned in the Dispatcher rustdoc but not in the README, where a kit consumer is more likely to look first.\n\nRecommendation: add to README \"Gotchas\":\n  - **CallerCtx is cloned per method call.** Dispatcher::dispatch performs one Clone of the CallerCtx value per method in the batch, plus two String clones for method name and call_id. Heavy CallerCtx values (auth profiles, permission vectors, session tokens) should be wrapped in Arc<T> so the per-call clone is a pointer bump rather than a deep copy.\n\nAlso worth surfacing in the workspace AGENTS.md identity-seam section, which discusses CallerCtx without mentioning its clone cost.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CallerCtx clone-per-call cost undocumented in README/gotchas",
+  "updated_at": "2026-05-14T17:24:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:36:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "d5f17823-af73-57b2-8afc-0e7a10810881",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

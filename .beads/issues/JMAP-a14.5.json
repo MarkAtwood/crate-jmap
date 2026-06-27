@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T12:25:20Z",
+  "compaction_level": 0,
+  "content_hash": "3ac22ffaf68003ebc5522221bebdf232f4ceaf93a8457b5c58607505583a61a2",
+  "created_at": "2026-05-01T12:19:24Z",
+  "created_by": "Mark Atwood",
+  "description": "thread.rs handle_thread_changes line 103: includes 'updatedProperties' in the response. RFC 8621 \u00a73.2 says Thread/changes is 'a standard /changes method as described in [RFC8620], Section 5.2'. RFC 8620 \u00a75.2 defines the changes response fields and does NOT include updatedProperties. The code comment claims 'RFC 8621 \u00a73.2: SHOULD return [\"emailIds\"]' but \u00a73.2 contains no such language. Similarly, email.rs handle_email_changes (line 140), identity.rs handle_identity_changes (line 99), and submission.rs handle_submission_changes (line 122) all add 'updatedProperties': null to non-Mailbox changes responses where it is undefined. Only Mailbox/changes (RFC 8621 \u00a72.2) is specified to have this field.",
+  "ephemeral": 0,
+  "id": "JMAP-a14.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Thread/changes returns non-standard updatedProperties field",
+  "updated_at": "2026-05-01T12:25:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T05:19:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a14",
+      "id": "aa257ece-39fe-5618-9e21-266253af19e4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

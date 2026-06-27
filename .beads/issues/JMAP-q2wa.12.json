@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Defended the restore_crlf two-pass replace against future single-pass 'simplifications' on two fronts:\n\n1. Expanded the rustdoc with an explicit 'Defense notes (bd:JMAP-q2wa.12)' subsection listing all four arguments from the bead text against the one-pass alternative.\n\n2. Added 5 unit tests pinning the four claims independently:\n   - pure_lf_input_expands_to_crlf\n   - crlf_input_passes_through_unchanged (the core defense case)\n   - mixed_line_endings_normalise_to_crlf\n   - bare_cr_is_preserved_for_display_name_edge_case\n   - idempotent_under_repeated_application (verifies the testability claim the docstring makes)\n\nTest oracles are hand-written byte sequences and the algebraic identity f(f(x)) == f(x) \u2014 independent of the function under test per workspace test-integrity rules.\n\nThe bd:JMAP-q2wa.12 inline citation in the rustdoc makes the defense discoverable from git-blame.\n\nQuality gates: fmt + clippy --all-features --tests + test --all-features + doc --all-features all clean.",
+  "closed_at": "2026-05-17T06:16:57Z",
+  "compaction_level": 0,
+  "content_hash": "1b316bf9cd73df3e2cd6132502420e7949d4669d468e12c640bb635451dc56b4",
+  "created_at": "2026-05-14T16:22:13Z",
+  "created_by": "Mark Atwood",
+  "description": "src/email.rs:381-387 \u2014 restore_crlf does a two-pass replace: first collapse any stray '\\r\\n' to '\\n', then expand '\\n' to '\\r\\n'. The comment explains: 'to avoid expanding existing \"\\r\\n\" to \"\\r\\r\\n\"'.\\n\\nA future contributor might 'simplify' to a single .replace('\\n', \"\\r\\n\") thinking the stored Raw form is guaranteed pure-LF per RFC 8621 \u00a74.1.3. Defend the two-pass:\\n\\n1. The defensive collapse handles backends that store mixed-line-ending Raw values (a corrupt or mid-migration store could have either).\\n2. Idempotence is testable: round-tripping any input through restore_crlf produces consistent output.\\n3. The one-pass alternative is brittle: it doubles CR in any '\\r\\n' that did survive, producing '\\r\\r\\n' which most parsers reject.\\n4. mail-parser's tolerance is documented; the standalone '\\r' case is explicitly handled by leaving it alone.\\n\\nThis logic is one of the few that touch raw byte sequences (vs strings) and so deserves a defended status \u2014 wire-byte edge cases are exactly where future 'simplifications' tend to regress.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.12",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Defend: restore_crlf two-pass replace handles pre-collapsed wire bytes safely",
+  "updated_at": "2026-05-17T06:16:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:22:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "4b876320-dfa0-5970-a21b-a8941be66a90",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

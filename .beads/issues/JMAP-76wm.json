@@ -1,0 +1,23 @@
+{
+  "close_reason": "All 32 crate READMEs now conform to the six-section convention.\n\nConvention codified in workspace AGENTS.md '## README convention' section (commit pending). Six required headings in fixed order: ## What it is \u2192 ## What it's for \u2192 ## How to use \u2192 ## How it works \u2192 ## Gotchas \u2192 ## References. License/authorship in Cargo.toml only, never in README.\n\nSweep results:\n- 32/32 READMEs conform (all 6 required headings in convention order)\n- 31/31 ## License sections deleted (jmap-server didn't have one)\n- 0 stray Licensed-under lines remain\n- 0 stray LICENSE-MIT / LICENSE-APACHE file references remain\n- 1 ordering fix applied to crate-jmap-chat-types (Gotchas was after References \u2014 swapped)\n- Crate-specific extras (## Filter extensibility, ## Crate family, ## Registered methods, ## *Backend trait, ## API reference, ## Examples, etc.) preserved as the convention permits, interleaved between required sections\n\nVerification:\n- cargo fmt --all --check: clean\n- cargo clippy --workspace --all-targets -- -D warnings: clean\n- cargo publish --dry-run --allow-dirty -p jmap-types: passes (23 files / 148.8 KiB, same size as before)",
+  "closed_at": "2026-05-13T19:10:07Z",
+  "compaction_level": 0,
+  "content_hash": "8b65bd591287b9407b68113682c8c5a08a2643399caa1d12d01f6969440a9ffa",
+  "created_at": "2026-05-13T18:59:06Z",
+  "created_by": "Mark Atwood",
+  "description": "User decision 2026-05-13: every crate README has a defined shape and authorship/license goes in Cargo.toml, NEVER in the README.\n\n## Convention (verbatim from user)\n\nA README has:\n1. What it is\n2. What it's for\n3. How to use\n4. How it works\n5. Any gotchas\n6. References to specification\n\nAuthorship and license go in the toml file (workspace inheritance via the workspace.package block).\n\n## Scope\n\nAll 32 crate-jmap-* directories in this workspace, including testjig (publish = false but README still consumed by humans).\n\n## Initial audit observations\n\n- Every crate has a README.\n- Heading text varies: '## What' / '## Why' / '## Usage' vs '## What it is' etc.\n- Every README appears to carry a '## License' block \u2014 these all need to come out.\n- Smaller READMEs (jscalendar-types, jscontact-types, cid-types) are missing 'how it works' and 'gotchas'.\n- Larger READMEs (base-client at 594 lines, mail-types at 446 lines) conform to the 6-section shape but include redundant license blocks.\n\n## Phased plan\n\nPhase 1: codify convention in workspace AGENTS.md\nPhase 2: parallel audit of all 32 READMEs (one structured finding per crate)\nPhase 3: per-family fix (8 types + 7 servers + 8 clients + 2 sub-types + 4 foundation/misc + testjig)\nPhase 4: re-run cargo publish --dry-run -p jmap-types to verify packaging still clean\n\n## Acceptance\n\n- Workspace AGENTS.md has a 'README convention' section\n- All 32 READMEs use the 6 named headings (or a deliberately documented variant)\n- Zero README files contain a '## License', '## Authors', '## Authorship', or 'Licensed under' block\n- cargo test --workspace + cargo clippy + cargo publish --dry-run -p jmap-types all still pass\n\nLABELS: docs, publish-readiness, canonical-template-sweep",
+  "ephemeral": 0,
+  "id": "JMAP-76wm",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "README convention sweep: codify 6-section shape and conform all 32 crate READMEs",
+  "updated_at": "2026-05-13T19:10:07Z"
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T19:28:28Z",
+  "compaction_level": 0,
+  "content_hash": "3af387d45271a377bd396d548841a1a6b9de18e8b5fd96ec2590ce14aacf6eb6",
+  "created_at": "2026-05-04T19:23:02Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec defines maxNumberScripts capability. No overQuota check in handler \u2014 clients can create unbounded scripts. Fix: hoist the get_objects(None) call before create loop, check len >= capability limit, return overQuota SetError for excess creates.",
+  "ephemeral": 0,
+  "id": "JMAP-w9hj.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sieve_set: overQuota check missing on create",
+  "updated_at": "2026-05-04T19:28:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T12:23:02Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w9hj",
+      "id": "cd6c482d-0629-5b04-a318-9f477dfefcbc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

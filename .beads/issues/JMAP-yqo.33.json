@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:13:29Z",
+  "compaction_level": 0,
+  "content_hash": "ed48c6a6d553a837fdd3702b990132acc0f14a2c62d047d240b50b5bececf56c",
+  "created_at": "2026-05-02T02:59:47Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs lines 281-290: apply_header_form has five consecutive TODO(RFC 8621 \u00a74.1.2) comments in committed production code: AsAddresses, AsGroupedAddresses, AsDate, AsMessageIds, and AsURLs all return Value::Null with TODO comments. Per project CLAUDE.md conventions: 'Never leave... TODO comments... in committed code.' These TODOs are load-bearing (they explain intentional silent nulls) but belong in Beads issues, not source comments. The linked existing finding JMAP-yqo.11 tracks the functional issue; the TODO comments themselves are a process violation that will confuse contributors who see them in a library API.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "TODO comments in apply_header_form committed to library code",
+  "updated_at": "2026-05-02T03:13:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:59:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "6a1308a0-74bb-5c88-98e6-e13327065261",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

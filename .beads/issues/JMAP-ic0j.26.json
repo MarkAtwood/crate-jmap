@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "02b03503d469930e6becf912847a0f14e95a9d2c5d172ded38c5c5803feae920",
+  "created_at": "2026-05-15T17:11:42Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs \u2014 CalendarsBackend has six default-implemented extension methods\nwhose default behavior is \"silently no-op the spec semantic\":\n\n  - parse_calendar_event_blobs (lines 447-462): default returns every blob\n    in not_parsable. draft-ietf-jmap-calendars-26 \u00a75.13 says the server\n    parses iCalendar data; a backend that compiles+runs against the default\n    silently violates \u00a75.13 for every request.\n  - get_availability (lines 471-484): default returns Ok(vec![]). draft \u00a72.2\n    is the entire Principal/getAvailability semantic; default backend returns\n    \"this principal is free at all times\".\n  - set_default_calendar (lines 414-421) and set_default_participant_identity\n    (lines 432-439): defaults return empty SetDefaultResult. draft \u00a73.3 and\n    \u00a74.3 onSuccessSetIsDefault always becomes a silent no-op.\n  - compute_utc_times (lines 284-293): default returns (None, None). draft\n    \u00a75.2 utcStart/utcEnd are always absent.\n  - get_calendar_events (lines 322-342): default delegates to get_objects,\n    silently ignoring all \u00a75.7 extras (recurrenceOverridesBefore/After,\n    reduceParticipants, timeZone).\n  - query_calendar_events (lines 368-389): default delegates to query_objects,\n    silently ignoring expandRecurrences and timeZone (\u00a75.11).\n\nThe canonical mail-server makes the equivalent spec-driven methods MANDATORY\n(no defaults): MailBackend::import_email, find_thread_by_message_ids,\nblob_exists, parse_email, copy_email, search_snippets all have no default\nimpl. The doc on blob_exists at crate-jmap-mail-server/src/backend.rs:194-198\nexplicitly justifies the policy:\n\n    \"There is no default implementation: requiring an explicit implementation\n     forces each backend author to confront this distinction.\"\n\nWhat goes wrong for the caller: a calendars backend author can implement\nCalendarsBackend with zero overrides on the six methods above. The crate\ncompiles, the tests pass against MemoryBackend (which inherits the same\ndefaults). But every Principal/getAvailability returns \"principal is always\nfree\", every CalendarEvent/parse returns notParsable, every \u00a74.3\nonSuccessSetIsDefault is a no-op, every \u00a75.7 timeZone is ignored, every \u00a75.11\nexpandRecurrences is ignored. The wire protocol says success; the data is\nsilently wrong.\n\nThe convergence question is which way the canonical-template propagation\nshould go. Two coherent positions:\n\n  (a) Calendars is wrong \u2014 drop the defaults, force every backend author\n      to confront each spec method (mirror mail-server).\n  (b) Mail is wrong \u2014 add defaults that silently no-op, accepting that\n      backend authors have to read the spec to know what they're skipping.\n\nPer workspace AGENTS.md \"Canonical Templates\", (a) is the default position\n(propagate canonical\u2192sibling). But the documented MemoryBackend deliberately\ninherits these defaults, which suggests calendars maintainer intended (b).\nFiled for explicit maintainer decision.\n\nIf (a) wins: remove the six default impls, propagate the mandatory-method\nshape; the MemoryBackend explicit no-op overrides become the canonical\n\"we don't support this\" pattern. If (b) wins: file the inverse propagation\ninto mail-server.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "default-impl philosophy: spec-mandated extension methods silently no-op without override",
+  "updated_at": "2026-05-15T17:11:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:11:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "8fb81e3f-918c-5fa5-8601-9987f0b38ce8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

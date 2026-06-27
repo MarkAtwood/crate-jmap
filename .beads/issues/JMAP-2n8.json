@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-2n8",
+  "title": "jmap-server: HandlerFuture supports multiple response invocations",
+  "description": "Modify jmap-server so a single handler call can produce multiple entries in methodResponses. Required for RFC 8621 \u00a77.5 EmailSubmission/set onSuccessUpdateEmail, which MUST append an implicit Email/set invocation after the submission response.\n\n## Exact change\n\n### src/lib.rs \u2014 change HandlerFuture return type\n\nOld:\n```rust\npub type HandlerFuture = Pin<Box<dyn Future<Output = Result<Value, JmapError>> + Send>>;\n```\n\nNew:\n```rust\n/// The primary response value plus any additional invocations to append to methodResponses.\n/// Most handlers return Ok((value, vec![])).\n/// EmailSubmission/set with onSuccessUpdateEmail returns Ok((subm_value, vec![(Email/set, email_value, call_id)])).\npub type HandlerFuture = Pin<Box<dyn Future<Output = Result<(Value, Vec<Invocation>), JmapError>> + Send>>;\n```\n\n### src/lib.rs \u2014 update dispatch() loop\n\nExisting dispatch code creates  invocation.\nChange to:\n```rust\n// After awaiting the spawned handler task:\nlet (primary_value, extra_invocations) = ok_result;\nmethod_responses.push((method.clone(), primary_value, call_id.clone()));\nmethod_responses.extend(extra_invocations);\n```\n\n### Tests \u2014 update all existing handler stubs\n\nEvery existing test that creates a HandlerFuture must change:\n- Old: \n- New: \n\n## Acceptance criteria\n- cargo test -p jmap-server passes\n- cargo clippy -p jmap-server -- -D warnings passes\n- RUSTDOCFLAGS='-D warnings' cargo doc -p jmap-server --no-deps passes\n- The public JmapHandler trait now requires handlers to return (Value, Vec<Invocation>)\n- Existing single-invocation tests still pass (returns empty Vec as second element)\n- New test: handler returns two invocations \u2192 both appear in JmapResponse::method_responses in order\n\n## Defensive programming rules\n- The dispatcher MUST push the primary response BEFORE extending with extra invocations\n- extra_invocations MUST be appended in the order returned by the handler (no reordering)\n- No unwrap/expect added\n- jmap-server is a locked crate \u2014 this is an explicitly authorized targeted change",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T20:39:30Z",
+  "updated_at": "2026-04-30T20:41:39Z",
+  "closed_at": "2026-04-30T20:41:39Z"
+}

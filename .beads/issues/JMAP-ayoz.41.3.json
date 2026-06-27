@@ -1,0 +1,50 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Wired into all 9 chat-server /set handlers (Chat, Message, Presence, ReadPosition, SpaceInvite, SpaceBan, ChatContact, CustomEmoji, Space). 9 new tests pass; cargo fmt/clippy/doc/test clean for jmap-chat-server. Chat-server handlers do NOT call account_exists first (pre-existing divergence tracked at bd:JMAP-ayoz.36); cap inserted right after extract_account_id \u2014 still before any expensive operation. Committed in 428274e.",
+  "closed_at": "2026-05-16T19:31:43Z",
+  "compaction_level": 0,
+  "content_hash": "4f81ff1ea260d5a8f29be301bcc1f07865eb88493758a5affd691c71c9dc654e",
+  "created_at": "2026-05-16T19:14:43Z",
+  "created_by": "Mark Atwood",
+  "description": "Propagation of bd:JMAP-ayoz.41.2 canonical pattern to jmap-chat-server.\n\n## Scope\n\nInsert enforce_max_objects_in_set call (exact shape from .41.2) at top of all 9 chat-server /set handlers, immediately after the account_exists gate:\n\n1. crate-jmap-chat-server/src/chat.rs handle_chat_set\n2. crate-jmap-chat-server/src/message.rs handle_message_set\n3. crate-jmap-chat-server/src/presence.rs handle_presence_set\n4. crate-jmap-chat-server/src/position.rs handle_position_set\n5. crate-jmap-chat-server/src/invite.rs handle_invite_set\n6. crate-jmap-chat-server/src/ban.rs handle_ban_set\n7. crate-jmap-chat-server/src/contact.rs handle_contact_set\n8. crate-jmap-chat-server/src/emoji.rs handle_emoji_set\n9. crate-jmap-chat-server/src/space.rs handle_space_set\n\n## Tests\n\nIntegration test per handler: over-limit /set returns Err(JmapError) with type=limit description=maxObjectsInSet. Independent oracle (hand-built JmapError).\n\n## Acceptance\n\ncargo fmt+clippy+test+doc clean for jmap-chat-server.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.41.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wire maxObjectsInSet enforcement into jmap-chat-server (9 handlers)",
+  "updated_at": "2026-05-16T19:31:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T12:14:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.41.2",
+      "id": "38c1b715-9aa6-543f-a0ed-e0e9dfe6e059",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-16T12:14:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.41",
+      "id": "c5692590-5808-512e-851e-2958e97c1008",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-16T12:14:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.41.1",
+      "id": "dbe506cb-68f0-5089-b6f1-c5179c61efb5",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

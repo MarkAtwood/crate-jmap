@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "5a5ed5c7cd8ef156121755eef6e8fcc9f8d6424f1c8f4f59ffeb5178f24c8fed",
+  "created_at": "2026-05-15T18:47:14Z",
+  "created_by": "Mark Atwood",
+  "description": "Follow-up to bd:JMAP-ic0j.39 which added bool_arg / take_bool_arg to jmap-server::helpers and adopted them in the canonical mail-server (~21 sites) and calendars-server (~7 sites).\n\nThe remaining extension-server siblings still use the inline chained form\n    args.{get|remove}(K).and_then(|v| v.as_bool()).unwrap_or(default)\n\nSite counts at the time JMAP-ic0j.39 closed:\n  - jmap-chat-server: ~16 sites across chat.rs (2), contact.rs (2), emoji.rs (2), memory.rs (1), message.rs (5), space.rs (4)\n  - jmap-contacts-server: ~2 sites across addressbook.rs (1), card.rs (1)\n  - jmap-metadata-server: ~1 site in memory.rs\n  - jmap-tasks-server: ~5 sites across memory.rs (2), task_list.rs (1), task.rs (2)\n\nFor each site:\n1. Determine whether it reads .get (use bool_arg) or .remove (use take_bool_arg).\n2. Confirm the read is against a Map<String, Value> args envelope, NOT against a Value-shaped inner JSON object (which would need a different helper signature \u2014 those are excluded by design).\n3. Import jmap_server::bool_arg or jmap_server::take_bool_arg.\n4. Replace the chained pattern with the single-line helper call.\n\nPer-crate gates after the sweep:\n  cargo fmt --all\n  cargo clippy -p jmap-<crate>-server --all-features --all-targets -- -D warnings\n  cargo test -p jmap-<crate>-server --all-features\n  RUSTDOCFLAGS=\"-D warnings\" cargo doc -p jmap-<crate>-server --no-deps --all-features\n\nWorkspace gate at the end:\n  cargo test --workspace --all-features\n\nOut of scope: helper-shape changes (the helper API is settled by JMAP-ic0j.39). Anything else stays in-scope per the bead body.",
+  "ephemeral": 0,
+  "id": "JMAP-es1s",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Adopt jmap_server::bool_arg / take_bool_arg in chat/contacts/metadata/tasks-server",
+  "updated_at": "2026-05-15T18:47:14Z"
+}

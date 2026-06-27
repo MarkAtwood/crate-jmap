@@ -1,0 +1,33 @@
+{
+  "close_reason": "resolved by JMAP-0c9: pre-check fetch hoisted outside loop",
+  "closed_at": "2026-05-02T06:39:51Z",
+  "compaction_level": 0,
+  "content_hash": "3ff383d4c122c58fc700822e9c69076533c2f070cf7bad4a7b8f56fdaf136d38",
+  "created_at": "2026-05-02T03:56:58Z",
+  "created_by": "Mark Atwood",
+  "description": "Same root as JMAP-4ii.10 (correctness). The efficiency dimension: a batch create of m direct chats calls get_objects m times. Even if a single fetch were taken before the loop, the full O(n) scan per create is unavoidable at the handler layer. The backend trait has no find_direct_chat(contact_id) operation, so this is a MailBackend trait gap as well as a handler bug. The handler fix (single pre-loop fetch) is separate from the trait fix (add an indexed lookup).",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.30",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Chat/set direct-chat dedup: O(n*m) get_objects per create (efficiency companion)",
+  "updated_at": "2026-05-02T06:39:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T20:56:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "bc183ac9-4525-545c-bdfc-ce957e2a98a2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced both hand-rolled abbreviation tables in utils.rs (23 lines total) with chrono's locale-independent %a (short weekday) and %b (short month) format specifiers. Both emit byte-identical English C-locale strings regardless of host OS locale, so the wire contract on the format output is preserved exactly.\n\nNet change: -17 lines, +0 behavior change. The hand-rolled month-table catch-all defense added in .59 (commit 3cc7eab) becomes unnecessary \u2014 there's no match arm anymore. All 8 utils::tests pass unchanged.\n\ncargo clippy --all-targets -- -D warnings clean, fmt clean. Committed as 125dfeb.",
+  "closed_at": "2026-05-15T21:52:24Z",
+  "compaction_level": 0,
+  "content_hash": "4f792fe4da5fbe89efdf6f87392c5a4fe11703d1ed9482b9729efb3cf1aadf11",
+  "created_at": "2026-05-15T20:51:52Z",
+  "created_by": "Mark Atwood",
+  "description": "utils.rs:48-56 (weekday match) and 60-72 (month match) hand-roll match arms that convert chrono::Weekday / chrono month-number to three-letter abbreviations. chrono already provides format specifiers '%a' (abbreviated weekday) and '%b' (abbreviated month) that emit the same strings, well-tested and locale-aware. The hand-rolled match arms total 23 lines and could be: 'parsed.format(\"%a\").to_string()' (one line). Engineering basis: less code, no risk of typo (e.g. 'Tuc' for 'Tue'), leverages chrono's tested implementation. Counter-argument: the hand-rolled match arms keep the strings under the crate's control and avoid any locale surprise \u2014 but chrono's '%a' and '%b' are explicitly the English C-locale defaults regardless of system locale, which is what the current code wants. The counter-argument doesn't survive.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.58",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "utils.rs hand-rolled weekday/month abbreviation tables duplicate chrono::format",
+  "updated_at": "2026-05-15T21:52:24Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:51:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "2fde158a-8600-597a-bce8-c7e2c0929826",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

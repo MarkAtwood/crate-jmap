@@ -1,0 +1,33 @@
+{
+  "close_reason": "reviewed pass 23: loop converged; no P0/P1/P2 found in current code",
+  "closed_at": "2026-05-01T12:39:55Z",
+  "compaction_level": 0,
+  "content_hash": "8501cc2a5b1948d530d0628b9cb90aaabb07c0e9d882bbe141ec6d6a8af01843",
+  "created_at": "2026-05-01T11:50:07Z",
+  "created_by": "Mark Atwood",
+  "description": "helpers.rs:21: duration_since(UNIX_EPOCH).unwrap_or_default() returns 0 duration if the system clock is behind the epoch (e.g., in a sandboxed test environment or a system with a reset clock). This produces the timestamp '1970-01-01T00:00:00Z' for sendAt/receivedAt, which would be stored without any warning. A comment explaining the failure mode would make the intention clear: 'clock regression \u2192 epoch; callers should validate receivedAt independently'. Without the comment, a future maintainer removing the unwrap_or_default will not know why it was there.",
+  "ephemeral": 0,
+  "id": "JMAP-767.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "now_utc_string silently returns 1970-01-01 on SystemTime::UNIX_EPOCH regression",
+  "updated_at": "2026-05-01T12:39:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T04:50:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-767",
+      "id": "29b4c417-9d2e-51d1-8194-396fadf28685",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

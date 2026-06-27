@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied option (b) per the bead's recommendation: one-line early return on non-object Values before @type dispatch. Now AnniversaryDate::Unknown(json!(scalar | array | null)) round-trips losslessly through serialize\u2192deserialize. Added regression test anniversary_date_unknown_non_object_round_trips with independent oracle (hand-built JSON literals for each non-object shape); verified the test fails without the fix and passes with it. 59 tests pass; pre-commit gate clean. Commit pending.",
+  "closed_at": "2026-05-15T04:10:14Z",
+  "compaction_level": 0,
+  "content_hash": "129675919007be02670682f37950d67c7aaa63c217f42d7621875004c41801b5",
+  "created_at": "2026-05-15T03:36:12Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs:977-997 implements Deserialize for AnniversaryDate by parsing into serde_json::Value first, then dispatching on @type. The Unknown(Value) variant accepts ANY JSON shape \u2014 including a scalar like json!(\"foo\") if someone constructs AnniversaryDate::Unknown(...) directly. Serialize at :967-975 forwards verbatim, so back to wire is fine. But on the next deserialize round, the dispatch at :981 does v.get(\"@type\") \u2014 which is None for a scalar \u2014 and falls through to the PartialDate branch at :990, which fails to parse a scalar as a PartialDate object. Result: a value constructable in Rust cannot survive a serialize\u2192deserialize round trip. This is reachable from Anniversary { date: AnniversaryDate::Unknown(json!(\"x\")), ... }. Suggested rewrite: either (a) restrict the Unknown variant to Value::Object only at construction time (add a from_value constructor that returns Result, make the enum field non-public), or (b) handle non-object values in the deserialize dispatch by routing them to Unknown as well: 'if !v.is_object() { return Ok(AnniversaryDate::Unknown(v)); }' before the @type lookup. Option (b) preserves the round-trip invariant with one line of code.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AnniversaryDate::Unknown accepts non-object JSON values it cannot round-trip back",
+  "updated_at": "2026-05-15T04:10:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:36:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "8e7752c8-e1f0-53fe-a992-3eef4f0596e8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

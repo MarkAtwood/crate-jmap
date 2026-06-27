@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-drv.4",
+  "title": "send_request double-serializes: to_value then to_string",
+  "description": "WsSession::send_request calls serde_json::to_value(req) to get a Value, mutates it to insert @type and optional id, then calls serde_json::to_string(&val). The to_value call allocates a full serde_json::Value tree (heap-allocating Strings for every field, Vecs for arrays). For a JmapRequest with multiple method calls and large argument objects, this is a significant allocation. The to_string call then re-encodes the same tree. Alternative: a wrapper struct with #[serde(flatten)] that adds @type and id fields: struct WsRequestFrame<'a> { @type: &'static str, #[serde(skip_serializing_if)] id: Option<&'a str>, #[serde(flatten)] inner: &'a JmapRequest } \u2014 serializes in one pass with no intermediate Value.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T16:36:31Z",
+  "updated_at": "2026-04-30T16:43:36Z",
+  "closed_at": "2026-04-30T16:43:36Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-drv",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 09:36:31"
+    }
+  ]
+}

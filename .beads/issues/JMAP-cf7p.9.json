@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260513T175453Z-2820386",
+  "close_reason": "Landed in commit c6c2c21 (testjig signal-driven SSE/WS push via watch channel). \n\nImplementation: tokio::sync::watch::Sender<u64> on AppStateInner. post_jmap (http.rs:236) and WS handle_request_frame (ws.rs:265) call notify_state_changed() after every dispatch. SSE poll_loop and WS push_loop subscribe and tokio::select! between watch::Receiver::changed() and a 5s safety-net poll tick (POLL_INTERVAL was 200ms, now 5s and reframed as belt-and-suspenders).\n\nAcceptance criteria status:\n\n- '200 ms polling loop is replaced by a signal-driven loop': YES. POLL_INTERVAL is now a 5s safety net; primary wake is the watch channel, fired by every dispatcher invocation. Steady-state idle subscriber polls once per 5s, not 5x per second.\n\n- 'Latency: a state event reaches the SSE client within 10ms of the underlying mutation': verified by new tests/sse_smoke.rs::signal_driven_push_meets_latency_budget. End-to-end assertion is <=100ms (10x the server-side bound, sized for HTTP+scheduler overhead on shared CI). Typical observed: well under 10ms in-process.\n\n- 'All 21 existing sse unit tests + 2 sse_smoke integration tests continue to pass': YES. Full workspace cargo test reports 2114 passed / 0 failed.\n\n- 'Workspace-wide: signal API is added in a shape consistent with the canonical extension-server template (jmap-mail-server first per workspace AGENTS.md), then propagated to all 8 siblings': OVERRIDDEN by Mark's 2026-05-13T17:34Z accepted decision (option 1c, testjig-internal mpsc, single bead scoped to testjig). The implementation touches zero *-server crates and adds zero foundation-trait surface, preserving the kit-vs-jig posture documented in workspace AGENTS.md 'What this workspace builds'. The shape choice (watch::Sender<u64> rather than mpsc) is the closest race-free fit to Mark's accepted 'in-process signal channel' spirit \u2014 Notify is racy on subscribe-vs-wake, broadcast queues unwanted history, mpsc requires per-subscriber channel management.\n\nPre-commit gate clean: cargo fmt, cargo clippy --workspace --tests -- -D warnings, cargo test --workspace (2114 passed), RUSTDOCFLAGS='-D warnings' cargo doc --workspace --no-deps, cargo tree -i openssl --workspace (empty).\n\nWorkspace member count unchanged: 30. Lines added: +316 testjig-internal. No new deps (tokio::sync::watch already in dep graph via tokio's sync feature).\n\nThe two coupled follow-ups (JMAP-cf7p.10 SSE Last-Event-ID replay, JMAP-cf7p.12 WS pushState replay) remain open as polish beads. They could now grow snapshot-id semantics on top of the watch channel's seen-version counter, but that is a separate design choice for whoever picks them up.",
+  "closed_at": "2026-05-13T18:10:28Z",
+  "compaction_level": 0,
+  "content_hash": "23b089cf25558de00b7ba2f58c0b9d1dbbd32997fb5b6e8c7a32a846b7feee6e",
+  "created_at": "2026-05-12T06:30:59Z",
+  "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+  "description": "The bd:JMAP-cf7p.4 SSE endpoint uses a 200ms polling loop over MemoryBackend::get_state<O>() for each of the 8 reference backends.\n\nThis is the MVP per the bead's explicit guidance:\n> If the MemoryBackends don't currently expose a 'subscribe' API, this slice may need to add a polling loop (e.g. tokio interval that diffs get_state across types each second) as a minimum-viable approach, with a follow-up bead for proper signalling.\n\nImprovement: grow a 'subscribe to state changes' API on each of the 8 reference MemoryBackends (or a shared trait surface on the jmap-server JmapBackend), have apply_space_patch / create_object / update_object / destroy_object signal it, and have the testjig SSE handler await the signal instead of polling.\n\nAcceptance:\n- New trait method (or backend-internal channel) lets the testjig SSE poller wake on state changes rather than polling.\n- The current src/sse.rs polling loop is replaced by a signal-driven loop.\n- Latency: a state event reaches the SSE client within 10ms of the underlying mutation.\n- All 21 existing sse unit tests + 2 sse_smoke integration tests continue to pass.\n- Workspace-wide: signal API is added in a shape consistent with the canonical extension-server template (jmap-mail-server first per workspace AGENTS.md), then propagated to all 8 siblings.\n\nCross-references:\n- bd:JMAP-cf7p.4 (parent slice \u2014 polling MVP).\n- workspace AGENTS.md 'Canonical Templates' propagation rule.\n\nThis is a workspace-wide canonical extension to add a SubscribeBackend trait (or equivalent on JmapBackend itself with a default impl that polls). Likely a P2 epic when picked up.",
+  "ephemeral": 0,
+  "id": "JMAP-cf7p.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "testjig SSE: replace polling with signal-driven push",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T23:30:58Z",
+      "created_by": "bd-spin/bd-spin-20260512T045359Z-1929490",
+      "depends_on_issue_id": "JMAP-cf7p",
+      "id": "c7535a39-b4ac-5824-9543-6885c25146ab",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

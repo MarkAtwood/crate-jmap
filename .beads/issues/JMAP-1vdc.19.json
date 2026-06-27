@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decision recorded: JSON-length size proxy is correct; leaves size=0 mask filter bugs, fixed constant meaningless",
+  "closed_at": "2026-05-02T21:11:52Z",
+  "compaction_level": 0,
+  "content_hash": "eb89e859f8ebcedc8dad9a2d9ffc30cfba46c92243e769a7d712fff55a4fcef2",
+  "created_at": "2026-05-02T19:34:32Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/common/mod.rs MemoryBackend::create_object replaces a placeholder size=0 with the byte length of the serialized JSON Value of the email object. The comment explains: 'email.rs sets size=0 as a placeholder (it has no raw bytes on the Email/set create path); the backend is responsible for assigning the real value. MemoryBackend uses the serialized-JSON byte length as a proxy \u2014 non-zero and stable within a test.'\n\nA contributor might suggest: (a) leaving size=0, (b) using a fixed constant like 1, or (c) implementing an RFC 5322 byte-count via a mock blob.\n\nWhy JSON-length proxy is correct:\n1. size=0 would make min_size filter tests pass trivially even when they shouldn't, masking filter logic bugs.\n2. A fixed constant like 1 would produce the same size for every email, making size-based ordering and filter tests meaningless.\n3. The JSON serialization length is non-zero, deterministic within a test run, and proportional to email complexity \u2014 it correctly separates large from small emails in tests.\n4. The contract is clear: real backends must use the raw RFC 5322 byte count (as in import_email which uses bytes.len()); this path (Email/set create without raw bytes) is inherently a test-only approximation, documented as such.\n5. The pattern mirrors how import_email handles the same problem: use actual bytes.len() when raw bytes are available, fall back to a proxy when they are not.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend assigns size from serialized JSON length on Email/set create",
+  "updated_at": "2026-05-02T21:11:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:34:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "072321f9-18c1-5cd0-b39f-bda77ff0310f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

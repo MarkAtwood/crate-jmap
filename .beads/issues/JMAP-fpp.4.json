@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-fpp.4",
+  "title": "expand_url_template: nested/adjacent braces give misleading error",
+  "description": "Input like '{foo{bar}}' causes find('}') on 'foo{bar}}' to return 3, producing name='foo{bar}'. This does not match any var and returns InvalidArgument('URL template variable not supplied: {foo{bar}}'). The error is technically correct but the message 'variable not supplied' is misleading when the real problem is a malformed template. This will confuse users debugging bad server session documents. A check that name contains only safe characters (alphanumeric + dash) would catch malformed templates with a better message.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:15:07Z",
+  "updated_at": "2026-04-30T01:18:44Z",
+  "closed_at": "2026-04-30T01:18:44Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-fpp",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:15:06"
+    }
+  ]
+}

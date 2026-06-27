@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already documented: IdFate enum doc at line 162 says 'created+destroyed \u2192 removed from map', and line 350-352 has inline comment explaining RFC 8620 \u00a75.2 requirement.",
+  "closed_at": "2026-05-04T15:52:43Z",
+  "compaction_level": 0,
+  "content_hash": "41d621bf25e0e7ee60310d8f3e39eb363bb580a12ecf4c1a5a1284ae4ec6ed0e",
+  "created_at": "2026-05-02T00:43:54Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/common/mod.rs IdFate implements the RFC 8620 \u00a75.6 change deduplication rules. Crucially, when an object is created then destroyed within the same /changes window it is removed from the fates map entirely (not reported as Destroyed). The client never knew the object existed, so reporting it as Destroyed would be incorrect. A future contributor might change the Created\u2192Destroyed case to insert IdFate::Destroyed, which would send spurious notDestroyed entries to the client. The omit-from-map behavior on line 271 is correct and required by the spec.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.19",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "IdFate created+destroyed in window produces no entry per RFC 8620 \u00a75.6",
+  "updated_at": "2026-05-04T15:52:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:54Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "d4859dd9-744c-5657-9d3f-9cf415824e6d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

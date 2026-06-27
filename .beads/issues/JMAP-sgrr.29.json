@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed: AnniversaryDate Serialize re-stamps @type='Timestamp' when caller left at_type=None. Two regression tests added (None-path re-stamp, Some-path preservation). Commit e7f7cae.",
+  "closed_at": "2026-05-15T04:30:13Z",
+  "compaction_level": 0,
+  "content_hash": "9e0c7bdc864b82a5b9242bebda4446fe3b1c71e7bfe0ad57eae7041448e9ab8d",
+  "created_at": "2026-05-15T04:21:37Z",
+  "created_by": "Mark Atwood",
+  "description": "A Rust-side caller constructing Timestamp { at_type: None,\nutc: \\\"...\\\", extra: Map::new() } and wrapping it in\nAnniversaryDate::Timestamp(t) emits a wire shape that deserialises\nback as AnniversaryDate::PartialDate, with the utc field flowing\ninto extra. Variant identity AND the utc payload's semantic\nposition are lost across the round-trip.\n\nThis is the 9th instance of the mandatory-as-Option pattern that\nsgrr.17 enumerates (Calendar.kind, Calendar.uri, CryptoKey.uri,\nDirectory.kind, Directory.uri, Link.uri, Media.kind, Media.uri,\nplus this Timestamp.at_type case for Anniversary.date use). It is\ndistinguishable from sgrr.17 by its failure mode:\n\n- sgrr.17 failure mode: peer cannot validate per RFC. Round-trip\n  is correct (None field \u2192 omit on wire \u2192 None on deserialise).\n- This finding failure mode: Rust-side round-trip itself silently\n  changes the variant. The wire output is technically a valid\n  PartialDate shape (with a stray \\\\\\\"utc\\\\\\\" key in the\n  flatten-extras), so deserialise succeeds \u2014 it just doesn't\n  produce the same Rust value.\n\nTrace, reading lib.rs:946-975 and 1034-1076:\n\n1. let t = Timestamp {\n       at_type: None,\n       utc: \\\"2022-05-22T03:30:00Z\\\".into(),\n       extra: serde_json::Map::new(),\n   };\n2. let original = AnniversaryDate::Timestamp(t);\n3. Serialize impl at lib.rs:1038 calls t.serialize(s), which\n   produces {\\\"utc\\\": \\\"2022-05-22T03:30:00Z\\\"} (at_type=None\n   skipped by skip_serializing_if, extras empty).\n4. Deserialize impl at lib.rs:1063 sees is_object()=true,\n   @type=None.\n5. Match arm at lib.rs:1066 routes to PartialDate variant.\n6. serde_json::from_value::<PartialDate>(v) succeeds: year,\n   month, day, calendar_scale all absent \u2192 None; utc lands in\n   the extras flatten-map.\n7. Result: AnniversaryDate::PartialDate(PartialDate {\n       at_type: None,\n       year: None, month: None, day: None,\n       calendar_scale: None,\n       extra: { \\\"utc\\\": \\\"2022-05-22T03:30:00Z\\\" },\n   })\n\nThe doc on Timestamp::at_type (lib.rs:949-953) warns: \\\"required\nto be \\\\\\\"Timestamp\\\\\\\" on the wire when the value is used as an\nAnniversary.date (because the default-type for that field is\nPartialDate; explicit @type is what selects this variant).\\\"\nThe warning is correct but does not stop a caller from\nconstructing the invalid state. The type system permits at_type:\nNone on Timestamp because Timestamp is also valid as a stand-\nalone wire object (the at_type=Some(\\\"Timestamp\\\") requirement is\ncontextual to the Anniversary.date position).\n\nWhy the caller cares:\n\n- A test that round-trips Anniversary { date: Timestamp { at_type:\n  None, utc: ..., ... } } would silently \\\\\\\"pass\\\\\\\" with the\n  data corruption invisible because the wire JSON parses\n  successfully \u2014 it just parses as the wrong variant.\n- A composing client that builds an Anniversary from a Timestamp\n  it received elsewhere (e.g. parsed from an ISO-8601 string,\n  constructed via a helper that left at_type unset) will emit a\n  wire shape no spec-conformant peer can interpret as a\n  Timestamp.\n- Existing tests (anniversary_roundtrip_figure_41_timestamp at\n  lib.rs:1581) only cover the at_type=Some(\\\\\\\"Timestamp\\\\\\\") path.\n  The at_type=None Timestamp construction path is unverified.\n\nThree ways to address (caller cannot fix this in their code):\n\n(a) Default Timestamp::at_type to Some(\\\\\\\"Timestamp\\\\\\\") at the\n    Serialize boundary when the value is being emitted as\n    AnniversaryDate::Timestamp. Special-case in the manual\n    Serialize impl at lib.rs:1038: re-stamp at_type if None.\n    Preserves wire-format correctness without changing the\n    public API.\n(b) Make Timestamp::at_type a non-Option field set to a sealed\n    constant \\\\\\\"Timestamp\\\\\\\" sentinel via a custom Deserialize\n    that accepts None on the wire (default-type elision). The\n    Rust type then enforces the invariant.\n(c) Document the precondition prominently in\n    AnniversaryDate::Timestamp's rustdoc and add a debug_assert!\n    in serialize that catches the missing at_type during dev.\n\nRecommendation: (a). The fix is local to the manual Serialize\nimpl, preserves backward compat, and matches the existing pattern\nof the manual impl already handling the AnniversaryDate\ndispatch quirks. Worth filing as P2 because the failure is\nsilent and per-Rust-construction (not per-wire-input); a single\nbuggy caller can produce mis-serialised Anniversaries that look\ncorrect in unit tests.\n\nProbe to confirm (cannot run in read-only review):\n\n    #[test]\n    fn timestamp_at_type_none_silently_corrupts_round_trip() {\n        let t = Timestamp {\n            at_type: None,\n            utc: \\\"2022-05-22T03:30:00Z\\\".into(),\n            extra: serde_json::Map::new(),\n        };\n        let anniv = Anniversary {\n            at_type: None, kind: \\\"birth\\\".into(),\n            date: AnniversaryDate::Timestamp(t),\n            place: None, extra: serde_json::Map::new(),\n        };\n        let wire = serde_json::to_value(&anniv).unwrap();\n        let back: Anniversary =\n            serde_json::from_value(wire).unwrap();\n        // Documents the corruption, not asserts the desired shape:\n        assert!(matches!(back.date, AnniversaryDate::PartialDate(_)),\n            \\\"silent corruption: Timestamp at_type=None routes to \\\n            PartialDate after round-trip\\\");\n    }\n\nRelated: sgrr.17 (mandatory-as-Option) \u2014 distinct failure mode,\nfiled separately.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Timestamp::at_type = None in AnniversaryDate::Timestamp position silently corrupts wire round-trip",
+  "updated_at": "2026-05-15T04:30:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:21:36Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "3476757c-4b4a-5e59-a075-9d441742bd7b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

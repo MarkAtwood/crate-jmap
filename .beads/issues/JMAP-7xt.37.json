@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.37",
+  "title": "validate_session_urls safe comment addresses panic not correctness",
+  "description": "client.rs validate_session_urls (line 512): comment reads '// safe: split always yields at least one element'. This comment explains why the unwrap() won't panic but does not explain whether the scheme extraction is semantically correct. A reader auditing security properties will ask: 'does split on \":// \" correctly identify the scheme?' and the comment does not answer that. The comment should instead note that this is a heuristic and explain why a URL parser is not used here, or the code should be changed to use url::Url::parse which makes the comment unnecessary.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:47:26Z",
+  "updated_at": "2026-04-30T01:03:22Z",
+  "closed_at": "2026-04-30T01:03:22Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:47:25"
+    }
+  ]
+}

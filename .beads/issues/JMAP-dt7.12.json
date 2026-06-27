@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.12",
+  "title": "extract_response: name the tuple fields at the use site",
+  "description": "In client.rs extract_response, the code accesses inv.0, inv.1, inv.2 on an Invocation (a (String, Value, String) tuple alias). The comment one line above says what the fields are, but a contributor reading only this function sees positional tuple indexing with no field names. The comment is accurate but placed on the wrong line \u2014 it appears before the let binding, not adjacent to the .0/.1/.2 accesses. Consider a destructuring let (method_name, args, _id) = inv at the top of the function so all three accesses are self-documenting.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:31Z",
+  "updated_at": "2026-04-30T01:12:49Z",
+  "closed_at": "2026-04-30T01:12:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:31"
+    }
+  ]
+}

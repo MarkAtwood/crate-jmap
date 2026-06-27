@@ -1,0 +1,32 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T02:00:44Z",
+  "compaction_level": 0,
+  "content_hash": "d456f829f2f8fe34bd26ebcb78e33cb578f06281afc33ff919c86694ccce41dc",
+  "created_at": "2026-05-05T01:51:59Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-i7vj.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "issue",
+  "updated_at": "2026-05-05T02:00:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:51:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-i7vj",
+      "id": "a511bfcd-6032-5941-bc1e-d30584a60a45",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

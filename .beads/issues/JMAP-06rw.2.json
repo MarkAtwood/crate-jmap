@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "7 Task wiremock tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/task_tests.rs (7 tests: get with ids+properties, get null ids, changes paginated, set create, copy fromAccountId, query filter, queryChanges); clippy clean",
+  "closed_at": "2026-05-05T04:37:08Z",
+  "compaction_level": 0,
+  "content_hash": "eff39e0ab5d2378343272940ff623516cef4f4b2f5833155b4bec250abd59ccb",
+  "created_at": "2026-05-05T02:54:46Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-tasks-client/tests/task_tests.rs with 7 async wiremock tests. Reuse session.json from TA. Oracle: draft-ietf-jmap-tasks-06 \u00a74 (Task JMAP fields); RFC 8620 \u00a75.1-5.6.\n\n**Tests:**\n1. task_get_sends_ids_and_properties: mock returns GetResponse<Task> with one task (id=task1, title=Write tests, isDraft=false); assert resp.list[0].is_draft==Some(false); assert request ids==[\"task1\"] and properties==[\"id\",\"title\",\"isDraft\"].\n2. task_get_all_ids_null: call with ids=None; assert request ids field is null.\n3. task_changes_paginated: mock returns hasMoreChanges:true; assert has_more_changes==true; assert request has maxChanges==10.\n4. task_set_create_round_trip: call create {\"k1\":{\"@type\":\"Task\",\"title\":\"New task\",\"isDraft\":true}}; assert resp.created[\"k1\"].id==\"task-new1\".\n5. task_copy_includes_from_account_id: assert request has fromAccountId==\"srcacc\" and accountId==\"A13824\" as separate fields.\n6. task_query_with_filter: pass filter {\"after\":\"2026-01-01T00:00:00Z\"}, position=0, limit=20; assert resp.ids==[\"task1\",\"task2\"]; assert request has filter.after and position==0 and limit==20.\n7. task_query_changes_round_trip: assert resp.removed==[\"task-old\"], added[0].id==\"task-new\", added[0].index==0; assert request has sinceQueryState==\"qs1\" and maxChanges==5.\n\n**Acceptance criteria:** All 7 tests pass.",
+  "ephemeral": 0,
+  "id": "JMAP-06rw.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: Task/get /changes /set /copy /query /queryChanges",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:55:05Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-06rw.1",
+      "id": "0d6f4628-afe2-50f6-a097-89e1a5dfb3b2",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:54:46Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-06rw",
+      "id": "af374a6d-84b0-5870-897c-cff3f392ce20",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

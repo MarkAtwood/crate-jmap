@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added an inline 'Do not remove this variant' defense note to AnniversaryDate::Unknown variant doc-comment, explaining the workspace extras-preservation rationale (future-spec @type values must round-trip losslessly) and cross-referencing the bead. The defense is visible on hover/cargo-doc, so a future contributor proposing removal will see the rejection before sending the PR. Tests pass; cargo doc -D warnings clean. Commit pending.",
+  "closed_at": "2026-05-15T04:08:38Z",
+  "compaction_level": 0,
+  "content_hash": "9c3c7412cd9ba0a57c56a9a66a96c615937802f48d7345cd7fa2790685562997",
+  "created_at": "2026-05-15T03:36:21Z",
+  "created_by": "Mark Atwood",
+  "description": "lib.rs:956-997 implements AnniversaryDate as a #[non_exhaustive] enum with PartialDate, Timestamp, and Unknown(serde_json::Value) variants, with a custom Serialize/Deserialize that dispatches on @type. The Unknown variant preserves any unrecognised @type shape opaquely so a Card carrying a future-spec date type round-trips losslessly through this crate. The test at :1486-1501 locks this behaviour in. This is the right shape: it matches the workspace 'extras-preservation' philosophy (preserve unknown fields rather than silently drop) and avoids forcing a major-version bump every time the IETF adds a new @type variant. A future contributor might suggest 'simplifying' by removing Unknown and falling back to a deserialize error \u2014 that would silently lose data for any spec-conformant input from a JSContact extension server, which is exactly the bug the variant exists to prevent. Defend Unknown against PRs to remove it.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.10",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AnniversaryDate::Unknown variant: forward-compat preservation of unknown @type values",
+  "updated_at": "2026-05-15T04:08:38Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:36:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "4996a6c3-28b9-562f-b0c4-68521decf4e3",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

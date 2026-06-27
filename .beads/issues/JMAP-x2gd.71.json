@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit 08b1919 alongside .70. Added 'Diagnostic content convention' section to apply_space_metadata_patch rustdoc and an equivalent paragraph in apply_space_patch's per-op error semantics table. SetError.description MUST contain the missing-permission identifier as a substring; 'SetError::new(Forbidden).with_description(\"manage_space permission required\")' is the canonical form. Replaced misleading 'SetError::new(Forbidden)' literal in the metadata-patch return-value section that would have a backend fail the kit's own tests.",
+  "closed_at": "2026-05-14T16:14:11Z",
+  "compaction_level": 0,
+  "content_hash": "166b4ddf5ac552e64f30b9ef75c8f1f0702cf61306b5d56a3b933e7fbb1e41be",
+  "created_at": "2026-05-14T15:42:48Z",
+  "created_by": "Mark Atwood",
+  "description": "## Finding\n\nFour integration tests across three test files assert that the\n`SetError.description` field on permission-denied / hierarchy-\nviolation / last-admin-protection rejections CONTAINS specific\npermission identifier substrings:\n\n```\ncrate-jmap-chat-server/tests/space_metadata_apply.rs:298-304\n    assert!(desc.contains(\"manage_space\"), ...)\n\ncrate-jmap-chat-server/tests/channel_category_apply.rs:196-202\n    assert!(desc.contains(\"manage_channels\"), ...)\n\ncrate-jmap-chat-server/tests/role_member_apply.rs:294-300\n    assert!(desc.contains(\"hierarchy\") || desc.contains(\"position\"), ...)\n\ncrate-jmap-chat-server/tests/role_member_apply.rs:574-580\n    assert!(desc.contains(\"last-admin\") || desc.contains(\"manage_members\"), ...)\n```\n\nYet the rustdoc for both backend methods is silent on the\n`description` content convention:\n\n**`apply_space_patch`** (`backend.rs:497-502`) \u2014 discusses per-op\nrejection routing into `OpResult.outcome` but says nothing about\nthe description string content.\n\n**`apply_space_metadata_patch`** (`backend.rs:563-564`):\n\n```\n/// `Err(BackendSetError::SetError(SetError::new(Forbidden)))`\n/// when the caller fails the `manage_space` gate.\n```\n\n`SetError::new(Forbidden)` constructs a SetError with an empty\ndescription by default \u2014 but the test at\n`space_metadata_apply.rs:298-304` asserts the description names\nthe permission. The rustdoc literally suggests the wrong builder\ncall: a backend that follows the doc verbatim writes a\ndescription-less SetError and fails the kit's own test.\n\n## What goes wrong for a third-party implementer\n\nA backend that returns the rustdoc-prescribed\n`SetError::new(Forbidden)` (or `SetError::with_type(Forbidden)`)\nwith no `description`:\n\n1. Passes the rustdoc contract (Forbidden is the correct variant)\n2. Fails the kit's integration test suite when plugged in\n3. Breaks downstream UI/CLI consumers that surface the\n   description to end users \u2014 the user sees \"Permission denied\"\n   instead of \"Permission denied: missing manage_space\" and\n   cannot diagnose what to ask an admin for.\n4. Breaks consumers that programmatically extract permission\n   identifiers from descriptions to drive permission-request\n   flows.\n\n## Recommendation\n\nAdd a \"Diagnostic content convention\" sub-section to both\nbackend methods. Wording suggestion:\n\n> ## Diagnostic content convention\n>\n> When the rejection is permission-denied, backends SHOULD set\n> `SetError.description` to a string containing the missing\n> permission identifier as a substring (`\"manage_space\"`,\n> `\"manage_channels\"`, `\"manage_members\"`, `\"manage_roles\"`, or\n> a deployment-specific permission name). Consumers may rely on\n> the description substring to route permission-request flows.\n> The kit's integration tests assert this substring match; a\n> backend that returns a bare `SetError::new(Forbidden)` with\n> empty description will fail those tests.\n>\n> Similarly, hierarchy-violation rejections SHOULD include\n> `\"hierarchy\"` or `\"position\"`, last-admin-protection\n> rejections SHOULD include `\"last-admin\"` or\n> `\"manage_members\"`.\n\nAlternative: use `SetError::with_extra` (or analogous) to put a\nstructured `missingPermission` extra field on the error instead\nof relying on substring matching. This is more robust against\nlocale-variation in the description but requires consumer-side\nopt-in.\n\n## Engineering basis\n\n- 4 test assertions read verbatim, all asserting `contains()` on\n  the description string.\n- Rustdoc passages on both backend methods read verbatim.\n- The kit's reference `MemoryBackend` includes the permission\n  identifier in its SetError descriptions (e.g. at\n  `memory.rs:2686-2696` for `permissions::required_permissions_for_op`\n  output) \u2014 implementation matches the test but the doc does not.\n\n## Scope note\n\nThis is one of several \"tests encode contract that rustdoc does\nnot\" gaps surfaced by the 4th-pass test-as-implicit-contract\nexercise. Combined with the per-op SetError variant table gap\n(separate finding), the single highest-leverage fix is one new\n\"Per-op error semantics\" sub-section on `apply_space_patch`\ncovering both the SetErrorType variant table and the\ndescription content convention. Same pattern applies to\n`apply_space_metadata_patch`.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.71",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: apply_space_patch / apply_space_metadata_patch rustdoc is silent on the diagnostic 'description' content convention; tests assert description names the missing permission",
+  "updated_at": "2026-05-14T16:14:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T08:42:47Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "e9931802-11bd-5177-b88f-88083bb34a0b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

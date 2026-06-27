@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T23:40:11Z",
+  "compaction_level": 0,
+  "content_hash": "cb598dafa21086f6fc1131608a0ca973ae86975f442f67e3fc020bf7e39d40e7",
+  "created_at": "2026-05-01T23:01:26Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec \u00a7SpaceInvite: entirely unimplemented. Required methods: SpaceInvite/get, /changes, /set (create and destroy only, no update), /query, /queryChanges. Visibility rules: manage_members sees all, others see only own. Create requires spaceId; optional defaultChannelId, expiresAt, maxUses. Destroy requires manage_members. Critical: atomic increment of uses against maxUses during Space/join.",
+  "ephemeral": 0,
+  "id": "JMAP-j1q",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement SpaceInvite object type (5 methods)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T16:10:44Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x09",
+      "id": "1c9f1fb8-34a5-56bd-ad45-e0755cfb8126",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-01T16:31:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x09.1",
+      "id": "c77365fa-0ec2-5e56-ba35-4920cc7c42d1",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "b14d0533b45c0d59078ffb64123e08e14feb6abd9d5a94afff9cad12c663b083",
+  "created_at": "2026-05-15T18:32:15Z",
+  "created_by": "Mark Atwood",
+  "description": "The reference MemoryBackend in every extension-server crate uses runtime O::TYPE_NAME string equality inside generic /set methods (create_object/update_object/destroy_object) to dispatch per-type index-maintenance:\n\n  - crate-jmap-mail-server/src/memory.rs: O::TYPE_NAME == 'Mailbox' / 'Email' / 'EmailSubmission' at ~690, 741, 763, 780\n  - crate-jmap-calendars-server/src/memory.rs: O::TYPE_NAME == 'CalendarEvent' (was 3 sites, collapsed to one helper in JMAP-ic0j.44; the helper still does the string compare internally)\n  - crate-jmap-chat-server/src/memory.rs: likely similar\n  - Other siblings: not audited\n\nThe principled fix is to add a 'fn after_set_hook(...)' default method on the JmapObject foundation trait (jmap-server::JmapObject) that per-type impls override. Dispatch becomes a trait method call rather than a runtime string compare; the compiler can prove which branch is reachable for each O.\n\nPre-requisites for that fix:\n- Change JmapObject in jmap-server (foundation crate).\n- Propagate to every type that implements JmapObject across jmap-mail-types, jmap-chat-types, jmap-calendars-types, jmap-tasks-types, jmap-contacts-types, jmap-filenode-types, jmap-metadata-types, jmap-sharing-types.\n- Update every extension-server MemoryBackend to use the trait method instead of string equality.\n- Pass through every MemoryBackend's tests.\n\nScope: workspace-foundation change. Filed at P3 because:\n- The current pattern works correctly (not a correctness bug).\n- The per-extension workaround (collapse to a single private helper) is already in place in calendars-server and is the reviewer's recommended stable workaround.\n- The propagation cost is high relative to the code-smell impact.\n\nReviewer recommendation in the parent: do option (a) at the canonical layer when other reasons drive a JmapObject foundation revision. Don't do it standalone.",
+  "ephemeral": 0,
+  "id": "JMAP-934u",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "MemoryBackend runtime O::TYPE_NAME string-equality dispatch \u2014 workspace-wide pattern across calendars/mail/chat servers",
+  "updated_at": "2026-05-15T18:32:15Z"
+}

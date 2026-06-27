@@ -1,0 +1,33 @@
+{
+  "close_reason": "positive observation, no action needed",
+  "closed_at": "2026-05-02T07:05:15Z",
+  "compaction_level": 0,
+  "content_hash": "da5158098041a7de7df65eeb66e3572d71f223a32f99e0d10848475664ccec05",
+  "created_at": "2026-05-02T05:28:12Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_email_parse (Email/parse, RFC 8621 \u00a75.8) calls blob_exists() only when parse_email fails, correctly separating the two error cases: blob not found vs blob found but not parseable as an email. blob_exists is a required trait method (no default) since round 8 fix. This is the correct, defensible design per RFC 8621 \u00a75.8.",
+  "ephemeral": 0,
+  "id": "JMAP-ci3.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/import correctly distinguishes notParsable from notFound via blob_exists()",
+  "updated_at": "2026-05-02T07:05:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T22:28:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ci3",
+      "id": "1889e281-99f6-54e6-ab4c-787a883540c0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

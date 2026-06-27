@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-sev",
+  "title": "Review round 3: Implement jmap-client crate",
+  "description": "Third review pass after round 2 fix wave. P0 and P1 fixed: timeout, UTF-8 SSE, ClientConfig, StateChange, build().",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:28:31Z",
+  "updated_at": "2026-04-30T01:02:53Z",
+  "closed_at": "2026-04-30T01:02:53Z",
+  "notes": "Maintainer risk round 3: MEDIUM \u2014 raw_buf OOM (P0) is new code from this round; SseEvent/push::StateChange split (P1) is a half-completed consolidation that will cause duplicate handling code in extension crates; Duration::ZERO ambiguity (P1) is a latent dependency-upgrade footgun.\nConfidence: 10% chance of missed bug. The raw_buf OOM is the only P0 found and it is clear-cut. The codebase is small (9 files, ~500 lines of logic), I read every line, and the round-2 fixes for timeout, size caps, UTF-8 buffering, and type duplication all landed correctly. The remaining risk is in the reqwest timeout behavior for Duration::ZERO which is operationally observable but not a data-loss bug."
+}

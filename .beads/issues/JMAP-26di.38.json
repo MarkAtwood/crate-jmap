@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Rewrote ChatWsFrame::Unknown.type_name rustdoc to enumerate all four sources of the field's String value:\n1. Verbatim @type string from underlying WsFrame::Unknown\n2. '<no @type>' (jmap-base-client's own sentinel for absent @type)\n3. 'ChatTypingEvent' / 'ChatPresenceEvent' (known-chat-event payload deser failure)\n4. '<unknown>' (future non-Unknown base-client WsFrame variants)\n\nVerified all four sources by reading crate-jmap-base-client/src/ws/mod.rs:300 (origin of '<no @type>' literal) and chat-client ws.rs:48-71 (the parse_chat_ws_frame match arms). Bead's analysis of the doc/impl mismatch was solid.\n\nBead's suggested follow-up of a typed UnknownKind enum is deferred \u2014 that's a larger API-shape change not in scope for this doc fix.\n\nrustdoc -D warnings clean. cargo test green. Committed as 11ed5d8.",
+  "closed_at": "2026-05-15T21:39:43Z",
+  "compaction_level": 0,
+  "content_hash": "86a5cd975ac4a973a2ded08edf23046c82f1387d3b071ee87b19c5b6fef2e56b",
+  "created_at": "2026-05-15T20:40:30Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-client/src/ws.rs:36 (doc) vs :69 (impl).\n\nLine 36 documents:\n```\n/// The `@type` value from the JSON frame; `\"<no @type>\"` if absent.\n```\n\nLine 67-71 (the only place this crate constructs `ChatWsFrame::Unknown` with a synthetic value):\n```rust\n_ => ChatWsFrame::Unknown {\n    type_name: \"<unknown>\".to_owned(),\n},\n```\n\nA caller reading the doc would write defensive code matching `frame.type_name.as_str() == \"<no @type>\"` to detect \"absent @type\" cases. This will never match for any frame this crate produces \u2014 they get `\"<unknown>\"` instead.\n\nThe base-client's own `WsFrame::Unknown` may produce `\"<no @type>\"` internally (per `jmap-base-client`'s contract), but `parse_chat_ws_frame` only falls into this branch for *non-Unknown* base frames it doesn't recognise \u2014 i.e. for future variants of `jmap_base_client::WsFrame` \u2014 which is the `\"<unknown>\"` case. The base-client's own `WsFrame::Unknown` flows through one of the other arms (lines 53-65 or 67-68), so the `<no @type>` literal from the base never actually lands in `ChatWsFrame::Unknown.type_name`.\n\nFix: align the doc with the impl. Either:\n- Change the doc to: `\"\\\"<unknown>\\\" when the base WsFrame variant is not recognised by this parser, or the verbatim @type string from the base WsFrame::Unknown otherwise.\"` (depends on what the base actually produces \u2014 verify with jmap-base-client's `WsFrame::Unknown` doc).\n- Or change the impl to `\"<no @type>\".to_owned()` to make the literal match. The doc is the more useful contract; the impl literal is internal.\n\nCompounding issue: the field has two distinct semantic meanings packed into one `String` (parser-saw-unrecognised-variant vs server-omitted-@type), which makes the contract awkward regardless of the literal chosen. A typed `ChatWsFrame::Unknown { kind: UnknownKind }` enum would be cleaner but is a larger change.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.38",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ChatWsFrame::Unknown.type_name doc says \"<no @type>\" but impl produces \"<unknown>\"",
+  "updated_at": "2026-05-15T21:39:43Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:40:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "ded5e852-2983-573f-a96e-47ffc0b7ce44",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

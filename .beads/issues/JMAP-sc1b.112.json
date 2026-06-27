@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-13T15:40:12Z",
+  "compaction_level": 0,
+  "content_hash": "8a4f75c51e4381d9ed2bcb7a1c1be096f652d77223fff6bf5609e013f1e1949e",
+  "created_at": "2026-05-13T04:00:21Z",
+  "created_by": "Mark Atwood",
+  "description": "Spotted during JMAP-sc1b.109 chat-server AGENTS.md spot-check (2026-05-12).\n\nThe chat-server AGENTS.md added a 'Permission enforcement: backend canonical' section (lines 74-97 in crate-jmap-chat-server/AGENTS.md as of 2026-05-12) that documents:\n  - Backends are canonical for permission enforcement (per workspace AGENTS.md 'Caller identity (foundation seam)' rule)\n  - Handlers do NO permission checking; defense-in-depth handler-side pre-checks allowed but backend MUST re-verify atomically\n  - Caller identity via JmapBackend::principal_id; None-returning backends cannot honor identity-dependent JMAP semantics\n  - Extension-specific implications (chat-server's version calls out Space mutations and the implementation-defined ownership posture from JMAP-g7wu.2.4.12)\n\nThis is **workspace-wide policy**, not chat-specific content. The canonical jmap-mail-server/AGENTS.md (109 lines) does not currently carry this section. Per the workspace AGENTS.md 'Canonical Templates' propagation rule, additions made on a sibling should backport to the canonical so future cookie-cuts produce complete files.\n\n## Acceptance\n\n  - crate-jmap-mail-server/AGENTS.md grows a 'Permission enforcement: backend canonical' section with:\n    - Workspace-wide policy paragraph (verbatim from chat-server's lines 74-89)\n    - Mail-specific implications paragraph replacing chat-server's lines 90-97. Likely content: per-user $seen on shared mailboxes (RFC 8621 \u00a74.1.1), Identity/EmailSubmission authorization, mailbox role-based access where applicable.\n  - The section lives in the same position as chat-server's (after 'Reference Pattern', before 'Non-Interactive Shell Commands').\n  - Sweep follow-up: once the 6-sibling sweep from JMAP-sc1b.109 lands (chat-server cookie-cut into calendars/tasks/contacts/filenode/sharing/metadata), each of those 6 files also needs its own extension-specific implications paragraph in place of the chat-specific one. File this as part of the same sweep work or as a follow-up nit.\n\n## Out of scope\n\n  - Reshaping the section content itself (the chat-server wording is the authoritative shape; this is just a backport + per-extension swap of the trailing implications paragraph).\n  - Adding any workspace-wide policy that isn't already in chat-server's section.\n\n## Cross-references\n\n  - JMAP-sc1b.109 \u2014 the spot-check that surfaced this gap (chat-server's new section)\n  - JMAP-ga0q \u2014 the foundation-seam work that authorizes 'backends are canonical for permission enforcement'\n  - workspace AGENTS.md 'Caller identity (foundation seam)' \u2014 the policy this section operationalizes per-crate",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.112",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Backport 'Permission enforcement: backend canonical' section to canonical jmap-mail-server/AGENTS.md",
+  "updated_at": "2026-05-13T15:40:12Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-12T21:00:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "6ca1add5-3c81-5cfe-af93-70eb9302600b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

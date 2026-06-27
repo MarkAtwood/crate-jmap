@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done in commit b2ab031. Reframed as idempotent join: same-caller TOCTOU dedups to one entry and succeeds rather than serverFailing. Extracted dedup_caller_members() with 6 unit tests covering empty / single / two-dup / three-dup / bystander / malformed cases.",
+  "closed_at": "2026-05-17T04:35:58Z",
+  "compaction_level": 0,
+  "content_hash": "f4c46def4a23af5b3e611bfd25b94d3b78d07f7b10c8d471d365a293ae349588",
+  "created_at": "2026-05-14T03:14:01Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/space.rs:1462-1499.\n\nWhen the TOCTOU re-read detects duplicate_count > 1, the loser's recovery removes its entry by matching:\n    m.get(\"id\") == account_id AND m.get(\"joinedAt\") == now_str\n\nnow_utc_string() returns ISO 8601 seconds-precision: YYYY-MM-DDTHH:MM:SSZ.\n\nIf two requests from the same account race (which is the exact case this code claims to handle), both record their joinedAt as 'now' at roughly the same wall-clock moment. If the second-precision strings collide (very plausible: the entire race window is sub-second), the recovery's filter matches both entries:\n- removed_ours latches on the FIRST match, removes only that one,\n- but the surviving entry is also 'ours' (same id, same joinedAt) \u2014 we've left the winner with our entry, removed the duplicate, but the user is now reported as 'failed to join' even though they ARE a member.\n\nThe handler returns serverFail; client retries; pre-check passes (still not a member from their perspective? no, they ARE a member \u2014 the surviving entry \u2014 so pre-check FAILS with 'already a member', cycling them into a retry-loop or false-failure.\n\nThe bug is reachable but narrow: requires (a) the same account_id issuing two concurrent join requests via two different invites (or one invite path + one public-space path) AND (b) collision in second-precision joinedAt strings.\n\nFix: include sub-second precision in joinedAt, or use a request-id nonce in the recovery filter, or use a server-assigned per-member nonce that the kit owns.\n\nThis bead is P2 rather than P0 because the trigger requires both same-account double-joining AND the TOCTOU path firing \u2014 uncommon but real. The wider concurrency story for handle_space_join is tracked by JMAP-x2gd.2 (invite uses race).",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Space/join TOCTOU dedup matches joinedAt with second precision; concurrent same-account joins can dedup wrong entry",
+  "updated_at": "2026-05-17T04:35:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:14:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "59c6527a-ba05-5e98-ab64-790f5584fcb5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

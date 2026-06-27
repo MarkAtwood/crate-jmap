@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T05:12:20Z",
+  "compaction_level": 0,
+  "content_hash": "cca72e449339c4fae263fcfe36b4c92fefefb8bcea1da7e60b9102e61719cebe",
+  "created_at": "2026-05-14T03:41:48Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/backend.rs:362-376\n\n  /// Per-aggregate count limits on roles, members, channels, and\n  /// categories per Space are applied by `handle_space_set` *before*\n  /// it calls this method (bd:JMAP-g7wu.2.4.8). The handler queries\n  /// the backend's [`ChatBackend::limits`] once per request,\n  /// fetches the current Space, and rejects the whole update target\n  /// with an `overQuota` SetError ... This means an\n  /// `apply_space_patch` call that originates from\n  /// `handle_space_set` will not contain `Add*` ops that push the\n  /// Space over cap. Backends called directly (bypassing the\n  /// handler) MAY enforce caps a second time for defense in depth;\n  /// the reference `MemoryBackend` does not.\n\nThe kit splits cap enforcement between the handler and the\nbackend in a way that contradicts the workspace's settled\n'backend canonical for permission enforcement' policy (lib.rs:29-52,\nworkspace AGENTS.md 'Caller identity (foundation seam)'):\n\n  'Backends are canonical for permission enforcement.' Handlers do\n  no permission checking. Defense-in-depth handler-side pre-checks\n  are allowed but the backend MUST re-verify atomically with the\n  mutation. A handler that 'trusts' a handler-side check and skips\n  the backend re-check is a bug.\n\nThe aggregate-count caps are exactly this kind of enforcement.\nPutting the check in handle_space_set and not in the backend's\napply_space_patch means:\n\n1. A consumer who calls apply_space_patch directly \u2014 e.g. an\n   admin tool that bypasses the JMAP wire layer and operates on\n   the backend directly, a federation receiver that turns a peer\n   payload into ops without going through the handler, an\n   internal batch importer that seeds 10k members at once \u2014 gets\n   ZERO cap enforcement. The reference MemoryBackend documents\n   this gap and doesn't enforce.\n\n2. The handler-side check is non-atomic with the mutation. A\n   second concurrent /set request can race past the count check\n   and both commit. Even spec-compliant backends are exposed.\n\n3. The doc tells consumers their backend 'MAY enforce caps a\n   second time for defense in depth' \u2014 but every multi-tenant\n   production backend that takes caps seriously will have to\n   write the same boilerplate. The kit owns the cap policy\n   (ChatLimits + the limits() hook) but devolves the enforcement\n   to a 'MAY' on every implementor.\n\n4. The cap-enforcement split is asymmetric vs the rest of the\n   trait's policy hooks: protect_last_admin enforcement is\n   backend-canonical (atomic inside apply_space_patch).\n   manage_space gate on apply_space_metadata_patch is\n   backend-canonical. Only caps live half-in-handler.\n\nFix: move cap enforcement to backend-canonical:\n\n- Drop the handler-side cap check in handle_space_set OR keep it\n  as a non-load-bearing pre-flight (defense-in-depth, as the\n  workspace policy permits).\n- Update the apply_space_patch trait doc to require backends to\n  apply caps atomically per-op, querying self.limits() inside\n  the same critical section as the mutation.\n- Update MemoryBackend to enforce caps inside apply_space_patch_impl.\n\nThis is the same shape-correction we'd apply to permission gates\ngenerally; the cap finding generalises it.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.44",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: apply_space_patch cap-check split with handler causes admin-tool bypass",
+  "updated_at": "2026-05-17T05:12:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:41:48Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "d204e8cc-3b07-5a29-9aaf-611e49526c8b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

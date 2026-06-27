@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T03:22:30Z",
+  "compaction_level": 0,
+  "content_hash": "b8b54eeb5873ced4e1597320632c779987b2c52a91c9b6dfb772e14c30d856eb",
+  "created_at": "2026-05-02T02:58:35Z",
+  "created_by": "Mark Atwood",
+  "description": "vacation.rs (lines 77, 133, 147, 152, 198, 199, 211) and snippet.rs (line 76) use .expect() and .expect() in library handler code with the comment 'type derives Serialize and is always serializable'. The comment is correct for the current types, but the method contract of MailBackend::search_snippets and the VacationResponse/set handler are public library API \u2014 if a downstream crate ever introduces a Serialize impl that can fail (e.g., via a custom Serialize), these become panics in library code rather than JmapErrors. Idiomatic Rust would use .map_err(|e| JmapError::server_fail(e.to_string()))? or the existing fallback pattern already used everywhere else in these files (unwrap_or_else with json! fallback). The .expect() calls are inconsistent with the rest of the codebase which uses unwrap_or_else everywhere for exactly this reason.",
+  "ephemeral": 0,
+  "id": "JMAP-yqo.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "unwrap() in vacation.rs and snippet.rs library code",
+  "updated_at": "2026-05-02T03:22:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T19:58:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yqo",
+      "id": "015a8a6d-d1ee-5562-a4f6-2814fa09775e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

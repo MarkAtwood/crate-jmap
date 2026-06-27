@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7626e45b602e34542799052ae7aec2a8de711dc16c5370e6b9dd5136b27a82be",
+  "created_at": "2026-05-17T20:00:43Z",
+  "created_by": "Mark Atwood",
+  "description": "Surfaced during bd:JMAP-ayoz.41.9 pre-commit rustdoc check.\n\n`RUSTDOCFLAGS=\"-D warnings\" cargo doc -p jmap-metadata-server --no-deps` fails with:\n\n```\nerror: unresolved link to `memory::MemoryBackend`\n  --> crate-jmap-metadata-server/src/lib.rs:50:7\n   |\n50 | //! [`memory::MemoryBackend`] rustdoc for the full discussion.\n   |       ^^^^^^^^^^^^^^^^^^^^^ no item named `memory` in scope\n```\n\nThe `memory` module is gated behind `feature = \"memory\"` and is not visible to the default `cargo doc` invocation. Either:\n1. Wrap the docstring in `#[cfg_attr(feature = \"memory\", doc = ...)]` so the link is only rendered when the module is in scope, or\n2. Document with `--all-features` in CI, or\n3. Use a feature-conditional intra-doc link target.\n\nSibling precedent: bd:JMAP-ha4n (jmap-sharing-server). This bead is the metadata-server counterpart.\n\nOut of scope for bd:JMAP-ayoz.41.9 \u2014 that bead's pre-commit rustdoc check is for regression detection on changes the bead made, not for fixing pre-existing rustdoc gaps. Verified pre-existing via `git stash` before/after on this checkout (the broken link exists on the same line at HEAD before .41.9's edits).",
+  "ephemeral": 0,
+  "id": "JMAP-cs2o",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Pre-existing: jmap-metadata-server rustdoc broken-intra-doc-link at lib.rs:50 [memory::MemoryBackend]",
+  "updated_at": "2026-05-17T20:00:43Z"
+}

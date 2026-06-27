@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.3",
+  "title": "validate_session_urls: prefix check allows data:http://... and similar bypasses",
+  "description": "client.rs validate_session_urls: The check is url.starts_with(\"http://\") || url.starts_with(\"https://\"). A URL like 'https://legit.example.com@evil.example.com/api/' passes this check because it starts with 'https://' but has a user-info component that causes the actual HTTP request to go to evil.example.com. Similarly 'https://evil.example.com/api/?redirect=https://good' is harmless but a URL with embedded newlines would confuse logging. More concretely: a MITM server could return apiUrl: 'https://evil.example.com' and the check passes \u2014 but that is actually fine because the URLs are used verbatim by reqwest which parses them correctly. The actual attack vector is url::Url::parse could be used here but is not. The real gap is: the check does not validate that the URL actually parses \u2014 a crafted string like 'https://\\x00evil.com' starts with https:// but will either cause reqwest to error at request time or produce unexpected behavior. Mitigation: parse each URL with url::Url::parse and re-validate scheme from the parsed result.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:33:34Z",
+  "updated_at": "2026-04-30T01:42:48Z",
+  "closed_at": "2026-04-30T01:42:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:33:33"
+    }
+  ]
+}

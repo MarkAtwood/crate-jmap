@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:11:33Z",
+  "compaction_level": 0,
+  "content_hash": "6cc6a5523c4dd3ab571a1b755c397f9edeb9e2b0364901cde6fecd5833e9b0bd",
+  "created_at": "2026-05-15T16:57:38Z",
+  "created_by": "Mark Atwood",
+  "description": "calendar.rs, event.rs, event_notification.rs, participant_identity.rs each contain \u22654 copies of:\n\n  match backend.create_object(...).await {\n      Ok(...) => { ... }\n      Err(BackendSetError::SetError(set_err)) => { ... }\n      Err(BackendSetError::Other(e)) => { ... }\n      Err(_) => {\n          json!({ 'type': 'serverFail', 'description': 'unhandled backend error variant' })\n      }\n  }\n\nBackendSetError is the foundation-crate type:\n  pub enum BackendSetError<E> {\n      SetError(SetError),\n      Other(E),\n  }\n\nThe wildcard arm is only reachable if BackendSetError gains a new variant in the future. BackendSetError is marked #[non_exhaustive] (commit 77cd500), so the wildcard arm is a forward-compat guard. Fine in principle, but the implementation is repeated more than 16 times across this crate with the same canned string 'unhandled backend error variant', adding noise to every call site without providing useful diagnostics.\n\nTwo cleaner shapes:\n(a) Move the mapping into helpers.rs:\n       pub(crate) fn map_backend_set_error(e: BackendSetError<impl Error>) -> Value { ... }\n   then every call site reduces to 'Err(e) => not_created.insert(id, map_backend_set_error(e))'.\n\n(b) The wildcard branch currently emits a description that says nothing useful \u2014 'unhandled backend error variant' tells the client nothing it can act on. If BackendSetError ever gains a third variant the right place to handle it is here, not by sprinkling 'unhandled' messages. Pair this fix with a one-time documented audit point that 'we own the variant set; if BackendSetError grows, fix this helper.'\n\nSame shape exists in canonical mail-server. Verify whether mail-server centralized this before reshaping here.\n\nP3, elegance \u2014 no wire-shape change, lots of churn reduction.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BackendSetError pattern-match has unreachable wildcard arm at every call site",
+  "updated_at": "2026-05-17T17:11:33Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T09:57:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "7be445c2-f4c5-5921-8fc0-3876df2749df",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

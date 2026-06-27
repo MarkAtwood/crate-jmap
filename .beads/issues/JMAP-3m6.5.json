@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.5",
+  "title": "test_fetch_session_rejects_non_http_other_urls: always tests uploadUrl, not downloadUrl/eventSourceUrl",
+  "description": "The test mounts three mocks on the same path in a loop. wiremock uses insertion order when priority is equal (all default to 5), so the first-mounted mock (uploadUrl=ftp://) is always served. In iterations 2 and 3, the test still passes because the uploadUrl is still wrong in the body \u2014 but it is NOT testing downloadUrl or eventSourceUrl rejection. A bug in validate_session_urls that skipped downloadUrl or eventSourceUrl would go undetected by this test. The mock for iteration N should replace or supersede the iteration N-1 mock, e.g. by using mount_as_scoped() so each mock drops at the end of each loop iteration.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:55:29Z",
+  "updated_at": "2026-04-30T02:08:45Z",
+  "closed_at": "2026-04-30T02:08:45Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:55:29"
+    }
+  ]
+}

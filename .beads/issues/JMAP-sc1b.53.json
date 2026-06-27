@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260510T180814Z-3657541",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T18:13:59Z",
+  "compaction_level": 0,
+  "content_hash": "ed4b303a856ff485f90651e068a5f10b08002d6279cc8828cd0f5b6d8cd90fb3",
+  "created_at": "2026-05-07T20:43:26Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-mail-server/src has 10 production sites using `serde_json::from_value(v.clone())` where `v: &serde_json::Value`. The clone copies the entire JSON subtree; for non-trivial filter/sort args this is wasted work.\n\nSites:\n- snippet.rs:46, 57\n- submission.rs:156, 762\n- sieve.rs:175, 183\n- email.rs:1366, 1479, 1494, 1502\n\nThe `Deserialize::deserialize(v)` path (with `v: &Value`) does not require an owned input \u2014 `&Value` implements Deserializer. This avoids the tree clone entirely.\n\nPattern: change `serde_json::from_value(v.clone())` \u2192 `<TargetType>::deserialize(v)` (or `serde::Deserialize::deserialize(v)` with type ascription).\n\nWhy P3: allocation pattern, not correctness. Each request typically clones a small filter/sort tree once. Cost is bounded by request arg size.\n\nCookie-cutter coordination: jmap-mail-server is the canonical extension-server template per workspace AGENTS.md; this change should propagate to all extension-server sibling crates (chat, calendars, tasks, contacts, filenode, sharing) wherever the same pattern appears (or land in the canonical first if it originated in a sibling).\n",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.53",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Fixed in commit 7de21b1.\n\nProduction sites swept (13 total):\n- jmap-mail-server/src/email.rs: 5 sites (1372, 1477, 1485, 1500, 1508)\n- jmap-mail-server/src/sieve.rs: 2 sites (177, 185)\n- jmap-mail-server/src/snippet.rs: 2 sites (46, 57)\n- jmap-mail-server/src/submission.rs: 3 sites (156, 574, 792)\n- jmap-tasks-server/src/task.rs: 1 site (45) \u2014 bonus production hit not listed in original bead\n\nPattern: serde_json::from_value(v.clone()) \u2192 T::deserialize(v) (with serde::Deserialize imported per file). For Vec<X> / HashMap<K,V> targets where the type is inferred from let binding, written as Vec::<X>::deserialize(v) etc. for clarity at the call site.\n\nOut of scope (not fixed):\n- jmap-calendars-server/src/lib.rs:372,383 \u2014 both inside #[cfg(test)] mod test_support (mock backend used by inline tests). Test-only code is not in the bead's production-clone scope. If desired, file a separate trivial cleanup bead.\n\nGate: cargo build --workspace, cargo clippy --workspace -- -D warnings, cargo test --workspace all green.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P3: 10 from_value(v.clone()) sites in mail-server clone subtrees unnecessarily",
+  "updated_at": "2026-05-10T18:13:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "d99c3cd0-c79a-5847-bc6c-1f4d346e50ce",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

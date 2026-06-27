@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3e0.5",
+  "title": "ws/mod.rs parse_ws_frame: String allocation for type_name before match \u2014 borrow instead",
+  "description": "ws/mod.rs lines 123-127: type_name is allocated as a String with .to_string() so it can be passed to WsFrame::Unknown if needed. The match on line 129 then calls type_name.as_str() to borrow it back for pattern matching. This is correct but slightly awkward \u2014 the allocation is only unconditionally needed if the frame is Unknown. A cleaner pattern: let type_str = ...; match type_str { \"StateChange\" => ..., \"Response\" => ..., other => Ok(WsFrame::Unknown { type_name: other.to_owned() }) }. The current code is not wrong, but a Rust practitioner would notice the allocate-then-borrow-back dance.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:14:49Z",
+  "updated_at": "2026-04-30T01:21:12Z",
+  "closed_at": "2026-04-30T01:21:12Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3e0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:14:49"
+    }
+  ]
+}

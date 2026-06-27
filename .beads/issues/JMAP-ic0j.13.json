@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closing as opinion / no engineering basis to change.\n\nCurrent shape correctly reflects inner-loop semantics:\n- create/update use `args.get()` because the inner loops iterate `.keys()` only (no Value ownership needed)\n- destroy uses `args.remove()` because the inner code consumes the Array\n\nThe bead's premise \u2014 that the other three /set handlers (calendar.rs, event.rs, participant_identity.rs) consistently use .remove() \u2014 is true for those specific handlers, but their inner loops DO consume values (`for (create_id, obj_val) in create_map`), unlike event_notification.rs whose inner loops only need keys.\n\nWorkspace canonical mail-server is itself inconsistent across the same boundary:\n- email.rs:1168/1257/1325 \u2014 get/remove/get\n- mailbox.rs:544/722/961 \u2014 get/remove/get\n- identity.rs:224/333/414 \u2014 remove/remove/remove\n- vacation.rs:189/199/360 \u2014 get/remove/get\n- submission.rs:471/510/565 \u2014 get/remove/get\n\nSo there's no canonical convergence target \u2014 mail-server uses `.get()` for create/update when the inner code doesn't need ownership, matching event_notification.rs's current shape.\n\nThe inline comments at event_notification.rs:143/153/163 (`// create \u2014 forbidden`, `// update \u2014 forbidden`, `// destroy \u2014 the only permitted operation`) already make the read-only-vs-consuming distinction implicit. Adding an explicit `// .get() because we only iterate keys` comment would be belt-and-suspenders.\n\nStopping here per the workspace bikeshedding-signal rule.",
+  "closed_at": "2026-05-18T03:43:23Z",
+  "compaction_level": 0,
+  "content_hash": "6599f70ef68b2ba80206605d8038ef5d712b36107cb9028dc76fd0a068b37437",
+  "created_at": "2026-05-15T16:58:02Z",
+  "created_by": "Mark Atwood",
+  "description": "event_notification.rs:92-109 \u2014 handle_calendar_event_notification_set reads:\n\n  if let Some(create_map) = args.get('create').and_then(|v| v.as_object()) { ... }\n  if let Some(update_map) = args.get('update').and_then(|v| v.as_object()) { ... }\n\n\u2026and at line 112 reads:\n\n  if let Some(Value::Array(destroy_arr)) = args.remove('destroy') { ... }\n\nThe reason the destroy path uses .remove() is to take ownership of the Vec<Value>. The reason create/update use .get() is that the handler returns 'forbidden' without consuming the inner map. That works but it is a small inconsistency that took me a re-read to confirm wasn't a bug.\n\nThe other three /set handlers (calendar.rs, event.rs, participant_identity.rs) consistently use .remove() for all three maps because they consume each entry.\n\nTwo cleanups (pick one):\n\n(a) Switch the create/update paths to args.remove(...) for shape consistency with siblings. The remove discards the Value, so it costs nothing.\n\n(b) Add a one-line comment explaining the intentional asymmetry, e.g. '// read-only access \u2014 destroy needs ownership of the array'.\n\nP4 readability \u2014 no behavior change. The case for (a) is the cookie-cutter rule (other handlers use .remove()), and the case for (b) is preserving the slightly cheaper code path.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CalendarEventNotification/set inconsistently reads create/update via .get() but destroy via .remove()",
+  "updated_at": "2026-05-18T03:43:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T09:58:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "85aa4bee-c8d5-574b-852f-4ce5c8bc8a27",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T15:02:20Z",
+  "id": "019e2702-8ea5-7996-b837-5d84289de55e",
+  "issue_id": "JMAP-ayoz",
+  "text": "review-library-supplement re-invocation: NO-OP.\n\nThe supplement pass already ran on this epic (verdict + confidence calibration filed 2026-05-14 14:28 UTC). Seven api-contract findings exist as JMAP-ayoz.22 through JMAP-ayoz.28, covering all six required subsections (immutability, underspecified, versioning, leakage, defensive, docs).\n\nVerified the api-contract surface is unchanged since that pass:\n- Diffed crate-jmap-metadata-server/src/ from supplement timestamp to HEAD: post-supplement commits touched src/metadata.rs and src/memory.rs only (handler bodies, MemoryBackend impl) \u2014 no changes to src/lib.rs or src/backend.rs (the pub-surface declarations).\n- grep '^+.*\\bpub\\b' across all 11 post-supplement commits: zero new pub items introduced.\n\nPer the workspace bikeshedding rule and review-loop convergence rule, filing additional api-contract findings on the unchanged surface would be manufactured noise. Stopping the supplement here is the correct outcome.\n\nAPI contract risk verdict unchanged: MEDIUM (carried forward from the prior pass)."
+}

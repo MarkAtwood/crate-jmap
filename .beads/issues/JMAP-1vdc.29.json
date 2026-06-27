@@ -1,0 +1,33 @@
+{
+  "close_reason": "fixed: collapseThreads total returned correctly when was_capped=false; approximate lower bound returned when was_capped=true",
+  "closed_at": "2026-05-02T19:42:55Z",
+  "compaction_level": 0,
+  "content_hash": "d856b645c1719894e9f2c1c5b12e2d75b0c93cf1485d037a8aab86478c3b932f",
+  "created_at": "2026-05-02T19:35:01Z",
+  "created_by": "Mark Atwood",
+  "description": "When collapseThreads=true and the backend result set exceeds COLLAPSE_THREADS_MAX_EMAILS (65536), the code sets total=None (email.rs line 701) and the response omits the 'total' field even when calculateTotal=true. RFC 8620 \u00a75.5 only mandates 'total MUST be omitted when calculateTotal=false'; it does not require total to be present when calculateTotal=true. However, a client that sends calculateTotal=true expects to receive a total in the response; getting no total when calculateTotal=true is a silent failure from the client's perspective. The client cannot distinguish 'total is unavailable because of the cap' from 'server bug'. This should at minimum be documented as a known limitation; ideally the response should include a 'total' field with a note or return the best-effort count of collapsed IDs up to the cap.",
+  "ephemeral": 0,
+  "id": "JMAP-1vdc.29",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/query collapseThreads: total not included even when calculateTotal=true and was_capped=false",
+  "updated_at": "2026-05-02T19:42:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-02T12:35:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-1vdc",
+      "id": "d546b38a-3fa7-5082-88fa-5407742ecbcf",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T21:31:32Z",
+  "compaction_level": 0,
+  "content_hash": "e4aa7b12a94b5e354f9b49830f777d2c53003418cf3194436e5ac0110dc9c110",
+  "created_at": "2026-05-11T21:14:22Z",
+  "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "description": "Implement src/memory.rs (cfg(feature='memory')) and tests/*.rs.\n\n## src/memory.rs\n\nCookie-cut from jmap-sharing-server::memory::MemoryBackend pattern:\n- HashMap<(type_name, account_id), HashMap<Id, serde_json::Value>> for object storage\n- Per-(type,account) monotonic state counter\n- Change log per (type,account)\n- json_merge_patch from jmap-server for update_object\n- Async impls for JmapBackend (get_objects/get_state/get_changes/query_objects/query_changes) and MetadataBackend (create/update/destroy/supports_type)\n- module-level #[deny(clippy::await_holding_lock)]\n- MUST enforce the Metadata-specific server-side uniqueness constraint (relatedType, relatedId, @type, isPrivate) per draft \u00a73.1 \u2014 return BackendSetError::SetError(alreadyExists{existingId:...}) from create_object when the constraint is violated. This is the one Metadata-specific piece of the memory backend.\n- The maySetPrivate / quota / relatedType validation enforcement: stub or no-op (returns Ok) \u2014 these are configurable per-backend behaviors that integration tests can exercise via a customized backend, not the bare reference impl.\n\n## tests/\n\n- tests/common/mod.rs \u2014 shared test helpers (single_call, capability URI constant)\n- tests/metadata_get_tests.rs \u2014 dispatcher-level Metadata/get tests\n- tests/metadata_set_tests.rs \u2014 Metadata/set create/update/destroy + uniqueness/forbidden/notFound\n- tests/metadata_changes_tests.rs \u2014 filterRelatedType / filterMetadataType behavior\n- tests/metadata_query_tests.rs \u2014 text_match + relatedType filtering\n\nEach test uses MemoryBackend, hand-written draft example JSON as the oracle, and dispatcher-level assertions (not just direct handler calls).\n\n## Acceptance\n- cargo test -p jmap-metadata-server --all-features clean\n- cargo clippy -p jmap-metadata-server --all-features --tests -- -D warnings clean\n- cargo doc -p jmap-metadata-server --all-features --no-deps clean\n- MemoryBackend uniqueness constraint test passes\n\n## Depends on\nJMAP-06zp.3.3",
+  "ephemeral": 0,
+  "id": "JMAP-06zp.3.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Feature-gated MemoryBackend reference impl + integration tests for jmap-metadata-server",
+  "updated_at": "2026-05-11T21:31:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T14:14:27Z",
+      "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+      "depends_on_issue_id": "JMAP-06zp.3.3",
+      "id": "e81f9431-c59a-5c03-afe2-44a9b417f5ac",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-11T14:14:21Z",
+      "created_by": "bd-spin/bd-spin-20260511T170438Z-856615",
+      "depends_on_issue_id": "JMAP-06zp.3",
+      "id": "f6167e64-e10e-521c-b4cf-9c92804b4658",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

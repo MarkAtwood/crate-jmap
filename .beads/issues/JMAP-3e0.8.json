@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3e0.8",
+  "title": "blob.rs BlobUploadResponse.sha256: Option<String> \u2014 consider validated newtype",
+  "description": "BlobUploadResponse::sha256 is Option<String> where the expected invariant is 64-char lowercase hex. The format is validated lazily in upload_blob via validate_sha256_format(), but callers who hold a BlobUploadResponse cannot tell from the type whether the sha256 has been validated. A SHA256Hex newtype (or even a [u8; 32]) would make the validated state unrepresentable as an unvalidated String and eliminate the need for downstream callers to re-validate.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:15:10Z",
+  "updated_at": "2026-04-30T01:18:50Z",
+  "closed_at": "2026-04-30T01:18:50Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3e0",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:15:09"
+    }
+  ]
+}

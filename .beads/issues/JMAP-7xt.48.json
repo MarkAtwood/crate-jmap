@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.48",
+  "title": "BlobUploadResponse.sha256 is Option<String> but RFC 8620 does not define this field",
+  "description": "BlobUploadResponse.sha256 is typed Option<String> in blob.rs. RFC 8620 \u00a76.1 defines the blob upload response as: accountId, blobId, type, size \u2014 no sha256 field. The sha256 field is from the JMAP-CID capability draft (draft-atwood-jmap-cid). Since this field is an extension, it should either (a) not be on BlobUploadResponse at all and left to the CID extension crate, or (b) remain here but with a doc comment clearly citing the draft and noting it is not in base RFC 8620. The current doc comment ('if provided by the server') is vague about the source. Either way, the type String is correct for an optional hex digest.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:48:40Z",
+  "updated_at": "2026-04-30T01:08:07Z",
+  "closed_at": "2026-04-30T01:08:07Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:48:39"
+    }
+  ]
+}

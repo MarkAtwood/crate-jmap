@@ -1,0 +1,33 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:10:39Z",
+  "compaction_level": 0,
+  "content_hash": "589d2c3a50dac504943b643490441c7624593dc314b45c43d22a321649d2593d",
+  "created_at": "2026-05-05T01:08:56Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-qet4.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-sharing-types: implement principal.rs",
+  "updated_at": "2026-05-05T01:10:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:08:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qet4",
+      "id": "bbd50547-ed1f-5d2a-8583-0579c8acad32",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

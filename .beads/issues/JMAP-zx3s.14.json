@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Decided wontfix for the deprecation-alias suggestion. The on_success_update_email API break is real but the recommendation (#[deprecated] type alias OnSuccessUpdateEmailLegacy) is rejected because: (1) the workspace is at 0.x where breaking changes are permitted per the workspace AGENTS.md posture; (2) the .11 fix REVERSES the diff's type choice from HashMap<Id, PatchObject> to HashMap<String, PatchObject> \u2014 adding a deprecation alias for the intermediate Id-keyed shape would re-introduce the type-contract violation flagged in .11; (3) downstream consumers in this workspace already use HashMap<String, PatchObject> via jmap-mail-server::mdn.rs's HashMap<String, _>-style maps for not_sent etc., so the cascade is bounded. The CHANGELOG/release-notes capture of breaking changes is a separate concern that should be addressed via the standard release-notes pass, not via in-crate deprecated aliases.",
+  "closed_at": "2026-05-17T15:18:50Z",
+  "compaction_level": 0,
+  "content_hash": "32d7545571cd52b16e4a6a2c18d851dd9df0cf832e20ca5dd00eebfa503baff2",
+  "created_at": "2026-05-15T04:57:31Z",
+  "created_by": "Mark Atwood",
+  "description": "## Caller contract risk: any caller pinned to a previous jmap-mail-types version using the String/Value shape will fail to compile against the new version.\n\nThe diff changes \\`MdnSendRequest.on_success_update_email\\` from:\n\n\\`\\`\\`rust\npub on_success_update_email: Option<HashMap<String, Value>>,\n\\`\\`\\`\n\nto:\n\n\\`\\`\\`rust\npub on_success_update_email: Option<HashMap<Id, PatchObject>>,\n\\`\\`\\`\n\nThis is wire-byte-identical (both \\`Id\\` and \\`PatchObject\\` are \\`#[serde(transparent)]\\`), but it is NOT a non-breaking Rust API change:\n\n- A caller doing \\`map.insert(\\\"e1\\\".to_string(), json!({...}))\\` previously compiled; now it does not (\\`String\\` is no longer the key type, \\`Value\\` is no longer the value type).\n- A caller pattern-matching on \\`Value::Object(...)\\` to inspect a returned patch previously worked; now they must call \\`patch.as_map()\\` to get the inner map.\n- A caller doing \\`if let Some(map) = req.on_success_update_email\\` then iterating with \\`for (k, v) in map\\` previously got \\`(&String, &Value)\\`; now they get \\`(&Id, &PatchObject)\\`.\n\n### Why this matters in 0.x\n\nThe workspace is at 0.x and the workspace AGENTS.md \\\"Git Commit and Push Policy\\\" / general posture is permissive of breaking changes pre-1.0. So this is allowed. But:\n\n1. Path-dependencies between sibling crates (\\`crate-jmap-mail-server\\`, \\`crate-jmap-mail-client\\`) mean a Rust-API break here cascades through callers within this workspace within the same commit. The diff did not include a sibling-sweep \u2014 callers may build today only because no sibling crate uses \\`on_success_update_email\\` directly.\n\n2. The commit message presents the change as part of \\\"adopt extras-preservation policy\\\" (an additive policy), but this typed-up change is independent of extras and would be a justifiable standalone refactor. Mixing the two in a single commit makes the API break less visible during review and harder to revert independently.\n\n### Recommendation\n\nFor 0.x: at minimum, add a CHANGELOG note (\\\"BREAKING: \\`on_success_update_email\\` is now \\`HashMap<Id, PatchObject>\\`\\\") so downstream consumers see the change explicitly. If preserving builds is a goal (it is per the workspace's \\\"caller can pin to ^0.x\\\" stance in the supplement template), add a deprecated type alias:\n\n\\`\\`\\`rust\n#[deprecated(note = \\\"use HashMap<Id, PatchObject> directly\\\")]\npub type OnSuccessUpdateEmailLegacy = HashMap<String, Value>;\n\\`\\`\\`\n\nFor 1.x: include the change in a coordinated breaking-release pass with a documented migration guide.\n\n### Cross-references\n\n- bd JMAP-zx3s.11 (this supplement): the typed shape itself has a separate underspecification problem (\\`Id\\` can't hold \\`#creationId\\` per its own contract). The versioning concern here is independent; even with the type-safety story fixed, the API break is still an API break.",
+  "ephemeral": 0,
+  "id": "JMAP-zx3s.14",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "on_success_update_email type change is a Rust API break (HashMap<String,Value> -> HashMap<Id,PatchObject>) with no deprecation alias",
+  "updated_at": "2026-05-17T15:18:50Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:57:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zx3s",
+      "id": "477c8565-1b51-58d2-8a05-16899ad57817",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

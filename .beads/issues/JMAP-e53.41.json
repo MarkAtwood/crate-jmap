@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:54:56Z",
+  "compaction_level": 0,
+  "content_hash": "6600eea193ace21a9b39e9f747007d0804ad7260d3dcc9ca28d39f462b4d902a",
+  "created_at": "2026-05-02T00:45:07Z",
+  "created_by": "Mark Atwood",
+  "description": "submission.rs process_create() lines 805-822: when client supplies a future sendAt and max_delayed_send_seconds() > 0, the code accepts any future sendAt without checking whether it exceeds now + max_delay_seconds. The comment says 'precise upper-bound check delegated to backend' but no backend method performs this check and the default backend returns 0. Trigger: backend overrides max_delayed_send_seconds() to return e.g. 3600, client sends {\"sendAt\": \"2099-01-01T00:00:00Z\"}. Bad behavior: submission is accepted with sendAt arbitrarily far in the future, bypassing the maxDelayedSend capability limit.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.41",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sendAt future-send upper bound never enforced when maxDelayedSend > 0",
+  "updated_at": "2026-05-02T00:54:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:45:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "82f1022d-088e-59ef-a26d-21049fd002c4",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

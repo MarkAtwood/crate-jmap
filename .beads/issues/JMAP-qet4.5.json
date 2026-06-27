@@ -1,0 +1,32 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:12:18Z",
+  "compaction_level": 0,
+  "content_hash": "c1fdd1758a4ef74f833d935fd42def849ccb4e3cc72de5eaf20a3d3dac7216b5",
+  "created_at": "2026-05-05T01:08:58Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-qet4.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-sharing-types: tests, clippy, fmt",
+  "updated_at": "2026-05-05T01:12:18Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:08:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qet4",
+      "id": "00d29e43-8f23-5f5e-a378-a37fd83ba698",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

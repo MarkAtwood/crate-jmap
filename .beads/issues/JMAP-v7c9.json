@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "d180be5011a99cb292aa8bc37e39792f4e19dc7208c5480313e96d9567af7f60",
+  "created_at": "2026-05-17T20:36:55Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace sweep follow-up to bd:JMAP-qz9v.39 (contacts-server fixed in commit landing now).\n\nThe JMAP-hwdv epic promoted in-memory backend impls from tests/common/ to src/memory.rs across the extension-server family. Three sibling READMEs still describe the OLD layout in their Gotchas section:\n\n1. **crate-jmap-sharing-server/README.md:212-214** \u2014 says 'in-memory MockBackend in the test_support module is a test harness only'. Actual: src/memory.rs gated behind feature='memory' (file exists, 38 KB). MockBackend is no longer the canonical name for the in-memory impl in this crate.\n\n2. **crate-jmap-tasks-server/README.md:255-256** \u2014 says 'No storage backend ships with this crate. The memory feature is for tests/demos only.' Compresses too much: 'doesn't ship' contradicts 'memory feature'. Replace with the contacts-server pattern (positive description of feature='memory' + caveats list).\n\n3. **crate-jmap-metadata-server/README.md:271-273** \u2014 says 'No storage backend ships with this crate by default. The memory feature provides...' Borderline \u2014 the 'by default' qualifier makes it almost-correct, but the lead-in 'No storage backend ships' is still misleading.\n\nRecommended replacement text, mirroring the canonical-by-content pattern (see crate-jmap-filenode-server/README.md:239-246 which is already correctly shaped, and crate-jmap-contacts-server/README.md:262-269 after this bead's fix):\n\n> **memory::MemoryBackend is a reference implementation, not production.**\n> Gated behind feature = 'memory' (off by default). State is held in HashMaps\n> behind a std::sync::Mutex; persistence is not implemented; a number of <RFC>\n> edge cases are simplified. Intended for integration tests, smoke tests,\n> examples, and as source-readable study material for downstream contributors\n> writing a real (database-backed) backend. See the module docs in\n> src/memory.rs for the explicit non-production caveats.\n\nDoc-only fix; no code touched. P3 because the failure mode is reader misdirection, not runtime breakage.\n\nCross-references:\n- Original bead: bd:JMAP-qz9v.39 (contacts-server, fixed in same commit as resolve_query_offset / as_nanos work)\n- Promotion epic: bd:JMAP-hwdv\n- Already-correct sibling: crate-jmap-filenode-server/README.md:239-246",
+  "ephemeral": 0,
+  "id": "JMAP-v7c9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "README Gotchas: sweep stale 'MemoryBackend in tests/' / 'no storage backend ships' wording across siblings post-JMAP-hwdv",
+  "updated_at": "2026-05-17T20:36:55Z"
+}

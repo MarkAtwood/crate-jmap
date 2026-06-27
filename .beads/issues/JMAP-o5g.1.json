@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-o5g.1",
+  "title": "Email/set create: silent drop of malformed inReplyTo/references",
+  "description": "build_email_from_create uses .ok() when deserializing inReplyTo and references. If client sends 'inReplyTo': 'not-an-array', the value is silently ignored (becomes None). Email is created without inReplyTo, wrong thread may be assigned, and client sees no error. Trigger: Email/set create with malformed inReplyTo or references \u2192 data silently dropped, wrong thread assignment.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T04:53:48Z",
+  "updated_at": "2026-05-01T05:00:05Z",
+  "closed_at": "2026-05-01T05:00:05Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-o5g",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 21:53:47"
+    }
+  ]
+}

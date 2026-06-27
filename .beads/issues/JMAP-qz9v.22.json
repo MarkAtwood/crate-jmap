@@ -1,0 +1,33 @@
+{
+  "close_reason": "Acknowledged. 'What is good' beads are decision/note observations \u2014 no code change required. They document good practices that the workspace already uses, retained for future reviewer reference if needed.",
+  "closed_at": "2026-05-18T03:01:42Z",
+  "compaction_level": 0,
+  "content_hash": "4d50deab8e2a8cdcd26247d2d5d0eb7b4a12f2a714d96b33f09f5eda42ef608a",
+  "created_at": "2026-05-14T19:23:25Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-contacts-server/AGENTS.md prominently calls out the canonical-template rule, with the propagation direction stated explicitly: change canonical first, then propagate. This is critical because it tells reviewers (and future agents) which divergences are bugs and which are intentional spec-driven deltas. A future contributor might propose 'just diverge to fit contacts better' \u2014 the answer is no, divergence is a regression of cookie-cutter intent and is reviewable. The banner SHOULD however prompt a follow-up sweep when JMAP-qz9v.2 / .4 / .15 (contacts /copy mandates, apply_jmap_patch, same-account check) are addressed, because the same gaps exist in calendars-server's /copy paths.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "What is good: AGENTS.md and PLAN.md explicitly invoke the canonical-template propagation rule, naming jmap-mail-server as the template to mirror",
+  "updated_at": "2026-05-18T03:01:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:23:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "1ba174d6-c1e7-5f9c-88a5-9a4e045d5c40",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

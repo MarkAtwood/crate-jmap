@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:19:05Z",
+  "compaction_level": 0,
+  "content_hash": "3a651affb10da5bcf64c7320b4403d7cf017c40ce901d9b20b1a08efbc6e6e9b",
+  "created_at": "2026-05-15T16:58:51Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:522-596 \u2014 query_objects has two issues that limit its usefulness as a 'study' impl and as the workspace integration test backend.\n\n1. Sort is ignored. The _sort parameter is prefixed with _ at line 527 and never consulted; ids are returned in the natural HashMap iteration order, then sorted alphabetically at line 553. CalendarEventComparator carries a 'property' field that selects start/sortOrder/etc. \u2014 the memory backend cannot honor it.\n\n   The default impl on CalendarsBackend.query_calendar_events delegates here, so /query with 'sort: [{property: \"start\"}]' returns alphabetical-by-id results. The integration test calendar_event_query_empty_store_returns_no_ids (tests/calendars_tests.rs:336) does not exercise sort, so the bug is invisible in CI.\n\n2. Negative position semantics. RFC 8620 \u00a75.5: 'If position is negative, indicates the offset from the end of the list rather than the start.' The implementation at line 576-581 does:\n\n     let start = if position >= 0 {\n         (position as usize).min(ids.len())\n     } else {\n         let neg = position.saturating_neg() as usize;\n         ids.len().saturating_sub(neg)\n     };\n\n   For position = -1 on a 5-element list this yields start = 5 - 1 = 4 (the last element). For -10 on a 5-element list it yields 5 - 10 = 0 (saturating). That matches the spec for negative-from-end indexing.\n\n   But RFC 8620 \u00a75.5 says: 'If position negative, the position MUST be the number of items from the END of the list (excluding any from the result set due to the filter and anchor properties).' I.e. when position == -N, exactly N items should be returned (clamped at total). The current code returns from start..end which truncates at the end, not start..start+limit-from-end. For position = -1 with limit = None, the current code returns 1 item (the last). For position = -3 with limit = None it returns 3 items. That's actually correct.\n\n   But position = -1 with limit = 5 yields start=4, then ids[4..].take(5) = 1 item. The spec arguably wants 1 item too (you asked from index -1 with limit 5 \u2014 only 1 element is available). Probably fine. But the implementation does no '1-based vs 0-based' validation and JMAP \u00a75.5 example uses 1-based positions; closer reading needed.\n\nThis is a 'study' impl problem more than a correctness problem in production deployments using real backends. Workspace AGENTS.md says the MemoryBackend should be a documented reference implementation. The current sort-ignored / partial-position semantics make it teach-by-bad-example.\n\nSuggest: either (a) document explicitly in the module doc that sort is not honored and what 'position negative' does, or (b) implement a small sort + position pass over the JSON values. (a) is minimal; (b) is one bd issue's worth of work.\n\nP3.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.16",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend query_objects ignores sort and clamps position semantics divergently",
+  "updated_at": "2026-05-17T17:19:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T09:58:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "a0000621-41db-5661-b412-cb9778ff6bcb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

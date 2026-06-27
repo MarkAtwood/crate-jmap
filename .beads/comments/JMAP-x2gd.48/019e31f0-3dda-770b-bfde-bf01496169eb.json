@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-16T17:58:09Z",
+  "id": "019e31f0-3dda-770b-bfde-bf01496169eb",
+  "issue_id": "JMAP-x2gd.48",
+  "text": "Reclassified workspace-canonical via JMAP-x2gd.67 cross-walk. Mail-server analog: mail-server/src/memory.rs:270 \u2014 identical pub fn register_account without doc(hidden). Per workspace AGENTS.md Canonical Templates rule, fix MUST land in jmap-mail-server first then propagate to every extension-server sibling in the same pass. Precedent: JMAP-x2gd.67 (this re-classification), JMAP-x2gd.69 (update_object), JMAP-x2gd.84 (memory.rs sweep), JMAP-x2gd.86 (foundation methods)."
+}

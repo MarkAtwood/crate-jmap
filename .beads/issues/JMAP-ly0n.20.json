@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in f1a7341 (docs only): doc-comment now reflects the workspace-architectural decision space accurately. The original 'mixing it with blob_id is not a realistic mistake' rationale was retired; the actual constraint (canonical-template parity with jmap-mail-types, which also does not depend on jmap-cid-types) is now documented inline. The dep-policy question is tracked at bd:JMAP-tzvc as a workspace-wide architectural decision.",
+  "closed_at": "2026-05-16T03:15:44Z",
+  "compaction_level": 0,
+  "content_hash": "a27537634b9f4f8bbc5e7c26deffbf3d606d2071da8a328d0c1ad06f8437098b",
+  "created_at": "2026-05-16T02:53:52Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-types/src/message.rs:123 declares `Attachment.sha256: String` with a doc-comment that explicitly justifies the un-typed choice: \"A newtype without validation would add type-tagging overhead for a field that already has a distinct name; mixing it with blob_id is not a realistic mistake.\" That justification was written before `jmap-cid-types` existed in the workspace.\n\nWorkspace AGENTS.md (Crate Map and Dependency Tree sections) now lists `jmap-cid-types` as the canonical home for the `Sha256` typed wire shape (\"lowercase hex, 64 chars\"). It was added precisely so blob-attachment-style integrity hashes have a typed home with validation.\n\nIdiomatic Rust: replace `pub sha256: String` with `pub sha256: jmap_cid_types::Sha256` (gated on jmap-cid-types being declared as a dep of jmap-chat-types). Invalid sha256 strings (wrong length, uppercase hex, non-hex characters) become unrepresentable in the type rather than relying on every consumer's defensive runtime check. The doc-comment's \"realistic mistake\" framing is the wrong test \u2014 the real cost is each downstream server having to re-validate, with the failure mode being a silent-acceptance bug if any one of them forgets.\n\nCost: adds a path-dep from jmap-chat-types \u2192 jmap-cid-types (a sibling type crate, no async, allowed under jmap-chat-types/AGENTS.md \"Sibling Crate Congruence\" rules \u2014 but explicit user confirmation may be required because chat-types currently lists only jmap-types, serde, serde_json as allowed deps). If adding the dep is undesired, the alternative is to keep the field as `String` and add a runtime validator with a clear `from_str` constructor. Either is better than the current \"trust the wire\" posture.\n\nUpdate the stale rationale doc-comment when fixing.",
+  "ephemeral": 0,
+  "id": "JMAP-ly0n.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Attachment.sha256 is String; workspace now has typed jmap-cid-types::Sha256 newtype \u2014 rationale-not-to-use is stale",
+  "updated_at": "2026-05-16T03:15:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T19:53:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ly0n",
+      "id": "0691a966-6af5-54b4-bc3d-2c433a3c3c85",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

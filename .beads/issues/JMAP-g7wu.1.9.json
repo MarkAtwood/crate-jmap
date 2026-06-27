@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T151456Z-658525",
+  "close_reason": "JmapBackend trait reshaped: type CallerCtx: Clone + Send + Sync + 'static added; caller: &Self::CallerCtx threaded through all 6 methods. extract_account_id reshaped to consume Value and return (Id, Map<String, Value>) \u2014 JMAP-r3pg.14 fold-in. handle_get/changes/query/query_changes in handlers.rs accept caller and use new extract_account_id signature. ClosureHandler tests in lib.rs still pass with String / () CallerCtx values. Workspace cargo test --all-features clean.",
+  "closed_at": "2026-05-11T16:24:10Z",
+  "compaction_level": 0,
+  "content_hash": "f1a65950ca95a811630786658543460c668684580299690f937d0f0435578f59",
+  "created_at": "2026-05-11T13:54:31Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-server/src/backend.rs:528 (JmapBackend trait) + crate-jmap-server/src/handlers.rs (handle_get, handle_changes, handle_query, handle_query_changes).\n\nFoundation slice of the JMAP-g7wu.1 mega-PR. Continues the work of JMAP-g7wu.1.4 (which got ctx to the closure boundary) by pushing ctx through the closure into the handler call sites and into the JmapBackend trait itself.\n\nDesign locked under JMAP-g7wu.1.1 [2026-05-11 design-lock] comment. Specific scope for this foundation bead:\n\n1. Add 'type CallerCtx: Clone + Send + 'static;' associated type to JmapBackend trait.\n2. Add 'caller: &Self::CallerCtx' as first parameter (after &self) to every JmapBackend method:\n   - account_exists\n   - get_objects\n   - get_state\n   - get_changes\n   - query_objects\n   - query_changes\n3. Update generic read-side helpers in crate-jmap-server/src/handlers.rs:\n   - handle_get<B, O>(backend: &B, caller: &B::CallerCtx, args: Value) -> ...\n   - handle_changes<B, O>(...)\n   - handle_query<B, O>(...)\n   - handle_query_changes<B, O>(...)\n4. Update Dispatcher tests in crate-jmap-server/src/lib.rs (closure_handler_forwards_caller etc.) to exercise the new ctx-aware paths.\n5. README rewrites where applicable in crate-jmap-server/README.md.\n\nTrait shape:\n    pub trait JmapBackend: Send + Sync + 'static {\n        type Error: std::error::Error + Send + Sync + 'static;\n        type CallerCtx: Clone + Send + 'static;\n        fn get_objects<O: GetObject + Send + Sync>(\n            &self,\n            caller: &Self::CallerCtx,\n            account_id: &Id,\n            ids: Option<&[Id]>,\n            properties: Option<&[String]>,\n        ) -> impl Future<...> + Send;\n        // ...\n    }\n\nThis bead must land first or co-land with JMAP-g7wu.1.1 because all extension *Backend traits inherit from JmapBackend. Per the design-lock decision (Q5 sub-decision 5c), all 8 beads (.1.1 mail canonical, .1.2 contacts, .1.3 sharing, .1.5 chat, .1.6 calendars, .1.7 tasks, .1.8 filenode, and this foundation bead) land atomically in one mega-PR.\n\nRides JMAP-g7wu.1's 0.2.0 mega-PR alongside JMAP-r3pg.14 (extract_account_id clean fix).",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.1.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "Starting work as part of coordinated mega-PR with .1.1 canonical + 6 propagation siblings + JMAP-r3pg.14 extract_account_id reshape",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CallerCtx forwarding through JmapBackend trait + read-side handle_* (jmap-server foundation)",
+  "updated_at": "2026-05-11T16:24:10Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T06:54:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.1",
+      "id": "0dcfdcfd-4b34-5f02-b4bf-1191d884b418",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

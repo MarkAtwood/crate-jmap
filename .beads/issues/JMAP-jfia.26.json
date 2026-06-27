@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "0a09264e3321dad227765aa35e3899541b6eb101e077cc901188bfdea5fa588e",
+  "created_at": "2026-05-14T16:47:32Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/backend.rs:870-898 \u2014 JmapBackend exposes:\n\n    #[allow(clippy::too_many_arguments)]\n    fn query_objects<O: QueryObject + Send + Sync>(\n        &self,\n        caller: &Self::CallerCtx,\n        account_id: &jmap_types::Id,\n        filter: Option<&O::Filter>,\n        sort: Option<&[O::Comparator]>,\n        limit: Option<u64>,\n        position: i64,\n    ) -> impl Future<Output = Result<QueryResult, Self::Error>> + Send;\n\n    #[allow(clippy::too_many_arguments)]\n    fn query_changes<O: QueryObject + Send + Sync>(\n        &self,\n        caller: &Self::CallerCtx,\n        account_id: &jmap_types::Id,\n        since_query_state: &jmap_types::State,\n        filter: Option<&O::Filter>,\n        sort: Option<&[O::Comparator]>,\n        max_changes: Option<u64>,\n        up_to_id: Option<&jmap_types::Id>,\n        collapse_threads: bool,\n    ) -> impl Future<...> + Send;\n\nEight and nine positional arguments respectively, each suppressed\nwith `#[allow(clippy::too_many_arguments)]`. Clippy's lint is the\ncorrect signal \u2014 RFC 8620 \u00a75.5 / \u00a75.6 do not promise the parameter\nlist will stay this size. New extensions / errata add params:\n\n- RFC 8620 \u00a75.5 itself has `anchor`, `anchorOffset` that are\n  currently NOT in the trait signature. (handle_query ignores\n  them; that's a separate finding, but if jmap-mail-server ever\n  needs anchor support, the trait method must grow.)\n- RFC 8621 \u00a75.5 (Email/query) adds `addressbookId`, group-by\n  fields, etc.\n- Future ietf-jmap-* drafts (metadata, sharing, calendars) add\n  per-extension query args.\n\nWhat callers cannot depend on:\n\n1. That a new RFC param can be added non-breakingly. Adding\n   `anchor: Option<&Id>` to query_objects means EVERY downstream\n   backend trait inheriting JmapBackend (MailBackend, ChatBackend,\n   etc., currently 8 in the workspace) needs its query_objects\n   impl updated. The kit ships a non-breaking trait extension\n   pattern via default methods, but only if the new method has a\n   sensible default. Query method new params don't have sensible\n   defaults \u2014 backends MUST honor them or return a fake-correct\n   answer.\n\n2. That backend impls do not rewrite the whole signature on\n   every additive change. The kit's current shape forces every\n   sibling crate to do positional-arg migration in lockstep.\n\nWhat goes wrong when this stays as-is:\n\n- Workspace propagation cost compounds: every additive RFC param\n  becomes a workspace-wide breaking sweep + a major-version bump.\n- The trait's \"additive evolution path\" \u2014 the workspace AGENTS.md\n  promise that \"new variants on #[non_exhaustive] enums and new\n  methods on traits with default impls are the additive shape\" \u2014\n  doesn't apply to query_objects because the new method signature\n  WOULD be a non-defaulted variant.\n\nResolution path:\n\nConvert the positional args to a #[non_exhaustive] struct:\n\n    #[non_exhaustive]\n    pub struct QueryArgs<'a, O: QueryObject> {\n        pub filter: Option<&'a O::Filter>,\n        pub sort: Option<&'a [O::Comparator]>,\n        pub limit: Option<u64>,\n        pub position: i64,\n        // future RFC params land here non-breakingly\n    }\n    fn query_objects<O: QueryObject + Send + Sync>(\n        &self,\n        caller: &Self::CallerCtx,\n        account_id: &jmap_types::Id,\n        args: QueryArgs<'_, O>,\n    ) -> impl Future<...>;\n\nNow adding `anchor: Option<&'a Id>` to QueryArgs is a non-breaking\nfield addition. Backend impls match on `args.filter`, `args.sort`,\netc.; they default to None / 0 for unrecognised fields without\nforced migration.\n\nThe propagation pass to land this is hard (8 backend crates) but\nfinite and one-time. The propagation pass to NOT land this is\nunbounded \u2014 every future query param triggers another one.\n\nThe kit's first major bump (which is upcoming per the\ncanonical-templates section in workspace AGENTS.md) is the right\ntime to make this change.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.26",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "JmapBackend::query_objects/query_changes 8-arg/9-arg positional surface forces breaks on every new RFC param",
+  "updated_at": "2026-05-14T17:29:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:47:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "d116d824-947e-51a4-b81c-0a88bd91151b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

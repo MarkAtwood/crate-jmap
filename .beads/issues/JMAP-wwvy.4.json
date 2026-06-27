@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "4 Principal/query and queryChanges wiremock tests pass.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/principal_query_tests.rs (2 tests: query filter wire, queryChanges round-trip); clippy clean",
+  "closed_at": "2026-05-05T14:34:45Z",
+  "compaction_level": 0,
+  "content_hash": "059c1b6d640e523bff9393fb365a8711600ef2d068600cdd99d0213dba36fef0",
+  "created_at": "2026-05-05T02:53:24Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create tests/principal_query.rs with 4 async wiremock tests. Oracle: RFC 9670 \u00a72.4.1 filter fields, \u00a72.5 queryChanges; RFC 8620 \u00a75.5, \u00a75.6.\n\n**Tests:**\n1. principal_query_no_filter: assert resp.ids.len() == 2; assert request has no filter key.\n2. principal_query_with_filter: pass {\"name\":\"Joe\",\"type\":\"individual\"}; assert request body has filter.name == \"Joe\" and filter.type == \"individual\" (oracle: RFC 9670 \u00a72.4.1).\n3. principal_query_changes_round_trip: assert resp.old_query_state, new_query_state, removed, added[0].index.\n4. principal_query_changes_with_max_changes: assert maxChanges appears in request.\n\n**Acceptance criteria:** All 4 tests pass.",
+  "ephemeral": 0,
+  "id": "JMAP-wwvy.4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wiremock tests: Principal/query and Principal/queryChanges",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:53:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wwvy.1",
+      "id": "781353ea-8bb4-5690-ad27-82b707e53fad",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T19:53:24Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wwvy",
+      "id": "c9f99b4e-4e2e-59ac-a324-9d1228360012",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

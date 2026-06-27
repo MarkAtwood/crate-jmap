@@ -1,0 +1,33 @@
+{
+  "close_reason": "parse_ws_frame restructured to call serde_json::from_str directly against the original text for typed branches, keeping the parsed Value alive for the Unknown fallback. Eliminates the unconditional deep Value.clone() on every successful StateChange/Response frame. Existing degradation tests pass.",
+  "closed_at": "2026-05-09T07:23:11Z",
+  "compaction_level": 0,
+  "content_hash": "5c9b4c4d269f3a9f86d223d4391730ebe1ebee0e1e0cdd510297922855b827e9",
+  "created_at": "2026-05-08T03:05:27Z",
+  "created_by": "Mark Atwood",
+  "description": "src/ws/mod.rs:161-175 \u2014 for both StateChange and Response branches: `let raw = val.clone(); match serde_json::from_value::<T>(val) { Ok(...) => ..., Err(_) => Ok(WsFrame::Unknown { type_name, raw }) }`. The clone happens unconditionally \u2014 even when the deserialize succeeds and `raw` is discarded. For 1-MiB-cap WS messages this allocates and drops a non-trivial copy on every successful frame, in a hot path (every push notification). Idiomatic Rust alternative: try the typed deserialize first against `&val` (Value implements Deserializer by reference for owned-form deserialization is more involved, but `serde_json::from_value` consumes Value \u2014 use `serde_path_to_error` style or restructure). Cheaper option: compute typed deserialize via `serde_json::from_value::<StateChange>(val.clone())` only on the error branch \u2014 but that's the same cost. Best fix: deserialize from the original text directly using `serde_json::from_str::<TaggedFrame>(text)` where TaggedFrame is an enum with #[serde(tag = \"@type\")]. Eliminates the Value intermediate and the clone. Note: locked crate.",
+  "ephemeral": 0,
+  "id": "JMAP-6lsm.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "parse_ws_frame clones the full Value before every typed deserialize",
+  "updated_at": "2026-05-09T07:23:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T20:05:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6lsm",
+      "id": "cf32bf9d-5fb7-5c74-8d4d-4698bb69b24e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

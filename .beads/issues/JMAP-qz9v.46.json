@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed without changes. Two reasons:\n\n1. The bead's empirical premise is wrong. It claims 'Same pattern in canonical jmap-mail-server/src/memory.rs:267-291 (demo_next_id with identical free-fn shape) \u2014 propagation needed.' but mail-server has no demo_next_id. It uses uuid::Uuid::new_v4() directly inside create_object (verified: memory/mod.rs:1113, 1131, 1276, 1632, 2030, 2611). The recommended cookie-cutter alignment doesn't exist.\n\n2. The deeper question of whether demo_next_id should exist in extension siblings AT ALL is the workspace-design call open as bd:JMAP-3t94.5 (P1, human-labeled, 'MemoryBackend::demo_next_id diverges from canonical mail-server's uuid-based create_object'). Until that resolves, polishing the demo_next_id shape (free-fn \u2192 method on Inner) is either wasted work (if the answer is 'delete demo_next_id, use uuid directly') or premature (if the answer is 'keep demo_next_id with redesign X' the polish would be wrong).\n\nThe right canonical-template alignment is the larger-scope question, not the cosmetic polish. JMAP-3t94.5 owns that decision.",
+  "closed_at": "2026-05-18T02:57:26Z",
+  "compaction_level": 0,
+  "content_hash": "a390fd835de41179830daedfcceba96c4e86bf07225bcb8c546b8472029fa56d",
+  "created_at": "2026-05-14T19:43:10Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:286. demo_next_id is declared as:\n\n    impl MemoryBackend {\n        fn demo_next_id(inner: &mut Inner, type_name: &'static str, account_id: &str) -> Id { ... }\n    }\n\nIt is called from inside MemoryBackend methods that have already acquired the lock:\n\n    let mut inner = self.inner.lock().unwrap();\n    let server_id = Self::demo_next_id(&mut inner, O::TYPE_NAME, account_id.as_ref());\n\nThe function does not use any MemoryBackend state. It uses Inner state (via the &mut Inner) and process-global statics (BASE, COUNTER) in the realistic-demo-ids branch.\n\nThis is the shape you write when you have not figured out where the method belongs. Idiomatically it should be a method on Inner:\n\n    impl Inner {\n        fn demo_next_id(&mut self, type_name: &'static str, account_id: &str) -> Id { ... }\n    }\n\n\u2026and called as `inner.demo_next_id(...)`. That makes the receiver explicit (it is Inner state being mutated, not MemoryBackend state) and lets the method use Inner's private fields (objects_ref, len) without going through the explicit parameter.\n\nEngineering cost: low (correctness is fine), but it's the textbook \"free function pretending to be a method\" anti-pattern. A reader walking the code wonders why this lives under impl MemoryBackend rather than impl Inner.\n\nSame pattern in canonical jmap-mail-server/src/memory.rs:267-291 (demo_next_id with identical free-fn shape) \u2014 propagation needed.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.46",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "demo_next_id is an associated fn taking &mut Inner instead of a method on Inner",
+  "updated_at": "2026-05-18T02:57:26Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:43:09Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "5e6d6ff2-1223-58ae-ba46-528ad66b659b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

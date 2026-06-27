@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added #[non_exhaustive] above #[derive(...)] line, matching the canonical sibling pattern (BlobLookupEntry et al.). cargo test -p jmap-chat-client green, clippy clean, fmt clean. Committed as 67a30f1 (batched with sibling #[non_exhaustive] beads).",
+  "closed_at": "2026-05-15T21:11:20Z",
+  "compaction_level": 0,
+  "content_hash": "b3d001d8534d8fc41425e945941f1ff7dd72102de64d8bd44be112b92718c107",
+  "created_at": "2026-05-15T20:39:37Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-client/src/methods/mod.rs:69-80.\n\n`TypingResponse` is a `pub struct` deserialized from the wire but lacks `#[non_exhaustive]`. Same rationale as the PushSubscriptionCreateResponse bead. Workspace AGENTS.md mandates `#[non_exhaustive]` on all in-scope response wrappers. The Chat/typing response is small today (only `account_id` + `extra`), which makes today's omission low-impact, but any future spec edit adding (e.g.) a `serverTimestamp` field becomes a breaking change rather than an additive one.\n\nFix: add `#[non_exhaustive]` above the struct declaration.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.32",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "TypingResponse missing #[non_exhaustive]",
+  "updated_at": "2026-05-15T21:11:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:39:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "ca907385-008f-55e3-9eaf-9f53cf03761d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

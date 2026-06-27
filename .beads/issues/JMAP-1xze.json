@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "1318dcc09131159c28776c8750d2351cbaf6416b476fcf27603a672dd812478f",
+  "created_at": "2026-05-14T19:10:33Z",
+  "created_by": "Mark Atwood",
+  "description": "Workspace-wide propagation of the JMAP-h47t.11 finding from jmap-tasks-server to the canonical jmap-mail-server and the remaining 6 extension-server siblings.\n\nThe 30-line match block\n\n  Err(BackendSetError::SetError(set_err)) => not_xxx.insert(id, set_error_value(&set_err)),\n  Err(BackendSetError::Other(e)) => not_xxx.insert(id, json!({type: serverFail, description: e})),\n  Err(other) => not_xxx.insert(id, json!({type: serverFail, description: other.to_string()})),\n\nappears 8 times in jmap-tasks-server alone (and N more across the 7 siblings). Each is identical modulo the not_xxx target name. Per the cookie-cutter canonical-template rule, extract a shared helper:\n\n  pub(crate) fn map_backend_set_error<E: Display>(err: BackendSetError<E>) -> serde_json::Value {\n      match err {\n          BackendSetError::SetError(se) => set_error_value(&se),\n          BackendSetError::Other(e) => json!({\"type\": \"serverFail\", \"description\": e.to_string()}),\n          other => json!({\"type\": \"serverFail\", \"description\": other.to_string()}),\n      }\n  }\n\nThen each call site collapses from 12 lines (the three Err arms with their inner json!) to 1:\n\n  Err(e) => { not_xxx.insert(id, map_backend_set_error(e)); }\n\nNote: the JMAP-h47t.24 fix already made the catchall Err arm preserve future-variant Display content via other.to_string(). The consolidation here is a code-elegance follow-up, NOT a correctness fix \u2014 that's why this sweep is P2 instead of P0/P1.\n\nCanonical-first ordering: change jmap-mail-server's email.rs / mailbox.rs / etc. first, then propagate to tasks/chat/calendars/contacts/filenode/metadata/sharing in matching commits. The helper should live in jmap-server (the foundation crate) since every extension crate needs it; place it next to BackendSetError itself with #[doc(hidden)] or pub depending on whether external consumers writing their own handlers would also want it.\n\nAffected crates (call site count rough):\n  jmap-mail-server     ~28 sites (canonical \u2014 change first)\n  jmap-chat-server     ~15 sites\n  jmap-calendars-server ~12 sites\n  jmap-tasks-server    ~9 sites (JMAP-h47t.11 closed as deferred-to-this-sweep)\n  jmap-contacts-server ~7 sites\n  jmap-filenode-server ~6 sites\n  jmap-metadata-server ~3 sites\n  jmap-sharing-server  ~4 sites\n\nCross-references:\n  - JMAP-h47t.11 closed in favor of this sweep.\n  - JMAP-kg3d (BackendSetError catchall placeholder string sweep) is the prerequisite; that one fixes the silent-drop. This one is the cleanup that comes after.",
+  "ephemeral": 0,
+  "id": "JMAP-1xze",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "workspace canonical-template sweep: consolidate BackendSetError \u2192 JSON mapping helper across all *-server crates",
+  "updated_at": "2026-05-14T19:10:33Z"
+}

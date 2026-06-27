@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T13:06:58Z",
+  "compaction_level": 0,
+  "content_hash": "9fbccaa73a20e64d735d0df86a8b2bc9e0ab759d2d535bc353d354f932de38bc",
+  "created_at": "2026-05-15T01:45:58Z",
+  "created_by": "Mark Atwood",
+  "description": "The PLAN.md and workspace AGENTS.md extras-preservation policy say \"every\npublic method-argument struct in this crate that appears on the JMAP wire\ncarries an `extra` field\" and that field MUST round-trip on the wire.\n\nIn this crate, two divergent behaviors ship today:\n\n  Iterate-merge (extras DO reach the wire \u2014 but with the clobber bug from\n  bd:JMAP-tjvm.1 and bd:JMAP-tjvm.2):\n    - email_get / email_parse (use `for (k,v) in serde_json::to_value(p).map`)\n\n  Typed-field-only (extras are SILENTLY DROPPED \u2014 they never reach the wire):\n    - email_copy (email.rs:208-228) \u2014 reads `from_account_id`,\n      `on_success_destroy_original`, `destroy_from_if_in_state`; ignores\n      `params.extra`\n    - mailbox_set (mailbox.rs:82-114) \u2014 reads `on_destroy_remove_emails`;\n      ignores `params.extra`\n    - email_submission_set (submission.rs:160-208) \u2014 reads\n      `on_success_update_email`, `on_success_destroy_email`; ignores\n      `params.extra`\n\nThe round-trip tests in methods/mod.rs (e.g.\n`email_copy_params_propagates_vendor_extras`) only verify that the *struct*\nserializes the extra key. They do NOT verify the extras reach the wire when\nthe struct is used through the production method. This is why the\ndrop-on-the-wire branch has never been caught.\n\nImpact: a vendor that puts a private field in `MailboxSetParams.extra`\nexpecting RFC-style round-trip per workspace policy will see it disappear\nbetween caller and server. Silent data loss exactly the policy was designed\nto prevent.\n\nThis finding is the policy-implementation gap. Fix it together with\nbd:JMAP-tjvm.1 and bd:JMAP-tjvm.2 so the merge is exactly-once and exactly-\ncorrect everywhere: typed args owned by the builder, extras flattened\nbeneath, and a wiremock end-to-end test per method that asserts extras\nreach the wire.\n\nCanonical-template propagation: same shape will exist in every extension-\nclient sibling. Audit/fix in lockstep.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.7",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Extras policy inconsistency: silently dropped in email_copy / mailbox_set / email_submission_set",
+  "updated_at": "2026-05-17T13:06:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:45:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "7de4e326-fbf1-53d7-ac20-37428db15b9a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

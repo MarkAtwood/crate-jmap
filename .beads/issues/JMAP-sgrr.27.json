@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Landed in commit a88f003 (workspace AGENTS.md). Per ratified option (c): the kit does not add fn new(...) -> Self constructors to public wire-format structs; deserialize-from-JSON IS the construction API. New workspace AGENTS.md section 'Public-API construction: deserialize-from-JSON is the canonical path' documents the policy with three numbered reasons (spec is the construction oracle, constructors and partial-response Option fields don't compose, #[non_exhaustive] is forward-compat infrastructure). Default impls permitted on types with no mandatory fields; #[doc(hidden)] test-only constructors (e.g. existing Email::new) are not subject to the policy. Per-crate rustdoc need not duplicate the rationale.",
+  "closed_at": "2026-05-17T14:59:16Z",
+  "compaction_level": 0,
+  "content_hash": "d1e51a884daf8f8b5daa44da0b5f2e3e9e039536040f3c05ba55da2c80d527f3",
+  "created_at": "2026-05-15T03:48:24Z",
+  "created_by": "Mark Atwood",
+  "description": "Every public struct in lib.rs is #[non_exhaustive] (per workspace policy) and has no associated function (no new(), no Default impl on most). Inside the workspace this is harmless because in-crate code can still use struct-literal syntax. Outside the workspace \u2014 i.e. anyone consuming the published jmap-jscontact-types 0.1.x crate via jmap-contacts-types' re-export \u2014 #[non_exhaustive] makes struct-literal syntax a compile error. The only way an external library author can construct a Name, EmailAddress, Anniversary, etc. is to serialize a JSON object by hand and call serde_json::from_value. For a published 0.1.x types crate that exists specifically so consumers can build wire objects, that is a real usability gap. The idiomatic Rust fix is a fn new(mandatory_fields: ...) -> Self on each struct: returns an instance with all mandatory fields set, all optionals defaulted to None / Map::new(). Add ::new() + setter-style with_*() methods, or impl Default for structs whose mandatory fields are empty (Relation, Author, Pronouns, SpeakToAs all qualify). Scope note: this is a workspace-wide idiom gap. jmap-jscalendar-types has the same pattern; canonical-template rule says fix the canonical first then propagate. If this is filed only against jscontact, expect the same finding to show up on the next /review-rusty pass of jscalendar-types and every other types-family sibling. May want to lift this to a workspace-level epic rather than a per-crate fix.",
+  "ephemeral": 0,
+  "id": "JMAP-sgrr.27",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "#[non_exhaustive] public structs lack constructors \u2014 external crates cannot build instances except via deserialize",
+  "updated_at": "2026-05-17T14:59:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:48:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sgrr",
+      "id": "48dd3f4e-34bc-57b6-b6cd-72357d9ca566",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

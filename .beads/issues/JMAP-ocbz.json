@@ -1,0 +1,21 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4191cf341a5fa19fad328f7963c82400dc8e9c082a61e27419fc58e1f02f7479",
+  "created_at": "2026-06-13T20:32:42Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec defines 10 permission names but vocabulary.rs has only 9 \u2014 missing start_call (VTC integration permission).",
+  "ephemeral": 0,
+  "id": "JMAP-ocbz",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Add start_call to SPEC_PERMISSION_NAMES vocabulary",
+  "updated_at": "2026-06-13T20:32:42Z"
+}

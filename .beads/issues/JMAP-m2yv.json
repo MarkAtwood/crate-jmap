@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-10T00:46:07Z",
+  "compaction_level": 0,
+  "content_hash": "012744449f523a920486eaab10f4b77aa1bd172ba56276ce5f93b60686c5e74c",
+  "created_at": "2026-05-10T00:31:43Z",
+  "created_by": "Mark Atwood",
+  "description": "Pattern \u03b2: value-type tightening on already-\u03b2-shaped field.\n\nFile: crate-jmap-tasks-types/src/task.rs:323\n\n  // Before\n  pub recurrence_overrides: Option<HashMap<String, serde_json::Value>>,\n  // After\n  pub recurrence_overrides: Option<HashMap<String, jmap_types::PatchObject>>,\n\nDoc-comment already says 'Map of LocalDateTime \u2192 PatchObject for per-instance overrides.' (PLAN.md confirms.)\n\nWire format unchanged (PatchObject is #[serde(transparent)]). Public API change: any caller pattern-matching on the inner Value type or constructing the field with serde_json::json!({...}) values must migrate to PatchObject::from_map(...).\n\n## Scope\n\n- 1 line change + import in tasks-types.\n- Verify no consumer code in tasks-server / tasks-client constructs this field via struct literal (round-trip deserialization is transparent).\n- PLAN.md: update \u00a7X row referencing this field to cite the typed shape.\n\n## Acceptance criteria\n\ncargo test --workspace clean, lib clippy clean, wire format byte-identical.",
+  "ephemeral": 0,
+  "id": "JMAP-m2yv",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Migrate Task::recurrence_overrides value type to PatchObject (\u03b2, shape preserved)",
+  "updated_at": "2026-05-10T00:46:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-09T17:32:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-trmz",
+      "id": "3d9dd9b1-c5ea-50a1-ac3d-9b7596b33f6d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

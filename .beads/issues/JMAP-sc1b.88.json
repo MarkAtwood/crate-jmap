@@ -1,0 +1,33 @@
+{
+  "close_reason": "wont-fix",
+  "closed_at": "2026-05-11T22:05:58Z",
+  "compaction_level": 0,
+  "content_hash": "5bcd04285a6023356ea550afc2c1fe643a91946ebc3b09c6c8594dab2bfeaf7e",
+  "created_at": "2026-05-11T14:11:56Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "crate-jmap-mail-client/src/methods/mod.rs:153-164\n\n    fn ser_opt_keyword_set<S: serde::Serializer>(\n        kws: &Option<&[&str]>,\n        s: S,\n    ) -> Result<S::Ok, S::Error> {\n        use serde::ser::SerializeMap;\n        let kws = kws.expect(\"skip_serializing_if guarantees Some\");\n        ...\n    }\n\nThe expect() is genuinely unreachable in production because the field carries #[serde(skip_serializing_if = \"Option::is_none\", serialize_with = \"ser_opt_keyword_set\")] \u2014 serde will not call ser_opt_keyword_set when the field is None.\n\nStylistic options that some Rust reviewers prefer:\n  - if let Some(kws) = kws { ... } else { Err(serde::ser::Error::custom(\"unreachable\")) }\n  - match kws.as_ref().ok_or_else(|| serde::ser::Error::custom(\"...\"))? \u2014 non-panicking equivalent\n  - keep .expect() with an explicit // SAFETY-style comment\n\nWhy this is opinion / P4: the precondition is real and the panic is genuinely unreachable; the message names the invariant; and serde custom serializers are widely known to be paired with skip_serializing_if. AGENTS.md says expect() needs a comment explaining why it cannot fail \u2014 the message itself names the why ('skip_serializing_if guarantees Some'). A reviewer could go either way on whether that suffices.\n\nTagged opinion. Filing for completeness; would not block publish.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.88",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P4: ser_opt_keyword_set in mail-client uses .expect() in serializer body \u2014 opinion / stylistic",
+  "updated_at": "2026-05-11T22:05:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:11:56Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "ed69d0f3-7353-5ed1-b97d-6dca90d84e65",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

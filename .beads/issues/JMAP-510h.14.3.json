@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T10:43:04Z",
+  "compaction_level": 0,
+  "content_hash": "135dc7ee8c4188615a8bac47a74c9613f822aaf15991b9a1b0af70a5bc7769f6",
+  "created_at": "2026-05-14T21:27:37Z",
+  "created_by": "Mark Atwood",
+  "description": "Final step of bd:JMAP-510h.14. With the no-fault tests migrated and FaultyBackend in place:\n\n1. Migrate the remaining ~8 unit tests that use MockBackend's fault/override knobs to use FaultyBackend.\n2. Delete src/lib.rs:124-458 (test_support::MockBackend module).\n3. Audit src/lib.rs:486-552 unit tests (the ones in src/lib.rs itself) for MockBackend usage and migrate them too.\n4. Update README.md:239-241 \u2014 the 'A tree-backed MockBackend exists in the test_support module' line is stale.\n\nVerify: cargo test -p jmap-filenode-server passes, no more 'MockBackend' identifier anywhere in the crate (grep should be empty).",
+  "ephemeral": 0,
+  "id": "JMAP-510h.14.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "filenode-server: migrate fault-injection unit tests + delete test_support module + update README",
+  "updated_at": "2026-05-15T10:43:04Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T14:27:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-510h.14",
+      "id": "d6a42392-ed31-5a62-863f-f960d4eb0f03",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-t47.9",
+  "title": "subscribe_events has no timeout \u2014 stream can hang indefinitely on server silence",
+  "description": "client.rs subscribe_events: The HTTP GET request is sent without a timeout (no .timeout() call on the SSE request, unlike fetch_session/call/upload_blob/download_blob). This is intentional per the doc comment 'Does NOT apply to SSE or WebSocket streams (which are indefinite by nature)'. However, there is no heartbeat/ping detection and no idle timeout. A server that accepts the connection and then goes silent (e.g. a half-open TCP connection after a network partition) will hold the stream open indefinitely without yielding any frames. The caller has no way to distinguish a legitimately quiet server (no push events) from a dead connection. Maintenance consequence: users will file issues saying 'SSE stream stopped working after X minutes with no error'. Mitigation: document that callers must implement their own idle timeout using tokio::time::timeout on the stream. The doc comment for subscribe_events should state this explicitly.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:34:29Z",
+  "updated_at": "2026-04-30T01:42:39Z",
+  "closed_at": "2026-04-30T01:42:39Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-t47",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:34:29"
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "share_with serializes as null when None. cargo test -p jmap-contacts-types exits 0.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Removed skip_serializing_if from AddressBook.share_with; added two new serialization tests; contacts-10 \u00a72 types this as Id[AddressBookRights]|null",
+  "closed_at": "2026-05-05T03:09:11Z",
+  "compaction_level": 0,
+  "content_hash": "0113c01c6b4fc58f3953d5d448e5dabdcce364136a383030b23dcfc434f4676c",
+  "created_at": "2026-05-05T02:51:14Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Remove skip_serializing_if from AddressBook.share_with in crate-jmap-contacts-types/src/addressbook.rs. Spec draft-ietf-jmap-contacts-10 \u00a72 types shareWith as Id[AddressBookRights]|null \u2014 a required-nullable field. The \u00a74.1 example shows \"shareWith\": null when not shared. The current skip_serializing_if omits the field entirely when None.\n\n**Algorithm:**\n1. In addressbook.rs, change the share_with field from:\n   #[serde(default, skip_serializing_if = \"Option::is_none\")]\n   pub share_with: Option<HashMap<Id, AddressBookRights>>,\n   to:\n   #[serde(default)]\n   pub share_with: Option<HashMap<Id, AddressBookRights>>,\n   (Remove only skip_serializing_if; keep #[serde(default)] so absent key during deserialization gives None.)\n2. Add test address_book_share_with_null_serializes: construct AddressBook with share_with: None, serialize, assert JSON contains \"shareWith\":null (not absent). Oracle: spec \u00a74.1 second address book example.\n3. Add test address_book_share_with_some_serializes: deserialize the \u00a74.1 first address book example JSON (with a shareWith map), re-serialize, assert the map round-trips with correct principal id and rights.\n4. Run cargo test -p jmap-contacts-types.\n\n**Defensive programming rules:**\n- No unwrap in library code.\n\n**Acceptance criteria:**\n- serde_json::to_value(&ab) where ab.share_with is None produces JSON with \"shareWith\": null present.\n- Existing address_book_share_with_null (deserialization) test still passes.\n- cargo test -p jmap-contacts-types exits 0. Clippy clean.",
+  "ephemeral": 0,
+  "id": "JMAP-6mmk.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Fix AddressBook.share_with serializes as null not absent",
+  "updated_at": "2026-05-05T03:09:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:51:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6mmk",
+      "id": "c24ebb18-7416-5c26-88e8-018b46d405ae",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

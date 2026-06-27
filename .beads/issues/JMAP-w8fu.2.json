@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "7e428dbb6932f007dd5cc97a20f4a94db51559cee768075a52c903f1352f802e",
+  "created_at": "2026-06-13T21:48:51Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-chat-server/src/ban.rs has 95/180 lines covered (52.8%). Uncovered: most of handle_ban_set create/update/destroy arms including pre-fetch validation, caller identity resolution, Space membership lookup, forbidden error paths, and notFound/serverFail branches.",
+  "ephemeral": 0,
+  "id": "JMAP-w8fu.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@wolfssl.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Test coverage: chat-server ban.rs (52.8%)",
+  "updated_at": "2026-06-13T21:48:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-13T14:48:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-w8fu",
+      "id": "16f2170f-9f14-5602-b9f2-8d7f2e781ad5",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

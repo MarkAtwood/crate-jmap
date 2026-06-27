@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.7",
+  "title": "SSE receive: bytes.to_vec() copies every chunk unnecessarily",
+  "description": "client.rs:325 \u2014 String::from_utf8(bytes.to_vec()) copies every incoming SSE chunk before UTF-8 validation. str::from_utf8(&bytes) validates in-place with no allocation; buf.push_str() on the resulting &str still works. In a long-running SSE stream this copy fires on every network chunk.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:23Z",
+  "updated_at": "2026-04-30T00:17:53Z",
+  "closed_at": "2026-04-30T00:17:53Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:22"
+    }
+  ]
+}

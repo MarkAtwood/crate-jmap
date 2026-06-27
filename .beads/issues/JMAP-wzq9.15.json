@@ -1,0 +1,41 @@
+{
+  "close_reason": "Superseded by bd:JMAP-1j9k.9 (closed by commit b6d2ebb on 2026-05-17), via the cascade through this bead's blocker JMAP-tjvm.16 (closed 2026-05-17 with identical reasoning). The workspace adopted the OPPOSITE policy: public method-input Params structs in *-client crates do NOT use #[non_exhaustive]; forward-compat for future spec-defined fields is the flatten-ed 'extra: serde_json::Map<String, serde_json::Value>' field per workspace AGENTS.md extras-preservation policy.\n\nAdding #[non_exhaustive] to MetadataChangesParams would now be the regression \u2014 the struct already follows the workspace-canonical shape: filter_related_type + filter_metadata_type typed fields + 'extra' flatten field with #[serde(flatten, default, skip_serializing_if = ...)]. Verified at crate-jmap-metadata-client/src/methods/mod.rs:85-125. The vendor-extras path is tested at lines 562-570 (metadata_changes_params_propagates_vendor_extras).\n\nThe Mark-authored 2026-05-15 comment explicitly correctly identified the canonical-template propagation rule and parked the work behind canonical mail-client; that canonical closed with the policy reversal, and the propagation now correctly resolves to no-op-and-close rather than land-and-propagate. The bead's premise (struct-literal construction break on future typed-field addition) is real but the workspace policy decision was to accept that break by design \u2014 the extras flatten field provides forward-compat for vendor/site fields, and typed-field addition is left as an intentional breaking change tied to a minor version bump.\n\nSibling wzq9.29 (the other 4 metadata-client params structs) closed under the same reasoning earlier in this do-beads session.",
+  "closed_at": "2026-05-17T14:32:07Z",
+  "compaction_level": 0,
+  "content_hash": "794f971ca241ec646cd9c78717253b80b767480448ea2f242790f3a8c3eef4c0",
+  "created_at": "2026-05-15T02:09:16Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:40-61 \u2014 MetadataChangesParams is declared as:\n\n    #[derive(Debug, Default, serde::Serialize)]\n    #[serde(rename_all = \\\"camelCase\\\")]\n    pub struct MetadataChangesParams { \u2026 }\n\nMissing #[non_exhaustive]. The struct has public fields filter_related_type, filter_metadata_type, extra. Once 0.1.0 ships, callers can construct it with struct-literal syntax positionally:\n\n    MetadataChangesParams { filter_related_type: None, filter_metadata_type: None, extra: Map::new() }\n\nAdding a typed field later (say a future draft revision adds 'sinceState' filter at the params level, or 'forAccount' or any new typed knob) requires every caller to update their struct-literal \u2014 a breaking change for downstream callers.\n\n#[non_exhaustive] forces callers to use Default::default() + field-update syntax, which keeps additions non-breaking. The workspace policy at AGENTS.md 'Extras-preservation policy' lists struct shapes that should be #[non_exhaustive]; this is one. (Note: mail-client EmailGetParams, EmailCopyParams, MailboxSetParams etc. are ALSO missing #[non_exhaustive] \u2014 this is workspace-wide divergence from the canonical extras-preservation requirement. Fix needs to propagate; canonical mail-client should land it first.)\n\nTrigger: downstream caller using struct-literal syntax breaks when a new typed field lands. Fix: add #[non_exhaustive] to the struct.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.15",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MetadataChangesParams not #[non_exhaustive] \u2014 adding a typed field is breaking",
+  "updated_at": "2026-05-17T14:32:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:26:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm.16",
+      "id": "12c1ce9d-198d-5c29-9ef2-d89399b237be",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-14T19:09:16Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "e7ef4394-cfe1-57fa-b260-3d32589bb035",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

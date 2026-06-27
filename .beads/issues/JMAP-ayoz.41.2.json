@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Wired into all 6 mail-server /set handlers (Mailbox, Email, Identity, EmailSubmission, SieveScript, VacationResponse). enforce_max_objects_in_set is re-exported via crate::helpers per the existing extract_account_id idiom. 7 new tests in tests/max_objects_in_set.rs (1 per handler + 1 at-limit positive control); all green. cargo fmt/clippy/doc/test clean for jmap-mail-server. Workspace cargo test --workspace clean. Committed in 7ee8225. Canonical template established for .41.3-.41.9 propagation.",
+  "closed_at": "2026-05-16T19:27:11Z",
+  "compaction_level": 0,
+  "content_hash": "904294a8f12685cf6d8e0ac8cb7a8c65712a37b98cab00128c9473e91aa1a15b",
+  "created_at": "2026-05-16T19:14:07Z",
+  "created_by": "Mark Atwood",
+  "description": "Per workspace AGENTS.md canonical-template rule, jmap-mail-server is the canonical extension-server template; this is the first extension wire-up after foundation .41.1.\n\n## Scope\n\nAdd `enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;` immediately after the `account_exists` gate in all 6 mail-server /set handlers:\n\n1. crate-jmap-mail-server/src/mailbox.rs `handle_mailbox_set`\n2. crate-jmap-mail-server/src/email.rs `handle_email_set`\n3. crate-jmap-mail-server/src/identity.rs `handle_identity_set`\n4. crate-jmap-mail-server/src/submission.rs `handle_submission_set`\n5. crate-jmap-mail-server/src/sieve.rs `handle_sieve_set`\n6. crate-jmap-mail-server/src/vacation.rs `handle_vacation_set`\n\nInsertion shape:\n\n```rust\nlet (account_id, mut args) = extract_account_id(args)?;\nif !backend.account_exists(caller, &account_id).await.map_err(|e| server_fail_from_backend(&e))? {\n    return Err(JmapError::account_not_found());\n}\njmap_server::helpers::enforce_max_objects_in_set(\n    &args,\n    backend.max_objects_in_set(caller, &account_id),\n)?;\n```\n\nFor vacation (singleton VacationResponse) the cap is moot in practice but applying the same code keeps the canonical template uniform.\n\n## Tests\n\nFor each handler: integration test asserting Err(JmapError) with error_type==\\\"limit\\\" and description==\\\"maxObjectsInSet\\\" when over-limit /set is dispatched. Independent oracle \u2014 hand-built JmapError.\n\nFor one (Mailbox/set): positive test at exactly the limit returning Ok.\n\n## Acceptance\n\n- cargo fmt --all clean\n- cargo clippy -p jmap-mail-server -- -D warnings clean\n- cargo test -p jmap-mail-server passes\n- RUSTDOCFLAGS=-D warnings cargo doc -p jmap-mail-server --no-deps clean\n- No existing test batches >500 /set entries\n\n## Canonical-template propagation\n\nThis is the canonical extension-server template; .41.3-.9 mirror this pattern exactly.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.41.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Wire maxObjectsInSet enforcement into jmap-mail-server (6 handlers \u2014 canonical extension-server template)",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T12:14:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.41",
+      "id": "8f7168a1-95fe-5d77-9dcb-b2b5ca3cb45c",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-16T12:14:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz.41.1",
+      "id": "ad9670eb-c096-5d96-a846-5ed43a280aed",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

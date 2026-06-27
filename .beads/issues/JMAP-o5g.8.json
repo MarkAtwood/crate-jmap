@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-o5g.8",
+  "title": "impl_string_enum: Display and serde use same wire strings \u2014 role comparison is safe",
+  "description": "The MailboxRole::to_string() comparison in handle_mailbox_set role uniqueness check is safe. impl_string_enum\\! generates Display and Serialize from the same $s literal, so to_string() == wire format is guaranteed by construction. A contributor suggesting 'just compare the serde output' would add complexity for no benefit.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T04:55:17Z",
+  "updated_at": "2026-05-01T05:01:56Z",
+  "closed_at": "2026-05-01T05:01:56Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-o5g",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 21:55:16"
+    }
+  ]
+}

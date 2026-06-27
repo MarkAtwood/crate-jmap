@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Canary test landed in commit aad35c1 (passes; negative control verified by temporarily breaking the redaction site). Note: commit aad35c1 inadvertently included unrelated pre-existing metadata_tests.rs changes from the working tree \u2014 filed as bd:JMAP-68m3 for human resolution.",
+  "closed_at": "2026-05-17T19:56:41Z",
+  "compaction_level": 0,
+  "content_hash": "62fb81706fca410885142aaa7a8214109f4ac904eb73de31d7c4fefafd17edaf",
+  "created_at": "2026-05-17T08:47:27Z",
+  "created_by": "Mark Atwood",
+  "description": "Split from JMAP-x2gd.99. The burn-on-read canary test is already implemented (it exercises the message.rs:858 redaction site through a fault-injected expire_message via InjectableBackend in tests/common/mod.rs).\n\nThe duplicate-Direct cleanup test (chat.rs:363 redaction site) requires more harness than fault-injection alone: triggering the race-detection cleanup branch needs the handler to (a) pre-fetch and see NO duplicate, (b) create the new chat, (c) re-fetch and see a duplicate, (d) destroy the new chat (the lex-larger one). In sequential test calls, the handler's pre-fetch always sees existing chats, so the duplicate is intercepted at the pre-check before create_object runs. To exercise the cleanup-destroy site:\n\nOption A: Add a 'RaceDuplicateBackend' wrapper that overrides get_objects::<Chat> with a call-counter: 1st call returns empty (so pre-fetch sees no duplicate); 2nd call returns [phantom-lex-smaller-chat, new-chat] (so race detection fires). Then inject destroy failure.\n\nOption B: Have InjectableBackend's create_object::<Chat> ALSO insert a phantom Direct chat with a lex-smaller id in the same call. The race-detection re-fetch then sees 2 chats, picks the phantom as canonical, tries to destroy the new one.\n\nOption B is simpler harness-wise but Option A is more focused. Either way it's ~50-80 more lines of wrapper code on top of the InjectableBackend that landed under .99.\n\nPriority remains P3 (regression guard, not live defect). The redaction-discipline mechanism is already test-pinned at the workspace level via mail-server's ~115 canary sites.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.102",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add chat-server canary test for duplicate-Direct cleanup destroy failure (split from JMAP-x2gd.99)",
+  "updated_at": "2026-05-17T19:56:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T01:47:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "bf2a3795-1c0d-5d77-a2d8-b4653ec3630a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

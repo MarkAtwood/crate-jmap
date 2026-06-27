@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "bfba29ef6923f8d3fbb550dad2abfef20cf67535852132ec4cb31855dc785e61",
+  "created_at": "2026-05-17T05:49:12Z",
+  "created_by": "Mark Atwood",
+  "description": "## Sibling propagation of canonical bd:JMAP-grs0.1\n\nDepends on bd:JMAP-grs0.1 (mail-server canonical fix) landing first. Mirror the canonical fix byte-for-byte modulo TYPE_NAME constants.\n\n## Fix shape\n\nSee bd:JMAP-grs0 epic body and bd:JMAP-grs0.1 for the canonical pattern. The Inner struct becomes:\n\n```rust\nstruct Inner {\n    objects: HashMap<&'static str, HashMap<String, HashMap<Id, Value>>>,\n    states: HashMap<&'static str, HashMap<String, u64>>,\n    change_log: HashMap<&'static str, HashMap<String, Vec<ChangeEntry>>>,\n}\n```\n\nRead-path helpers take `&str` and don't allocate; write-path helpers preserve auto-register-via-or_default.\n\n## Acceptance\n\n- Mirror the canonical fix\n- All read-path helpers take `&str` and don't allocate\n- cargo test -p jmap-calendars-server green\n- cargo clippy -p jmap-calendars-server -- -D warnings green",
+  "ephemeral": 0,
+  "id": "JMAP-grs0.3",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Propagate: jmap-calendars-server Inner-state nested HashMap restructure",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T22:49:23Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-grs0.1",
+      "id": "01dc3813-db2e-5a89-9c31-32a81d21add4",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-16T22:49:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-grs0",
+      "id": "7c993d5c-c457-5494-8c06-4d837e4b84d2",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-xx7.6",
+  "title": "No SSE tests for \\r and \\r\\n line endings",
+  "description": "All SSE unit tests in sse.rs use Unix LF (\\n) line endings and LF-only blank line delimiters. The subscriber in client.rs handles \\r\\n\\r\\n, \\r\\r, and \\n\\n delimiters and converts \\r\\n and bare \\r to \\n before calling parse_sse_block. This code path is tested only by reading the source \u2014 there are no tests that send a CRLF-terminated SSE block or a CR-terminated block through the pipeline. A server using HTTP/1.1 with \\r\\n line endings in the SSE body is a realistic scenario and the normalization path has never been executed in tests.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T14:49:54Z",
+  "updated_at": "2026-04-30T14:57:04Z",
+  "closed_at": "2026-04-30T14:57:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-xx7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 07:49:53"
+    }
+  ]
+}

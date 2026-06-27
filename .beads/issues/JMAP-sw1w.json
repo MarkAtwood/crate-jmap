@@ -1,0 +1,22 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:42:16Z",
+  "compaction_level": 0,
+  "content_hash": "89f6d3efa7382b404ea8b977c3fc2af5a21833f1d7a5391235faf89bd51bb30d",
+  "created_at": "2026-05-05T01:36:44Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-sw1w",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "epic",
+  "updated_at": "2026-05-05T01:42:16Z"
+}

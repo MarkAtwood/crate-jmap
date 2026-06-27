@@ -1,0 +1,39 @@
+{
+  "compaction_level": 0,
+  "content_hash": "cef1da24ae93cc254290c9cbf3b6c20069a65672c9f0d8267a8e7fbee8522b53",
+  "created_at": "2026-05-14T03:13:03Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/src/message.rs:818-858.\n\ndraft-atwood-jmap-chat-00 \u00a7Message burnOnRead: when a message with burnOnRead=true has readAt set, the server MUST hard-delete it immediately.\n\nFlow today:\n1. update_object applies the readAt patch \u2192 readAt is committed in storage.\n2. backend.expire_message is called \u2192 if it fails, the handler emits serverFail.\n3. Comment claims 'the recipient will retry, and the next pre-fetch will still see burnOnRead: true, so the burn will be attempted again.'\n\nThe premise is wrong:\n- Clients that retry an idempotent /set will typically see readAt already set and skip the patch (no patch \u2192 no expire trigger).\n- Spec's MUST hard-delete is now permanently violated for that message.\n- Even if a client retries the patch, the kit's burn detection (line 741) only fires if 'patch.readAt is non-null'; a no-op patch (readAt already at the same value) may or may not trip the detection depending on how update_object normalizes equal-value writes.\n\nThis is a spec-correctness failure with security implications: messages that were configured to be ephemeral persist forever after a single transient backend hiccup.\n\nAcceptable fix:\n- Restructure as a single atomic backend operation: backend.read_and_maybe_burn(message_id, read_at, read_disposition) that performs the readAt write AND the hard-delete inside a single transaction. If either fails, the whole operation is rolled back, no readAt is committed, and the next retry tries again.\n- Add this as a new ChatBackend trait method; deprecate the split (update_object + expire_message) call site in the handler.\n- Reference MemoryBackend implements the new method as a single mutex-locked block.\n\nAlternative shape: the handler swaps the order \u2014 call expire_message FIRST (deleting the message), then return success without ever writing readAt (the message is gone, readAt is moot). But the change-log entry needs to be 'destroyed', not 'updated'; this requires backend cooperation.\n\nDoc comment at line 822-834 acknowledges the gap and suggests production backends override update_object for atomicity \u2014 this is documented hopium, not enforcement.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.6",
+  "is_blocked": 1,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Message/set burn-on-read failure commits readAt write then reports serverFail, violating spec MUST hard-delete",
+  "updated_at": "2026-06-26T19:57:36Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:07:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd.2",
+      "id": "32b4de18-4a4d-514a-abf8-17bb74fccde5",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-13T20:13:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "7aa4398b-0666-57c9-ba8e-fb27eac36402",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

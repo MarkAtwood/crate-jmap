@@ -1,0 +1,33 @@
+{
+  "close_reason": "Local recommendation already implemented. The register_contacts_handlers docstring at lib.rs:100-117 already carries a '# Re-registration semantics' section documenting the three foot-gun consequences exactly as the bead recommended:\n\n- Double-call: invoking twice on the same dispatcher loses the first set's handlers\n- Custom overrides go LAST: call register_contacts_handlers first, then dispatcher.register(...) for the override\n- No collision diagnostic: there's no error or log when a handler is overwritten\n\nThe bead's workspace-level recommendation (change Dispatcher::register to return Result with a DuplicateMethod variant) is a foundation jmap-server reshape that's not yet tracked. Not filing as a new bead because it's not a bug \u2014 it's a foundation-API-design preference, and the workspace canonical-template propagation rule means any reshape ripples through 7+ extension-server siblings. The 'documenting it loudly' approach the bead labels as the local fix is the appropriate resolution at the current API maturity.",
+  "closed_at": "2026-05-18T03:04:15Z",
+  "compaction_level": 0,
+  "content_hash": "cf1ba916f02f0948fd151d8f0997c2b013664ed7dd93cfcd4138954f7773c67c",
+  "created_at": "2026-05-14T19:35:07Z",
+  "created_by": "Mark Atwood",
+  "description": "LOCATION: crate-jmap-contacts-server/src/lib.rs:77-135\n\nSIGNATURE:\n    pub fn register_contacts_handlers<B>(\n        dispatcher: &mut Dispatcher<B::CallerCtx>,\n        backend: Arc<B>,\n    )\n    where B: ContactsBackend + 'static,\n\nPROBLEM:\nA consumer that calls register_contacts_handlers twice on the same\ndispatcher silently gets the second backend's handlers registered for\nevery method name; the first backend's handlers are dropped without\nnotice. Dispatcher::register() is `pub fn register(&mut self, ...)` \u2014\nits docs do not say what happens on duplicate method names, and there\nis no return value to signal a duplicate. The dispatcher just stores\nthe latest.\n\nPlausible failure modes for a real consumer:\n\n1. **Multi-tenant deployment.** A consumer that builds the dispatcher\n   in a hot-reload path (e.g. on config change) re-registers all\n   handlers. If the old Arc<Backend> is still alive elsewhere, its\n   methods stop being called. Cache-coherence bugs follow.\n\n2. **Composition with multiple capability sets.** A consumer that\n   advertises contacts + chat + mail may accidentally register\n   contacts twice (e.g. once via a \"common extensions\" helper, once\n   via direct call). Silent backend swap.\n\n3. **Test fixture re-use.** A test that constructs a dispatcher and\n   registers handlers, then a helper inside the test re-registers\n   for a slightly different backend. The test passes \"because the\n   dispatcher works\" \u2014 but the assertions inadvertently exercise the\n   wrong backend.\n\nWHAT CALLERS CANNOT DEPEND ON:\n- That a register_contacts_handlers call is idempotent.\n- That a second call rejects the operation.\n- That diagnostics distinguish \"I forgot to register\" from \"I\n  registered, then overwrote\".\n\nTHIS IS A FOUNDATION-LAYER CONCERN:\nThe behavior comes from `jmap_server::Dispatcher::register`. Fixing\nit at the dispatcher layer is the right scope; this finding documents\nthe symptom for the contacts-server API contract.\n\nRECOMMENDED (workspace-level):\nChange Dispatcher::register to return Result, with an explicit\nDuplicateMethod error variant. Callers who genuinely want overwrite\nsemantics opt in via a separate register_or_overwrite path.\n\nOR (contacts-server-local):\nDocument the foot-gun in register_contacts_handlers's docstring:\n\n    /// # Idempotency\n    ///\n    /// Calling this function twice on the same Dispatcher silently\n    /// overwrites the first call's handlers. The dispatcher does not\n    /// reject duplicates. Consumers building dispatchers dynamically\n    /// must ensure each method name is registered at most once.\n\nP3 because (a) the bug requires the consumer to misuse the function,\nand (b) the fix is at the foundation layer. Documenting the foot-gun\nis cheap and useful.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.36",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "register_contacts_handlers silently overwrites prior handlers if called twice \u2014 no error, no warning",
+  "updated_at": "2026-05-18T03:04:15Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:35:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "f6510f7f-d41b-5c82-9cf1-697269301825",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

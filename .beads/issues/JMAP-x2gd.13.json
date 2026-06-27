@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Handler-side enforcement done in commit c5aac30 with two regression tests. The handler now hoists a get_objects fetch and rejects sequential / intra-batch duplicates via alreadyExists. The backend-side concurrent-write race protection is tracked separately as JMAP-x2gd.101.",
+  "closed_at": "2026-05-17T04:30:30Z",
+  "compaction_level": 0,
+  "content_hash": "ece01a8e505da5b54503dd0584ebd75932875e11ab132d345638b5774f3ce638",
+  "created_at": "2026-05-14T03:14:18Z",
+  "created_by": "Mark Atwood",
+  "description": "Site:\n- crate-jmap-chat-server/src/position.rs:5-7 (doc comment): 'There is at most one ReadPosition per (account, chat) pair. Create and destroy are supported (unlike singletons), but each chat's read position is unique \u2014 backends must enforce the (account, chatId) uniqueness constraint.'\n- crate-jmap-chat-server/src/position.rs:144-198 (handle_position_set create): no uniqueness check; just calls create_object<ReadPosition>.\n- crate-jmap-chat-server/src/memory.rs:681-714 (generic create_object): no uniqueness check by (chatId).\n\nDoc says 'backends must enforce' \u2014 MemoryBackend does not. A client calling ReadPosition/set create twice with the same chatId gets two ReadPosition records. Subsequent ReadPosition/get for that chat returns both; subsequent ReadPosition/set updates only one (whichever the chosen id picks), leaving the other stale; subsequent Chat.unreadCount derivation (per draft-atwood-jmap-chat-00 \u00a7Chat unreadCount line 485-486) is ambiguous.\n\nThis is the kind of bug that is invisible in tests (none create duplicates) and shows up in production when client retries land twice.\n\nFix sketch:\n1. In handle_position_set create, look up existing ReadPositions by chatId before creating. If one exists, return alreadyExists pointing at the canonical id (the Chat/set Direct create pattern at chat.rs:181-194 is the model).\n2. AND in MemoryBackend.create_object<ReadPosition>, enforce the uniqueness atomically (the kit's policy is backend-canonical; without backend enforcement, two concurrent creates can both pass the handler's pre-check).\n\nTests should cover: two sequential creates for same chatId \u2192 second yields alreadyExists; two concurrent creates \u2192 at most one succeeds.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ReadPosition uniqueness invariant 'one per (account, chat)' is unenforced; duplicate creates silently succeed",
+  "updated_at": "2026-05-17T04:30:30Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T20:14:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "28b149d8-369a-5aa1-b46e-abf2b81d4e68",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

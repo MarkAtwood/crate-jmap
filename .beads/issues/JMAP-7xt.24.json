@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.24",
+  "title": "AuthProvider contract violation causes panic in connect_ws, not a clean error",
+  "description": "The AuthProvider trait doc says returned header name/value must be valid HTTP field values, and warns that violations cause a panic in connect_ws. The ws/mod.rs connect_ws implementation wraps the header parsing in map_err and returns InvalidArgument rather than panicking \u2014 so the doc comment is wrong about the panic, which is good. However, the HTTP path (upload_blob, download_blob, call) uses req.header(name.as_str(), value.as_str()) which calls reqwest::RequestBuilder::header. If the value contains invalid bytes, reqwest will silently drop the header or return an error from .send(). This means an AuthProvider returning an invalid header value in the HTTP path produces a request with no Authorization header, not an error \u2014 the server returns 401 and the caller gets AuthFailed rather than an indication of a misconfigured AuthProvider. The contract doc should be corrected and the HTTP path should validate the header value before attaching it.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:52Z",
+  "updated_at": "2026-04-30T00:53:04Z",
+  "closed_at": "2026-04-30T00:53:04Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:51"
+    }
+  ]
+}

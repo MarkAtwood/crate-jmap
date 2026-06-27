@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T04:52:44Z",
+  "id": "019e24d4-745f-7827-a5d5-7837556e1244",
+  "issue_id": "JMAP-x2gd.10",
+  "text": "Escalating to human \u2014 same workspace-architectural family as .2 (invite-uses atomicity), .3 (SpaceInvite manage_members), .4 (SpaceBan ban permission). All four propose new typed methods on ChatBackend; the right shape is to take them as a single architectural decision.\n\nThe proposed redeem_invite_code(&self, caller, code) method is most naturally MERGED with the redeem_space_invite proposal from .2 \u2014 both touch the invite redemption path. The unified signature suggested in .2 was:\n\n  redeem_space_invite_by_code(caller, code, new_member: SpaceMember)\n      -> Result<(account_id, space_id, uses, Space), BackendSetError>\n\nThat single typed method covers BOTH:\n- (.10) global invite-code lookup (returns the account+space that owns the code, ignoring caller account_id)\n- (.2) atomic uses-increment + member-add (single backend operation)\n\nRecommendation: defer this bead. When the workspace decides on the .2/.3/.4 trait-shape family, .10 is folded into the same call and closed as a duplicate or co-fixed by the unified method."
+}

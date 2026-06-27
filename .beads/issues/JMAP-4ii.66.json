@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T04:55:09Z",
+  "compaction_level": 0,
+  "content_hash": "c7b4076abb77c6fa523226bf4b86eed66e460da40d1cba594aac2603762d9150",
+  "created_at": "2026-05-02T04:47:21Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_message_set create loop lines 405-416 contains repeated pattern: if let Some(x) = val { field = Some(x) }. When val already has type Option<T> and no transformation occurs, this is equivalent to field = val and clippy::manual_map flags it. Affected lines: 405-407 (reply_to), 408-410 (thread_root_id), 414-416 (burn_on_read). Should be: msg.reply_to = reply_to; msg.thread_root_id = thread_root_id; msg.burn_on_read = burn_on_read;",
+  "ephemeral": 0,
+  "id": "JMAP-4ii.66",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "message.rs create: if-let Some passthrough should be direct assign",
+  "updated_at": "2026-05-02T04:55:09Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T21:47:20Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-4ii",
+      "id": "35b1073d-2938-5265-ab82-39399c3e3bde",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

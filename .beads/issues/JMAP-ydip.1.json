@@ -1,0 +1,32 @@
+{
+  "assignee": "Mark Atwood",
+  "closed_at": "2026-05-05T01:45:11Z",
+  "compaction_level": 0,
+  "content_hash": "061af712adaf85443b257adce22ecc62bc4cef028dc185f8a643bf84f216c7d3",
+  "created_at": "2026-05-05T01:44:07Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-ydip.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "write src/methods/mod.rs for filenode client",
+  "updated_at": "2026-05-05T01:45:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:44:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ydip",
+      "id": "182643d1-c6ee-5446-a4ff-634c0c9fc630",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

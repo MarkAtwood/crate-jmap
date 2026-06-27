@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in next commit. CreateError::Server reshaped from holding String to holding JmapError. All three leak sites (process_create lines 813, 845, 943) now build via server_fail_from_backend(&e). Dispatch site rebuilt to format from JmapError.error_type + .description. Site 856 (Envelope deserialize) is out of scope \u2014 that's client-input parse text into invalidProperties.description, not a backend leak. cargo test, clippy, fmt all clean.",
+  "closed_at": "2026-05-15T07:07:11Z",
+  "compaction_level": 0,
+  "content_hash": "63bc1a1529cb1352d9f815e05f7561df214e52754733f124854834d79a282468",
+  "created_at": "2026-05-14T16:21:14Z",
+  "created_by": "Mark Atwood",
+  "description": "src/submission.rs process_create lines 796 and 828: \\n  .map_err(|e| CreateError::Server(e.to_string()))\\n\\nThis builds a CreateError::Server(String) which at lines 429-430 is rendered as { type: serverFail, description: msg }. The msg interpolates backend e.to_string(), same wire-leak hazard the c64d655 sweep fixed elsewhere.\\n\\nThree more sites in the same file have the same shape: line 796 (identity get_objects failure), line 828 (email get_objects failure), line 926 (BackendSetError::Other variant in CreateError mapping).\\n\\nFix: rewire CreateError::Server to carry a typed error or a stable string that is NOT the backend's Display impl, OR remove CreateError::Server and have the variants map directly via server_fail_from_backend before the create returns. Either way, the goal is no backend Display text on the wire.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "process_create error mapping leaks backend Display text",
+  "updated_at": "2026-05-15T07:07:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:21:13Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "ddca6be0-0840-5a96-9206-ecae9a0d4c6c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

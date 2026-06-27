@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in next commit. Added a 'Re-registration semantics' doc section to register_mail_handlers covering double-call, custom-override-ordering, and no-collision-diagnostic. The mdn and sieve entry points refer back to the same section. Picked the doc-only path (Option A) over reshaping Dispatcher::register to return Option<Arc<dyn JmapHandler>> (Option B) because B is a workspace-wide API change in jmap-server (the canonical foundation) and P2 priority doesn't warrant that. Propagation notes left on q2wa.7.1-.7.7.",
+  "closed_at": "2026-05-15T07:11:07Z",
+  "compaction_level": 0,
+  "content_hash": "12044c5e56448c8237ee847b8dfdb0f406f45dc80c62515ecb4f215b31f0ad10",
+  "created_at": "2026-05-14T16:30:59Z",
+  "created_by": "Mark Atwood",
+  "description": "src/lib.rs:129, 275, 321 declare three handler-registration entry points (`register_mail_handlers`, `register_mdn_handlers`, `register_sieve_handlers`). The doc on each describes what method names get registered but does NOT mention what happens when those names conflict with pre-existing entries in the dispatcher.\n\nCrate dependency `jmap_server::Dispatcher::register` (crate-jmap-server/src/lib.rs:~280) is implemented as:\n\n```\npub fn register(&mut self, method: impl Into<String>, handler: Arc<dyn JmapHandler<CallerCtx>>) {\n    self.handlers.insert(method.into(), handler);\n}\n```\n\nSilent overwrite. No error returned. No log.\n\nConsumers will hit this in three realistic scenarios:\n\n1. **Double-registration.** A caller who calls `register_mail_handlers` twice (e.g. once during initialization, once when refreshing a backend) silently loses the first set's handlers. No diagnostic.\n\n2. **Custom override.** A caller wants to override one or two RFC 8621 method handlers with their own implementation. The natural pattern is to call `register_mail_handlers` first (to set up the 26 defaults), then `dispatcher.register(\"Email/get\", my_override)` to replace one. This works \u2014 but the inverse (register the override first, then call `register_mail_handlers`) silently undoes the override. Order-dependent behavior is undocumented.\n\n3. **Extension cross-collision.** If a future extension's `register_*` function uses a name that overlaps with another (vendor-prefixed methods like `MyVendor/foo`), order matters and silent overwrite hides the conflict.\n\nContract issue: the registration functions advertise an \"additive\" mental model but the underlying primitive is \"replacing\". Either:\n- Document the overwrite-wins semantics explicitly in the doc comment.\n- OR have `Dispatcher::register` return `Option<Arc<dyn JmapHandler<...>>>` (the previously-registered handler, if any) so callers can detect collisions.\n\nDefensive shape would be to have `register_mail_handlers` return `Vec<(&'static str, Option<Arc<dyn JmapHandler<...>>>)>` \u2014 list of `(method_name, prior_handler)` for diagnostics. But that affects every sibling extension-server's identical entry-point shape.\n\nPriority P2 because the failure mode is observable in CI (the second registration wins, tests would catch it) but the contract is currently invisible in docs.\n\nCookie-cutter amplification: all 7 sibling extension-server crates have the same shape; documenting here without propagation will create drift between mail-server's doc and the siblings'.",
+  "ephemeral": 0,
+  "id": "JMAP-q2wa.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "register_*_handlers doc does not specify silent-overwrite semantics",
+  "updated_at": "2026-05-15T07:11:07Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:30:59Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-q2wa",
+      "id": "c6d7a2fc-c029-5a03-b9bf-1a537de5d1ee",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

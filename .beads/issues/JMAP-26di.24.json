@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "4e925a11e9d07d36b9538a0fe3b224fbdda55692c4813b1c01db0c02d845f752",
+  "created_at": "2026-05-15T20:29:57Z",
+  "created_by": "Mark Atwood",
+  "description": "tests/message_smoke_tests.rs:851-885 (message_update_with_read_disposition_other_serialises_correctly). The test sends \"voice-listened\" \u2014 which is a spec example value (draft-atwood-jmap-chat-00 line 363). The spec policy is 'Unrecognized values MUST be stored as-is', which is broader than the two example strings. A regression that special-cased exactly the two spec examples would still pass this test. Add a second assertion with a non-spec-example string like \"acmeCorpPrivateStatus\" to verify the catch-all behaviour.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "ReadDisposition::Other only tested with spec-example string, not arbitrary",
+  "updated_at": "2026-05-15T20:29:57Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:29:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "889e0ae4-9f68-5cb8-a905-a60c729a47fb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

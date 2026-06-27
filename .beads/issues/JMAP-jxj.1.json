@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-jxj.1",
+  "title": "SSE: mixed line-ending delimiter \\n\\r\\n not detected",
+  "description": "Trigger: SSE server terminates frame with \\n\\r\\n (LF blank line + CRLF blank line) instead of \\n\\n or \\r\\n\\r\\n. The subscribe_events loop scans for \\r\\n\\r\\n, \\n\\n, \\r\\r. None matches \\n\\r\\n (LF CR LF \u2014 LF at pos, CR then LF, no adjacent LFs for \\n\\n scan). Frame is accumulated into buf indefinitely until stream closes, then silently dropped. Bad behavior: StateChange events lost without error.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:40:23Z",
+  "updated_at": "2026-04-30T15:46:29Z",
+  "closed_at": "2026-04-30T15:46:29Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-jxj",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:40:23"
+    }
+  ]
+}

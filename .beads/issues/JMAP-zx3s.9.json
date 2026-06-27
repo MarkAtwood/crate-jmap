@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Adopted option 1 (tighten deserializer): deserialize_parent_id_three_way now rejects numbers, booleans, arrays, and nested objects with a spec-citing error message. RFC 8621 \u00a72.3 admits only null and string; the post-diff three-way distinction is preserved (absent / null / Id-string). Added mailbox_filter_parent_id_rejects_non_spec_shapes test asserting all four non-spec wire shapes are rejected with a spec-citing error. Tests + clippy pass for jmap-mail-types and downstream jmap-mail-server. Option 2 (typed ParentIdFilter enum) filed as JMAP-zx3s.17 deferred follow-up \u2014 it's a forward-major-version type-design improvement, not a present-tense correctness fix, and would force consumer migration from Option<serde_json::Value> to Option<ParentIdFilter>.",
+  "closed_at": "2026-05-17T15:13:45Z",
+  "compaction_level": 0,
+  "content_hash": "216b6b26cf9dcae257bade3123463b4187b9c6e018fbabcd6782b9d0d5abd26a",
+  "created_at": "2026-05-15T04:55:39Z",
+  "created_by": "Mark Atwood",
+  "description": "## Caller contract risk: a wire-invalid \\`parentId\\` deserializes silently and round-trips back.\n\nRFC 8621 \u00a72.3 defines \\`Mailbox/query\\` \\`parentId\\` filter as a three-way value: absent, JSON \\`null\\`, or a String matching a Mailbox \\`Id\\`. The spec admits no other shape.\n\nThe implemented type is \\`Option<serde_json::Value>\\` with a custom deserializer (\\`deserialize_parent_id_three_way\\`) that just calls \\`serde_json::Value::deserialize\\` and wraps the result in \\`Some\\`. That call accepts ANY JSON value: numbers, booleans, arrays, nested objects, all silently succeed. The serializer then echoes back whatever was deserialized.\n\n### Concrete failure modes\n\nToday's type permits all of these to round-trip:\n\n```rust\n// Spec-valid:\nlet _: MailboxFilterCondition = serde_json::from_value(json!({\\\"parentId\\\": null}))?;\nlet _: MailboxFilterCondition = serde_json::from_value(json!({\\\"parentId\\\": \\\"m1\\\"}))?;\n\n// Spec-INVALID but accepted today:\nlet _: MailboxFilterCondition = serde_json::from_value(json!({\\\"parentId\\\": 42}))?;\nlet _: MailboxFilterCondition = serde_json::from_value(json!({\\\"parentId\\\": true}))?;\nlet _: MailboxFilterCondition = serde_json::from_value(json!({\\\"parentId\\\": [\\\"m1\\\"]}))?;\nlet _: MailboxFilterCondition = serde_json::from_value(json!({\\\"parentId\\\": {\\\"id\\\": \\\"m1\\\"}}))?;\n```\n\nA client that receives a malformed \\`parentId: 42\\` from a non-conformant server has no signal that anything is wrong. A client that constructs \\`parent_id = Some(Value::Bool(true))\\` programmatically can send wire-invalid filters that the server will reject at the JSON-parsing layer (if it is conformant) or silently misinterpret (if it is not).\n\n### Why the chosen shape is type-untyped\n\nThe doc comment on the field describes three valid states, but \\`Option<serde_json::Value>\\` is the universal sum of \\\"absent OR any JSON value\\\". The type system carries no information beyond what's in the doc.\n\nA type-safe shape exists:\n\n```rust\n#[non_exhaustive]\n#[derive(Debug, Clone, PartialEq, Eq)]\npub enum ParentIdFilter {\n    /// Match only top-level mailboxes (wire: \\`null\\`).\n    TopLevelOnly,\n    /// Match mailboxes whose parent equals this Id (wire: the Id string).\n    Equals(Id),\n}\n\npub parent_id: Option<ParentIdFilter>,\n```\n\nWith a manual \\`Serialize\\` / \\`Deserialize\\` impl (\\`null\\` <-> \\`TopLevelOnly\\`, string <-> \\`Equals(Id::from(s))\\`, anything else <-> error). Wire-compatible with the existing format; callers cannot construct or accept wire-invalid values.\n\n### Test coverage\n\nThe added tests (\\`mailbox_filter_parent_id_absent_round_trips\\`, \\`_null_round_trips\\`, \\`_string_round_trips\\`) cover the three spec-valid cases but do NOT include a negative test asserting that a non-spec value (e.g. \\`{\\\"parentId\\\": 42}\\`) is rejected. The implementation today silently accepts it.\n\n### Scope note\n\nThis is in the diff: the custom deserializer was added in this change. Before this diff, the field was \\`Option<serde_json::Value>\\` with the default \\`Option<T>\\` Deserialize impl (which collapses \\`null\\` to \\`None\\` \u2014 the bug the diff was fixing). The fix introduced the three-way distinction but did not narrow the value space; both the pre- and post-diff shapes accept non-spec values, but the doc comment is now more explicit about what \\\"valid\\\" means, which deepens the contract-vs-type mismatch.\n\n### Cross-references\n\n- Workspace AGENTS.md Filter-algebra-exclusion clause: filter conditions are correctness-sensitive; silent acceptance of unknown clauses is a query-correctness hazard. Silently accepting a non-spec \\`parentId\\` shape is in the same family.",
+  "ephemeral": 0,
+  "id": "JMAP-zx3s.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MailboxFilterCondition.parent_id: Option<serde_json::Value> accepts non-spec values (arrays, numbers, bools, nested objects)",
+  "updated_at": "2026-05-17T15:13:45Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T21:55:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zx3s",
+      "id": "197ea9b3-0b0b-57ab-8c9f-9e435b01032b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

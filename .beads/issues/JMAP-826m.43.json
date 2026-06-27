@@ -1,0 +1,33 @@
+{
+  "close_reason": "Positive observation, no action required. The validate-and-collect destroy loop at metadata.rs:470-481 encodes the validated invariant in the type system (Vec<String>, not Vec<Value>) \u2014 removes the 'unreachable' dead branch that the original two-pass design had. Closing as 'noted, what good looks like'.",
+  "closed_at": "2026-05-15T09:02:13Z",
+  "compaction_level": 0,
+  "content_hash": "048d8040f21569f791aa1bc0bd388e32bec101e09a21a025e4d93214e80d38fb",
+  "created_at": "2026-05-14T17:59:00Z",
+  "created_by": "Mark Atwood",
+  "description": "Why this is good: bbde4c3 refactored the destroy loop from a two-pass validation (find() pre-check + match in loop with 'unreachable' arm) to a single pass that walks destroy_arr once, pushing String to id_strs on Some, returning invalidArguments on None. The validated invariant is now ENCODED in the type \u2014 the loop processes Vec<String>, not Vec<Value> \u2014 instead of in a comment-as-assertion.\n\nThe original code had a None arm carrying 'continue, // unreachable' which is exactly the kind of dead branch that gets converted into a real bug by a future refactor removing the pre-check. The current code cannot suffer that fate: there is no second pass, no dead branch.\n\nThe commit message (bbde4c3) explicitly calls out 'The dead branch was a future-bug magnet'.\n\nA future contributor might suggest 'fold the two loops back together for symmetry with create/update' (which use a single map iteration). Defend: the destroy phase has a fundamentally different validation surface (a flat array, not a map). The current split is type-driven, not stylistic.\n\nCross-reference: bd:JMAP-ayoz.30.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.43",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "validate-and-collect destroy loop (metadata.rs:470-481) \u2014 invariant moved into the type system instead of a comment",
+  "updated_at": "2026-05-15T09:02:13Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:59:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "6a4f9b4e-31d8-5e88-bbd9-94a0bb0fc839",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

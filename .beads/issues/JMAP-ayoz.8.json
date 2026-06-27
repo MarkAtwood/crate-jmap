@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed. Replaced manual match-on-Value with serde_json::from_value::<Option<T>>() per filter arg, propagating shape errors as JmapError::invalid_arguments. Also lifted the args.as_object_mut() borrow into a single block-scope binding instead of re-acquiring it twice. Added 3 regression tests covering non-string filterRelatedType, non-array filterMetadataType, and non-string element inside filterMetadataType. Existing valid-filter and Null-filter tests still pass. All 39 tests pass; clippy clean.",
+  "closed_at": "2026-05-14T14:56:39Z",
+  "compaction_level": 0,
+  "content_hash": "91604fdead3c9b2fc544d4a6e04ad99ddf0261005590517efdca037b55adf857",
+  "created_at": "2026-05-14T14:20:05Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:79-102 \u2014 parses filterRelatedType and filterMetadataType. Two issues:\n\n1. Type-coercion permissiveness on wrong shapes:\n\n    filter_related_type: Option<String> = ...\n        .and_then(|v| match v {\n            Value::String(s) => Some(s),\n            Value::Null => None,\n            _ => None,    // <-- silently drops e.g. an integer or array\n        });\n\nA client sending {\"filterRelatedType\": 42} or {\"filterRelatedType\": [\"Email\"]} gets no error \u2014 the field is silently treated as null and all related-types are returned. Same for filterMetadataType \u2014 non-array values silently become null, and within an array, non-string elements are silently dropped via filter_map.\n\nPer RFC 8620 \u00a71.6 the server ignores unknown fields, but the spec does NOT permit silent type coercion of recognized fields. A client sending the wrong shape for a recognized field should get invalidArguments.\n\n2. Subtle: args.as_object_mut().and_then(|m| m.remove(\"filterRelatedType\")) is called twice (once for each filter arg). On the second call, the first filter has already been removed. Order-dependent but each remove only fires once, so it works \u2014 but the read pattern is fragile and a future contributor adding a third filter will reach for the same pattern, which gets quadratic-shaped quickly.\n\nCompare canonical: jmap_server::handlers::handle_changes (the delegated path other extensions use) does NOT do filter-arg parsing in the shim \u2014 it parses since_state and max_changes only, with explicit invalidArguments on wrong shape. The metadata shim diverges to handle the spec's Metadata-specific filter args, but the divergence loses the strictness.\n\nFix: \n- Use serde_json::from_value::<Option<String>>(v) and from_value::<Option<Vec<String>>>(v) to parse the filter args, propagating serde errors as JmapError::invalid_arguments. Drop the manual match-on-Value pattern.\n- Or, define a small typed args struct deserialized once at the top of the handler.\n\nMinor: even after the typed parse, the unknown-fields-on-args question (per \u00a71.6) is fine to leave permissive. The hard requirement is that recognized fields with wrong shape produce invalidArguments.\n\nSeverity: P2 because the wrong behavior is silent-success-with-wrong-answer, not data corruption. Users who hit this will receive results that don't match their filter and likely won't notice until they're filing bugs against the wrong layer.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Unknown args in Metadata/changes silently accepted; filter parsing is permissive on wrong shapes",
+  "updated_at": "2026-05-14T14:56:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:20:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "1dd69dac-7fb5-5393-a430-f81de6960515",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

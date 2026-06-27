@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T02:37:06Z",
+  "id": "019e297e-a28f-7c8c-8977-b32e2b61d822",
+  "issue_id": "JMAP-wzq9.7",
+  "text": "Already explicitly deferred by the bead author: '...this is a canonical-template change. Per crate-jmap-mail-client/AGENTS.md propagation rule, the helper would have to land in mail-client first, then propagate to every extension-client sibling.' Marking blocked to match the explicit deferred-to-canonical posture; will become actionable when canonical mail-client extracts the ensure_non_empty_state helper."
+}

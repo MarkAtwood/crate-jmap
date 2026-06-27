@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-11T18:44:44Z",
+  "compaction_level": 0,
+  "content_hash": "6a03db5c746f8ed04dea7acff43c31e51544028f1445b3fd50fc8196375699a7",
+  "created_at": "2026-05-11T00:26:54Z",
+  "created_by": "Mark Atwood",
+  "description": "Once JMAP-yfpq.1 lands (path-dep exists):\n\nAdd round-trip tests for each of the 13 sloppy fields against RFC 8984 example JSON, demonstrating serde_json::from_value::<jmap_jscalendar_types::Location>(task.locations.unwrap()) etc.\n\nFields covered:\nTask (src/task.rs): related_to, locations, virtual_locations, links, recurrence_rules, excluded_recurrence_rules, recurrence_overrides, participants, alerts, localizations, time_zones (11 fields).\nTaskList (src/task_list.rs): default_alerts_with_time, default_alerts_without_time (2 fields).\n\nUse independent oracle (hand-written from RFC 8984 examples), NOT derived from the code under test.\n\nBlocks JMAP-yfpq.3 (PLAN docs update).",
+  "ephemeral": 0,
+  "id": "JMAP-yfpq.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "[2026-05-11] Field-count discrepancy in this bead's description. Bead lists 13 sloppy-Value fields but actual code has only 11 Option<...serde_json::Value...> fields, plus 2 PatchObject fields that don't round-trip into jscalendar typed sub-types:\n\nACTUAL sloppy-Value (round-trippable to jmap-jscalendar-types) - 11 fields:\n  Task: related_to, locations, virtual_locations, links, recurrence_rules, excluded_recurrence_rules, participants, alerts, time_zones (9)\n  TaskList: default_alerts_with_time, default_alerts_without_time (2)\n\nPatchObject (NOT sloppy-Value; no jscalendar typed counterpart) - 2 fields:\n  Task: recurrence_overrides: Option<HashMap<String, PatchObject>>  (per-instance PatchObject overrides, draft-tasks-06)\n  Task: localizations: Option<HashMap<String, PatchObject>>  (i18n PatchObjects keyed by language tag)\n\nThe bead's listed 13 count appears to come from the parent epic JMAP-yfpq description which inadvertently included the two PatchObject fields.\n\nQuestion: should the test bead cover only the 11 actual sloppy-Value fields, or should it also include 2 round-trip-via-PatchObject tests (which would NOT use jmap-jscalendar-types - they would round-trip Task -> PatchObject -> Task, an entirely different concern)?\n\nRecommendation: scope this bead to the 11 actual sloppy-Value fields and file a separate small bead for PatchObject round-trip coverage if that's wanted. Test pattern, oracle source, and dependency set are different.\n\nFiled per workspace AGENTS.md 'Turn questions into beads' rule rather than guessing.\n\nALSO: duplicate sibling bead JMAP-yfpq.5 was filed during the same /do-beads pass (mistake \u2014 did not scan existing children before creating .4 and .5). JMAP-yfpq.5 closed as duplicate; its content folded into this bead.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Add round-trip tests for 13 JSCalendar sloppy fields in jmap-tasks-types",
+  "updated_at": "2026-05-11T18:44:44Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-10T17:26:53Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-yfpq",
+      "id": "6a89e599-f31b-5236-af8e-bf466d30fea1",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

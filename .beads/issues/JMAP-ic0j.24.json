@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T17:00:41Z",
+  "compaction_level": 0,
+  "content_hash": "bb964f25fb151198befe665fa8c26f02ac0ce1c82f1e8c410614a3e95e72a840",
+  "created_at": "2026-05-15T17:00:46Z",
+  "created_by": "Mark Atwood",
+  "description": "memory.rs:56 (#![deny(clippy::await_holding_lock)]) and lib.rs:199 (#[deny(clippy::await_holding_lock)] on test_support module) \u2014 both modules enforce at compile time that no std::sync::Mutex guard is held across an .await.\n\nThis is the right shape for a std::sync::Mutex-based reference impl. If a future contributor changes a method body and accidentally holds a lock across .await:\n- Without the deny: the test suite hangs intermittently, slow paths deadlock, takes hours to diagnose.\n- With the deny: clippy refuses to compile, with line numbers.\n\nThe doc-comments at memory.rs:42-46 and lib.rs:203-207 also document the policy decision: 'If a future change requires holding a guard across .await, switch to tokio::sync::Mutex rather than disabling the lint.' That phrasing pre-answers the most likely PR pushback.\n\nDEFEND when reviewers suggest 'remove the lint, it triggers too often' or 'replace with allow + comments'.\n\nCommit history: this was added by bd:JMAP-r3pg work (commit 6694e27 'test(server): deny await_holding_lock in mock backend modules').",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.24",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "await_holding_lock denied module-wide in MemoryBackend and test_support",
+  "updated_at": "2026-05-17T17:00:41Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:00:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "6b032459-96a1-5f6b-b800-4aef3ce388fa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

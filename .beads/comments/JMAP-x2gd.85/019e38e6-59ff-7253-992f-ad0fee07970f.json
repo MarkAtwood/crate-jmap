@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T02:24:41Z",
+  "id": "019e38e6-59ff-7253-992f-ad0fee07970f",
+  "issue_id": "JMAP-x2gd.85",
+  "text": "Closing as documented-rejection per the bead's own framing. The bead text explicitly says:\n\n> Filed as P4 opinion because:\n> (a) the engineering basis (lock contention) is hypothetical for this code,\n> (b) the fix changes 12 functions for no measurable benefit in the only deployment shape MemoryBackend was designed for,\n> (c) restructuring to release the guard earlier in some sites would require copying owned data out which would defeat the original perf intent.\n> \n> Worth filing only as documentation that nursery has been swept and this lint family was deliberately rejected.\n\nThis is acknowledged. The lint family is deliberately rejected for MemoryBackend in its documented demonstration-quality posture. If MemoryBackend ever becomes a production-shaped impl (which would itself be a workspace-policy violation per AGENTS.md), the 12 sites can be revisited."
+}

@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T08:17:01Z",
+  "compaction_level": 0,
+  "content_hash": "31cbd610a982ed6be4cf9f84eaa2b04b348146f1863bf5bc56f2d6ab8980cc78",
+  "created_at": "2026-05-14T17:53:34Z",
+  "created_by": "Mark Atwood",
+  "description": "Scenario: memory.rs:369-385 (find_uniqueness_conflict) iterates every Metadata object in the account on every create_object call. For O(N) stored objects, every create is O(N) \u2014 total cost for N creates is O(N\u00b2). Same scan repeats in update_object's post-patch re-check (memory.rs:806-825).\n\nFor a 'reference implementation' this is fine. The risk is downstream contributor copy: a contributor who reads the pattern and ports it to their postgres backend may write a 'SELECT * FROM metadata WHERE account_id = ' and then loop in application code to find the conflict, replicating the O(N) scan against the database \u2014 when a UNIQUE INDEX would handle the same job in O(log N).\n\nMaintenance consequence: the 'how to do uniqueness in your real backend' is unstated. The MemoryBackend's scan-based approach is what a contributor will see and reach for. The correct pattern (database UNIQUE INDEX or in-memory HashSet<UniquenessKey>) is mentioned nowhere in the rustdoc.\n\nFix direction: add a 'Notes for production backends' section under the uniqueness bullet (memory.rs:28-33) explicitly stating: 'Production backends should declare a UNIQUE INDEX on (account_id, related_type, related_id, type_name, is_private) \u2014 not loop through records'. Also worth filing a separate efficiency bead on the MemoryBackend itself: a HashMap<UniquenessKey, Id> would cut the scan to O(1) at the cost of one extra map. Not necessary for tests, but the explicit O(1) data structure is exactly the kind of thing a contributor should copy.",
+  "ephemeral": 0,
+  "id": "JMAP-826m.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "find_uniqueness_conflict is O(n) per create \u2014 scales linearly with stored objects, no early-exit data structure",
+  "updated_at": "2026-05-15T08:17:01Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T10:53:34Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-826m",
+      "id": "8fe55bfe-3328-5e00-9993-5f90246b4920",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:55:00Z",
+  "compaction_level": 0,
+  "content_hash": "dd3cfbd7da0f6bebae302f2e6f4751829fe43ecc1075576748deb73614a398ce",
+  "created_at": "2026-05-02T00:43:58Z",
+  "created_by": "Mark Atwood",
+  "description": "Email/query with collapseThreads=true fetches COLLAPSE_THREADS_MAX_EMAILS (65536) email objects from the backend into process memory before slicing. A hostile client with a large account can trigger ~2 MiB of allocation per request with no per-connection or per-account rate guard. The comment documents the size but not the absence of any throttle.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "collapseThreads loads up to 65536 objects into memory unconditionally",
+  "updated_at": "2026-05-02T00:55:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:58Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "edba8b1c-0467-5e9b-83fb-88f348fb4339",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

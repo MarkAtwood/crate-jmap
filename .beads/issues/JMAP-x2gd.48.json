@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-17T04:54:05Z",
+  "compaction_level": 0,
+  "content_hash": "05868890516fce1116cd04082b36f40712b142b0a3d7f33f92e394a7501770a0",
+  "created_at": "2026-05-14T04:17:42Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-server/src/memory.rs:175\n\n  pub fn register_account(&self, account_id: &Id)\n\nThe doc-comment says 'Use this in tests that need an empty-but-valid\naccount.' The method is test scaffolding \u2014 but it is:\n\n- NOT marked #[doc(hidden)]\n- NOT suffixed `_for_test`\n- DOES NOT carry the explicit 'Production callers must not use this\n  method; the API stability disclaimer on the memory feature\n  applies doubly here.' banner that 5 of the 10 sibling test-only\n  methods on MemoryBackend DO carry\n\nCompare to:\n\n  #[doc(hidden)]\n  pub fn set_protect_last_admin_for_test(&self, value: bool) {...}    // memory.rs:270\n  \n  #[doc(hidden)]\n  pub fn set_limits_for_test(&self, limits: Option<ChatLimits>) {...}  // memory.rs:352\n  \n  #[doc(hidden)]\n  pub fn insert_object_for_test(...) {...}                             // memory.rs:367\n\nAll three carry the 'production must not use' banner and the\n_for_test suffix.\n\nContract effect:\n\n1. register_account appears in cargo doc output. Downstream\n   consumers reading docs see it as a documented part of the\n   API and write production code against it.\n\n2. Once any downstream consumer's test suite calls\n   `backend.register_account(&id)`, the maintainer cannot rename,\n   remove, or change its signature without a major version bump.\n   The 'memory' feature's overall 'API stability is opt-in via\n   this feature and may break across minor versions' (lib.rs:25-27)\n   is a written-down intent, but the workspace's behavior pattern\n   on other _for_test methods shows the maintainer DOES intend\n   per-method opt-out \u2014 register_account just missed it.\n\n3. The 'memory' feature banner argues 'demonstration only' but\n   register_account is a verb-shaped admin API ('register an\n   account'). Production multi-tenant servers that wire identity\n   middleware will reach for it on first read. The shape invites\n   misuse.\n\nRecommended fix:\n\n  /// Test-only entry point that ... Production callers must not\n  /// use this method; the API stability disclaimer on the memory\n  /// feature applies doubly here.\n  #[doc(hidden)]\n  pub fn register_account_for_test(&self, account_id: &Id) {...}\n\nIf the public name needs to stay (compatibility with existing\nin-tree integration tests), keep it but add #[doc(hidden)] + the\nbanner immediately. This is pre-1.0; safe to fix.\n\nSibling: JMAP-x2gd.45 (no test-shape macro) addresses the\nbackend-conformance side of the same gap. This finding addresses\nthe specific public-surface leak.",
+  "ephemeral": 0,
+  "id": "JMAP-x2gd.48",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "API contract: MemoryBackend::register_account is public test-scaffolding without doc(hidden) or stability banner",
+  "updated_at": "2026-05-17T04:54:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-13T21:17:41Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd",
+      "id": "a594e954-3b21-50c3-8451-d42e14e6bef6",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

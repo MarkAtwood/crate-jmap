@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T15:59:29Z",
+  "compaction_level": 0,
+  "content_hash": "82683434ba4eb8c1476aa77e3a081cd5701a3ba890502651c6eb47187052692e",
+  "created_at": "2026-05-01T15:43:28Z",
+  "created_by": "Mark Atwood",
+  "description": "backend.rs defines BackendSetError<E> with a SetError variant, but there is no impl From<SetError> for BackendSetError<E>. Backend implementations that want to return a SetError must write BackendSetError::SetError(SetError::new(...)) at every call site. impl<E> From<SetError> for BackendSetError<E> { fn from(e: SetError) -> Self { Self::SetError(e) } } would allow ? to convert SetError into BackendSetError and make backend implementations shorter and more readable. This is the standard Rust pattern for error variant wrapping.",
+  "ephemeral": 0,
+  "id": "JMAP-ptl.17",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "BackendSetError missing From<SetError> impl: callers construct BackendSetError::SetError(se) manually",
+  "updated_at": "2026-05-01T15:59:29Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T08:43:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ptl",
+      "id": "bdb38132-5c73-55b5-8e20-8164543de554",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

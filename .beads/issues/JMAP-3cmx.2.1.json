@@ -1,0 +1,35 @@
+{
+  "acceptance_criteria": "tests/helpers.rs exists. cargo test -p jmap-mail-client exits 0. Clippy clean.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created crate-jmap-mail-client/tests/helpers.rs with make_session, make_client, and helpers_compile test; 57 tests pass; clippy clean",
+  "closed_at": "2026-05-05T03:45:10Z",
+  "compaction_level": 0,
+  "content_hash": "7b712d2fa998bae409f65634e4b085616eea9aa550519e8fd462d987f54efd6c",
+  "created_at": "2026-05-05T03:30:38Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-mail-client/tests/helpers.rs with shared test infrastructure used by all three EmailSubmission wiremock test files.\n\n**Algorithm:**\n1. Create crate-jmap-mail-client/tests/helpers.rs.\n2. Add the following (non-test, pub) helper:\n\n```rust\nuse wiremock::MockServer;\n\n/// Build a jmap_base_client::Session whose apiUrl points at the mock server.\n/// One account: A13824 / john@example.com, primary for urn:ietf:params:jmap:mail.\n/// Oracle: RFC 8620 \u00a72.1 example session JSON shape.\npub fn make_session(server: &MockServer) -> jmap_base_client::Session {\n    let json = serde_json::json!({\n        \"capabilities\": {\n            \"urn:ietf:params:jmap:core\": {},\n            \"urn:ietf:params:jmap:mail\": {}\n        },\n        \"accounts\": {\n            \"A13824\": {\n                \"name\": \"john@example.com\",\n                \"isPersonal\": true,\n                \"isReadOnly\": false,\n                \"accountCapabilities\": { \"urn:ietf:params:jmap:mail\": {} }\n            }\n        },\n        \"primaryAccounts\": { \"urn:ietf:params:jmap:mail\": \"A13824\" },\n        \"username\": \"john@example.com\",\n        \"apiUrl\": format!(\"{}/api/\", server.uri()),\n        \"downloadUrl\": format!(\"{}/dl/{{accountId}}/{{blobId}}/{{name}}?accept={{type}}\", server.uri()),\n        \"uploadUrl\": format!(\"{}/ul/{{accountId}}/\", server.uri()),\n        \"eventSourceUrl\": format!(\"{}/sse/?types={{types}}&closeafter={{closeafter}}&ping={{ping}}\", server.uri()),\n        \"state\": \"s1\"\n    });\n    serde_json::from_value(json).expect(\"make_session: session must deserialize\")\n}\n\n/// Build a SessionClient pointed at the mock server.\npub async fn make_client(server: &MockServer) -> jmap_mail_client::SessionClient {\n    let client = jmap_base_client::JmapClient::new(\n        jmap_base_client::auth::DefaultTransport,\n        jmap_base_client::auth::NoneAuth,\n        &server.uri(),\n        jmap_base_client::client::ClientConfig::default(),\n    ).expect(\"make_client: JmapClient construction must succeed\");\n    use jmap_mail_client::JmapMailExt;\n    client.with_mail_session(make_session(server))\n}\n```\n\n3. Add a compile-check test to confirm the helper builds:\n```rust\n#[tokio::test]\nasync fn helpers_compile() {\n    let server = wiremock::MockServer::start().await;\n    let _sc = make_client(&server).await;\n}\n```\n\n4. Run: cargo test -p jmap-mail-client 2>&1 | grep -E '(ok|FAILED|error)'\n\n**Defensive programming rules:**\n- No unwrap() without explanatory comment; use .expect(\"reason\") in test helpers\n- No network calls to real servers \u2014 all URLs point to MockServer\n- make_session must take &MockServer (not a URI string) so the server lifetime is enforced by the borrow checker\n\n**Tests:**\n- helpers_compile: confirms make_session and make_client build and the session deserializes; oracle is the RFC 8620 \u00a72.1 session shape\n\n**Acceptance criteria:**\n- tests/helpers.rs exists and is accessible via #[path] or mod declaration from test files\n- cargo test -p jmap-mail-client exits 0\n- cargo clippy -p jmap-mail-client -- -D warnings exits 0",
+  "ephemeral": 0,
+  "id": "JMAP-3cmx.2.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Create tests/helpers.rs: make_session and common imports",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:30:38Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx.2",
+      "id": "722dd393-10b5-5d25-9875-2a9dafa5cabc",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

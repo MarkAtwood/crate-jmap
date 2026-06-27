@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T05:32:11Z",
+  "id": "019e3992-0496-7ae8-8171-3bb6afbcf4e8",
+  "issue_id": "JMAP-ops7.47",
+  "text": "Fix is one-line on crate-jmap-mail-types/src/keyword.rs:89-91. Per-crate review epic for mail-types is not currently in_progress in the listing; the workspace-API epic is the right home."
+}

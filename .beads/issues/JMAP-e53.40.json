@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-02T00:54:56Z",
+  "compaction_level": 0,
+  "content_hash": "c74da7130a6c3d5f9000e267b4629f31cd977dcc271eca2f7baaa8df9be1ddfb",
+  "created_at": "2026-05-02T00:45:01Z",
+  "created_by": "Mark Atwood",
+  "description": "RFC 8621 \u00a77.2 marks sendAt as (immutable; server-set). The server must always set sendAt to the time the EmailSubmission was created (or the FUTURERELEASE time based on envelope parameters). process_create() in submission.rs reads sendAt directly from the client-supplied create_args (lines 791-800) and uses it as the submission time. Trigger: client sends {\"sendAt\": \"2030-01-01T00:00:00Z\", ...} in EmailSubmission/set create. Bad behavior: server stores the client-supplied future date as sendAt instead of the actual creation time, violating the server-set constraint.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.40",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "sendAt is server-set but code accepts client value on EmailSubmission create",
+  "updated_at": "2026-05-02T00:54:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:45:00Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "089f29e0-9f1e-5ac0-b646-6c2033f03d40",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

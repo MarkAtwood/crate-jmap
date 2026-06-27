@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied option (a) (return VacationResponse directly) plus the bead's optional 'raw variant' suggestion: vacation_response_get now returns VacationResponse (unwrapped from the spec-mandated singleton list), and a new vacation_response_get_envelope method returns the full GetResponse<VacationResponse> envelope for callers that need the 'state' token (e.g. for ifInState guards on vacation_response_set).\n\nvacation_response_get implementation: delegates to vacation_response_get_envelope, then takes the first element of the .list Vec. An empty list \u2014 which RFC 8621 \u00a78 declares a spec violation since the singleton always exists per account \u2014 is mapped to ClientError::InvalidSession with a description that explains the spec invariant. The bead recommended this exact escape-hatch shape.\n\nREADME.md method table updated to reflect both signatures. Pre-publish 0.1.x kit, no published consumers, so the API break is invisible. Test in mod tests asserts on the raw GetResponse<VacationResponse> wire-shape deserialize (independent serde oracle) and is unaffected.\n\nRustdoc cross-references the two methods so callers discovering one find the other naturally.",
+  "closed_at": "2026-05-17T14:20:19Z",
+  "compaction_level": 0,
+  "content_hash": "1295e727e3e874e21a518e9019a7826ec3482b9ab6833c677b5c5df67507ae4f",
+  "created_at": "2026-05-15T01:53:14Z",
+  "created_by": "Mark Atwood",
+  "description": "vacation.rs:28-38\n\n  pub async fn vacation_response_get(&self)\n      -> Result<GetResponse<jmap_mail_types::VacationResponse>, ClientError>\n\nThe function passes `ids: [\"singleton\"]` to the wire request (line 33-34). RFC 8621 \u00a78 says the VacationResponse object is a per-account SINGLETON with id=\"singleton\". The module docstring (line 4-5) acknowledges this:\n\n  \"VacationResponse is a singleton object per account (RFC 8621 \u00a78). Its `id`\n   is always `\"singleton\"`. `VacationResponse/get` ignores the `ids` argument\n   and always returns the single object\"\n\nYet the return type is GetResponse<VacationResponse>, which contains a Vec<VacationResponse>. The caller has to:\n\n  let resp = sc.vacation_response_get().await?;\n  let v = resp.list.first().ok_or(...)?;\n\n\u2026where the spec promises resp.list.len() == 1.\n\nDefensive-code-forcing: every caller writes the same `.first()` boilerplate. The type signature does not encode the spec's singleton guarantee.\n\nRecommendation: change the return type to:\n\n  pub async fn vacation_response_get(&self)\n      -> Result<VacationResponse, ClientError>\n\nwith extraction logic in the method body. Optionally, keep a \"raw\" variant for callers who need access to old_state / new_state / notFound (though notFound is essentially meaningless for a singleton \u2014 either the server has the singleton or doesn't).\n\nTwo design choices:\n\n  (a) Return VacationResponse directly. Server-returned empty list = ClientError::InvalidSession or a new ClientError::NotFound. Simplest API, but the empty-list case is rare (server doesn't have a vacation response set? RFC 8621 \u00a78 implies one always exists per account, defaulting to isEnabled=false).\n\n  (b) Return Option<VacationResponse> \u2014 None signals server returned empty list.\n\nRecommendation: (a). Per RFC 8621 \u00a78 the singleton always exists, so server-returned-empty-list is a protocol violation and ClientError::InvalidSession is the right escape hatch.\n\nCross-reference: vacation_response_set on line 54-72 returns SetResponse<VacationResponse>. SetResponse from RFC 8620 \u00a75.3 has the same Vec issue but in different form (updated is a HashMap<Id, ...>). Less acute since the caller already knows the id key (\"singleton\") to look up.\n\nMark says NO HUMAN \u2014 recommendation (a). The wire response from a spec-conformant server WILL always have exactly one entry; if it doesn't, that's a server bug worth surfacing as ClientError.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "vacation_response_get returns GetResponse<VacationResponse> with Vec for a documented singleton \u2014 forces caller to index into list",
+  "updated_at": "2026-05-17T14:20:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:53:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "9c735908-bc97-5fd0-b6a8-d21148c24068",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

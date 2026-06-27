@@ -1,0 +1,33 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T12:25:20Z",
+  "compaction_level": 0,
+  "content_hash": "2aaae545fdc138edc643119203ad7e6e5d076157ff42909cf7c75359b16be3bf",
+  "created_at": "2026-05-01T12:19:43Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs handle_email_copy: RFC 8620 \u00a75.4 states 'accountId: The id of the account to copy records to. This MUST be different to the fromAccountId.' The handler does not validate that fromAccountId != accountId. When a client submits fromAccountId == accountId, the handler proceeds and makes copy_email calls with identical source and destination accounts, which could produce undefined behavior or allow self-copies. Should return invalidArguments before any state operations.",
+  "ephemeral": 0,
+  "id": "JMAP-a14.6",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Email/copy missing validation: accountId MUST differ from fromAccountId",
+  "updated_at": "2026-05-01T12:25:20Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T05:19:43Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-a14",
+      "id": "a50d7b61-3852-51d5-b2c3-5e9043cf670c",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

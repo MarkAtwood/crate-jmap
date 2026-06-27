@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-3m6.4",
+  "title": "download_blob: None and Some(\"\") for accept_type are indistinguishable",
+  "description": "accept_type: None and accept_type: Some(\"\") both expand {type} to empty string, producing ?accept= in URLs that contain that variable. The doc warns about this but notes 'the server should omit {type}' \u2014 a burden on a party the caller doesn't control. Callers who want 'no preference' but get a server with ?accept= in the template have no way to suppress the parameter without knowing the template structure. This will generate support issues. Consider: if accept_type is None and the template contains {type}, either omit the whole query parameter (requires template parsing) or document clearly that None means \"empty string, not absent\".",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T01:54:34Z",
+  "updated_at": "2026-04-30T02:09:28Z",
+  "closed_at": "2026-04-30T02:09:28Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-3m6",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 18:54:34"
+    }
+  ]
+}

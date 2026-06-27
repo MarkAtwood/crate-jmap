@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-yj8",
+  "title": "Review-rusty: jmap-mail-server pass 11",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T04:03:04Z",
+  "updated_at": "2026-05-01T04:04:03Z",
+  "closed_at": "2026-05-01T04:04:03Z",
+  "notes": "Idiom rating: CLEAN \u2014 no ownership, error handling, type design, trait, lifetime, unsafe, or macro issues found. Three .to_string() on literals are cosmetic (clippy::str_to_string, restriction group, not actionable).\nRust idiom confidence: 5% chance of missed issue. Least confident: collapse_by_thread behavior at COLLAPSE_THREADS_MAX_EMAILS boundary; onSuccessUpdateOriginal patch not pre-checked for immutable fields. Uncertainty from: tests don't cover these boundary cases directly."
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-636.5",
+  "title": "scheme-extraction logic duplicated in require_http_url and validate_session_urls",
+  "description": "client.rs:607-615 and client.rs:636-645: both functions contain the identical pattern: url.find(\"://\").map(|i| &url[..i]).unwrap_or(\"\").to_ascii_lowercase(). Extract to a single pub(crate) fn extract_url_scheme(url: &str) -> String helper to remove the duplication and centralize the RFC 3986 \u00a73.1 case-insensitivity logic.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:54:20Z",
+  "updated_at": "2026-04-30T16:01:26Z",
+  "closed_at": "2026-04-30T16:01:26Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-636",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:54:20"
+    }
+  ]
+}

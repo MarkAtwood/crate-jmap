@@ -1,0 +1,33 @@
+{
+  "close_reason": "ChatBackend reshape propagated: 3 trait methods (create/update/destroy_object), 40 handlers across 9 modules, 27 extract_account_id sites, register_chat_handlers macro, MemoryBackend + FaultyBackend impls. 100 tests pass clean.",
+  "closed_at": "2026-05-11T16:24:21Z",
+  "compaction_level": 0,
+  "content_hash": "b88f507863fdc8e5a0bf9cdc961d47006d6247f3fce6cc06fcef9940bdda2c9b",
+  "created_at": "2026-05-11T13:53:31Z",
+  "created_by": "Mark Atwood",
+  "description": "Site: crate-jmap-chat-server/README.md:143-153 (CallerCtx section needs rewrite) + register_chat_handlers macro in src/lib.rs + ChatBackend trait at src/backend.rs:36.\n\nMirror change from JMAP-g7wu.1.1 MailBackend canonical. Same shape, propagated per workspace AGENTS.md cookie-cutter rule.\n\nDesign locked under JMAP-g7wu.1.1 [2026-05-11 design-lock] comment:\n- ChatBackend inherits 'type CallerCtx' from JmapBackend (no redeclaration)\n- Every ChatBackend method gains 'caller: &Self::CallerCtx' as first parameter after &self\n- register_chat_handlers signature: register_chat_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>) where B: ChatBackend + 'static\n- Every reg!() invocation gains a 4th identifier slot for ctx\n- README CallerCtx section rewrites to describe caller-aware Backend methods\n- MemoryBackend test fixture: type CallerCtx = ();\n\nRides on the JMAP-g7wu.1 mega-PR. Mechanical propagation once .1.1 lands its canonical shape.",
+  "ephemeral": 0,
+  "id": "JMAP-g7wu.1.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CallerCtx forwarding through ChatBackend trait (jmap-chat-server)",
+  "updated_at": "2026-05-11T16:24:21Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T06:53:30Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-g7wu.1",
+      "id": "865879cd-e8d2-5deb-858b-baf6a1d93d37",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

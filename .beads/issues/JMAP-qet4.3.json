@@ -1,0 +1,32 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:10:39Z",
+  "compaction_level": 0,
+  "content_hash": "63c42956c17010d51b837d16d26bc4fcd14d7a73957f4af8626a62d6b2434ef6",
+  "created_at": "2026-05-05T01:08:57Z",
+  "created_by": "Mark Atwood",
+  "ephemeral": 0,
+  "id": "JMAP-qet4.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-sharing-types: implement notification.rs",
+  "updated_at": "2026-05-05T01:10:39Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T18:08:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qet4",
+      "id": "1c1db435-e2dd-59f4-9a3d-191af6512a7e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

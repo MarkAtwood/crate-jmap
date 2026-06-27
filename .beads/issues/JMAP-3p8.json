@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-3p8",
+  "title": "Review: jmap-mail-server pass 10",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:51:53Z",
+  "updated_at": "2026-05-01T03:54:04Z",
+  "closed_at": "2026-05-01T03:54:04Z",
+  "notes": "Maintainer risk: LOW \u2014 single correctness bug: same Vec<Keyword> pattern missed in Email/copy when Email/import was fixed in pass 9. No security surface, no API changes.\nConfidence: 2% chance of missed bug. Least confident: Email/copy onSuccessUpdateOriginal not exercised in tests, but logic reads correct. No idiom issues with engineering basis.\nIdiom rating: CLEAN \u2014 no new issues. Rust idiom confidence: 99%."
+}

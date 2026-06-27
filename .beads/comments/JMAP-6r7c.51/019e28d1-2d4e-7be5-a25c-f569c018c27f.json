@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-14T23:27:38Z",
+  "id": "019e28d1-2d4e-7be5-a25c-f569c018c27f",
+  "issue_id": "JMAP-6r7c.51",
+  "text": "Self-flagging as opinion per /review-rusty calibration rule. The 8 sequential ifs ARE the workspace AGENTS.md 'boring readable code' answer; the suggested helper-fn refactor adds abstraction for aesthetics, not engineering pressure. No correctness, performance, or security concern. The 9th-10th-field maintenance compound is real but small; the refactor cost equals 1-2 additional fields' worth of explicit checks. /do-beads pass should close as wontfix unless the workspace deliberately wants to standardise on a helper pattern across all *-server crates (which would be its own propagation epic, not this one)."
+}

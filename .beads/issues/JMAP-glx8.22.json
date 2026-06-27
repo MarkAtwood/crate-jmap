@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added rustdoc warning on ContactCardComparator type and is_ascending field documenting the Default-vs-wire-default semantic divergence. Doc-only, per-crate scope. Commit: 62bd61c.",
+  "closed_at": "2026-05-15T23:48:23Z",
+  "compaction_level": 0,
+  "content_hash": "26536a21559e8c276f667775a33fee446a9ce134673b405c26baf78a38914da8",
+  "created_at": "2026-05-15T23:13:56Z",
+  "created_by": "Mark Atwood",
+  "description": "`ContactCardComparator` derives `Default` (card.rs:463). The resulting\n`Default::default()` value has:\n\n  property: \"\"        (String::default())\n  is_ascending: false (bool::default())\n  collation: None\n\nSerializing that to JSON emits `{\"property\":\"\",\"isAscending\":false}` \u2014\nproperty is required-non-null so it never skips, and is_ascending has\nno `skip_serializing_if` so false is emitted explicitly.\n\nBut the wire-default for absent `isAscending` is **true** (RFC 8620 \u00a75.5,\nencoded by the `#[serde(default = \"default_ascending\")]` attribute at\ncard.rs:469-470). Deserializing `{\"property\":\"created\"}` produces\n`is_ascending: true`, the ascending direction.\n\nSo:\n  - serialize(Default::default()) \u2192 descending sort\n  - deserialize(no-isAscending-key) \u2192 ascending sort\n\nA caller writing `let mut c = ContactCardComparator::default(); c.property\n= \"created\".into();` then submitting the comparator to a query gets\ndescending results silently. The Rust API default does not match the\nwire-format default semantic \u2014 a class of footgun similar to\nJMAP-glx8.16 (ContactCard::default() emits wire-invalid {}), but more\ndangerous because the result LOOKS valid and just returns the wrong\nresult set.\n\nThe canonical extension-types comparator EmailComparator\n(jmap-mail-types/src/query.rs:301-321) solves this by:\n  - NOT deriving Default.\n  - Providing `EmailComparator::new(property)` that sets `is_ascending: true`.\n  - Documenting \"Use EmailComparator::new to construct from outside this crate\".\n\nThe 3-sibling consensus (CalendarEventComparator, TaskComparator,\nTaskNotificationComparator) derives Default and shares the same gap.\nJMAP-glx8.4 closed by aligning ContactCardComparator to the 3-sibling\nDefault-deriving consensus per workspace canonical-template policy.\nJMAP-glx8.6 / JMAP-18qe track the workspace-API skip_serializing_if\nsweep (a different facet \u2014 wire-emit-vs-skip, not Default-vs-wire-default).\n\nNeither bead addresses the Default-vs-wire-default semantic gap. This\nfinding is a per-crate documentation request: add a one-paragraph\nwarning on the ContactCardComparator type or on the is_ascending field\nexplaining that Default::default().is_ascending is false but the\nwire-default for absent isAscending is true, and recommending callers\neither set is_ascending explicitly or construct a typed factory.\n\nThe canonical-template-vs-Default-derive question (should all 4\nextension-types siblings drop Default in favor of ::new(property),\nmatching EmailComparator?) is workspace-wide scope and properly belongs\non a new workspace-API sweep bead (sibling of JMAP-18qe), not this\nper-crate review. Filing here only as a doc-gap finding to keep the\nper-crate review honest.\n\nSuggested rustdoc (on the type, just above the existing \"Excluded from\nextras preservation\" section, or on the is_ascending field):\n\n```\n# Default impl divergence\nContactCardComparator::default() produces is_ascending: false because\nof Rust's bool default. The wire-default for absent isAscending is\ntrue (RFC 8620 \u00a75.5). A caller building a comparator via Default and\nmutating only `property` gets DESCENDING sort silently. Set\nis_ascending explicitly when constructing.\n```\n\nScope: card.rs only. No code change required. Workspace-canonical\npattern preserved.",
+  "ephemeral": 0,
+  "id": "JMAP-glx8.22",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "ContactCardComparator::default() produces is_ascending=false, diverging from wire-default true for absent isAscending",
+  "updated_at": "2026-05-15T23:48:23Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T16:13:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-glx8",
+      "id": "7ac97ef4-c148-5df3-b92d-4dd64a52cfa0",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

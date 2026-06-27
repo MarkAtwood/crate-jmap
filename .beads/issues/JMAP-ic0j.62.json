@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added '# Optional methods and supports_type' section explaining the unconditional registration contract. Consumers building a session-capability response must separately consult supports_type. Bundled with the count-fix from JMAP-ic0j.7 since both edits target the same rustdoc.",
+  "closed_at": "2026-05-16T01:34:28Z",
+  "compaction_level": 0,
+  "content_hash": "874896d935ee0d764e356e7a468fcbfa459d77279f6bff0542c6375de965e820",
+  "created_at": "2026-05-15T18:08:53Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-calendars-server/src/backend.rs:170-182 documents that the calendars handler library deliberately does NOT consult `supports_type` (unlike mail-server which short-circuits `handle_search_snippet_get` via `supports_type::<SearchSnippet>()`).\n\nThat divergence is documented on the trait method. But the consequences for the consumer at the registration API at src/lib.rs:97-190 (`register_calendars_handlers`) are NOT documented.\n\nWhat's actually unspecified at the lib.rs API surface:\n\n1. A backend whose `supports_type::<CalendarEventNotification>()` returns `false` still has all FIVE `CalendarEventNotification/*` methods registered with the dispatcher. The handler will be invoked.\n\n2. The handler does not check `supports_type` (per the trait note) and forwards to the backend.\n\n3. The backend's `get_objects::<CalendarEventNotification>()` will be invoked; the backend impl decides what to return. Returning `Ok((vec![], vec![ids...]))` (empty + every requested id in not_found) is the typical \"not implemented\" answer.\n\n4. Clients cannot tell \"this server supports notifications but the account has none\" from \"this server does not implement notifications\" \u2014 both look like an empty response.\n\nThe lib.rs `register_calendars_handlers` rustdoc says nothing about this. It just lists all 19 methods (correct count per JMAP-ic0j.7) as if they were uniformly supported. A consumer who reads ONLY the registration function rustdoc and not the trait method rustdoc deeper in `backend.rs` will not learn that the consumer's session-capability builder is the ONLY place that respects the type's optionality.\n\nWhat callers cannot rely on:\n- That `register_calendars_handlers` honours the backend's `supports_type` answers. (It does not; backend.rs:170-182 explicitly says so, but the registration API does not surface that.)\n- That the consumer's session-capability output and the dispatcher's method coverage will agree without the consumer separately consulting `supports_type` in their session builder.\n\nFix: add a `# Optional methods` section to the lib.rs:78-96 rustdoc summarising the trait-method note: \"every method below is registered unconditionally; consumers building a session-capability response must consult `supports_type::<T>()` separately to decide which capability URIs to advertise. The dispatcher will invoke handlers even when the backend reports the type unsupported.\"\n\nThis is the API-contract supplement of JMAP-ic0j.25 (which addressed the rustdoc on the trait method). The trait method rustdoc is correct after .25; the registration function rustdoc remains silent.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.62",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "register_calendars_handlers consequences of supports_type non-use undocumented at the registration API",
+  "updated_at": "2026-05-16T01:34:28Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T11:08:52Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "75c6ca42-eb31-5e88-b132-6cc1c0256f63",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

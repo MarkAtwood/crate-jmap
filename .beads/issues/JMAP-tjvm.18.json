@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "dbf17234cc65944cc8a82eb48c95878ecf043e93871aee26c4e83e8d75d15b6e",
+  "created_at": "2026-05-15T01:52:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Five methods take create as a raw serde_json::Value:\n\n  email.rs:106    email_set(create: Option<serde_json::Value>, update: Option<HashMap<Id, PatchObject>>, ...)\n  email.rs:211    email_copy(params: EmailCopyParams, create: serde_json::Value)\n  email.rs:252    email_import(emails: &HashMap<String, EmailImportInput<'_>>, ...)    \u2190 this one IS typed\n  mailbox.rs:84   mailbox_set(create: Option<serde_json::Value>, ...)\n  identity.rs:79  identity_set(create: Option<serde_json::Value>, ...)\n  submission.rs:162  email_submission_set(create: Option<serde_json::Value>, ...)\n\nNote the asymmetry: `update` is typed `Option<HashMap<Id, PatchObject>>` and benefits from PatchObject's JSON Pointer key contract. `create` is `serde_json::Value`. The same Email/Mailbox/Identity/EmailSubmission types from jmap_mail_types could be used directly with serde_json::to_value, but the public API forces callers to hand-build raw JSON.\n\nDefensive-code-forcing consequence: every caller writes the same boilerplate:\n\n    let create = serde_json::json!({\n        \"draft1\": {\n            \"mailboxIds\": { \"mb-drafts\": true },\n            \"keywords\": { \"$draft\": true },\n            \"from\": [{ \"email\": \"me@example.com\" }],\n            // ...\n        }\n    });\n\nwith no compile-time check that \"mailboxIds\" is the right key (RFC 8621 uses camelCase but caller might type snake_case), that the keywords map structure is correct, that the from address shape matches RFC 8621 \u00a74.1.3, etc. The Email type in jmap_mail_types already encodes all of these as typed fields.\n\nWhy this is hard to fix: the create body in JMAP /set is \"implementation-defined plus the spec-defined typed fields\" \u2014 server-specific extensions and \"create only\" fields like mailbox-ids-as-set vs. mailbox-ids-as-array may appear. Email has fields populated by the SERVER (id, blobId, threadId, size, receivedAt) and cannot be passed by the caller.\n\nThree options:\n\n  (a) Type the create param as `Option<HashMap<String, jmap_mail_types::Email>>`. Problems: Email has server-set required fields that the caller doesn't have at create time. Would need an `EmailCreate` view-type (similar to ChatCreate / MailboxCreate patterns in some implementations).\n\n  (b) Type the create param as `Option<HashMap<String, serde_json::Value>>` (still untyped per-entry, but at least the outer map is typed). Marginal improvement; doesn't fix the per-entry typing.\n\n  (c) Accept the trade-off and document explicitly that `create` is intentionally untyped because RFC 8621 \u00a74.1 splits Email fields into \"server-set vs client-set\" and the typed Email struct does not distinguish. Add a doc-comment warning to each method.\n\nRecommendation: (c) for 0.1.x. File a follow-up bead for the 1.0 cut to design EmailCreate / MailboxCreate / IdentityCreate / EmailSubmissionCreate view-types that omit server-set fields.\n\nPropagation: same finding applies to the six sibling extension-client crates (chat, calendars, tasks, contacts, filenode, sharing). Likely all of them have the same untyped-create pattern. Canonical-template sweep candidate.\n\nMark says NO HUMAN \u2014 I have a clear recommendation: option (c) now, file a 1.0 design bead for view-types.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.18",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "/set and /copy methods take untyped create: Option<serde_json::Value> \u2014 asymmetric with typed update parameter",
+  "updated_at": "2026-05-15T01:52:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:52:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "413a500a-a590-5690-9d60-7962e4c26c3f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

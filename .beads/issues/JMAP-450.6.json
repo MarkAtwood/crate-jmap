@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-450.6",
+  "title": "MemoryBackend::update_object uses std::any::Any downcast \u2014 documents broken pattern",
+  "description": "tests/common/mod.rs:253-271 \u2014 MailBackend::update_object takes O::Patch (always serde_json::Value in practice) but the method body must use Any downcast to recover it. This is a type-system hole: the trait cannot express that Patch must be Value, so the backend silently fails if Patch is ever a different type. Real backends implementing this trait will copy this pattern. Fix: add a default bound or constrain Patch to impl Into<serde_json::Value>, or take serde_json::Value directly for a json-patch method.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T21:34:41Z",
+  "updated_at": "2026-04-30T21:53:35Z",
+  "closed_at": "2026-04-30T21:53:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-450",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 14:34:40"
+    }
+  ]
+}

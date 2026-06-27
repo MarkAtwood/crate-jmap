@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-amk.3",
+  "title": "VacationResponse non_exhaustive without constructor",
+  "description": "VacationResponse is #[non_exhaustive] (vacation.rs line 13) but has no constructor fn and no Default impl. Users outside the crate cannot construct it for test fixtures or mocks. Since VacationResponse fields are fully spec-defined (they will not grow), #[non_exhaustive] adds pain without benefit. Either add a constructor fn, remove #[non_exhaustive], or document that external construction is intentionally blocked (VacationResponse is server-set, read via /get only).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:29:15Z",
+  "updated_at": "2026-04-30T04:34:11Z",
+  "closed_at": "2026-04-30T04:34:11Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-amk",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:29:14"
+    }
+  ]
+}

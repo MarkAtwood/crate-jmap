@@ -1,0 +1,33 @@
+{
+  "close_reason": "Already documented: email.rs:1208-1213 explains UTF-8 boundary truncation and why is_char_boundary walk-back is correct.",
+  "closed_at": "2026-05-04T15:53:56Z",
+  "compaction_level": 0,
+  "content_hash": "945fd0c212d9d82ec7b8f94bebceadd268d796262b4c3bd89327df4d9e3e21e1",
+  "created_at": "2026-05-02T00:43:43Z",
+  "created_by": "Mark Atwood",
+  "description": "email.rs apply_body_value_args truncates body value strings using char_indices().take_while(|(i, _)| *i < limit) and sets isTruncated:true on the surviving entry. Truncating by byte index with &text[..limit] would produce invalid UTF-8 at multi-byte character boundaries. The char_indices approach is correct and must not be simplified to a raw byte slice. isTruncated:true is required by RFC 8621 \u00a74.2 and must not be omitted.",
+  "ephemeral": 0,
+  "id": "JMAP-e53.11",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "decision",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "maxBodyValueBytes truncation uses char_indices to stay on UTF-8 boundary",
+  "updated_at": "2026-05-04T15:53:56Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T17:43:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-e53",
+      "id": "ecfd641a-cf9d-51d8-abe3-3c0ae3495e1a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

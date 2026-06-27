@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added '# Errors' rustdoc sections to all public method builders across jmap-mail-client (canonical, 26 methods) and 6 sibling extension-client crates (chat 60+ methods, calendars 19, tasks 14, contacts 9, filenode 6, sharing 10). Each # Errors block lists: (1) caller-precondition InvalidArgument cases (empty since_state, empty ids, empty creation-id keys, etc.), (2) InvalidSession from missing primary account for the relevant capability URI, (3) any serde_json::to_value InvalidArgument case for /set update maps (with 3-4\u00d7 memory-peak discussion citing reqwest's buffering behavior \u2014 the corrected wording from JMAP-wzq9.35), (4) transport variants returned by JmapClient::call (Http/Parse/AuthFailed/MethodError/MethodNotFound/ResponseTooLarge/UnexpectedResponse), (5) method-level errors specific to /query (anchorNotFound, unsupportedFilter, unsupportedSort), /queryChanges (cannotCalculateChanges), /copy (fromAccountNotFound, fromAccountNotSupportedByMethod). Per-creation /set failures explicitly noted as appearing in SetResponse.not_created/not_updated/not_destroyed rather than as Err. metadata-client side tracked separately at JMAP-wzq9.31 (out of scope here). Workspace canonical-template propagation rule followed: changed mail-client first, then propagated cookie-cutter to the 6 siblings in the same pass.",
+  "closed_at": "2026-05-17T13:46:17Z",
+  "compaction_level": 0,
+  "content_hash": "6bc31e503ad876ae6ede2c648679a512668cef4ec2eba85932e92d285d890c8f",
+  "created_at": "2026-05-15T03:19:32Z",
+  "created_by": "Mark Atwood",
+  "description": "Canonical mail-client analog of JMAP-wzq9.31 (metadata-client).\n\n`grep -n \"# Errors\" crate-jmap-mail-client/src/methods/*.rs` returns ZERO hits.\nAll `email_*`, `mailbox_*`, `thread_*`, `identity_*`, `submission_*`, `search_snippet_*`, `vacation_*` method builders return `Result<_, jmap_base_client::ClientError>` without a `# Errors` rustdoc section.\n\n## What goes wrong\n\n1. Undocumented client-side validation paths. e.g. `email_changes` (crate-jmap-mail-client/src/methods/email.rs:75-79) and `thread_changes` etc. include defence-in-depth empty-state guards that return `Err(ClientError::InvalidArgument)` with a method-specific message. A caller reading the doc-comment has no way to discover this \u2014 they would reasonably assume an empty `&State` round-trips to the server.\n\n2. Rustdoc convention + clippy::missing_errors_doc. The standard rustdoc convention is that public `fn` returning `Result` documents each variant in a `# Errors` section.\n\n## Concrete error variants each method should document\n\n- All methods: `ClientError::InvalidSession` when `self.session` has no primary account for the relevant capability (via `session_parts`)\n- All methods: `ClientError::HttpError` / `ParseError` / `ApiError` from `call_internal` \u2192 upstream `JmapClient::call`\n- `*_changes` / `*_query_changes` methods: additionally `ClientError::InvalidArgument` when `since_state` / `since_query_state` is empty (defence-in-depth guard)\n- `*_set` methods: `ClientError::InvalidArgument` for serialize failures on the update map (see metadata-client's existing `# Errors` section on `metadata_set` for the established style \u2014 but note JMAP-wzq9.35 has filed against the factual error about \"streamed\" in that exact doc-comment)\n\n## Workspace propagation\n\nPer workspace AGENTS.md \"Canonical Templates\", this is the canonical sweep. Fix here first, then propagate to all 7 extension-client siblings (chat, calendars, tasks, contacts, filenode, sharing, metadata). The metadata-client side is tracked at JMAP-wzq9.31.\n\n## Cross-refs\n\n- JMAP-wzq9.31 \u2014 metadata-client side of this finding\n- JMAP-wzq9.35 \u2014 separate finding about a factual error in the one existing # Errors section on metadata_set",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.33",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "mail-client methods: missing # Errors rustdoc sections family-wide",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T20:19:31Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "b47f8f95-78aa-51e7-a3f1-7a03ace608a8",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

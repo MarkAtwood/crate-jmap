@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "e3a845e36bdd6cfd0ec093eef7a751f8b965ca8520472fd9e9217443a05bb09d",
+  "created_at": "2026-05-15T01:52:58Z",
+  "created_by": "Mark Atwood",
+  "description": "search_snippet.rs:30-36\n\n  pub async fn search_snippet_get(\n      &self,\n      account_id: Option<&Id>,\n      filter: serde_json::Value,\n      thread_ids: Option<&[Id]>,\n      email_ids: Option<&[Id]>,\n  ) -> Result<serde_json::Value, jmap_base_client::ClientError>\n\nThe function returns serde_json::Value with a docstring saying:\n\n  \"Callers should deserialize into Vec<jmap_mail_types::SearchSnippet> via\n   response[\"list\"].as_array().\"\n\njmap_mail_types::SearchSnippet already exists and matches the spec wire shape (visible in the response_deserializes test in search_snippet.rs:99). The justification given in the file header comment is:\n\n  \"We therefore return serde_json::Value and let the caller deserialize.\n   ... the response shape differs from the standard /get shape\n   (no `state` field, no `notFound`).\"\n\nThat justification does not survive scrutiny. The fact that SearchSnippet/get has a non-standard response shape is not a reason to skip typing it \u2014 it is a reason to define a non-standard typed response shape. A reasonable design:\n\n  #[non_exhaustive]\n  #[derive(Debug, Clone, serde::Deserialize)]\n  #[serde(rename_all = \"camelCase\")]\n  pub struct SearchSnippetGetResponse {\n      pub account_id: Id,\n      pub list: Vec<SearchSnippet>,\n      #[serde(default, flatten, skip_serializing_if = \"serde_json::Map::is_empty\")]\n      pub extra: serde_json::Map<String, serde_json::Value>,\n  }\n\n  pub async fn search_snippet_get(...) -> Result<SearchSnippetGetResponse, ClientError>\n\nThis:\n  - Eliminates the per-caller `response[\"list\"].as_array()` boilerplate (defensive-code-forcing today).\n  - Encodes the spec's documented response shape in the type system.\n  - Follows the workspace extras-preservation policy with the `extra` flatten field.\n  - Allows downstream extension via #[non_exhaustive] without breaking callers.\n\nCross-reference: JMAP-tjvm.6 is filing the thread_ids parameter as a separate spec-correctness bug. The signature change there might or might not be merged before this one. If thread_ids stays as a documented vendor extension per RFC 8621 \u00a75.1, the typed response can land independently.\n\nRecommendation: define SearchSnippetGetResponse, change the return type, deprecate the Value return. Major-version-breaking for callers but trivially mechanical migration (one `.list` access path stays the same, only the `as_array()` boilerplate goes away).\n\nMark says NO HUMAN \u2014 I have a clear recommendation: type the response, no design ambiguity.",
+  "ephemeral": 0,
+  "id": "JMAP-tjvm.20",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "search_snippet_get returns serde_json::Value \u2014 typed SearchSnippet exists in jmap-mail-types and is unused",
+  "updated_at": "2026-05-15T01:52:58Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T18:52:57Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-tjvm",
+      "id": "84eb1a12-ff68-53fc-8095-3b1f977a904e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

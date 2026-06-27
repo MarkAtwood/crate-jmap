@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2d77b211c4d83b764d8f317715229fa124a9694cd7f4a4612ae6edf4e98dad80",
+  "created_at": "2026-05-18T05:29:08Z",
+  "created_by": "Mark Atwood",
+  "description": "**Divergence**:\n\n| Crate | `impl Default for X` blocks |\n|---|---|\n| jscalendar-types | 3 \u2014 `Location` (src/lib.rs:640), `Link` (:910), `Relation` (:964) |\n| jscontact-types | 0 \u2014 no struct in the crate derives or implements `Default`, even `Address` and `Name` which would have a meaningful all-`None` default |\n\n**Policy context**: workspace AGENTS.md section \"Public-API construction\" explicitly permits `Default` impls \"where the type has no mandatory fields and the all-`None`/empty value is meaningful\". The policy is permissive ('MAY be added'), not prescriptive. The divergence is therefore not a policy violation but is still a cookie-cutter consistency drift: same-shape sub-types in the two crates (`Location` in calendar vs `Address` in contact \u2014 both are 'a place where this entity is associated', both have all-optional fields) get `Default` in one and not the other.\n\n**Caller-observable cost**: low. Callers building either sub-object incrementally write `Location::default()` for calendar and either `Address { /* every field laboriously */ }` (blocked by #[non_exhaustive] from outside the crate) or `serde_json::from_value::<Address>(json!({}))` for contact.\n\n**Fix options**:\n(a) Add `impl Default` to the analogous jscontact-types sub-types whose all-`None` is meaningful (`Address`, `Name`, `Anniversary`, etc.) \u2014 propagates the calendar idiom.\n(b) Remove the 3 `impl Default` from jscalendar-types \u2014 propagates the contact idiom.\n\nPer workspace AGENTS.md, deserialize-from-empty-JSON is the canonical construction path. Option (b) is the cleaner alignment with bd:JMAP-sgrr.27, but option (a) is the cheaper change.",
+  "ephemeral": 0,
+  "id": "JMAP-ops7.35",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "jscalendar-types has 3 'impl Default' blocks; jscontact-types has 0 \u2014 same-shape sub-types Address (contact) and Location (calendar) get different defaultability",
+  "updated_at": "2026-05-18T05:29:08Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-17T22:29:07Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ops7",
+      "id": "503a3b6f-fdd5-5bfd-9fdb-2a76547c5095",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

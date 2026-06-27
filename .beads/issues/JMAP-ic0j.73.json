@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "33e19755539de431bbc1a3ebe9b82c82bdc2a8db4064049f393a3a4d1a5813fe",
+  "created_at": "2026-05-15T20:06:16Z",
+  "created_by": "Mark Atwood",
+  "description": "Companion to bd:JMAP-ic0j.28, applied to chat-server.\n\n`crate-jmap-chat-server/src/memory.rs` exposes four `pub fn *_for_test` methods on its `MemoryBackend`:\n\n- `set_retains_edit_history_for_test(&self, retain: bool)` (line 251)\n- `set_protect_last_admin_for_test(&self, value: bool)` (line 270)\n- `set_limits_for_test(&self, limits: Option<ChatLimits>)` (line 352)\n- `insert_object_for_test(&self, type_name, account_id, id, value)` (line 367)\n\nUnlike the calendars-server analogues handled by bd:JMAP-ic0j.28 (which had zero callers and were simply deleted), chat-server's `*_for_test` methods ARE called by integration tests across:\n\n- `crate-jmap-chat-server/tests/space_metadata_apply.rs`\n- `crate-jmap-chat-server/tests/space_set_kitchen_sink.rs`\n- `crate-jmap-chat-server/tests/role_member_apply.rs` (uses `set_protect_last_admin_for_test`)\n- `crate-jmap-chat-server/tests/channel_category_apply.rs`\n- `crate-jmap-chat-server/tests/integration.rs`\n- ... and several other test files.\n\nThe canonical `jmap-mail-server` exposes zero `*_for_test` mutation knobs from its `MemoryBackend` \u2014 its test seams live in `tests/common/mod.rs` (e.g. `FaultyBackend` wrapper). Per workspace AGENTS.md \"Canonical Templates\", chat-server diverges and needs migration:\n\nTwo coherent paths:\n\n  (a) Move the mutation knobs out of `MemoryBackend`'s public API: gate them behind `#[cfg(test)]` or `pub(crate)`, and re-expose to integration tests via a wrapper in `crate-jmap-chat-server/tests/common/mod.rs`. Requires touching every integration test that uses these.\n\n  (b) Keep the helpers `pub` under `memory` but rename to drop the `_for_test` suffix and document `MemoryBackend` as a demonstration backend whose mutation knobs are part of its supported API surface. The \"MemoryBackend is reference impl, not production\" framing makes this honest. No call-site changes needed; the new names propagate by find-and-replace.\n\nOut of scope for bd:JMAP-ic0j.28 because that bead's calendars-server analogues had zero callers and the workspace did not need to settle the deeper \"what is `MemoryBackend`?\" question to resolve them. This bead forces the question.\n\nP3 \u2014 pre-1.0, no SemVer lock yet, but the more chat-server's integration tests grow the more painful path (a) becomes. File now to capture the decision before the surface area grows further.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.73",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Mirror JMAP-ic0j.28 in chat-server: MemoryBackend::*_for_test pub methods diverge from canonical mail-server",
+  "updated_at": "2026-05-15T20:06:16Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:06:15Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "438a1fe0-020f-5658-8044-d079de7a9c76",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

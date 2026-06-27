@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dt7.14",
+  "title": "ws: silent Response parse failure is indistinguishable from unknown type",
+  "description": "In ws/mod.rs parse_ws_frame, a malformed 'Response' frame (one where serde deserialization fails) is returned as WsFrame::Unknown{type_name: 'Response'} rather than as an error. The comment explains why (single bad frame must not kill the connection), which is correct. However, the behavior is silent: callers have no way to distinguish a server-sent unknown type from a corrupt Response. There is no comment explaining to callers how they should detect or log this case. The next contributor adding an Unknown handler will not know to check for type_name == 'Response' as a signal of server misbehavior. Add a note in the WsFrame::Unknown doc comment and/or in parse_ws_frame.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:12:38Z",
+  "updated_at": "2026-04-30T01:12:49Z",
+  "closed_at": "2026-04-30T01:12:49Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-dt7",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:12:37"
+    }
+  ]
+}

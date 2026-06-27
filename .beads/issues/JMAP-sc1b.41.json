@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Done \u2014 AvailabilityError now has thiserror-derived Display/Error + #[non_exhaustive]",
+  "closed_at": "2026-05-07T21:15:17Z",
+  "compaction_level": 0,
+  "content_hash": "090af36717fccac9e726610fd1a1fa6dd7711c5826e4ce84e5667b989cc83130",
+  "created_at": "2026-05-07T20:43:18Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-calendars-server/src/backend.rs:235-247 defines:\n\n```rust\npub enum AvailabilityError<E: std::error::Error> {\n    Backend(E),\n    InvalidRequest(String),\n    // ...\n}\n```\n\nThe enum derives only `Debug` and is parameterized over `E: std::error::Error`, but no `impl std::fmt::Display` or `impl std::error::Error` is provided.\n\nToday its only call site (principal.rs:91-95) destructures variants directly so nothing forces these impls. But:\n- Any caller using `?` to forward the error needs Display + Error to convert\n- Any caller calling `.to_string()` or printing it via `{}` will fail\n- Any caller using thiserror's `#[from]` to wrap it needs Display + Error\n\nBy comparison, sibling `BackendChangesError<E>` and `BackendSetError<E>` in jmap-server/backend.rs have full Display + Error + source forwarding.\n\nThe crate already declares `thiserror = \"2\"` in Cargo.toml but doesn't use it. Migrate AvailabilityError to:\n\n```rust\n#[non_exhaustive]\n#[derive(Debug, thiserror::Error)]\npub enum AvailabilityError<E: std::error::Error + 'static> {\n    #[error(\"backend error: {0}\")]\n    Backend(#[from] E),\n    #[error(\"invalid request: {0}\")]\n    InvalidRequest(String),\n    // ...\n}\n```\n\nAdd `#[non_exhaustive]` to match BackendChangesError pattern.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.41",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "P1: AvailabilityError lacks Display/Error impls \u2014 compile-time gap if anyone tries to use ?-operator",
+  "updated_at": "2026-05-07T21:15:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-07T13:43:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "eb665513-c865-5d53-a533-627f5a732057",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "2bf0090b7bf81f3920ce5664b3251ac1af642232306bd0aa2ebb734ec76cd277",
+  "created_at": "2026-05-17T04:43:52Z",
+  "created_by": "Mark Atwood",
+  "description": "## Background\n\nTwo prior beads (JMAP-x2gd.52, JMAP-x2gd.53) flagged the same workspace-canonical hot-path-allocation pattern in extension-server reference `MemoryBackend` impls. JMAP-x2gd.84 confirmed the cross-walk: mail-server (canonical) and chat-server carry byte-identical Inner struct shapes that allocate a fresh `String` on every `Inner::current_state`, `bump_state`, `objects_mut`, `objects_ref` call.\n\n## The pattern\n\n```rust\nstruct Inner {\n    objects: HashMap<(&'static str, String), HashMap<Id, Value>>,\n    states: HashMap<(&'static str, String), u64>,\n    change_log: HashMap<(&'static str, String), Vec<ChangeEntry>>,\n    // ...\n}\n\nfn objects_ref(&self, type_name: &'static str, account_id: &str)\n    -> Option<&HashMap<Id, Value>> {\n    self.objects.get(&(type_name, account_id.to_owned()))  // allocates\n}\n```\n\nEvery read constructs a fresh `String` purely to make a temporary tuple key, then drops it after `.get()` returns. Multiplied by every wire-level method call \u00d7 every JmapObject type the dispatcher routes.\n\n## Sites confirmed\n\n- mail-server memory/mod.rs:109-167 \u2014 6 `.to_owned()` sites at 131, 138, 149, 151, 160, 207 (canonical)\n- chat-server memory.rs:80-150 \u2014 6 `.to_owned()` sites at 110, 117, 128, 130, 139, 148 (sibling)\n\nAdditional sibling crates (calendars-server, tasks-server, contacts-server, filenode-server, sharing-server, metadata-server) likely carry the same shape \u2014 each child bead audits and propagates.\n\n## Design choice (recommended)\n\nJMAP-x2gd.52 enumerates two options:\n\n**(a) Nested HashMap** `HashMap<&'static str, HashMap<String, T>>`. Outer key is `&'static str` (no allocation needed). Inner key is `String` and the standard `Borrow<str>` impl lets `.get(account_id)` work with a `&str` directly without owning. The bead author explicitly recommends this: 'option (a) is the conventional Rust solution and the one a senior Rust practitioner would expect to see in a reference impl.'\n\n**(b) Tuple key with custom Borrow** `HashMap<(&'static str, Box<str>), T>` plus a `Borrow<(&'static str, str)>` impl. Keeps the tuple shape but lets `.get(&(\"Email\", account_id))` skip allocation. More surface area, less conventional.\n\n**This epic adopts option (a).** Rationale:\n- Conventional, idiomatic Rust pattern.\n- No newtype / Borrow gymnastics that future readers have to decode.\n- Inner-map `String` keys interoperate with `Borrow<str>` natively via the stdlib impl.\n- Two-step lookup is still O(1) amortized.\n\n## Scope\n\nThis epic spans the workspace-wide sweep. Child beads:\n\n1. **${self}.1 \u2014 mail-server (CANONICAL)**: restructure Inner. Lands the new shape, helper signatures, and all internal call sites in mail-server. Workspace tests stay green; `MailBackend` trait signatures unchanged (the methods take `&str` already).\n2. **${self}.2 \u2014 chat-server**: propagate. Mirror the mail-server change byte-for-byte modulo TYPE_NAME constants.\n3. **${self}.3 \u2014 calendars-server**: propagate.\n4. **${self}.4 \u2014 tasks-server**: propagate.\n5. **${self}.5 \u2014 contacts-server**: propagate.\n6. **${self}.6 \u2014 filenode-server**: propagate (may skip if filenode-server uses a different storage shape \u2014 child bead confirms).\n7. **${self}.7 \u2014 sharing-server**: propagate.\n8. **${self}.8 \u2014 metadata-server**: propagate.\n\nEach child closes its sibling tracker (`JMAP-x2gd.52` closes when ${self}.2 lands).\n\n## Out of scope\n\nThe companion JMAP-x2gd.53 (as-cast pagination casts in `query_objects`) is a separate but related canonical-sweep candidate; a sibling epic will handle that.\n\n## Acceptance criteria\n\n- All seven extension-server `MemoryBackend` Inner structs use the nested-HashMap pattern with no per-call `.to_owned()` on `account_id`.\n- `cargo test --workspace` and `cargo clippy --workspace -- -D warnings` green.\n- Public trait signatures unchanged (this is an internal storage refactor).\n- bd-prime kb note 'memorybackend-objects-mut-silently-auto-registers-accounts-via-known_accounts-insert' continues to hold for the new shape.\n\n## References\n\n- bd:JMAP-x2gd.52 (chat-server tracker)\n- bd:JMAP-x2gd.84 (cross-walk classification \u2014 closed)\n- workspace AGENTS.md 'Canonical Templates' rule\n- workspace AGENTS.md kb note from .84 closure: 'the next agent picking up .52 or .53 will plan as a multi-bead epic, not autonomous frontier work'",
+  "ephemeral": 0,
+  "id": "JMAP-grs0",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Workspace: restructure Inner-state HashMap to eliminate gratuitous account_id allocations on every read",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-16T21:44:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x2gd.52",
+      "id": "15c0fd19-6925-585b-bf00-70e46dc3da2f",
+      "metadata": {},
+      "type": "relates-to"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-bnw",
+  "title": "Review: jmap-mail-server pass 9",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-05-01T03:47:13Z",
+  "updated_at": "2026-05-01T03:50:11Z",
+  "closed_at": "2026-05-01T03:50:11Z",
+  "notes": "Maintainer risk: LOW \u2014 3 correctness bugs, all in error handling paths (wrong validation type, missing validation, missing response field). No security surface or API design issues. Good news: 8 prior passes caught the hard stuff.\nIdiom rating: CLEAN \u2014 No gratuitous clones, no unsafe, no unwrap in live paths, no Box<dyn Error> in API. The serde_json::to_value(...).expect(...) calls are infallible by construction (derived Serialize types) and are accompanied by invariant comments; this is the idiomatic approach. No meaningful idiom findings beyond opinion-level style.\nConfidence: 5% chance of missed bug. Least confident flags: Email/copy onSuccessUpdateOriginal does not run find_immutable_patch_key (backend enforces immutability, so this is OK). Uncertainty driven by: no test for Email/copy with empty mailboxIds, no test for Mailbox/queryChanges total field.\nRust idiom confidence: 98% chance of no missed issue. Least confident flags: none. SetErrorType manual Display matches serde output \u2014 compiler enforces exhaustiveness on new variants."
+}

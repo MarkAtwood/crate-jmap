@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-17T10:50:43Z",
+  "id": "019e358f-460f-7df4-b02d-e63496094888",
+  "issue_id": "JMAP-510h.46",
+  "text": "Workspace-wide pattern check completed: 7 of 8 extension-server crates carry the duplicate-re-export shape (mail/chat/calendars/contacts/sharing/metadata/filenode \u2014 tasks-server differs). The fix requires canonical-first change to mail-server then propagate to the 6 siblings + tasks audit, exactly the kind of multi-crate sweep that AGENTS.md says must be a workspace epic.\n\nThis bead overlaps with JMAP-510h.39 (already deferred under JMAP-xbeb, the workspace propagation epic for trait + handler + re-export contract sweep). .39 asks 'should we re-export at all and how do we namespace'; .46 asks 'when we do re-export, how do we avoid the lib.rs+backend.rs duplication'. The two are complementary halves of the same re-export hygiene story and should land together to avoid two sweeps across the same code.\n\nRecommendation: defer this bead under JMAP-xbeb alongside .39. When JMAP-xbeb decomposes into per-crate children, the per-crate re-export work merges the two concerns into a single edit per file pair (lib.rs + backend.rs).\n\nFiling deferred (not human) per workspace AGENTS.md 'When NOT to file human' rule 2 \u2014 this is parked-backlog awaiting the human-decision step that was already taken (JMAP-xbeb was filed)."
+}

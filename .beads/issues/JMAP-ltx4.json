@@ -1,0 +1,23 @@
+{
+  "compaction_level": 0,
+  "content_hash": "fc88ac8da6c704b254d9b913c15b99c463bc08a973b5a50792305ed17197aff5",
+  "created_at": "2026-05-11T01:55:19Z",
+  "created_by": "bd-spin/bd-spin-20260511T014855Z-3937161",
+  "defer_until": "2026-11-12T08:00:00Z",
+  "description": "After closing JMAP-6i06 (--all-features build break, mechanical 8-site fix), the remaining ready frontier is dominated by items that exceed safe-autonomous scope for a single /do-beads pass:\n\nA. **API-break-class** (need coordinated rollout across many crates):\n   - JMAP-g7wu.1.1 \u2014 CallerCtx forwarding through MailBackend (canonical, then propagate to chat/contacts/sharing)\n   - JMAP-g7wu.3.1 \u2014 helpers.rs builder-struct refactor (canonical, 7-site propagation)\n   - JMAP-r3pg.14 \u2014 extract_account_id signature change (~30 call sites in 7 extension-server crates)\n   These all want to land together to avoid double-breakage of downstream consumers.\n\nB. **New-crate scaffolding** (sizable design + ~20 typed sub-types each):\n   - JMAP-sehw.1 \u2014 jmap-jscontact-types (22 RFC 9553 sub-types)\n   - JMAP-x59i.1 \u2014 jmap-jscalendar-types (extract from calendars-types)\n   - JMAP-06zp.1 \u2014 jmap-metadata-types (draft-ietf-jmap-metadata)\n\nC. **Multi-session test coverage**:\n   - JMAP-uuoi \u2014 wiremock smoke tests across 6 client crates, estimated 3000-4500 LoC\n\nD. **Bounded but spec-heavy parser work**:\n   - JMAP-g7wu.5 \u2014 5 RFC 5322 header-form parsers (AsAddresses, AsGroupedAddresses, AsDate, AsMessageIds, AsURLs) in jmap-mail-server/src/email.rs. mime-tree does NOT expose these parsers as public functions, so this either needs (a) a new dep (email-encoding / mailparse / similar \u2014 Cargo.toml change), (b) extending mime-tree to expose its internal parsers (cross-repo change to /home/mark/PROJECT/MIME/mime-tree), or (c) implementing the 5 parsers from scratch in jmap-mail-server (hundreds of LoC, RFC 5322 ABNF compliance).\n\nE. **Design decision with non-equivalent options**:\n   - JMAP-9i53 \u2014 updatedProperties on /changes (P4, two options that ripple differently across the workspace)\n\n**Question for human**: which of A/B/C/D/E should be the next focus, and for D specifically, which sub-option (new dep / extend mime-tree / write from scratch)?\n\nFiled per workspace AGENTS.md 'Turn questions into beads' rule rather than invoking interactive question tool. The autonomous /do-beads loop stops at this ambiguity rather than picking a direction unilaterally.",
+  "ephemeral": 0,
+  "id": "JMAP-ltx4",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "De-labeling human (2026-05-11, Mark): the original sequencing question has been moot since Mark's 2026-05-11 02:08 comment ('Categories A/B/C are autonomously drivable'). The bd-spin re-added human in error; this comment removes it again. Bead stays open as a historical record of the sequencing analysis.\nStale-label clean (2026-05-11, Mark, batch-clean pass). Mark's 2026-05-11 02:08 comment explicitly removed this label; bd-spin re-added it three times in subsequent sessions for /do-beads filtering reasons. The actionable sub-questions originally embedded in this bead are tracked as separate beads (JMAP-g7wu.5 for the RFC 5322 As* parser strategy; JMAP-9i53 for updatedProperties on /changes). This bead stays open at P4 as a permanent record of the sequencing analysis only.\n\nIf /do-beads passes re-add the human label, the next-stage fix is `bd update JMAP-ltx4 --defer +6mo` to hide it from the ready frontier without further label churn.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "deferred",
+  "timeout_ns": 0,
+  "title": "Sequencing question: which large bead to tackle next?",
+  "updated_at": "2026-05-12T06:51:20Z"
+}

@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-7xt.15",
+  "title": "Session.state field present but never validated or surfaced after fetch",
+  "description": "RFC 8620 section 2 requires the Session object to include a 'state' field. Session.state is deserialized correctly. RFC 8620 section 3.4 requires clients to check the sessionState returned in every JmapResponse against the known Session.state, and re-fetch the Session if they differ. JmapClient.call() returns a JmapResponse which contains sessionState, but there is no mechanism (callback, event, or return value) for the caller to compare it against Session.state. The caller has no way to detect session staleness without manually tracking the last-fetched Session. This is a protocol compliance gap: the client does not implement the session-staleness detection required by RFC 8620 section 2.",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T00:46:28Z",
+  "updated_at": "2026-04-30T00:52:35Z",
+  "closed_at": "2026-04-30T00:52:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-7xt",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 17:46:27"
+    }
+  ]
+}

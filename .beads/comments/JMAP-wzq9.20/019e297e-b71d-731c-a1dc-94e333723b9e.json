@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-15T02:37:11Z",
+  "id": "019e297e-b71d-731c-a1dc-94e333723b9e",
+  "issue_id": "JMAP-wzq9.20",
+  "text": "Blocked on canonical workspace propagation. Canonical mail-client params structs (EmailGetParams, MailboxSetParams, EmailSubmissionSetParams, EmailParseParams, EmailCopyParams, EmailImportInput) all derive only (Debug, Default, Serialize) \u2014 Clone, PartialEq, Eq, Hash are all absent. Adding Clone (+ PartialEq?) requires the canonical-template change to land first. Loosely tracked behind JMAP-tjvm.16 (the canonical #[non_exhaustive] bead also touches the same set of structs and would be the natural moment to add Clone too)."
+}

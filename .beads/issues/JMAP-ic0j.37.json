@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "67b385c21491a83416c5f81448025d916f6186a69c6d8432c0f7bf293391e33b",
+  "created_at": "2026-05-15T17:15:11Z",
+  "created_by": "Mark Atwood",
+  "description": "src/backend.rs:552-571 and 625-646 \u2014 calendars defines two typed error\nenums for backend method returns:\n\n    #[non_exhaustive]\n    #[derive(Debug, thiserror::Error)]\n    pub enum AvailabilityError<E: std::error::Error + 'static> {\n        #[error(\"principal not found\")]\n        NotFound,\n        #[error(\"forbidden\")]\n        Forbidden,\n        #[error(\"requested time range is too large\")]\n        TooLarge,\n        #[error(\"rate limit exceeded\")]\n        RateLimit,\n        #[error(\"backend error: {0}\")]\n        Other(#[source] E),\n    }\n\n    #[non_exhaustive]\n    #[derive(Debug, thiserror::Error)]\n    pub enum QueryCalendarEventsError<E: std::error::Error + 'static> {\n        ExpandDurationTooLarge,\n        CannotCalculateOccurrences,\n        Other(#[source] E),\n    }\n\nThis is a richer error vocabulary than what the canonical mail-server\nuses \u2014 mail-server returns `Result<T, Self::Error>` or\n`Result<T, BackendSetError<Self::Error>>` from every analogous method.\nRFC 8621 has equivalent semantic shapes (Email/parse: notFound vs\nnotParsable; rate-limit, etc.) that are encoded ad-hoc through `Ok(bool)`\nreturns, `BackendSetError` variants, or backend-specific `Self::Error`\nstrings.\n\nBoth shapes are reasonable. The divergence question for the workspace\nmaintainer:\n\n  - If calendars' typed-enum approach is correct, mail-server should be\n    propagated to. Backends would gain a clearer, type-checked vocabulary\n    for \"expected\" spec error conditions vs \"unexpected\" backend storage\n    failures. The `thiserror` dep would propagate to mail-server.\n\n  - If mail-server's ad-hoc approach is correct, calendars should be\n    propagated FROM. AvailabilityError + QueryCalendarEventsError get\n    dissolved into `Result<T, Self::Error>` returns, with internal helper\n    constructors on the backend's own Error type.\n\nWorkspace AGENTS.md doesn't take a position on this. The \"Error type\nfragmentation\" naming-conventions section mentions error-type drift as\na workspace-API concern, suggesting the question SHOULD be decided\nworkspace-wide.\n\nWhat goes wrong for the caller depends on which way the convergence\ngoes:\n\n  - Current state: a backend author writing both extensions hand-rolls\n    \"is this a NotFound or a storage error?\" mapping in mail-server but\n    gets it for free in calendars. Different mental models.\n  - If calendars wins: mail-server backend authors get a one-time\n    migration; future spec extensions follow calendars' shape.\n  - If mail wins: calendars backend authors lose explicit dispatch on\n    NotFound / TooLarge / RateLimit; future spec extensions follow\n    mail's shape.\n\nThis is genuinely an opinion finding \u2014 there is no engineering basis\nfor one over the other unless the maintainer adopts a workspace policy.\nLabeled `opinion` per /review-library-supplement convention.\n\nFiled under api-contract,immutability because once 0.x ships with one\nconvention, retroactive convergence is a SemVer-breaking signature\nchange.\n\nTrade-off: workspace-API consistency vs. type-safety. Either consistent\nposition is defensible; the current per-crate inconsistency is not.",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.37",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Typed error enums (AvailabilityError, QueryCalendarEventsError) diverge from canonical mail-server's ad-hoc errors",
+  "updated_at": "2026-05-15T17:15:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T10:15:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "38a6e1f4-1af0-5504-aef9-5b721d695dab",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

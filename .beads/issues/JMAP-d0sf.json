@@ -1,0 +1,23 @@
+{
+  "close_reason": "Closed",
+  "closed_at": "2026-05-05T01:48:15Z",
+  "compaction_level": 0,
+  "content_hash": "38857aaf796d5f7710de9bf55a464aa7013b44304e4df9980cd38abfb8ad566b",
+  "created_at": "2026-05-05T01:44:26Z",
+  "created_by": "Mark Atwood",
+  "description": "Extension trait JmapContactsExt with 9 methods per draft-ietf-jmap-contacts-10",
+  "ephemeral": 0,
+  "id": "JMAP-d0sf",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "epic",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement jmap-contacts-client crate",
+  "updated_at": "2026-06-26T19:57:32Z"
+}

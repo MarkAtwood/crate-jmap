@@ -1,0 +1,7 @@
+{
+  "author": "bd-spin/bd-spin-20260511T021545Z-3955436",
+  "created_at": "2026-05-11T03:09:36Z",
+  "id": "019e1502-f6e4-71f0-ac10-a42df7109277",
+  "issue_id": "JMAP-g7wu.9.5",
+  "text": "Spotted during JMAP-g7wu.9.2 (filenode-types migration): the bead-named field list (filenode.rs:211/217/224) misses crate-jmap-filenode-types/src/filenode.rs:236 'changed: Option<String>', which PLAN.md \u00a752 line 59 classifies as UTCDate. Also crate-jmap-filenode-types/src/filter.rs:84,88,92,96,100,104 (6 fields: createdBefore/After, modifiedBefore/After, accessedBefore/After) are all UTCDate per their own doc comments. All 7 should be picked up by this audit sweep."
+}

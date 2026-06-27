@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-55n.5",
+  "title": "connect_ws: first comment contradicts second about case-sensitivity",
+  "description": "ws/mod.rs connect_ws has two adjacent comments that contradict each other. First: 'Accept only lowercase ws:// and wss:// so the guard and tungstenite see the same string'. Second: 'Case-insensitive scheme check: RFC 3986 \u00a73.1 allows uppercase scheme letters...'. The code actually does a case-insensitive check (lowercases before comparing) and passes the ORIGINAL URL to tungstenite \u2014 not lowercase. The first comment is wrong. Remove the first comment; the second accurately describes the behavior.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:59:42Z",
+  "updated_at": "2026-04-30T07:05:37Z",
+  "closed_at": "2026-04-30T07:05:37Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-55n",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:59:41"
+    }
+  ]
+}

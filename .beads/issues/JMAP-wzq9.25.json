@@ -1,0 +1,31 @@
+{
+  "compaction_level": 0,
+  "content_hash": "c3a9f0c85ee8509c28fea43eaab40125e87885cc79c283118ba6da3799f10e63",
+  "created_at": "2026-05-15T02:11:49Z",
+  "created_by": "Mark Atwood",
+  "description": "src/methods/mod.rs:117-119 \u2014 SessionClient's doc-comment claims:\n\n    Clone is derived because JmapClient is itself cheap-to-clone (it\n    already implements Clone and with_metadata_session clones one\n    internally), enabling parallel-task fan-out with one bound session.\n\nThe 'cheap-to-clone' claim about JmapClient is a contract assertion this crate cannot enforce \u2014 JmapClient lives in jmap-base-client. If a future jmap-base-client revision makes Clone expensive (e.g. deep-clone of an internal config map, or a new field that requires deep duplication), this crate's doc-comment becomes a lie and downstream callers fan-out tasks under a false performance assumption.\n\nTwo reinforcing mitigations:\n(a) Add a compile-time-asserted bound \u2014 e.g. assert in a #[test] that 'JmapClient: Clone' holds (already true; this just freezes it).\n(b) Document the dependency-on-upstream-invariant explicitly: 'Clone is derived; cheap-clone is contingent on jmap_base_client::JmapClient::clone remaining cheap. See jmap-base-client docs for that contract.'\n\nRecommendation: (b). Cheap doc edit. Tells the caller where the 'cheap' guarantee actually lives so they can verify upstream.\n\nWorkspace-wide: same claim appears in canonical mail-client SessionClient doc-comment. Propagate.\n\nBorderline opinion \u2014 could argue this is just careful prose and not a real engineering concern. But the contract claim is technically unenforceable from this crate, so a defensive doc update is justified. Leaving at P4 and unlabelled-opinion to mark 'file but low priority'.",
+  "ephemeral": 0,
+  "id": "JMAP-wzq9.25",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 4,
+  "status": "blocked",
+  "timeout_ns": 0,
+  "title": "SessionClient 'Clone is cheap' doc-claim depends on un-asserted upstream JmapClient invariant",
+  "updated_at": "2026-05-15T02:37:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T19:11:49Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wzq9",
+      "id": "2587418c-213a-5db5-be23-1dae9fe50253",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

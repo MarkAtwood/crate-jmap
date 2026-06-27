@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Replaced the misleading '# Cancellation' doc paragraph with an honest description: per-request cancellation is not supported in the current API, the spawned-task model prevents the obvious 'tokio::select! in your handler' workaround from working, and the recommended mitigations are (a) bound backend operations via tokio::time::timeout at the storage layer and (b) drain the dispatcher before shutdown rather than expecting handlers to respond to a server-wide signal. Filed JMAP-wlip.34 (labelled 'human') for the architectural decision on whether to add tokio_util / CancellationToken plumbing in a future API revision \u2014 that decision needs explicit input on workspace dep policy and API churn appetite.",
+  "closed_at": "2026-05-14T13:38:42Z",
+  "compaction_level": 0,
+  "content_hash": "d33a7ca0c5d8ae184c84d251849eb422968bae50fc3f8b700fa57ccb41aa02cc",
+  "created_at": "2026-05-14T13:04:52Z",
+  "created_by": "Mark Atwood",
+  "description": "Path: crate-jmap-server/src/lib.rs:134-141. The doc comment under \"# Cancellation\" reads:\n\n  If this future is dropped while a handler task is running (e.g., the\n  HTTP connection closes), the spawned task runs to completion \u2014 tokio\n  does not cancel tasks when their `JoinHandle` is dropped. The handler\n  result is discarded. Callers that need strict cancellation should\n  implement it at the handler level (e.g., `tokio::select!` with a\n  shutdown signal).\n\nThe first sentence is correct and important. The \"implement it at the handler level\" advice is unworkable in practice for per-request cancellation:\n\n1. The handler runs on `tokio::task::spawn` (lib.rs:177). The spawned task has no access to the outer (dispatch-future) context \u2014 no token, no shared mutex of \"still alive\" bits, nothing.\n2. The handler signature is `JmapHandler<C>::call(&self, method: String, call_id: String, args: Value, caller: C) -> HandlerFuture`. No cancellation token.\n3. The CallerCtx could carry a token (the consumer adds a `cancel: CancellationToken` field), but then EVERY handler must thread it through every `.await` site \u2014 every backend call, every database query, every blob fetch. The library provides no scaffolding.\n\nWhat the doc says (\"implement cancellation in your handler\") only works for SERVER-WIDE shutdown signals (`tokio::select!` with a broadcast channel from main). It does not work for per-request cancellation triggered by HTTP client disconnect.\n\nProduction consequence: a JMAP server with a handler doing a long backend operation (e.g., Email/query over a 10M-mailbox account, a 30-second full-text search, a slow LDAP lookup for an Identity/get) cannot react to client disconnect. Every disconnect leaks resource consumption equal to the full backend cost. Adversarial clients can DoS by opening many requests and dropping them.\n\nFix shape: add an optional `cancel: tokio_util::sync::CancellationToken` field on Dispatcher::dispatch (or on the CallerCtx, with the doc making the token-carrier pattern explicit). On dispatch-future drop, signal the token; the handler then races each .await against `cancel.cancelled()`. Document the wiring.\n\nAlternative shape (cheaper, lower-power): skip the task::spawn entirely for handlers that are non-`UnwindSafe`-by-design and use catch_unwind from std::panic to keep panic isolation without the spawn. This makes the dispatch future itself responsible for cancellation propagation, no token plumbing needed \u2014 when the future drops, every running handler future drops with it. But losing tokio's panic-isolation guarantee is a hard call; tokio's spawn-and-await-the-JoinHandle gives clean panic-to-serverFail mapping. Mentioned for completeness; (1) is the recommended path.\n\nMinimum fix (do not implement, just document): correct the doc to say \"Per-request cancellation is not supported in the current API. Long-running backend operations should bound their own runtime via deadlines/timeouts at the backend layer. Server-wide shutdown via tokio::select! works only for the dispatcher loop, not for spawned handler tasks.\" Then file a follow-up bead for the real fix.",
+  "ephemeral": 0,
+  "id": "JMAP-wlip.23",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Dispatcher::dispatch documents tokio cancellation behaviour but the workable cancellation pattern requires a CancellationToken plumbing that doesn't exist",
+  "updated_at": "2026-05-14T13:38:42Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T06:04:51Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-wlip",
+      "id": "b92f8a17-4ccb-50ac-9e74-b79959d0df7e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

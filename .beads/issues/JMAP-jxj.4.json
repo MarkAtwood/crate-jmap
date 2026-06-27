@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-jxj.4",
+  "title": "Auth header injection repeated 5x: extract to inject_auth helper",
+  "description": "The pattern 'if let Some((name, value)) = self.auth.auth_header() { req = req.header(name, value); }' appears identically in fetch_session, call, subscribe_events, upload_blob, and download_blob. A contributor adding a new method will copy-paste this pattern. Fix: add private fn inject_auth(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder that applies auth and returns the builder.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T15:40:28Z",
+  "updated_at": "2026-04-30T15:42:48Z",
+  "closed_at": "2026-04-30T15:42:48Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-jxj",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-30 08:40:27"
+    }
+  ]
+}

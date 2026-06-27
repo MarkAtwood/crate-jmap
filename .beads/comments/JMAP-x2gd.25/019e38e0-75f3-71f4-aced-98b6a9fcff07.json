@@ -1,0 +1,7 @@
+{
+  "author": "Mark Atwood",
+  "created_at": "2026-05-18T02:18:15Z",
+  "id": "019e38e0-75f3-71f4-aced-98b6a9fcff07",
+  "issue_id": "JMAP-x2gd.25",
+  "text": "Closing as already-improved. The fail-closed pattern the bead acknowledged has been refactored since filing \u2014 `required_permissions_for_op` now returns a typed `RequiredPermissions` enum with `Known(&[&str])` and `UnknownOp` variants (permissions.rs:54-71, 112-153), replacing the earlier `&'static [&'static str]` shape that used the `__unknown_space_patch_op__` magic string sentinel. The doc-comment at lines 95-102 documents the migration: 'The typed return value replaced an earlier &[&str] shape that used a magic sentinel string... that contract was load-bearing on a name no public API exposed.'\n\nBackends now match on the enum variant directly, which is both clearer for new contributors AND removes the bus-factor risk of the sentinel-string contract. The bead's prescription ('preserve fail-closed pattern') is honored even better than the bead expected \u2014 the pattern is now typed."
+}

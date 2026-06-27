@@ -1,0 +1,33 @@
+{
+  "close_reason": "Decomposed and fully implemented across four children .3.1\u2013.3.4 \u2014 all RFC 8620 \u00a75.4 machinery now lives in handle_task_copy: same-account rejection, fromAccountNotFound, ifFromInState/ifInState, source-id semantics (fetch from source + merge overrides + create), onSuccessDestroyOriginal + destroyFromIfInState implicit Task/set. Bespoke TasksBackend::copy_task trait method dropped in favor of the canonical-template get_objects+create_object pattern from calendars-server. All children green and merged; workspace tests 2189 passing.",
+  "closed_at": "2026-05-14T18:44:33Z",
+  "compaction_level": 0,
+  "content_hash": "22241375c7652093016ae73d6ba955a91eb653dcea2cabc45572ee2a9ba5a310",
+  "created_at": "2026-05-14T18:04:37Z",
+  "created_by": "Mark Atwood",
+  "description": "handle_task_copy in task.rs:400-506 omits several RFC 8620 \u00a75.4 MUST/SHOULD requirements:\n\n1. SAME-ACCOUNT REJECTION: \u00a75.4 'accountId MUST be different to the fromAccountId'. The handler does not check this. A request where fromAccountId == accountId is silently accepted; the backend's copy_task is called and creates a duplicate within the same account. Per spec, this should be rejected.\n\n2. ifFromInState / ifInState: \u00a75.4 lists both as optional but well-defined arguments. The handler reads neither; a client passing 'ifInState' (matching the destination account's Task state) gets that argument silently dropped. State-mismatch protection is unavailable for Task/copy.\n\n3. SOURCE-ID SEMANTICS: \u00a75.4 'The Foo object MUST contain an id property, which is the id (in the fromAccount) of the record to be copied'. The handler at task.rs:432-439 sets a 'placeholder' id when the client omitted one \u2014 silently masking what the spec treats as a hard requirement \u2014 and then deserializes-to-Task. The id is supposed to *select what to copy from the source*; it is never passed to the backend as a 'source id' parameter. MemoryBackend.copy_task uses only the (already-deserialized) Task value the client supplied as the request payload; it never reads from from_account_id at all. Net effect: Task/copy at the kit's reference level is functionally identical to Task/set create against to_account_id, but the wire shape pretends to be a copy. A consumer with a real backend has no API surface to do the spec-mandated three-phase read.\n\n4. onSuccessDestroyOriginal / destroyFromIfInState: \u00a75.4 specifies that when true the server MUST emit a follow-up Task/set call against fromAccountId. Neither argument is parsed; the implicit-second-call behaviour is absent. The handler returns 'vec![]' as Invocations even when the spec mandates a synthesized destroy-of-original.\n\n5. PER-ITEM ERRORS: \u00a75.4 lists specific notCreated SetError types (alreadyExists, fromAccountNotFound, etc.). The handler maps via set_error_value but no code path emits 'fromAccountNotFound' specifically.\n\nRecommended scope: file as a parent epic. Same-account rejection (#1) is the smallest-fix-largest-correctness-win item and can land alone. The source-id semantics (#3) requires reshaping copy_task's trait signature to take a source Id and a partial-overrides PatchObject, which is a larger redesign also touching every other extension server's analog. ifFromInState/ifInState (#2) is a localized add. onSuccessDestroyOriginal (#4) is foundation-level: the implicit second-call dance touches Dispatcher and likely belongs higher up \u2014 file a separate workspace-wide bead.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.3",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Task/copy handler is missing RFC 8620 \u00a75.4 mandatory machinery",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:04:37Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "66395eb5-d203-5447-a71d-b5abbe390c91",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "close_reason": "Wontfix.\n\nThe bead is correctly self-labeled 'opinion' and concludes 'P2 because all current targets are 64-bit and the cast is correct today.' That's the workspace's bikeshedding signal: a finding that has engineering basis in principle but no measurable defect on any platform that exists.\n\nTwo paths the bead suggests both have problems:\n\n1. 'u64::try_from(x.len()).expect(\"usize fits in u64 on supported targets\")' \u2014 workspace AGENTS.md explicitly forbids .expect() in library code ('No .unwrap() or .expect() in library code \u2014 propagate errors with ?'). Adopting this pattern would replace a silent-correctness-on-all-current-targets cast with an explicit panic-on-impossible-target. The panic IS the silent truncation made loud, but it adds ceremony for no measurable benefit when no supported target can trigger it.\n\n2. Helper fn usize_to_u64 \u2014 centralizes but does not change the panic semantic. Still violates the no-expect rule.\n\nPath 3 (not in the bead): switch every cap field from u64 to usize. That works structurally \u2014 the field declarations and the comparison happen in the same type \u2014 but flips the ClientError::ResponseTooLarge variant payload to usize, which IS a public-API breaking change and we have specifically deferred those (see JMAP-6r7c.50 / .48 / .20 escalation comments). Disproportionate for an opinion-labeled finding.\n\nIf a supported target ever changes to >64-bit usize, the cast will need a fix bead at that time AND the broader workspace will likely require similar fixes everywhere u64 caps interact with byte-vector lengths (jmap-server, jmap-mime, mime-tree, several extension servers). A workspace-wide sweep at that point is more coherent than a per-crate change today.\n\nbd:JMAP-6r7c.52 closed as wontfix per workspace AGENTS.md anti-bikeshedding policy.",
+  "closed_at": "2026-05-15T00:01:00Z",
+  "compaction_level": 0,
+  "content_hash": "139a0f0b31e569e9e534137a0436e90cecf4e3712afb689f8c21b8c58bcc7b72",
+  "created_at": "2026-05-14T23:26:27Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-base-client/src/{client.rs:280,282,334,336},{blob.rs:237,263,265,376} all do 'bytes.len() as u64' or 'data.len() as u64' as part of the size-cap-check pattern. On every 64-bit platform usize is u64, so the 'as u64' is a lossless reinterpret. On any future platform where usize > 64 bits (real for some 128-bit address-space targets reqwest may eventually be built on), 'as u64' silently truncates and the size-cap check would let an oversized response pass. The idiomatic shape is u64::try_from(bytes.len()).unwrap_or(u64::MAX) for the comparison (or saturate-on-overflow), or \u2014 since the value flows directly into ClientError::ResponseTooLarge { actual: u64, limit: u64 } \u2014 using usize-typed limits everywhere and casting at the API boundary only once. The 'as u64' cast in transport-size-check code is exactly the pattern that bites years later when someone reads the limit definition (u64) and the body buffer (Vec<u8>::len() -> usize) and assumes the cast is documented somewhere. clippy::cast_possible_truncation flags this lint at the pedantic level. Recommendation: replace each 'x.len() as u64' with 'u64::try_from(x.len()).expect(\"usize fits in u64 on supported targets\")' or pull a tiny helper fn usize_to_u64(n: usize) -> u64 { n.try_into().expect(...) } and document the supported-target invariant in one place. P2 because all current targets are 64-bit and the cast is correct today.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.52",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "bytes.len() as u64 cast appears 5 times in transport size-cap checks \u2014 fragile + lossy on 128-bit hosts",
+  "updated_at": "2026-05-15T00:01:00Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:26:26Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "f314a23b-9393-5cef-bfb1-daf9845eb22e",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

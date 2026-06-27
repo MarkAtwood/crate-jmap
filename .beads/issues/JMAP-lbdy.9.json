@@ -1,0 +1,35 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T170438Z-856615",
+  "close_reason": "Migrated 29 wire-format structs across 6 client crates (mail-client +9, chat-client +10, calendars-client +2, contacts-client +1, filenode-client +2, base-client +5). Sharing-client and tasks-client had no in-scope structs (only internal SessionClient). Canonical pattern: #[serde(flatten, default, skip_serializing_if = serde_json::Map::is_empty)] pub extra: serde_json::Map<String, serde_json::Value>. For Serialize-only method-arg structs, test pattern is *_propagates_vendor_extras (construct + serialize). For Deserialize method-response structs, test pattern is *_preserves_vendor_extras (deserialize + capture). CalendarEventGetParams excluded as a non-serde Rust-side builder helper. Gates clean: cargo test --workspace, cargo clippy --workspace --tests -- -D warnings, cargo fmt --all -- --check.",
+  "closed_at": "2026-05-11T20:07:59Z",
+  "compaction_level": 0,
+  "content_hash": "54f14a9b2137fd5c7671a7bd18265980addbd7a933d8c1a0418ca070b88c783d",
+  "created_at": "2026-05-09T00:52:10Z",
+  "created_by": "Mark Atwood",
+  "description": "Apply the workspace extras-preservation policy (JMAP-lbdy) to the typed method-argument and method-response structs defined in *-client crates.\n\nIn scope (estimate ~10-15 public wire-shaped Deserialize structs):\n- jmap-mail-client::EmailSubmissionSetParams (already migrated for PatchObject in JMAP-6h5s.1)\n- jmap-mail-client::MailboxSetParams\n- jmap-mail-client::EmailGetParams\n- jmap-mail-client::EmailCopyParams\n- jmap-calendars-client::CalendarEventGetParams\n- jmap-contacts-client::AddressBookSetParams\n- jmap-filenode-client::FileNodeSetParams\n- Other client-defined typed request bodies (audit each *-client/src/methods/ for #[derive(Deserialize)] structs).\n\nOut of scope:\n- Response wrappers (GetResponse<T> etc. live in jmap-types and are covered by the jmap-types child).\n- Internal client state types (ClientState, AuthProvider, etc.).\n\nAcceptance: every in-scope struct has `pub extra: Map<String, Value>` with the documented attributes; one round-trip preservation test per type; cargo test/clippy/fmt clean.",
+  "ephemeral": 0,
+  "id": "JMAP-lbdy.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "notes": "jmap-chat-client extras-preservation pass complete: 10 structs migrated (ChatCapability, ChatPushCapability, Quota, BlobLookupEntry, BlobLookupResponse, BlobObject, BlobConvertResponse, PushSubscriptionCreateResponse, TypingResponse, SpaceJoinResponse). 10 new *_preserves_vendor_extras tests across 4 files; quota.rs gained a new tests module. All structs are Deserialize-only \u2014 no struct-literal construction sites needed extra={} updates. cargo check / test / clippy --tests -D warnings / fmt all clean. Inline tests in src/: 35 -> 45.",
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Adopt extras policy in *-client crates (method param structs)",
+  "updated_at": "2026-05-11T20:07:59Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-08T17:52:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-lbdy",
+      "id": "e1e07c21-a426-5943-9379-267d6711d36b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

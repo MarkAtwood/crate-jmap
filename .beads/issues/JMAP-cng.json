@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-cng",
+  "title": "error_invocation: .expect() invariant relies on jmap-types lock",
+  "description": "error_invocation() calls serde_json::to_value(error).expect('JmapError::Serialize is infallible'). This is correct today because JmapError's Serialize impl never returns Err, but the invariant is cross-crate: if jmap-types ever adds a non-serializable variant, this becomes a runtime panic in jmap-server with no compile-time warning. The comment documents it, but no mechanism enforces it.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T06:03:55Z",
+  "updated_at": "2026-04-30T06:14:11Z",
+  "closed_at": "2026-04-30T06:14:11Z",
+  "notes": "Mitigation: (a) change signature to return Result<Invocation, ...> and propagate \u2014 but this changes public API, (b) keep .expect() but add a crate-level doc warning, (c) add a compile-time test in jmap-types that JmapError round-trips. Option (c) is best: add a test in jmap-types that serializes every JmapError variant.",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-e39",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 23:04:18"
+    }
+  ]
+}

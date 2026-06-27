@@ -1,0 +1,47 @@
+{
+  "compaction_level": 0,
+  "content_hash": "cc191082257ae0c2a4636d27b1e2a610f5fbb65120070e170da68419f5e0167e",
+  "created_at": "2026-06-05T02:26:05Z",
+  "created_by": "Mark Atwood",
+  "description": "The testjig has 5 compile errors from the metadata-server and metadata-types -02 rewrites (JMAP-ua37.1 + .2):\n\n1. `jmap_metadata_server::memory::MemoryBackend` \u2014 no longer exists (memory feature removed)\n2. `register_metadata_handlers` \u2014 no longer exists (no standalone handlers in -02)\n3. `jmap_metadata_types::Metadata` \u2014 type eliminated in -02\n4. Three uses of the above in http.rs (register_all_extensions) and sse.rs (state tracking)\n\n**Fix:**\n- Remove metadata MemoryBackend construction + register_metadata_handlers call from http.rs\n- Remove Metadata type from SSE/WS state snapshot tracking in sse.rs\n- Keep the metadata capability URI in the Session JSON (advertise urn:ietf:params:jmap:metadata with dataTypes listing which types opted in)\n- Update Cargo.toml: jmap-metadata-server dep no longer needs features=[\"memory\"] (already done) and jmap-metadata-types dep stays for capability types\n\nPer-extension-server MemoryBackend integration (filter matching, /changes, /set validation) is tracked separately at JMAP-s4kp.",
+  "ephemeral": 0,
+  "id": "JMAP-ua37.5",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "open",
+  "timeout_ns": 0,
+  "title": "Fix testjig compile errors for metadata-02",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-04T19:26:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ua37.4",
+      "id": "22bef204-767b-58e9-b4b5-533dfede909e",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-06-04T19:26:21Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ua37.2",
+      "id": "7f06c348-4b36-5776-a6f8-7f2b2a0769d3",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-06-04T19:26:04Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ua37",
+      "id": "ab51c513-12d2-554a-9c91-bef0fa486dcd",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

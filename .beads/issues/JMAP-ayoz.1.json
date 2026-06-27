@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Fixed in commit 0a91576. Inserted the canonical account_exists guard in handle_metadata_set, matching jmap-mail-server's handle_mailbox_set and this crate's own handle_metadata_changes. Added integration test set_unknown_account_returns_account_not_found_and_does_not_mutate covering both the accountNotFound contract and the no-backend-mutation invariant. All 30 metadata-server tests pass; clippy --all-features clean.",
+  "closed_at": "2026-05-14T14:38:14Z",
+  "compaction_level": 0,
+  "content_hash": "9b9a9b09745003e703321a58b064bc0ac6596ade921e6b7ae8c0c95af9db0ac5",
+  "created_at": "2026-05-14T14:18:07Z",
+  "created_by": "Mark Atwood",
+  "description": "metadata.rs:280-291 \u2014 handle_metadata_set extracts account_id then immediately calls backend.get_state::<Metadata>(caller, &account_id) WITHOUT calling backend.account_exists() first.\n\nCompare with handle_metadata_changes at metadata.rs:105-111, handle_metadata_get (delegates to jmap_server::handlers::handle_get which does check), handle_metadata_query / handle_metadata_query_changes (same \u2014 delegated check). Compare with the canonical jmap-mail-server handle_mailbox_set at mailbox.rs:442-446 which DOES check.\n\nTrigger: client sends {\"accountId\": \"acc-does-not-exist\", \"create\": {...}} to Metadata/set.\n\nActual behavior:\n- backend.get_state::<Metadata>(caller, &account_id) is called for the bogus account. MemoryBackend at memory.rs:413 returns State::from(\"0\") (default) \u2014 no error.\n- The create/update/destroy loops then call backend.create_object / update_object / destroy_object against the bogus account_id. MemoryBackend at memory.rs:637 unconditionally inserts account_id into known_accounts and proceeds \u2014 so a /set against an unknown account silently *creates the account*.\n\nExpected (RFC 8620 \u00a71.6.2): unknown accountId \u2192 top-level accountNotFound error response, no backend mutation.\n\nSeverity reasons:\n1. Wire-protocol contract violation. Spec mandates accountNotFound for unknown account; getting back a partial /set response and a silently-created account is a data-integrity bug.\n2. Cookie-cutter divergence from canonical jmap-mail-server. Per workspace AGENTS.md \"Canonical Templates\" the sibling MUST mirror canonical handler shape; the absent account_exists check is a propagation regression.\n3. The MemoryBackend's auto-account-create behavior in create_object is itself a separate concern but compounds the bug.\n\nFix: insert the standard account_exists block at the top of handle_metadata_set, immediately after extract_account_id. Mirror mail-server's pattern verbatim.\n\nTests to add: integration test asserting Metadata/set against an unknown accountId returns accountNotFound and does NOT mutate backend state.",
+  "ephemeral": 0,
+  "id": "JMAP-ayoz.1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 0,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "handle_metadata_set skips account_exists check \u2014 unknown accountId silently calls backend",
+  "updated_at": "2026-05-14T14:38:14Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T07:18:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ayoz",
+      "id": "c19b3e27-0271-54a2-b257-d50f98eec82d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

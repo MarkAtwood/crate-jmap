@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Added 'Edge-case contract' rustdoc section to parse_chat_sse_block enumerating behaviour for: empty block, no-event-field block, event-without-data block, multiple event:/data: lines, line endings, comments and unknown fields, id: line empty vs non-empty, and non-UTF-8 (impossible). Each case verified against crate-jmap-base-client/src/sse.rs:74-116 (the underlying parser).\n\nThe bead-listed sub-case 'parse_chat_sse_block(\"\")' \u2014 explicitly documented as Unknown { event_type: \"\" } / id: None and explicitly warned to NOT be confused with end-of-stream (SSE allows arbitrary intervening blank-line keep-alives).\n\nDoc-only fix; zero behaviour change. RUSTDOCFLAGS='-D warnings' cargo doc clean, cargo test green. Committed as 9fe4ca6.",
+  "closed_at": "2026-05-15T21:57:51Z",
+  "compaction_level": 0,
+  "content_hash": "8ab4eaa19e2cc6b446c08dcb13b84186278397f1641ebed1ef56636e5b0ffeb9",
+  "created_at": "2026-05-15T20:43:26Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-client/src/sse.rs:93.\n\n`pub fn parse_chat_sse_block(block: &str) -> ChatSseFrame` documents:\n```\n/// Parse a single SSE block (text between two blank lines).\n/// Never panics. Malformed JSON is silently ignored and produces Unknown.\n```\n\nWhat the doc does NOT specify:\n\n1. **Empty block**: passing `\"\"` \u2014 does it return `ChatSseEvent::Unknown { event_type: \"\" }`, panic, or something else? The implementation walks the base parser; the precise output for empty input is not stated.\n\n2. **Multiple `event:` lines**: SSE spec allows multiple `event:` lines in a block; only the last one wins per the spec. Does this parser follow that rule? The doc is silent; the impl inherits whatever the base SseEvent parser does.\n\n3. **Trailing newlines / leading whitespace**: SSE blocks are delimited by `\\n\\n`; what about `\\n\\n\\n`, `\\r\\n\\r\\n`, mixed Windows/Unix line endings? Caller has no contract.\n\n4. **Block without `event:` field**: what does the result look like? Probably `ChatSseEvent::Unknown { event_type: \"<some default>\" }` but the literal value is unstated. (Related: same kind of doc-vs-impl issue as ChatWsFrame::Unknown.)\n\n5. **Block with `event:` but no `data:`**: probably `ChatSseEvent::Unknown` with empty payload, but unstated.\n\n6. **Block with non-UTF-8 bytes**: the function takes `&str`, so caller must already produce valid UTF-8. Not a doc gap, but a precondition to surface.\n\nCaller impact: a downstream SSE consumer writing a robust loop (parse each block, handle each frame) cannot tell from the contract whether `parse_chat_sse_block(\"\")` is a recoverable no-op or a meaningful \"end of stream\" signal. They'll write defensive code (skip-if-Unknown) and hope.\n\nFix: extend the rustdoc to enumerate behaviors for each edge case. Three sentences max. The \"never panics\" claim is already there; the doc just needs to say what the function *does* return for edge cases.\n\nIf the SSE parsing logic actually doesn't handle some of these correctly (e.g. it doesn't fold multiple `event:` lines), file a separate bug bead. This bead is about documenting the contract, not fixing the impl.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.49",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "parse_chat_sse_block underspecified for empty / multi-event / whitespace cases",
+  "updated_at": "2026-05-15T21:57:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:43:25Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "2087e654-eaf6-5521-8c3d-1f2643ea13aa",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

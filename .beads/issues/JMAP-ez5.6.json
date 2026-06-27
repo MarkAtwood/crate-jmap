@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-ez5.6",
+  "title": "Filter<T> generic with untagged serde + Operator-first variant order \u2014 correct and load-bearing",
+  "description": "The Filter<T> type in jmap-types::query uses #[serde(untagged)] and lists FilterOperator before Condition(T). The variant order is load-bearing: serde's untagged deserializer tries variants in declaration order. FilterOperator requires an 'operator' field and fails fast without it, allowing fallthrough to Condition(T). A contributor might reorder variants 'for clarity' and break deserialization silently. The comment in query.rs explains this, but it should also be noted in jmap-mail-types where EmailFilter is defined to ensure future maintainers don't try to 'fix' it.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:44:44Z",
+  "updated_at": "2026-04-30T05:29:35Z",
+  "closed_at": "2026-04-30T05:29:35Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-ez5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:44:43"
+    }
+  ]
+}

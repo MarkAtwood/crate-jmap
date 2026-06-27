@@ -1,0 +1,34 @@
+{
+  "assignee": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "close_reason": "Fixed in d3adb1f: PushSubscriptionPatch has manual Debug impl that maps Some(_) -> Some(\"[REDACTED]\") for verification_code; None stays None. Two regression tests confirm the redaction and that None/Some signal is preserved.",
+  "closed_at": "2026-05-11T14:32:11Z",
+  "compaction_level": 0,
+  "content_hash": "bc70c510b6f6d4f8a75aeec88c9cfa127d97c21e9908c139c209f713e0a8d3e7",
+  "created_at": "2026-05-11T14:23:58Z",
+  "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+  "description": "Location: `crate-jmap-chat-client/src/methods/mod.rs:1187-1208`\n\n  #[non_exhaustive]\n  #[derive(Debug, Default)]\n  pub struct PushSubscriptionPatch<'a> {\n      /// Replace the verification code (set after receiving a PushVerification\n      /// payload). `None` = no change.\n      pub verification_code: Option<&'a str>,   // <-- ownership-proof secret\n      ...\n  }\n\nCONCERN\n`verification_code` is the RFC 8620 \u00a77.2 push-subscription-ownership-proof secret. The server delivers it out-of-band (via the configured push URL); the client then echoes it back in a `PushSubscription/set` update to prove receipt. An attacker who learns the code can hijack the push subscription \u2014 they can claim ownership of subscriptions registered by other clients to the same account.\n\nThe struct derives `Debug` directly. Any `{:?}`-format of a PushSubscriptionPatch (the canonical builder type for the `update` map argument of `PushSubscription/set`) leaks the verification code:\n- Application-layer logging at the SDK boundary on the verification round-trip\n- Test fixtures showing how to use the API\n- Future tracing instrumentation on the client surface\n- The doc-comment at line 1190 invites callers to construct this struct with the secret in hand \u2014 exactly the moment a debugging println would be most tempting\n\nSame class as JMAP-sc1b.79 (BearerAuth/BasicAuth) applied to a different secret-bearing type.\n\nWHAT GOES WRONG\nConfidentiality / hijacking \u2014 the push-subscription ownership proof is leaked, allowing an attacker who reads the log to register as the owner of a push subscription that the legitimate client created.\n\nPROPOSED FIX\n1. Remove `Debug` from the derive list at line 1188.\n2. Add a manual Debug impl that redacts `verification_code` to `Some(\"[REDACTED]\")` / `None` while showing the other fields verbatim.\n3. Add a regression test that constructs PushSubscriptionPatch with a canary verification_code and asserts the canary does not appear in `{:?}` output.\n\nORACLE\n- Canonical: JMAP-sc1b.79 fix for BearerAuth/BasicAuth in auth.rs:183-189 + test at auth.rs:443-475.\n- RFC 8620 \u00a77.2 defines the push-subscription verification code as a secret known only to the server and the client receiving the push.\n\nRISK CLASSIFICATION\nP2. Live confidentiality defect on the canonical client-side API for push-subscription verification.",
+  "ephemeral": 0,
+  "id": "JMAP-sc1b.92",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Security: PushSubscriptionPatch derives Debug exposing verification_code (crate-jmap-chat-client/src/methods/mod.rs:1188)",
+  "updated_at": "2026-05-11T14:32:11Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-11T07:23:58Z",
+      "created_by": "bd-spin/bd-spin-20260511T140345Z-598975",
+      "depends_on_issue_id": "JMAP-sc1b",
+      "id": "5023b37e-b600-578c-a7bb-65c369b19d8f",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

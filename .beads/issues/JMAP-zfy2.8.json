@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "TODO removed. All quality gates pass. Epic closed.",
+  "assignee": "Mark Atwood",
+  "close_reason": "No TODO/FIXME found; quality gates pass (24 tests, clippy clean); filenode-server implementation complete",
+  "closed_at": "2026-05-05T04:37:46Z",
+  "compaction_level": 0,
+  "content_hash": "1ba6a58a3181674aded2ec80b180e9b565b23b3b37c198652647df6e66e5fa45",
+  "created_at": "2026-05-05T02:58:06Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Remove the TODO comment at filenode.rs:128, update crate-level docs, run final quality gate.\n\n**Algorithm:**\n1. Remove the TODO comment block (lines 128-132 of filenode.rs).\n2. Remove any _-prefixed variables indicating parsed-but-discarded logic.\n3. Update lib.rs crate-level doc comment to describe completed implementation.\n4. cargo fmt --all: no diff.\n5. cargo clippy --workspace -- -D warnings: zero warnings.\n6. cargo test --workspace: all pass.\n7. Close epic JMAP-zfy2.\n\n**Acceptance criteria:**\n- No TODO or FIXME in crate-jmap-filenode-server/src/.\n- No _on_exists or similar suppressed-warning names.\n- All quality gates pass.",
+  "ephemeral": 0,
+  "id": "JMAP-zfy2.8",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Done: remove TODO, update docs, quality gate",
+  "updated_at": "2026-05-05T04:37:46Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T19:58:06Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zfy2",
+      "id": "6d42e96a-ddd5-5a47-8fb3-0d20938c5ddc",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T19:58:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-zfy2.7",
+      "id": "d6b822e4-17ef-56fd-9579-f9e4d90f227d",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

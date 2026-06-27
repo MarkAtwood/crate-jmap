@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "cargo check -p jmap-chat-client passes; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:48:09Z",
+  "compaction_level": 0,
+  "content_hash": "fd257caa94bac46803bf9330783e031f4b2a4eb4613eaf5c11762febb79edfed",
+  "created_at": "2026-05-04T15:06:35Z",
+  "created_by": "Mark Atwood",
+  "description": "WHAT: Port from ~/PROJECT/crate-jmapchat-client/src/methods/custom_emoji.rs. Methods: custom_emoji_get, custom_emoji_changes, custom_emoji_create, custom_emoji_destroy, custom_emoji_query, custom_emoji_query_changes. Type: jmap_chat_types::CustomEmoji. ACCEPTANCE: cargo check passes; clippy clean",
+  "ephemeral": 0,
+  "id": "JMAP-umfu",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-client: methods/custom_emoji.rs \u2014 CustomEmoji/* methods",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T11:29:10Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w",
+      "id": "395c2ed9-8ea1-5917-a269-e0c81abe01fb",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T08:07:27Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ds04",
+      "id": "9bf41c4f-f985-564f-9e86-310e966442d0",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T08:07:17Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s1ei",
+      "id": "d1125600-b431-5dad-8374-3b206cd25462",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

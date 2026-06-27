@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "extract_account_id now uses args.remove. Existing positive-control test extended with !rest.contains_key('accountId') assertion. Workspace test + clippy pass.",
+  "closed_at": "2026-05-14T17:08:17Z",
+  "compaction_level": 0,
+  "content_hash": "bad3c733ff50c3f7ac7af169377cc06a84f0544bb59fd1f3edb2c33ff899b8ca",
+  "created_at": "2026-05-14T16:37:04Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-server/src/helpers.rs:104-119 \u2014 extract_account_id uses args.get(\"accountId\").and_then(|v| v.as_str()) and returns (id, args) where args still contains the accountId key. Compare with optional_arg below which uses args.remove(name) to extract-and-consume.\n\nConsequence: downstream optional_arg calls on the same args map see accountId still present. None of the standard handlers (handle_get / handle_changes / handle_query / handle_query_changes) call optional_arg(\"accountId\", ...), so the bug does not fire today. But:\n\n  1. A future extension handler that calls optional_arg for accountId would silently get the validated Id back as a deserialized value, masking the validated-once-already invariant.\n  2. The remaining `args` map is passed around in some handlers (handle_changes uses `args.get(\"sinceState\")` directly, which is fine; handle_query uses mut args and calls optional_arg on filter/sort/etc, which is fine since none of those are accountId).\n  3. Extension handlers that iterate over remaining args after the standard ones extract their expected keys will see accountId as an unexpected key.\n\nLower risk than it sounds because no current handler trips on it, but the asymmetry (one helper consumes, another helper does not) is a foot-gun.\n\nFix: change extract_account_id to args.remove(\"accountId\") so the returned `args` map no longer contains the accountId key, matching optional_arg semantics. This is a behaviour change but no current handler observes the residual key, so the change is safe.",
+  "ephemeral": 0,
+  "id": "JMAP-jfia.9",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "extract_account_id checks accountId with .get() leaves it in args map",
+  "updated_at": "2026-05-14T17:08:17Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T09:37:03Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-jfia",
+      "id": "1156f7e6-3075-5b92-90d3-db8a7bac37ca",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

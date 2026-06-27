@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Applied option 1 from the bead: added a 'Closed enum (no #[non_exhaustive])' section to the Patch<T> rustdoc explicitly documenting:\n1. The three variants (Keep/Set/Clear) exhaustively model JMAP's tri-state patch semantic per RFC 8620 \u00a75.3\n2. No future spec extension is anticipated\n3. Callers may match without a wildcard arm\n4. This is the principled exception in a crate where every other public enum is #[non_exhaustive]\n\nFuture contributors who want to add #[non_exhaustive] for symmetry must read this paragraph first.\n\ncargo test green, RUSTDOCFLAGS='-D warnings' cargo doc clean. Committed as c7d77ec.",
+  "closed_at": "2026-05-15T21:49:19Z",
+  "compaction_level": 0,
+  "content_hash": "78adcc8abd64c1628a09b86e50cced3c71d40c07a9356aecb2244a31ee4c7718",
+  "created_at": "2026-05-15T20:43:13Z",
+  "created_by": "Mark Atwood",
+  "description": "File: crate-jmap-chat-client/src/methods/mod.rs:129-138.\n\n`pub enum Patch<T> { Keep, Set(T), Clear }` is missing `#[non_exhaustive]`. Adding a fourth variant later is a SemVer-breaking change.\n\nAnalysis suggests this is **deliberate**:\n- The three variants exhaustively model JMAP's tri-state patch semantics: absent (Keep) / value (Set) / null (Clear).\n- The `Default` impl points to `Keep`.\n- The custom `Deserialize` impl exhaustively maps the three JSON cases.\n- There is no fourth semantic for \"JSON `undefined`-like\" or other patch states in any plausible spec extension.\n\nSo `Patch<T>` is genuinely closed by design \u2014 adding `#[non_exhaustive]` would force callers to write `_ => unreachable!()` arms for a fourth variant that will never exist.\n\nBut the absence of the attribute is conspicuous in a crate where every other public enum has it. A future maintainer reading the code will rightly ask \"why is this one different?\"\n\nTwo paths, pick one:\n1. **Confirm exhaustiveness as deliberate** \u2014 add a doc-comment on `Patch<T>` explicitly stating: \"This enum is deliberately exhaustive: the three variants model the complete JMAP tri-state patch semantic (RFC 8620 \u00a75.3) and no future variant is anticipated. Callers may match without a wildcard arm.\"\n2. **Add `#[non_exhaustive]` defensively** \u2014 if there's any plausible future extension (e.g. a server-side patch arithmetic like \"increment by 1\" via a `Patch::Op(...)` variant), reserve the option.\n\nWorkspace convention review by maintainer needed before action. File as a P3 / DECISION confirmation bead.",
+  "ephemeral": 0,
+  "id": "JMAP-26di.48",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Patch<T> missing #[non_exhaustive] \u2014 likely deliberate, confirm decision",
+  "updated_at": "2026-05-15T21:49:19Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T13:43:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-26di",
+      "id": "54fc0c3a-ea90-5691-97f3-f57f99d73b9a",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

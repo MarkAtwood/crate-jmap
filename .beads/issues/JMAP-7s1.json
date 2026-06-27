@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-01T23:41:55Z",
+  "compaction_level": 0,
+  "content_hash": "ce56a704fd058555c1cd26cecc024e652f859b813c1f9be872c79911b9c24dbe",
+  "created_at": "2026-05-01T23:01:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Spec \u00a7SpaceBan: entirely unimplemented. Required methods: SpaceBan/get, /changes, /set (create/update/destroy), /query, /queryChanges. Visibility: ban permission sees all; banned user sees own bans only. Create requires spaceId and userId, optional reason and expiresAt; requires ban permission. Update supports reason and expiresAt. Destroy requires ban permission.",
+  "ephemeral": 0,
+  "id": "JMAP-7s1",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "feature",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Implement SpaceBan object type (5 methods)",
+  "updated_at": "2026-05-01T23:41:55Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-01T16:10:45Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x09",
+      "id": "3365319a-5b11-5de9-9231-8883bc809327",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-01T16:31:55Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-x09.1",
+      "id": "382b07fd-99b9-5cbb-9068-59849099752c",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

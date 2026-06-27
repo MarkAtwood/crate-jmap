@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-15T00:00:32Z",
+  "compaction_level": 0,
+  "content_hash": "0c31aeacec0596b2bac5f3bb9b124706f3a3fa05dcc45c7031d9c59c1808806e",
+  "created_at": "2026-05-14T23:35:40Z",
+  "created_by": "Mark Atwood",
+  "description": "Section G \u2014 Algorithm and Parameter Choice (private-CA trust scope).\n\nCustomCaTransport::build_client() at crate-jmap-base-client/src/auth.rs:74-83 calls reqwest::ClientBuilder::add_root_certificate(cert) without first calling tls_built_in_root_certs(false). Per reqwest 0.12 documentation, add_root_certificate ADDS the certificate to the existing trust roots (webpki-roots) \u2014 it does not replace them.\n\nThe likely user-mental-model for CustomCaTransport is 'connect to a JMAP server identified by a private CA we control, refusing certificates signed by any public CA.' That is the threat model where private-CA pinning matters: a corporate internal JMAP server, a service-mesh deployment, an air-gapped network. Under the current behavior, a connection to this server will be accepted if the server presents a certificate signed by EITHER the configured private CA OR any of the 100+ public CAs in webpki-roots. A compromised or malicious public CA (Symantec 2017, DigiNotar 2011, etc.) issuing a certificate for the target host name therefore bypasses the private-CA defense entirely.\n\n# What goes wrong (confidentiality/integrity)\n\nA consumer that intentionally configured a private CA expecting trust isolation gets neither isolation nor a compile-time/runtime signal that the isolation is incomplete. Mis-issued public-CA certs or compromised intermediates can MITM the TLS connection, recovering credentials (BearerAuth/BasicAuth in the Authorization header) and full session content.\n\n# Suggested fix\n\nTwo options:\n\n1) Default to replace: in CustomCaTransport::build_client, call .tls_built_in_root_certs(false) before .add_root_certificate(cert). This matches the likely user mental model. Document the change in the rustdoc.\n\n2) Make it explicit: add a #[non_exhaustive] field like include_public_roots: bool (default false) to CustomCaTransport and route through both reqwest builder calls. The downside is a SemVer-additive shape change.\n\nEither way, the rustdoc on CustomCaTransport currently says 'Custom CA trust root (DER-encoded). No Authorization header is injected.' \u2014 it never tells the reader that the public webpki-roots remain in the trust set. The current behaviour is documented nowhere and is opposite to the likely expectation.\n\n# Probe (read-only)\n\nVerify by reading reqwest 0.12 ClientBuilder source for add_root_certificate vs tls_built_in_root_certs. The author of reqwest documents both methods in the same module \u2014 add_root_certificate adds, tls_built_in_root_certs(false) disables the bundled defaults. The fix is mechanical.\n\n# Test discipline\n\nAfter implementing the fix, a defense-in-depth integration test can verify by spinning up two wiremock servers \u2014 one with a webpki-rooted cert (legitimate public CA), one with the configured private CA \u2014 and asserting the public-CA host is REJECTED (TLS handshake failure) while the private-CA host is accepted. Test fixture certs from rcgen or similar.\n\n# References\n\n- reqwest 0.12 ClientBuilder docs: add_root_certificate, tls_built_in_root_certs\n- Workspace AGENTS.md 'TLS stack' rule pins rustls; this finding does not change that \u2014 it changes how the rustls trust root configuration is composed.",
+  "ephemeral": 0,
+  "id": "JMAP-6r7c.57",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "bug",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "CustomCaTransport ADDS to default trust roots; cannot restrict trust to private CA only",
+  "updated_at": "2026-05-15T00:00:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T16:35:39Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-6r7c",
+      "id": "fe1b3340-426a-53ed-8f7b-99b3aabeb100",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

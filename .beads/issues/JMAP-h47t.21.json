@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Seven line-number citations converted to stable section+paragraph form across task.rs (4 sites), backend.rs (2), lib.rs (1). cargo doc -D warnings + clippy + test green.",
+  "closed_at": "2026-05-14T18:51:52Z",
+  "compaction_level": 0,
+  "content_hash": "13421d6a373d223b08117ffb2ba6b8e8289c67d47d42a158a89389bf4b58ad3c",
+  "created_at": "2026-05-14T18:18:14Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-tasks-server/src/backend.rs:142-143:\n\n    /// Compute \\`utcStart\\` and \\`utcDue\\` for a [\\`Task\\`](jmap_tasks_types::Task) by converting the task's\n    /// \\`start\\`/\\`due\\` local-time fields and time zone into UTC (draft-tasks-06 \u00a74,\n    /// lines 739-772).\n\nThe reference to \\\"lines 739-772\\\" pins the docstring to a specific draft revision of draft-ietf-jmap-tasks. When draft-07 ships and the section is re-paginated (every IETF revision causes line drift \u2014 section anchors do not), this docstring becomes a dangling reference.\n\nSame pattern appears in:\n\n  - lib.rs:734 (test comment)\n  - lib.rs:759 (test comment)\n  - task.rs:24 (handler doc)\n  - task.rs:683 (test doc)\n  - task.rs:711 (test doc)\n  - backend.rs:108 (\\`lines 978-981\\` for per-user routing)\n\nEngineering basis: IETF drafts re-paginate on every revision. RFCs do not. Section numbers (\u00a74.5.1, \u00a73.5, etc.) are stable across both. Line numbers are stable only within a single revision. The crate already cites sections elsewhere (e.g. \\\"draft-tasks-06 \u00a73.7\\\" in task_list.rs:46) \u2014 the citation style is mixed.\n\nFix: every \\\"lines X-Y\\\" reference becomes \\\"\u00a7N.M\\\" with the same content. Where the doc wants to point at a single paragraph within a section, the citation is \\\"\u00a7N.M paragraph 'utcStart MUST be computed from \u2026'\\\" or similar.\n\nThis finding is labelled `opinion` because it is rote-style \u2014 the contract surface is unchanged, only the doc reference quality. Filing because the supplement template asks for api-contract,docs and the pattern is consistent enough to be worth flagging in one pass.",
+  "ephemeral": 0,
+  "id": "JMAP-h47t.21",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "compute_task_utc_times docstring references draft line numbers (\"lines 739-772\") instead of section numbers \u2014 line numbers drift on every draft revision",
+  "updated_at": "2026-05-14T18:51:52Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T11:18:14Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-h47t",
+      "id": "1077a9d8-ca1a-5d8e-98b1-edf0467f55bb",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

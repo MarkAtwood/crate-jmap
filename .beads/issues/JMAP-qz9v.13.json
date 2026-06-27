@@ -1,0 +1,33 @@
+{
+  "close_reason": "Resolved by JMAP-qz9v.29 (closed). The bead's option (c) ('document the placeholder dance in the trait doc') was applied as part of qz9v.29's 'sentinel fields the backend MUST replace' contract addition. ContactsBackend::create_object's rustdoc at backend.rs:82-114 now documents the id-placeholder pattern explicitly:\n\n> Sentinel fields the backend MUST replace\n> - id: The id field in the input object is always set to 'placeholder' so the typed Deserialize on O (AddressBook / ContactCard) succeeds. The backend MUST replace it with a real, unique, account-scoped id...\n\nBead options (a) 'make Id optional on deserialize' and (b) 'pass raw Value into create_object' are workspace-design questions filed separately if revisited; option (c) was the recommended low-cost path and is done.",
+  "closed_at": "2026-05-18T03:05:35Z",
+  "compaction_level": 0,
+  "content_hash": "4bb21fa2d47e99f42c52b228043e59ac8629ac919933edf61fd566bc41914340",
+  "created_at": "2026-05-14T19:21:42Z",
+  "created_by": "Mark Atwood",
+  "description": "What is awkward: addressbook.rs:124-126 and card.rs:105-107 inject 'id': 'placeholder' into the create object before calling serde_json::from_value::<AddressBook | ContactCard>. The reason given in inline comments is that the type requires 'id' to deserialize. Then MemoryBackend.create_object (memory.rs:612, 617-620) mints a real id, serializes the obj, and overwrites the 'id' field on the resulting Value.\n\nSo the placeholder is created, deserialized into a typed object, the typed object is serialized BACK out, the placeholder is overwritten with the real id, and finally the typed object is deserialized again from the post-substitution Value. Three serde round-trips with the id sometimes being a placeholder string and sometimes the real one.\n\nSuggested rewrite paths (any one):\n (a) Make ContactCard / AddressBook deserialize with a missing or default-id (Id::empty(), or Option<Id> on the wire). The default-Id approach is what jmap-types should provide.\n (b) Have the handler pass the raw Value into create_object and let the backend handle id assignment without the typed round-trip on the handler side. The current shape forces the placeholder dance because the backend trait takes O: SetObject.\n (c) Accept the placeholder dance as the canonical pattern and document it in the trait doc \u2014 'create_object receives a partially-constructed object whose id is a placeholder; mint a real id and return (real_id, updated_obj)'.\n\nToday the placeholder dance happens in addressbook.rs, card.rs, and the canonical mail-server's email.rs (likely also mailbox.rs). If it's the canonical pattern, it deserves a one-line note on ContactsBackend::create_object explaining 'the obj parameter has a placeholder id; mint a real one'. Otherwise it's a confusing serialize-deserialize-serialize-deserialize loop for new readers.",
+  "ephemeral": 0,
+  "id": "JMAP-qz9v.13",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "chore",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "MemoryBackend.create_object inserts placeholder id from caller, then immediately overwrites \u2014 drop the placeholder injection or document why",
+  "updated_at": "2026-05-18T03:05:35Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-14T12:21:42Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-qz9v",
+      "id": "592e0652-44b6-5f45-881d-22cb03c8003b",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "JMAP-ez5.2",
+  "title": "impl_string_enum_serde! does not generate Display; Display still manually repeated",
+  "description": "submission.rs has Delivered, Displayed, UndoStatus \u2014 each with Serialize+Deserialize via the macro but Display still manually written. Each Display impl repeats the same match arms as the macro-generated Serialize. Adding a new variant requires touching both the macro invocation and the manual Display impl. Suggested rewrite: extend impl_string_enum_serde! to also emit impl fmt::Display, eliminating the separate Display blocks entirely.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "assignee": "Mark Atwood",
+  "created_by": "Mark Atwood",
+  "created_at": "2026-04-30T04:44:21Z",
+  "updated_at": "2026-04-30T04:52:10Z",
+  "closed_at": "2026-04-30T04:52:10Z",
+  "dependencies": [
+    {
+      "depends_on_id": "JMAP-ez5",
+      "dep_type": "parent_child",
+      "created_by": "Mark Atwood",
+      "created_at": "2026-04-29 21:44:21"
+    }
+  ]
+}

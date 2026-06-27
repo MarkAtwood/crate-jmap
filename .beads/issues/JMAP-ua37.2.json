@@ -1,0 +1,42 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Rewrote jmap-metadata-server for draft-02: removed MetadataBackend trait, register_metadata_handlers, MemoryBackend, and all 5 Metadata/* handlers. Replaced with 3 pure-function modules (validate, changes, filter) providing 8 public helpers. 56 unit + 8 doc tests pass. Version bumped to 0.2.0; jmap-types and jmap-server deps removed.",
+  "closed_at": "2026-06-05T03:44:22Z",
+  "compaction_level": 0,
+  "content_hash": "069fbb4a133f65cd74b3ecded736c57680cece9a4c5288f7c54d20b0d24bf1bc",
+  "created_at": "2026-06-05T02:25:30Z",
+  "created_by": "Mark Atwood",
+  "description": "Complete rewrite of jmap-metadata-server to align with draft-ietf-jmap-metadata-02.\n\n**What changes:**\n- DELETE: All 5 standalone method handlers (handle_metadata_get, handle_metadata_set, handle_metadata_query, handle_metadata_query_changes, handle_metadata_changes)\n- DELETE: register_metadata_handlers (no Metadata/* methods exist in -02)\n- DELETE: MetadataBackend trait (standalone shape)\n- DELETE: MemoryBackend (standalone shape) + all unit/integration tests\n- ADD: MetadataExtension trait \u2014 augments existing JmapBackend/extension backends with metadata awareness. Methods for: validating namespace identifiers, enforcing metadataMaxSize/privateMetadataMaxSize limits, handling ignoreMetadataOnlyChanges on /changes responses, populating updatedProperties on /changes responses\n- ADD: Metadata-aware filter helpers \u2014 implement the 6 new filter conditions (metadataExists etc.) as composable predicates that extension-server MemoryBackends can call from their query_objects matchers\n- ADD: Metadata-aware /changes helpers \u2014 implement ignoreMetadataOnlyChanges (request arg) and updatedProperties (response field) per \u00a72.5\n- The crate shifts from 'standalone extension server' to 'augmentation library' \u2014 it no longer registers its own method names; instead, consumers (mail-server, chat-server, etc.) integrate its helpers into their existing handlers\n\n**Spec reference:** draft-ietf-jmap-metadata-02 \u00a72.4 (Querying), \u00a72.5 (Changes), \u00a73.1 (Capability)\n\n**Architecture:** The -02 model means metadata support is opt-in per extension-server crate. This crate provides the shared helpers; each extension-server crate decides whether to integrate them. The testjig also needs updating (JMAP-ua37.5).",
+  "ephemeral": 0,
+  "id": "JMAP-ua37.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 1,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "Rewrite jmap-metadata-server for -02 architecture",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-06-04T19:25:29Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ua37",
+      "id": "2c5e28f4-a5f9-57cf-8189-b9ac15659590",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-06-04T19:26:19Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ua37.1",
+      "id": "2e525601-08d7-5f70-9173-f06eccc36502",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

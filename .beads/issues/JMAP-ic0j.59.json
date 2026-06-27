@@ -1,0 +1,34 @@
+{
+  "assignee": "Mark Atwood",
+  "close_reason": "Switched #[source] to #[from] on Other(E) variants of AvailabilityError and QueryCalendarEventsError. thiserror auto-generates From<E> impl; ? operator now works. Existing map_err call sites left as-is (tail-position .await.map_err return \u2014 converting to ? would require let-then-Ok and offers no readability gain). Future call sites get the ergonomic win.",
+  "closed_at": "2026-05-16T01:36:51Z",
+  "compaction_level": 0,
+  "content_hash": "ad32aecd659386ca94521b12d02d876a2250b3585f608cdb5aa9ffdc41b2e288",
+  "created_at": "2026-05-15T18:08:13Z",
+  "created_by": "Mark Atwood",
+  "description": "crate-jmap-calendars-server/src/backend.rs:635 (AvailabilityError) and :709 (QueryCalendarEventsError) both define:\n\n    pub enum XxxError<E: std::error::Error + 'static> {\n        ...\n        Other(#[source] E),\n    }\n\nNeither has a blanket `impl<E: std::error::Error + 'static> From<E> for XxxError<E>`. As a result, every backend implementation and every handler call site writes the same `.map_err(QueryCalendarEventsError::Other)` boilerplate:\n\n- backend.rs:467 (the default `query_calendar_events` impl)\n- lib.rs:802 (the test_support MockBackend impl)\n- (every future production backend will write the same line)\n\nA blanket `From` impl would let the `?` operator do the conversion automatically:\n\n    impl<E: std::error::Error + 'static> From<E> for QueryCalendarEventsError<E> {\n        fn from(e: E) -> Self { Self::Other(e) }\n    }\n\nThis is a known Rust idiom for typed-error-with-source-passthrough enums; thiserror generates it automatically via `#[from]` annotation on the Other variant.\n\nWhat callers cannot rely on:\n- That the standard `?`-operator ergonomic works against these enums. They must remember to spell out the wrap.\n- That the same enum from a sibling crate (which may or may not have the impl) behaves the same way.\n\nThe fix is `#[from]` instead of `#[source]` on the `Other` variant, OR explicit hand-rolled `From` impls. Compatible: the change does not break struct-literal `XxxError::Other(e)` callers and does not affect pattern-match exhaustiveness.\n\nSibling jmap-mail-server has no public error enums of this shape so there is no canonical to consult. Mirroring the precedent at jmap-jfia.36 (mail-server's BackendSetError lacks `From<E>` / `From<BackendSetError<E>>` for JmapError) \u2014 same defensive-forcing pattern across the workspace.\n\nMark with `opinion` if reviewer considers this a stylistic preference; the engineering basis is that `?`-operator support is the workspace-wide convention everywhere else (search for `#[from]` in the repo).",
+  "ephemeral": 0,
+  "id": "JMAP-ic0j.59",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 3,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "AvailabilityError::Other and QueryCalendarEventsError::Other lack From<E> impl; every caller writes .map_err(...::Other)",
+  "updated_at": "2026-05-16T01:36:51Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-15T11:08:12Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ic0j",
+      "id": "e6b4db4c-01cf-5279-9be4-fa968bdcd2ac",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}

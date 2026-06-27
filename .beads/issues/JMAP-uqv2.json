@@ -1,0 +1,51 @@
+{
+  "acceptance_criteria": "cargo check -p jmap-chat-client passes; clippy clean",
+  "assignee": "Mark Atwood",
+  "close_reason": "Closed",
+  "closed_at": "2026-05-04T23:48:10Z",
+  "compaction_level": 0,
+  "content_hash": "470967c2e335c327be4a7607b8081e46157de27af789d17171a2a041bcdcbb9a",
+  "created_at": "2026-05-04T15:06:47Z",
+  "created_by": "Mark Atwood",
+  "description": "WHAT: Port from ~/PROJECT/crate-jmapchat-client/src/methods/quota.rs and methods/blob.rs. Quota: quota_get (uses QuotaScope from crate::types, USING_QUOTAS capability). Blob: blob_lookup(blob_ids, type_names), blob_convert(from_blob_id, content_type, width, height) \u2014 uses capability urn:ietf:params:jmap:blob2. ACCEPTANCE: cargo check passes; clippy clean",
+  "ephemeral": 0,
+  "id": "JMAP-uqv2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "jmap-chat-client: methods/quota.rs + methods/blob.rs",
+  "updated_at": "2026-06-26T19:57:32Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T11:29:11Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-gb1w",
+      "id": "39621a79-5042-500c-9939-a47f416e3087",
+      "metadata": {},
+      "type": "parent-child"
+    },
+    {
+      "created_at": "2026-05-04T08:07:18Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-s1ei",
+      "id": "7fda093d-dc91-5647-8a7f-127136cd9602",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T08:07:28Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-ds04",
+      "id": "90deaa52-ee36-5086-a2de-25b13f9a8de4",
+      "metadata": {},
+      "type": "blocks"
+    }
+  ]
+}

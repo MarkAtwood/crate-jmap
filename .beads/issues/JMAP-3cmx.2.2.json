@@ -1,0 +1,43 @@
+{
+  "acceptance_criteria": "All 4 async tests pass. Clippy clean.",
+  "assignee": "Mark Atwood",
+  "close_reason": "Created tests/submission_get_changes.rs: 4 wiremock tests for EmailSubmission/get and /changes; all pass; clippy clean",
+  "closed_at": "2026-05-05T03:49:05Z",
+  "compaction_level": 0,
+  "content_hash": "17ec708097e3545539a4ac3b9b8212c2ba397796f6d1f4cc3248791b078eb768",
+  "created_at": "2026-05-05T03:30:56Z",
+  "created_by": "Mark Atwood",
+  "description": "**What:** Create crate-jmap-mail-client/tests/submission_get_changes.rs with 4 async wiremock tests for EmailSubmission/get and EmailSubmission/changes.\n\n**Algorithm:**\n1. Create tests/submission_get_changes.rs.\n2. At top: `#[path = \"helpers.rs\"] mod helpers;` to pull in make_client.\n3. Import: wiremock matchers (method, path), Mock, MockServer, ResponseTemplate.\n4. Implement 4 tests:\n\n**Test 1: email_submission_get_round_trip**\n- Mock: POST /api/ \u2192 200, body = GetResponse shape with one EmailSubmission (id=ES-1, identityId=I1, emailId=M1, threadId=T1, envelope=null, sendAt=2024-06-01T10:00:00Z, undoStatus=final, deliveryStatus=null, dsnBlobIds=[], mdnBlobIds=[]).\n- Call: sc.email_submission_get(None, None).await\n- Assert: resp.account_id==\"A13824\", resp.state==\"s5\", resp.list.len()==1, resp.list[0].id==\"ES-1\".\n- Oracle: RFC 8621 \u00a77.1 + \u00a77 EmailSubmission field list.\n\n**Test 2: email_submission_get_specific_ids**\n- Mock: POST /api/ \u2192 200, body = GetResponse with list=[{id=ES-abc,...}], notFound=[].\n- Call: sc.email_submission_get(Some(&[\"ES-abc\"]), None).await\n- Capture request via wiremock ReceivedRequests or body inspection.\n- Assert: resp.list[0].id==\"ES-abc\"; resp.not_found is Some with empty vec or None.\n- Oracle: RFC 8621 \u00a77.1 ids argument.\n\n**Test 3: email_submission_changes_round_trip**\n- Mock: POST /api/ \u2192 200, body = ChangesResponse {accountId=A13824, oldState=s10, newState=s11, hasMoreChanges=false, created=[ES-new], updated=[], destroyed=[]}.\n- Call: sc.email_submission_changes(\"s10\", None).await\n- Assert: resp.old_state==\"s10\", resp.new_state==\"s11\", resp.has_more_changes==false, resp.created contains \"ES-new\".\n- Oracle: RFC 8620 \u00a75.2 /changes response shape.\n\n**Test 4: email_submission_changes_no_max_changes**\n- Mock: POST /api/ \u2192 200, body = minimal valid ChangesResponse.\n- Call: sc.email_submission_changes(\"s1\", None).await (maxChanges absent)\n- Use server.received_requests().await to inspect the raw request body.\n- Parse body as serde_json::Value, navigate to methodCalls[0][1].\n- Assert: args object does NOT contain key \"maxChanges\".\n- Oracle: RFC 8620 \u00a75.2 \u2014 maxChanges is optional and must be absent when None is passed.\n\n**Defensive programming rules:**\n- All expected values are literals taken from the hand-written fixture bodies, NOT from running the method and observing output\n- Error paths (e.g. server returns 500) are not tested here \u2014 that is a base-client concern\n- No unwrap() without .expect(\"reason\")\n- server.received_requests() returns Option<Vec>; use .expect() not unwrap()\n\n**Acceptance criteria:**\n- cargo test -p jmap-mail-client submission_get_changes exits 0 (all 4 tests pass)\n- cargo clippy -p jmap-mail-client -- -D warnings exits 0",
+  "ephemeral": 0,
+  "id": "JMAP-3cmx.2.2",
+  "is_blocked": 0,
+  "is_template": 0,
+  "issue_type": "task",
+  "metadata": {},
+  "no_history": 0,
+  "owner": "mark@reviewcommit.com",
+  "pinned": 0,
+  "priority": 2,
+  "status": "closed",
+  "timeout_ns": 0,
+  "title": "tests/submission_get_changes.rs: 4 wiremock tests",
+  "updated_at": "2026-05-05T03:49:05Z",
+  "dependencies": [
+    {
+      "created_at": "2026-05-04T20:32:01Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx.2.1",
+      "id": "1beb528c-e08a-5ed9-8a9c-1c8b63132919",
+      "metadata": {},
+      "type": "blocks"
+    },
+    {
+      "created_at": "2026-05-04T20:30:56Z",
+      "created_by": "Mark Atwood",
+      "depends_on_issue_id": "JMAP-3cmx.2",
+      "id": "375fe319-c710-502b-af6b-20687564038d",
+      "metadata": {},
+      "type": "parent-child"
+    }
+  ]
+}
