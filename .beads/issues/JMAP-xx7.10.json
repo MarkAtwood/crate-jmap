@@ -14,7 +14,7 @@
       "depends_on_id": "JMAP-xx7",
       "dep_type": "parent_child",
       "created_by": "Mark Atwood",
-      "created_at": "2026-04-30 07:50:17"
+      "created_at": "2026-04-30T07:50:17Z"
     }
   ]
 }
