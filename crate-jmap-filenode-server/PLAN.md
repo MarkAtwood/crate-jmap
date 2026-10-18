@@ -1,6 +1,6 @@
 # jmap-filenode-server — Implementation Plan
 
-JMAP FileNode extension (draft-ietf-jmap-filenode-13) method handlers. Plugs into
+JMAP FileNode extension (draft-ietf-jmap-filenode-16) method handlers. Plugs into
 `jmap-server`'s `Dispatcher`. Backend-agnostic: defines a `FileNodeBackend` trait;
 consumers provide the implementation.
 
@@ -16,7 +16,7 @@ jmap-types
 ## What This Crate Is
 
 Method handler implementations for every JMAP FileNode method defined in
-draft-ietf-jmap-filenode-13: `FileNode/get`, `FileNode/changes`, `FileNode/set`,
+draft-ietf-jmap-filenode-16: `FileNode/get`, `FileNode/changes`, `FileNode/set`,
 `FileNode/copy`, `FileNode/query`, `FileNode/queryChanges`.
 
 Defines a `FileNodeBackend` trait that the application implements. The crate handles
@@ -38,7 +38,7 @@ handling, fetchParents expansion). The backend handles storage.
 
 ### Normative
 
-`~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-filenode-13.txt` — read the
+`~/PROJECT/IETF/specs/draft-ietf-jmap-filenode-16.txt` — read the
 relevant section before implementing each handler. Wire field names, error codes,
 and behavioral requirements come from the spec, not from memory.
 
@@ -254,14 +254,14 @@ The handler performs these checks before calling the backend:
   this node is also an ancestor is an error").
 - **parentId existence and type**: before creating or moving a node, the handler
   verifies (via `get_objects<FileNode>`) that the proposed `parentId` exists and
-  has `nodeType: "directory"`. Only directories may have children. A file or
-  symlink as a proposed parent is `invalidProperties`.
+  has `@type: "Directory"`. Only directories may have children. A `"File"` or
+  `"SymLink"` as a proposed parent is `invalidProperties`.
 - **blobId validation**: before creating or updating a file node, the handler
   calls `blob_exists`. A missing blobId is `invalidProperties`.
-- **nodeType/blobId/target consistency**: handler enforces:
-  - file: blobId non-null, target null
-  - directory: blobId null, target null
-  - symlink: blobId null, target non-null
+- **@type/blobId/target consistency** (§3.1.2–§3.1.4): handler enforces:
+  - `"File"`: blobId non-null, target null
+  - `"Directory"`: blobId null, target null
+  - `"SymLink"`: blobId null, target non-null
 
 The backend enforces name uniqueness atomically (it has the transaction). The
 handler also checks name uniqueness via `query_objects` (filter by parentId and
@@ -330,15 +330,14 @@ style error, or the backend may implement the recursion in the storage layer.
 The exact mechanism (extra field on the query filter vs. a separate backend method)
 is an implementation decision — document in backend.rs when implemented.
 
-### 8. nodeType inference on create is handler logic
+### 8. @type is required on create
 
-§3.2.3: if `nodeType` is absent on create, the handler infers it:
-- `"file"` if blobId is non-null
-- `"symlink"` if target is non-null
-- `"directory"` otherwise
-
-The handler sets the inferred nodeType before calling `create_object` so the backend
-always receives an explicit nodeType.
+§3.1.1: `@type` (`"File"`, `"Directory"`, or `"SymLink"`) MUST be provided on
+creation; the server does not infer it. The handler rejects a create with `@type`
+absent or null with `invalidProperties` (`properties: ["@type"]`), and rejects an
+`@type` outside `supportedNodeTypes` the same way, so the backend always receives
+an explicit `@type`. The File content type is `mediaType` (renamed from `type` in
+-16); the query filter and sort property keep the name `nodeType` (§3.2.5).
 
 ### 9. size is server-set on create and on blobId update
 
@@ -379,7 +378,7 @@ src/
                 AlreadyExistsError with existingId); re-exports from jmap-server
   filenode.rs   FileNode/get (with fetchParents), FileNode/changes,
                 FileNode/set (with tree integrity, onDestroyRemoveChildren,
-                onExists, compareCaseInsensitively, nodeType inference),
+                onExists, compareCaseInsensitively, @type validation),
                 FileNode/copy, FileNode/query (with depth), FileNode/queryChanges
 ```
 
@@ -410,7 +409,7 @@ tests/
 - `FileNode/get` with `fetchParents: true`: returns ancestors; deduplicates shared ancestors
 - `FileNode/get`: non-existent id returns notFound (not a 500)
 - `FileNode/set` create: file node with valid blobId; directory node; symlink node
-- `FileNode/set` create: infers `nodeType` from blobId / target / neither
+- `FileNode/set` create: `@type` absent or null → `invalidProperties` naming `@type`
 - `FileNode/set` create: missing blobId for file → `invalidProperties`
 - `FileNode/set` create: blobId non-null for directory → `invalidProperties`
 - `FileNode/set` create: blobId non-null for symlink → `invalidProperties`

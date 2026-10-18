@@ -2,7 +2,7 @@
 
 ## What it is
 
-JMAP FileNode ([draft-ietf-jmap-filenode-14]) method handlers and the
+JMAP FileNode ([draft-ietf-jmap-filenode-16]) method handlers and the
 `FileNodeBackend` trait. Plugs into [`jmap-server`]'s `Dispatcher`. Implements
 all 6 FileNode method names. Storage-agnostic — consumers implement the
 `FileNodeBackend` trait for their own data layer.
@@ -44,7 +44,7 @@ be shared with other parts of your application.
 
 ## Registered methods
 
-All 6 method names from draft-ietf-jmap-filenode-14 §3.2 are registered:
+All 6 method names from draft-ietf-jmap-filenode-16 §3.2 are registered:
 
 | Object | Methods |
 |---|---|
@@ -142,14 +142,22 @@ pub trait FileNodeBackend: JmapBackend {
 `handle_*` handler bodies receive `(Arc<B>, call_id, args)` only. One
 `Arc::clone` per method name; no heap allocation per request.
 
-### FileNode/set create — nodeType inference and validation
+### FileNode/set create — @type validation
 
-When creating a FileNode, the handler infers `nodeType` from the creation object if not
-explicitly set: if `blobId` is present the type is `"file"`, if `target` is present the
-type is `"symlink"`, otherwise the type is `"directory"`. After inference, the handler
-validates consistency (`blobId` must be null for directories and symlinks; `target` must be
-null for files and directories). For file nodes, `blob_exists` is called to confirm the
-referenced blob is accessible.
+Every creation object MUST include `@type` (`"File"`, `"Directory"`, or `"SymLink"`); the
+handler does not infer it (draft-ietf-jmap-filenode-16 §3.1.1). A create with `@type`
+absent or null fails with `invalidProperties` and `properties: ["@type"]`, as does a create
+whose `@type` is not one of those three values. The handler then validates the
+type-specific properties (§3.1.2–§3.1.4): a `"File"` requires `blobId` and must not set
+`target`; a `"Directory"` must not set `blobId` or `target`; a `"SymLink"` requires a
+non-empty `target` and must not set `blobId`. A violation is `invalidProperties` naming the
+offending property. For `"File"` nodes, `blob_exists` is called to confirm the referenced
+blob is accessible. `mediaType` (formerly `type` in -14) is a `"File"` property.
+
+```json
+{ "@type": "File", "name": "report.pdf", "parentId": "d1",
+  "blobId": "b1", "mediaType": "application/pdf" }
+```
 
 ### FileNode/set — onExists collision handling
 
@@ -250,9 +258,9 @@ until the family is published to crates.io.
 
 ## References
 
-- **[draft-ietf-jmap-filenode-14]** — JMAP FileNode (normative for all method semantics)
+- **[draft-ietf-jmap-filenode-16]** — JMAP FileNode (normative for all method semantics)
 - **[RFC 8620]** — JMAP Core (request format, SetError, ResultReference, `/set` response shape)
 
-[draft-ietf-jmap-filenode-14]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
+[draft-ietf-jmap-filenode-16]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/16/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-server`]: ../crate-jmap-server

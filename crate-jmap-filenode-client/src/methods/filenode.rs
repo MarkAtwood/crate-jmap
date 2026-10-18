@@ -702,7 +702,8 @@ mod tests {
 
     /// Oracle: SetResponse<FileNode> deserializes from RFC 8620 §5.3 shape
     /// with a typed FileNode in the created map.
-    /// FileNode JSON from draft-ietf-jmap-filenode-13 §3.1 (minimal directory node).
+    /// FileNode JSON follows the draft-ietf-jmap-filenode-16 §3.1.5 directory
+    /// example: `@type` is `"Directory"` and file/symlink properties are omitted.
     #[test]
     fn set_response_with_typed_file_node_deserializes() {
         let json = json!({
@@ -711,13 +712,10 @@ mod tests {
             "newState": "s2",
             "created": {
                 "new1": {
+                    "@type": "Directory",
                     "id": "node-abc",
                     "parentId": null,
-                    "blobId": null,
-                    "target": null,
-                    "size": null,
                     "name": "Documents",
-                    "type": null,
                     "shareWith": null
                 }
             },
@@ -733,6 +731,15 @@ mod tests {
         let node = created.get("new1").expect("new1 must be present");
         assert_eq!(node.id, "node-abc");
         assert_eq!(node.name, "Documents");
+        assert_eq!(
+            node.node_type,
+            Some(jmap_filenode_types::NodeType::Directory)
+        );
+        assert!(
+            node.extra.is_empty(),
+            "extra must be empty: {:?}",
+            node.extra
+        );
     }
 
     // ── Extras-preservation policy tests (JMAP-lbdy.9) ─────────────────

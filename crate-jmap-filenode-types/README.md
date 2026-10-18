@@ -107,8 +107,8 @@ assert_eq!(dir_node.node_type, Some(NodeType::Directory));
 ## How it works
 
 All structs carry `#[serde(rename_all = "camelCase")]` to produce camelCase JSON field names
-as required by the JMAP wire format. Two fields require explicit `#[serde(rename)]`
-annotation because its wire name is not a valid Rust identifier:
+as required by the JMAP wire format. One field requires an explicit `#[serde(rename)]`
+because its wire name is not a valid Rust identifier:
 
 - `node_type` is serialized as `"@type"` with `#[serde(rename = "@type")]`.
 
