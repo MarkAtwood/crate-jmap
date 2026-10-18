@@ -293,17 +293,26 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 Value::Object(mut m) => {
                     m.entry("id")
                         .or_insert_with(|| Value::String("placeholder".to_owned()));
-                    // Inject required-nullable fields with null defaults if absent,
-                    // so serde can deserialize the struct without missing-field errors.
-                    for field in &["parentId", "blobId", "target", "size", "type", "shareWith"] {
-                        m.entry(*field).or_insert(Value::Null);
-                    }
                     // `name` is required and non-nullable; if missing, serde will
                     // produce an `invalidProperties` error below.
                     Value::Object(m)
                 }
                 other => other,
             };
+
+            // draft-ietf-jmap-filenode-16 §3.1.1: `@type` MUST be provided on
+            // creation; the server does not infer it.
+            if obj_with_id.get("@type").is_none_or(Value::is_null) {
+                not_created.insert(
+                    create_id,
+                    json!({
+                        "type": "invalidProperties",
+                        "properties": ["@type"],
+                        "description": "@type is required on create",
+                    }),
+                );
+                continue;
+            }
 
             // Tracks the rename applied by OnExists::Rename so the
             // post-create response can enforce the spec's MUST that the
@@ -645,28 +654,6 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 }
             }
 
-            // -------------------------------------------------------------------
-            // NodeType inference (§3.1): infer nodeType if absent or null.
-            // -------------------------------------------------------------------
-            obj_with_id = match obj_with_id {
-                Value::Object(mut m) => {
-                    if m.get("nodeType").map(|v| v.is_null()).unwrap_or(true) {
-                        let has_blob = m.get("blobId").map(|v| !v.is_null()).unwrap_or(false);
-                        let has_target = m.get("target").map(|v| !v.is_null()).unwrap_or(false);
-                        let inferred = if has_blob {
-                            "file"
-                        } else if has_target {
-                            "symlink"
-                        } else {
-                            "directory"
-                        };
-                        m.insert("nodeType".to_owned(), Value::String(inferred.to_owned()));
-                    }
-                    Value::Object(m)
-                }
-                other => other,
-            };
-
             let node: FileNode = match serde_json::from_value(obj_with_id) {
                 Ok(n) => n,
                 Err(e) => {
@@ -705,6 +692,9 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 Some(NodeType::Symlink) if !has_target => {
                     Some(("target", "symlink node requires target"))
                 }
+                // draft-ietf-jmap-filenode-16 §3.1.1: an @type outside
+                // supportedNodeTypes MUST be rejected.
+                Some(NodeType::Other(_)) => Some(("@type", "unsupported @type")),
                 _ => None,
             };
             if let Some((field, description)) = consistency_error {
@@ -2443,10 +2433,9 @@ mod tests {
             "role": null,
             "isExecutable": false,
             "isTopLevel": true,
-            "nodeType": "directory",
+            "@type": "Directory",
             "target": null,
             "blobId": null,
-            "type": null,
             "size": 0,
             "shareWith": null,
             "myRights": null,
@@ -2492,10 +2481,9 @@ mod tests {
             "name": name,
             "parentId": parent,
             "role": null,
-            "nodeType": "directory",
+            "@type": "Directory",
             "target": null,
             "blobId": null,
-            "type": null,
             "size": null,
             "shareWith": null,
             "myRights": null,
@@ -2860,7 +2848,7 @@ mod tests {
                     "name": "doc.bin",
                     "parentId": null,
                     "role": null,
-                    "nodeType": "file",
+                    "@type": "File",
                     "blobId": "B-some-blob"
                 }
             }
@@ -3444,11 +3432,11 @@ mod tests {
             "accountId": "acc1",
             "create": {
                 "c1": {
+                    "@type": "Directory",
                     "parentId": null,
                     "blobId": null,
                     "target": null,
                     "size": null,
-                    "type": null,
                     "shareWith": null
                 }
             }
@@ -3468,52 +3456,76 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
-    // FileNode/set — nodeType inference and blobId validation (§3.1)
+    // FileNode/set — @type requirement and blobId validation (§3.1)
     // -----------------------------------------------------------------------
 
-    /// Oracle: create with no nodeType, blobId, or target → inferred as
-    /// "directory" and succeeds (no consistency error).
-    /// Source: draft-ietf-jmap-filenode-14 §3.1.
-    ///
-    /// The previous assertion shape (`notCreated.is_null() &&
-    /// created.is_object()`) did not isolate the handler's nodeType
-    /// inference branch from the rest of the pipeline — any branch
-    /// that produced `nodeType="directory"` somewhere in the round
-    /// trip (handler inference, serde default, backend echo) would
-    /// satisfy it. Strengthened to assert on the concrete value
-    /// reaching the wire response per bd:JMAP-510h.25.
+    /// Oracle: draft-ietf-jmap-filenode-16 §3.1.1 — `@type` "MUST be provided
+    /// on creation", so a create without it (or with it null) is rejected with
+    /// invalidProperties naming `@type`, and nothing is created.
     #[tokio::test]
-    async fn set_create_directory_without_blobid_infers_directory_type() {
+    async fn set_create_without_type_returns_invalid_properties() {
         let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({
             "accountId": "acc1",
             "create": {
-                "c1": { "name": "mydir", "role": null }
+                "c1": { "name": "mydir", "role": null },
+                "c2": { "@type": null, "name": "other" }
             }
         });
         let (resp, _) = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
-        // No notCreated: directory inference should succeed.
-        assert!(
-            resp["notCreated"].is_null(),
-            "directory inference must not produce an error: {resp}"
-        );
-        assert!(
-            resp["created"].is_object() && resp["created"]["c1"].is_object(),
-            "created.c1 must be present: {resp}"
-        );
-        // The inferred nodeType MUST be "directory" (§3.1 inference rule:
-        // when nodeType, blobId, and target are all absent/null, the
-        // server infers directory). Assert on the concrete wire value
-        // so a regression that returns the input as-is (no inference)
-        // would surface as a missing-nodeType failure, not as a
-        // silently-passing test.
-        let created_obj = &resp["created"]["c1"];
-        assert_eq!(
-            created_obj["nodeType"], "directory",
-            "nodeType must be inferred as 'directory' on the wire: {resp}"
-        );
+        assert!(resp["created"].is_null(), "nothing may be created: {resp}");
+        for cid in ["c1", "c2"] {
+            let err = &resp["notCreated"][cid];
+            assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
+            assert_eq!(err["properties"], json!(["@type"]), "{cid}: {resp}");
+        }
+    }
+
+    /// Oracle: draft-ietf-jmap-filenode-16 §3.1.1 — an `@type` outside
+    /// supportedNodeTypes is invalidProperties.  The -14 lowercase spelling
+    /// `"directory"` is not a -16 type name.
+    #[tokio::test]
+    async fn set_create_unsupported_type_returns_invalid_properties() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "create": { "c1": { "@type": "directory", "name": "mydir" } }
+        });
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
+            .await
+            .expect("must not return top-level error");
+        let err = &resp["notCreated"]["c1"];
+        assert_eq!(err["type"], "invalidProperties", "{resp}");
+        assert_eq!(err["properties"], json!(["@type"]), "{resp}");
+    }
+
+    /// Oracle: draft-ietf-jmap-filenode-16 §3.1.1 / §3.1.3 — a Directory
+    /// create with `@type` succeeds and is returned with `@type` and `role`,
+    /// and without any File or SymLink property (§3.1).
+    #[tokio::test]
+    async fn set_create_directory_returns_directory_shape() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "create": {
+                "c1": { "@type": "Directory", "name": "mydir", "blobId": null, "target": null }
+            }
+        });
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
+            .await
+            .expect("must not return top-level error");
+        assert!(resp["notCreated"].is_null(), "{resp}");
+        let created_obj = resp["created"]["c1"].as_object().expect("created.c1");
+        assert_eq!(created_obj["@type"], "Directory", "{resp}");
+        assert!(created_obj["role"].is_null(), "{resp}");
+        for key in ["blobId", "size", "mediaType", "executable", "target"] {
+            assert!(
+                !created_obj.contains_key(key),
+                "{key} must be absent: {resp}"
+            );
+        }
     }
 
     /// Oracle: create with nodeType="file" and blobId=null → invalidProperties
@@ -3525,7 +3537,7 @@ mod tests {
         let args = json!({
             "accountId": "acc1",
             "create": {
-                "c1": { "name": "myfile", "nodeType": "file", "blobId": null, "role": null }
+                "c1": { "name": "myfile", "@type": "File", "blobId": null, "role": null }
             }
         });
         let (resp, _) = handle_filenode_set(&backend, &(), args)
@@ -3565,7 +3577,7 @@ mod tests {
             "create": {
                 "c1": {
                     "name": "weird",
-                    "nodeType": "file",
+                    "@type": "File",
                     "blobId": "B-blob-1",
                     "target": ["etc", "passwd"],
                     "role": null
@@ -3602,7 +3614,7 @@ mod tests {
         let args = json!({
             "accountId": "acc1",
             "create": {
-                "c1": { "name": "mylink", "nodeType": "symlink", "target": null, "role": null }
+                "c1": { "name": "mylink", "@type": "SymLink", "target": null, "role": null }
             }
         });
         let (resp, _) = handle_filenode_set(&backend, &(), args)
@@ -3643,7 +3655,7 @@ mod tests {
         let args = json!({
             "accountId": "acc1",
             "create": {
-                "c1": { "name": "foo", "parentId": null, "role": null }
+                "c1": { "@type": "Directory", "name": "foo", "parentId": null, "role": null }
             }
             // onExists absent → default Reject
         });
@@ -3679,7 +3691,7 @@ mod tests {
             "accountId": "acc1",
             "onExists": "rename",
             "create": {
-                "c1": { "name": "foo", "parentId": null, "role": null }
+                "c1": { "@type": "Directory", "name": "foo", "parentId": null, "role": null }
             }
         });
         let (resp, _) = handle_filenode_set(&backend, &(), args)
@@ -3732,7 +3744,7 @@ mod tests {
             "accountId": "acc1",
             "onExists": "rename",
             "create": {
-                "c1": { "name": "foo", "parentId": null, "role": null }
+                "c1": { "@type": "Directory", "name": "foo", "parentId": null, "role": null }
             }
         });
         let (resp, _) = handle_filenode_set(&backend, &(), args)

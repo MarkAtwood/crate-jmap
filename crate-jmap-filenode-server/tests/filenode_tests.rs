@@ -22,12 +22,11 @@ fn make_dir(id: &str, name: &str, parent_id: Option<&str>) -> FileNode {
     let v = json!({
         "id": id,
         "parentId": parent_id,
-        "nodeType": "directory",
+        "@type": "Directory",
         "blobId": null,
         "target": null,
         "size": null,
         "name": name,
-        "type": null,
         "shareWith": null,
         "role": null
     });
@@ -35,16 +34,15 @@ fn make_dir(id: &str, name: &str, parent_id: Option<&str>) -> FileNode {
 }
 
 // ---------------------------------------------------------------------------
-// Test 1: create without nodeType → inferred as directory
-// Oracle: draft-ietf-jmap-filenode-14 §3.1 (nodeType inference).
+// Test 1: create without @type → invalidProperties
+// Oracle: draft-ietf-jmap-filenode-16 §3.1.1 ("This MUST be provided on
+// creation"); -16 removed the -14 nodeType inference rule.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn filenode_set_create_directory_nodetype_inferred() {
+async fn filenode_set_create_without_type_is_rejected() {
     let backend = MemoryBackend::new().with_account("acc1");
 
-    // Create a node without specifying nodeType, blobId, or target.
-    // §3.1: if all three are absent/null, the server infers "directory".
     let args = json!({
         "accountId": "acc1",
         "create": {
@@ -61,39 +59,36 @@ async fn filenode_set_create_directory_nodetype_inferred() {
         .expect("set must not return top-level error");
 
     assert!(
-        resp["notCreated"].is_null(),
-        "directory inference must succeed — notCreated must be null: {resp}"
+        resp["created"].is_null(),
+        "a create without @type must not succeed: {resp}"
     );
-    assert!(
-        resp["created"].is_object(),
-        "created must contain the new node: {resp}"
-    );
-
-    // The returned object must have nodeType = "directory".
-    let created_obj = &resp["created"]["c1"];
     assert_eq!(
-        created_obj["nodeType"], "directory",
-        "nodeType must be inferred as 'directory': {resp}"
+        resp["notCreated"]["c1"],
+        json!({
+            "type": "invalidProperties",
+            "properties": ["@type"],
+            "description": "@type is required on create"
+        }),
+        "{resp}"
     );
 }
 
 // ---------------------------------------------------------------------------
-// Test 2: create with nodeType=file but no blobId → invalidProperties
-// Oracle: draft-ietf-jmap-filenode-14 §3.1 (file node requires blobId).
+// Test 2: create with @type File but no blobId → invalidProperties
+// Oracle: draft-ietf-jmap-filenode-16 §3.1.2 (blobId MUST be provided on creation).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn filenode_set_create_file_requires_blobid() {
     let backend = MemoryBackend::new().with_account("acc1");
 
-    // Explicitly set nodeType=file but leave blobId null.
-    // §3.1: "If type is 'file', blobId MUST be non-null."
+    // Explicitly set @type File but leave blobId null.
     let args = json!({
         "accountId": "acc1",
         "create": {
             "c1": {
                 "name": "myfile.txt",
-                "nodeType": "file",
+                "@type": "File",
                 "blobId": null,
                 "parentId": null,
                 "role": null
@@ -372,6 +367,7 @@ async fn filenode_get_returns_created_node() {
         "accountId": "acc1",
         "create": {
             "c1": {
+                "@type": "Directory",
                 "name": "getme",
                 "parentId": null,
                 "role": null
@@ -428,7 +424,7 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
         json!({
             "accountId": "acc1",
             "create": {
-                "p1": { "name": "parent", "parentId": null, "role": null }
+                "p1": { "@type": "Directory", "name": "parent", "parentId": null, "role": null }
             }
         }),
     )
@@ -447,7 +443,7 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
         json!({
             "accountId": "acc1",
             "create": {
-                "c1": { "name": "child", "parentId": &parent_id, "role": null }
+                "c1": { "@type": "Directory", "name": "child", "parentId": &parent_id, "role": null }
             }
         }),
     )
@@ -584,7 +580,7 @@ async fn filenode_query_depth_one_returns_children() {
         json!({
             "accountId": "acc1",
             "create": {
-                "d1": { "name": "topdir", "parentId": null, "role": null }
+                "d1": { "@type": "Directory", "name": "topdir", "parentId": null, "role": null }
             }
         }),
     )
@@ -603,8 +599,8 @@ async fn filenode_query_depth_one_returns_children() {
         json!({
             "accountId": "acc1",
             "create": {
-                "ch1": { "name": "alpha", "parentId": &dir_id, "role": null },
-                "ch2": { "name": "beta",  "parentId": &dir_id, "role": null }
+                "ch1": { "@type": "Directory", "name": "alpha", "parentId": &dir_id, "role": null },
+                "ch2": { "@type": "Directory", "name": "beta",  "parentId": &dir_id, "role": null }
             }
         }),
     )
@@ -671,7 +667,7 @@ async fn filenode_changes_after_create_shows_in_created_list() {
         json!({
             "accountId": "acc1",
             "create": {
-                "c1": { "name": "newnode", "parentId": null, "role": null }
+                "c1": { "@type": "Directory", "name": "newnode", "parentId": null, "role": null }
             }
         }),
     )
@@ -755,7 +751,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
         json!({
             "accountId": "acc1",
             "create": {
-                "p": { "name": "shared_name", "parentId": null, "role": null }
+                "p": { "@type": "Directory", "name": "shared_name", "parentId": null, "role": null }
             }
         }),
     )
@@ -772,7 +768,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
         json!({
             "accountId": "acc1",
             "create": {
-                "c": { "name": "child", "parentId": &parent_id, "role": null }
+                "c": { "@type": "Directory", "name": "child", "parentId": &parent_id, "role": null }
             }
         }),
     )
@@ -796,7 +792,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
             "onDestroyRemoveChildren": true,
             "onExists": "replace",
             "create": {
-                "new": { "name": "shared_name", "parentId": null, "role": null }
+                "new": { "@type": "Directory", "name": "shared_name", "parentId": null, "role": null }
             }
         }),
     )
@@ -842,7 +838,7 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
         json!({
             "accountId": "acc1",
             "create": {
-                "p": { "name": "shared_name", "parentId": null, "role": null }
+                "p": { "@type": "Directory", "name": "shared_name", "parentId": null, "role": null }
             }
         }),
     )
@@ -859,7 +855,7 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
         json!({
             "accountId": "acc1",
             "create": {
-                "c": { "name": "child", "parentId": &parent_id, "role": null }
+                "c": { "@type": "Directory", "name": "child", "parentId": &parent_id, "role": null }
             }
         }),
     )
@@ -875,7 +871,7 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
             "accountId": "acc1",
             "onExists": "replace",
             "create": {
-                "new": { "name": "shared_name", "parentId": null, "role": null }
+                "new": { "@type": "Directory", "name": "shared_name", "parentId": null, "role": null }
             }
         }),
     )
@@ -918,7 +914,7 @@ async fn create_node(
         json!({
             "accountId": account,
             "create": {
-                create_id: { "name": name, "parentId": parent_id, "role": null }
+                create_id: { "@type": "Directory", "name": name, "parentId": parent_id, "role": null }
             }
         }),
     )
@@ -1653,9 +1649,9 @@ async fn filenode_query_role_filter_excludes_non_matching() {
         json!({
             "accountId": "acc1",
             "create": {
-                "d1": { "name": "documents", "parentId": null, "role": "documents" },
-                "d2": { "name": "downloads", "parentId": null, "role": "downloads" },
-                "d3": { "name": "no-role",    "parentId": null, "role": null }
+                "d1": { "@type": "Directory", "name": "documents", "parentId": null, "role": "documents" },
+                "d2": { "@type": "Directory", "name": "downloads", "parentId": null, "role": "downloads" },
+                "d3": { "@type": "Directory", "name": "no-role",    "parentId": null, "role": null }
             }
         }),
     )
@@ -1734,7 +1730,7 @@ async fn filenode_set_state_advances_on_successful_create() {
         json!({
             "accountId": "acc1",
             "create": {
-                "c1": { "name": "first", "parentId": null, "role": null }
+                "c1": { "@type": "Directory", "name": "first", "parentId": null, "role": null }
             }
         }),
     )
@@ -1775,7 +1771,7 @@ async fn filenode_set_state_stays_when_all_creates_fail() {
                     "name": "bad-file",
                     "parentId": null,
                     "role": null,
-                    "nodeType": "file"
+                    "@type": "File"
                     // intentionally missing blobId
                 }
             }
@@ -1820,12 +1816,12 @@ async fn filenode_set_state_advances_exactly_once_on_mixed_success() {
         json!({
             "accountId": "acc1",
             "create": {
-                "c_good": { "name": "valid-dir", "parentId": null, "role": null },
+                "c_good": { "@type": "Directory", "name": "valid-dir", "parentId": null, "role": null },
                 "c_bad": {
                     "name": "bad-file",
                     "parentId": null,
                     "role": null,
-                    "nodeType": "file"
+                    "@type": "File"
                     // intentionally missing blobId
                 }
             }
@@ -1891,16 +1887,20 @@ async fn filenode_set_state_advances_exactly_once_on_mixed_success() {
 // ---------------------------------------------------------------------------
 
 /// Helper: build a directory node with a specific `modified` timestamp.
-fn make_dir_with_modified(id: &str, name: &str, parent_id: Option<&str>, modified: &str) -> FileNode {
+fn make_dir_with_modified(
+    id: &str,
+    name: &str,
+    parent_id: Option<&str>,
+    modified: &str,
+) -> FileNode {
     let v = json!({
         "id": id,
         "parentId": parent_id,
-        "nodeType": "directory",
+        "@type": "Directory",
         "blobId": null,
         "target": null,
         "size": null,
         "name": name,
-        "type": null,
         "shareWith": null,
         "role": null,
         "modified": modified
@@ -1914,7 +1914,10 @@ async fn filenode_set_on_exists_newest_incoming_wins() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     // Seed an existing directory with an older modified timestamp.
-    backend.seed_node("acc1", make_dir_with_modified("existing-1", "shared", None, "2020-01-01T00:00:00Z"));
+    backend.seed_node(
+        "acc1",
+        make_dir_with_modified("existing-1", "shared", None, "2020-01-01T00:00:00Z"),
+    );
 
     // Create a new node with the same name and a LATER modified timestamp.
     let (resp, _) = handle_filenode_set(
@@ -1925,6 +1928,7 @@ async fn filenode_set_on_exists_newest_incoming_wins() {
             "onExists": "newest",
             "create": {
                 "n": {
+                    "@type": "Directory",
                     "name": "shared",
                     "parentId": null,
                     "role": null,
@@ -1958,7 +1962,10 @@ async fn filenode_set_on_exists_newest_existing_wins() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     // Seed an existing directory with a LATER modified timestamp.
-    backend.seed_node("acc1", make_dir_with_modified("existing-2", "shared", None, "2025-06-01T00:00:00Z"));
+    backend.seed_node(
+        "acc1",
+        make_dir_with_modified("existing-2", "shared", None, "2025-06-01T00:00:00Z"),
+    );
 
     // Attempt to create a node with the same name but an OLDER modified timestamp.
     let (resp, _) = handle_filenode_set(
@@ -1969,6 +1976,7 @@ async fn filenode_set_on_exists_newest_existing_wins() {
             "onExists": "newest",
             "create": {
                 "n": {
+                    "@type": "Directory",
                     "name": "shared",
                     "parentId": null,
                     "role": null,
@@ -2014,6 +2022,7 @@ async fn filenode_set_on_exists_newest_both_missing_modified() {
             "onExists": "newest",
             "create": {
                 "n": {
+                    "@type": "Directory",
                     "name": "shared",
                     "parentId": null,
                     "role": null
@@ -2043,9 +2052,15 @@ async fn filenode_copy_on_exists_newest_incoming_wins() {
     let backend = MemoryBackend::new().with_account("src").with_account("dst");
 
     // Source node with a LATER modified timestamp.
-    backend.seed_node("src", make_dir_with_modified("src-1", "doc", None, "2025-06-01T00:00:00Z"));
+    backend.seed_node(
+        "src",
+        make_dir_with_modified("src-1", "doc", None, "2025-06-01T00:00:00Z"),
+    );
     // Destination node with an OLDER modified timestamp.
-    backend.seed_node("dst", make_dir_with_modified("dst-1", "doc", None, "2020-01-01T00:00:00Z"));
+    backend.seed_node(
+        "dst",
+        make_dir_with_modified("dst-1", "doc", None, "2020-01-01T00:00:00Z"),
+    );
 
     let (resp, _) = handle_filenode_copy(
         &backend,
@@ -2103,7 +2118,7 @@ async fn filenode_set_on_exists_newest_node_has_children_without_flag() {
         json!({
             "accountId": "acc1",
             "create": {
-                "p": { "name": "shared", "parentId": null, "role": null }
+                "p": { "@type": "Directory", "name": "shared", "parentId": null, "role": null }
             }
         }),
     )
@@ -2120,7 +2135,7 @@ async fn filenode_set_on_exists_newest_node_has_children_without_flag() {
         json!({
             "accountId": "acc1",
             "create": {
-                "c": { "name": "child", "parentId": &parent_id, "role": null }
+                "c": { "@type": "Directory", "name": "child", "parentId": &parent_id, "role": null }
             }
         }),
     )
@@ -2137,6 +2152,7 @@ async fn filenode_set_on_exists_newest_node_has_children_without_flag() {
             "onExists": "newest",
             "create": {
                 "n": {
+                    "@type": "Directory",
                     "name": "shared",
                     "parentId": null,
                     "role": null,
@@ -2172,7 +2188,7 @@ async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
         json!({
             "accountId": "acc1",
             "create": {
-                "p": { "name": "shared", "parentId": null, "role": null }
+                "p": { "@type": "Directory", "name": "shared", "parentId": null, "role": null }
             }
         }),
     )
@@ -2189,7 +2205,7 @@ async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
         json!({
             "accountId": "acc1",
             "create": {
-                "c": { "name": "child", "parentId": &parent_id, "role": null }
+                "c": { "@type": "Directory", "name": "child", "parentId": &parent_id, "role": null }
             }
         }),
     )
@@ -2211,6 +2227,7 @@ async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
             "onDestroyRemoveChildren": true,
             "create": {
                 "n": {
+                    "@type": "Directory",
                     "name": "shared",
                     "parentId": null,
                     "role": null,
@@ -2266,6 +2283,7 @@ async fn filenode_set_on_exists_newest_rejects_malformed_modified() {
             "onExists": "newest",
             "create": {
                 "n": {
+                    "@type": "Directory",
                     "name": "shared",
                     "parentId": null,
                     "role": null,

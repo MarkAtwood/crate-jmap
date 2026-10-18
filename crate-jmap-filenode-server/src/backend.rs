@@ -148,7 +148,7 @@ pub trait FileNodeBackend: JmapBackend {
     ///   same shape as the create-side invariant.
     ///
     /// - **Immutable-property prevention**: certain fields (`id`,
-    ///   `nodeType`, `created`, server-managed timestamps) are
+    ///   `@type`, `created`, server-managed timestamps) are
     ///   immutable per the spec. The handler rejects patches that
     ///   touch them with `invalidProperties` before reaching this
     ///   method; the backend MAY assume the patch does not contain
@@ -254,7 +254,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// Returns whether a blob exists in the given account.
     ///
     /// Used by `FileNode/set` to validate `blobId` fields before creating or
-    /// updating a file node with type `"file"`.
+    /// updating a file node with `@type` `"File"`.
     ///
     /// # Three-way result
     ///

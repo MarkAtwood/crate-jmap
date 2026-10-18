@@ -921,13 +921,13 @@ impl FileNodeBackend for MemoryBackend {
 /// - `isTopLevel` — parent_id is null
 /// - `ancestorId` — `node` has the given id somewhere on its parent chain
 /// - `descendantId` — `node` is an ancestor of the node with the given id
-/// - `nodeType` — exact match on the node_type string
+/// - `nodeType` — exact match on the `@type` string
 /// - `role` — exact match on the role string
 /// - `hasAnyRole` — node has a non-null role (or null role if false)
 /// - `blobId` — exact match on blob_id
-/// - `type` (media type) — exact match on media_type
+/// - `mediaType` — exact match on media_type
 /// - `name` — exact byte match on name
-/// - `nameMatch` / `typeMatch` — case-insensitive glob match (`*`, `?`)
+/// - `nameMatch` / `mediaTypeMatch` — case-insensitive glob match (`*`, `?`)
 /// - `isExecutable` — exact match on the executable flag
 /// - `minSize` / `maxSize` — size bounds (`size >= minSize` / `size < maxSize`)
 /// - `createdBefore` / `createdAfter`
@@ -938,7 +938,7 @@ impl FileNodeBackend for MemoryBackend {
 /// gets a clear backend error rather than a silent match-all that would
 /// look like a passing query):
 /// - `body` (full-text search in blob content)
-/// - `text` (full-text search OR name OR type)
+/// - `text` (full-text search OR name OR media type)
 ///
 /// Reasoning: bd:JMAP-510h.9 documented the silent match-all default as a
 /// double bug — wrong test oracle and footgun reference for downstream
@@ -1065,7 +1065,7 @@ fn node_matches_filter(
         }
     }
 
-    if let Some(ref pattern) = fc.type_match {
+    if let Some(ref pattern) = fc.media_type_match {
         let mt = node.media_type.as_deref().unwrap_or("");
         if !glob_match_case_insensitive(pattern, mt) {
             return Ok(false);
@@ -1233,10 +1233,9 @@ mod tests {
             "name": name,
             "parentId": null,
             "role": null,
-            "nodeType": "directory",
+            "@type": "Directory",
             "target": null,
             "blobId": null,
-            "type": null,
             "size": null,
             "shareWith": null,
             "myRights": null,
@@ -1316,10 +1315,9 @@ mod tests {
             "name": "freshly-created",
             "parentId": null,
             "role": null,
-            "nodeType": "directory",
+            "@type": "Directory",
             "target": null,
             "blobId": null,
-            "type": null,
             "size": null,
             "shareWith": null,
             "myRights": null,
@@ -1401,10 +1399,9 @@ mod tests {
             "name": "first-create",
             "parentId": null,
             "role": null,
-            "nodeType": "directory",
+            "@type": "Directory",
             "target": null,
             "blobId": null,
-            "type": null,
             "size": null,
             "shareWith": null,
             "myRights": null,
@@ -1446,10 +1443,10 @@ mod tests {
             "name": "shared-doc",
             "parentId": null,
             "role": null,
-            "nodeType": "file",
+            "@type": "File",
             "target": null,
             "blobId": "B-blob1",
-            "type": "text/plain",
+            "mediaType": "text/plain",
             "size": 7,
             "shareWith": {
                 "existing": {
