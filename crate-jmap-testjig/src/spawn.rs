@@ -187,7 +187,7 @@ pub async fn spawn_in_process(config: TestjigConfig) -> std::io::Result<TestjigH
     let listener = TcpListener::bind(SocketAddr::new(config.ip, config.port)).await?;
     let addr = listener.local_addr()?;
 
-    let app = router(AppState::with_token(config.token.clone()));
+    let app = router(AppState::with_token(config.token.clone()).with_addr(addr));
     let token = config.token;
 
     let task = tokio::spawn(async move {

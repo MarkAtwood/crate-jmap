@@ -1415,6 +1415,37 @@ fn test_extract_response_method_error() {
     );
 }
 
+/// Oracle: RFC 8620 §3.6.2 — an "error" response "MUST have a type
+/// property. Other properties may be present with further information".
+/// Hand-encoded error object: the §3.6.2 example plus a `description` and
+/// one extra property; method_error_details must return all three.
+#[test]
+fn test_method_error_details_keeps_extra_properties() {
+    let resp = jmap_types::JmapResponse::new(
+        vec![(
+            "error".to_owned(),
+            serde_json::json!({
+                "type": "invalidArguments",
+                "description": "bad ids",
+                "arguments": ["ids"]
+            }),
+            "r1".to_owned(),
+        )],
+        "sess1".into(),
+        None,
+    );
+
+    let obj = jmap_base_client::method_error_details(&resp, "r1")
+        .expect("error invocation must yield its object");
+    assert_eq!(
+        obj.get("type"),
+        Some(&serde_json::json!("invalidArguments"))
+    );
+    assert_eq!(obj.get("description"), Some(&serde_json::json!("bad ids")));
+    assert_eq!(obj.get("arguments"), Some(&serde_json::json!(["ids"])));
+    assert!(jmap_base_client::method_error_details(&resp, "r2").is_none());
+}
+
 /// Oracle: RFC 8620 §3.2 + §3.6.1 — when a server emits both a success
 /// invocation and an "error" invocation under the same call_id, the error
 /// MUST take precedence. Returning the success would silently lose the
@@ -1652,5 +1683,160 @@ async fn download_blob_with_typed_sha256_mismatch_returns_integrity_error() {
             );
         }
         other => panic!("expected BlobIntegrityMismatch, got {other:?}"),
+    }
+}
+
+/// Oracle: RFC 6585 §4 — 429 Too Many Requests "indicates that the user
+/// has sent too many requests in a given amount of time"; responses "MAY
+/// include a Retry-After header indicating how long to wait". RFC 9110
+/// §10.2.3 example value `Fri, 31 Dec 1999 23:59:59 GMT` is the instant
+/// 1999-12-31T23:59:59Z.
+#[tokio::test]
+async fn test_call_429_returns_rate_limited_with_http_date() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api"))
+        .respond_with(
+            ResponseTemplate::new(429)
+                .insert_header("Retry-After", "Fri, 31 Dec 1999 23:59:59 GMT"),
+        )
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    let err = client
+        .call(&format!("{}/api", server.uri()), &minimal_request())
+        .await
+        .expect_err("429 must fail");
+    match err {
+        ClientError::RateLimited { retry_after } => {
+            assert_eq!(retry_after, "1999-12-31T23:59:59Z")
+        }
+        other => panic!("expected RateLimited, got {other:?}"),
+    }
+}
+
+/// Oracle: RFC 9110 §10.2.3 — "Retry-After: 120 ... In the latter
+/// example, the delay is 2 minutes", measured from receipt of the
+/// response, so `retry_after` must fall 120 s after a clock reading taken
+/// around the request.
+#[tokio::test]
+async fn test_fetch_session_429_returns_rate_limited_with_delay_seconds() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/.well-known/jmap"))
+        .respond_with(ResponseTemplate::new(429).insert_header("Retry-After", "120"))
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    let epoch = || {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock after 1970")
+            .as_secs() as i64
+    };
+    let before = epoch();
+    let err = client.fetch_session().await.expect_err("429 must fail");
+    let after = epoch();
+    match err {
+        ClientError::RateLimited { retry_after } => {
+            let at = retry_after
+                .to_epoch_seconds()
+                .expect("retry_after must be a valid UTCDate");
+            assert!(
+                (before + 120..=after + 120).contains(&at),
+                "retry_after {retry_after} not 120 s after [{before}, {after}]"
+            );
+        }
+        other => panic!("expected RateLimited, got {other:?}"),
+    }
+}
+
+/// Oracle: RFC 6585 §4 — a 429 "MAY include a Retry-After header", so a 429
+/// without it is still rate limiting and must not surface as an opaque
+/// HTTP error. With no server-supplied delay, `retry_after` is the receive
+/// time (documented fallback on `ClientError::RateLimited`).
+#[tokio::test]
+async fn test_download_blob_429_without_retry_after_returns_rate_limited() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/download/account1/blob-abc/file.bin"))
+        .respond_with(ResponseTemplate::new(429))
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    let download_url = format!(
+        "{}/download/{{accountId}}/{{blobId}}/{{name}}",
+        server.uri()
+    );
+    let unmocked = format!("{}/UNMOCKED-must-not-be-hit", server.uri());
+    let session: jmap_base_client::request::Session = serde_json::from_value(serde_json::json!({
+        "capabilities": {},
+        "accounts": {},
+        "primaryAccounts": {},
+        "username": "",
+        "apiUrl": unmocked,
+        "downloadUrl": download_url,
+        "uploadUrl": unmocked,
+        "eventSourceUrl": unmocked,
+        "state": "",
+    }))
+    .expect("hand-rolled Session JSON must deserialize");
+
+    let epoch = || {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock after 1970")
+            .as_secs() as i64
+    };
+    let before = epoch();
+    let err = client
+        .download_blob_session(
+            &session,
+            jmap_base_client::DownloadBlobSessionParams {
+                account_id: "account1",
+                blob_id: "blob-abc",
+                name: "file.bin",
+                accept_type: None,
+                expected_sha256: None,
+            },
+        )
+        .await
+        .expect_err("429 must fail");
+    let after = epoch();
+    match err {
+        ClientError::RateLimited { retry_after } => {
+            let at = retry_after
+                .to_epoch_seconds()
+                .expect("retry_after must be a valid UTCDate");
+            assert!(
+                (before..=after).contains(&at),
+                "retry_after {retry_after} not within [{before}, {after}]"
+            );
+        }
+        other => panic!("expected RateLimited, got {other:?}"),
     }
 }

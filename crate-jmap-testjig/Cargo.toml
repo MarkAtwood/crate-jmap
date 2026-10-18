@@ -150,3 +150,10 @@ reqwest = { workspace = true }
 # reqwest's `stream` feature but kept as an explicit dev-dep so the
 # test's import lines do not depend on transitive resolution.
 futures-util = { version = "0.3", default-features = false }
+
+# The published chat client, driven against the in-process jig by
+# tests/chat_client_wire.rs as a wire-compat check against the real
+# jmap-chat-server (every jmap-chat-client test runs against wiremock).
+# Path dev-deps live here because this crate is publish = false.
+jmap-base-client = { workspace = true }
+jmap-chat-client = { workspace = true }

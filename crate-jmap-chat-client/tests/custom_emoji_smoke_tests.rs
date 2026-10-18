@@ -454,3 +454,59 @@ async fn custom_emoji_query_changes_all_none_omits_optional_wire_keys() {
         "maxChanges must be omitted"
     );
 }
+
+/// `CustomEmoji/set` update must send `name` and `blobId` under the
+/// per-id patch key. Oracle: draft-atwood-jmap-chat-00 §CustomEmoji/set
+/// — "`update` supports: `name`, `blobId`." — with RFC 8620 §5.3
+/// `update` shape `{ "<id>": <PatchObject> }`. A second call with only
+/// `name` set must omit `blobId` (absent key = unchanged, RFC 8620 §5.3).
+#[tokio::test]
+async fn custom_emoji_update_patch_serialises_name_and_blob_id() {
+    let server = MockServer::start().await;
+    let resp_body = helpers::set_update_response("CustomEmoji/set", "ce-1", "ce-2", "emoji-1");
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let id = Id::from("emoji-1");
+    let blob = Id::from("blob-new");
+    let mut patch = jmap_chat_client::methods::CustomEmojiPatch::default();
+    patch.name = Some("partyparrot");
+    patch.blob_id = Some(&blob);
+    let resp = sc
+        .custom_emoji_update(&id, &patch)
+        .await
+        .expect("custom_emoji_update: must succeed");
+    assert!(
+        resp.updated
+            .as_ref()
+            .is_some_and(|m| m.contains_key(&Id::from("emoji-1"))),
+        "updated map must carry emoji-1"
+    );
+
+    let body = recorded_body(&server).await;
+    assert_eq!(body["methodCalls"][0][0], json!("CustomEmoji/set"));
+    assert_eq!(
+        body["methodCalls"][0][1]["update"],
+        json!({ "emoji-1": { "name": "partyparrot", "blobId": "blob-new" } }),
+        "update must carry exactly name + blobId"
+    );
+
+    server.reset().await;
+    mock_jmap_post(
+        &server,
+        helpers::set_update_response("CustomEmoji/set", "ce-2", "ce-3", "emoji-1"),
+    )
+    .await;
+    let mut name_only = jmap_chat_client::methods::CustomEmojiPatch::default();
+    name_only.name = Some("catjam");
+    let _ = sc
+        .custom_emoji_update(&id, &name_only)
+        .await
+        .expect("custom_emoji_update: must succeed");
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["update"],
+        json!({ "emoji-1": { "name": "catjam" } }),
+        "blobId must be absent when None"
+    );
+}

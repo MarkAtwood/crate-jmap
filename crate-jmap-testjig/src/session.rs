@@ -11,6 +11,8 @@
 //! the static value is sufficient and keeps the surface immune to
 //! drift in extension crates' session-fragment shapes.
 
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+
 use serde_json::{json, Value};
 
 /// The single hardcoded account-id the testjig serves.
@@ -34,11 +36,18 @@ pub const USERNAME: &str = "testuser@testjig.local";
 /// every change to session-level data per RFC 8620 §2.
 pub const STATE: &str = "testjig-state-0";
 
-/// Base URL the testjig binds on by default. Used to construct the
-/// API / download / upload / event-source URLs in the Session.
+/// Address the testjig binds on by default (`cargo run` without
+/// `--port`).
 ///
-/// Operators who run the jig on a different port must regenerate the
-/// Session JSON; for the MVP this is hardcoded.
+/// [`session_json`] advertises URLs for this address; a jig bound
+/// anywhere else serves [`session_json_for`] its actual bound address
+/// so the advertised `apiUrl` reaches it (RFC 8620 §2: `apiUrl` is
+/// "the URL to use for JMAP API requests").
+pub const DEFAULT_ADDR: SocketAddr =
+    SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080));
+
+/// Base URL of [`DEFAULT_ADDR`]: the origin of the API / download /
+/// upload / event-source URLs in [`session_json`].
 pub const BASE_URL: &str = "http://127.0.0.1:8080";
 
 /// The 9 capability URIs the testjig advertises: RFC 8620 base `core`
@@ -72,8 +81,9 @@ pub const ADVERTISED_CAPABILITIES: &[&str] = &[
 /// methods — see that constant's doc-comment.
 pub const WEBSOCKET_CAPABILITY: &str = "urn:ietf:params:jmap:websocket";
 
-/// WebSocket endpoint advertised in the
-/// [`WEBSOCKET_CAPABILITY`]'s `url` field of the Session response.
+/// WebSocket endpoint [`session_json`] advertises in the
+/// [`WEBSOCKET_CAPABILITY`]'s `url` field (the `ws://` form of
+/// [`DEFAULT_ADDR`]).
 ///
 /// RFC 8887 §3 says this MUST be a `wss://` URI for production; the
 /// testjig binds plaintext HTTP on localhost only, so we advertise
@@ -84,7 +94,14 @@ pub const WEBSOCKET_CAPABILITY: &str = "urn:ietf:params:jmap:websocket";
 /// upstreams).
 pub const WEBSOCKET_URL: &str = "ws://127.0.0.1:8080/ws";
 
-/// Build the testjig's hardcoded Session JSON.
+/// Build the testjig's Session JSON for a jig bound on [`DEFAULT_ADDR`].
+///
+/// Equivalent to `session_json_for(DEFAULT_ADDR)`.
+pub fn session_json() -> Value {
+    session_json_for(DEFAULT_ADDR)
+}
+
+/// Build the testjig's Session JSON for a jig bound on `addr`.
 ///
 /// Returns a fresh `serde_json::Value` every call; the value is small
 /// enough that re-building is cheaper than caching with `OnceLock`.
@@ -97,6 +114,9 @@ pub const WEBSOCKET_URL: &str = "ws://127.0.0.1:8080/ws";
 ///   that key gets the suggested-minimum limits from RFC 8620 §2.
 ///   Other capabilities ship with empty objects at the MVP; per-spec
 ///   typed fields can be added by future slices as needed.
+/// - `accountCapabilities["urn:ietf:params:jmap:chat"]` carries the
+///   fields draft-atwood-jmap-chat-00 §Account-Level Capability Object
+///   requires; every other account capability is `{}`.
 /// - `accounts`: single entry keyed by [`ACCOUNT_ID`]; `name` =
 ///   [`USERNAME`]; not personal, not read-only;
 ///   `accountCapabilities` re-advertises all 8 extension URIs (Core
@@ -106,10 +126,12 @@ pub const WEBSOCKET_URL: &str = "ws://127.0.0.1:8080/ws";
 ///   RFC 8620 §2 ("a value MUST be present for each capability in the
 ///   capabilities object that has methods callable on an account") —
 ///   Core has no account-scoped methods.
-/// - URLs constructed from [`BASE_URL`] with RFC 6570 (level 1)
-///   templates for `downloadUrl` / `uploadUrl` / `eventSourceUrl`.
+/// - URLs constructed from `http://{addr}` with RFC 6570 (level 1)
+///   templates for `downloadUrl` / `uploadUrl` / `eventSourceUrl`;
+///   the WebSocket `url` is `ws://{addr}/ws`.
 /// - `state`: [`STATE`].
-pub fn session_json() -> Value {
+pub fn session_json_for(addr: SocketAddr) -> Value {
+    let base_url = format!("http://{addr}");
     // Core capability object per RFC 8620 §2: required UnsignedInt and
     // String[] fields with the spec's suggested minima.
     let core_capability = json!({
@@ -142,7 +164,7 @@ pub fn session_json() -> Value {
     capabilities.insert(
         WEBSOCKET_CAPABILITY.to_owned(),
         json!({
-            "url": WEBSOCKET_URL,
+            "url": format!("ws://{addr}/ws"),
             "supportsPush": true,
         }),
     );
@@ -156,6 +178,22 @@ pub fn session_json() -> Value {
     {
         account_capabilities.insert((*uri).to_owned(), json!({}));
     }
+    // ponytail: the reference chat backend enforces only the body cap
+    // (message.rs rejects bodies over 100_000 bytes) and does not parse
+    // attachments, so the attachment limits mirror the upload cap and
+    // an arbitrary count rather than an enforced rule. It implements
+    // neither the `threadRootId` query filter nor `replyCount`, hence
+    // `supportsThreads: false`.
+    account_capabilities.insert(
+        "urn:ietf:params:jmap:chat".to_owned(),
+        json!({
+            "maxBodyBytes": 100_000_u64,
+            "maxAttachmentBytes": 50_000_000_u64,
+            "maxAttachmentsPerMessage": 16_u64,
+            "supportedBodyTypes": ["text/plain", "text/markdown", "application/jmap-chat-rich"],
+            "supportsThreads": false,
+        }),
+    );
 
     let accounts = json!({
         ACCOUNT_ID: {
@@ -182,10 +220,10 @@ pub fn session_json() -> Value {
         "accounts": accounts,
         "primaryAccounts": Value::Object(primary_accounts),
         "username": USERNAME,
-        "apiUrl": format!("{BASE_URL}/jmap"),
-        "downloadUrl": format!("{BASE_URL}/download/{{accountId}}/{{blobId}}/{{name}}?accept={{type}}"),
-        "uploadUrl": format!("{BASE_URL}/upload/{{accountId}}/"),
-        "eventSourceUrl": format!("{BASE_URL}/events?types={{types}}&closeafter={{closeafter}}&ping={{ping}}"),
+        "apiUrl": format!("{base_url}/jmap"),
+        "downloadUrl": format!("{base_url}/download/{{accountId}}/{{blobId}}/{{name}}?accept={{type}}"),
+        "uploadUrl": format!("{base_url}/upload/{{accountId}}/"),
+        "eventSourceUrl": format!("{base_url}/events?types={{types}}&closeafter={{closeafter}}&ping={{ping}}"),
         "state": STATE,
     })
 }
@@ -321,5 +359,52 @@ mod tests {
                 "primaryAccounts[{cap_uri}] must point to ACCOUNT_ID"
             );
         }
+    }
+
+    /// Oracle: RFC 8620 §2 — `apiUrl` is "The URL to use for JMAP API
+    /// requests", so every advertised endpoint must name the address the
+    /// jig is actually listening on, not the default 8080.
+    #[test]
+    fn session_json_for_advertises_bound_addr() {
+        let addr: SocketAddr = "127.0.0.1:4321".parse().unwrap();
+        let s = session_json_for(addr);
+        assert_eq!(s["apiUrl"], "http://127.0.0.1:4321/jmap");
+        assert_eq!(
+            s["downloadUrl"],
+            "http://127.0.0.1:4321/download/{accountId}/{blobId}/{name}?accept={type}"
+        );
+        assert_eq!(s["uploadUrl"], "http://127.0.0.1:4321/upload/{accountId}/");
+        assert_eq!(
+            s["eventSourceUrl"],
+            "http://127.0.0.1:4321/events?types={types}&closeafter={closeafter}&ping={ping}"
+        );
+        assert_eq!(
+            s["capabilities"][WEBSOCKET_CAPABILITY]["url"],
+            "ws://127.0.0.1:4321/ws"
+        );
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-00 §Account-Level Capability
+    /// Object — "The value of `accountCapabilities["urn:ietf:params:jmap:chat"]`
+    /// is a JSON object with the following fields: `maxBodyBytes`,
+    /// `maxAttachmentBytes`, `maxAttachmentsPerMessage`,
+    /// `supportedBodyTypes`, `supportsThreads`", and `supportedBodyTypes`
+    /// "MUST include `"text/plain"`".
+    #[test]
+    fn chat_account_capability_has_spec_required_fields() {
+        let s = session_json();
+        let cap = &s["accounts"][ACCOUNT_ID]["accountCapabilities"]["urn:ietf:params:jmap:chat"];
+        for field in [
+            "maxBodyBytes",
+            "maxAttachmentBytes",
+            "maxAttachmentsPerMessage",
+        ] {
+            assert!(cap[field].is_u64(), "{field} must be an UnsignedInt: {cap}");
+        }
+        assert!(cap["supportsThreads"].is_boolean(), "{cap}");
+        let body_types = cap["supportedBodyTypes"]
+            .as_array()
+            .expect("supportedBodyTypes must be a String[]");
+        assert!(body_types.contains(&json!("text/plain")), "{cap}");
     }
 }

@@ -316,6 +316,56 @@ async fn chat_query_filter_muted_serializes() {
     );
 }
 
+/// RFC 8620 §5.5 /query arguments:
+///
+///   "anchor: "Id|null" ... If supplied, the "position" argument is
+///   ignored."
+///   "anchorOffset: "Int" (default: 0) ... This MAY be negative."
+///   "calculateTotal: "Boolean" (default: false)"
+#[tokio::test]
+async fn chat_query_anchor_offset_calculate_total_serialize() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "Chat/query",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "queryState": "qs-1",
+            "canCalculateChanges": false,
+            "position": 3,
+            "ids": [],
+            "total": 9
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let mut input = jmap_chat_client::methods::ChatQueryInput::default();
+    input.anchor = Some(Id::from("chat-4"));
+    input.anchor_offset = Some(-1);
+    input.calculate_total = Some(true);
+    let _ = sc
+        .chat_query(&input)
+        .await
+        .expect("chat_query: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["anchor"],
+        json!("chat-4"),
+        "anchor must thread through"
+    );
+    assert_eq!(
+        args["anchorOffset"],
+        json!(-1),
+        "negative anchorOffset must thread through"
+    );
+    assert_eq!(
+        args["calculateTotal"],
+        json!(true),
+        "calculateTotal must thread through"
+    );
+}
+
 /// `Chat/changes` must thread `since_state` and `max_changes` through to
 /// `sinceState` / `maxChanges` (RFC 8620 §5.2).
 #[tokio::test]

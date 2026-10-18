@@ -167,6 +167,51 @@ let bytes = client
 Use `DownloadBlobParams` as a struct literal to avoid confusion between the
 string-typed fields.
 
+### Streaming blob transfer
+
+`upload_blob_stream` and `download_blob_stream` move a blob without holding it
+in memory. They run the same checks as the whole-buffer calls.
+
+```rust
+use futures::StreamExt;
+use jmap_base_client::{upload_body_from_reader, DownloadBlobParams, UploadBlobStreamParams};
+
+let file = tokio::fs::File::open("video.mp4").await?;
+let len = file.metadata().await?.len();
+let uploaded = client
+    .upload_blob_stream(UploadBlobStreamParams {
+        upload_url_template: &session.upload_url,
+        account_id,
+        content_type: "video/mp4",
+        body: upload_body_from_reader(file), // or Box::pin(any byte stream)
+        content_length: Some(len),           // None: chunked transfer coding
+    })
+    .await?;
+
+let mut stream = client
+    .download_blob_stream(DownloadBlobParams {
+        download_url_template: &session.download_url,
+        account_id,
+        blob_id: uploaded.blob_id.as_ref(),
+        name: "video.mp4",
+        accept_type: None,
+        expected_sha256: uploaded.sha256.as_ref(),
+    })
+    .await?;
+while let Some(chunk) = stream.next().await {
+    let chunk = chunk?; // unverified until the stream ends without an error
+    // write chunk somewhere
+}
+```
+
+On upload, the SHA-256 and length are computed as chunks are sent and checked
+against the server's response. A body that does not match a declared
+`content_length` fails instead of being truncated. On download, the
+`max_download_body` cap applies to the running total, and `expected_sha256` is
+checked after the last chunk: a mismatch is the stream's final item. In both
+directions, `request_timeout` limits the whole transfer, so large transfers
+need a client configured with a longer timeout.
+
 ### SSE event stream
 
 ```rust
@@ -206,8 +251,21 @@ while let Some(frame) = stream.next().await {
 
 `subscribe_events` expands to an `async Stream` of `SseFrame` values. No
 timeout is applied to the stream itself; wrap in `tokio::time::timeout` if you
-need a deadline. The caller is responsible for reconnecting with exponential
-backoff and passing the last `frame.id` as the `last_event_id` argument.
+need a deadline. The stream ends when the server closes the connection.
+
+For automatic reconnects use `subscribe_events_reconnecting` instead. It takes
+the same URL and initial `last_event_id` plus an `SseReconnectPolicy`. It
+reconnects with exponential backoff and equal jitter (1 s doubling to 60 s by
+default, retrying forever unless `max_retries` is set), and sends the last seen
+`frame.id` as `Last-Event-ID` (RFC 8620 §7.3). Transport errors, HTTP 408, 429
+and 5xx are retried. Auth failures, other 4xx responses, a wrong Content-Type
+and oversized frames end the stream.
+
+```rust
+use jmap_base_client::SseReconnectPolicy;
+
+let mut stream = client.subscribe_events_reconnecting(&url, None, SseReconnectPolicy::default());
+```
 
 ### WebSocket (RFC 8887)
 
@@ -222,6 +280,14 @@ let ws_cap = session
 let auth_header = client_auth.auth_header(); // from your AuthProvider
 let mut ws = connect_ws(&ws_cap.url, auth_header).await?;
 
+// Optional: Ping after 30 s of silence; treat the peer as dead if nothing
+// arrives within 10 s of the Ping (next_frame then returns an I/O error).
+ws.enable_keepalive(Duration::from_secs(30), Duration::from_secs(10))?;
+
+// RFC 8887 §4.3.5.2: ask for StateChange pushes (None = all data types),
+// resuming from a pushState saved on an earlier connection.
+ws.send_push_enable(Some(&["Mailbox", "Email"]), saved_push_state.as_deref()).await?;
+
 // Send a JMAP request over the WebSocket
 let mut builder = JmapRequestBuilder::new(&["urn:ietf:params:jmap:core"]);
 builder.add_call("Core/echo", serde_json::json!({}), "c1")?;
@@ -231,12 +297,17 @@ ws.send_request(&req, Some("c1")).await?;
 // Receive frames in a loop
 while let Some(frame) = ws.next_frame().await {
     match frame? {
-        WsFrame::StateChange(sc) => { /* handle push */ }
-        WsFrame::Response(resp) => { /* handle method response */ }
-        WsFrame::Unknown { .. } => { /* forward-compat: ignore */ }
+        WsFrame::StateChange(sc) => { /* handle push; save sc.extra["pushState"] */ }
+        WsFrame::Response(resp) => { /* frame.request_id() == Some("c1") */ }
+        WsFrame::RequestError(err) => { /* request-level Problem Details */ }
+        _ => { /* WsFrame::Unknown and future variants: ignore */ }
     }
 }
 ```
+
+Match on a borrowed frame (`match &frame`) if you need `frame.request_id()`
+inside the arms. It returns the RFC 8887 `requestId` of a `Response` or
+`RequestError`, which is the `id` passed to `send_request`.
 
 ### Runnable example
 
@@ -299,6 +370,13 @@ pub async fn subscribe_events(
     event_source_url: &str,      // expand template first with expand_url_template()
     last_event_id: Option<&str>,
 ) -> Result<BoxStream<'static, Result<SseFrame, ClientError>>, ClientError>;
+
+pub fn subscribe_events_reconnecting(
+    &self,
+    event_source_url: &str,
+    last_event_id: Option<&str>,
+    policy: SseReconnectPolicy,
+) -> BoxStream<'static, Result<SseFrame, ClientError>>;
 ```
 
 `base_url` must be the server origin (scheme + host + optional port) with no
@@ -318,6 +396,10 @@ Finds the invocation matching `call_id` in `resp.method_responses` and
 deserializes its arguments into `T`. Returns `ClientError::MethodNotFound` if
 the call ID is absent. Returns `ClientError::MethodError` if the server
 returned a JMAP `"error"` response for that call (RFC 8620 §3.6.1).
+`MethodError` carries only `type` and `description`; to read any other
+properties of the error object (RFC 8620 §3.6.2), call
+`method_error_details(&resp, call_id)`, which returns the full error
+object as a `serde_json::Map`.
 
 **Multiple invocations sharing a call_id.** Per RFC 8620 §3.2, a single
 method call may produce multiple invocations in the response — for
@@ -483,7 +565,8 @@ have `http` or `https` scheme before the `Session` is returned.
 `(method_name, args, call_id)` triples) for the entry whose `call_id` matches,
 then deserializes `args` into `T`. If `method_name` is `"error"`, returns
 `ClientError::MethodError` with the server-supplied `type` and optional
-`description`.
+`description`. `method_error_details` returns the full error object,
+including any extra properties.
 
 **Blob upload** — `upload_blob` expands the `upload_url` template, POSTs the
 raw bytes with the given `Content-Type`, and parses the `BlobUploadResponse`.
@@ -495,6 +578,12 @@ against a locally-computed SHA-256. A mismatch returns
 GETs the blob. The body is streamed chunk-by-chunk and capped at
 `max_download_body` (default: 64 MiB) without buffering the entire response
 first. An optional `expected_sha256` field enables integrity verification.
+
+**Streaming blobs**: `upload_blob_stream` sends a `BlobUploadBody` (a byte
+stream, or an `AsyncRead` via `upload_body_from_reader`) with a known or
+unknown length. `download_blob_stream` returns a `BlobDownloadStream` of
+chunks. Both apply the same caps and SHA-256 checks as `upload_blob` and
+`download_blob`; the download digest is checked at end of stream.
 
 **SSE stream** — `subscribe_events` GETs the (already-expanded)
 `event_source_url`. The response `Content-Type` is verified to be
@@ -508,8 +597,8 @@ is capped at `max_sse_frame` (default: 1 MiB) per frame.
 applies a 10-second connect timeout, and returns a `WsSession`. Outgoing
 requests are wrapped in a `WsRequestFrame` that injects `"@type": "Request"`
 (RFC 8887 §4.3.2) in a single serialization pass. Incoming text frames are
-dispatched on `"@type"`: `"StateChange"` and `"Response"` are deserialized into
-typed variants; malformed frames and unknown types degrade to `WsFrame::Unknown`
+dispatched on `"@type"`: `"StateChange"`, `"Response"` and `"RequestError"`
+are deserialized into typed variants; malformed frames and unknown types degrade to `WsFrame::Unknown`
 rather than closing the connection. Incoming messages are capped at
 `ClientConfig.max_ws_message` (default: 1 MiB) per frame.
 
@@ -577,7 +666,7 @@ let emails = client.email_get(&session, account_id, &[]).await?;
 | `UnexpectedResponse(String)` | Server violated the JMAP protocol (wrong Content-Type, etc.) |
 | `Serialize(serde_json::Error)` | Serialization failure in `WsSession::send_request` |
 | `InvalidHeaderValue(InvalidHeaderValueError)` | A header value contained characters that are not valid HTTP header-value bytes (typically a credential string with non-printable or non-ASCII characters). |
-| `RateLimited { retry_after }` | Server rate-limited the request; `retry_after` is the absolute UTC instant from RFC 9110 §10.2.3 `Retry-After`. The base crate does not currently produce this variant — HTTP 429 surfaces as `ClientError::Http` today (track `HttpError::status() == Some(429)` to detect it). The variant is part of the stable contract so extension crates that wrap the transport can produce it themselves and so callers can match on it now without an API break later (bd:JMAP-6lsm.3). |
+| `RateLimited { retry_after }` | Server rate-limited the request. Produced for HTTP 429 from `fetch_session`, `call`, `upload_blob` and `download_blob` (and their `_session` wrappers). `retry_after` is the absolute UTC instant from the RFC 9110 §10.2.3 `Retry-After` header: delay-seconds are added to the receive time, and an HTTP-date (any RFC 9110 §5.6.7 format) is used as given. When the header is absent or unparseable, `retry_after` is the receive time, so apply your own backoff. A 429 on the event-source connection still surfaces as `ClientError::Http` so `subscribe_events_reconnecting` keeps retrying it. |
 
 `HttpError`, `WebSocketError`, and `InvalidHeaderValueError` are opaque
 wrapper types around the underlying transport-crate errors. They keep
@@ -591,8 +680,8 @@ transport error type.
 
 ## Gotchas
 
-- **No automatic SSE reconnect.** `subscribe_events` returns an `async Stream` that terminates when the server closes the connection. Reconnect logic (with exponential backoff and `Last-Event-ID` header) is the caller's responsibility.
-- **No WebSocket ping/pong keepalive.** `WsSession` does not send RFC 6455 ping frames. If your server closes idle WebSocket connections, implement keepalive in the caller.
+- **SSE reconnect is opt-in.** `subscribe_events` returns an `async Stream` that terminates when the server closes the connection. Use `subscribe_events_reconnecting` for backoff and `Last-Event-ID` resumption. The SSE `retry:` field is not honoured; the policy alone sets the delays.
+- **WebSocket keepalive is opt-in and needs a receive loop.** Call `WsSession::enable_keepalive` before `split`. Pings are sent from inside `next_frame`, so keepalive only works while something is awaiting `next_frame`. WebSocket reconnect is still the caller's job: reconnect, then `send_push_enable` with the last saved `pushState`.
 - **`fetch_session` is not cached.** Call `fetch_session` once at startup or after receiving a `StateChange` that indicates the session state has changed. Calling it on every request adds unnecessary latency.
 - **`request_timeout` applies per-call.** The timeout covers the entire request-response cycle for `fetch_session`, `call`, `upload_blob`, and `download_blob`. It does not apply to SSE or WebSocket streams, which are indefinitely long by design.
 - **SSE frame size cap terminates the stream.** If a single SSE frame (between double newlines) exceeds `ClientConfig::max_sse_frame` (default 1 MiB), the stream is terminated with `ClientError::SseFrameTooLarge`. Increase the cap if your server sends large push events.

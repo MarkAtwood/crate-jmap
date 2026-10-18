@@ -30,21 +30,22 @@ pub mod ws;
 
 pub use jmap_base_client::ClientError;
 pub use jmap_chat_types::BodyType;
+pub use methods::batch::{Batch, BatchResponse, CallHandle};
 pub use methods::blob::{BlobConvertResponse, BlobLookupEntry, BlobLookupResponse, BlobObject};
 pub use methods::quota::Quota;
 pub use methods::{
     AddMemberInput, AddedItem, ChangesResponse, ChatContactPatch, ChatContactQueryInput,
     ChatCreateInput, ChatPatch, ChatQueryInput, ContactSortProperty, CustomEmojiCreateInput,
-    CustomEmojiQueryInput, GetResponse, MessageCreateInput, MessagePatch, MessageQueryInput, Patch,
-    PresenceStatusPatch, PushSubscriptionCreateInput, PushSubscriptionCreateResponse,
-    PushSubscriptionPatch, QueryChangesResponse, QueryResponse, ReactionChange, SessionClient,
-    SetError, SetResponse, SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddMemberInput,
-    SpaceAddRoleInput, SpaceBanCreateInput, SpaceCreateInput, SpaceInviteCreateInput,
-    SpaceJoinInput, SpaceJoinResponse, SpacePatch, SpaceQueryInput, SpaceUpdateCategoryInput,
-    SpaceUpdateChannelInput, SpaceUpdateMemberInput, SpaceUpdateRoleInput, TypingResponse,
-    UpdateMemberRoleInput,
+    CustomEmojiPatch, CustomEmojiQueryInput, GetResponse, MessageCreateInput, MessagePatch,
+    MessageQueryInput, Patch, PresenceStatusPatch, PushSubscriptionCreateInput,
+    PushSubscriptionCreateResponse, PushSubscriptionPatch, QueryChangesResponse, QueryResponse,
+    ReactionChange, SessionClient, SetError, SetResponse, SpaceAddCategoryInput,
+    SpaceAddChannelInput, SpaceAddMemberInput, SpaceAddRoleInput, SpaceBanCreateInput,
+    SpaceBanPatch, SpaceCreateInput, SpaceInviteCreateInput, SpaceJoinInput, SpaceJoinResponse,
+    SpacePatch, SpaceQueryInput, SpaceUpdateCategoryInput, SpaceUpdateChannelInput,
+    SpaceUpdateMemberInput, SpaceUpdateRoleInput, TypingResponse, UpdateMemberRoleInput,
 };
-pub use session::{ChatCapability, ChatPushCapability, ChatSessionExt};
+pub use session::{ChatCapability, ChatFilenodeCapability, ChatPushCapability, ChatSessionExt};
 pub use sse::{parse_chat_sse_block, ChatSseEvent, ChatSseFrame};
 pub use types::{ChatMemberRole, ContactPresenceFilter, QuotaResourceType, QuotaScope};
 pub use utils::{format_receipt_timestamp, format_receipt_timestamp_at};
@@ -105,6 +106,7 @@ impl JmapChatExt for jmap_base_client::JmapClient {
         methods::SessionClient {
             client: self.clone(),
             session,
+            account_id: None,
         }
     }
 }

@@ -1,8 +1,8 @@
 //! Miscellaneous JMAP Chat method implementations on SessionClient.
 //!
 //! Covers the smaller object surfaces — `ReadPosition/*`, `PresenceStatus/*`,
-//! and `PushSubscription/*` (RFC 8620 §7.2 plus the JMAP Chat Push extension,
-//! draft-atwood-jmap-chat-push-00).
+//! `PushSubscription/*` (RFC 8620 §7.2 plus the JMAP Chat Push extension,
+//! draft-atwood-jmap-chat-push-00), and `Core/echo` (RFC 8620 §4.1).
 
 use jmap_types::{Id, PatchObject, State};
 
@@ -487,6 +487,31 @@ impl super::SessionClient {
             "destroy": ids,
         });
         let req = super::build_request("PushSubscription/set", args, super::USING_CORE);
+        let resp = self.call_internal(api_url, &req).await?;
+        jmap_base_client::extract_response(&resp, super::CALL_ID)
+    }
+
+    /// Send `Core/echo` (RFC 8620 §4.1), which "returns exactly the same
+    /// arguments as it is given".
+    ///
+    /// Useful as a connectivity and authentication probe. Uses only the
+    /// `urn:ietf:params:jmap:core` capability and needs no chat account.
+    ///
+    /// # Errors
+    ///
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::read_position_get`].
+    pub async fn core_echo(
+        &self,
+        args: serde_json::Map<String, serde_json::Value>,
+    ) -> Result<serde_json::Map<String, serde_json::Value>, jmap_base_client::ClientError> {
+        let api_url = self.api_url();
+        let req = super::build_request(
+            "Core/echo",
+            serde_json::Value::Object(args),
+            super::USING_CORE,
+        );
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }

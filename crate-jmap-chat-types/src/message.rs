@@ -261,6 +261,23 @@ pub struct Attachment {
     /// failure mode is a silent-acceptance bug if a consumer
     /// forgets the validation step.
     pub sha256: String,
+    /// The `id` of a FileNode in the Space's file tree that this
+    /// attachment links to (draft-atwood-jmap-chat-filenode-00
+    /// §Attachment Link). Only meaningful when the
+    /// `urn:ietf:params:jmap:chat:filenode` capability is active.
+    ///
+    /// The draft makes `blobId`, `filename`, `contentType`, `size` and
+    /// `sha256` OPTIONAL on a `Message/set` create when this field is
+    /// present; this type still requires them, so a client sending a
+    /// filenode-linked attachment supplies them explicitly.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filenode_id: Option<Id>,
+    /// The `blobId` of a thumbnail or preview image derived from the
+    /// FileNode's blob (draft-atwood-jmap-chat-filenode-00
+    /// §thumbnailBlobId). SHOULD be set only when
+    /// [`filenode_id`](Self::filenode_id) is also present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thumbnail_blob_id: Option<Id>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -969,6 +986,46 @@ mod tests {
         );
         let back = serde_json::to_value(&a).unwrap();
         assert_eq!(back["acmeCorpScanResult"], "clean");
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-filenode-00 §Attachment Link — "The
+    /// `Attachment` type defined in {{JMAP-CHAT}} is extended with the
+    /// following optional fields": `filenodeId` (String, optional) and
+    /// `thumbnailBlobId` (String, optional). Both land in typed fields
+    /// (not `extra`), round-trip under their wire names, and are omitted
+    /// when absent; unknown fields still round-trip via `extra`.
+    #[test]
+    fn attachment_filenode_fields_typed_and_round_trip() {
+        let raw = serde_json::json!({
+            "blobId": "b1",
+            "filename": "a.png",
+            "contentType": "image/png",
+            "size": 100,
+            "sha256": "0".repeat(64),
+            "filenodeId": "fn1",
+            "thumbnailBlobId": "thumb1",
+            "acmeCorpScanResult": "clean"
+        });
+        let a: Attachment = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(a.filenode_id.as_ref().map(|i| i.as_ref()), Some("fn1"));
+        assert_eq!(
+            a.thumbnail_blob_id.as_ref().map(|i| i.as_ref()),
+            Some("thumb1")
+        );
+        assert!(a.extra.get("filenodeId").is_none());
+        assert!(a.extra.get("thumbnailBlobId").is_none());
+        assert_eq!(serde_json::to_value(&a).unwrap(), raw);
+
+        let plain = serde_json::json!({
+            "blobId": "b1",
+            "filename": "a.png",
+            "contentType": "image/png",
+            "size": 100,
+            "sha256": "0".repeat(64)
+        });
+        let p: Attachment = serde_json::from_value(plain.clone()).unwrap();
+        assert!(p.filenode_id.is_none() && p.thumbnail_blob_id.is_none());
+        assert_eq!(serde_json::to_value(&p).unwrap(), plain);
     }
 
     /// `Mention.extra` captures vendor fields and preserves them.

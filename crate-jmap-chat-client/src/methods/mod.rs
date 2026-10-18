@@ -10,8 +10,10 @@ pub mod misc;
 pub mod space_ban;
 pub mod space_invite;
 
+pub mod batch;
 pub mod blob;
 pub mod custom_emoji;
+pub mod filenode;
 pub mod quota;
 
 use std::collections::HashMap;
@@ -335,6 +337,15 @@ pub(crate) const USING_CHAT: &[&str] =
 pub(crate) const USING_QUOTA: &[&str] =
     &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:quota"];
 
+/// Capability URIs for Space file tree FileNode calls
+/// (draft-atwood-jmap-chat-filenode-00): the `spaceId` filter is defined by
+/// the chat filenode capability on top of `urn:ietf:params:jmap:filenode`.
+pub(crate) const USING_CHAT_FILENODE: &[&str] = &[
+    "urn:ietf:params:jmap:core",
+    "urn:ietf:params:jmap:filenode",
+    jmap_chat_types::JMAP_CHAT_FILENODE_URI,
+];
+
 /// Capability URIs for PushSubscription method calls (RFC 8620 §7.2).
 pub(crate) const USING_CORE: &[&str] = &["urn:ietf:params:jmap:core"];
 
@@ -418,7 +429,8 @@ pub(crate) fn resolve_client_id(id: Option<&str>) -> String {
 /// in-flight calls. When ordering matters between method calls (e.g.
 /// a `Foo/set` followed by a `Foo/changes` that must observe the new
 /// state), use a single JMAP batch request with `ResultReference`s
-/// rather than two separate `SessionClient` calls.
+/// rather than two separate `SessionClient` calls (see [`batch::Batch`]
+/// for the typed query-then-get case).
 ///
 /// All public async methods on `SessionClient` are cancel-safe at
 /// each `.await` point: dropping the future before completion
@@ -454,6 +466,9 @@ pub(crate) fn resolve_client_id(id: Option<&str>) -> String {
 pub struct SessionClient {
     pub(crate) client: jmap_base_client::JmapClient,
     pub(crate) session: jmap_base_client::Session,
+    /// Account targeted by every method; `None` means the session's
+    /// primary chat account. Set only by [`SessionClient::for_account`].
+    pub(crate) account_id: Option<String>,
 }
 
 impl std::fmt::Debug for SessionClient {
@@ -464,6 +479,7 @@ impl std::fmt::Debug for SessionClient {
             // internals.
             .field("client", &"<JmapClient>")
             .field("session", &self.session)
+            .field("account_id", &self.account_id)
             .finish()
     }
 }
@@ -492,17 +508,21 @@ impl SessionClient {
         &self.session
     }
 
-    /// Return the primary account id for `urn:ietf:params:jmap:chat`,
-    /// or `Err(InvalidSession)` if the session has no primary account for
-    /// that capability.
+    /// Return the account id every typed method on this handle targets:
+    /// the account chosen with [`Self::for_account`], or else the primary
+    /// account for `urn:ietf:params:jmap:chat`.
     ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
-    ///   if the session has no primary account for the chat capability
-    ///   URI. This is the only failure mode — the method is a pure
-    ///   accessor on the captured session and does no network I/O.
+    ///   if no account was chosen with [`Self::for_account`] and the
+    ///   session has no primary account for the chat capability URI.
+    ///   This is the only failure mode — the method is a pure accessor
+    ///   on the captured session and does no network I/O.
     pub fn chat_account_id(&self) -> Result<&str, jmap_base_client::ClientError> {
+        if let Some(id) = &self.account_id {
+            return Ok(id);
+        }
         self.session
             .primary_account_id(jmap_chat_types::JMAP_CHAT_URI)
             .ok_or_else(|| {
@@ -512,21 +532,46 @@ impl SessionClient {
             })
     }
 
+    /// Return a handle whose typed methods target `account_id` instead of
+    /// the primary chat account.
+    ///
+    /// Use it for shared or secondary chat accounts listed in the
+    /// session's `accounts` map. The returned handle is a cheap clone
+    /// sharing the HTTP connection pool; `self` keeps its own target.
+    ///
+    /// Methods that are not account-scoped (`PushSubscription/*`) are
+    /// unaffected. Per-method `InvalidSession` errors documented as "no
+    /// primary account" cannot occur on the returned handle.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `account_id` is not in the session's `accounts` map, or its
+    ///   `accountCapabilities` lacks `urn:ietf:params:jmap:chat`
+    ///   (RFC 8620 §2: that object is "the set of capability URIs for the
+    ///   methods supported in this account"). No network I/O is done.
+    pub fn for_account(&self, account_id: &str) -> Result<Self, jmap_base_client::ClientError> {
+        let chat_capable = self.session.accounts.get(account_id).is_some_and(|a| {
+            a.account_capabilities
+                .contains_key(jmap_chat_types::JMAP_CHAT_URI)
+        });
+        if !chat_capable {
+            return Err(jmap_base_client::ClientError::InvalidArgument(format!(
+                "for_account: {account_id} is not a urn:ietf:params:jmap:chat account in this session"
+            )));
+        }
+        Ok(Self {
+            account_id: Some(account_id.to_owned()),
+            ..self.clone()
+        })
+    }
+
     /// Extract `(api_url, chat_account_id)` from the bound session.
     ///
-    /// Returns `Err(InvalidSession)` if there is no primary account for
-    /// `urn:ietf:params:jmap:chat`.
+    /// Returns `Err(InvalidSession)` under the same condition as
+    /// [`Self::chat_account_id`].
     pub(crate) fn session_parts(&self) -> Result<(&str, &str), jmap_base_client::ClientError> {
-        let api_url = self.session.api_url.as_str();
-        let account_id = self
-            .session
-            .primary_account_id(jmap_chat_types::JMAP_CHAT_URI)
-            .ok_or_else(|| {
-                jmap_base_client::ClientError::InvalidSession(
-                    "no primary account for urn:ietf:params:jmap:chat".into(),
-                )
-            })?;
-        Ok((api_url, account_id))
+        Ok((self.session.api_url.as_str(), self.chat_account_id()?))
     }
 
     /// The JMAP API URL from the bound session.
@@ -576,6 +621,14 @@ pub struct ChatQueryInput {
     pub position: Option<u64>,
     /// Maximum number of ids to return.
     pub limit: Option<u64>,
+    /// Chat id to anchor the result window on (RFC 8620 §5.5 `anchor`).
+    /// When set, the server ignores `position`.
+    pub anchor: Option<Id>,
+    /// Index of the first result relative to `anchor`; may be negative
+    /// (RFC 8620 §5.5 `anchorOffset`).
+    pub anchor_offset: Option<i64>,
+    /// Ask the server to return `total` (RFC 8620 §5.5 `calculateTotal`).
+    pub calculate_total: Option<bool>,
 }
 
 /// Input parameters for `Message/query`.
@@ -592,18 +645,37 @@ pub struct MessageQueryInput<'a> {
     pub text: Option<&'a str>,
     /// Restrict to replies under this thread root.
     pub thread_root_id: Option<&'a Id>,
-    /// Only include messages received after this time (exclusive).
+    /// Restrict to messages whose `topicId` equals this value. Messages
+    /// with an encrypted `bodyType` carry no server-visible `topicId` and
+    /// never match.
+    pub topic_id: Option<&'a str>,
+    /// Not a draft-atwood-jmap-chat-00 Message/query filter. Setting it
+    /// makes [`SessionClient::message_query`] fail with
+    /// `InvalidArgument`; it is never sent.
+    #[deprecated(note = "not a spec Message/query filter; use anchor/anchor_offset to page")]
     pub after: Option<&'a jmap_types::UTCDate>,
-    /// Only include messages received before this time (exclusive).
+    /// Not a draft-atwood-jmap-chat-00 Message/query filter. Setting it
+    /// makes [`SessionClient::message_query`] fail with
+    /// `InvalidArgument`; it is never sent.
+    #[deprecated(note = "not a spec Message/query filter; use anchor/anchor_offset to page")]
     pub before: Option<&'a jmap_types::UTCDate>,
     /// Zero-based starting offset within the query result.
     pub position: Option<u64>,
     /// Maximum number of ids to return.
     pub limit: Option<u64>,
-    /// Sort by `sentAt` ascending (oldest first) when `true`.
+    /// Sort by `receivedAt` ascending (oldest first) when `true`.
     /// Defaults to `false` (descending, newest first), so `position:0, limit:N`
-    /// returns the N most recent messages.
+    /// returns the N most recent messages. The spec forbids ordering by
+    /// the peer-supplied `sentAt`, so `receivedAt` is the only sort key.
     pub sort_ascending: bool,
+    /// Message id to anchor the result window on (RFC 8620 §5.5
+    /// `anchor`). When set, the server ignores `position`.
+    pub anchor: Option<&'a Id>,
+    /// Index of the first result relative to `anchor`; may be negative
+    /// (RFC 8620 §5.5 `anchorOffset`).
+    pub anchor_offset: Option<i64>,
+    /// Ask the server to return `total` (RFC 8620 §5.5 `calculateTotal`).
+    pub calculate_total: Option<bool>,
 }
 
 impl<'a> MessageQueryInput<'a> {
@@ -647,6 +719,38 @@ pub struct MessageCreateInput<'a> {
     pub sent_at: &'a jmap_types::UTCDate,
     /// When `Some`, marks this message as a reply to the given message id.
     pub reply_to: Option<&'a Id>,
+    /// File attachments (`attachments`, draft-atwood-jmap-chat-00
+    /// §Message/set create). `None` omits the property.
+    pub attachments: Option<&'a [jmap_chat_types::Attachment]>,
+    /// Per-user `@mention` annotations (`mentions`). `None` omits the
+    /// property.
+    pub mentions: Option<&'a [jmap_chat_types::Mention]>,
+    /// Broadcast-scope mention annotations (`broadcastMentions`). `None`
+    /// omits the property. Requires the `"mention_broadcast"` Space
+    /// permission when non-empty; the server rejects with `forbidden`
+    /// otherwise.
+    pub broadcast_mentions: Option<&'a [jmap_chat_types::BroadcastMention]>,
+    /// Out-of-band action invitations (`actions`). `None` omits the
+    /// property.
+    pub actions: Option<&'a [jmap_chat_types::MessageAction]>,
+    /// The thread root message id (`threadRootId`). Only meaningful when
+    /// the Chat's `supportsThreads` is `true`.
+    pub thread_root_id: Option<&'a Id>,
+    /// Sender-chosen topic identifier (`topicId`). The server rejects an
+    /// empty value or one exceeding 255 bytes.
+    pub topic_id: Option<&'a str>,
+    /// Human-readable topic name (`subject`). MUST be absent when
+    /// `topic_id` is absent; the server rejects it otherwise.
+    pub subject: Option<&'a str>,
+    /// Sender-set hard-deletion deadline (`senderExpiresAt`). The server
+    /// rejects a value already in the past with `invalidArguments`.
+    pub sender_expires_at: Option<&'a jmap_types::UTCDate>,
+    /// When `Some(true)`, the receiving server hard-deletes the message
+    /// immediately after setting `readAt` (`burnOnRead`).
+    pub burn_on_read: Option<bool>,
+    /// Seconds after `readAt` at which the receiving server hard-deletes
+    /// the message (`expiresAfterReadSeconds`).
+    pub expires_after_read_seconds: Option<u64>,
 }
 
 impl<'a> MessageCreateInput<'a> {
@@ -664,6 +768,16 @@ impl<'a> MessageCreateInput<'a> {
             body_type,
             sent_at,
             reply_to: None,
+            attachments: None,
+            mentions: None,
+            broadcast_mentions: None,
+            actions: None,
+            thread_root_id: None,
+            topic_id: None,
+            subject: None,
+            sender_expires_at: None,
+            burn_on_read: None,
+            expires_after_read_seconds: None,
         }
     }
 
@@ -676,6 +790,66 @@ impl<'a> MessageCreateInput<'a> {
     /// Set the message this one replies to.
     pub fn with_reply_to(mut self, id: &'a Id) -> Self {
         self.reply_to = Some(id);
+        self
+    }
+
+    /// Set the file attachments.
+    pub fn with_attachments(mut self, v: &'a [jmap_chat_types::Attachment]) -> Self {
+        self.attachments = Some(v);
+        self
+    }
+
+    /// Set the per-user mentions.
+    pub fn with_mentions(mut self, v: &'a [jmap_chat_types::Mention]) -> Self {
+        self.mentions = Some(v);
+        self
+    }
+
+    /// Set the broadcast-scope mentions.
+    pub fn with_broadcast_mentions(mut self, v: &'a [jmap_chat_types::BroadcastMention]) -> Self {
+        self.broadcast_mentions = Some(v);
+        self
+    }
+
+    /// Set the out-of-band action invitations.
+    pub fn with_actions(mut self, v: &'a [jmap_chat_types::MessageAction]) -> Self {
+        self.actions = Some(v);
+        self
+    }
+
+    /// Set the thread root message id.
+    pub fn with_thread_root_id(mut self, id: &'a Id) -> Self {
+        self.thread_root_id = Some(id);
+        self
+    }
+
+    /// Set the topic identifier.
+    pub fn with_topic_id(mut self, v: &'a str) -> Self {
+        self.topic_id = Some(v);
+        self
+    }
+
+    /// Set the topic name. Only valid together with a topic id.
+    pub fn with_subject(mut self, v: &'a str) -> Self {
+        self.subject = Some(v);
+        self
+    }
+
+    /// Set the sender hard-deletion deadline.
+    pub fn with_sender_expires_at(mut self, v: &'a jmap_types::UTCDate) -> Self {
+        self.sender_expires_at = Some(v);
+        self
+    }
+
+    /// Set the burn-on-read flag.
+    pub fn with_burn_on_read(mut self, v: bool) -> Self {
+        self.burn_on_read = Some(v);
+        self
+    }
+
+    /// Set the expire-after-read delay in seconds.
+    pub fn with_expires_after_read_seconds(mut self, v: u64) -> Self {
+        self.expires_after_read_seconds = Some(v);
         self
     }
 }
@@ -758,6 +932,10 @@ pub struct MessagePatch<'a> {
     /// (draft-atwood-jmap-chat-00 §4.4.1). `Some(vec![])` clears all
     /// broadcast mentions; `None` leaves the server value unchanged.
     pub broadcast_mentions: Option<Vec<jmap_chat_types::BroadcastMention>>,
+    /// Replace the per-user mentions array on an author-only edit
+    /// (draft-atwood-jmap-chat-00 §Message/set update). `Some(vec![])`
+    /// clears all mentions; `None` leaves the server value unchanged.
+    pub mentions: Option<Vec<jmap_chat_types::Mention>>,
 }
 
 /// Patch parameters for `PresenceStatus/set` update.
@@ -828,6 +1006,23 @@ impl<'a> CustomEmojiCreateInput<'a> {
         self.client_id = Some(id);
         self
     }
+}
+
+/// Patch parameters for `CustomEmoji/set` update
+/// (draft-atwood-jmap-chat-00 §CustomEmoji/set: "`update` supports:
+/// `name`, `blobId`").
+///
+/// Both properties are required on the object, so neither is clearable:
+/// `None` (default) omits the key and the server leaves it unchanged.
+///
+/// Use `..Default::default()` to fill in unused fields.
+#[non_exhaustive]
+#[derive(Debug, Default, Clone)]
+pub struct CustomEmojiPatch<'a> {
+    /// New shortcode name without colons. `None` = no change.
+    pub name: Option<&'a str>,
+    /// blobId of a replacement emoji image (already uploaded). `None` = no change.
+    pub blob_id: Option<&'a Id>,
 }
 
 /// Parameters for creating one SpaceInvite via `SpaceInvite/set`.
@@ -910,6 +1105,23 @@ impl<'a> SpaceBanCreateInput<'a> {
         self.client_id = Some(id);
         self
     }
+}
+
+/// Patch parameters for `SpaceBan/set` update
+/// (draft-atwood-jmap-chat-00 §SpaceBan/set: "`update` supports:
+/// `reason`, `expiresAt`").
+///
+/// A field left at [`Patch::Keep`] (default) is omitted from the patch.
+/// [`Patch::Clear`] sends `null`: no reason, or a ban that never expires.
+///
+/// Use `..Default::default()` to fill in unused fields.
+#[non_exhaustive]
+#[derive(Debug, Default, Clone)]
+pub struct SpaceBanPatch<'a> {
+    /// Set or clear the human-readable reason for the ban.
+    pub reason: Patch<&'a str>,
+    /// Set or clear the time after which the ban is automatically lifted.
+    pub expires_at: Patch<&'a jmap_types::UTCDate>,
 }
 
 /// Patch parameters for `ChatContact/set` update.
@@ -1257,8 +1469,12 @@ pub struct SpaceAddRoleInput<'a> {
     pub permissions: &'a [&'a str],
     /// Position in the role hierarchy. Lower values sort first.
     pub position: u64,
-    /// Optional CSS-style color string (e.g. `"#ff8800"`). Pass `None` to omit.
-    pub color: Option<&'a str>,
+    /// Optional role color, sent verbatim. Per draft-atwood-jmap-chat-00
+    /// §Color Representation this is a W3C Design Tokens color object
+    /// (`{"$type": "color", "$value": "..."}`), a CAM16 coordinate array
+    /// (`[J, a, b]` or `[J, M, h]`), an sRGB hex string (`"#5865f2"`), or
+    /// `null` (no color). Pass `None` to omit.
+    pub color: Option<serde_json::Value>,
 }
 
 impl<'a> SpaceAddRoleInput<'a> {
@@ -1272,9 +1488,10 @@ impl<'a> SpaceAddRoleInput<'a> {
         }
     }
 
-    /// Attach a color to the role.
-    pub fn with_color(mut self, color: &'a str) -> Self {
-        self.color = Some(color);
+    /// Attach a color to the role in any representation listed on
+    /// [`Self::color`], e.g. `"#5865f2"` or a `serde_json::json!` object.
+    pub fn with_color(mut self, color: impl Into<serde_json::Value>) -> Self {
+        self.color = Some(color.into());
         self
     }
 }
@@ -1294,7 +1511,9 @@ pub struct SpaceUpdateRoleInput<'a> {
     /// New name. `None` = no change.
     pub name: Option<&'a str>,
     /// Set or clear the color. [`Patch::Clear`] removes any assigned color.
-    pub color: Patch<&'a str>,
+    /// [`Patch::Set`] accepts any representation listed on
+    /// [`SpaceAddRoleInput::color`] and sends it verbatim.
+    pub color: Patch<serde_json::Value>,
     /// Replace the permissions list. `None` = no change.
     pub permissions: Option<&'a [&'a str]>,
     /// New position in the role hierarchy. `None` = no change.

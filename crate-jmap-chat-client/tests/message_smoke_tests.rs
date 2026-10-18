@@ -294,7 +294,7 @@ async fn message_query_requires_chat_id_or_has_mention() {
 }
 
 /// `Message/query` with `chat_id` set must serialize a filter object
-/// containing `chatId` and emit the default descending sort by `sentAt`
+/// containing `chatId` and emit the default descending sort by `receivedAt`
 /// (message.rs:73-104).
 #[tokio::test]
 async fn message_query_chat_id_and_default_sort() {
@@ -326,11 +326,13 @@ async fn message_query_chat_id_and_default_sort() {
         json!({ "chatId": "chat-1" }),
         "filter must contain chatId only"
     );
-    // Default sort: sentAt descending (isAscending=false).
+    // Default sort: receivedAt descending (isAscending=false). Spec
+    // §Message: `sentAt` "MUST NOT be used for ordering"; `receivedAt` is
+    // "Authoritative for ordering".
     assert_eq!(
         args["sort"],
-        json!([{ "property": "sentAt", "isAscending": false }]),
-        "default sort must be sentAt descending"
+        json!([{ "property": "receivedAt", "isAscending": false }]),
+        "default sort must be receivedAt descending"
     );
 }
 
@@ -364,8 +366,133 @@ async fn message_query_sort_ascending() {
     let args = recorded_args(&server).await;
     assert_eq!(
         args["sort"],
-        json!([{ "property": "sentAt", "isAscending": true }]),
-        "sort must be sentAt ascending"
+        json!([{ "property": "receivedAt", "isAscending": true }]),
+        "sort must be receivedAt ascending"
+    );
+}
+
+/// draft-atwood-jmap-chat-00 §Message/query filter properties:
+///
+///   "`topicId` (String, optional): Return only messages whose `topicId`
+///   equals this value."
+#[tokio::test]
+async fn message_query_topic_id_filter_serializes() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "Message/query",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "queryState": "mq-1",
+            "canCalculateChanges": true,
+            "position": 0,
+            "ids": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let mut input = jmap_chat_client::methods::MessageQueryInput::default();
+    input.chat_id = Some(&chat_id);
+    input.topic_id = Some("topic-1");
+    let _ = sc
+        .message_query(&input)
+        .await
+        .expect("message_query: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["filter"],
+        json!({ "chatId": "chat-1", "topicId": "topic-1" }),
+        "filter must carry topicId verbatim"
+    );
+}
+
+/// The spec's Message/query filter property list is `chatId`, `text`,
+/// `threadRootId`, `topicId`, `hasAttachment` and `hasMention`; it has no
+/// `after` or `before`. RFC 8620 §5.5: a filter the server does not
+/// support yields `unsupportedFilter`, so the client must refuse the
+/// deprecated fields instead of sending them or silently widening the
+/// result set.
+#[tokio::test]
+#[allow(deprecated)]
+async fn message_query_after_before_rejected_before_send() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let when = UTCDate::from("2024-06-15T09:00:00Z");
+
+    for set_after in [true, false] {
+        let mut input = jmap_chat_client::methods::MessageQueryInput::default();
+        input.chat_id = Some(&chat_id);
+        if set_after {
+            input.after = Some(&when);
+        } else {
+            input.before = Some(&when);
+        }
+        let err = sc
+            .message_query(&input)
+            .await
+            .expect_err("message_query must reject after/before");
+        assert!(
+            matches!(err, jmap_base_client::ClientError::InvalidArgument(_)),
+            "expected InvalidArgument, got {err:?}"
+        );
+    }
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("recorded_requests must succeed");
+    assert!(reqs.is_empty(), "no HTTP request must be sent");
+}
+
+/// RFC 8620 §5.5 /query arguments:
+///
+///   "anchor: "Id|null" ... If supplied, the "position" argument is
+///   ignored."
+///   "anchorOffset: "Int" (default: 0) ... This MAY be negative."
+///   "calculateTotal: "Boolean" (default: false)"
+#[tokio::test]
+async fn message_query_anchor_offset_calculate_total_serialize() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "Message/query",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "queryState": "mq-1",
+            "canCalculateChanges": true,
+            "position": 10,
+            "ids": [],
+            "total": 42
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let anchor = Id::from("msg-7");
+    let mut input = jmap_chat_client::methods::MessageQueryInput::default();
+    input.chat_id = Some(&chat_id);
+    input.anchor = Some(&anchor);
+    input.anchor_offset = Some(-5);
+    input.calculate_total = Some(true);
+    let _ = sc
+        .message_query(&input)
+        .await
+        .expect("message_query: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(args["anchor"], json!("msg-7"), "anchor must thread through");
+    assert_eq!(
+        args["anchorOffset"],
+        json!(-5),
+        "negative anchorOffset must thread through"
+    );
+    assert_eq!(
+        args["calculateTotal"],
+        json!(true),
+        "calculateTotal must thread through"
     );
 }
 
@@ -1203,5 +1330,174 @@ async fn message_query_changes_all_none_omits_optional_wire_keys() {
     assert!(
         args.get("maxChanges").is_none(),
         "maxChanges must be omitted"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Message/set create optional properties — draft-atwood-jmap-chat-00
+// §Message/set "Creating a Message":
+//
+//   "Optional: `attachments` (Attachment[]), `mentions` (Mention[]),
+//   `broadcastMentions` (BroadcastMention[]), `actions` (MessageAction[]),
+//   `replyTo` (String), `threadRootId` (String), `topicId` (String),
+//   `subject` (String), `senderExpiresAt` (UTCDate), `burnOnRead`
+//   (Boolean), `expiresAfterReadSeconds` (UnsignedInt)."
+//
+// Element shapes are hand-encoded from the spec's Attachment (`blobId`,
+// `filename`, `contentType`, `size`, `sha256`), Mention (`id`, `offset`,
+// `length`), BroadcastMention (`scope`, `offset`, `length`) and
+// MessageAction (`type`, `uri`, `label`, `expiresAt`, `metadata`)
+// property lists.
+// ---------------------------------------------------------------------------
+
+/// Every optional create property must appear in the create object under
+/// its spec wire name with its spec type.
+#[tokio::test]
+async fn message_create_serializes_all_optional_properties() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        json!({ "created": { "client-msg-1": { "id": "server-msg-1" } } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let attachment_json = json!({
+        "blobId": "blob-1",
+        "filename": "report.pdf",
+        "contentType": "application/pdf",
+        "size": 1024,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    });
+    let mention_json = json!({"id": "alice@example.com", "offset": 0, "length": 6});
+    let broadcast_json = json!({"scope": "here", "offset": 7, "length": 5});
+    let action_json = json!({
+        "type": "urn:jmap:chat:cap:vtc",
+        "uri": "https://meet.example.com/room-1",
+        "label": "Join call",
+        "expiresAt": "2024-06-15T10:00:00Z",
+        "metadata": {"protocol": "webrtc"}
+    });
+    let attachments =
+        [serde_json::from_value(attachment_json.clone()).expect("Attachment must deserialize")];
+    let mentions =
+        [serde_json::from_value(mention_json.clone()).expect("Mention must deserialize")];
+    let broadcast_mentions =
+        [serde_json::from_value(broadcast_json.clone())
+            .expect("BroadcastMention must deserialize")];
+    let actions =
+        [serde_json::from_value(action_json.clone()).expect("MessageAction must deserialize")];
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
+    let expires = UTCDate::from("2024-06-16T09:00:00Z");
+    let reply_to = Id::from("msg-parent");
+    let thread_root = Id::from("msg-root");
+    let input = jmap_chat_client::methods::MessageCreateInput::new(
+        &chat_id,
+        "@alice @here",
+        jmap_chat_client::BodyType::Plain,
+        &sent_at,
+    )
+    .with_client_id("client-msg-1")
+    .with_reply_to(&reply_to)
+    .with_attachments(&attachments)
+    .with_mentions(&mentions)
+    .with_broadcast_mentions(&broadcast_mentions)
+    .with_actions(&actions)
+    .with_thread_root_id(&thread_root)
+    .with_topic_id("topic-1")
+    .with_subject("Q3 planning")
+    .with_sender_expires_at(&expires)
+    .with_burn_on_read(true)
+    .with_expires_after_read_seconds(30);
+    let _ = sc
+        .message_create(&input)
+        .await
+        .expect("message_create: must succeed");
+
+    let args = recorded_args(&server).await;
+    let create = &args["create"]["client-msg-1"];
+    assert_eq!(create["attachments"], json!([attachment_json]));
+    assert_eq!(create["mentions"], json!([mention_json]));
+    assert_eq!(create["broadcastMentions"], json!([broadcast_json]));
+    assert_eq!(create["actions"], json!([action_json]));
+    assert_eq!(create["replyTo"], json!("msg-parent"));
+    assert_eq!(create["threadRootId"], json!("msg-root"));
+    assert_eq!(create["topicId"], json!("topic-1"));
+    assert_eq!(create["subject"], json!("Q3 planning"));
+    assert_eq!(create["senderExpiresAt"], json!("2024-06-16T09:00:00Z"));
+    assert_eq!(create["burnOnRead"], json!(true));
+    assert_eq!(create["expiresAfterReadSeconds"], json!(30));
+}
+
+/// Optional create properties left as `None` must be absent from the
+/// create object, not sent as `null`: the spec lists them as optional
+/// and none of them as nullable.
+#[tokio::test]
+async fn message_create_omits_unset_optional_properties() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        json!({ "created": { "client-msg-1": { "id": "server-msg-1" } } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
+    let input = jmap_chat_client::methods::MessageCreateInput::new(
+        &chat_id,
+        "hello",
+        jmap_chat_client::BodyType::Plain,
+        &sent_at,
+    )
+    .with_client_id("client-msg-1");
+    let _ = sc
+        .message_create(&input)
+        .await
+        .expect("message_create: must succeed");
+
+    let args = recorded_args(&server).await;
+    let create = args["create"]["client-msg-1"]
+        .as_object()
+        .expect("create entry must be an object");
+    let mut keys: Vec<&str> = create.keys().map(String::as_str).collect();
+    keys.sort_unstable();
+    assert_eq!(keys, ["body", "bodyType", "chatId", "sentAt"]);
+}
+
+/// `MessagePatch.mentions = Some(vec![…])` must emit `mentions` in the
+/// per-id patch object. Oracle: draft-atwood-jmap-chat-00 §Message/set
+/// "Editing a Message": "`update` with changed `body`, `bodyType`,
+/// `mentions`, and/or `broadcastMentions`"; Mention shape is `id`,
+/// `offset`, `length` per §Mention.
+#[tokio::test]
+async fn message_update_mentions_emits_wire_key() {
+    let server = MockServer::start().await;
+    let resp_body =
+        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let msg_id = Id::from("msg-1");
+    let mut patch = jmap_chat_client::methods::MessagePatch::default();
+    patch.mentions = Some(vec![serde_json::from_value(
+        json!({"id": "bob@example.com", "offset": 3, "length": 4}),
+    )
+    .expect("Mention must deserialize")]);
+    let _ = sc
+        .message_update(&msg_id, &patch)
+        .await
+        .expect("message_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["update"]["msg-1"]["mentions"],
+        json!([{"id": "bob@example.com", "offset": 3, "length": 4}])
     );
 }

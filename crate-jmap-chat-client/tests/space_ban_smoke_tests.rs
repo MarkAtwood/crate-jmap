@@ -233,3 +233,57 @@ async fn space_ban_destroy_threads_ids_and_rejects_empty() {
         other => panic!("expected InvalidArgument, got {other:?}"),
     }
 }
+
+/// `SpaceBan/set` update must send `reason` and `expiresAt` under the
+/// per-id patch key, with `Patch::Clear` emitting JSON `null`. Oracle:
+/// draft-atwood-jmap-chat-00 §SpaceBan/set — "`update` supports:
+/// `reason`, `expiresAt`." — and RFC 8620 §5.3 PatchObject semantics
+/// (a `null` value resets the property; an absent key leaves it
+/// unchanged).
+#[tokio::test]
+async fn space_ban_update_patch_serialises_reason_and_expires_at() {
+    let server = MockServer::start().await;
+    let resp_body = helpers::set_update_response("SpaceBan/set", "sb-1", "sb-2", "ban-1");
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let id = Id::from("ban-1");
+    let expires_at = UTCDate::from("2026-03-01T00:00:00Z");
+    let mut patch = jmap_chat_client::methods::SpaceBanPatch::default();
+    patch.reason = jmap_chat_client::methods::Patch::Set("repeat spam");
+    patch.expires_at = jmap_chat_client::methods::Patch::Set(&expires_at);
+    let _ = sc
+        .space_ban_update(&id, &patch)
+        .await
+        .expect("space_ban_update: must succeed");
+
+    let body = recorded_body(&server).await;
+    assert_eq!(body["methodCalls"][0][0], json!("SpaceBan/set"));
+    assert_eq!(
+        body["methodCalls"][0][1]["update"],
+        json!({ "ban-1": {
+            "reason": "repeat spam",
+            "expiresAt": "2026-03-01T00:00:00Z"
+        } }),
+        "update must carry reason + expiresAt"
+    );
+
+    server.reset().await;
+    mock_jmap_post(
+        &server,
+        helpers::set_update_response("SpaceBan/set", "sb-2", "sb-3", "ban-1"),
+    )
+    .await;
+    let mut clear = jmap_chat_client::methods::SpaceBanPatch::default();
+    clear.expires_at = jmap_chat_client::methods::Patch::Clear;
+    let _ = sc
+        .space_ban_update(&id, &clear)
+        .await
+        .expect("space_ban_update: must succeed");
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["update"],
+        json!({ "ban-1": { "expiresAt": null } }),
+        "Patch::Clear must emit null and Patch::Keep must omit reason"
+    );
+}

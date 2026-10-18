@@ -131,7 +131,10 @@ pub use backend::{
     PresenceStatusProperty, ReadPositionProperty, SpaceBanProperty, SpaceInviteProperty,
     SpaceProperty,
 };
-pub use capability::{ChatCapability, ChatPushCapability, JMAP_CHAT_PUSH_URI, JMAP_CHAT_URI};
+pub use capability::{
+    ChatCapability, ChatFilenodeCapability, ChatPushCapability, CHAT_FILENODE_SPACE_ROLE,
+    JMAP_CHAT_FILENODE_URI, JMAP_CHAT_PUSH_URI, JMAP_CHAT_URI,
+};
 pub use chat::{ChannelPermission, Chat, ChatKind, ChatMember};
 pub use clearable::Clearable;
 pub use contact::{ChatContact, Endpoint};
