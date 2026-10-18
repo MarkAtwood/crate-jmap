@@ -1,4 +1,4 @@
-//! In-memory reference implementation of [`ChatBackend`](crate::ChatBackend).
+//! In-memory reference implementation of [`ChatBackend`].
 //!
 //! # This is a reference implementation, not production
 //!
@@ -7,7 +7,7 @@
 //! 1. **Workspace integration tests** — every `tests/*.rs` integration test
 //!    in this crate exercises method handlers against this backend.
 //! 2. **Downstream contributors** — a documented, complete, source-readable
-//!    implementation of the [`ChatBackend`](crate::ChatBackend) trait to
+//!    implementation of the [`ChatBackend`] trait to
 //!    study when writing a real (database-backed) backend.
 //! 3. **Examples and smoke tests** — boot a real JMAP-for-Chat dispatcher
 //!    with one line of code, without standing up a database.

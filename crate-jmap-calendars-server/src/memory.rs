@@ -1,4 +1,4 @@
-//! In-memory reference implementation of [`CalendarsBackend`](crate::CalendarsBackend).
+//! In-memory reference implementation of [`CalendarsBackend`].
 //!
 //! # This is a reference implementation, not production
 //!
@@ -7,7 +7,7 @@
 //! 1. **Workspace integration tests** — every `tests/*.rs` integration test
 //!    in this crate exercises method handlers against this backend.
 //! 2. **Downstream contributors** — a documented, complete, source-readable
-//!    implementation of the [`CalendarsBackend`](crate::CalendarsBackend)
+//!    implementation of the [`CalendarsBackend`]
 //!    trait to study when writing a real (database-backed) backend.
 //! 3. **Examples and smoke tests** — boot a real JMAP-for-Calendars dispatcher
 //!    with one line of code, without standing up a database.
