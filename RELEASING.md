@@ -1,6 +1,6 @@
 # Releasing
 
-The 30 publishable `jmap-*` crates in this workspace must be published to
+The 31 publishable `jmap-*` crates in this workspace must be published to
 crates.io in **topological order**. Each layer depends on the previous one
 being indexed on the registry, so a single `cargo publish` of a leaf crate
 fails until all its transitive dependencies have published.
@@ -232,6 +232,12 @@ After the 2026-05-13 publish wave the registry holds:
 The next coordinated release should bring all crates onto a single shared
 patch level (the `0.1.0` set to `0.1.1` and everything else to `0.1.2`
 or higher).
+
+The 2026-10-18 wave moved every publishable crate to `0.2.0`. Changes since
+June break the 0.1 API (jmap-server's patch helpers and `PatchPathError`,
+new `ChatBackend` and `CalendarsBackend` behaviour, serde defaults in the
+`*-types` crates), so the shared line is now `0.2.x` and the workspace
+dependency requirements are `"0.2"`.
 
 ## Tracking
 
