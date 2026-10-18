@@ -18,6 +18,7 @@ pub struct Identity {
     pub id: Id,
     /// The "From" name the client SHOULD use when creating a new Email
     /// from this Identity.  Defaults to `""`.
+    #[serde(default)]
     pub name: String,
     /// The "From" email address the client MUST use (immutable).
     pub email: String,
@@ -28,8 +29,10 @@ pub struct Identity {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bcc: Option<Vec<EmailAddress>>,
     /// Plaintext signature.  Defaults to `""`.
+    #[serde(default)]
     pub text_signature: String,
     /// HTML snippet signature.  Defaults to `""`.
+    #[serde(default)]
     pub html_signature: String,
     /// Whether the user may delete this Identity (server-set).
     pub may_delete: bool,

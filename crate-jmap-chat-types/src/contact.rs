@@ -129,6 +129,7 @@ pub struct ChatContact {
     /// The `lastSeenAt` property (draft-atwood-jmap-chat-00 §4.8).
     pub last_seen_at: UTCDate,
     /// The `blocked` property (draft-atwood-jmap-chat-00 §4.8).
+    #[serde(default)]
     pub blocked: bool,
     /// The `displayName` property (draft-atwood-jmap-chat-00 §4.8).
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -508,6 +508,7 @@ pub struct Message {
     /// The `attachments` property (draft-atwood-jmap-chat-00 §4.11).
     pub attachments: Vec<Attachment>,
     /// The `mentions` property (draft-atwood-jmap-chat-00 §4.11).
+    #[serde(default)]
     pub mentions: Vec<Mention>,
     /// The `broadcastMentions` property (draft-atwood-jmap-chat-00 §4.11).
     ///
@@ -520,8 +521,10 @@ pub struct Message {
     ///
     /// Sending a message with a non-empty array requires the
     /// `"mention_broadcast"` Space permission.
+    #[serde(default)]
     pub broadcast_mentions: Vec<BroadcastMention>,
     /// The `actions` property (draft-atwood-jmap-chat-00 §4.11).
+    #[serde(default)]
     pub actions: Vec<MessageAction>,
     /// The `reactions` property (draft-atwood-jmap-chat-00 §4.11).
     ///
@@ -532,6 +535,7 @@ pub struct Message {
     /// patches use as the key for individual reaction add/remove
     /// operations (`reactions/<senderReactionId>: <Reaction>` to
     /// add, `reactions/<senderReactionId>: null` to remove).
+    #[serde(default)]
     pub reactions: HashMap<String, Reaction>,
     /// The `sentAt` property (draft-atwood-jmap-chat-00 §4.11).
     pub sent_at: UTCDate,
@@ -1237,11 +1241,11 @@ mod tests {
         );
     }
 
-    /// Defensive: a Message JSON missing broadcastMentions must fail to
-    /// deserialize (the field is required, matching the sibling Vec fields
-    /// mentions/attachments/actions which are also required).
+    /// Oracle: draft-atwood-jmap-chat-00 Message `broadcastMentions`:
+    /// "Empty by default." A Message JSON without it deserializes with an
+    /// empty array.
     #[test]
-    fn message_missing_broadcast_mentions_fails_deser() {
+    fn message_missing_broadcast_mentions_defaults_empty() {
         let json = r#"{
             "id": "m1",
             "senderMsgId": "smid1",
@@ -1257,10 +1261,7 @@ mod tests {
             "receivedAt": "2026-01-01T00:00:01Z",
             "deliveryState": "delivered"
         }"#;
-        let result = serde_json::from_str::<Message>(json);
-        assert!(
-            result.is_err(),
-            "Message without broadcastMentions must fail to deserialize"
-        );
+        let msg: Message = serde_json::from_str(json).expect("deserialize");
+        assert!(msg.broadcast_mentions.is_empty());
     }
 }

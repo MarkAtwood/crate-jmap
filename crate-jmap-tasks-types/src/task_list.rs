@@ -141,6 +141,7 @@ pub struct TaskList {
     pub category_colors: Option<HashMap<String, String>>,
 
     /// Client UI sort position; lower values sort first.  0 ≤ n < 2^31.
+    #[serde(default)]
     pub sort_order: u32,
 
     /// Whether the user has subscribed to this task list.

@@ -132,6 +132,8 @@ pub struct Mailbox {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub role: Option<MailboxRole>,
     /// Client UI sort position; lower values sort first among siblings.
+    /// Defaults to `0`.
+    #[serde(default)]
     pub sort_order: u32,
     /// Total number of Emails in this Mailbox (server-set).
     pub total_emails: u32,

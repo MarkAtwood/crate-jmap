@@ -104,6 +104,8 @@ pub struct AddressBook {
     #[serde(default)]
     pub description: Option<String>,
     /// UI sort order; lower values display first.  Range: [0, 2^31).
+    /// Defaults to 0 per RFC 9610 §2.
+    #[serde(default)]
     pub sort_order: u32,
     /// True for at most one AddressBook per account; server-set.
     pub is_default: bool,

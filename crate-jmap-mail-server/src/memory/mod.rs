@@ -1202,15 +1202,19 @@ impl MailBackend for MemoryBackend {
                 // RFC 8621 §4.1.1 defines Email `keywords` with "default: {}",
                 // but the stored JSON omits it when empty, so materialize the
                 // default for `keywords/<keyword>` pointers to find their parent.
+                // Work on a copy so a rejected patch leaves storage untouched.
+                let mut patched = base.clone();
                 if O::TYPE_NAME == Email::TYPE_NAME {
-                    base.entry("keywords")
+                    patched
+                        .entry("keywords")
                         .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
                 }
-                apply_patch_object(base, &patch_map).map_err(|e| {
+                apply_patch_object(&mut patched, &patch_map).map_err(|e| {
                     BackendSetError::SetError(
                         SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
                     )
                 })?;
+                *base = patched;
             }
         }
 
@@ -2897,5 +2901,54 @@ impl SieveBackend for MemoryBackend {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use jmap_types::PatchObject;
+
+    /// RFC 8620 §5.3: a patch that breaks the PatchObject rules "MUST be
+    /// rejected with an "invalidPatch" error". The rejected update must not
+    /// leave anything behind in storage, including the Email `keywords`
+    /// default that is filled in only to resolve `keywords/...` pointers.
+    #[tokio::test]
+    async fn rejected_email_patch_leaves_stored_json_unchanged() {
+        let backend = MemoryBackend::new();
+        let account = Id::from("account1");
+        let id = Id::from("e1");
+        let stored = serde_json::json!({ "id": "e1", "mailboxIds": { "m1": true } });
+        backend
+            .inner
+            .lock()
+            .unwrap()
+            .objects_mut(Email::TYPE_NAME, account.as_ref())
+            .insert(id.clone(), stored.clone());
+
+        let mut patch = serde_json::Map::new();
+        patch.insert("keywords/$seen/x".to_owned(), serde_json::json!(true));
+        let result = backend
+            .update_object::<Email>(&(), &account, &id, PatchObject::from_map(patch))
+            .await;
+
+        assert!(
+            matches!(
+                result,
+                Err(BackendSetError::SetError(SetError {
+                    error_type: SetErrorType::InvalidPatch,
+                    ..
+                }))
+            ),
+            "expected invalidPatch, got {result:?}"
+        );
+        let after = backend
+            .inner
+            .lock()
+            .unwrap()
+            .objects_mut(Email::TYPE_NAME, account.as_ref())
+            .get(&id)
+            .cloned();
+        assert_eq!(after, Some(stored));
     }
 }

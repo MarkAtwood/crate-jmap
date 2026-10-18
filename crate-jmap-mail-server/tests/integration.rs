@@ -13005,3 +13005,120 @@ async fn email_parse_blob_exists_err_propagates_as_server_fail() {
         err.error_type
     );
 }
+
+// ---------------------------------------------------------------------------
+// PatchObject null resets to the property default (RFC 8620 §5.3)
+// ---------------------------------------------------------------------------
+
+/// Oracle: RFC 8620 §5.3 PatchObject — "null: set to the default value if
+/// specified for this property"; RFC 8621 §2: `sortOrder: UnsignedInt
+/// (default: 0)`. After `{"sortOrder": null}`, Mailbox/get must return 0.
+#[tokio::test]
+async fn mailbox_set_update_sort_order_null_resets_to_default() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    let (set_resp, _) = handle_mailbox_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "a1",
+            "create": { "c0": { "name": "Sorted", "sortOrder": 5 } }
+        }),
+    )
+    .await
+    .expect("create mailbox");
+    let id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("must get id")
+        .to_owned();
+
+    let (update_resp, _) = handle_mailbox_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "a1",
+            "update": { &id: { "sortOrder": null } }
+        }),
+    )
+    .await
+    .expect("update sortOrder to null");
+    assert!(
+        update_resp["updated"]
+            .as_object()
+            .is_some_and(|m| m.contains_key(&id)),
+        "update must succeed; got: {update_resp}"
+    );
+
+    let (get_resp, _) = handle_mailbox_get(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "a1", "ids": [&id] }),
+    )
+    .await
+    .expect("Mailbox/get after null update");
+    assert_eq!(get_resp["list"][0]["sortOrder"].as_u64(), Some(0));
+}
+
+/// Oracle: RFC 8620 §5.3 PatchObject — "null: set to the default value if
+/// specified for this property"; RFC 8621 §6: `name: String (default: "")`,
+/// `textSignature: String (default: "")`, `htmlSignature: String
+/// (default: "")`. After setting each to null, Identity/get must return "".
+#[tokio::test]
+async fn identity_set_update_string_props_null_resets_to_default() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    let (set_resp, _) = handle_identity_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "a1",
+            "create": { "c0": {
+                "name": "Eve",
+                "email": "eve@example.com",
+                "textSignature": "-- \nEve",
+                "htmlSignature": "<p>Eve</p>"
+            } }
+        }),
+    )
+    .await
+    .expect("create identity");
+    let id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("must get id")
+        .to_owned();
+
+    let (update_resp, _) = handle_identity_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "a1",
+            "update": { &id: {
+                "name": null,
+                "textSignature": null,
+                "htmlSignature": null
+            } }
+        }),
+    )
+    .await
+    .expect("update string props to null");
+    assert!(
+        update_resp["updated"]
+            .as_object()
+            .is_some_and(|m| m.contains_key(&id)),
+        "update must succeed; got: {update_resp}"
+    );
+
+    let (get_resp, _) = handle_identity_get(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "a1", "ids": [&id] }),
+    )
+    .await
+    .expect("Identity/get after null update");
+    let obj = &get_resp["list"][0];
+    assert_eq!(obj["name"].as_str(), Some(""));
+    assert_eq!(obj["textSignature"].as_str(), Some(""));
+    assert_eq!(obj["htmlSignature"].as_str(), Some(""));
+}

@@ -108,8 +108,10 @@ pub struct Chat {
     /// The `pinnedMessageIds` property (draft-atwood-jmap-chat-00 §4.10).
     pub pinned_message_ids: Vec<Id>,
     /// The `muted` property (draft-atwood-jmap-chat-00 §4.10).
+    #[serde(default)]
     pub muted: bool,
     /// The `receiveTypingIndicators` property (draft-atwood-jmap-chat-00 §4.10).
+    #[serde(default = "crate::default_true")]
     pub receive_typing_indicators: bool,
 
     /// The `contactId` property (draft-atwood-jmap-chat-00 §4.10).
