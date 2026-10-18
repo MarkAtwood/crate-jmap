@@ -27,7 +27,9 @@
 //! `/copy` call surface in the `notCreated` / `notUpdated` /
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
-use jmap_calendars_types::CalendarEvent;
+use std::collections::HashMap;
+
+use jmap_calendars_types::{CalendarEvent, ParticipantIdentity};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde_json::{json, Value};
 
@@ -228,6 +230,126 @@ pub async fn handle_calendar_event_changes<B: CalendarsBackend>(
 /// `notDestroyed` maps).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+/// draft-ietf-jmap-calendars-33 §5 `calendarIds`: "An event MUST belong to
+/// one or more Calendars at all times" and each value "MUST be true".
+fn valid_calendar_ids(ids: Option<&HashMap<Id, bool>>) -> bool {
+    ids.is_some_and(|m| !m.is_empty() && m.values().all(|v| *v))
+}
+
+/// draft-ietf-jmap-calendars-33 §5 `isOrigin`: true if, and only if, the
+/// event's `organizerCalendarAddress` is null or the account receives
+/// messages sent to it, i.e. it is one of the account's ParticipantIdentity
+/// `calendarAddress` values. On failure returns the serverFail SetError.
+// ponytail: exact URI string match, no case folding; a later change to the
+// account's identities does not recompute isOrigin on stored events.
+async fn compute_is_origin<B: CalendarsBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    organizer: Option<&str>,
+) -> Result<bool, Value> {
+    let Some(address) = organizer else {
+        return Ok(true);
+    };
+    let (identities, _) = backend
+        .get_objects::<ParticipantIdentity>(caller, account_id, None, None)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?;
+    Ok(identities.iter().any(|i| i.calendar_address == address))
+}
+
+/// Applies the server-set and invariant rules every new CalendarEvent must
+/// satisfy (create and copy): a valid `calendarIds`, and `isOrigin` set by
+/// the server, replacing any client or source value.
+async fn prepare_new_event<B: CalendarsBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    event: &mut CalendarEvent,
+) -> Result<(), Value> {
+    if !valid_calendar_ids(event.calendar_ids.as_ref()) {
+        return Err(json!({ "type": "invalidProperties", "properties": ["calendarIds"] }));
+    }
+    let organizer = event.organizer_calendar_address.as_deref();
+    event.is_origin = Some(compute_is_origin(backend, caller, account_id, organizer).await?);
+    Ok(())
+}
+
+/// Checks a CalendarEvent/set update patch against the `isOrigin` and
+/// `calendarIds` rules and, when the patch changes
+/// `organizerCalendarAddress`, adds the recomputed `isOrigin` to it.
+async fn prepare_event_patch<B: CalendarsBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+    patch: &mut serde_json::Map<String, Value>,
+) -> Result<(), Value> {
+    let invalid = |prop: &str| json!({ "type": "invalidProperties", "properties": [prop] });
+    let head = |k: &str| k.split_once('/').map_or(k, |(h, _)| h).to_owned();
+    // RFC 8620 §5.3: isOrigin is server-set, so a client may not patch it.
+    if patch.keys().any(|k| head(k) == "isOrigin") {
+        return Err(invalid("isOrigin"));
+    }
+
+    if let Some(whole) = patch.get("calendarIds") {
+        let ids = serde_json::from_value::<HashMap<Id, bool>>(whole.clone()).ok();
+        if !valid_calendar_ids(ids.as_ref()) {
+            return Err(invalid("calendarIds"));
+        }
+    } else {
+        let mut added = Vec::new();
+        let mut removed = Vec::new();
+        for (k, v) in patch.iter() {
+            let Some(cal) = k.strip_prefix("calendarIds/") else {
+                continue;
+            };
+            match v {
+                Value::Bool(true) => added.push(cal),
+                Value::Null => removed.push(cal),
+                _ => return Err(invalid("calendarIds")),
+            }
+        }
+        if !removed.is_empty() {
+            // ponytail: read-then-patch is not atomic with update_object; a
+            // concurrent update can still race the last-calendar check.
+            let (events, _) = backend
+                .get_objects::<CalendarEvent>(
+                    caller,
+                    account_id,
+                    Some(std::slice::from_ref(id)),
+                    None,
+                )
+                .await
+                .map_err(|e| server_fail_value_from_backend(&e))?;
+            // A missing event falls through so the backend reports notFound.
+            if let Some(stored) = events.first() {
+                let keeps = stored
+                    .calendar_ids
+                    .iter()
+                    .flat_map(|m| m.keys())
+                    .any(|c| !removed.contains(&c.as_ref()));
+                if !keeps && added.is_empty() {
+                    return Err(invalid("calendarIds"));
+                }
+            }
+        }
+    }
+
+    if let Some(organizer) = patch.get("organizerCalendarAddress") {
+        // A wrong-typed value is left for the typed validation to reject.
+        let organizer = match organizer {
+            Value::Null => None,
+            Value::String(s) => Some(s.clone()),
+            _ => return Ok(()),
+        };
+        let is_origin =
+            compute_is_origin(backend, caller, account_id, organizer.as_deref()).await?;
+        patch.insert("isOrigin".to_owned(), Value::Bool(is_origin));
+    }
+    Ok(())
+}
+
 pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -324,7 +446,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 }
                 other => other,
             };
-            let event: CalendarEvent = match serde_json::from_value(obj_with_id) {
+            let mut event: CalendarEvent = match serde_json::from_value(obj_with_id) {
                 Ok(e) => e,
                 Err(e) => {
                     not_created.insert(
@@ -334,6 +456,10 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                     continue;
                 }
             };
+            if let Err(err) = prepare_new_event(backend, caller, &account_id, &mut event).await {
+                not_created.insert(create_id, err);
+                continue;
+            }
             match backend
                 .create_calendar_event(caller, &account_id, &create_id, event, &set_args)
                 .await
@@ -368,7 +494,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     }
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch_val) in update_map {
+        for (id_str, mut patch_val) in update_map {
             // §5.9: patch cannot contain both utcStart and start, or both
             // utcEnd and duration.
             let has_utc_start = patch_val.get("utcStart").is_some_and(|v| !v.is_null());
@@ -393,6 +519,14 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
 
             // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
             let id = Id::from(id_str.as_str());
+
+            if let Some(map) = patch_val.as_object_mut() {
+                if let Err(err) = prepare_event_patch(backend, caller, &account_id, &id, map).await
+                {
+                    not_updated.insert(id_str, err);
+                    continue;
+                }
+            }
 
             // §5.4: if every top-level patch key is a per-user property,
             // route to update_per_user_properties so the backend can store
@@ -698,7 +832,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
             }
             merged.remove("id");
 
-            let event: CalendarEvent = match serde_json::from_value(Value::Object(merged)) {
+            let mut event: CalendarEvent = match serde_json::from_value(Value::Object(merged)) {
                 Ok(e) => e,
                 Err(e) => {
                     not_created.insert(
@@ -708,6 +842,10 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                     continue;
                 }
             };
+            if let Err(err) = prepare_new_event(backend, caller, &account_id, &mut event).await {
+                not_created.insert(create_id, err);
+                continue;
+            }
 
             match backend
                 .create_object::<CalendarEvent>(caller, &account_id, &create_id, event)
