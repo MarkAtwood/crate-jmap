@@ -728,6 +728,44 @@ pub async fn handle_message_set<B: ChatBackend>(
                 continue;
             }
 
+            // draft-atwood-jmap-chat-00 §Deleting a Message: servers MUST
+            // reject `deletedForAll: true` when `senderId` is not "self".
+            // A missing target falls through to the normal `notFound` from
+            // `update_object`.
+            let deletes_for_all =
+                patch_val.get("deletedForAll").and_then(|v| v.as_bool()) == Some(true);
+            if deletes_for_all {
+                match backend
+                    .get_objects::<Message>(
+                        caller,
+                        &account_id,
+                        Some(std::slice::from_ref(&id)),
+                        None,
+                    )
+                    .await
+                {
+                    Ok((found, _not_found)) => {
+                        if found
+                            .first()
+                            .is_some_and(|m| m.sender_id != SenderId::Owner)
+                        {
+                            not_updated.insert(
+                                id_str,
+                                json!({
+                                    "type": "forbidden",
+                                    "description": "deletedForAll is only permitted on messages whose senderId is \"self\"",
+                                }),
+                            );
+                            continue;
+                        }
+                    }
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                }
+            }
+
             // Build augmented patch with server-side timestamps.
             let mut augmented = patch_val;
             if augmented.get("body").is_some() {
@@ -737,11 +775,16 @@ pub async fn handle_message_set<B: ChatBackend>(
             }
             // draft-atwood-jmap-chat-00 §Message deletedAt: a deleted
             // Message has an empty `body`, empty `attachments`, and no
-            // `editHistory`. The merge-patch null purges the stored revisions
-            // rather than merely hiding them.
-            if augmented.get("deletedForAll").and_then(|v| v.as_bool()) == Some(true) {
+            // `editHistory`, whether the deletion is local or for all. The
+            // merge-patch null purges the stored revisions rather than
+            // merely hiding them.
+            let deletes =
+                deletes_for_all || augmented.get("deletedAt").is_some_and(|v| !v.is_null());
+            if deletes {
                 if let Some(obj) = augmented.as_object_mut() {
-                    obj.insert("deletedAt".to_owned(), json!(now_utc_string()));
+                    if deletes_for_all {
+                        obj.insert("deletedAt".to_owned(), json!(now_utc_string()));
+                    }
                     obj.insert("body".to_owned(), json!(""));
                     obj.insert("attachments".to_owned(), json!([]));
                     obj.insert("editHistory".to_owned(), Value::Null);
