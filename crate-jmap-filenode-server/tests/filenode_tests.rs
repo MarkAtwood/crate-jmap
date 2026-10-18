@@ -2504,6 +2504,44 @@ async fn filenode_set_update_rejects_other_type_pointer_key() {
     assert_eq!(err["properties"], json!(["mediaType"]), "{resp}");
 }
 
+// Oracle: RFC 8620 §5.3 — "All parts prior to the last ... MUST already
+// exist on the object being patched", else the update "MUST be rejected
+// with an "invalidPatch" error". A Directory has no mediaType, so a null
+// pointer patch into it is invalidPatch; the draft-ietf-jmap-filenode-16
+// §3.1 ignore rule covers only a null value for the property itself (the
+// control). Regression for bd JMAP-4vf8.18.
+#[tokio::test]
+async fn filenode_set_update_null_other_type_pointer_key_is_invalid_patch() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let ptr_id = create_node(&backend, "acc1", "p", None, "p").await;
+    let ctl_id = create_node(&backend, "acc1", "c", None, "c").await;
+
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "update": {
+                &ptr_id: { "mediaType/x": null },
+                &ctl_id: { "mediaType": null }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert_eq!(
+        resp["notUpdated"][&ptr_id]["type"], "invalidPatch",
+        "{resp}"
+    );
+    assert!(
+        resp["updated"]
+            .as_object()
+            .is_some_and(|m| m.contains_key(&ctl_id)),
+        "plain null must be ignored: {resp}"
+    );
+}
+
 // Oracle: draft-ietf-jmap-filenode-16 §3.1.1 — "@type: "String"
 // (immutable) ... Attempting to change @type after creation is an
 // "invalidProperties" error." Regression for bd JMAP-4vf8.16.
