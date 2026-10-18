@@ -499,8 +499,8 @@ fn json_merge_patch_inner(
     Ok(())
 }
 
-/// Error returned by [`apply_jmap_patch`] when a PatchObject path cannot
-/// be applied.
+/// Error returned by [`apply_jmap_patch`] and [`apply_patch_object`] when
+/// a PatchObject cannot be applied.
 ///
 /// Every variant is an RFC 8620 §5.3 violation for which "the update
 /// MUST be rejected with an "invalidPatch" error". Callers SHOULD map
@@ -524,16 +524,33 @@ pub enum PatchPathError {
     /// A `~` in the path is not followed by `0` or `1`, so the path is
     /// not a valid RFC 6901 JSON Pointer.
     InvalidEscape,
+    /// The pointer of one patch is a prefix of the pointer of another in
+    /// the same PatchObject (e.g. `"alerts/1/offset"` and `"alerts"`).
+    PrefixConflict,
+    /// The path's segment count plus the value's object/array nesting
+    /// exceeds the crate's `MAX_MERGE_PATCH_DEPTH` DoS-guard cap.
+    ///
+    /// Not an RFC 8620 §5.3 rule: it is this crate's server limit
+    /// (RFC 8620 §3.6.1 lets a server reject requests that exceed its
+    /// limits), so repeated path patches cannot grow a stored value's
+    /// depth without bound. It is still reported as invalidPatch.
+    DepthExceeded,
 }
 
 impl std::fmt::Display for PatchPathError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Self::ParentMissing => "patch path parent does not exist",
-            Self::InsideArray => "patch path references inside an array",
-            Self::ParentNotObject => "patch path parent is not an object",
-            Self::InvalidEscape => "patch path has a '~' not followed by '0' or '1'",
-        })
+        match self {
+            Self::ParentMissing => f.write_str("patch path parent does not exist"),
+            Self::InsideArray => f.write_str("patch path references inside an array"),
+            Self::ParentNotObject => f.write_str("patch path parent is not an object"),
+            Self::InvalidEscape => f.write_str("patch path has a '~' not followed by '0' or '1'"),
+            Self::PrefixConflict => {
+                f.write_str("patch has a path that is a prefix of another path")
+            }
+            Self::DepthExceeded => {
+                write!(f, "patch nesting exceeds {MAX_MERGE_PATCH_DEPTH} levels")
+            }
+        }
     }
 }
 
@@ -556,8 +573,9 @@ impl std::error::Error for PatchPathError {}
 /// Empty tokens are legal: RFC 6901 §3 allows a zero-length
 /// `reference-token`, and its §5 example evaluates `"/"` to the member
 /// named `""`. The RFC 8620 §5.3 "null sets the property default" rule
-/// is type-specific and left to the caller, as is the rule that no two
-/// pointers in one PatchObject may be prefixes of each other.
+/// is type-specific and left to the caller. The rule that no two pointers
+/// in one PatchObject may be prefixes of each other is checked by
+/// [`apply_patch_object`].
 ///
 /// # Errors
 ///
@@ -565,21 +583,30 @@ impl std::error::Error for PatchPathError {}
 /// ([`ParentMissing`](PatchPathError::ParentMissing)), is an array
 /// ([`InsideArray`](PatchPathError::InsideArray)) or is another
 /// non-object value ([`ParentNotObject`](PatchPathError::ParentNotObject)),
-/// or when `path` contains an invalid escape
-/// ([`InvalidEscape`](PatchPathError::InvalidEscape)).
+/// when `path` contains an invalid escape
+/// ([`InvalidEscape`](PatchPathError::InvalidEscape)), or when the
+/// number of `/`-separated segments in `path` plus the object/array
+/// nesting of `value` (a scalar nests 0 levels) exceeds the crate's
+/// `MAX_MERGE_PATCH_DEPTH` DoS-guard cap
+/// ([`DepthExceeded`](PatchPathError::DepthExceeded)).
 ///
 /// # Mutation contract
 ///
 /// A single call is all-or-nothing: on `Err`, `target` is unchanged.
 /// A PatchObject has several entries, and an error on a later entry
 /// does not undo earlier ones, so callers applying a whole PatchObject
-/// MUST apply it to a clone of the stored object and persist the clone
-/// only when every entry returns `Ok(())`.
+/// MUST use [`apply_patch_object`].
 pub fn apply_jmap_patch(
     target: &mut Map<String, Value>,
     path: &str,
     value: Value,
 ) -> Result<(), PatchPathError> {
+    let segments = path.split('/').count();
+    if segments > MAX_MERGE_PATCH_DEPTH
+        || nests_deeper_than(&value, MAX_MERGE_PATCH_DEPTH - segments)
+    {
+        return Err(PatchPathError::DepthExceeded);
+    }
     let (parents, leaf) = match path.rsplit_once('/') {
         Some((parents, leaf)) => (Some(parents), leaf),
         None => (None, path),
@@ -600,6 +627,59 @@ pub fn apply_jmap_patch(
         parent.insert(leaf.into_owned(), value);
     }
     Ok(())
+}
+
+/// Apply a whole RFC 8620 §5.3 PatchObject to `target`.
+///
+/// Each entry is applied with [`apply_jmap_patch`]. The value at each
+/// pointer is set as given: a top-level key such as `"name"` replaces that
+/// property wholesale, with no nested merge of object values (RFC 8620
+/// §5.3: "The value to set for this property").
+///
+/// # Errors
+///
+/// Returns [`PatchPathError::PrefixConflict`] when the decoded pointer of
+/// one key is a whole-segment prefix of another (`"alerts"` and
+/// `"alerts/1/offset"` conflict; `"alert"` and `"alerts/x"` do not), and
+/// otherwise any error [`apply_jmap_patch`] returns for an entry.
+///
+/// # Mutation contract
+///
+/// All-or-nothing: on `Err`, `target` is unchanged.
+pub fn apply_patch_object(
+    target: &mut Map<String, Value>,
+    patch: &Map<String, Value>,
+) -> Result<(), PatchPathError> {
+    let mut pointers = patch
+        .keys()
+        .map(|k| {
+            k.split('/')
+                .map(decode_pointer_token)
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    // Sorted, a pointer that prefixes any other also prefixes its successor.
+    pointers.sort_unstable();
+    if pointers.windows(2).any(|w| w[1].starts_with(&w[0])) {
+        return Err(PatchPathError::PrefixConflict);
+    }
+    let mut patched = target.clone();
+    for (path, value) in patch {
+        apply_jmap_patch(&mut patched, path, value.clone())?;
+    }
+    *target = patched;
+    Ok(())
+}
+
+/// Whether `value` nests objects or arrays more than `limit` levels deep
+/// (a scalar nests 0 levels). Recursion is bounded by `limit`, not by the
+/// input.
+fn nests_deeper_than(value: &Value, limit: usize) -> bool {
+    match value {
+        Value::Object(map) => limit == 0 || map.values().any(|v| nests_deeper_than(v, limit - 1)),
+        Value::Array(items) => limit == 0 || items.iter().any(|v| nests_deeper_than(v, limit - 1)),
+        _ => false,
+    }
 }
 
 /// Decode one RFC 6901 reference token: `~1` → `/`, then `~0` → `~`
@@ -782,9 +862,9 @@ pub fn enforce_max_objects_in_set(args: &Map<String, Value>, max: u64) -> Result
 #[cfg(test)]
 mod tests {
     use super::{
-        apply_jmap_patch, civil_from_days, enforce_max_objects_in_set, extract_account_id,
-        json_merge_patch, now_utc_string, resolve_query_offset, MergePatchError, PatchPathError,
-        MAX_MERGE_PATCH_DEPTH,
+        apply_jmap_patch, apply_patch_object, civil_from_days, enforce_max_objects_in_set,
+        extract_account_id, json_merge_patch, now_utc_string, resolve_query_offset,
+        MergePatchError, PatchPathError, MAX_MERGE_PATCH_DEPTH,
     };
     use serde_json::json;
 
@@ -1345,6 +1425,95 @@ mod tests {
             json!(1),
             PatchPathError::ParentMissing,
         );
+    }
+
+    // ------------------------------------------------------------------
+    // apply_patch_object (RFC 8620 §5.3 whole PatchObject)
+    // ------------------------------------------------------------------
+
+    /// Oracle: RFC 8620 §5.3 — "There MUST NOT be two patches in the
+    /// PatchObject where the pointer of one is the prefix of the pointer
+    /// of the other, e.g., "alerts/1/offset" and "alerts""; on violation
+    /// "the update MUST be rejected with an "invalidPatch" error".
+    #[test]
+    fn apply_patch_object_prefix_conflict_is_rejected() {
+        let before = json!({ "alerts": { "1": { "offset": 0 } } });
+        let mut target = obj(before.clone());
+        let patch = obj(json!({ "alerts/1/offset": 5, "alerts": {} }));
+        let err = apply_patch_object(&mut target, &patch).expect_err("must be rejected");
+        assert_eq!(err, PatchPathError::PrefixConflict);
+        assert_eq!(serde_json::Value::Object(target), before);
+    }
+
+    /// Oracle: RFC 8620 §5.3 forbids only a pointer that is "the prefix of
+    /// the pointer of the other"; JSON Pointers are compared by reference
+    /// token (RFC 6901 §3), so "alert" is not a prefix of "alerts/x".
+    #[test]
+    fn apply_patch_object_near_prefix_is_accepted() {
+        let mut target = obj(json!({ "alerts": {} }));
+        let patch = obj(json!({ "alert": 1, "alerts/x": 2 }));
+        apply_patch_object(&mut target, &patch).expect("no prefix conflict");
+        assert_eq!(
+            serde_json::Value::Object(target),
+            json!({ "alert": 1, "alerts": { "x": 2 } })
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.3 — "if there is any violation, the update MUST
+    /// be rejected"; the valid entry "a" must not be applied either.
+    #[test]
+    fn apply_patch_object_partial_failure_leaves_target_unchanged() {
+        let before = json!({ "a": 1 });
+        let mut target = obj(before.clone());
+        let patch = obj(json!({ "a": 2, "m/k": 1 }));
+        let err = apply_patch_object(&mut target, &patch).expect_err("must be rejected");
+        assert_eq!(err, PatchPathError::ParentMissing);
+        assert_eq!(serde_json::Value::Object(target), before);
+    }
+
+    /// A value nesting `levels` objects deep (`0` is the scalar `1`).
+    fn nested(levels: usize) -> serde_json::Value {
+        (0..levels).fold(json!(1), |inner, _| json!({ "k": inner }))
+    }
+
+    /// Oracle: this crate's DoS guard, not an RFC 8620 §5.3 rule (RFC 8620
+    /// §3.6.1 lets a server reject requests beyond its limits). Path
+    /// segments plus value nesting may not exceed `MAX_MERGE_PATCH_DEPTH`
+    /// (32): 3 + 30 = 33 is rejected before any entry is applied.
+    #[test]
+    fn apply_patch_object_path_plus_value_over_depth_cap_is_rejected() {
+        let before = json!({ "x": 1, "a": { "b": {} } });
+        let mut target = obj(before.clone());
+        let patch = obj(json!({ "x": 2, "a/b/c": nested(30) }));
+        let err = apply_patch_object(&mut target, &patch).expect_err("must be rejected");
+        assert_eq!(err, PatchPathError::DepthExceeded);
+        assert_eq!(serde_json::Value::Object(target), before);
+    }
+
+    /// Oracle: the crate's DoS guard rejects only depth beyond
+    /// `MAX_MERGE_PATCH_DEPTH`; exactly 3 segments + 29 levels = 32 applies.
+    #[test]
+    fn apply_patch_object_path_plus_value_at_depth_cap_applies() {
+        let mut target = obj(json!({ "a": { "b": {} } }));
+        let patch = obj(json!({ "a/b/c": nested(29) }));
+        apply_patch_object(&mut target, &patch).expect("at the cap must apply");
+        assert_eq!(
+            serde_json::Value::Object(target),
+            json!({ "a": { "b": { "c": nested(29) } } })
+        );
+    }
+
+    /// Oracle: the crate's DoS guard; a key of 33 segments exceeds
+    /// `MAX_MERGE_PATCH_DEPTH` even with a scalar value.
+    #[test]
+    fn apply_patch_object_path_over_depth_cap_is_rejected() {
+        let before = json!({ "a": {} });
+        let mut target = obj(before.clone());
+        let path = format!("a{}", "/k".repeat(32));
+        let patch = obj(json!({ path: 1 }));
+        let err = apply_patch_object(&mut target, &patch).expect_err("must be rejected");
+        assert_eq!(err, PatchPathError::DepthExceeded);
+        assert_eq!(serde_json::Value::Object(target), before);
     }
 
     // ------------------------------------------------------------------

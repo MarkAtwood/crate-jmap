@@ -58,7 +58,7 @@ use crate::{
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_filenode_types::{FileNode, NodeRole, NodeType};
-use jmap_server::apply_jmap_patch;
+use jmap_server::apply_patch_object;
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -689,13 +689,11 @@ impl FileNodeBackend for MemoryBackend {
         })?;
 
         if let (Some(obj), Some(patch_obj)) = (node_val.as_object_mut(), patch_val.as_object()) {
-            for (k, v) in patch_obj {
-                apply_jmap_patch(obj, k, v.clone()).map_err(|e| {
-                    BackendSetError::SetError(
-                        SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-                    )
-                })?;
-            }
+            apply_patch_object(obj, patch_obj).map_err(|e| {
+                BackendSetError::SetError(
+                    SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+                )
+            })?;
         }
 
         let updated_node: FileNode = serde_json::from_value(node_val).map_err(|e| {

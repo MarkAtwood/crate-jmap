@@ -121,3 +121,29 @@ async fn null_pointer_through_absent_key_is_invalid_patch() {
     )
     .await;
 }
+
+/// Oracle: RFC 8620 §5.3 — "There MUST NOT be two patches in the
+/// PatchObject where the pointer of one is the prefix of the pointer of
+/// the other, e.g., "alerts/1/offset" and "alerts"".
+///
+/// The "shareWith" value keeps "existing", so each entry alone would
+/// apply; only the prefix rule rejects the pair.
+#[tokio::test]
+async fn prefix_conflicting_pointers_are_invalid_patch() {
+    let existing = json!({
+        "mayRead": true,
+        "mayAddChildren": false,
+        "mayRename": false,
+        "mayDelete": false,
+        "mayModifyContent": false,
+        "mayShare": false
+    });
+    assert_invalid_patch(
+        json!({
+            "shareWith": { "existing": existing },
+            "shareWith/existing/mayShare": true
+        }),
+        json!({ "shareWith/existing/mayShare": true }),
+    )
+    .await;
+}

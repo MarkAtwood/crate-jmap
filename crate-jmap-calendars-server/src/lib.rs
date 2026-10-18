@@ -288,8 +288,9 @@ pub(crate) mod test_support {
     use std::sync::{Arc, Mutex};
 
     use jmap_server::{
-        BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend, JmapObject,
-        QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+        apply_patch_object, BackendChangesError, BackendSetError, ChangesResult, GetObject,
+        JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError,
+        SetErrorType, SetObject,
     };
     use jmap_types::{Id, State};
 
@@ -710,9 +711,8 @@ pub(crate) mod test_support {
                     SetErrorType::Forbidden,
                 )));
             }
-            // Apply a JMAP PatchObject (RFC 8620 §5.3): top-level keys may
-            // contain "/" separators denoting nested paths, and a value of
-            // null at a leaf removes that leaf.
+            // Apply a JMAP PatchObject (RFC 8620 §5.3) all-or-nothing via the
+            // shared `apply_patch_object`: keys are JSON Pointer paths.
             let patch_val: serde_json::Value = serde_json::to_value(&patch).map_err(|e| {
                 BackendSetError::Other(MockError(format!("patch serialize failed: {e}")))
             })?;
@@ -727,7 +727,7 @@ pub(crate) mod test_support {
                     SetErrorType::NotFound,
                 )));
             };
-            let Some(stored) = store.get_mut(id) else {
+            let Some(stored) = store.get_mut(id).and_then(serde_json::Value::as_object_mut) else {
                 return Err(BackendSetError::SetError(SetError::new(
                     SetErrorType::NotFound,
                 )));
@@ -737,9 +737,11 @@ pub(crate) mod test_support {
                     SetErrorType::InvalidPatch,
                 )));
             };
-            for (path, value) in patch_map {
-                apply_patch_path(stored, path, value);
-            }
+            apply_patch_object(stored, patch_map).map_err(|e| {
+                BackendSetError::SetError(
+                    SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+                )
+            })?;
             // Echo None: this mock does not surface server-set property deltas.
             Ok(None)
         }
@@ -972,37 +974,6 @@ pub(crate) mod test_support {
                 new_default: Some(identity_id.clone()),
                 previous_default: previous,
             })
-        }
-    }
-
-    /// Apply a single JMAP PatchObject path to a stored JSON object.
-    ///
-    /// `path` is a "/"-separated sequence of property names per RFC 8620 §5.3.
-    /// A `null` value at the leaf removes that leaf (PatchObject semantics);
-    /// any other value sets it. Missing intermediate objects are created.
-    /// Used only by MockBackend to support the onDestroyRemoveEvents test path.
-    fn apply_patch_path(target: &mut serde_json::Value, path: &str, value: &serde_json::Value) {
-        let parts: Vec<&str> = path.split('/').collect();
-        let mut cursor = target;
-        // Walk to the parent of the leaf, creating intermediate objects as needed.
-        for part in &parts[..parts.len().saturating_sub(1)] {
-            if !cursor.is_object() {
-                *cursor = serde_json::Value::Object(serde_json::Map::new());
-            }
-            let map = cursor.as_object_mut().expect("cursor is object");
-            cursor = map
-                .entry((*part).to_owned())
-                .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
-        }
-        let leaf_key = parts.last().copied().unwrap_or("");
-        if !cursor.is_object() {
-            *cursor = serde_json::Value::Object(serde_json::Map::new());
-        }
-        let map = cursor.as_object_mut().expect("cursor is object");
-        if value.is_null() {
-            map.remove(leaf_key);
-        } else {
-            map.insert(leaf_key.to_owned(), value.clone());
         }
     }
 }

@@ -661,16 +661,11 @@ async fn cascade_address_book_contents<B: ContactsBackend>(
                     })
                 })?;
         } else {
-            // Card is shared with other books: patch addressBookIds to
-            // null out only this entry. RFC 7396 merge patch semantics
-            // (the workspace /set update model): `{"addressBookIds":
-            // {"<book>": null}}` removes the key from the nested map
-            // while leaving sibling entries intact.
+            // Card is shared with other books: PatchObject path
+            // "addressBookIds/<id>" = null removes only this entry from the
+            // addressBookIds map (RFC 8620 §5.3).
             let mut patch_map = serde_json::Map::new();
-            patch_map.insert(
-                "addressBookIds".to_owned(),
-                json!({ book_id.as_ref(): Value::Null }),
-            );
+            patch_map.insert(format!("addressBookIds/{}", book_id.as_ref()), Value::Null);
             backend
                 .update_object::<ContactCard>(
                     caller,

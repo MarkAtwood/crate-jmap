@@ -38,7 +38,7 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
     SetAccumulators,
 };
-use jmap_server::{apply_jmap_patch, server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{apply_patch_object, server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
 // ContactCard/get
@@ -475,10 +475,10 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
 
             // Apply any patch fields from the copy spec (RFC 8620 §6.3).
             // Keys are RFC 8620 §5.3 PatchObject paths; a path the shared
-            // `apply_jmap_patch` rejects surfaces as invalidPatch.
+            // `apply_patch_object` rejects surfaces as invalidPatch.
             //
             // serialize-roundtrip-then-patch: serialize the source card to
-            // JSON, mutate the JSON via apply_jmap_patch, then deserialize
+            // JSON, mutate the JSON via apply_patch_object, then deserialize
             // back to ContactCard. Failure to deserialize the patched JSON
             // signals that the patch produced a structurally invalid card
             // (e.g. wrong type for a typed field); surface as an
@@ -488,11 +488,9 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                 let mut card_val = serde_json::to_value(&card)
                     .expect("derive(Serialize) on plain data is infallible");
                 if let Value::Object(ref mut merged_map) = card_val {
-                    let applied = spec_obj
-                        .iter()
-                        .filter(|(k, _)| k.as_str() != "id")
-                        .try_for_each(|(k, v)| apply_jmap_patch(merged_map, k, v.clone()));
-                    if let Err(e) = applied {
+                    let mut patch = spec_obj.clone();
+                    patch.remove("id");
+                    if let Err(e) = apply_patch_object(merged_map, &patch) {
                         not_copied.insert(
                             create_id,
                             json!({ "type": "invalidPatch", "description": e.to_string() }),

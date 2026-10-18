@@ -60,13 +60,8 @@ use crate::{
     JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
     SetObject,
 };
-// json_merge_patch lives in jmap-server (the shared foundation crate)
-// since bd:JMAP-sc1b.103. Every reference backend imports it; the
-// canonical RFC 7396 tests live with the function there (including the
-// bd:JMAP-sc1b.97 depth-cap and bd:JMAP-sc1b.87 absent-field regression
-// tests).
 use jmap_contacts_types::ContactCardFilterCondition;
-use jmap_server::{json_merge_patch, resolve_query_offset, MergePatchError};
+use jmap_server::{apply_patch_object, resolve_query_offset};
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -967,7 +962,7 @@ impl ContactsBackend for MemoryBackend {
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_properties(["addressBookIds"])
                     .with_description(
-                        "ContactCard must have at least one entry in addressBookIds \
+                        "ContactCard addressBookIds must map at least one id, each to true \
                          (RFC 9610 §3)",
                     ),
             ));
@@ -1072,21 +1067,27 @@ impl ContactsBackend for MemoryBackend {
         };
         let mut current = old_value.clone();
 
-        // Apply JSON Merge Patch (RFC 7396). A `MergePatchError::DepthExceeded`
-        // return (bd:JMAP-wlip.1) surfaces as `SetErrorType::InvalidPatch` —
-        // the depth cap is a DoS guard, never fires on legitimate JMAP `/set
-        // update` shapes. `current` is a clone of the stored value, so a
-        // partially-applied patch on error is discarded with the local
-        // without touching storage.
+        // JMAP patch (RFC 8620 §5.3): keys are JSON Pointer paths (e.g.
+        // "addressBookIds/ab2"), applied all-or-nothing by the shared
+        // `apply_patch_object`, so an invalidPatch leaves storage unchanged.
+        // The helper also enforces the nesting cap (bd:JMAP-wlip.1) on path
+        // plus value depth.
         let patch_val = serde_json::to_value(&patch).map_err(|e| {
             BackendSetError::Other(MemoryError::new(format!("serialize patch: {e}")))
         })?;
-        if let Err(MergePatchError::DepthExceeded) = json_merge_patch(&mut current, patch_val) {
-            return Err(BackendSetError::SetError(
-                SetError::new(SetErrorType::InvalidPatch)
-                    .with_description("patch nesting exceeds server limit"),
+        let invalid_patch = |description: String| {
+            BackendSetError::SetError(
+                SetError::new(SetErrorType::InvalidPatch).with_description(description),
+            )
+        };
+        let (serde_json::Value::Object(target), serde_json::Value::Object(patch_map)) =
+            (&mut current, &patch_val)
+        else {
+            return Err(invalid_patch(
+                "patch and stored object must be JSON objects".into(),
             ));
-        }
+        };
+        apply_patch_object(target, patch_map).map_err(|e| invalid_patch(e.to_string()))?;
 
         // RFC 9610 §3: a ContactCard MUST belong to at least one
         // AddressBook at all times. Reject the update if the post-patch
@@ -1098,7 +1099,7 @@ impl ContactsBackend for MemoryBackend {
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_properties(["addressBookIds"])
                     .with_description(
-                        "ContactCard must have at least one entry in addressBookIds \
+                        "ContactCard addressBookIds must map at least one id, each to true \
                          (RFC 9610 §3)",
                     ),
             ));
@@ -1627,12 +1628,13 @@ fn json_contains_substring_recursive(v: &serde_json::Value, needle: &str) -> boo
 }
 
 /// Check whether a serialized ContactCard's `addressBookIds` field is
-/// present and non-empty (RFC 9610 §3 invariant: a card MUST belong to
-/// at least one AddressBook at all times).
+/// present, non-empty and maps every id to `true` (RFC 9610 §3: a card
+/// MUST belong to at least one AddressBook at all times, and "The value
+/// for each key in the object MUST be true").
 fn contact_card_has_address_book_ids(card: &serde_json::Value) -> bool {
     card.get("addressBookIds")
         .and_then(|v| v.as_object())
-        .is_some_and(|m| !m.is_empty())
+        .is_some_and(|m| !m.is_empty() && m.values().all(|v| v == &serde_json::Value::Bool(true)))
 }
 
 /// True iff the serialized AddressBook value has `isDefault: true`.
