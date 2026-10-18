@@ -2477,3 +2477,63 @@ async fn filenode_set_update_ignores_null_other_type_properties() {
         "{resp}"
     );
 }
+
+// Oracle: draft-ietf-jmap-filenode-16 §3.1 as above; RFC 8620 §5.3 — a
+// JSON-pointer patch key patches the property named by its first segment.
+// Regression for bd JMAP-4vf8.15: the pointer key bypassed the other-type
+// check and ended as serverFail.
+#[tokio::test]
+async fn filenode_set_update_rejects_other_type_pointer_key() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
+
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "update": { &dir_id: { "mediaType/x": "text/plain" } }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(resp["updated"].is_null(), "nothing may be updated: {resp}");
+    let err = &resp["notUpdated"][&dir_id];
+    assert_eq!(err["type"], "invalidProperties", "{resp}");
+    assert_eq!(err["properties"], json!(["mediaType"]), "{resp}");
+}
+
+// Oracle: draft-ietf-jmap-filenode-16 §3.1.1 — "@type: "String"
+// (immutable) ... Attempting to change @type after creation is an
+// "invalidProperties" error." Regression for bd JMAP-4vf8.16.
+#[tokio::test]
+async fn filenode_set_update_rejects_type_change() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
+
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "update": { &dir_id: { "@type": "SymLink" } }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(resp["updated"].is_null(), "nothing may be updated: {resp}");
+    let err = &resp["notUpdated"][&dir_id];
+    assert_eq!(err["type"], "invalidProperties", "{resp}");
+    assert_eq!(err["properties"], json!(["@type"]), "{resp}");
+
+    let (g_resp, _) = handle_filenode_get(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": [&dir_id], "properties": ["@type"] }),
+    )
+    .await
+    .expect("get must succeed");
+    assert_eq!(g_resp["list"][0]["@type"], "Directory", "{g_resp}");
+}

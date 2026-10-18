@@ -337,7 +337,7 @@ creation; the server does not infer it. The handler rejects a create with `@type
 absent or null with `invalidProperties` (`properties: ["@type"]`), and rejects an
 `@type` outside `supportedNodeTypes` the same way, so the backend always receives
 an explicit `@type`. The File content type is `mediaType` (renamed from `type` in
--16); the query filter and sort property keep the name `nodeType` (§3.2.5).
+-15); the query filter and sort property keep the name `nodeType` (§3.2.5).
 
 ### 9. size is server-set on create and on blobId update
 

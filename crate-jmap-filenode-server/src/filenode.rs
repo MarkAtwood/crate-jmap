@@ -756,14 +756,20 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             // draft-ietf-jmap-filenode-16 §3.1: setting a property not
             // defined for the node's @type to a non-null value is
             // invalidProperties; a null value is ignored. The stored node
-            // is fetched only when the patch sets a type-specific property.
+            // is fetched only when the patch sets a type-specific property
+            // or @type. A JSON-pointer key ("mediaType/x") patches the
+            // property named by its first segment (RFC 8620 §5.3).
             let typed: Vec<(&str, NodeType)> = patch
                 .as_map()
                 .iter()
                 .filter(|(_, v)| !v.is_null())
-                .filter_map(|(k, _)| property_owner(k).map(|owner| (k.as_str(), owner)))
+                .filter_map(|(k, _)| {
+                    let prop = k.split_once('/').map_or(k.as_str(), |(head, _)| head);
+                    property_owner(prop).map(|owner| (prop, owner))
+                })
                 .collect();
-            if !typed.is_empty() {
+            let type_patch = patch.as_map().get("@type");
+            if !typed.is_empty() || type_patch.is_some() {
                 let stored = match backend
                     .get_objects::<FileNode>(
                         caller,
@@ -782,6 +788,19 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 // A missing node falls through so update_object reports
                 // notFound.
                 if let Some(node) = stored {
+                    // §3.1.1: changing @type after creation is
+                    // invalidProperties.
+                    if type_patch.is_some_and(|t| *t != json!(node.node_type)) {
+                        not_updated.insert(
+                            id_str,
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": ["@type"],
+                                "description": "@type is immutable",
+                            }),
+                        );
+                        continue;
+                    }
                     let bad: Vec<&str> = typed
                         .iter()
                         .filter(|(_, owner)| node.node_type.as_ref() != Some(owner))
