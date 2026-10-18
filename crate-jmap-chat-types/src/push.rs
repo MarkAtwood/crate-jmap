@@ -112,9 +112,19 @@ pub struct ChatMessageEntry {
     /// The `sentAt` property (draft-atwood-jmap-chat-push-00 §5.2).
     pub sent_at: UTCDate,
     /// The `hasMention` property (draft-atwood-jmap-chat-push-00 §5.2).
-    pub has_mention: bool,
-    /// The `hasMentionAll` property (draft-atwood-jmap-chat-push-00 §5.2).
-    pub has_mention_all: bool,
+    ///
+    /// Per spec, this field MUST be `None` when `encrypted` is `true`:
+    /// mentions are inside the ciphertext, so the server cannot know.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub has_mention: Option<bool>,
+    /// The `mentionScopes` property (draft-atwood-jmap-chat-push-00 §5.2).
+    ///
+    /// Broadcast scopes (see [`crate::BROADCAST_MENTION_SCOPES`]) by which
+    /// the account owner was targeted. Typed as `String` for the same
+    /// forward-compat reason as [`crate::BroadcastMention::scope`]. Per
+    /// spec, this field MUST be `None` when `encrypted` is `true`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mention_scopes: Option<Vec<String>>,
     /// The `encrypted` property (draft-atwood-jmap-chat-push-00 §5.2).
     pub encrypted: bool,
 
@@ -280,7 +290,7 @@ impl ChatMessageEntry {
         sender_id: SenderId,
         sent_at: UTCDate,
         has_mention: bool,
-        has_mention_all: bool,
+        mention_scopes: Vec<String>,
         body_snippet: Option<impl Into<String>>,
     ) -> Self {
         Self {
@@ -289,8 +299,8 @@ impl ChatMessageEntry {
             chat_kind,
             sender_id,
             sent_at,
-            has_mention,
-            has_mention_all,
+            has_mention: Some(has_mention),
+            mention_scopes: Some(mention_scopes),
             encrypted: false,
             body_snippet: body_snippet.map(Into::into),
             chat_name: None,
@@ -303,8 +313,9 @@ impl ChatMessageEntry {
 
     /// Construct an encrypted [`ChatMessageEntry`] for push delivery.
     ///
-    /// Sets `encrypted = true` and `body_snippet = None`. The spec forbids
-    /// body content in encrypted push entries; this constructor makes the
+    /// Sets `encrypted = true` and leaves `body_snippet`, `has_mention`, and
+    /// `mention_scopes` as `None`. The spec forbids body content and mention
+    /// information in encrypted push entries; this constructor makes the
     /// invariant impossible to violate.
     pub fn encrypted(
         message_id: Id,
@@ -312,8 +323,6 @@ impl ChatMessageEntry {
         chat_kind: ChatKind,
         sender_id: SenderId,
         sent_at: UTCDate,
-        has_mention: bool,
-        has_mention_all: bool,
     ) -> Self {
         Self {
             message_id,
@@ -321,8 +330,8 @@ impl ChatMessageEntry {
             chat_kind,
             sender_id,
             sent_at,
-            has_mention,
-            has_mention_all,
+            has_mention: None,
+            mention_scopes: None,
             encrypted: true,
             body_snippet: None,
             chat_name: None,
@@ -342,7 +351,7 @@ mod tests {
     // Asserts field mapping (camelCase → snake_case) and nested entry fields.
     #[test]
     fn push_deser_full() {
-        let json = r#"{"@type":"ChatMessagePush","accountId":"u1","state":"d35ecb040aab","messages":[{"messageId":"msg1","chatId":"c1","chatKind":"channel","chatName":"general","spaceId":"sp1","spaceName":"ACME","senderId":"alice","senderDisplayName":"Alice","sentAt":"2026-04-26T14:32:00Z","hasMention":true,"hasMentionAll":false,"encrypted":false,"bodySnippet":"Hello"}]}"#;
+        let json = r#"{"@type":"ChatMessagePush","accountId":"u1","state":"d35ecb040aab","messages":[{"messageId":"msg1","chatId":"c1","chatKind":"channel","chatName":"general","spaceId":"sp1","spaceName":"ACME","senderId":"alice","senderDisplayName":"Alice","sentAt":"2026-04-26T14:32:00Z","hasMention":true,"mentionScopes":[],"encrypted":false,"bodySnippet":"Hello"}]}"#;
         let push: ChatMessagePush =
             serde_json::from_str(json).expect("deserialize ChatMessagePush");
         assert_eq!(push.account_id.as_ref(), "u1");
@@ -351,7 +360,56 @@ mod tests {
         let entry = &push.messages[0];
         assert_eq!(entry.message_id.as_ref(), "msg1");
         assert_eq!(entry.chat_kind, ChatKind::Channel);
-        assert!(entry.has_mention);
+        assert_eq!(entry.has_mention, Some(true));
+    }
+
+    // Oracle: the Example Payload in draft-atwood-jmap-chat-push-00, verbatim.
+    #[test]
+    fn push_deser_spec_example() {
+        let json = r#"{
+          "@type": "ChatMessagePush",
+          "accountId": "u1",
+          "state": "d35ecb040aab",
+          "messages": [
+            {
+              "messageId": "01J3YKZQP5MWVT8PPBEHTJ3HX",
+              "chatId": "01J3XKZQN4MWVT8PPBEHTJ3HX",
+              "chatKind": "channel",
+              "chatName": "general",
+              "spaceId": "01J2WKZQM3LVST7OOBDHSI2GW",
+              "spaceName": "ACME Corp",
+              "senderId": "user:alice@example.com",
+              "senderDisplayName": "Alice",
+              "sentAt": "2026-04-26T14:32:00Z",
+              "hasMention": true,
+              "mentionScopes": [],
+              "encrypted": false,
+              "bodySnippet": "Hey @bob, the deploy is ready for review"
+            }
+          ]
+        }"#;
+        let push: ChatMessagePush = serde_json::from_str(json).expect("deserialize spec example");
+        let entry = &push.messages[0];
+        assert_eq!(entry.has_mention, Some(true));
+        assert_eq!(entry.mention_scopes.as_deref(), Some(&[][..]));
+        assert!(entry.extra.is_empty(), "no spec field may land in extra");
+    }
+
+    // Oracle: draft-atwood-jmap-chat-push-00 End-to-End Encrypted Deployments:
+    // the server MUST omit hasMention and mentionScopes when encrypted is true.
+    #[test]
+    fn encrypted_entry_without_mention_fields_deserializes() {
+        let json = r#"{
+            "messageId": "m5",
+            "chatId": "c1",
+            "chatKind": "group",
+            "senderId": "alice",
+            "sentAt": "2026-04-29T00:00:00Z",
+            "encrypted": true
+        }"#;
+        let entry: ChatMessageEntry = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(entry.has_mention, None);
+        assert_eq!(entry.mention_scopes, None);
     }
 
     // Oracle: serde tag contract — serialized ChatMessagePush must carry "@type":"ChatMessagePush".
@@ -380,8 +438,6 @@ mod tests {
             ChatKind::Channel,
             SenderId::Contact("alice".to_owned()),
             UTCDate::from("2026-04-29T00:00:00Z"),
-            false,
-            false,
         );
         assert!(entry.encrypted);
         assert!(
@@ -389,10 +445,12 @@ mod tests {
             "encrypted entry must have no body_snippet"
         );
         let json = serde_json::to_string(&entry).expect("serialize");
-        assert!(
-            !json.contains("bodySnippet"),
-            "bodySnippet must be absent in encrypted entry, got: {json}"
-        );
+        for key in ["bodySnippet", "hasMention", "mentionScopes"] {
+            assert!(
+                !json.contains(key),
+                "{key} must be absent in encrypted entry, got: {json}"
+            );
+        }
     }
 
     // Oracle: plaintext() sets encrypted=false and passes body_snippet through.
@@ -405,7 +463,7 @@ mod tests {
             SenderId::Contact("bob".to_owned()),
             UTCDate::from("2026-04-29T00:00:00Z"),
             false,
-            false,
+            vec![],
             Some("Hello!"),
         );
         assert!(!entry.encrypted);
@@ -422,7 +480,7 @@ mod tests {
             SenderId::Contact("carol".to_owned()),
             UTCDate::from("2026-04-29T00:00:00Z"),
             false,
-            false,
+            vec![],
             None::<String>,
         );
         assert!(!entry.encrypted);
@@ -443,7 +501,7 @@ mod tests {
             "senderId": "self",
             "sentAt": "2026-04-29T00:00:00Z",
             "hasMention": false,
-            "hasMentionAll": false,
+            "mentionScopes": [],
             "encrypted": false
         }"#;
         let entry: ChatMessageEntry =
@@ -462,7 +520,7 @@ mod tests {
             "senderId": "bob",
             "sentAt": "2026-04-27T10:00:00Z",
             "hasMention": false,
-            "hasMentionAll": false,
+            "mentionScopes": [],
             "encrypted": false
         }"#;
         let entry: ChatMessageEntry =
@@ -563,7 +621,7 @@ mod tests {
             "senderId": "alice",
             "sentAt": "2026-04-26T14:32:00Z",
             "hasMention": false,
-            "hasMentionAll": false,
+            "mentionScopes": [],
             "encrypted": false,
             "acmeCorpThreadDepth": 3
         });
