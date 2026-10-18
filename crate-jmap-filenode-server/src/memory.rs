@@ -58,6 +58,7 @@ use crate::{
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_filenode_types::{FileNode, NodeRole, NodeType};
+use jmap_server::apply_jmap_patch;
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -689,8 +690,10 @@ impl FileNodeBackend for MemoryBackend {
 
         if let (Some(obj), Some(patch_obj)) = (node_val.as_object_mut(), patch_val.as_object()) {
             for (k, v) in patch_obj {
-                apply_jmap_patch(obj, k, v.clone()).ok_or_else(|| {
-                    BackendSetError::SetError(SetError::new(SetErrorType::InvalidPatch))
+                apply_jmap_patch(obj, k, v.clone()).map_err(|e| {
+                    BackendSetError::SetError(
+                        SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+                    )
                 })?;
             }
         }
@@ -1183,35 +1186,6 @@ fn date_on_or_after(node_date: Option<&jmap_types::UTCDate>, bound: &jmap_types:
         Some(d) => d.as_ref() >= bound.as_ref(),
         None => false,
     }
-}
-
-/// Apply one JMAP patch key-value pair to a JSON object (RFC 8620 §5.3).
-///
-/// Keys may contain "/" separators naming a path into nested objects
-/// (e.g. `"shareWith/alice"` to mutate one principal's rights in the
-/// `shareWith` map). Null values remove the target key; non-null values
-/// overwrite it or create it in its parent. This is the JMAP patch format,
-/// which is a superset of RFC 7396 flat merge-patch.
-///
-/// Returns `None` when a part before the last does not name an existing
-/// object: RFC 8620 §5.3 requires "All parts prior to the last ... MUST
-/// already exist on the object being patched", else `invalidPatch`. The
-/// pointer may then have been partly applied, so callers must discard
-/// `base`.
-fn apply_jmap_patch(
-    base: &mut serde_json::Map<String, serde_json::Value>,
-    key: &str,
-    value: serde_json::Value,
-) -> Option<()> {
-    if let Some((head, tail)) = key.split_once('/') {
-        return apply_jmap_patch(base.get_mut(head)?.as_object_mut()?, tail, value);
-    }
-    if value.is_null() {
-        base.remove(key);
-    } else {
-        base.insert(key.to_owned(), value);
-    }
-    Some(())
 }
 
 #[cfg(test)]

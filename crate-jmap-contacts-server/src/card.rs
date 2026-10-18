@@ -38,7 +38,7 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
     SetAccumulators,
 };
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{apply_jmap_patch, server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
 // ContactCard/get
@@ -337,60 +337,6 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
 // ContactCard/copy
 // ---------------------------------------------------------------------------
 
-/// Apply a JMAP patch key (RFC 8620 §5.3) to a JSON object.
-///
-/// Keys may contain `/` separators naming a path into nested objects (e.g.
-/// `"name/full"`). `~1` decodes to `/` and `~0` to `~` per RFC 6901. A `null`
-/// value removes the target key; any non-null value overwrites or creates it.
-///
-/// # Non-object intermediate
-///
-/// If the path traverses through an existing non-object value (e.g. a string
-/// at `name` when the path is `name/full`), the patch is silently dropped to
-/// preserve the existing value. This matches the canonical
-/// `crate-jmap-mail-server` `apply_jmap_patch` (memory.rs:2073). A future
-/// workspace canonical-template sweep (bd:JMAP-j6ab) will upgrade both
-/// siblings to return `invalidPatch` for this case instead of dropping
-/// silently.
-///
-/// # Array indices not supported
-///
-/// JSON Pointer numeric segments do NOT index into JSON arrays. A path like
-/// `"name/components/0/value"` looks up the literal `"0"` key on the
-/// (Object-shaped) sub-value, never the 0th element of an Array. The
-/// workspace canonical-template sweep (bd:JMAP-j6ab) tracks adding array
-/// index support across all sibling implementations.
-fn apply_jmap_patch(base: &mut serde_json::Map<String, Value>, path: &str, val: Value) {
-    fn decode_segment(s: &str) -> String {
-        s.replace("~1", "/").replace("~0", "~")
-    }
-
-    if let Some(slash) = path.find('/') {
-        let head = decode_segment(&path[..slash]);
-        let tail = &path[slash + 1..];
-        if let Some(entry) = base.get_mut(&head) {
-            if let Value::Object(inner) = entry {
-                apply_jmap_patch(inner, tail, val);
-            }
-            // Non-object intermediate: silently drop the patch (preserves the
-            // existing value). See doc-comment.
-        } else if !val.is_null() {
-            // Parent absent and value is non-null: create parent then set leaf.
-            let mut inner = serde_json::Map::new();
-            apply_jmap_patch(&mut inner, tail, val);
-            base.insert(head, Value::Object(inner));
-        }
-        // Parent absent and value is null: nothing to remove — no-op.
-    } else {
-        let key = decode_segment(path);
-        if val.is_null() {
-            base.remove(&key);
-        } else {
-            base.insert(key, val);
-        }
-    }
-}
-
 /// Handle a `ContactCard/copy` method call (RFC 9610 §3.4 / RFC 8620 §5.4).
 ///
 /// `args` is the RFC 8620 §5.4 `/copy` request shape (`fromAccountId`,
@@ -528,8 +474,8 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
             let mut card = cards.remove(0);
 
             // Apply any patch fields from the copy spec (RFC 8620 §6.3).
-            // Paths are JSON Pointer segments (RFC 6901): split on '/',
-            // decode ~1 → '/' and ~0 → '~'.  null value = delete.
+            // Keys are RFC 8620 §5.3 PatchObject paths; a path the shared
+            // `apply_jmap_patch` rejects surfaces as invalidPatch.
             //
             // serialize-roundtrip-then-patch: serialize the source card to
             // JSON, mutate the JSON via apply_jmap_patch, then deserialize
@@ -542,11 +488,16 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                 let mut card_val = serde_json::to_value(&card)
                     .expect("derive(Serialize) on plain data is infallible");
                 if let Value::Object(ref mut merged_map) = card_val {
-                    for (k, v) in spec_obj {
-                        if k == "id" {
-                            continue;
-                        }
-                        apply_jmap_patch(merged_map, k, v.clone());
+                    let applied = spec_obj
+                        .iter()
+                        .filter(|(k, _)| k.as_str() != "id")
+                        .try_for_each(|(k, v)| apply_jmap_patch(merged_map, k, v.clone()));
+                    if let Err(e) = applied {
+                        not_copied.insert(
+                            create_id,
+                            json!({ "type": "invalidPatch", "description": e.to_string() }),
+                        );
+                        continue;
                     }
                 }
                 card = match serde_json::from_value(card_val) {
@@ -1299,6 +1250,112 @@ mod tests {
         );
     }
 
+    /// Run a single-entry ContactCard/copy of the fixture card `card1`
+    /// from `acc1` to `acc2` with `patch` merged into the copy spec, and
+    /// return the response together with the backend for inspection.
+    async fn copy_card1_with_patch(patch: Value) -> (Value, MockBackend) {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.add_contact_card("acc1", "card1");
+
+        let mut spec = json!({ "id": "card1" });
+        spec.as_object_mut()
+            .expect("spec is an object")
+            .extend(patch.as_object().expect("patch is an object").clone());
+        let args = json!({
+            "accountId": "acc2",
+            "fromAccountId": "acc1",
+            "create": { "c1": spec }
+        });
+        let (resp, _) = handle_contact_card_copy(&backend, &(), args, "c0")
+            .await
+            .expect("/copy must not return a top-level error");
+        (resp, backend)
+    }
+
+    /// Assert that a rejected copy left everything as it was: `c1` is
+    /// `invalidPatch` in notCopied, nothing was copied, the backend copy
+    /// was never called, and the source card is byte-identical to the
+    /// fixture.
+    async fn assert_copy_rejected_as_invalid_patch(resp: &Value, backend: &MockBackend) {
+        use crate::backend::JmapBackend;
+
+        assert_eq!(
+            resp["notCopied"]["c1"]["type"], "invalidPatch",
+            "patch must be rejected as invalidPatch: {resp}"
+        );
+        assert!(resp["copied"].is_null(), "nothing may be copied: {resp}");
+        assert!(
+            !*backend.copy_called.lock().unwrap(),
+            "backend copy must not be called for a rejected patch"
+        );
+        let (cards, not_found) = backend
+            .get_objects::<ContactCard>(&(), &Id::from("acc1"), Some(&[Id::from("card1")]), None)
+            .await
+            .expect("get source card");
+        assert!(not_found.is_empty(), "source card must still exist");
+        assert_eq!(
+            serde_json::to_value(&cards[0]).expect("serialize card"),
+            serde_json::to_value(
+                serde_json::from_value::<ContactCard>(json!({
+                    "id": "card1",
+                    "addressBookIds": { "ab1": true }
+                }))
+                .expect("fixture deserializes")
+            )
+            .expect("serialize fixture"),
+            "source card must be unchanged"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.3 — "All parts prior to the last (i.e., the
+    /// value after the final slash) MUST already exist on the object
+    /// being patched", else "the update MUST be rejected with an
+    /// "invalidPatch" error". The fixture card has no `name`, so
+    /// `name/full` must be rejected rather than creating `name`.
+    #[tokio::test]
+    async fn copy_patch_through_absent_parent_is_invalid_patch() {
+        let (resp, backend) = copy_card1_with_patch(json!({ "name/full": "Jane Doe" })).await;
+        assert_copy_rejected_as_invalid_patch(&resp, &backend).await;
+    }
+
+    /// Oracle: RFC 8620 §5.3 — "All parts prior to the last ... MUST
+    /// already exist on the object being patched". `addressBookIds/ab1`
+    /// is the boolean `true`, which has no member `x`, so
+    /// `addressBookIds/ab1/x` must be rejected as invalidPatch and the
+    /// existing boolean preserved (never clobbered into an object).
+    #[tokio::test]
+    async fn copy_patch_through_non_object_parent_is_invalid_patch() {
+        let (resp, backend) =
+            copy_card1_with_patch(json!({ "addressBookIds/ab1/x": "would-clobber" })).await;
+        assert_copy_rejected_as_invalid_patch(&resp, &backend).await;
+    }
+
+    /// Oracle: RFC 8620 §5.3 — "If null, ... remove the property from the
+    /// patched object" and "All parts prior to the last ... MUST already
+    /// exist". A null value does not relax the parent rule: `name/full`
+    /// with an absent `name` is invalidPatch, not a silent no-op.
+    #[tokio::test]
+    async fn copy_null_patch_through_absent_parent_is_invalid_patch() {
+        let (resp, backend) = copy_card1_with_patch(json!({ "name/full": null })).await;
+        assert_copy_rejected_as_invalid_patch(&resp, &backend).await;
+    }
+
+    /// Oracle: RFC 8620 §5.3 — a pointer whose parents exist is applied:
+    /// "Anything else: The value to set for this property (this may be a
+    /// replacement or addition to the object being patched)". `ab1`'s
+    /// parent `addressBookIds` exists, so `addressBookIds/ab2` is added
+    /// alongside it in the copy.
+    #[tokio::test]
+    async fn copy_patch_through_existing_parent_adds_member() {
+        let (resp, _backend) = copy_card1_with_patch(json!({ "addressBookIds/ab2": true })).await;
+        assert_eq!(
+            resp["copied"]["c1"]["addressBookIds"],
+            json!({ "ab1": true, "ab2": true }),
+            "pointer patch must add the member to the existing map: {resp}"
+        );
+    }
+
     /// Oracle (RFC 8620 §5.4): `destroyFromIfInState` matching the
     /// source account state lets the implicit destroy proceed.
     #[tokio::test]
@@ -1326,156 +1383,5 @@ mod tests {
             set_resp["notDestroyed"]["card1"]["type"], "notFound",
             "destroyFromIfInState match must allow destroy attempt: {set_resp}"
         );
-    }
-
-    // -----------------------------------------------------------------------
-    // apply_jmap_patch unit tests (bd:JMAP-qz9v.4)
-    //
-    // The previous implementation silently CLOBBERED a non-object intermediate
-    // value (e.g. patch path `name/full` when `name` was a string would
-    // replace the string with `{"full": "..."}`), destroying caller data.
-    // The fix aligns the non-object-intermediate behavior with the canonical
-    // crate-jmap-mail-server apply_jmap_patch (memory.rs:2073): silently drop
-    // the patch, preserving the existing value. The broader RFC 8620 §5.3
-    // compliance work (returning invalidPatch, supporting array indices) is
-    // tracked by bd:JMAP-j6ab.
-    // -----------------------------------------------------------------------
-
-    /// Oracle: flat single-segment key with a non-null value inserts the key.
-    #[test]
-    fn apply_jmap_patch_flat_key_inserts() {
-        let mut obj = serde_json::Map::new();
-        apply_jmap_patch(&mut obj, "foo", json!("bar"));
-        assert_eq!(obj["foo"], json!("bar"));
-    }
-
-    /// Oracle: flat single-segment key with a null value removes the key.
-    #[test]
-    fn apply_jmap_patch_flat_key_null_removes() {
-        let mut obj = serde_json::Map::new();
-        obj.insert("foo".to_owned(), json!("bar"));
-        apply_jmap_patch(&mut obj, "foo", Value::Null);
-        assert!(
-            !obj.contains_key("foo"),
-            "null patch on flat key must remove"
-        );
-    }
-
-    /// Oracle: nested path with an existing object intermediate navigates
-    /// correctly and sets the leaf without disturbing other sub-keys.
-    #[test]
-    fn apply_jmap_patch_nested_path_navigates_object_intermediate() {
-        let mut obj = serde_json::Map::new();
-        obj.insert(
-            "name".to_owned(),
-            json!({ "full": "Jane", "given": "Jane" }),
-        );
-
-        apply_jmap_patch(&mut obj, "name/full", json!("Jane Doe"));
-
-        assert_eq!(
-            obj["name"],
-            json!({ "full": "Jane Doe", "given": "Jane" }),
-            "leaf must be updated, sibling keys preserved"
-        );
-    }
-
-    /// Oracle: nested path with an absent intermediate and a non-null value
-    /// creates the intermediate object and sets the leaf.
-    #[test]
-    fn apply_jmap_patch_nested_path_absent_intermediate_creates_when_non_null() {
-        let mut obj = serde_json::Map::new();
-
-        apply_jmap_patch(&mut obj, "name/full", json!("Jane Doe"));
-
-        assert_eq!(obj["name"], json!({ "full": "Jane Doe" }));
-    }
-
-    /// Oracle: nested path with an absent intermediate and a null value is a
-    /// no-op (does NOT create an empty intermediate object). This mirrors the
-    /// canonical mail-server `apply_jmap_patch` behavior and avoids
-    /// introducing a spurious empty object the caller never set.
-    #[test]
-    fn apply_jmap_patch_nested_path_absent_intermediate_null_value_is_noop() {
-        let mut obj = serde_json::Map::new();
-
-        apply_jmap_patch(&mut obj, "name/full", Value::Null);
-
-        assert!(
-            !obj.contains_key("name"),
-            "null patch with absent parent must not create an intermediate: {obj:?}"
-        );
-    }
-
-    /// Oracle (bd:JMAP-qz9v.4): a path traversing through a non-object string
-    /// intermediate must PRESERVE the original string value, not clobber it
-    /// with an empty object. Previously this code path silently destroyed
-    /// caller data; the fix aligns with canonical mail-server's silent-no-op
-    /// behavior on this case.
-    #[test]
-    fn apply_jmap_patch_preserves_non_object_string_intermediate() {
-        let mut obj = serde_json::Map::new();
-        obj.insert("vendorBlob".to_owned(), json!("string-value"));
-
-        apply_jmap_patch(&mut obj, "vendorBlob/sub", json!("would-clobber"));
-
-        assert_eq!(
-            obj["vendorBlob"],
-            json!("string-value"),
-            "non-object string intermediate must be preserved, not clobbered: {obj:?}"
-        );
-    }
-
-    /// Oracle (bd:JMAP-qz9v.4): a path traversing through a non-object array
-    /// intermediate must preserve the original array, not clobber it. Same
-    /// fix as the string case; covers the array-shaped variant of the bug.
-    #[test]
-    fn apply_jmap_patch_preserves_non_object_array_intermediate() {
-        let mut obj = serde_json::Map::new();
-        obj.insert("vendorList".to_owned(), json!(["a", "b", "c"]));
-
-        apply_jmap_patch(&mut obj, "vendorList/0", json!("would-clobber"));
-
-        assert_eq!(
-            obj["vendorList"],
-            json!(["a", "b", "c"]),
-            "non-object array intermediate must be preserved, not clobbered: {obj:?}"
-        );
-    }
-
-    /// Oracle (bd:JMAP-qz9v.4): a path traversing through a non-object scalar
-    /// (number, boolean) intermediate must preserve the original value.
-    #[test]
-    fn apply_jmap_patch_preserves_non_object_scalar_intermediate() {
-        let mut obj = serde_json::Map::new();
-        obj.insert("vendorNumber".to_owned(), json!(42));
-        obj.insert("vendorBool".to_owned(), json!(true));
-
-        apply_jmap_patch(&mut obj, "vendorNumber/sub", json!("would-clobber"));
-        apply_jmap_patch(&mut obj, "vendorBool/sub", json!("would-clobber"));
-
-        assert_eq!(obj["vendorNumber"], json!(42));
-        assert_eq!(obj["vendorBool"], json!(true));
-    }
-
-    /// Oracle: RFC 6901 escape decoding — `~1` decodes to `/` and `~0`
-    /// decodes to `~`. This lets clients address property names that
-    /// themselves contain reserved characters.
-    #[test]
-    fn apply_jmap_patch_decodes_rfc6901_escapes() {
-        let mut obj = serde_json::Map::new();
-
-        // ~1 → / in a single-segment key.
-        apply_jmap_patch(&mut obj, "foo~1bar", json!("v"));
-        assert_eq!(obj["foo/bar"], json!("v"));
-
-        // ~0 → ~ in a single-segment key.
-        apply_jmap_patch(&mut obj, "foo~0bar", json!("w"));
-        assert_eq!(obj["foo~bar"], json!("w"));
-
-        // ~1 decodes per-segment, NOT before splitting on '/'.
-        // `name~1full` is one segment whose property name is "name/full".
-        apply_jmap_patch(&mut obj, "name~1full", json!("Jane Doe"));
-        assert_eq!(obj["name/full"], json!("Jane Doe"));
     }
 }
