@@ -735,9 +735,16 @@ pub async fn handle_message_set<B: ChatBackend>(
                     obj.insert("editedAt".to_owned(), json!(now_utc_string()));
                 }
             }
+            // draft-atwood-jmap-chat-00 §Message deletedAt: a deleted
+            // Message has an empty `body`, empty `attachments`, and no
+            // `editHistory`. The merge-patch null purges the stored revisions
+            // rather than merely hiding them.
             if augmented.get("deletedForAll").and_then(|v| v.as_bool()) == Some(true) {
                 if let Some(obj) = augmented.as_object_mut() {
                     obj.insert("deletedAt".to_owned(), json!(now_utc_string()));
+                    obj.insert("body".to_owned(), json!(""));
+                    obj.insert("attachments".to_owned(), json!([]));
+                    obj.insert("editHistory".to_owned(), Value::Null);
                 }
             }
             // Spec §557 + §1029: when readAt is set without readDisposition, default to "displayed".

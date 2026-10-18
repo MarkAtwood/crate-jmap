@@ -1134,6 +1134,84 @@ async fn message_set_update_delete_for_all_injects_deleted_at() {
     );
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 §Message `deletedAt` — "When set,
+/// `body` is empty, `attachments` is empty, and `editHistory` is absent."
+/// Retention is on, so absence proves the stored history was purged rather
+/// than filtered out by the retention rule.
+#[tokio::test]
+async fn message_set_update_delete_for_all_purges_content() {
+    let backend = MemoryBackend::new();
+    backend.set_retains_edit_history_for_test(true);
+    backend.insert_object_for_test(
+        "Message",
+        ACCOUNT_ID,
+        "m1",
+        json!({
+            "id": "m1",
+            "senderMsgId": "smsg1",
+            "senderId": "self",
+            "chatId": "c1",
+            "body": "edited",
+            "bodyType": "text/plain",
+            "attachments": [
+                {
+                    "blobId": "b1",
+                    "filename": "plan.pdf",
+                    "contentType": "application/pdf",
+                    "size": 1024
+                }
+            ],
+            "mentions": [],
+            "broadcastMentions": [],
+            "actions": [],
+            "reactions": {},
+            "sentAt": "2024-01-01T00:00:00Z",
+            "receivedAt": "2024-01-01T00:00:01Z",
+            "deliveryState": "delivered",
+            "editedAt": "2024-01-02T00:00:00Z",
+            "editHistory": [
+                {
+                    "body": "original",
+                    "bodyType": "text/plain",
+                    "editedAt": "2024-01-02T00:00:00Z"
+                }
+            ]
+        }),
+    );
+
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": { "m1": { "deletedForAll": true } }
+        }),
+    )
+    .await
+    .expect("update");
+    assert_eq!(update_resp["notUpdated"], json!(null));
+
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+    )
+    .await
+    .expect("get");
+    let msg = &get_resp["list"][0];
+    assert!(msg["deletedAt"].is_string(), "deletedAt must be set");
+    assert_eq!(msg["body"], "", "deleted Message body must be empty");
+    assert_eq!(
+        msg["attachments"],
+        json!([]),
+        "deleted Message attachments must be empty"
+    );
+    assert!(
+        msg.get("editHistory").is_none(),
+        "deleted Message must not carry editHistory, got: {msg}"
+    );
+}
+
 /// Oracle: setting readAt stores the client-provided timestamp.
 #[tokio::test]
 async fn message_set_update_mark_as_read() {
