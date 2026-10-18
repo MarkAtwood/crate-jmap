@@ -51,12 +51,8 @@ pub fn is_vendor_namespace(name: &str) -> bool {
     }
     // Every label must be non-empty and contain only printable ASCII
     // (no whitespace, no control chars).
-    name.split('.').all(|label| {
-        !label.is_empty()
-            && label
-                .bytes()
-                .all(|b| b.is_ascii_graphic())
-    })
+    name.split('.')
+        .all(|label| !label.is_empty() && label.bytes().all(|b| b.is_ascii_graphic()))
 }
 
 /// Returns `true` if `name` is a valid namespace identifier of either kind

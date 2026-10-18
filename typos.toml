@@ -5,7 +5,23 @@
 # positive, add it under [default.extend-words] (key = "found-word",
 # value = "found-word" preserves the original spelling).
 
+[default]
+# Random credential canaries in redaction tests (e.g.
+# crate-jmap-base-client/src/ws/mod.rs) are not words.
+extend-ignore-re = ["redaction-canary-cred-[A-Za-z0-9]+"]
+
 [default.extend-words]
+# `mis` — the hyphenated prefix in "mis-expand", "mis-routed",
+# "mis-classifying". Not a typo of `miss`.
+mis = "mis"
+
+# `unparseable` — accepted spelling, used throughout error text and tests.
+unparseable = "unparseable"
+
+# `opperator` — deliberate misspelling of `operator` in FilterOperator
+# deserialization tests (crate-jmap-types/src/query.rs).
+opperator = "opperator"
+
 # `ser` — short alias for the helpers::ser serialize function exported by
 # jmap-server (see crate-jmap-server/README.md). Not a typo of `set`.
 ser = "ser"

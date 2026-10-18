@@ -7580,12 +7580,7 @@ async fn query_has_mention_matches_broadcast_everyone() {
 #[tokio::test]
 async fn query_has_mention_matches_broadcast_here() {
     let backend = MemoryBackend::new();
-    seed_message_for_mention_test(
-        &backend,
-        "m-here",
-        json!([]),
-        json!([{"scope": "here"}]),
-    );
+    seed_message_for_mention_test(&backend, "m-here", json!([]), json!([{"scope": "here"}]));
 
     let (resp, _) = handle_message_query(
         &backend,
@@ -7638,12 +7633,7 @@ async fn query_has_mention_matches_broadcast_admins() {
 #[tokio::test]
 async fn query_has_mention_no_broadcast_no_mention() {
     let backend = MemoryBackend::new();
-    seed_message_for_mention_test(
-        &backend,
-        "m-none",
-        json!([]),
-        json!([]),
-    );
+    seed_message_for_mention_test(&backend, "m-none", json!([]), json!([]));
 
     let (resp, _) = handle_message_query(
         &backend,

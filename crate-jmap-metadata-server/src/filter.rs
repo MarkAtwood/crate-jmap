@@ -292,10 +292,7 @@ mod tests {
     #[test]
     fn text_contains_non_string_value() {
         let map = json!({"ns": {"count": 42}}).as_object().unwrap().clone();
-        assert!(!metadata_text_contains(
-            &map,
-            &text_match("ns/count", "42")
-        ));
+        assert!(!metadata_text_contains(&map, &text_match("ns/count", "42")));
     }
 
     #[test]
@@ -336,10 +333,7 @@ mod tests {
     #[test]
     fn text_equals_non_string() {
         let map = json!({"ns": {"flag": true}}).as_object().unwrap().clone();
-        assert!(!metadata_text_equals(
-            &map,
-            &text_match("ns/flag", "true")
-        ));
+        assert!(!metadata_text_equals(&map, &text_match("ns/flag", "true")));
     }
 
     #[test]

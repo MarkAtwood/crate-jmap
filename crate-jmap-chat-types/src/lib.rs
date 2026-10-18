@@ -141,8 +141,7 @@ pub use ephemeral::{
 };
 pub use message::{
     Attachment, BodyType, BroadcastMention, DeliveryReceipt, DeliveryState, Mention, Message,
-    MessageAction, MessageRevision, Reaction, ReadDisposition, SenderId,
-    BROADCAST_MENTION_SCOPES,
+    MessageAction, MessageRevision, Reaction, ReadDisposition, SenderId, BROADCAST_MENTION_SCOPES,
 };
 pub use position::ReadPosition;
 pub use presence::{Presence, PresenceStatus};

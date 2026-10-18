@@ -1804,7 +1804,8 @@ mod tests {
         //
         // Independent oracle: hand-built JSON literals chosen to
         // exercise each recognised dispatch path.
-        let cases: &[(&str, serde_json::Value, fn(&AnniversaryDate) -> bool)] = &[
+        type Case<'a> = (&'a str, serde_json::Value, fn(&AnniversaryDate) -> bool);
+        let cases: &[Case<'_>] = &[
             (
                 "object with @type = PartialDate",
                 serde_json::json!({"@type": "PartialDate", "year": 2000}),

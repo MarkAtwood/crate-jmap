@@ -510,7 +510,9 @@ pub async fn handle_message_set<B: ChatBackend>(
                 .and_then(|v| v.as_array())
                 .cloned()
                 .unwrap_or_default();
-            if let Some(desc) = validate_broadcast_mentions(&broadcast_mentions_val, &body, &body_type) {
+            if let Some(desc) =
+                validate_broadcast_mentions(&broadcast_mentions_val, &body, &body_type)
+            {
                 not_created.insert(
                     create_id.clone(),
                     json!({ "type": "invalidArguments", "description": desc }),
@@ -541,10 +543,8 @@ pub async fn handle_message_set<B: ChatBackend>(
                                 {
                                     Ok(Ok(())) => {}
                                     Ok(Err(set_err)) => {
-                                        not_created.insert(
-                                            create_id.clone(),
-                                            set_error_value(&set_err),
-                                        );
+                                        not_created
+                                            .insert(create_id.clone(), set_error_value(&set_err));
                                         continue;
                                     }
                                     Err(e) => {
@@ -562,10 +562,7 @@ pub async fn handle_message_set<B: ChatBackend>(
                         // the normal error downstream
                     }
                     Err(e) => {
-                        not_created.insert(
-                            create_id.clone(),
-                            server_fail_value_from_backend(&e),
-                        );
+                        not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
                         continue;
                     }
                 }
@@ -1016,7 +1013,11 @@ pub async fn handle_message_set<B: ChatBackend>(
                 {
                     Ok((found, _)) => {
                         if let Some(msg) = found.first() {
-                            (msg.body.clone(), msg.body_type.clone(), Some(msg.chat_id.clone()))
+                            (
+                                msg.body.clone(),
+                                msg.body_type.clone(),
+                                Some(msg.chat_id.clone()),
+                            )
                         } else {
                             // Message not found — let update_object surface
                             // the normal notFound error downstream.
@@ -1041,7 +1042,9 @@ pub async fn handle_message_set<B: ChatBackend>(
                     .and_then(|v| v.as_array())
                     .cloned()
                     .unwrap_or_default();
-                if let Some(desc) = validate_broadcast_mentions(&bm_arr, post_patch_body, post_patch_body_type) {
+                if let Some(desc) =
+                    validate_broadcast_mentions(&bm_arr, post_patch_body, post_patch_body_type)
+                {
                     not_updated.insert(
                         id_str,
                         json!({ "type": "invalidArguments", "description": desc }),
@@ -1073,10 +1076,8 @@ pub async fn handle_message_set<B: ChatBackend>(
                                         {
                                             Ok(Ok(())) => {}
                                             Ok(Err(set_err)) => {
-                                                not_updated.insert(
-                                                    id_str,
-                                                    set_error_value(&set_err),
-                                                );
+                                                not_updated
+                                                    .insert(id_str, set_error_value(&set_err));
                                                 continue;
                                             }
                                             Err(e) => {
@@ -1094,10 +1095,7 @@ pub async fn handle_message_set<B: ChatBackend>(
                                 // surface the normal error downstream
                             }
                             Err(e) => {
-                                not_updated.insert(
-                                    id_str,
-                                    server_fail_value_from_backend(&e),
-                                );
+                                not_updated.insert(id_str, server_fail_value_from_backend(&e));
                                 continue;
                             }
                         }
@@ -1712,14 +1710,15 @@ mod tests {
         .expect("update message");
 
         assert!(
-            update_resp["updated"][msg_id].is_null()
-                || update_resp["updated"][msg_id].is_object(),
+            update_resp["updated"][msg_id].is_null() || update_resp["updated"][msg_id].is_object(),
             "expected updated, got notUpdated: {}",
             update_resp["notUpdated"][msg_id]
         );
         assert!(
             update_resp["notUpdated"].is_null()
-                || !update_resp["notUpdated"].as_object().is_some_and(|m| m.contains_key(msg_id)),
+                || !update_resp["notUpdated"]
+                    .as_object()
+                    .is_some_and(|m| m.contains_key(msg_id)),
             "message should not be in notUpdated"
         );
     }
