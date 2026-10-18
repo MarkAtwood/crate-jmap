@@ -63,12 +63,7 @@ use crate::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
 };
-// json_merge_patch lives in jmap-server (the shared foundation crate)
-// since bd:JMAP-sc1b.103. Every reference backend imports it; the
-// canonical RFC 7396 tests live with the function there (including the
-// bd:JMAP-sc1b.97 depth-cap and bd:JMAP-sc1b.87 absent-field regression
-// tests).
-use jmap_server::{json_merge_patch, resolve_query_offset, MergePatchError};
+use jmap_server::{apply_patch_object, resolve_query_offset};
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -1124,20 +1119,22 @@ impl CalendarsBackend for MemoryBackend {
         };
         let mut current = old_value.clone();
 
-        // Apply JSON Merge Patch (RFC 7396): merge patch fields into current value.
-        // A `MergePatchError::DepthExceeded` return (bd:JMAP-wlip.1) surfaces
-        // as `SetErrorType::InvalidPatch` — the depth cap is a DoS guard,
-        // never fires on legitimate JMAP `/set update` shapes. `current` is a
-        // clone of the stored value, so a partially-applied patch on error is
-        // discarded with the local without touching storage.
+        // JMAP patch (RFC 8620 §5.3): keys are JSON Pointer paths (e.g.
+        // "participants/p1/participationStatus"), applied all-or-nothing by
+        // the shared `apply_patch_object`, so an invalidPatch leaves the
+        // stored object unchanged. Values replace wholesale; the helper caps
+        // path plus value nesting depth.
         let patch_val = serde_json::to_value(&patch).map_err(|e| {
             BackendSetError::Other(MemoryError::new(format!("serialize patch: {e}")))
         })?;
-        if let Err(MergePatchError::DepthExceeded) = json_merge_patch(&mut current, patch_val) {
-            return Err(BackendSetError::SetError(
-                SetError::new(SetErrorType::InvalidPatch)
-                    .with_description("patch nesting exceeds server limit"),
-            ));
+        if let (serde_json::Value::Object(base), serde_json::Value::Object(patch_map)) =
+            (&mut current, &patch_val)
+        {
+            apply_patch_object(base, patch_map).map_err(|e| {
+                BackendSetError::SetError(
+                    SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+                )
+            })?;
         }
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());

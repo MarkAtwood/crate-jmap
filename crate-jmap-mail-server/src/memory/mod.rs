@@ -87,7 +87,7 @@ use jmap_mail_types::{
     Email, EmailAddress, EmailFilterCondition, EmailHeader, Keyword, Mailbox,
     MailboxFilterCondition, SearchSnippet,
 };
-use jmap_server::{apply_jmap_patch, resolve_query_offset};
+use jmap_server::{apply_patch_object, resolve_query_offset};
 use jmap_types::{Id, State, UTCDate};
 use serde::Deserialize;
 
@@ -1194,29 +1194,23 @@ impl MailBackend for MemoryBackend {
             .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
 
         // JMAP patch (RFC 8620 §5.3): keys are JSON Pointer paths (e.g.
-        // "mailboxIds/abc123"), applied by the shared `apply_jmap_patch`. The
-        // patch is applied to a clone and stored only if every key applies, so
-        // an invalidPatch leaves the stored object unchanged.
+        // "mailboxIds/abc123"), applied all-or-nothing by the shared
+        // `apply_patch_object`, so an invalidPatch leaves the stored object
+        // unchanged.
         if let serde_json::Value::Object(base) = existing {
             if let serde_json::Value::Object(patch_map) = patch_val {
-                let mut patched = base.clone();
                 // RFC 8621 §4.1.1 defines Email `keywords` with "default: {}",
                 // but the stored JSON omits it when empty, so materialize the
                 // default for `keywords/<keyword>` pointers to find their parent.
                 if O::TYPE_NAME == Email::TYPE_NAME {
-                    patched
-                        .entry("keywords")
+                    base.entry("keywords")
                         .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
                 }
-                for (k, v) in patch_map {
-                    apply_jmap_patch(&mut patched, &k, v).map_err(|e| {
-                        BackendSetError::SetError(
-                            SetError::new(SetErrorType::InvalidPatch)
-                                .with_description(e.to_string()),
-                        )
-                    })?;
-                }
-                *base = patched;
+                apply_patch_object(base, &patch_map).map_err(|e| {
+                    BackendSetError::SetError(
+                        SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+                    )
+                })?;
             }
         }
 

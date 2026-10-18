@@ -11322,6 +11322,78 @@ async fn email_set_update_pointer_into_absent_parent_is_invalid_patch() {
     );
 }
 
+/// Oracle: RFC 8620 §5.3 — "There MUST NOT be two patches in the
+/// PatchObject where the pointer of one is the prefix of the pointer of
+/// the other, e.g., "alerts/1/offset" and "alerts"", and "if there is any
+/// violation, the update MUST be rejected with an "invalidPatch" error".
+///
+/// `keywords` is a prefix of `keywords/$answered`, so the update must be
+/// rejected and the stored keywords must be exactly as created.
+#[tokio::test]
+async fn email_set_update_prefix_conflict_is_invalid_patch() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let account_id = Id::from("account1");
+
+    let (set_resp, _) = handle_email_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": {
+                "c0": {
+                    "mailboxIds": { "inbox": true },
+                    "keywords": { "$flagged": true },
+                }
+            }
+        }),
+    )
+    .await
+    .expect("Email/set create must succeed");
+    let email_id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("c0 must have id")
+        .to_owned();
+
+    let (upd_resp, _) = handle_email_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "update": {
+                email_id.clone(): {
+                    "keywords": { "$seen": true },
+                    "keywords/$answered": true,
+                }
+            }
+        }),
+    )
+    .await
+    .expect("Email/set update must not return a protocol error");
+
+    assert_eq!(
+        upd_resp["notUpdated"][&email_id]["type"], "invalidPatch",
+        "prefix-conflicting pointers must be invalidPatch: {upd_resp}"
+    );
+
+    let (get_resp, _) = handle_email_get(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "ids": [email_id],
+            "properties": ["keywords"],
+        }),
+    )
+    .await
+    .expect("Email/get must succeed");
+    assert_eq!(
+        get_resp["list"][0]["keywords"],
+        serde_json::json!({ "$flagged": true }),
+        "rejected patch must leave keywords unchanged: {get_resp}"
+    );
+}
+
 /// Oracle: Email/set destroy removes the email; subsequent Email/get returns it
 /// in notFound.
 ///

@@ -807,14 +807,8 @@ pub async fn handle_message_set<B: ChatBackend>(
             // - value is an object: add or modify the reaction
             // - value is `null`: remove the reaction
             //
-            // The backend's `json_merge_patch` is flat-key — it would
-            // store a literal top-level field named `"reactions/X"`
-            // rather than descending into the `reactions` map. So this
-            // handler must rewrite all `reactions/X` entries into a
-            // single nested `reactions` entry; RFC 7396 then merges
-            // that into the stored reactions map per spec.
-            //
-            // While rewriting, the handler:
+            // The backend applies these paths into the stored
+            // `reactions` map. Before forwarding, the handler:
             //
             // 1. Rejects `reactions/{id}` keys containing `/` or `~`
             //    (RFC 6901 escape characters — the chat-client also
@@ -950,35 +944,20 @@ pub async fn handle_message_set<B: ChatBackend>(
                     continue;
                 }
 
-                // Coalesce every `reactions/{key}` entry into a single
-                // nested `reactions` patch entry, server-overriding
-                // `senderId` and injecting `sentAt` where absent so
-                // the stored Reaction round-trips through the typed
-                // shape.
+                // Server-override `senderId` and inject `sentAt` where
+                // absent on every `reactions/{key}` add, so the stored
+                // Reaction round-trips through the typed shape.
                 let now_str = now_utc_string();
                 if let Some(obj) = augmented.as_object_mut() {
-                    let mut sub = serde_json::Map::new();
-                    for (raw_key, suffix) in &decoded {
-                        let val = obj.remove(raw_key).unwrap_or(Value::Null);
-                        let final_val = match val {
-                            Value::Null => Value::Null,
-                            Value::Object(mut map) => {
-                                // Spec MUST: server overrides senderId
-                                // to "self" on every add, regardless
-                                // of what the client supplied.
-                                map.insert("senderId".to_owned(), json!("self"));
-                                if !map.contains_key("sentAt") {
-                                    map.insert("sentAt".to_owned(), json!(now_str));
-                                }
-                                Value::Object(map)
-                            }
-                            // Validation above rejects non-null
-                            // non-object; this arm is unreachable.
-                            other => other,
-                        };
-                        sub.insert(suffix.clone(), final_val);
+                    for (raw_key, _) in &decoded {
+                        if let Some(Value::Object(map)) = obj.get_mut(raw_key) {
+                            // Spec MUST: server overrides senderId to
+                            // "self" on every add, regardless of what
+                            // the client supplied.
+                            map.insert("senderId".to_owned(), json!("self"));
+                            map.entry("sentAt").or_insert_with(|| json!(now_str));
+                        }
                     }
-                    obj.insert("reactions".to_owned(), Value::Object(sub));
                 }
             }
 

@@ -58,7 +58,9 @@ use crate::{
     EmojiSetOp, GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject,
     QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
 };
-use jmap_server::{json_merge_patch, now_utc_string, resolve_query_offset, MergePatchError};
+use jmap_server::{
+    apply_patch_object, json_merge_patch, now_utc_string, resolve_query_offset, MergePatchError,
+};
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -843,20 +845,23 @@ impl ChatBackend for MemoryBackend {
             }
         };
 
-        // Apply JSON Merge Patch (RFC 7396): merge patch fields into current value.
-        // A `MergePatchError::DepthExceeded` return (bd:JMAP-wlip.1) surfaces
-        // as `SetErrorType::InvalidPatch` — the depth cap is a DoS guard,
-        // never fires on legitimate JMAP `/set update` shapes. `current` is a
-        // clone of the stored value, so a partially-applied patch on error is
-        // discarded with the local without touching storage.
+        // JMAP patch (RFC 8620 §5.3): keys are JSON Pointer paths, values
+        // replace the pointed-to member wholesale. `apply_patch_object` is
+        // all-or-nothing, and `current` is a clone of the stored value, so an
+        // invalidPatch leaves storage unchanged. Its nesting DoS cap
+        // (bd:JMAP-wlip.1, path segments + value depth) also surfaces here
+        // as invalidPatch.
         let patch_val = serde_json::to_value(&patch).map_err(|e| {
             BackendSetError::Other(MemoryError::new(format!("serialize patch: {e}")))
         })?;
-        if let Err(MergePatchError::DepthExceeded) = json_merge_patch(&mut current, patch_val) {
-            return Err(BackendSetError::SetError(
-                SetError::new(SetErrorType::InvalidPatch)
-                    .with_description("patch nesting exceeds server limit"),
-            ));
+        if let (serde_json::Value::Object(base), serde_json::Value::Object(patch_map)) =
+            (&mut current, &patch_val)
+        {
+            apply_patch_object(base, patch_map).map_err(|e| {
+                BackendSetError::SetError(
+                    SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+                )
+            })?;
         }
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
