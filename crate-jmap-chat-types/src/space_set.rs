@@ -130,9 +130,10 @@ pub struct ChannelCreate {
 /// A per-entry patch for `updateRoles` (draft-atwood-jmap-chat-00 §Space/set).
 ///
 /// Each field is `Option<_>`; an absent field leaves the property unchanged.
-/// The `color` field is `Option<Clearable<String>>` because `SpaceRole.color`
-/// is itself optional: a wire `null` means "clear the color" while absence
-/// means "leave the existing color alone".
+/// The `color` field is `Option<Clearable<serde_json::Value>>` because
+/// `SpaceRole.color` is itself optional and may take any of the three draft
+/// §Color Representation forms: a wire `null` means "clear the color" while
+/// absence means "leave the existing color alone".
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -148,7 +149,7 @@ pub struct RolePatch {
         skip_serializing_if = "Option::is_none",
         deserialize_with = "some_clearable"
     )]
-    pub color: Option<Clearable<String>>,
+    pub color: Option<Clearable<serde_json::Value>>,
     /// The `permissions` property (draft-atwood-jmap-chat-00 §Space/set updateRoles).
     ///
     /// Drawn from the spec-enumerated permission vocabulary
@@ -494,7 +495,7 @@ mod tests {
     fn role_patch_color_set() {
         let json = r##"{"color": "#ff00ff"}"##;
         let p: RolePatch = serde_json::from_str(json).expect("deserialize RolePatch");
-        assert_eq!(p.color, Some(Clearable::Set("#ff00ff".to_owned())));
+        assert_eq!(p.color, Some(Clearable::Set(serde_json::json!("#ff00ff"))));
     }
 
     // Oracle: spec §Space/set updateRoles — absent color stays None (not Clear).
@@ -503,6 +504,25 @@ mod tests {
         let json = r#"{"name": "Foo"}"#;
         let p: RolePatch = serde_json::from_str(json).expect("deserialize RolePatch");
         assert_eq!(p.color, None);
+    }
+
+    // Oracle: draft-atwood-jmap-chat-00 §Color Representation — "Servers
+    // MUST accept all three representations in color-valued fields and MUST
+    // preserve the representation provided by the client." §Space/set
+    // updateRoles: "Each entry: `id` (String) and any of `name`, `color`,
+    // `permissions`, `position`."
+    #[test]
+    fn role_patch_color_accepts_all_three_representations() {
+        for color in [
+            serde_json::json!({"$type": "color", "$value": "oklch(0.7 0.15 250)"}),
+            serde_json::json!([62.5, 12.0, -30.25]),
+            serde_json::json!("#5865f2"),
+        ] {
+            let wire = serde_json::json!({ "color": color });
+            let p: RolePatch = serde_json::from_value(wire.clone())
+                .unwrap_or_else(|e| panic!("deserialize RolePatch with color {color}: {e}"));
+            assert_eq!(serde_json::to_value(&p).expect("serialize"), wire);
+        }
     }
 
     // Oracle: spec §Space/set updateRoles — round-trip preserves all fields.

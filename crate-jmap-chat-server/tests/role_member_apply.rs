@@ -947,3 +947,76 @@ async fn add_member_unknown_role_id_rejected() {
         "unknown roleId should be invalidProperties: {resp:?}"
     );
 }
+
+/// Oracle: draft-atwood-jmap-chat-00 §Color Representation — "Servers MUST
+/// accept all three representations in color-valued fields and MUST
+/// preserve the representation provided by the client." §Space/set
+/// updateRoles: "Each entry: `id` (String) and any of `name`, `color`,
+/// `permissions`, `position`."
+#[tokio::test]
+async fn update_role_color_preserves_all_three_representations() {
+    let backend = IdentityBackend::new();
+    let caller = Id::from("admin");
+
+    seed_space(
+        &backend,
+        json!([
+            {
+                "id": "r-admin",
+                "name": "Admin",
+                "permissions": ["manage_roles"],
+                "position": 100
+            },
+            {
+                "id": "r-target",
+                "name": "Target",
+                "color": "#000000",
+                "permissions": [],
+                "position": 10
+            }
+        ]),
+        json!([{
+            "id": "admin",
+            "roleIds": ["r-admin"],
+            "joinedAt": "2026-01-01T00:00:00Z"
+        }]),
+    );
+
+    for color in [
+        json!({"$type": "color", "$value": "oklch(0.7 0.15 250)"}),
+        json!([62.5, 12.0, -30.25]),
+        json!("#5865f2"),
+    ] {
+        let (resp, _) = handle_space_set(
+            &backend,
+            &caller,
+            json!({
+                "accountId": ACCOUNT_ID,
+                "update": { SPACE_ID: { "updateRoles": [{
+                    "id": "r-target", "color": color
+                }]}}
+            }),
+        )
+        .await
+        .expect("handle_space_set");
+        assert!(
+            resp["notUpdated"][SPACE_ID].is_null(),
+            "updateRoles color {color} rejected: {resp:?}"
+        );
+
+        let (get_resp, _) = handle_space_get(
+            &backend,
+            &caller,
+            json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        )
+        .await
+        .expect("Space/get");
+        let target = get_resp["list"][0]["roles"]
+            .as_array()
+            .expect("roles array")
+            .iter()
+            .find(|r| r["id"] == "r-target")
+            .expect("r-target present");
+        assert_eq!(target["color"], color, "color representation not preserved");
+    }
+}
