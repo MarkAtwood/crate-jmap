@@ -55,6 +55,21 @@ pub struct ChatMember {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl ChatMember {
+    /// Construct a [`ChatMember`] from its required fields.
+    ///
+    /// `invited_by` defaults to `None` and `extra` to an empty map.
+    pub fn new(id: Id, role: String, joined_at: UTCDate) -> Self {
+        Self {
+            id,
+            role,
+            joined_at,
+            invited_by: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 /// A per-channel permission override entry.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

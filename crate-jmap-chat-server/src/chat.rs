@@ -25,7 +25,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use jmap_chat_types::{Chat, ChatKind};
+use jmap_chat_types::{Chat, ChatKind, ChatMember};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde_json::{json, Value};
 
@@ -336,8 +336,53 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 _ => None,
             };
 
+            // Group create: "`memberIds` (String[], required): ChatContact.ids
+            // of additional initial members." Absent is tolerated for
+            // backward compatibility; a non-String[] value is rejected.
+            let member_ids: Option<Vec<Id>> = if kind == ChatKind::Group {
+                match obj_val.get("memberIds") {
+                    None => Some(Vec::new()),
+                    Some(v) => match serde_json::from_value::<Vec<String>>(v.clone()) {
+                        Ok(ids) => Some(ids.into_iter().map(Id::from).collect()),
+                        Err(_) => {
+                            not_created.insert(
+                                create_id.clone(),
+                                json!({ "type": "invalidProperties", "properties": ["memberIds"] }),
+                            );
+                            continue;
+                        }
+                    },
+                }
+            } else {
+                None
+            };
+
             let now_str = now_utc_string();
             let now: UTCDate = UTCDate::from(now_str.as_ref());
+
+            // "The server [...] adds the creator to `members` with at least
+            // one role granting permissions sufficient to administer the
+            // chat": the creator is `"admin"`, each distinct memberIds entry
+            // is `"member"` invited by the creator. Creator identity falls
+            // back to `account_id` in single-user posture (as in Space/join).
+            let members: Option<Vec<ChatMember>> = member_ids.map(|ids| {
+                let creator: Id = B::principal_id(caller)
+                    .cloned()
+                    .unwrap_or_else(|| account_id.clone());
+                let mut members = vec![ChatMember::new(
+                    creator.clone(),
+                    "admin".to_owned(),
+                    now.clone(),
+                )];
+                for id in ids {
+                    if members.iter().all(|m| m.id != id) {
+                        let mut m = ChatMember::new(id, "member".to_owned(), now.clone());
+                        m.invited_by = Some(creator.clone());
+                        members.push(m);
+                    }
+                }
+                members
+            });
 
             let contact_id: Option<Id> = obj_val
                 .get("contactId")
@@ -378,6 +423,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
             chat.name = name;
             chat.description = description;
             chat.space_id = space_id;
+            chat.members = members;
 
             match backend
                 .create_object::<Chat>(caller, &account_id, create_id, chat)
