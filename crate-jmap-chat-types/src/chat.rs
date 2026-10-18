@@ -164,6 +164,10 @@ pub struct Chat {
     /// The `messageExpirySeconds` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message_expiry_seconds: Option<u64>,
+    /// The server-set `closedAt` property (draft-atwood-jmap-chat-00
+    /// §4.10). Group chats only; absent while the group is open.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub closed_at: Option<UTCDate>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -230,6 +234,7 @@ impl Chat {
             mute_until: None,
             receipt_sharing: None,
             message_expiry_seconds: None,
+            closed_at: None,
             extra: serde_json::Map::new(),
         }
     }
@@ -404,5 +409,39 @@ mod tests {
         let out = serde_json::to_value(&chat).expect("serialize Chat");
         assert_eq!(out["slowModeSeconds"], serde_json::json!(0), "{out}");
         assert_eq!(out["permissionOverrides"], serde_json::json!([]), "{out}");
+    }
+
+    /// draft-atwood-jmap-chat-00 §Chat: "`closedAt` (UTCDate, optional,
+    /// server-set): **Group chats only.** Time the group closed. Absent
+    /// while the group is open."
+    #[test]
+    fn chat_closed_at_typed_and_absent_while_open() {
+        let raw = serde_json::json!({
+            "id": "c1",
+            "kind": "group",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "unreadCount": 0,
+            "closedAt": "2026-02-01T00:00:00Z"
+        });
+        let c: Chat = serde_json::from_value(raw).expect("deserialize closed Chat");
+        assert_eq!(
+            c.closed_at.as_ref().map(AsRef::as_ref),
+            Some("2026-02-01T00:00:00Z")
+        );
+        assert!(c.extra.is_empty(), "closedAt must not land in extra");
+        let back = serde_json::to_value(&c).expect("serialize Chat");
+        assert_eq!(back["closedAt"], "2026-02-01T00:00:00Z");
+
+        let open = Chat::new(
+            Id::from("c2"),
+            ChatKind::Group,
+            UTCDate::from("2026-01-01T00:00:00Z"),
+            0,
+            vec![],
+            false,
+            true,
+        );
+        let out = serde_json::to_value(&open).expect("serialize Chat");
+        assert!(out.get("closedAt").is_none(), "{out}");
     }
 }

@@ -71,7 +71,10 @@ pub struct ChatCapability {
     ///   (`"application/jmap-chat-rich"`).
     /// - SHOULD include [`BodyType::Other`]`("application/mls-ciphertext".into())`
     ///   for E2EE deployments.
-    /// - MAY include [`BodyType::Other`]`("application/mimi-content".into())`.
+    /// - MAY include [`BodyType::Other`]`("application/mimi-content".into())`
+    ///   when participating in a MIMI federation domain. That type is
+    ///   unencrypted MIMI content; MLS-wrapped bodies use `"message/mls"`
+    ///   (draft-atwood-jmap-chat-mimi-00).
     ///
     /// An empty `Vec` is non-compliant per spec ([`BodyType::Plain`] is
     /// mandatory) but consumers tolerate it via `Default` — the consumer is
