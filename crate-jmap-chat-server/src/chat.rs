@@ -541,6 +541,53 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 }
             }
 
+            // draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: an update
+            // that would add an id not naming a Message in this Chat is
+            // `invalidProperties`. RFC 8620 §5.3 forbids pointers into
+            // arrays (update_object rejects them as invalidPatch), so only
+            // the whole-property key can add ids, and its value is the
+            // post-patch list. Only ids absent from the stored list count
+            // as added; see ChatBackend::validate_pinned_message_ids.
+            // ponytail: check-then-update is not atomic; a Message
+            // hard-deleted between the two leaves a stale pin. A backend
+            // needing strictness re-checks inside its update transaction.
+            if let Some(Value::Array(new_pins)) = patch.as_map().get("pinnedMessageIds") {
+                let stored = match backend
+                    .get_objects::<Chat>(caller, &account_id, Some(std::slice::from_ref(&id)), None)
+                    .await
+                {
+                    Ok((chats, _)) => chats.into_iter().next(),
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                };
+                if let Some(stored) = stored {
+                    let added: Vec<Id> = new_pins
+                        .iter()
+                        .filter_map(Value::as_str)
+                        .map(Id::from)
+                        .filter(|pin| !stored.pinned_message_ids.contains(pin))
+                        .collect();
+                    if !added.is_empty() {
+                        match backend
+                            .validate_pinned_message_ids(caller, &account_id, &id, &added)
+                            .await
+                        {
+                            Ok(Ok(())) => {}
+                            Ok(Err(set_err)) => {
+                                not_updated.insert(id_str, set_error_value(&set_err));
+                                continue;
+                            }
+                            Err(e) => {
+                                not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                                continue;
+                            }
+                        }
+                    }
+                }
+            }
+
             match backend
                 .update_object::<Chat>(caller, &account_id, &id, patch)
                 .await

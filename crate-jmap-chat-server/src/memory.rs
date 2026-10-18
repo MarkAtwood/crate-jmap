@@ -742,8 +742,8 @@ impl JmapBackend for MemoryBackend {
         // Serialize the generic filter to a serde_json::Value so we can
         // inspect it for type-specific filter keys. O::Filter implements
         // Serialize for all JMAP Chat types (all are serde_json::Value).
-        let filter_val: Option<serde_json::Value> = filter
-            .and_then(|f| serde_json::to_value(f).ok());
+        let filter_val: Option<serde_json::Value> =
+            filter.and_then(|f| serde_json::to_value(f).ok());
 
         let mut ids: Vec<Id> = inner
             .objects_ref(O::TYPE_NAME, account_id.as_ref())
@@ -981,27 +981,30 @@ impl ChatBackend for MemoryBackend {
     ) -> Result<(), BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
 
-        let removed = inner
-            .objects_mut(O::TYPE_NAME, account_id.as_ref())
-            .remove(id);
+        let removed = if O::TYPE_NAME == "Message" {
+            hard_delete_message(&mut inner, account_id.as_ref(), id)
+        } else {
+            inner
+                .objects_mut(O::TYPE_NAME, account_id.as_ref())
+                .remove(id)
+                .is_some()
+        };
 
-        match removed {
-            Some(_) => {
-                let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
-                inner
-                    .change_log_mut(O::TYPE_NAME, account_id.as_ref())
-                    .push(ChangeEntry {
-                        new_state,
-                        created: vec![],
-                        updated: vec![],
-                        destroyed: vec![id.clone()],
-                    });
-                Ok(())
-            }
-            None => Err(BackendSetError::SetError(SetError::new(
+        if !removed {
+            return Err(BackendSetError::SetError(SetError::new(
                 SetErrorType::NotFound,
-            ))),
+            )));
         }
+        let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
+        inner
+            .change_log_mut(O::TYPE_NAME, account_id.as_ref())
+            .push(ChangeEntry {
+                new_state,
+                created: vec![],
+                updated: vec![],
+                destroyed: vec![id.clone()],
+            });
+        Ok(())
     }
 
     fn supports_type<O: JmapObject>(&self) -> bool {
@@ -1248,6 +1251,34 @@ impl ChatBackend for MemoryBackend {
         Ok(self.may_set_pinned_messages_with_caller_id(caller_id, account_id, chat_id))
     }
 
+    /// Reference implementation of
+    /// [`ChatBackend::validate_pinned_message_ids`]: every added id must
+    /// name a stored Message whose `chatId` is `chat_id`.
+    async fn validate_pinned_message_ids(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        chat_id: &Id,
+        added: &[Id],
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        let inner = self.inner.lock().unwrap();
+        let messages = inner.objects_ref("Message", account_id.as_ref());
+        let in_chat = |id: &Id| {
+            messages
+                .and_then(|m| m.get(id))
+                .and_then(|msg| msg.get("chatId"))
+                .and_then(|v| v.as_str())
+                == Some(chat_id.as_ref())
+        };
+        if added.iter().all(in_chat) {
+            return Ok(Ok(()));
+        }
+        let err = SetError::new(SetErrorType::InvalidProperties)
+            .with_properties(["pinnedMessageIds"])
+            .with_description("pinned id is not a Message in this Chat");
+        Ok(Err(err))
+    }
+
     /// Reference implementation of [`ChatBackend::slow_mode_check`].
     ///
     /// Demonstration-only: this backend has no rate-tracker and always
@@ -1289,11 +1320,7 @@ impl ChatBackend for MemoryBackend {
     ) -> Result<(), Self::Error> {
         let mut inner = self.inner.lock().unwrap();
 
-        let removed = inner
-            .objects_mut("Message", account_id.as_ref())
-            .remove(message_id);
-
-        if removed.is_some() {
+        if hard_delete_message(&mut inner, account_id.as_ref(), message_id) {
             let new_state = inner.bump_state("Message", account_id.as_ref());
             inner
                 .change_log_mut("Message", account_id.as_ref())
@@ -1306,6 +1333,40 @@ impl ChatBackend for MemoryBackend {
         }
         Ok(())
     }
+}
+
+/// Remove Message `id` and unpin it from its Chat under the same lock.
+///
+/// draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: "When a pinned
+/// Message is hard-deleted, the server MUST remove its id from this
+/// list." Bumps `Chat` state when a pin is removed; the caller records
+/// the `Message` change. Returns whether the Message existed.
+fn hard_delete_message(inner: &mut Inner, account_id: &str, id: &Id) -> bool {
+    let Some(msg) = inner.objects_mut("Message", account_id).remove(id) else {
+        return false;
+    };
+    let Some(chat_id) = msg.get("chatId").and_then(|v| v.as_str()).map(Id::from) else {
+        return true;
+    };
+    let unpinned = inner
+        .objects_mut("Chat", account_id)
+        .get_mut(&chat_id)
+        .and_then(|chat| chat.get_mut("pinnedMessageIds")?.as_array_mut())
+        .is_some_and(|pins| {
+            let before = pins.len();
+            pins.retain(|v| v.as_str() != Some(id.as_ref()));
+            pins.len() != before
+        });
+    if unpinned {
+        let new_state = inner.bump_state("Chat", account_id);
+        inner.change_log_mut("Chat", account_id).push(ChangeEntry {
+            new_state,
+            created: vec![],
+            updated: vec![chat_id],
+            destroyed: vec![],
+        });
+    }
+    true
 }
 
 /// Apply a [`SpacePatchOp`] sequence to the in-memory Space store.
