@@ -1,6 +1,6 @@
 # jmap-filenode-types
 
-Serde-annotated Rust types for the JMAP FileNode extension ([draft-ietf-jmap-filenode-14]).
+Serde-annotated Rust types for the JMAP FileNode extension ([draft-ietf-jmap-filenode-16]).
 Types only — no method handlers, no async, no network I/O.
 
 ## What it is
@@ -60,12 +60,12 @@ decision is bd JMAP-lbdy.
 
 ## Spec coverage
 
-**draft-ietf-jmap-filenode-14 sections implemented:**
+**draft-ietf-jmap-filenode-16 sections implemented:**
 
-- §3.1 — `FileNode` object: `id`, `parentId`, `blobId`, `target`, `size`, `name`,
-  `type` (serialized as `"type"`), `mediaType`, `created`, `modified`, `shareWith`,
-  `myRights`, `role`
-- §3.1 (IANA registries §10.4, §10.5) — `NodeType` and `NodeRole` registered values
+- §3.1 — `FileNode` object: `@type`, `id`, `parentId`, `blobId`, `target`, `size`,
+  `name`, `mediaType`, `created`, `modified`, `shareWith`, `myRights`, `role`;
+  properties not defined for a node's `@type` are omitted on serialization
+- §3.1 (IANA registries §11.5, §11.6) — `NodeType` and `NodeRole` registered values
 - §3.2.3 — `FileNodeFilterCondition` query filter
 - §1.6 — `FileNodeCapability` and `JMAP_FILENODE_URI`
 
@@ -76,13 +76,12 @@ use jmap_filenode_types::{FileNode, NodeType};
 
 // Deserialize a file node.
 let file_node: FileNode = serde_json::from_str(r#"{
+    "@type": "File",
     "id": "node1",
     "parentId": "dir1",
     "blobId": "blob-abc123",
-    "target": null,
     "size": 8192,
     "name": "report.pdf",
-    "type": "file",
     "mediaType": "application/pdf",
     "created": "2025-01-15T10:00:00Z",
     "modified": "2025-01-20T14:30:00Z",
@@ -92,14 +91,11 @@ assert_eq!(file_node.node_type, Some(NodeType::File));
 
 // Deserialize a directory node.
 let dir_node: FileNode = serde_json::from_str(r#"{
+    "@type": "Directory",
     "id": "dir1",
     "parentId": null,
-    "blobId": null,
-    "target": null,
-    "size": null,
     "name": "Documents",
-    "type": "directory",
-    "mediaType": null,
+    "role": null,
     "created": "2024-06-01T00:00:00Z",
     "modified": "2025-01-20T14:30:00Z",
     "shareWith": null
@@ -112,12 +108,12 @@ assert_eq!(dir_node.node_type, Some(NodeType::Directory));
 
 All structs carry `#[serde(rename_all = "camelCase")]` to produce camelCase JSON field names
 as required by the JMAP wire format. Two fields require explicit `#[serde(rename)]`
-annotations because their wire names clash with Rust keywords or conventions:
+annotation because its wire name is not a valid Rust identifier:
 
-- `node_type` is serialized as `"type"` — `type` is a reserved keyword in Rust, so the
-  struct field is named `node_type` with `#[serde(rename = "type")]`.
-- `media_type` in `FileNodeFilterCondition` is serialized as `"mediaType"` — covered by the
-  top-level `rename_all = "camelCase"`.
+- `node_type` is serialized as `"@type"` with `#[serde(rename = "@type")]`.
+
+`FileNode` has a hand-written `Serialize` impl that omits properties not defined for
+the node's `@type` (§3.1), while still emitting `"role": null` on a `Directory`.
 
 `NodeType` and `NodeRole` are string-backed enums with an `Other(String)` fallback variant
 so that unrecognised values from the IANA registry (added after this crate was written)
@@ -130,8 +126,8 @@ round-trip without data loss.
 
 ## References
 
-- **[draft-ietf-jmap-filenode-14]** — JMAP FileNode (normative for all type definitions)
+- **[draft-ietf-jmap-filenode-16]** — JMAP FileNode (normative for all type definitions)
 - **[RFC 8620]** — JMAP Core (Id, State, SetError, request/response shape)
 
-[draft-ietf-jmap-filenode-14]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
+[draft-ietf-jmap-filenode-16]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

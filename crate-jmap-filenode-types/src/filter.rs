@@ -1,19 +1,14 @@
-//! draft-ietf-jmap-filenode-14 §3.2.5 — FileNode/query filter condition.
+//! draft-ietf-jmap-filenode-16 §3.2.5 — FileNode/query filter condition.
 //!
 //! Provides [`FileNodeFilterCondition`].
 
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
-/// Filter condition for `FileNode/query` (draft-ietf-jmap-filenode-14 §3.2.5).
+/// Filter condition for `FileNode/query` (draft-ietf-jmap-filenode-16 §3.2.5).
 ///
 /// All fields are optional; a condition with no fields set matches every FileNode.
 /// A node matches only when every provided field matches.
-///
-/// ## `media_type` field
-///
-/// The wire field is literally `"type"` (a Rust keyword).  The Rust field is named
-/// `media_type` with `#[serde(rename = "type")]`.
 ///
 /// # Excluded from extras preservation
 ///
@@ -58,7 +53,8 @@ pub struct FileNodeFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub descendant_id: Option<Id>,
 
-    /// Exact match on the node's `nodeType` string.
+    /// Exact match on the node's `@type` string.  Named `nodeType` on the wire
+    /// rather than `@type` (§3.2.5).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub node_type: Option<String>,
 
@@ -120,27 +116,25 @@ pub struct FileNodeFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name_match: Option<String>,
 
-    /// Exact byte match on the node's `type` (media type) property.
-    ///
-    /// Wire field name is literally `"type"` — a Rust keyword.
-    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    /// Exact byte match on the node's `mediaType` property.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub media_type: Option<String>,
 
-    /// Glob match on the node's `type` (media type) property using the same glob
+    /// Glob match on the node's `mediaType` property using the same glob
     /// syntax as `nameMatch`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub type_match: Option<String>,
+    pub media_type_match: Option<String>,
 
     /// Full-text search in the referenced blob content.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
 
-    /// Equivalent to `body` OR `nameMatch` OR `typeMatch`.
+    /// Equivalent to `body` OR `nameMatch` OR `mediaTypeMatch`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
 }
 
-/// Concrete filter type for FileNode/query (draft-ietf-jmap-filenode-14 §3.2.5).
+/// Concrete filter type for FileNode/query (draft-ietf-jmap-filenode-16 §3.2.5).
 ///
 /// Alias for `jmap_types::query::Filter<FileNodeFilterCondition>` provided
 /// so callers do not have to reach into `jmap-types` directly. Mirrors the

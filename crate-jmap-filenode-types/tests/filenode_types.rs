@@ -1,6 +1,6 @@
 //! Integration tests for jmap-filenode-types.
 //!
-//! All JSON fixtures are hand-written from draft-ietf-jmap-filenode-14 or
+//! All JSON fixtures are hand-written from draft-ietf-jmap-filenode-16 or
 //! constructed directly from the spec field descriptions.  No expected value is
 //! derived from the code under test.
 //!
@@ -32,13 +32,14 @@ fn parse_rights(json: &str) -> FilesRights {
 
 #[test]
 fn node_type_known_values_deserialize() {
-    let file: NodeType = serde_json::from_str("\"file\"").unwrap();
+    // §3.1.1: the defined @type values are "File", "Directory", and "SymLink".
+    let file: NodeType = serde_json::from_str("\"File\"").unwrap();
     assert_eq!(file, NodeType::File);
 
-    let dir: NodeType = serde_json::from_str("\"directory\"").unwrap();
+    let dir: NodeType = serde_json::from_str("\"Directory\"").unwrap();
     assert_eq!(dir, NodeType::Directory);
 
-    let sym: NodeType = serde_json::from_str("\"symlink\"").unwrap();
+    let sym: NodeType = serde_json::from_str("\"SymLink\"").unwrap();
     assert_eq!(sym, NodeType::Symlink);
 }
 
@@ -64,9 +65,9 @@ fn node_type_roundtrip() {
 
 #[test]
 fn node_type_wire_strings() {
-    assert_eq!(NodeType::File.to_wire_str(), "file");
-    assert_eq!(NodeType::Directory.to_wire_str(), "directory");
-    assert_eq!(NodeType::Symlink.to_wire_str(), "symlink");
+    assert_eq!(NodeType::File.to_wire_str(), "File");
+    assert_eq!(NodeType::Directory.to_wire_str(), "Directory");
+    assert_eq!(NodeType::Symlink.to_wire_str(), "SymLink");
     assert_eq!(
         NodeType::Other("x-custom".to_owned()).to_wire_str(),
         "x-custom"
@@ -174,17 +175,15 @@ fn files_rights_roundtrip() {
 
 #[test]
 fn filenode_file_deserialize() {
-    // Constructed from §3.1 field descriptions for a file node.
-    // parentId, blobId, target, size, type, shareWith are required-and-nullable.
+    // Constructed from §3.1.1 and §3.1.2 field descriptions for a File node.
     let json = r#"{
+        "@type": "File",
         "id": "fn1",
         "parentId": "dir1",
-        "nodeType": "file",
         "blobId": "blob1",
-        "target": null,
         "size": 4096,
         "name": "readme.txt",
-        "type": "text/plain",
+        "mediaType": "text/plain",
         "created": "2024-01-15T10:00:00Z",
         "modified": "2024-03-01T12:00:00Z",
         "accessed": "2024-03-10T08:00:00Z",
@@ -199,8 +198,7 @@ fn filenode_file_deserialize() {
             "mayModifyContent": true,
             "mayShare": false
         },
-        "shareWith": null,
-        "role": null
+        "shareWith": null
     }"#;
 
     let node: FileNode = serde_json::from_str(json).unwrap();
@@ -226,15 +224,12 @@ fn filenode_file_deserialize() {
 
 #[test]
 fn filenode_directory_deserialize() {
-    // §3.1: directory node — blobId null, target null, size null, type null.
+    // §3.1.3: a Directory carries no File or SymLink properties.
     let json = r#"{
+        "@type": "Directory",
         "id": "dir1",
         "parentId": null,
-        "blobId": null,
-        "target": null,
-        "size": null,
         "name": "My Files",
-        "type": null,
         "shareWith": null,
         "role": "home"
     }"#;
@@ -242,7 +237,7 @@ fn filenode_directory_deserialize() {
     let node: FileNode = serde_json::from_str(json).unwrap();
     assert_eq!(node.id, id("dir1"));
     assert_eq!(node.parent_id, None);
-    assert_eq!(node.node_type, None); // absent → None
+    assert_eq!(node.node_type, Some(NodeType::Directory));
     assert_eq!(node.blob_id, None);
     assert_eq!(node.target, None);
     assert_eq!(node.size, None);
@@ -254,16 +249,13 @@ fn filenode_directory_deserialize() {
 
 #[test]
 fn filenode_symlink_deserialize() {
-    // §3.1: symlink node — blobId null, target non-null, size null, type null.
+    // §3.1.4: a SymLink carries `target` and no File or Directory properties.
     let json = r#"{
+        "@type": "SymLink",
         "id": "sym1",
         "parentId": "dir1",
-        "nodeType": "symlink",
-        "blobId": null,
         "target": ["", "home", "alice", "docs"],
-        "size": null,
         "name": "docs-link",
-        "type": null,
         "shareWith": null
     }"#;
 
@@ -285,16 +277,12 @@ fn filenode_symlink_deserialize() {
 
 #[test]
 fn filenode_unknown_node_type_becomes_other() {
-    // §3.1: clients MUST NOT reject unrecognised nodeType values.
+    // §3.1.1: clients MUST be prepared to receive unrecognised @type values.
     let json = r#"{
+        "@type": "x-vendor-hardlink",
         "id": "fn2",
         "parentId": null,
-        "nodeType": "x-vendor-hardlink",
-        "blobId": null,
-        "target": null,
-        "size": null,
         "name": "special",
-        "type": null,
         "shareWith": null
     }"#;
     let node: FileNode = serde_json::from_str(json).unwrap();
@@ -310,18 +298,14 @@ fn filenode_unknown_node_type_becomes_other() {
 
 #[test]
 fn filenode_nullable_fields_serialize_as_null_not_absent() {
-    // Deserialize a node where all nullable fields are null so that the Rust
-    // fields hold None; then re-serialize and check that they appear as null.
-    // `role` is typed `String|null` in §3.1 — required-nullable, must round-trip
-    // as `null` not absent.
+    // §3.1.1: parentId and shareWith are `|null` common properties; §3.1.3: role
+    // is `String|null` on a Directory.  All three must round-trip as `null`.
+    // §3.1: File and SymLink properties MUST NOT appear on a Directory.
     let json = r#"{
+        "@type": "Directory",
         "id": "x",
         "parentId": null,
-        "blobId": null,
-        "target": null,
-        "size": null,
         "name": "f",
-        "type": null,
         "shareWith": null,
         "role": null
     }"#;
@@ -331,77 +315,39 @@ fn filenode_nullable_fields_serialize_as_null_not_absent() {
     let v: serde_json::Value = serde_json::from_str(&out).unwrap();
     let obj = v.as_object().unwrap();
 
-    // Required-and-nullable: MUST be present as null.
-    assert!(obj.contains_key("parentId"), "parentId must be present");
-    assert!(obj["parentId"].is_null(), "parentId must be null");
+    for key in ["parentId", "shareWith", "role"] {
+        assert!(obj.contains_key(key), "{key} must be present");
+        assert!(obj[key].is_null(), "{key} must be null");
+    }
+    assert_eq!(obj["@type"], "Directory");
 
-    assert!(obj.contains_key("blobId"), "blobId must be present");
-    assert!(obj["blobId"].is_null(), "blobId must be null");
-
-    assert!(obj.contains_key("target"), "target must be present");
-    assert!(obj["target"].is_null(), "target must be null");
-
-    assert!(obj.contains_key("size"), "size must be present");
-    assert!(obj["size"].is_null(), "size must be null");
-
-    assert!(
-        obj.contains_key("type"),
-        "type (media_type) must be present"
-    );
-    assert!(obj["type"].is_null(), "type (media_type) must be null");
-
-    assert!(obj.contains_key("shareWith"), "shareWith must be present");
-    assert!(obj["shareWith"].is_null(), "shareWith must be null");
-
-    // role is String|null (§3.1) — required-nullable, MUST appear as null.
-    assert!(obj.contains_key("role"), "role must be present");
-    assert!(obj["role"].is_null(), "role must be null");
-
-    // Truly optional: MUST be absent when None.
-    assert!(
-        !obj.contains_key("nodeType"),
-        "nodeType must be absent when None"
-    );
-    assert!(
-        !obj.contains_key("created"),
-        "created must be absent when None"
-    );
-    assert!(
-        !obj.contains_key("modified"),
-        "modified must be absent when None"
-    );
-    assert!(
-        !obj.contains_key("accessed"),
-        "accessed must be absent when None"
-    );
-    assert!(
-        !obj.contains_key("changed"),
-        "changed must be absent when None"
-    );
-    assert!(
-        !obj.contains_key("executable"),
-        "executable must be absent when None"
-    );
-    assert!(
-        !obj.contains_key("isSubscribed"),
-        "isSubscribed must be absent when None"
-    );
-    assert!(
-        !obj.contains_key("myRights"),
-        "myRights must be absent when None"
-    );
+    for key in [
+        "blobId",
+        "size",
+        "mediaType",
+        "executable",
+        "target",
+        "created",
+        "modified",
+        "accessed",
+        "changed",
+        "isSubscribed",
+        "myRights",
+    ] {
+        assert!(!obj.contains_key(key), "{key} must be absent, got: {out}");
+    }
 }
 
 #[test]
 fn filenode_share_with_populated_map() {
     let json = r#"{
+        "@type": "File",
         "id": "fn3",
         "parentId": "dir1",
         "blobId": "blob2",
-        "target": null,
         "size": 100,
         "name": "shared.pdf",
-        "type": "application/pdf",
+        "mediaType": "application/pdf",
         "shareWith": {
             "user42": {
                 "mayRead": true,
@@ -426,14 +372,13 @@ fn filenode_roundtrip_file() {
     // Build via JSON deserialization, then serialize and deserialize again.
     // Verifies serde consistency for a fully-populated file node.
     let json = r#"{
+        "@type": "File",
         "id": "fn-rt",
         "parentId": "dir-rt",
-        "nodeType": "file",
         "blobId": "b-rt",
-        "target": null,
         "size": 2048,
         "name": "roundtrip.bin",
-        "type": "application/octet-stream",
+        "mediaType": "application/octet-stream",
         "created": "2025-01-01T00:00:00Z",
         "modified": "2025-06-01T00:00:00Z",
         "changed": "2025-06-01T00:00:00Z",
@@ -456,8 +401,7 @@ fn filenode_roundtrip_file() {
                 "mayModifyContent": false,
                 "mayShare": false
             }
-        },
-        "role": null
+        }
     }"#;
 
     let original: FileNode = serde_json::from_str(json).unwrap();
@@ -467,22 +411,18 @@ fn filenode_roundtrip_file() {
 }
 
 // ---------------------------------------------------------------------------
-// FileNode — role field nullable semantics (§3.1 type: String|null)
+// FileNode — role field nullable semantics (§3.1.3 type: String|null)
 // ---------------------------------------------------------------------------
 
 #[test]
 fn filenode_role_serializes_as_null() {
-    // Oracle: §3.1 types `role` as `String|null` — required-nullable field.
-    // A FileNode with role None must produce "role":null in wire JSON, not
-    // absence of the key.
+    // Oracle: §3.1.3 types a Directory's `role` as `String|null`.  A Directory
+    // with role None must produce "role":null in wire JSON, not absence of the key.
     let json = r#"{
+        "@type": "Directory",
         "id": "rn1",
         "parentId": null,
-        "blobId": "blob-rn",
-        "target": null,
-        "size": 10,
-        "name": "file.txt",
-        "type": "text/plain",
+        "name": "docs",
         "shareWith": null,
         "role": null
     }"#;
@@ -504,15 +444,12 @@ fn filenode_role_serializes_as_null() {
 
 #[test]
 fn filenode_role_null_round_trips() {
-    // Oracle: §3.1 — role: null → deserialize → None → serialize → "role":null.
+    // Oracle: §3.1.3 — role: null → deserialize → None → serialize → "role":null.
     let json = r#"{
+        "@type": "Directory",
         "id": "rn2",
         "parentId": null,
-        "blobId": null,
-        "target": null,
-        "size": null,
         "name": "dir",
-        "type": null,
         "shareWith": null,
         "role": null
     }"#;
@@ -545,14 +482,15 @@ fn capability_uri_constant() {
 
 #[test]
 fn capability_deserialize_from_spec_example() {
-    // Taken verbatim from draft-ietf-jmap-filenode-14 §2.1.1 capability example.
+    // Taken verbatim from draft-ietf-jmap-filenode-16 §2.1.1 capability example.
     let json = r#"{
         "maxFileNodeDepth": 50,
         "maxSizeFileNodeName": 255,
         "fileNodeQuerySortOptions": [
-            "name", "type", "size", "created", "modified",
+            "name", "mediaType", "size", "created", "modified",
             "nodeType", "tree"
         ],
+        "supportedNodeTypes": ["Directory", "File", "SymLink"],
         "forbiddenNameChars": "/<>:\"\\|?*",
         "forbiddenNodeNames": [".", "..", "CON", "PRN", "AUX",
             "NUL", "COM0", "COM1", "COM2", "COM3", "COM4", "COM5",
@@ -571,7 +509,15 @@ fn capability_deserialize_from_spec_example() {
     assert_eq!(cap.max_size_file_node_name, 255);
     assert_eq!(
         cap.file_node_query_sort_options,
-        vec!["name", "type", "size", "created", "modified", "nodeType", "tree"]
+        vec![
+            "name",
+            "mediaType",
+            "size",
+            "created",
+            "modified",
+            "nodeType",
+            "tree"
+        ]
     );
     assert_eq!(cap.forbidden_name_chars, Some("/<>:\"\\|?*".to_owned()));
     assert!(cap
@@ -710,17 +656,19 @@ fn capability_roundtrip() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn filter_condition_type_field_uses_rename() {
-    // The wire field for media_type is literally "type" — verify the rename works.
-    let json = r#"{"type": "text/plain"}"#;
+fn filter_condition_media_type_wire_names() {
+    // §3.2.5: the media type conditions are `mediaType` and `mediaTypeMatch`.
+    let json = r#"{"mediaType": "text/plain", "mediaTypeMatch": "text/*"}"#;
     let cond: FileNodeFilterCondition = serde_json::from_str(json).unwrap();
     assert_eq!(cond.media_type, Some("text/plain".to_owned()));
+    assert_eq!(cond.media_type_match, Some("text/*".to_owned()));
 
-    let out = serde_json::to_string(&cond).unwrap();
-    assert!(
-        out.contains("\"type\":"),
-        "serialized key must be \"type\", got: {out}"
+    let out: serde_json::Value = serde_json::to_value(&cond).unwrap();
+    assert_eq!(
+        out,
+        serde_json::json!({"mediaType": "text/plain", "mediaTypeMatch": "text/*"})
     );
+    let out = out.to_string();
     assert!(
         !out.contains("\"media_type\":"),
         "must not contain Rust field name"
@@ -735,7 +683,7 @@ fn filter_condition_all_fields_deserialize() {
         "parentId": "dir1",
         "ancestorId": "root1",
         "descendantId": "child1",
-        "nodeType": "file",
+        "nodeType": "File",
         "role": "home",
         "hasAnyRole": false,
         "blobId": "blob1",
@@ -750,8 +698,8 @@ fn filter_condition_all_fields_deserialize() {
         "maxSize": 1048576,
         "name": "readme.txt",
         "nameMatch": "*.txt",
-        "type": "text/plain",
-        "typeMatch": "text/*",
+        "mediaType": "text/plain",
+        "mediaTypeMatch": "text/*",
         "body": "hello world",
         "text": "search term"
     }"#;
@@ -761,7 +709,7 @@ fn filter_condition_all_fields_deserialize() {
     assert_eq!(cond.parent_id, Some(id("dir1")));
     assert_eq!(cond.ancestor_id, Some(id("root1")));
     assert_eq!(cond.descendant_id, Some(id("child1")));
-    assert_eq!(cond.node_type, Some("file".to_owned()));
+    assert_eq!(cond.node_type, Some("File".to_owned()));
     assert_eq!(cond.role, Some("home".to_owned()));
     assert_eq!(cond.has_any_role, Some(false));
     assert_eq!(cond.blob_id, Some(id("blob1")));
@@ -795,7 +743,7 @@ fn filter_condition_all_fields_deserialize() {
     assert_eq!(cond.name, Some("readme.txt".to_owned()));
     assert_eq!(cond.name_match, Some("*.txt".to_owned()));
     assert_eq!(cond.media_type, Some("text/plain".to_owned()));
-    assert_eq!(cond.type_match, Some("text/*".to_owned()));
+    assert_eq!(cond.media_type_match, Some("text/*".to_owned()));
     assert_eq!(cond.body, Some("hello world".to_owned()));
     assert_eq!(cond.text, Some("search term".to_owned()));
 }
@@ -827,9 +775,9 @@ fn filter_condition_roundtrip() {
     let json = r#"{
         "isTopLevel": false,
         "parentId": "p1",
-        "nodeType": "file",
+        "nodeType": "File",
         "minSize": 512,
-        "type": "image/png",
+        "mediaType": "image/png",
         "nameMatch": "*.png"
     }"#;
     let cond: FileNodeFilterCondition = serde_json::from_str(json).unwrap();
@@ -874,13 +822,10 @@ fn files_rights_preserves_vendor_extras() {
 #[test]
 fn file_node_preserves_vendor_extras() {
     let raw = serde_json::json!({
+        "@type": "Directory",
         "id": "n1",
         "parentId": null,
-        "blobId": null,
-        "target": null,
-        "size": null,
         "name": "Documents",
-        "type": null,
         "shareWith": null,
         "role": null,
         "acmeCorpStorageClass": "warm"
@@ -892,4 +837,155 @@ fn file_node_preserves_vendor_extras() {
     );
     let back = serde_json::to_value(&n).unwrap();
     assert_eq!(back["acmeCorpStorageClass"], "warm");
+}
+
+// ---------------------------------------------------------------------------
+// draft-ietf-jmap-filenode-16 §3.1 / §3.1.5 — @type and type-specific properties
+// ---------------------------------------------------------------------------
+
+/// The §3.1.5 example array, copied verbatim from draft-ietf-jmap-filenode-16.
+const SPEC_3_1_5_EXAMPLE: &str = r#"[
+  {
+    "@type": "Directory",
+    "id": "n1",
+    "parentId": null,
+    "name": "Documents",
+    "role": "documents"
+  },
+  {
+    "@type": "File",
+    "id": "n3",
+    "parentId": "n1",
+    "name": "report.pdf",
+    "blobId": "Bfa61c0",
+    "size": 48576,
+    "mediaType": "application/pdf",
+    "executable": false
+  },
+  {
+    "@type": "SymLink",
+    "id": "n7",
+    "parentId": null,
+    "name": "latest-report",
+    "target": ["Documents", "report.pdf"]
+  }
+]"#;
+
+#[test]
+fn spec_3_1_5_example_deserializes() {
+    let nodes: Vec<FileNode> = serde_json::from_str(SPEC_3_1_5_EXAMPLE).unwrap();
+    assert_eq!(nodes.len(), 3);
+
+    assert_eq!(nodes[0].node_type, Some(NodeType::Directory));
+    assert_eq!(nodes[0].role, Some(NodeRole::Documents));
+
+    assert_eq!(nodes[1].node_type, Some(NodeType::File));
+    assert_eq!(nodes[1].parent_id, Some(id("n1")));
+    assert_eq!(nodes[1].blob_id, Some(id("Bfa61c0")));
+    assert_eq!(nodes[1].size, Some(48576));
+    assert_eq!(nodes[1].media_type.as_deref(), Some("application/pdf"));
+    assert_eq!(nodes[1].executable, Some(false));
+
+    assert_eq!(nodes[2].node_type, Some(NodeType::Symlink));
+    assert_eq!(
+        nodes[2].target,
+        Some(vec!["Documents".to_owned(), "report.pdf".to_owned()])
+    );
+    for node in &nodes {
+        assert!(node.extra.is_empty(), "no property may fall into extras");
+    }
+}
+
+#[test]
+fn spec_3_1_5_example_round_trips() {
+    // The example omits common properties "for brevity" (§3.1.5); the only one
+    // this crate always emits is the required-and-nullable `shareWith`.
+    let expected: Vec<serde_json::Value> = serde_json::from_str(SPEC_3_1_5_EXAMPLE).unwrap();
+    let nodes: Vec<FileNode> = serde_json::from_str(SPEC_3_1_5_EXAMPLE).unwrap();
+    for (node, want) in nodes.iter().zip(expected) {
+        let mut want = want;
+        want.as_object_mut()
+            .unwrap()
+            .insert("shareWith".to_owned(), serde_json::Value::Null);
+        assert_eq!(serde_json::to_value(node).unwrap(), want);
+    }
+}
+
+#[test]
+fn filenode_type_foreign_properties_are_omitted() {
+    // §3.1: properties defined for one type MUST NOT appear on a FileNode of
+    // another type; they are omitted rather than set to null.  Each fixture
+    // carries every other type's properties; serialization must drop them.
+    let cases = [
+        (
+            serde_json::json!({
+                "@type": "File", "id": "f", "parentId": null, "name": "a",
+                "blobId": "b1", "size": 3, "mediaType": "text/plain", "executable": true,
+                "role": "documents", "target": ["x"]
+            }),
+            &["blobId", "size", "mediaType", "executable"][..],
+            &["role", "target"][..],
+        ),
+        (
+            serde_json::json!({
+                "@type": "Directory", "id": "d", "parentId": null, "name": "a",
+                "blobId": "b1", "size": 3, "mediaType": "text/plain", "executable": true,
+                "role": "documents", "target": ["x"]
+            }),
+            &["role"][..],
+            &["blobId", "size", "mediaType", "executable", "target"][..],
+        ),
+        (
+            serde_json::json!({
+                "@type": "SymLink", "id": "s", "parentId": null, "name": "a",
+                "blobId": "b1", "size": 3, "mediaType": "text/plain", "executable": true,
+                "role": "documents", "target": ["x"]
+            }),
+            &["target"][..],
+            &["blobId", "size", "mediaType", "executable", "role"][..],
+        ),
+    ];
+    for (input, present, absent) in cases {
+        let node: FileNode = serde_json::from_value(input.clone()).unwrap();
+        let out = serde_json::to_value(&node).unwrap();
+        for key in present {
+            assert_eq!(out[key], input[key], "{key} must be kept: {out}");
+        }
+        for key in absent {
+            assert!(out.get(key).is_none(), "{key} must be omitted: {out}");
+        }
+    }
+}
+
+#[test]
+fn filenode_null_type_foreign_properties_are_accepted() {
+    // §3.1: a null value for a property not defined for the node's @type is
+    // ignored, so a client may send the same property set for any type.
+    let node: FileNode = serde_json::from_value(serde_json::json!({
+        "@type": "File", "id": "f", "parentId": null, "name": "a",
+        "blobId": "b1", "role": null, "target": null
+    }))
+    .unwrap();
+    assert_eq!(node.role, None);
+    assert_eq!(node.target, None);
+    let out = serde_json::to_value(&node).unwrap();
+    assert!(
+        out.get("role").is_none() && out.get("target").is_none(),
+        "{out}"
+    );
+}
+
+#[test]
+fn filenode_old_wire_names_are_not_recognised() {
+    // §3.1.1, §3.1.2: the -16 names are `@type` and `mediaType`.  The -14
+    // `nodeType` / `type` keys are not FileNode properties any more and are
+    // preserved only as unknown extras.
+    let node: FileNode = serde_json::from_value(serde_json::json!({
+        "id": "f", "parentId": null, "name": "a",
+        "nodeType": "file", "type": "text/plain"
+    }))
+    .unwrap();
+    assert_eq!(node.node_type, None);
+    assert_eq!(node.media_type, None);
+    assert_eq!(node.extra.len(), 2);
 }
