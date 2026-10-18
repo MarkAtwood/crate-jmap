@@ -292,6 +292,44 @@ async fn reactions_add_then_remove() {
     );
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 §Editing a Message — "`update` with
+/// changed `body`, `bodyType`, `mentions`, and/or `broadcastMentions`, on a
+/// message where `senderId` is `"self"` and `deletedAt` is absent. The
+/// server MUST reject an edit of any other message with a `forbidden`
+/// SetError."
+///
+/// Only the deleted-message half is exercised: the jig's single caller
+/// cannot author a Message whose `senderId` is not `"self"`.
+#[tokio::test]
+async fn message_edit_after_delete_is_forbidden() {
+    let (_jig, client, session) = connect().await;
+    let sc = client.with_chat_session(session);
+    let chat_id = create_group(&sc, "g1", "Team").await;
+    let msg_id = send(&sc, &chat_id, "m1", "hello").await;
+
+    let deleted_at = UTCDate::from("2026-01-02T00:00:00Z");
+    let mut patch = MessagePatch::default();
+    patch.deleted_at = Some(&deleted_at);
+    let resp = sc.message_update(&msg_id, &patch).await.expect("delete");
+    assert!(
+        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
+        "{resp:?}"
+    );
+
+    let mut patch = MessagePatch::default();
+    patch.body = Some("rewritten");
+    let resp = sc.message_update(&msg_id, &patch).await.expect("edit");
+    let err = resp
+        .not_updated
+        .as_ref()
+        .and_then(|m| m.get(&msg_id))
+        .unwrap_or_else(|| panic!("edit of a deleted Message must be rejected: {resp:?}"));
+    assert_eq!(err.error_type, "forbidden");
+
+    let got = sc.message_get(&[msg_id], None).await.expect("Message/get");
+    assert_eq!(got.list[0].body, "");
+}
+
 /// Oracle: draft-atwood-jmap-chat-00 §ReadPosition — `lastReadMessageId`
 /// is "The `id` of the most recent Message the owner has read in this
 /// Chat"; §ReadPosition/set updates it.

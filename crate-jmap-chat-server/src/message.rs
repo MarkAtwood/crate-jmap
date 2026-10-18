@@ -727,11 +727,17 @@ pub async fn handle_message_set<B: ChatBackend>(
 
             // draft-atwood-jmap-chat-00 §Deleting a Message: servers MUST
             // reject `deletedForAll: true` when `senderId` is not "self".
-            // A missing target falls through to the normal `notFound` from
-            // `update_object`.
+            // §Editing a Message: an edit of `body`, `bodyType`, `mentions`
+            // or `broadcastMentions` is only permitted where `senderId` is
+            // "self" and `deletedAt` is absent; any other edit is
+            // `forbidden`. A missing target falls through to the normal
+            // `notFound` from `update_object`.
             let deletes_for_all =
                 patch_val.get("deletedForAll").and_then(|v| v.as_bool()) == Some(true);
-            if deletes_for_all {
+            let edits = ["body", "bodyType", "mentions", "broadcastMentions"]
+                .iter()
+                .any(|&field| patch_val.get(field).is_some());
+            if deletes_for_all || edits {
                 match backend
                     .get_objects::<Message>(
                         caller,
@@ -742,16 +748,21 @@ pub async fn handle_message_set<B: ChatBackend>(
                     .await
                 {
                     Ok((found, _not_found)) => {
-                        if found
-                            .first()
-                            .is_some_and(|m| m.sender_id != SenderId::Owner)
-                        {
+                        let description = found.first().and_then(|m| {
+                            if deletes_for_all && m.sender_id != SenderId::Owner {
+                                Some("deletedForAll is only permitted on messages whose senderId is \"self\"")
+                            } else if edits
+                                && (m.sender_id != SenderId::Owner || m.deleted_at.is_some())
+                            {
+                                Some("edits are only permitted on messages whose senderId is \"self\" and deletedAt is absent")
+                            } else {
+                                None
+                            }
+                        });
+                        if let Some(description) = description {
                             not_updated.insert(
                                 id_str,
-                                json!({
-                                    "type": "forbidden",
-                                    "description": "deletedForAll is only permitted on messages whose senderId is \"self\"",
-                                }),
+                                json!({ "type": "forbidden", "description": description }),
                             );
                             continue;
                         }
