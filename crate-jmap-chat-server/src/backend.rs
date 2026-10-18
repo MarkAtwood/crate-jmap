@@ -1278,6 +1278,37 @@ pub trait ChatBackend: JmapBackend {
         async { Ok(Ok(())) }
     }
 
+    /// Authorization gate consulted by `handle_chat_set` before an update
+    /// whose patch touches `pinnedMessageIds` is applied.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: "For group
+    /// chats, only admins may modify this list. For direct chats, the
+    /// owner may modify it freely. For channel chats, only members with
+    /// the `"pin"` Space permission may modify this list."
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per update entry whose patch sets `pinnedMessageIds` (or a
+    /// pointer path beneath it), AFTER wire-format validation and BEFORE
+    /// `update_object`. A `chat_id` that does not resolve SHOULD yield
+    /// `Ok(Ok(()))` so `update_object` surfaces `notFound`. The return
+    /// mapping is the same as [`Self::may_set_custom_emoji`].
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(()))` — every op is permitted, matching the
+    /// parallel hooks above. Production backends SHOULD override this
+    /// method and deny with
+    /// `Ok(Err(SetError::new(SetErrorType::Forbidden)))`.
+    fn may_set_pinned_messages(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async { Ok(Ok(())) }
+    }
+
     /// Throttle gate consulted before a `Message/set` create lands on
     /// the rate-limited path.
     ///

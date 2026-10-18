@@ -146,7 +146,7 @@ pub struct FilesRights {
 ///
 /// | `@type` | Emitted type-specific properties |
 /// |---|---|
-/// | `File` | `blobId`, `size`, `mediaType`, `executable` (each only when `Some`) |
+/// | `File` | `blobId`, `size` (each only when `Some`); `mediaType`, `executable` (always; their defaults `"application/octet-stream"` and `false` when `None`) |
 /// | `Directory` | `role` (always; `null` when `None`, as it is `String|null`) |
 /// | `SymLink` | `target` (only when `Some`) |
 /// | absent or unrecognised | every type-specific property that is `Some` |
@@ -252,7 +252,7 @@ pub struct FileNode {
 
     /// Whether the current user is subscribed to this node.  Default: true.
     ///
-    /// Per-user property.  Absent from wire when `None`.
+    /// Per-user property.  `None` serializes as `true`.
     pub is_subscribed: Option<bool>,
 
     /// ACL rights the authenticated user holds for this node (server-set).
@@ -307,8 +307,7 @@ impl Serialize for FileNode {
             changed: Option<&'a UTCDate>,
             #[serde(skip_serializing_if = "Option::is_none")]
             executable: Option<bool>,
-            #[serde(skip_serializing_if = "Option::is_none")]
-            is_subscribed: Option<bool>,
+            is_subscribed: bool,
             #[serde(skip_serializing_if = "Option::is_none")]
             my_rights: Option<&'a FilesRights>,
             share_with: Option<&'a HashMap<Id, FilesRights>>,
@@ -359,13 +358,21 @@ impl Serialize for FileNode {
             target: target.as_ref().filter(|_| defines(&NodeType::Symlink)),
             size: size.filter(|_| file),
             name,
-            media_type: media_type.as_deref().filter(|_| file),
+            media_type: match known {
+                Some(NodeType::File) => {
+                    Some(media_type.as_deref().unwrap_or("application/octet-stream"))
+                }
+                _ => media_type.as_deref().filter(|_| file),
+            },
             created: created.as_ref(),
             modified: modified.as_ref(),
             accessed: accessed.as_ref(),
             changed: changed.as_ref(),
-            executable: executable.filter(|_| file),
-            is_subscribed: *is_subscribed,
+            executable: match known {
+                Some(NodeType::File) => Some(executable.unwrap_or(false)),
+                _ => executable.filter(|_| file),
+            },
+            is_subscribed: is_subscribed.unwrap_or(true),
             my_rights: my_rights.as_ref(),
             share_with: share_with.as_ref(),
             role: wire_role,

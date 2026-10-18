@@ -696,10 +696,11 @@ impl FileNodeBackend for MemoryBackend {
             })?;
         }
 
+        // A patched value of the wrong type is the client's error, not ours.
         let updated_node: FileNode = serde_json::from_value(node_val).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!(
-                "update_object: deserialize merged FileNode: {e}"
-            )))
+            BackendSetError::SetError(
+                SetError::new(SetErrorType::InvalidProperties).with_description(e.to_string()),
+            )
         })?;
 
         store.nodes.insert(id.clone(), updated_node.clone());

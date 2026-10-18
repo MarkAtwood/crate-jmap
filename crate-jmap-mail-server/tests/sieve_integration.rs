@@ -1079,3 +1079,61 @@ async fn sieve_validate_too_large() {
         "validate must produce no extra invocations"
     );
 }
+
+/// SieveScript/set update with `blobId: null`.
+///
+/// Oracle: RFC 8620 §5.3 — "invalidProperties": "The record given is
+/// invalid in some way. For example: It contains properties that are
+/// invalid according to the type specification of this record type."
+/// RFC 9661 §2.1 types `*blobId*:  Id` with no default.
+///
+/// The update must be rejected, and SieveScript/get must still return the
+/// stored blobId.
+#[tokio::test]
+async fn sieve_set_update_null_blob_id_is_invalid_properties() {
+    let backend = MemoryBackend::new();
+    let account_id = setup_account(&backend).await;
+    store_valid_blob(&backend);
+
+    let (create_resp, _) = handle_sieve_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": { "A": { "name": "my-script", "blobId": "valid-script-blob" } }
+        }),
+    )
+    .await
+    .expect("SieveScript/set create");
+    let id = create_resp["created"]["A"]["id"]
+        .as_str()
+        .expect("A must have id")
+        .to_owned();
+
+    let (upd_resp, _) = handle_sieve_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "update": { &id: { "blobId": null } }
+        }),
+    )
+    .await
+    .expect("SieveScript/set update must not return a protocol error");
+    assert_eq!(
+        upd_resp["notUpdated"][&id]["type"], "invalidProperties",
+        "{upd_resp}"
+    );
+
+    let (get_resp, _) = handle_sieve_get(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": account_id.as_ref(), "ids": [&id] }),
+    )
+    .await
+    .expect("SieveScript/get must succeed after rejected update");
+    assert_eq!(
+        get_resp["list"][0]["blobId"], "valid-script-blob",
+        "{get_resp}"
+    );
+}

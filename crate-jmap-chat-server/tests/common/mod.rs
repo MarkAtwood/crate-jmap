@@ -712,6 +712,17 @@ impl ChatBackend for IdentityBackend {
             .await
     }
 
+    async fn may_set_pinned_messages(
+        &self,
+        caller: &Id,
+        account_id: &Id,
+        chat_id: &Id,
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        Ok(self
+            .inner
+            .may_set_pinned_messages_with_caller_id(Some(caller), account_id, chat_id))
+    }
+
     async fn is_contact_blocked(
         &self,
         _caller: &Id,

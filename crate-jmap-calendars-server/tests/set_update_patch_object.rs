@@ -179,3 +179,20 @@ async fn prefix_conflict_is_invalid_patch() {
         "stored event must be unchanged"
     );
 }
+
+/// RFC 8620 §5.3 "invalidProperties": "It contains properties that are
+/// invalid according to the type specification of this record type."
+/// draft-ietf-calext-jscalendarbis-16 line 1415: "sequence: UnsignedInt
+/// (optional; default: 0)", so a string is rejected and the stored event
+/// stays readable and unchanged.
+#[tokio::test]
+async fn wrong_typed_sequence_is_invalid_properties() {
+    let backend = seeded_backend();
+    let before = get_ev1(&backend).await;
+    let resp = update_ev1(&backend, json!({ "sequence": "one" })).await;
+    assert_eq!(
+        resp["notUpdated"]["ev1"]["type"], "invalidProperties",
+        "{resp}"
+    );
+    assert_eq!(get_ev1(&backend).await, before, "ev1 must be unchanged");
+}

@@ -832,23 +832,7 @@ impl TasksBackend for MemoryBackend {
             BackendSetError::Other(MemoryError::new(format!("serialize patch: {e}")))
         })?;
 
-        // Backend-side isDraft re-check (draft-ietf-jmap-tasks-06 §4 isDraft
-        // paragraph): once isDraft transitions to false, the value MUST NOT
-        // be updated back to true. The handler at task.rs pre-fetches and
-        // rejects this same transition when `enforce_is_draft_atomically()`
-        // returns false, but workspace AGENTS.md "Permission enforcement:
-        // backend canonical" requires the backend to also re-verify
-        // atomically with the mutation. A reference impl that relied on
-        // the handler-only check would teach consumers a foot-gun.
-        if O::TYPE_NAME == "Task"
-            && patch_val.get("isDraft").and_then(|v| v.as_bool()) == Some(true)
-            && current.get("isDraft").and_then(|v| v.as_bool()) == Some(false)
-        {
-            return Err(BackendSetError::SetError(
-                SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(vec!["isDraft".to_owned()]),
-            ));
-        }
+        let was_draft = current.get("isDraft").and_then(|v| v.as_bool()) == Some(true);
 
         // Snapshot the pre-patch taskListId so the refcount update below
         // can compute the (old → new) transition without re-fetching after
@@ -872,6 +856,50 @@ impl TasksBackend for MemoryBackend {
                     SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
                 )
             })?;
+        }
+
+        // Re-validate the patched copy against the typed object before
+        // storing: a null or wrong-typed value on a required property would
+        // otherwise be persisted and make every later /get fail to
+        // deserialize. Name the property when the patch touches only one.
+        if let Err(e) = O::deserialize(&current) {
+            let mut heads: Vec<String> = patch_val
+                .as_object()
+                .into_iter()
+                .flat_map(|m| m.keys())
+                .map(|k| {
+                    let head = k.split('/').next().unwrap_or(k);
+                    head.replace("~1", "/").replace("~0", "~")
+                })
+                .collect();
+            heads.sort_unstable();
+            heads.dedup();
+            let mut err =
+                SetError::new(SetErrorType::InvalidProperties).with_description(e.to_string());
+            if heads.len() == 1 {
+                err = err.with_properties(heads);
+            }
+            return Err(BackendSetError::SetError(err));
+        }
+
+        // Backend-side isDraft re-check (draft-ietf-jmap-tasks-06 §4 isDraft
+        // paragraph): "This may only be set to true upon creation." Compare
+        // the effective post-patch value against the stored one so that any
+        // path to true (including a null patch followed by true) is rejected.
+        // The handler at task.rs pre-fetches and rejects this same transition
+        // when `enforce_is_draft_atomically()` returns false, but workspace
+        // AGENTS.md "Permission enforcement: backend canonical" requires the
+        // backend to also re-verify atomically with the mutation. A reference
+        // impl that relied on the handler-only check would teach consumers a
+        // foot-gun.
+        if O::TYPE_NAME == "Task"
+            && !was_draft
+            && current.get("isDraft").and_then(|v| v.as_bool()) == Some(true)
+        {
+            return Err(BackendSetError::SetError(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(vec!["isDraft".to_owned()]),
+            ));
         }
 
         let new_task_list_id = if O::TYPE_NAME == "Task" {

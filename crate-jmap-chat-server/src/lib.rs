@@ -133,7 +133,7 @@ pub use message::{
 };
 pub use permissions::{
     required_permissions_for_op, RequiredPermissions, MANAGE_CHANNELS, MANAGE_MEMBERS,
-    MANAGE_ROLES, MANAGE_SPACE,
+    MANAGE_ROLES, MANAGE_SPACE, PIN,
 };
 pub use position::{handle_position_changes, handle_position_get, handle_position_set};
 pub use presence::{handle_presence_changes, handle_presence_get, handle_presence_set};

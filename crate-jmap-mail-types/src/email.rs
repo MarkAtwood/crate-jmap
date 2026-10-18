@@ -269,7 +269,7 @@ pub struct Email {
     /// format requirement.  Keys are [`Keyword`] values (not JMAP `Id`s); system keywords
     /// start with `$` which is not valid inside a JMAP `Id` (RFC 8620 §1.2).
     /// Values are always `true` in full-object responses (RFC 8621 §4.1.1).
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    #[serde(default)]
     pub keywords: HashMap<Keyword, bool>,
     /// Size in octets of the raw RFC 5322 message.
     pub size: u64,

@@ -159,3 +159,28 @@ async fn update_prefix_conflict_is_invalid_patch() {
     );
     assert_eq!(get(&dispatcher, &id).await, before);
 }
+
+/// Oracle: RFC 8620 §5.3 — "invalidProperties": "The record given is
+/// invalid in some way. For example: It contains properties that are
+/// invalid according to the type specification of this record type."
+/// RFC 9670 §2 types Principal `*name*: String` with no default.
+///
+/// Patching `name` to null must be rejected, and Principal/get must still
+/// return the stored Principal.
+#[tokio::test]
+async fn update_null_required_property_is_invalid_properties() {
+    let (dispatcher, id) = setup().await;
+    let before = get(&dispatcher, &id).await;
+    let resp = update(&dispatcher, &id, json!({ "name": null })).await;
+    assert_eq!(
+        resp["notUpdated"][id.as_ref()]["type"],
+        "invalidProperties",
+        "{resp}"
+    );
+    assert_eq!(
+        resp["notUpdated"][id.as_ref()]["properties"],
+        json!(["name"]),
+        "{resp}"
+    );
+    assert_eq!(get(&dispatcher, &id).await, before);
+}

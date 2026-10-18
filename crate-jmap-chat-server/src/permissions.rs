@@ -40,6 +40,13 @@ pub const MANAGE_MEMBERS: &str = "manage_members";
 /// `removeCategories`, `updateCategories`).
 pub const MANAGE_CHANNELS: &str = "manage_channels";
 
+/// Permission string: modify a channel Chat's `pinnedMessageIds`.
+///
+/// Per draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: "For channel
+/// chats, only members with the `"pin"` Space permission may modify this
+/// list."
+pub const PIN: &str = "pin";
+
 /// Result of [`required_permissions_for_op`] — typed alternative to
 /// a sentinel-string return value.
 ///

@@ -320,6 +320,8 @@ fn filenode_nullable_fields_serialize_as_null_not_absent() {
         assert!(obj[key].is_null(), "{key} must be null");
     }
     assert_eq!(obj["@type"], "Directory");
+    // §3.1.1: isSubscribed is "Boolean" (default: true).
+    assert_eq!(obj["isSubscribed"], true, "got: {out}");
 
     for key in [
         "blobId",
@@ -331,7 +333,6 @@ fn filenode_nullable_fields_serialize_as_null_not_absent() {
         "modified",
         "accessed",
         "changed",
-        "isSubscribed",
         "myRights",
     ] {
         assert!(!obj.contains_key(key), "{key} must be absent, got: {out}");
@@ -971,8 +972,9 @@ fn spec_3_1_5_example_deserializes() {
 
 #[test]
 fn spec_3_1_5_example_round_trips() {
-    // The example omits common properties "for brevity" (§3.1.5); the only one
-    // this crate always emits is the required-and-nullable `shareWith`.
+    // The example omits common properties "for brevity" (§3.1.5); the ones
+    // this crate always emits are the required-and-nullable `shareWith` and
+    // `isSubscribed`, "Boolean" (default: true) per §3.1.1.
     let expected: Vec<serde_json::Value> = serde_json::from_str(SPEC_3_1_5_EXAMPLE).unwrap();
     let nodes: Vec<FileNode> = serde_json::from_str(SPEC_3_1_5_EXAMPLE).unwrap();
     for (node, want) in nodes.iter().zip(expected) {
@@ -980,6 +982,10 @@ fn spec_3_1_5_example_round_trips() {
         want.as_object_mut()
             .unwrap()
             .insert("shareWith".to_owned(), serde_json::Value::Null);
+        want.as_object_mut()
+            .unwrap()
+            .entry("isSubscribed")
+            .or_insert(serde_json::Value::Bool(true));
         assert_eq!(serde_json::to_value(node).unwrap(), want);
     }
 }
@@ -1061,4 +1067,23 @@ fn filenode_old_wire_names_are_not_recognised() {
     assert_eq!(node.node_type, None);
     assert_eq!(node.media_type, None);
     assert_eq!(node.extra.len(), 2);
+}
+
+/// Oracle: draft-ietf-jmap-filenode-16 §3.1.2 `mediaType: "String" (default:
+/// "application/octet-stream")` and `executable: "Boolean" (default: false)`;
+/// "If not provided on creation, the server sets it to
+/// "application/octet-stream"."
+#[test]
+fn filenode_file_unset_defaulted_properties_serialize_defaults() {
+    let node: FileNode = serde_json::from_value(serde_json::json!({
+        "@type": "File", "id": "f", "parentId": null, "name": "a", "blobId": "b1"
+    }))
+    .unwrap();
+    let out = serde_json::to_value(&node).unwrap();
+    assert_eq!(
+        out["mediaType"],
+        serde_json::json!("application/octet-stream"),
+        "{out}"
+    );
+    assert_eq!(out["executable"], serde_json::json!(false), "{out}");
 }

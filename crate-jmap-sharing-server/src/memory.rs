@@ -328,6 +328,28 @@ impl std::fmt::Display for MemoryError {
 
 impl std::error::Error for MemoryError {}
 
+/// RFC 8620 §5.3 `invalidProperties` for a patch whose result no longer
+/// decodes as `type_name`. The property is named only when the patch
+/// touches a single top-level property; otherwise the culprit is not known.
+fn invalid_patched_properties(
+    type_name: &str,
+    patch_map: &serde_json::Map<String, serde_json::Value>,
+) -> BackendSetError<MemoryError> {
+    let mut props: Vec<&str> = patch_map
+        .keys()
+        .map(|k| k.split_once('/').map_or(k.as_str(), |(top, _)| top))
+        .collect();
+    props.sort_unstable();
+    props.dedup();
+    let err = SetError::new(SetErrorType::InvalidProperties).with_description(format!(
+        "patched {type_name} violates its type specification"
+    ));
+    BackendSetError::SetError(match props.as_slice() {
+        [prop] => err.with_properties([*prop]),
+        _ => err,
+    })
+}
+
 impl JmapBackend for MemoryBackend {
     type Error = MemoryError;
     type CallerCtx = ();
@@ -732,6 +754,11 @@ impl SharingBackend for MemoryBackend {
                 SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
             )
         })?;
+        // A null or wrong-typed value on a required property must not reach
+        // storage, or every later /get fails to decode it.
+        if O::deserialize(&current).is_err() {
+            return Err(invalid_patched_properties(O::TYPE_NAME, &patch_map));
+        }
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner

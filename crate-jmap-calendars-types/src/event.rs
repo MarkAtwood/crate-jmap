@@ -53,7 +53,9 @@ pub struct CalendarEvent {
     pub calendar_ids: Option<HashMap<Id, bool>>,
 
     /// If `true`, this is a draft; the server will not send scheduling messages.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Always serialized; absent deserializes, and `None` serializes, as the
+    /// spec default `false`.
+    #[serde(default = "some_false", serialize_with = "serialize_false_if_none")]
     pub is_draft: Option<bool>,
 
     /// Server-set; `true` if this account is the authoritative source.
@@ -76,7 +78,9 @@ pub struct CalendarEvent {
     pub utc_end: Option<UTCDate>,
 
     /// If `true`, use per-calendar default alerts instead of `alerts` (default `false`).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Always serialized; absent deserializes, and `None` serializes, as the
+    /// spec default `false`.
+    #[serde(default = "some_false", serialize_with = "serialize_false_if_none")]
     pub use_default_alerts: Option<bool>,
 
     /// If `true`, any user may add themselves as an attendee (draft §5.1.1).
@@ -338,6 +342,23 @@ pub struct CalendarEvent {
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Serialize an unset `Boolean (default: false)` property as `false`.
+///
+/// draft-ietf-jmap-calendars-33 §5.7: the "isDraft" and "useDefaultAlerts"
+/// properties MUST be included on each object returned by `CalendarEvent/get`.
+fn serialize_false_if_none<S: serde::Serializer>(
+    value: &Option<bool>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.serialize_bool(value.unwrap_or(false))
+}
+
+/// Deserialize default for the same properties, so an absent value round-trips
+/// to the `Some(false)` it serializes as.
+fn some_false() -> Option<bool> {
+    Some(false)
 }
 
 /// Filter condition for `CalendarEvent/query`

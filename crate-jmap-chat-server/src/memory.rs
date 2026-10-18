@@ -389,6 +389,74 @@ impl MemoryBackend {
         apply_space_metadata_patch_impl(&mut inner, caller_id, account_id, space_id, patch_map)
     }
 
+    /// Decide a `pinnedMessageIds` update with an explicitly supplied
+    /// caller id (test-only entry point — analog of
+    /// [`Self::apply_space_patch_with_caller_id`]).
+    ///
+    /// Implements draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`:
+    /// group chats require the caller to be a member with role `admin`;
+    /// direct chats permit the owner freely; channel chats require the
+    /// [`PIN`](crate::permissions::PIN) permission in the containing
+    /// Space. A Chat that does not exist is permitted so `update_object`
+    /// surfaces `notFound`.
+    ///
+    /// `caller_id == None` reproduces single-user-mode behavior: the
+    /// gate is skipped. Production callers must not use this method;
+    /// the API stability disclaimer on the `memory` feature applies
+    /// doubly here.
+    #[doc(hidden)]
+    #[allow(clippy::result_large_err)]
+    pub fn may_set_pinned_messages_with_caller_id(
+        &self,
+        caller_id: Option<&Id>,
+        account_id: &Id,
+        chat_id: &Id,
+    ) -> Result<(), SetError> {
+        use crate::permissions::PIN;
+
+        let Some(caller_id) = caller_id else {
+            return Ok(());
+        };
+        let inner = self.inner.lock().unwrap();
+        let Some(chat) = inner
+            .objects_ref("Chat", account_id.as_ref())
+            .and_then(|m| m.get(chat_id))
+        else {
+            return Ok(());
+        };
+        let denied = match chat.get("kind").and_then(|v| v.as_str()) {
+            Some("direct") => None,
+            Some("group") => {
+                let members = chat.get("members").and_then(|v| v.as_array());
+                let is_admin = members.is_some_and(|members| {
+                    members.iter().any(|m| {
+                        m.get("id").and_then(|v| v.as_str()) == Some(caller_id.as_ref())
+                            && m.get("role").and_then(|v| v.as_str()) == Some("admin")
+                    })
+                });
+                (!is_admin).then_some("only group chat admins may modify pinnedMessageIds")
+            }
+            Some("channel") => {
+                let has_pin = chat
+                    .get("spaceId")
+                    .and_then(|v| v.as_str())
+                    .and_then(|sid| {
+                        inner
+                            .objects_ref("Space", account_id.as_ref())?
+                            .get(&Id::from(sid))
+                    })
+                    .and_then(|space| caller_effective_permissions(space, caller_id))
+                    .is_some_and(|perms| perms.contains(PIN));
+                (!has_pin).then_some("caller lacks required permission `pin` in this Space")
+            }
+            _ => Some("internal: Chat has no recognized kind"),
+        };
+        match denied {
+            Some(desc) => Err(SetError::new(SetErrorType::Forbidden).with_description(desc)),
+            None => Ok(()),
+        }
+    }
+
     /// Test-only: override the [`ChatLimits`] returned by
     /// [`ChatBackend::limits`].
     ///
@@ -864,6 +932,31 @@ impl ChatBackend for MemoryBackend {
             })?;
         }
 
+        // Re-validate the patched copy as `O` before storing
+        // (bd:JMAP-yk3i): a `null` or wrong-typed value on a required
+        // property would otherwise be stored and fail every later `/get`.
+        // The offending property is named only when the patch touches a
+        // single top-level property; otherwise the description carries it.
+        if let Err(e) = O::deserialize(&current) {
+            let mut props: Vec<String> = patch_val
+                .as_object()
+                .into_iter()
+                .flat_map(|m| m.keys())
+                .map(|k| {
+                    let top = k.split('/').next().unwrap_or(k);
+                    top.replace("~1", "/").replace("~0", "~")
+                })
+                .collect();
+            props.sort();
+            props.dedup();
+            let mut err = SetError::new(SetErrorType::InvalidProperties)
+                .with_description(format!("patched {} is invalid: {e}", O::TYPE_NAME));
+            if props.len() == 1 {
+                err = err.with_properties(props);
+            }
+            return Err(BackendSetError::SetError(err));
+        }
+
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
@@ -1137,6 +1230,22 @@ impl ChatBackend for MemoryBackend {
         _op: EmojiSetOp,
     ) -> Result<Result<(), SetError>, Self::Error> {
         Ok(Ok(()))
+    }
+
+    /// Reference implementation of [`ChatBackend::may_set_pinned_messages`].
+    ///
+    /// Resolves caller identity through the foundation seam and defers
+    /// to [`MemoryBackend::may_set_pinned_messages_with_caller_id`]. With
+    /// `CallerCtx = ()` the identity is `None` and every change is
+    /// permitted (single-user mode).
+    async fn may_set_pinned_messages(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        chat_id: &Id,
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        let caller_id = <Self as JmapBackend>::principal_id(caller);
+        Ok(self.may_set_pinned_messages_with_caller_id(caller_id, account_id, chat_id))
     }
 
     /// Reference implementation of [`ChatBackend::slow_mode_check`].

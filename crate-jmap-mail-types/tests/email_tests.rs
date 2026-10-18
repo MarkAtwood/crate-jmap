@@ -53,7 +53,13 @@ fn email_minimal_roundtrip() {
     assert!(email.from.is_none());
     assert!(email.subject.is_none());
     let serialized = serde_json::to_string(&email).expect("serialize");
-    let v1: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let mut v1: serde_json::Value = serde_json::from_str(&json).unwrap();
+    // RFC 8621 §4.1.1: keywords is "String[Boolean]" (default: {}), so it
+    // is serialized even when the fixture omits it.
+    v1.as_object_mut()
+        .unwrap()
+        .entry("keywords")
+        .or_insert_with(|| serde_json::json!({}));
     let v2: serde_json::Value = serde_json::from_str(&serialized).unwrap();
     assert_eq!(v1, v2);
 }

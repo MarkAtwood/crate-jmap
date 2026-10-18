@@ -1089,6 +1089,16 @@ impl ContactsBackend for MemoryBackend {
         };
         apply_patch_object(target, patch_map).map_err(|e| invalid_patch(e.to_string()))?;
 
+        // RFC 8620 §5.3: the patched object must still be valid. Re-check it
+        // against the typed object so a null or wrong-typed required property
+        // is rejected here instead of stored and breaking every later /get.
+        O::deserialize(&current).map_err(|e| {
+            BackendSetError::SetError(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_description(format!("patch produced invalid {}: {e}", O::TYPE_NAME)),
+            )
+        })?;
+
         // RFC 9610 §3: a ContactCard MUST belong to at least one
         // AddressBook at all times. Reject the update if the post-patch
         // state has empty addressBookIds (bd:JMAP-qz9v.16). `current` is

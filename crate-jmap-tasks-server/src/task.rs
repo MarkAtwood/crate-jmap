@@ -142,7 +142,7 @@ pub async fn handle_task_changes<B: TasksBackend>(
 /// `oldState`, `newState`, plus the per-operation result maps).
 ///
 /// **isDraft immutability**: If a patch contains `"isDraft": true` and the
-/// current stored object has `isDraft = false`, the update is rejected with
+/// current stored object does not have `isDraft = true`, the update is rejected with
 /// `invalidProperties`. The current object must be fetched from the backend
 /// to check this.
 ///
@@ -281,8 +281,10 @@ pub async fn handle_task_set<B: TasksBackend>(
                     .await
                 {
                     Ok((tasks, _)) => {
-                        if tasks.first().and_then(|t| t.is_draft) == Some(false) {
-                            // Task is already published; reverting to draft is forbidden.
+                        // draft-tasks-06 §4: isDraft "may only be set to true
+                        // upon creation", so reject unless it is already true
+                        // (absent counts: a prior null patch must not reopen it).
+                        if tasks.first().is_some_and(|t| t.is_draft != Some(true)) {
                             not_updated.insert(
                                 id_str,
                                 json!({
@@ -292,8 +294,8 @@ pub async fn handle_task_set<B: TasksBackend>(
                             );
                             continue;
                         }
-                        // is_draft == Some(true) or None (no info): allow the
-                        // patch through and let the backend handle it.
+                        // Already a draft, or task not found: let the backend
+                        // handle it.
                     }
                     Err(e) => {
                         not_updated.insert(id_str, server_fail_value_from_backend(&e));
@@ -1409,5 +1411,31 @@ mod tests {
             "pre-fetch path must reject isDraft revert: {resp}"
         );
         assert_eq!(not_updated["t1"]["properties"][0], "isDraft");
+    }
+
+    /// Oracle: draft-tasks-06 §4 — isDraft "may only be set to true upon
+    /// creation." A task whose isDraft is absent (e.g. after a prior
+    /// `{"isDraft": null}` patch) MUST NOT be updated to true; the pre-fetch
+    /// path rejects it exactly like a false → true revert.
+    #[tokio::test]
+    async fn set_is_draft_true_rejected_when_current_is_absent() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        // Seeds "task1" with no isDraft property.
+        backend.add_task_list_with_task("acc1", "list1");
+
+        let args = json!({
+            "accountId": "acc1",
+            "update": { "task1": { "isDraft": true } }
+        });
+        let (resp, _) = handle_task_set(&backend, &(), args)
+            .await
+            .expect("must not return top-level error");
+
+        let not_updated = resp["notUpdated"].as_object().expect("notUpdated");
+        assert_eq!(
+            not_updated["task1"]["type"], "invalidProperties",
+            "pre-fetch path must reject absent → true: {resp}"
+        );
+        assert_eq!(not_updated["task1"]["properties"][0], "isDraft");
     }
 }

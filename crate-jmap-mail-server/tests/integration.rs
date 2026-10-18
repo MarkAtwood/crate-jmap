@@ -13122,3 +13122,214 @@ async fn identity_set_update_string_props_null_resets_to_default() {
     assert_eq!(obj["textSignature"].as_str(), Some(""));
     assert_eq!(obj["htmlSignature"].as_str(), Some(""));
 }
+
+// ---------------------------------------------------------------------------
+// /set update: patched object must still satisfy its type (JMAP-yk3i)
+// ---------------------------------------------------------------------------
+
+/// Oracle: RFC 8620 §5.3 — "invalidProperties": "The record given is
+/// invalid in some way. For example: It contains properties that are
+/// invalid according to the type specification of this record type."
+/// RFC 8621 §2 types Mailbox `name: "String"` with no default.
+///
+/// Patching `name` to null must be rejected, and Mailbox/get must still
+/// return the stored name.
+#[tokio::test]
+async fn mailbox_set_update_null_name_is_invalid_properties() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
+    let (set_resp, _) = handle_mailbox_set(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "acct1", "create": { "c0": { "name": "Keep" } } }),
+    )
+    .await
+    .expect("Mailbox/set create");
+    let id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("c0 must have id")
+        .to_owned();
+
+    let (upd_resp, _) = handle_mailbox_set(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "acct1", "update": { &id: { "name": null } } }),
+    )
+    .await
+    .expect("Mailbox/set update must not return a protocol error");
+    assert_eq!(
+        upd_resp["notUpdated"][&id]["type"], "invalidProperties",
+        "{upd_resp}"
+    );
+    assert_eq!(
+        upd_resp["notUpdated"][&id]["properties"],
+        serde_json::json!(["name"]),
+        "{upd_resp}"
+    );
+
+    let (get_resp, _) = handle_mailbox_get(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "acct1", "ids": [&id] }),
+    )
+    .await
+    .expect("Mailbox/get must succeed after rejected update");
+    assert_eq!(get_resp["list"][0]["name"], "Keep", "{get_resp}");
+}
+
+/// Oracle: RFC 8620 §5.3 — "invalidProperties": "The record given is
+/// invalid in some way. For example: It contains properties that are
+/// invalid according to the type specification of this record type."
+/// RFC 8621 §4.1.1 types Email `mailboxIds: "Id[Boolean]"` with no default.
+///
+/// Patching `mailboxIds` to null must be rejected, and Email/get must still
+/// return the stored mailboxIds.
+#[tokio::test]
+async fn email_set_update_null_mailbox_ids_is_invalid_properties() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let (set_resp, _) = handle_email_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "account1",
+            "create": { "c0": { "mailboxIds": { "inbox": true } } }
+        }),
+    )
+    .await
+    .expect("Email/set create");
+    let id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("c0 must have id")
+        .to_owned();
+
+    let (upd_resp, _) = handle_email_set(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "account1", "update": { &id: { "mailboxIds": null } } }),
+    )
+    .await
+    .expect("Email/set update must not return a protocol error");
+    assert_eq!(
+        upd_resp["notUpdated"][&id]["type"], "invalidProperties",
+        "{upd_resp}"
+    );
+
+    let (get_resp, _) = handle_email_get(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "account1", "ids": [&id], "properties": ["mailboxIds"] }),
+    )
+    .await
+    .expect("Email/get must succeed after rejected update");
+    assert_eq!(
+        get_resp["list"][0]["mailboxIds"],
+        serde_json::json!({ "inbox": true }),
+        "{get_resp}"
+    );
+}
+
+/// Oracle: RFC 8620 §5.3 — "invalidProperties": "The record given is
+/// invalid in some way. For example: It contains properties that are
+/// invalid according to the type specification of this record type."
+/// RFC 8621 §7 types EmailSubmission `undoStatus: "String"` and says it
+/// "MUST be one of the following values".
+///
+/// Patching `undoStatus` of a pending submission to null must be rejected,
+/// and EmailSubmission/get must still return "pending".
+#[tokio::test]
+async fn submission_set_update_null_undo_status_is_invalid_properties() {
+    use jmap_mail_types::{submission::UndoStatus, EmailSubmission};
+
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    let (identity_id, email_id) =
+        make_identity_and_email(&backend, &account_id, "alice@example.com", "sent").await;
+    let pending = EmailSubmission::new(
+        Id::from("placeholder"),
+        identity_id,
+        email_id,
+        Id::from("thread-p"),
+        jmap_types::UTCDate::from("2025-01-01T00:00:00Z"),
+        UndoStatus::Pending,
+    );
+    let (sub_id, _) = backend
+        .create_object::<EmailSubmission>(&(), &account_id, "s0", pending)
+        .await
+        .expect("create pending submission");
+
+    let (upd_resp, _) = handle_submission_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "update": { sub_id.as_ref(): { "undoStatus": null } }
+        }),
+        "c1",
+    )
+    .await
+    .expect("EmailSubmission/set update must not return a protocol error");
+    assert_eq!(
+        upd_resp["notUpdated"][sub_id.as_ref()]["type"],
+        "invalidProperties",
+        "{upd_resp}"
+    );
+
+    let (get_resp, _) = handle_submission_get(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": account_id.as_ref(), "ids": [sub_id.as_ref()] }),
+    )
+    .await
+    .expect("EmailSubmission/get must succeed after rejected update");
+    assert_eq!(get_resp["list"][0]["undoStatus"], "pending", "{get_resp}");
+}
+
+/// Oracle: RFC 8620 §5.3 — "invalidProperties": "The record given is
+/// invalid in some way. For example: It contains properties that are
+/// invalid according to the type specification of this record type."
+/// RFC 8621 §8 types VacationResponse `isEnabled: "Boolean"` with no
+/// default.
+///
+/// Patching `isEnabled` to null must be rejected, and VacationResponse/get
+/// must still return the stored value.
+#[tokio::test]
+async fn vacation_set_update_null_is_enabled_is_invalid_properties() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let (set_resp, _) = handle_vacation_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "account1",
+            "update": { "singleton": { "isEnabled": true } }
+        }),
+    )
+    .await
+    .expect("VacationResponse/set enable");
+    assert!(set_resp["updated"].get("singleton").is_some(), "{set_resp}");
+
+    let (upd_resp, _) = handle_vacation_set(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "account1",
+            "update": { "singleton": { "isEnabled": null } }
+        }),
+    )
+    .await
+    .expect("VacationResponse/set update must not return a protocol error");
+    assert_eq!(
+        upd_resp["notUpdated"]["singleton"]["type"], "invalidProperties",
+        "{upd_resp}"
+    );
+
+    let (get_resp, _) = handle_vacation_get(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "account1", "ids": ["singleton"] }),
+    )
+    .await
+    .expect("VacationResponse/get must succeed after rejected update");
+    assert_eq!(get_resp["list"][0]["isEnabled"], true, "{get_resp}");
+}
