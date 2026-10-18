@@ -250,6 +250,29 @@ async fn message_create_query_get_round_trip() {
     assert_eq!(m3.burn_on_read, Some(true));
 }
 
+/// Oracle: RFC 8620 §5.5 Comparator `isAscending` — "If false, reverse
+/// the comparator's results to sort in descending order."
+/// (bd:JMAP-yt1w.1). The sends are spaced so the millisecond `receivedAt`
+/// values differ.
+#[tokio::test]
+async fn message_query_descending_returns_newest_first() {
+    let (_jig, client, session) = connect().await;
+    let sc = client.with_chat_session(session);
+    let chat_id = create_group(&sc, "g1", "Team").await;
+
+    let mut sent = Vec::new();
+    for key in ["m1", "m2", "m3"] {
+        sent.push(send(&sc, &chat_id, key, key).await);
+        tokio::time::sleep(std::time::Duration::from_millis(2)).await;
+    }
+
+    let mut query = MessageQueryInput::default().with_sort_ascending(false);
+    query.chat_id = Some(&chat_id);
+    let ids = sc.message_query(&query).await.expect("Message/query").ids;
+    sent.reverse();
+    assert_eq!(ids, sent, "descending query must return newest first");
+}
+
 /// Oracle: draft-atwood-jmap-chat-00 §Adding and Removing Reactions — add
 /// patches `"reactions/<senderReactionId>": {"emoji", "sentAt"}` and "The
 /// server MUST set `senderId` to `"self"`"; remove patches the key to

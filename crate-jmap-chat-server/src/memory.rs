@@ -773,7 +773,7 @@ impl JmapBackend for MemoryBackend {
         _caller: &(),
         account_id: &Id,
         filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
+        sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
     ) -> Result<QueryResult, Self::Error> {
@@ -784,6 +784,7 @@ impl JmapBackend for MemoryBackend {
         // Serialize for all JMAP Chat types (all are serde_json::Value).
         let filter_val: Option<serde_json::Value> =
             filter.and_then(|f| serde_json::to_value(f).ok());
+        let sort_val: Option<serde_json::Value> = sort.and_then(|s| serde_json::to_value(s).ok());
 
         let mut ids: Vec<Id> = inner
             .objects_ref(O::TYPE_NAME, account_id.as_ref())
@@ -806,6 +807,11 @@ impl JmapBackend for MemoryBackend {
                 }
 
                 keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+                // RFC 8620 §5.5 `sort`; the stable sort keeps id order
+                // for ties.
+                if let Some(comparators) = sort_val.as_ref().and_then(|v| v.as_array()) {
+                    keys.sort_by(|a, b| compare_by_sort(&m[a], &m[b], comparators));
+                }
                 keys
             })
             .unwrap_or_default();
@@ -3494,6 +3500,58 @@ fn broadcast_mention_matches_owner(bm: &serde_json::Value) -> bool {
         Some("admins") => true,
         _ => false, // unknown scope: conservative no-match
     }
+}
+
+/// Order two stored objects by RFC 8620 §5.5 `sort` comparators
+/// (`property`, `isAscending` defaulting to `true`).
+///
+/// An absent or null property sorts last in either direction
+/// (draft-atwood-jmap-chat-00 §ChatContact/query "ChatContacts for which
+/// the field is absent sort last"; §Chat/query "chats without messages
+/// sort last").
+///
+/// ponytail: strings compare byte-wise, ignoring `collation`; UTCDate
+/// strings order correctly only because the server emits one format.
+/// Values of mismatched JSON types compare equal.
+fn compare_by_sort(
+    a: &serde_json::Value,
+    b: &serde_json::Value,
+    comparators: &[serde_json::Value],
+) -> std::cmp::Ordering {
+    use serde_json::Value;
+    use std::cmp::Ordering;
+    for c in comparators {
+        let Some(property) = c.get("property").and_then(Value::as_str) else {
+            continue;
+        };
+        let x = a.get(property).filter(|v| !v.is_null());
+        let y = b.get(property).filter(|v| !v.is_null());
+        let ord = match (x, y) {
+            (None, None) => Ordering::Equal,
+            (None, Some(_)) => Ordering::Greater,
+            (Some(_), None) => Ordering::Less,
+            (Some(x), Some(y)) => {
+                let ord = match (x, y) {
+                    (Value::String(x), Value::String(y)) => x.cmp(y),
+                    (Value::Number(x), Value::Number(y)) => x
+                        .as_f64()
+                        .partial_cmp(&y.as_f64())
+                        .unwrap_or(Ordering::Equal),
+                    (Value::Bool(x), Value::Bool(y)) => x.cmp(y),
+                    _ => Ordering::Equal,
+                };
+                if c.get("isAscending").and_then(Value::as_bool) == Some(false) {
+                    ord.reverse()
+                } else {
+                    ord
+                }
+            }
+        };
+        if ord != Ordering::Equal {
+            return ord;
+        }
+    }
+    Ordering::Equal
 }
 
 /// Check whether a stored Message JSON value passes the given filter.
