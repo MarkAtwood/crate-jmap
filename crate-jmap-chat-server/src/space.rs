@@ -30,7 +30,7 @@
 use jmap_chat_types::space_set::{
     CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch,
 };
-use jmap_chat_types::{Category, Space, SpaceInvite, SpaceRole};
+use jmap_chat_types::{Category, Space, SpaceBan, SpaceInvite, SpaceRole};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 use subtle::ConstantTimeEq;
@@ -1579,6 +1579,26 @@ pub async fn handle_space_join<B: ChatBackend>(
                 (space_id, members, None)
             }
         };
+
+    // draft-atwood-jmap-chat-00 §Space/join: "The server MUST verify that no
+    // active SpaceBan exists for the requesting account's owner in the target
+    // Space." Evaluated after the argument and Space-resolution checks above,
+    // per the draft's check order. A ban whose `expiresAt` has passed is not
+    // active.
+    let (bans, _) = backend
+        .get_objects::<SpaceBan>(caller, &account_id, None, None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let now = now_utc_string();
+    if bans.iter().any(|b| {
+        b.space_id == space_id
+            && b.user_id == caller_identity
+            && b.expires_at
+                .as_ref()
+                .is_none_or(|e| iso8601_before(&now, e))
+    }) {
+        return Err(JmapError::forbidden());
+    }
 
     // Add the calling user as a Space member.
     // This bypasses the SPACE_READONLY guard in handle_space_set — Space/join calling

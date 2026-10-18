@@ -6795,6 +6795,129 @@ async fn space_join_public_space_success() {
     assert_eq!(resp["spaceId"].as_str().expect("spaceId"), space_id);
 }
 
+/// Create a SpaceBan on the caller (`ACCOUNT_ID`, the single-user identity)
+/// in `space_id`, optionally expiring at `expires_at`.
+async fn ban_caller(backend: &MemoryBackend, space_id: &str, expires_at: Option<&str>) {
+    let mut ban = json!({ "spaceId": space_id, "userId": ACCOUNT_ID });
+    if let Some(e) = expires_at {
+        ban["expiresAt"] = json!(e);
+    }
+    let (resp, _) = handle_ban_set(
+        backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "create": { "b0": ban } }),
+    )
+    .await
+    .expect("handle_ban_set");
+    assert!(resp["created"]["b0"].is_object(), "ban not created: {resp}");
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Space/join — "The server MUST verify
+/// that no active SpaceBan exists for the requesting account's owner in the
+/// target Space. If a ban exists, the server MUST reject the request with a
+/// `forbidden` method error."
+#[tokio::test]
+async fn space_join_public_space_banned_forbidden() {
+    let backend = MemoryBackend::new();
+    let space_id = make_space_with_props(
+        &backend,
+        json!({ "name": "Public Space", "isPublic": true }),
+    )
+    .await;
+    ban_caller(&backend, &space_id, None).await;
+
+    let err = handle_space_join(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "spaceId": space_id }),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(err.error_type.as_str(), "forbidden");
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Space/join — "The server MUST verify
+/// that no active SpaceBan exists for the requesting account's owner in the
+/// target Space. If a ban exists, the server MUST reject the request with a
+/// `forbidden` method error." The ban applies to the invite path too.
+#[tokio::test]
+async fn space_join_via_invite_banned_forbidden() {
+    let backend = MemoryBackend::new();
+    let space_id = make_space_with_props(&backend, json!({ "name": "Invite Space" })).await;
+    let (invite_resp, _) = handle_invite_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "create": { "i0": { "spaceId": space_id } }
+        }),
+    )
+    .await
+    .expect("create SpaceInvite");
+    let code = invite_resp["created"]["i0"]["code"]
+        .as_str()
+        .expect("code")
+        .to_owned();
+    ban_caller(&backend, &space_id, None).await;
+
+    let err = handle_space_join(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "inviteCode": code }),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(err.error_type.as_str(), "forbidden");
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Space/join — "The server MUST verify
+/// that no active SpaceBan exists ..." A ban whose `expiresAt` has passed
+/// is not active, so the join succeeds.
+#[tokio::test]
+async fn space_join_expired_ban_does_not_block() {
+    let backend = MemoryBackend::new();
+    let space_id = make_space_with_props(
+        &backend,
+        json!({ "name": "Public Space", "isPublic": true }),
+    )
+    .await;
+    ban_caller(&backend, &space_id, Some("2020-01-01T00:00:00Z")).await;
+
+    let (resp, _) = handle_space_join(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "spaceId": space_id }),
+    )
+    .await
+    .expect("expired ban must not block Space/join");
+    assert_eq!(resp["spaceId"].as_str().expect("spaceId"), space_id);
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Space/join — "The server evaluates
+/// these checks in order: the argument check (`invalidArguments`), then
+/// resolution of the target Space ..., then the ban check and the
+/// closed-Space check (`forbidden`). It returns the error for the first
+/// check that fails."
+#[tokio::test]
+async fn space_join_argument_check_precedes_ban_check() {
+    let backend = MemoryBackend::new();
+    let space_id = make_space_with_props(
+        &backend,
+        json!({ "name": "Public Space", "isPublic": true }),
+    )
+    .await;
+    ban_caller(&backend, &space_id, None).await;
+
+    let err = handle_space_join(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "spaceId": space_id, "inviteCode": "abc" }),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(err.error_type.as_str(), "invalidArguments");
+}
+
 // ---------------------------------------------------------------------------
 // Quota / capability limit tests
 // ---------------------------------------------------------------------------

@@ -11,8 +11,9 @@
 
 use jmap_base_client::{BearerAuth, ClientConfig, DefaultTransport, JmapClient, Session};
 use jmap_chat_client::{
-    ChatCreateInput, ChatSessionExt, JmapChatExt, MessageCreateInput, MessagePatch,
-    MessageQueryInput, ReactionChange, SessionClient, SetResponse,
+    ChatCreateInput, ChatSessionExt, ClientError, JmapChatExt, MessageCreateInput, MessagePatch,
+    MessageQueryInput, ReactionChange, SessionClient, SetResponse, SpaceBanCreateInput,
+    SpaceCreateInput, SpaceJoinInput, SpacePatch,
 };
 use jmap_chat_types::{BodyType, ChatKind, SenderId};
 use jmap_testjig::{spawn_in_process, TestjigConfig, TestjigHandle};
@@ -364,4 +365,46 @@ async fn chat_changes_reports_created_chat() {
     assert!(changes.updated.is_empty());
     assert!(changes.destroyed.is_empty());
     assert!(!changes.has_more_changes);
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Space/join — "The server MUST verify
+/// that no active SpaceBan exists for the requesting account's owner in the
+/// target Space. If a ban exists, the server MUST reject the request with a
+/// `forbidden` method error."
+///
+/// The jig's single caller is both the Space creator and the banned user.
+#[tokio::test]
+async fn space_join_rejects_banned_caller() {
+    let (_jig, client, session) = connect().await;
+    let account_id = Id::from(session.chat_account_id().expect("chat account"));
+    let sc = client.with_chat_session(session);
+
+    let resp = sc
+        .space_create(&SpaceCreateInput::new("Lobby").with_client_id("s0"))
+        .await
+        .expect("Space/set create");
+    let space_id = created_id(&resp, "s0");
+    let mut patch = SpacePatch::default();
+    patch.is_public = Some(true);
+    let resp = sc
+        .space_update(&space_id, &patch)
+        .await
+        .expect("Space/set update");
+    assert!(
+        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
+        "{resp:?}"
+    );
+
+    let mut ban = SpaceBanCreateInput::new(&space_id, &account_id);
+    ban.client_id = Some("b0");
+    let resp = sc
+        .space_ban_create(&ban)
+        .await
+        .expect("SpaceBan/set create");
+    created_id(&resp, "b0");
+
+    match sc.space_join(&SpaceJoinInput::SpaceId(&space_id)).await {
+        Err(ClientError::MethodError { error_type, .. }) => assert_eq!(error_type, "forbidden"),
+        other => panic!("expected forbidden method error, got {other:?}"),
+    }
 }
