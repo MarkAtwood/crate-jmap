@@ -7,7 +7,10 @@
 mod common;
 
 use common::MemoryBackend;
-use jmap_contacts_server::{handle_contact_card_get, handle_contact_card_set};
+use jmap_contacts_server::{
+    handle_address_book_get, handle_address_book_set, handle_contact_card_get,
+    handle_contact_card_set,
+};
 use serde_json::{json, Value};
 
 /// A minimal valid AddressBook.
@@ -155,4 +158,33 @@ async fn update_prefix_conflict_is_invalid_patch() {
         "prefix conflict must be invalidPatch: {resp}"
     );
     assert_eq!(get_card1(&backend).await, before, "card1 must be unchanged");
+}
+
+/// RFC 8620 §5.3: "null: Set to the default value if specified for this
+/// property; otherwise, the property is removed." RFC 9610
+/// (rfc9610.txt:180): "sortOrder: UnsignedInt (default: 0)".
+///
+/// So patching `sortOrder` to null on an AddressBook whose sortOrder is 7
+/// must leave it readable with sortOrder 0.
+#[tokio::test]
+async fn update_address_book_sort_order_null_resets_to_default() {
+    let backend = seeded_backend();
+    let mut ab1 = address_book("ab1");
+    ab1["sortOrder"] = json!(7);
+    backend.seed_object("acc1", "AddressBook", "ab1", ab1);
+
+    let args = json!({ "accountId": "acc1", "update": { "ab1": { "sortOrder": null } } });
+    let (resp, _) = handle_address_book_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed at the method level");
+    assert!(
+        resp["updated"].get("ab1").is_some(),
+        "ab1 must be updated: {resp}"
+    );
+
+    let args = json!({ "accountId": "acc1", "ids": ["ab1"] });
+    let (resp, _) = handle_address_book_get(&backend, &(), args)
+        .await
+        .expect("AddressBook/get must succeed after sortOrder: null");
+    assert_eq!(resp["list"][0]["sortOrder"], json!(0), "{resp}");
 }

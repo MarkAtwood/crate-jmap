@@ -121,6 +121,11 @@ pub mod space;
 pub mod space_set;
 pub mod vocabulary;
 
+/// Serde default for boolean properties whose spec default is `true`.
+pub(crate) fn default_true() -> bool {
+    true
+}
+
 pub use backend::{
     ChatContactProperty, ChatProperty, CustomEmojiProperty, MessageProperty,
     PresenceStatusProperty, ReadPositionProperty, SpaceBanProperty, SpaceInviteProperty,

@@ -28,6 +28,7 @@ pub struct ParticipantIdentity {
 
     /// Display name to use when adding this identity as a participant
     /// (default `""`).
+    #[serde(default)]
     pub name: String,
 
     /// The URI that represents this participant for iTIP scheduling

@@ -122,12 +122,14 @@ pub struct Calendar {
     pub color: Option<String>,
 
     /// Client UI sort position; lower values sort first (0 ≤ n < 2^31).
+    #[serde(default)]
     pub sort_order: u32,
 
     /// Whether the user has subscribed to this calendar.
     pub is_subscribed: bool,
 
     /// Whether to display this calendar's events (ignored if not subscribed).
+    #[serde(default = "default_true")]
     pub is_visible: bool,
 
     /// Server-set; true for at most one calendar per account.
@@ -161,6 +163,11 @@ pub struct Calendar {
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Serde default for `Calendar::is_visible` ("default: true").
+fn default_true() -> bool {
+    true
 }
 
 /// Filter condition for `Calendar/query` (draft-ietf-jmap-calendars-26 §4.3).

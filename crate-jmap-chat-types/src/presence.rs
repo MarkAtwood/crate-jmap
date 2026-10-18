@@ -31,6 +31,11 @@ impl_string_enum!(Presence, "a presence state string",
     "offline" => Offline,
 );
 
+/// Serde default for `PresenceStatus.presence`: the spec default is `"online"`.
+fn default_presence() -> Presence {
+    Presence::Online
+}
+
 /// A user's current presence state (spec: PresenceStatus object).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -39,8 +44,10 @@ pub struct PresenceStatus {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.21).
     pub id: Id,
     /// The `presence` property (draft-atwood-jmap-chat-00 §4.21).
+    #[serde(default = "default_presence")]
     pub presence: Presence,
     /// The `receiptSharing` property (draft-atwood-jmap-chat-00 §4.21).
+    #[serde(default = "crate::default_true")]
     pub receipt_sharing: bool,
     /// The `updatedAt` property (draft-atwood-jmap-chat-00 §4.21).
     pub updated_at: UTCDate,
