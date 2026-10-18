@@ -977,7 +977,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-client"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "futures",
@@ -994,7 +994,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-server"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "getrandom 0.3.4",
  "jmap-chat-server",
@@ -1009,7 +1009,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-types"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "jmap-types",
  "serde",
@@ -1061,7 +1061,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode-client"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "jmap-base-client",
  "jmap-filenode-types",
@@ -1074,7 +1074,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode-server"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "jmap-filenode-server",
  "jmap-filenode-types",
@@ -1086,7 +1086,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode-types"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "jmap-types",
  "serde",
