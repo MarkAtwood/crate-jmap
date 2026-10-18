@@ -1,0 +1,185 @@
+//! `Chat/set` updates of `pinnedMessageIds` are permission-gated per chat
+//! kind (bd:JMAP-hd2y).
+//!
+//! Oracle for every test: draft-atwood-jmap-chat-00 §Chat
+//! `pinnedMessageIds`: "Ordered list of pinned Message ids,
+//! most-recently-pinned first. For group chats, only admins may modify
+//! this list. For direct chats, the owner may modify it freely. For
+//! channel chats, only members with the `"pin"` Space permission may
+//! modify this list. Empty by default."
+
+mod common;
+
+use common::{seed_space, IdentityBackend, ACCOUNT_ID, SPACE_ID};
+use jmap_chat_server::{handle_chat_get, handle_chat_set};
+use jmap_types::Id;
+use serde_json::{json, Value};
+
+const CHAT_ID: &str = "chat1";
+
+/// Store a Chat of `kind` with an empty `pinnedMessageIds`, merging
+/// `extra` kind-specific properties.
+fn seed_chat(backend: &IdentityBackend, kind: &str, extra: Value) {
+    let mut chat = json!({
+        "id": CHAT_ID,
+        "kind": kind,
+        "createdAt": "2026-01-01T00:00:00Z",
+        "unreadCount": 0,
+        "pinnedMessageIds": [],
+    });
+    let (Value::Object(chat_map), Value::Object(extra_map)) = (&mut chat, extra) else {
+        unreachable!("both are object literals");
+    };
+    chat_map.extend(extra_map);
+    backend.inner().register_account(&Id::from(ACCOUNT_ID));
+    backend
+        .inner()
+        .insert_object_for_test("Chat", ACCOUNT_ID, CHAT_ID, chat);
+}
+
+/// Seed a group Chat where `admin` is an admin and `member` is not.
+fn seed_group(backend: &IdentityBackend) {
+    seed_chat(
+        backend,
+        "group",
+        json!({
+            "name": "g",
+            "members": [
+                { "id": "admin", "role": "admin", "joinedAt": "2026-01-01T00:00:00Z" },
+                { "id": "member", "role": "member", "joinedAt": "2026-01-01T00:00:00Z" },
+            ],
+        }),
+    );
+}
+
+/// Seed a Space where `pinner` holds a role granting `pin` and
+/// `other` holds no roles, plus a channel Chat in that Space.
+fn seed_channel(backend: &IdentityBackend) {
+    seed_space(
+        backend,
+        json!([{ "id": "r-pin", "name": "Pinner", "permissions": ["pin"], "position": 10 }]),
+        json!([
+            { "id": "pinner", "roleIds": ["r-pin"], "joinedAt": "2026-01-01T00:00:00Z" },
+            { "id": "other", "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" },
+        ]),
+    );
+    seed_chat(
+        backend,
+        "channel",
+        json!({ "name": "c", "spaceId": SPACE_ID }),
+    );
+}
+
+/// Send `patch` as `caller` and return the `Chat/set` response.
+async fn update_as(backend: &IdentityBackend, caller: &str, patch: Value) -> Value {
+    let (resp, _) = handle_chat_set(
+        backend,
+        &Id::from(caller),
+        json!({ "accountId": ACCOUNT_ID, "update": { CHAT_ID: patch } }),
+    )
+    .await
+    .expect("Chat/set");
+    resp
+}
+
+/// Return the stored `pinnedMessageIds` via `Chat/get`.
+async fn pinned(backend: &IdentityBackend) -> Value {
+    let (resp, _) = handle_chat_get(
+        backend,
+        &Id::from("admin"),
+        json!({ "accountId": ACCOUNT_ID, "ids": [CHAT_ID] }),
+    )
+    .await
+    .expect("Chat/get");
+    resp["list"][0]["pinnedMessageIds"].clone()
+}
+
+fn assert_updated(resp: &Value) {
+    assert_eq!(resp["notUpdated"], Value::Null, "{resp:?}");
+    assert!(resp["updated"].get(CHAT_ID).is_some(), "{resp:?}");
+}
+
+fn assert_forbidden(resp: &Value) {
+    assert_eq!(resp["updated"], Value::Null, "{resp:?}");
+    assert_eq!(resp["notUpdated"][CHAT_ID]["type"], "forbidden", "{resp:?}");
+}
+
+/// "For direct chats, the owner may modify it freely."
+#[tokio::test]
+async fn direct_chat_owner_may_update_pins() {
+    let backend = IdentityBackend::new();
+    seed_chat(&backend, "direct", json!({ "contactId": "peer" }));
+
+    let resp = update_as(
+        &backend,
+        "owner",
+        json!({ "pinnedMessageIds": ["m2", "m1"] }),
+    )
+    .await;
+
+    assert_updated(&resp);
+    assert_eq!(pinned(&backend).await, json!(["m2", "m1"]));
+}
+
+/// "For group chats, only admins may modify this list." (admin case)
+#[tokio::test]
+async fn group_chat_admin_may_update_pins() {
+    let backend = IdentityBackend::new();
+    seed_group(&backend);
+
+    let resp = update_as(&backend, "admin", json!({ "pinnedMessageIds": ["m1"] })).await;
+
+    assert_updated(&resp);
+    assert_eq!(pinned(&backend).await, json!(["m1"]));
+}
+
+/// "For group chats, only admins may modify this list." (non-admin case)
+#[tokio::test]
+async fn group_chat_non_admin_forbidden() {
+    let backend = IdentityBackend::new();
+    seed_group(&backend);
+
+    let resp = update_as(&backend, "member", json!({ "pinnedMessageIds": ["m1"] })).await;
+
+    assert_forbidden(&resp);
+    assert_eq!(pinned(&backend).await, json!([]));
+}
+
+/// "For group chats, only admins may modify this list." A JSON Pointer
+/// path into the list (RFC 8620 §5.3 PatchObject) is a modification too.
+#[tokio::test]
+async fn group_chat_non_admin_pointer_path_forbidden() {
+    let backend = IdentityBackend::new();
+    seed_group(&backend);
+
+    let resp = update_as(&backend, "member", json!({ "pinnedMessageIds/0": "m1" })).await;
+
+    assert_forbidden(&resp);
+    assert_eq!(pinned(&backend).await, json!([]));
+}
+
+/// "For channel chats, only members with the `"pin"` Space permission
+/// may modify this list." (without the permission)
+#[tokio::test]
+async fn channel_without_pin_permission_forbidden() {
+    let backend = IdentityBackend::new();
+    seed_channel(&backend);
+
+    let resp = update_as(&backend, "other", json!({ "pinnedMessageIds": ["m1"] })).await;
+
+    assert_forbidden(&resp);
+    assert_eq!(pinned(&backend).await, json!([]));
+}
+
+/// "For channel chats, only members with the `"pin"` Space permission
+/// may modify this list." (with the permission)
+#[tokio::test]
+async fn channel_with_pin_permission_may_update_pins() {
+    let backend = IdentityBackend::new();
+    seed_channel(&backend);
+
+    let resp = update_as(&backend, "pinner", json!({ "pinnedMessageIds": ["m1"] })).await;
+
+    assert_updated(&resp);
+    assert_eq!(pinned(&backend).await, json!(["m1"]));
+}

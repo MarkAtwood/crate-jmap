@@ -188,3 +188,44 @@ async fn update_address_book_sort_order_null_resets_to_default() {
         .expect("AddressBook/get must succeed after sortOrder: null");
     assert_eq!(resp["list"][0]["sortOrder"], json!(0), "{resp}");
 }
+
+/// RFC 8620 §5.3: "If null, set to the default value if specified for
+/// this property; otherwise, remove the property from the patched
+/// object." RFC 9610 §2 gives `*name*: String` with no default, so the
+/// patched AddressBook lacks a required property and, per RFC 8620 §5.3,
+/// "invalidProperties": "The record given is invalid in some way." The
+/// rejected update must leave the stored book readable and unchanged.
+#[tokio::test]
+async fn address_book_required_name_null_is_invalid_properties() {
+    let backend = seeded_backend();
+    let args = json!({ "accountId": "acc1", "update": { "ab1": { "name": null } } });
+    let (resp, _) = handle_address_book_set(&backend, &(), args)
+        .await
+        .expect("AddressBook/set must succeed at the method level");
+    assert_eq!(
+        resp["notUpdated"]["ab1"]["type"], "invalidProperties",
+        "{resp}"
+    );
+
+    let args = json!({ "accountId": "acc1", "ids": ["ab1"] });
+    let (resp, _) = handle_address_book_get(&backend, &(), args)
+        .await
+        .expect("AddressBook/get must succeed after a rejected update");
+    assert_eq!(resp["list"][0]["name"], "ab1", "{resp}");
+}
+
+/// RFC 8620 §5.3 "invalidProperties": "It contains properties that are
+/// invalid according to the type specification of this record type."
+/// RFC 9553 §2.1.9: "uid: String (mandatory)", so a number is rejected
+/// and the stored card stays readable and unchanged.
+#[tokio::test]
+async fn contact_card_wrong_typed_uid_is_invalid_properties() {
+    let backend = seeded_backend();
+    let before = get_card1(&backend).await;
+    let resp = update_card1(&backend, json!({ "uid": 5 })).await;
+    assert_eq!(
+        resp["notUpdated"]["card1"]["type"], "invalidProperties",
+        "{resp}"
+    );
+    assert_eq!(get_card1(&backend).await, before, "card1 must be unchanged");
+}

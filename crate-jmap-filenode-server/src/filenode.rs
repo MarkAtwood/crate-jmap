@@ -40,7 +40,7 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
     SetAccumulators,
 };
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{now_utc_string, server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
 // FileNode/get
@@ -680,6 +680,13 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 }
             }
 
+            // §3.1.1: created, modified and accessed default to the current
+            // server time; a null modified or accessed is set to it.
+            let now = now_utc_string();
+            for date in [&mut node.created, &mut node.modified, &mut node.accessed] {
+                date.get_or_insert_with(|| now.clone());
+            }
+
             match backend
                 .create_object::<FileNode>(caller, &account_id, &create_id, node)
                 .await
@@ -733,7 +740,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             // SetError. Doing the typed parse up front avoids a class of
             // bug where the handler's introspection sees a different shape
             // than the backend (bd:JMAP-510h.13).
-            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
                     not_updated.insert(
@@ -765,8 +772,21 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     property_owner(prop).map(|owner| (prop, owner, v.is_null()))
                 })
                 .collect();
+            // §3.1.1, §3.1.2, §3.1.4: name, blobId, mediaType and target
+            // are not nullable and have no default; a null one defined for
+            // the node's @type is invalidProperties (other types' nulls are
+            // ignored, above). Defaulted properties reset on null (RFC 8620
+            // §5.3): a removed executable or isSubscribed reads back as its
+            // default; created is filled in below.
+            let mut nulled: Vec<&str> = ["name", "blobId", "mediaType", "target"]
+                .into_iter()
+                .filter(|p| patch.as_map().get(*p).is_some_and(Value::is_null))
+                .collect();
             let type_patch = patch.as_map().get("@type");
-            if !typed.is_empty() || type_patch.is_some() {
+            if !typed.is_empty()
+                || type_patch.is_some()
+                || nulled.iter().any(|p| property_owner(p).is_some())
+            {
                 let stored = match backend
                     .get_objects::<FileNode>(
                         caller,
@@ -782,6 +802,13 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                         continue;
                     }
                 };
+                nulled.retain(|p| {
+                    property_owner(p).is_none_or(|owner| {
+                        stored
+                            .as_ref()
+                            .is_some_and(|n| n.node_type.as_ref() == Some(&owner))
+                    })
+                });
                 // A missing node falls through so update_object reports
                 // notFound.
                 if let Some(node) = stored {
@@ -824,6 +851,26 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                         );
                         continue;
                     }
+                }
+            }
+
+            if !nulled.is_empty() {
+                not_updated.insert(
+                    id_str,
+                    json!({
+                        "type": "invalidProperties",
+                        "properties": nulled,
+                        "description": "property cannot be null",
+                    }),
+                );
+                continue;
+            }
+
+            // §3.1.1: a null modified or accessed is set to the current
+            // server time, as is a null created (its default, RFC 8620 §5.3).
+            for key in ["created", "modified", "accessed"] {
+                if let Some(v) = patch.as_map_mut().get_mut(key).filter(|v| v.is_null()) {
+                    *v = json!(now_utc_string());
                 }
             }
 

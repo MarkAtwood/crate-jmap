@@ -125,11 +125,11 @@ pub struct Mailbox {
     pub id: Id,
     /// User-visible name for this Mailbox.
     pub name: String,
-    /// Id of the parent Mailbox, or `None` if top-level.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Id of the parent Mailbox, or `None` if top-level; `None`
+    /// serializes as `null`.
     pub parent_id: Option<Id>,
-    /// Well-known role identifying the Mailbox's common purpose.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Well-known role identifying the Mailbox's common purpose; `None`
+    /// serializes as `null`.
     pub role: Option<MailboxRole>,
     /// Client UI sort position; lower values sort first among siblings.
     /// Defaults to `0`.

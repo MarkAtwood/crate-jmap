@@ -62,6 +62,19 @@ async fn chat_muted_null_resets_to_false() {
     assert_eq!(chat_get(&backend, &id).await["muted"], json!(false));
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 Chat `pinnedMessageIds`: "Ordered
+/// list of pinned Message ids, most-recently-pinned first. [...] Empty by
+/// default."
+#[tokio::test]
+async fn chat_pinned_message_ids_null_resets_to_empty() {
+    let backend = MemoryBackend::new();
+    let id = make_chat_group(&backend, "g").await;
+
+    chat_update(&backend, &id, json!({ "pinnedMessageIds": null })).await;
+
+    assert_eq!(chat_get(&backend, &id).await["pinnedMessageIds"], json!([]));
+}
+
 /// Oracle: draft-atwood-jmap-chat-00 Chat `receiveTypingIndicators`:
 /// "Default: `true`."
 #[tokio::test]

@@ -137,8 +137,9 @@ pub async fn handle_chat_query_changes<B: ChatBackend>(
 /// - `kind` is required on create.
 /// - `direct` chats require `contactId`.
 /// - `channel` chats require `spaceId`.
-/// - `id`, `createdAt`, `unreadCount`, `pinnedMessageIds` are server-set and
-///   rejected in updates.
+/// - `id`, `createdAt`, `unreadCount` are server-set and rejected in updates.
+/// - `pinnedMessageIds` updates are gated by
+///   [`ChatBackend::may_set_pinned_messages`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_chat_set<B: ChatBackend>(
@@ -488,7 +489,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
             // INVARIANT: this list must include every field on jmap_chat_types::Chat that
             // is set by the server rather than the client. Add new server-set fields here
             // at the same time as adding them to the Chat struct.
-            const CHAT_READONLY: &[&str] = &["id", "createdAt", "unreadCount", "pinnedMessageIds"];
+            const CHAT_READONLY: &[&str] = &["id", "createdAt", "unreadCount"];
             let bad_props: Vec<&str> = CHAT_READONLY
                 .iter()
                 .copied()
@@ -515,6 +516,31 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     continue;
                 }
             };
+
+            // draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: who may
+            // modify the list depends on the chat kind; the backend decides.
+            // Pointer paths beneath the property are gated too.
+            let touches_pins = patch
+                .as_map()
+                .keys()
+                .any(|k| k == "pinnedMessageIds" || k.starts_with("pinnedMessageIds/"));
+            if touches_pins {
+                match backend
+                    .may_set_pinned_messages(caller, &account_id, &id)
+                    .await
+                {
+                    Ok(Ok(())) => {}
+                    Ok(Err(set_err)) => {
+                        not_updated.insert(id_str, set_error_value(&set_err));
+                        continue;
+                    }
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                }
+            }
+
             match backend
                 .update_object::<Chat>(caller, &account_id, &id, patch)
                 .await

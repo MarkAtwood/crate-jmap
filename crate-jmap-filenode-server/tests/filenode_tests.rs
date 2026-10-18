@@ -2721,3 +2721,294 @@ async fn filenode_copy_rejects_other_type_property() {
     assert_eq!(err["type"], "invalidProperties", "{resp}");
     assert_eq!(err["properties"], json!(["executable"]), "{resp}");
 }
+
+/// Create one node per `(create_id, properties)` entry and return the ids.
+async fn create_nodes(backend: &MemoryBackend, create: serde_json::Value) -> Vec<String> {
+    let keys: Vec<String> = create.as_object().unwrap().keys().cloned().collect();
+    let (resp, _) = handle_filenode_set(
+        backend,
+        &(),
+        json!({ "accountId": "acc1", "create": create }),
+    )
+    .await
+    .expect("seed create must not return top-level error");
+    keys.iter()
+        .map(|k| {
+            resp["created"][k]["id"]
+                .as_str()
+                .unwrap_or_else(|| panic!("seed node {k} must be created: {resp}"))
+                .to_owned()
+        })
+        .collect()
+}
+
+/// Oracle: draft-ietf-jmap-filenode-16 §3.1.1 — modified: "If the client
+/// sets modified to null, the server MUST set it to the current server
+/// time." accessed: "If set to null, the server MUST set it to the current
+/// server time."
+#[tokio::test]
+async fn filenode_set_update_null_modified_accessed_sets_server_time() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let old = "2000-01-01T00:00:00Z";
+    let ids = create_nodes(
+        &backend,
+        json!({ "d": { "@type": "Directory", "name": "d", "modified": old, "accessed": old } }),
+    )
+    .await;
+    let id = &ids[0];
+
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "update": { id: { "modified": null, "accessed": null } }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+    assert!(resp["notUpdated"].is_null(), "update must succeed: {resp}");
+
+    let (g_resp, _) = handle_filenode_get(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": [id], "properties": ["modified", "accessed"] }),
+    )
+    .await
+    .expect("get must succeed");
+    for prop in ["modified", "accessed"] {
+        let v = g_resp["list"][0][prop]
+            .as_str()
+            .unwrap_or_else(|| panic!("{prop} must be set: {g_resp}"));
+        assert!(v > old, "{prop} must be the current time: {g_resp}");
+    }
+}
+
+/// Oracle: draft-ietf-jmap-filenode-16 §3.1.2 — "Setting blobId to null is
+/// an "invalidProperties" error." / "Setting mediaType to null is an
+/// "invalidProperties" error."; §3.1.4 — "Setting target to null is an
+/// "invalidProperties" error."
+#[tokio::test]
+async fn filenode_set_update_null_type_property_is_invalid_properties() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let ids = create_nodes(
+        &backend,
+        json!({
+            "f1": { "@type": "File", "name": "f1", "blobId": "B1", "mediaType": "text/plain" },
+            "f2": { "@type": "File", "name": "f2", "blobId": "B1", "mediaType": "text/plain" },
+            "l": { "@type": "SymLink", "name": "l", "target": ["f1"] }
+        }),
+    )
+    .await;
+    let cases = [
+        (&ids[0], "blobId", json!("B1")),
+        (&ids[1], "mediaType", json!("text/plain")),
+        (&ids[2], "target", json!(["f1"])),
+    ];
+
+    let mut update = serde_json::Map::new();
+    for (id, prop, _) in &cases {
+        update.insert((*id).clone(), json!({ *prop: null }));
+    }
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "update": update }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(resp["updated"].is_null(), "nothing may be updated: {resp}");
+    for (id, prop, stored) in &cases {
+        let err = &resp["notUpdated"][*id];
+        assert_eq!(err["type"], "invalidProperties", "{prop}: {resp}");
+        assert_eq!(err["properties"], json!([prop]), "{prop}: {resp}");
+
+        let (g_resp, _) = handle_filenode_get(
+            &backend,
+            &(),
+            json!({ "accountId": "acc1", "ids": [id], "properties": [prop] }),
+        )
+        .await
+        .expect("get must succeed");
+        assert_eq!(&g_resp["list"][0][prop], stored, "{prop}: {g_resp}");
+    }
+}
+
+/// Oracle: draft-ietf-jmap-filenode-16 §3.1.1 — name: "String" ... "This
+/// MUST be a Net-Unicode string [UNICODE] of at least 1 character in
+/// length"; RFC 8620 §5.3 — "invalidProperties": "The record given is
+/// invalid in some way."
+#[tokio::test]
+async fn filenode_set_update_null_name_is_invalid_properties() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let id = create_node(&backend, "acc1", "keep", None, "d").await;
+
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "update": { &id: { "name": null } } }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(resp["updated"].is_null(), "nothing may be updated: {resp}");
+    let err = &resp["notUpdated"][&id];
+    assert_eq!(err["type"], "invalidProperties", "{resp}");
+    assert_eq!(err["properties"], json!(["name"]), "{resp}");
+
+    let (g_resp, _) = handle_filenode_get(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": [&id], "properties": ["name"] }),
+    )
+    .await
+    .expect("get must succeed");
+    assert_eq!(g_resp["list"][0]["name"], "keep", "{g_resp}");
+}
+
+/// Oracle: RFC 8620 §5.3 — "invalidProperties": "The record given is
+/// invalid in some way. For example: It contains properties that are
+/// invalid according to the type specification of this record type."
+/// draft-ietf-jmap-filenode-16 §3.1.1 types name as "String" and §3.1.2
+/// types executable as "Boolean".
+#[tokio::test]
+async fn filenode_set_update_wrong_typed_value_is_invalid_properties() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let ids = create_nodes(
+        &backend,
+        json!({
+            "d": { "@type": "Directory", "name": "d" },
+            "f": { "@type": "File", "name": "f", "blobId": "B1", "executable": false }
+        }),
+    )
+    .await;
+    let cases = [
+        (&ids[0], "name", json!(5), json!("d")),
+        (&ids[1], "executable", json!("yes"), json!(false)),
+    ];
+
+    let mut update = serde_json::Map::new();
+    for (id, prop, bad, _) in &cases {
+        update.insert((*id).clone(), json!({ *prop: bad }));
+    }
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "update": update }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(resp["updated"].is_null(), "nothing may be updated: {resp}");
+    for (id, prop, _, stored) in &cases {
+        assert_eq!(
+            resp["notUpdated"][*id]["type"], "invalidProperties",
+            "{prop}: {resp}"
+        );
+        let (g_resp, _) = handle_filenode_get(
+            &backend,
+            &(),
+            json!({ "accountId": "acc1", "ids": [id], "properties": [prop] }),
+        )
+        .await
+        .expect("get must succeed");
+        assert_eq!(&g_resp["list"][0][prop], stored, "{prop}: {g_resp}");
+    }
+}
+
+/// Oracle: draft-ietf-jmap-filenode-16 §3.1.1 — created: "UTCDate"
+/// "(default: current server time)"; modified: "If the client sets modified
+/// to null, the server MUST set it to the current server time." accessed:
+/// "If set to null, the server MUST set it to the current server time."
+#[tokio::test]
+async fn filenode_set_create_null_modified_accessed_sets_server_time() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let before = jmap_server::now_utc_string();
+    let ids = create_nodes(
+        &backend,
+        json!({ "d": { "@type": "Directory", "name": "d", "modified": null, "accessed": null } }),
+    )
+    .await;
+
+    let (g_resp, _) = handle_filenode_get(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "ids": [&ids[0]],
+            "properties": ["created", "modified", "accessed"]
+        }),
+    )
+    .await
+    .expect("get must succeed");
+    for prop in ["created", "modified", "accessed"] {
+        let v = g_resp["list"][0][prop]
+            .as_str()
+            .unwrap_or_else(|| panic!("{prop} must be set: {g_resp}"));
+        assert!(
+            v >= before.as_ref(),
+            "{prop} must be the current time: {g_resp}"
+        );
+    }
+}
+
+/// Oracle: draft-ietf-jmap-filenode-16 §3.1.1 "created: \"UTCDate\"
+/// (default: current server time)", "isSubscribed: \"Boolean\" (default:
+/// true)", §3.1.2 "executable: \"Boolean\" (default: false)"; RFC 8620
+/// §5.3 PatchObject: "If null, set to the default value if specified for
+/// this property".
+#[tokio::test]
+async fn filenode_set_update_null_defaulted_resets_to_default() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let old = "2000-01-01T00:00:00Z";
+    let ids = create_nodes(
+        &backend,
+        json!({
+            "d1": { "@type": "Directory", "name": "d1", "created": old },
+            "d2": { "@type": "Directory", "name": "d2", "isSubscribed": false },
+            "f": { "@type": "File", "name": "f", "blobId": "B1", "executable": true }
+        }),
+    )
+    .await;
+    let before = jmap_server::now_utc_string();
+    let cases = [
+        (&ids[0], "created"),
+        (&ids[1], "isSubscribed"),
+        (&ids[2], "executable"),
+    ];
+
+    let mut update = serde_json::Map::new();
+    for (id, prop) in &cases {
+        update.insert((*id).clone(), json!({ *prop: null }));
+    }
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "update": update }),
+    )
+    .await
+    .expect("must not return top-level error");
+    assert!(resp["notUpdated"].is_null(), "all must update: {resp}");
+
+    async fn get(backend: &MemoryBackend, id: &str, prop: &str) -> serde_json::Value {
+        let (g_resp, _) = handle_filenode_get(
+            backend,
+            &(),
+            json!({ "accountId": "acc1", "ids": [id], "properties": [prop] }),
+        )
+        .await
+        .expect("get must succeed");
+        g_resp["list"][0][prop].clone()
+    }
+    let created = get(&backend, &ids[0], "created").await;
+    let created = created.as_str().expect("created must be set");
+    assert!(
+        created >= before.as_ref(),
+        "created must be the current time: {created}"
+    );
+    // isSubscribed is absent from the wire when unset, which means true.
+    let sub = get(&backend, &ids[1], "isSubscribed").await;
+    assert!(sub.is_null() || sub == json!(true), "isSubscribed: {sub}");
+    assert_eq!(get(&backend, &ids[2], "executable").await, json!(false));
+}

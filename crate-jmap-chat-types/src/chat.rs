@@ -1,7 +1,7 @@
 //! Chat conversation object and supporting types.
 
 use jmap_types::{impl_string_enum, Id, UTCDate};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// The kind of a [`Chat`] conversation.
 ///
@@ -93,9 +93,12 @@ pub struct ChannelPermission {
 }
 
 /// A JMAP Chat object.
+///
+/// For a `"channel"` Chat, `slowModeSeconds` and `permissionOverrides` are
+/// always serialized, as their defaults `0` and `[]` when `None`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", remote = "Self")]
 pub struct Chat {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.10).
     pub id: Id,
@@ -106,6 +109,8 @@ pub struct Chat {
     /// The `unreadCount` property (draft-atwood-jmap-chat-00 §4.10).
     pub unread_count: u64,
     /// The `pinnedMessageIds` property (draft-atwood-jmap-chat-00 §4.10).
+    /// Empty by default.
+    #[serde(default)]
     pub pinned_message_ids: Vec<Id>,
     /// The `muted` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(default)]
@@ -165,6 +170,28 @@ pub struct Chat {
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl Serialize for Chat {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        // draft-atwood-jmap-chat-00 §4.10: channel `slowModeSeconds` has
+        // "Default: `0`" and `permissionOverrides` is "Empty by default".
+        if self.kind == ChatKind::Channel
+            && (self.slow_mode_seconds.is_none() || self.permission_overrides.is_none())
+        {
+            let mut chat = self.clone();
+            chat.slow_mode_seconds.get_or_insert(0);
+            chat.permission_overrides.get_or_insert_with(Vec::new);
+            return Chat::serialize(&chat, serializer);
+        }
+        Chat::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Chat {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Chat::deserialize(deserializer)
+    }
 }
 
 impl Chat {
@@ -365,5 +392,17 @@ mod tests {
         let perm2: ChannelPermission =
             serde_json::from_str(&serialized).expect("re-deserialize ChannelPermission");
         assert_eq!(perm, perm2);
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-00 §Chat Object Fields: `slowModeSeconds`
+    /// "**Channel Chats only.** ... Default: `0`." and `permissionOverrides`
+    /// "**Channel Chats only.** ... Empty by default."
+    #[test]
+    fn chat_channel_unset_defaults_serialized() {
+        let json = r#"{"id":"ch1","kind":"channel","spaceId":"s1","name":"general","createdAt":"2026-01-01T00:00:00Z","unreadCount":0,"pinnedMessageIds":[]}"#;
+        let chat: Chat = serde_json::from_str(json).expect("deserialize Chat");
+        let out = serde_json::to_value(&chat).expect("serialize Chat");
+        assert_eq!(out["slowModeSeconds"], serde_json::json!(0), "{out}");
+        assert_eq!(out["permissionOverrides"], serde_json::json!([]), "{out}");
     }
 }

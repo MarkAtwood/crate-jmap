@@ -24,7 +24,14 @@ fn mailbox_inbox_roundtrip() {
     let json = common::fixture("mailbox_inbox.json");
     let mb: Mailbox = serde_json::from_str(&json).expect("deserialize");
     let serialized = serde_json::to_string(&mb).expect("serialize");
-    let original: serde_json::Value = serde_json::from_str(&json).expect("parse original");
+    let mut original: serde_json::Value = serde_json::from_str(&json).expect("parse original");
+    // RFC 8621 §2: parentId is "Id|null" (default: null), so it is
+    // serialized even when the fixture omits it.
+    original
+        .as_object_mut()
+        .unwrap()
+        .entry("parentId")
+        .or_insert(serde_json::Value::Null);
     let reserialized: serde_json::Value =
         serde_json::from_str(&serialized).expect("parse reserialized");
     assert_eq!(
@@ -169,4 +176,14 @@ fn mailbox_new_constructor() {
     assert!(mb.is_subscribed);
     assert!(mb.parent_id.is_none());
     assert!(mb.role.is_none());
+}
+
+/// Oracle: RFC 8621 §2 `role: "String|null" (default: null)`, and RFC 8620
+/// §5.1: "If null, all properties of the object are returned."
+#[test]
+fn mailbox_without_role_serializes_role_null() {
+    let json = r#"{"id":"MB1","name":"Lists","sortOrder":0,"totalEmails":0,"unreadEmails":0,"totalThreads":0,"unreadThreads":0,"myRights":{"mayReadItems":true,"mayAddItems":true,"mayRemoveItems":true,"maySetSeen":true,"maySetKeywords":true,"mayCreateChild":true,"mayRename":true,"mayDelete":true,"maySubmit":true},"isSubscribed":true}"#;
+    let mb: Mailbox = serde_json::from_str(json).expect("deserialize");
+    let v = serde_json::to_value(&mb).expect("serialize");
+    assert!(v["role"].is_null() && v.get("role").is_some(), "{v}");
 }

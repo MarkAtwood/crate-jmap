@@ -737,11 +737,21 @@ pub(crate) mod test_support {
                     SetErrorType::InvalidPatch,
                 )));
             };
-            apply_patch_object(stored, patch_map).map_err(|e| {
+            // Patch a copy and re-check it against the typed object so a
+            // rejected patch leaves the stored event unchanged.
+            let mut patched = stored.clone();
+            apply_patch_object(&mut patched, patch_map).map_err(|e| {
                 BackendSetError::SetError(
                     SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
                 )
             })?;
+            O::deserialize(serde_json::Value::Object(patched.clone())).map_err(|e| {
+                BackendSetError::SetError(
+                    SetError::new(SetErrorType::InvalidProperties)
+                        .with_description(format!("patch produced invalid {}: {e}", O::TYPE_NAME)),
+                )
+            })?;
+            *stored = patched;
             // Echo None: this mock does not surface server-set property deltas.
             Ok(None)
         }

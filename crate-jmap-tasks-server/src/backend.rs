@@ -284,8 +284,10 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// # Returning `true`
     ///
-    /// Implementor commits to **atomically rejecting** the
-    /// `isDraft: false → true` revert inside [`Self::update_object`] (and
+    /// Implementor commits to **atomically rejecting** any update whose
+    /// post-patch `isDraft` is `true` when the stored value is not `true`
+    /// (including a `null` reset followed by `true`) inside
+    /// [`Self::update_object`] (and
     /// [`Self::update_task_per_user`] if applicable), in the same critical
     /// section as the read-and-write that applies the patch. The handler
     /// skips its pre-fetch and forwards the raw patch.

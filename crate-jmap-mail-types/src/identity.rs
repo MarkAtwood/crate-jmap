@@ -23,10 +23,8 @@ pub struct Identity {
     /// The "From" email address the client MUST use (immutable).
     pub email: String,
     /// The Reply-To value the client SHOULD set.  `null` if not set.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub reply_to: Option<Vec<EmailAddress>>,
     /// The Bcc value the client SHOULD set.  `null` if not set.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub bcc: Option<Vec<EmailAddress>>,
     /// Plaintext signature.  Defaults to `""`.
     #[serde(default)]

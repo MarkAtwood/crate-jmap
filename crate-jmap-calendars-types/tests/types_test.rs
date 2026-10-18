@@ -306,6 +306,25 @@ fn calendar_event_all_none() {
     assert!(ev.recurrence_rules.is_none());
 }
 
+/// Unset `isDraft` / `useDefaultAlerts` serialize as their `false` default.
+///
+/// Oracle: draft-ietf-jmap-calendars-33 §5.7: "In addition, the "id",
+/// "calendarIds", "isOrigin", "isDraft", and "useDefaultAlerts" properties
+/// MUST be included on each object." §5 types both as
+/// "Boolean (default: false)".
+#[test]
+fn calendar_event_is_draft_and_use_default_alerts_always_serialized() {
+    let ev: CalendarEvent =
+        serde_json::from_str(r#"{"id": "ev-1", "calendarIds": {"cal-1": true}}"#).unwrap();
+    let out = serde_json::to_value(&ev).unwrap();
+    assert_eq!(out["isDraft"], serde_json::Value::Bool(false), "{out}");
+    assert_eq!(
+        out["useDefaultAlerts"],
+        serde_json::Value::Bool(false),
+        "{out}"
+    );
+}
+
 /// A richer CalendarEvent with JSCalendar scalar fields deserializes correctly.
 /// Oracle: RFC 8984 §6.1 simple event example (adapted).
 #[test]

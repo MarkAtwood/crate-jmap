@@ -143,3 +143,39 @@ async fn participant_identity_name_null_resets_to_empty() {
     let identity = get_identity(&backend).await;
     assert_eq!(identity["name"], "", "{identity}");
 }
+
+/// RFC 8620 §5.3: "If null, set to the default value if specified for
+/// this property; otherwise, remove the property from the patched
+/// object." draft-ietf-jmap-calendars-33 line 750 gives "*name*: String"
+/// with no default, so the patched Calendar is, per RFC 8620 §5.3
+/// "invalidProperties", "invalid in some way". The rejected update must
+/// leave the stored calendar readable and unchanged.
+#[tokio::test]
+async fn calendar_required_name_null_is_invalid_properties() {
+    let backend = backend_with_calendar();
+    let resp = update_calendar(&backend, json!({ "name": null })).await;
+    assert_eq!(
+        resp["notUpdated"]["cal1"]["type"], "invalidProperties",
+        "{resp}"
+    );
+    assert_eq!(get_calendar(&backend).await["name"], "Work");
+}
+
+/// RFC 8620 §5.3: "If null, set to the default value if specified for
+/// this property; otherwise, remove the property from the patched
+/// object." draft-ietf-jmap-calendars-33 line 634 gives
+/// "*calendarAddress*: String" with no default, so the update is
+/// "invalidProperties" and the stored identity stays readable.
+#[tokio::test]
+async fn participant_identity_required_calendar_address_null_is_invalid_properties() {
+    let backend = backend_with_identity();
+    let resp = update_identity(&backend, json!({ "calendarAddress": null })).await;
+    assert_eq!(
+        resp["notUpdated"]["pi1"]["type"], "invalidProperties",
+        "{resp}"
+    );
+    assert_eq!(
+        get_identity(&backend).await["calendarAddress"],
+        "mailto:alice@example.com"
+    );
+}

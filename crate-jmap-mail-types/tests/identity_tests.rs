@@ -71,14 +71,18 @@ fn identity_serializes_signatures_always() {
 // Oracle: null replyTo and bcc are omitted from serialized output
 // (skip_serializing_if = "Option::is_none").
 #[test]
-fn identity_null_optional_fields_omitted_in_serialization() {
+fn identity_null_optional_fields_serialize_as_null() {
     let identity: Identity = serde_json::from_str(
         r#"{"id":"test-id","name":"","email":"user@example.com","textSignature":"","htmlSignature":"","mayDelete":false}"#,
     )
     .expect("deserialize");
-    let json = serde_json::to_string(&identity).expect("serialize");
-    assert!(!json.contains("replyTo"), "null replyTo must be omitted");
-    assert!(!json.contains("bcc"), "null bcc must be omitted");
+    // RFC 8621 §6: replyTo and bcc are "EmailAddress[]|null" (default:
+    // null), so an unset value serializes as null.
+    let v = serde_json::to_value(&identity).expect("serialize");
+    assert_eq!(v["replyTo"], serde_json::Value::Null);
+    assert_eq!(v["bcc"], serde_json::Value::Null);
+    assert!(v.as_object().unwrap().contains_key("replyTo"));
+    assert!(v.as_object().unwrap().contains_key("bcc"));
 }
 
 // Roundtrip tests compare serde_json::Value rather than the struct directly.
@@ -107,14 +111,14 @@ fn identity_minimal_roundtrip() {
     assert!(id.reply_to.is_none());
     assert!(id.bcc.is_none());
     let serialized = serde_json::to_string(&id).expect("serialize");
-    // replyTo and bcc must not appear when absent
+    // RFC 8621 §6: replyTo and bcc default to null and are serialized
     assert!(
-        !serialized.contains("\"replyTo\""),
-        "replyTo must be absent when None"
+        serialized.contains("\"replyTo\":null"),
+        "replyTo must be null when None"
     );
     assert!(
-        !serialized.contains("\"bcc\""),
-        "bcc must be absent when None"
+        serialized.contains("\"bcc\":null"),
+        "bcc must be null when None"
     );
     // textSignature and htmlSignature MUST appear even when empty
     assert!(
