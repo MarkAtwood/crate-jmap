@@ -77,10 +77,14 @@ pub use auth::{
     CustomTransportBuilder, DefaultTransport, HttpClient, NoneAuth, TransportConfig,
 };
 pub use blob::{
-    expand_url_template, BlobUploadResponse, DownloadBlobParams, DownloadBlobSessionParams,
-    UploadBlobParams, UploadBlobSessionParams,
+    expand_url_template, upload_body_from_reader, BlobDownloadStream, BlobUploadBody,
+    BlobUploadResponse, DownloadBlobParams, DownloadBlobSessionParams, UploadBlobParams,
+    UploadBlobSessionParams, UploadBlobStreamParams,
 };
-pub use client::{extract_response, ClientConfig, JmapClient, SubscribeEventsSessionParams};
+pub use client::{
+    extract_response, method_error_details, ClientConfig, JmapClient, SseReconnectPolicy,
+    SubscribeEventsSessionParams,
+};
 pub use error::{
     ClientError, HttpError, InvalidHeaderValueError, ParseCategory, ParseError, SerializeError,
     WebSocketError,
@@ -91,4 +95,4 @@ pub use request::{
     WebSocketCapability,
 };
 pub use sse::{parse_sse_block, SseEvent, SseFrame};
-pub use ws::{connect_ws, WsFrame, WsReceiver, WsSender, WsSession};
+pub use ws::{connect_ws, WsFrame, WsReceiver, WsRequestError, WsSender, WsSession};

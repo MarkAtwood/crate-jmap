@@ -6,12 +6,14 @@
 //!   - draft-atwood-jmap-chat-00 §3      (ChatCapability fields)
 //!   - draft-atwood-jmap-chat-push-00    (ChatPushCapability fields)
 //!   - draft-atwood-jmap-chat-wss-00     (supports_chat_websocket)
+//!   - draft-atwood-jmap-chat-filenode-00 (ChatFilenodeCapability fields)
 //!
-//! [`ChatCapability`] and [`ChatPushCapability`] live in `jmap-chat-types`
+//! [`ChatCapability`], [`ChatPushCapability`] and [`ChatFilenodeCapability`]
+//! live in `jmap-chat-types`
 //! (the canonical home for chat wire-format types); this module re-exports
 //! them for ergonomic use from the trait signatures below.
 
-pub use jmap_chat_types::{ChatCapability, ChatPushCapability};
+pub use jmap_chat_types::{ChatCapability, ChatFilenodeCapability, ChatPushCapability};
 
 // ---------------------------------------------------------------------------
 // ChatSessionExt
@@ -61,6 +63,18 @@ pub trait ChatSessionExt: sealed::Sealed {
         &self,
         account_id: &str,
     ) -> Result<Option<ChatPushCapability>, jmap_base_client::ClientError>;
+
+    /// Returns the parsed [`ChatFilenodeCapability`] for the given account, if present.
+    ///
+    /// Reads `accounts[account_id].accountCapabilities["urn:ietf:params:jmap:chat:filenode"]`.
+    ///
+    /// - `Ok(None)` — the account is absent or has no chat filenode capability key.
+    /// - `Ok(Some(...))` — the capability is present and parsed successfully.
+    /// - `Err(ClientError::Parse(...))` — the key is present but malformed JSON.
+    fn chat_filenode_capability(
+        &self,
+        account_id: &str,
+    ) -> Result<Option<ChatFilenodeCapability>, jmap_base_client::ClientError>;
 
     /// Returns `true` if the server advertises JMAP Chat WebSocket ephemeral events.
     ///
@@ -125,6 +139,19 @@ impl ChatSessionExt for jmap_base_client::Session {
         };
         // Delegate to the foundation helper — see chat_capability above.
         account.account_extension_capability::<ChatPushCapability>("urn:ietf:params:jmap:chat:push")
+    }
+
+    fn chat_filenode_capability(
+        &self,
+        account_id: &str,
+    ) -> Result<Option<ChatFilenodeCapability>, jmap_base_client::ClientError> {
+        let Some(account) = self.accounts.get(account_id) else {
+            return Ok(None);
+        };
+        // Delegate to the foundation helper — see chat_capability above.
+        account.account_extension_capability::<ChatFilenodeCapability>(
+            jmap_chat_types::JMAP_CHAT_FILENODE_URI,
+        )
     }
 
     fn supports_chat_websocket(&self) -> bool {
@@ -252,6 +279,58 @@ mod tests {
         assert_eq!(cap.max_attachment_bytes, 10485760);
         assert_eq!(cap.max_attachments_per_message, 10);
         assert!(cap.supports_threads);
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-filenode-00 §Account-Level Capability
+    /// Object — the value of
+    /// `accountCapabilities["urn:ietf:params:jmap:chat:filenode"]` carries
+    /// `maxSpaceStorageBytes` and `autoCreateFileTree`. Absent key → `Ok(None)`;
+    /// missing the REQUIRED `autoCreateFileTree` → `Err`.
+    #[test]
+    fn chat_filenode_capability_parses() {
+        let session = make_session(
+            json!({}),
+            json!({
+                "acct1": {
+                    "name": "test@example.com",
+                    "isPersonal": true,
+                    "isReadOnly": false,
+                    "accountCapabilities": {
+                        "urn:ietf:params:jmap:chat:filenode": {
+                            "maxSpaceStorageBytes": 5000000,
+                            "autoCreateFileTree": true
+                        }
+                    }
+                },
+                "acct2": {
+                    "name": "other@example.com",
+                    "isPersonal": true,
+                    "isReadOnly": false,
+                    "accountCapabilities": {}
+                },
+                "acct3": {
+                    "name": "bad@example.com",
+                    "isPersonal": true,
+                    "isReadOnly": false,
+                    "accountCapabilities": {
+                        "urn:ietf:params:jmap:chat:filenode": { "maxSpaceStorageBytes": 1 }
+                    }
+                }
+            }),
+            json!({}),
+        );
+
+        let cap = session
+            .chat_filenode_capability("acct1")
+            .expect("must not return Err")
+            .expect("acct1 must have chat filenode capability");
+        assert_eq!(cap.max_space_storage_bytes, Some(5000000));
+        assert!(cap.auto_create_file_tree);
+        assert!(session
+            .chat_filenode_capability("acct2")
+            .expect("absent key must not Err")
+            .is_none());
+        assert!(session.chat_filenode_capability("acct3").is_err());
     }
 
     // -----------------------------------------------------------------------

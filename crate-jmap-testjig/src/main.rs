@@ -41,14 +41,15 @@ async fn main() -> std::io::Result<()> {
     // server on the workspace's library kit).
     let addr: SocketAddr = SocketAddr::from(([127, 0, 0, 1], cli.port));
 
-    let app = router(AppState::with_token(cli.token.clone()));
-
     let listener = tokio::net::TcpListener::bind(addr).await?;
     // `local_addr()` reflects the actual bound port (when `--port 0`
     // requests an OS-assigned port, this is how the operator finds
-    // the actual port).
+    // the actual port). The Session advertises it so clients that
+    // follow `apiUrl` reach this listener.
     let bound = listener.local_addr()?;
     print_banner(bound, &cli.token);
+
+    let app = router(AppState::with_token(cli.token.clone()).with_addr(bound));
 
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())

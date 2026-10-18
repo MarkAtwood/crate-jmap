@@ -3,10 +3,10 @@
 //! Spec: JMAP Chat draft §4.16 (CustomEmoji/get, /changes, /set, /query, /queryChanges)
 //! Capability: urn:ietf:params:jmap:chat
 
-use jmap_types::{Id, State};
+use jmap_types::{Id, PatchObject, State};
 
 use super::{
-    ChangesResponse, CustomEmojiCreateInput, CustomEmojiQueryInput, GetResponse,
+    ChangesResponse, CustomEmojiCreateInput, CustomEmojiPatch, CustomEmojiQueryInput, GetResponse,
     QueryChangesResponse, QueryResponse, SetResponse,
 };
 
@@ -134,6 +134,53 @@ impl super::SessionClient {
         let args = serde_json::json!({
             "accountId": account_id,
             "create": { client_id: create_obj },
+        });
+        let req = super::build_request("CustomEmoji/set", args, super::USING_CHAT);
+        let resp = self.call_internal(api_url, &req).await?;
+        jmap_base_client::extract_response(&resp, super::CALL_ID)
+    }
+
+    /// Update a CustomEmoji (RFC 8620 §5.3 / JMAP Chat §4.16 CustomEmoji/set update).
+    ///
+    /// Fields of `patch` left at `None` are omitted from the patch and left
+    /// unchanged server-side.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `patch.name` is `Some("")` (same caller-precondition guard as
+    ///   [`Self::custom_emoji_create`]).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::custom_emoji_get`]. /set
+    ///   update errors (e.g. `forbidden`, `notFound`) appear in
+    ///   [`SetResponse::not_updated`] rather than as [`Err`].
+    pub async fn custom_emoji_update(
+        &self,
+        id: &Id,
+        patch: &CustomEmojiPatch<'_>,
+    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+        if patch.name == Some("") {
+            return Err(jmap_base_client::ClientError::InvalidArgument(
+                "custom_emoji_update: name may not be empty".into(),
+            ));
+        }
+        let (api_url, account_id) = self.session_parts()?;
+        let mut patch_map = serde_json::Map::new();
+        if let Some(n) = patch.name {
+            patch_map.insert("name".into(), n.into());
+        }
+        if let Some(b) = patch.blob_id {
+            patch_map.insert("blobId".into(), b.as_ref().into());
+        }
+        // PatchObject is #[serde(transparent)]; see `presence_status_update`.
+        let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
+        let args = serde_json::json!({
+            "accountId": account_id,
+            "update": { id.as_ref(): patch_value },
         });
         let req = super::build_request("CustomEmoji/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;

@@ -6,8 +6,8 @@
 //!   body, dispatches each method call through [`Dispatcher`], and
 //!   serialises the response envelope back to the client.
 //! - `GET /.well-known/jmap` — the Session resource (RFC 8620 §2.2).
-//!   Returns the hardcoded Session JSON built by
-//!   [`crate::session::session_json`].
+//!   Returns the Session JSON built by
+//!   [`crate::session::session_json_for`] for the jig's advertised address.
 //!
 //! # Slice scope (bd:JMAP-cf7p.2)
 //!
@@ -20,6 +20,7 @@
 //! (bd:JMAP-cf7p.3 / .4 / .5 / .6). Until then, any method other than
 //! `Core/echo` returns `unknownMethod` per RFC 8620 §3.6.2.
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use axum::{
@@ -65,6 +66,8 @@ pub const MAX_CALLS_IN_REQUEST: usize = 16;
 pub struct AppState {
     pub(crate) inner: Arc<AppStateInner>,
     auth: AuthState,
+    /// Address the Session's URLs point at; see [`AppState::with_addr`].
+    session_addr: SocketAddr,
 }
 
 /// The 7 reference MemoryBackends, kept alive alongside the dispatcher
@@ -220,7 +223,21 @@ impl AppState {
                 state_log,
             }),
             auth: AuthState::new(token),
+            session_addr: session::DEFAULT_ADDR,
         }
+    }
+
+    /// Advertise `addr` in the Session's `apiUrl`, `downloadUrl`,
+    /// `uploadUrl`, `eventSourceUrl` and WebSocket `url` instead of
+    /// [`session::DEFAULT_ADDR`].
+    ///
+    /// Pass the listener's actually-bound address: RFC 8620 §2 clients
+    /// send every API request to the advertised `apiUrl`, so a jig on any
+    /// other port is unreachable through its own Session otherwise.
+    #[must_use]
+    pub fn with_addr(mut self, addr: SocketAddr) -> Self {
+        self.session_addr = addr;
+        self
     }
 }
 
@@ -261,10 +278,11 @@ pub fn router(state: AppState) -> Router {
 
 /// `GET /.well-known/jmap` — return the Session resource (RFC 8620 §2).
 ///
-/// The body is pinned per [`crate::session::session_json`]; this
-/// handler simply serialises it with `application/json` Content-Type.
-async fn get_session() -> Response {
-    let body = serde_json::to_string(&session::session_json())
+/// The body is built by [`crate::session::session_json_for`] for the
+/// state's advertised address; this handler simply serialises it with
+/// `application/json` Content-Type.
+async fn get_session(AxumState(state): AxumState<AppState>) -> Response {
+    let body = serde_json::to_string(&session::session_json_for(state.session_addr))
         .expect("session_json builds only JSON-safe primitives — Serialize is infallible");
     let mut resp = Response::new(Body::from(body));
     resp.headers_mut().insert(

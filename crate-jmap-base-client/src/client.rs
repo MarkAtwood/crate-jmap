@@ -4,6 +4,7 @@
 //! SSE event streaming, and [`extract_response`] for parsing method results.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures::StreamExt;
 
@@ -367,6 +368,28 @@ impl JmapClient {
             Ok(())
         }
     }
+
+    /// Returns `Err(ClientError::RateLimited)` for HTTP 429 Too Many Requests
+    /// (RFC 6585 §4), with `retry_after` taken from the `Retry-After` header
+    /// (RFC 9110 §10.2.3).
+    ///
+    /// Called after [`Self::check_auth_status`] and before
+    /// `error_for_status`, which would otherwise turn the 429 into an
+    /// opaque [`ClientError::Http`].
+    pub(crate) fn check_rate_limit(resp: &reqwest::Response) -> Result<(), ClientError> {
+        if resp.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            let retry_after = resp
+                .headers()
+                .get(reqwest::header::RETRY_AFTER)
+                .and_then(|v| v.to_str().ok());
+            Err(ClientError::rate_limited(
+                retry_after,
+                std::time::SystemTime::now(),
+            ))
+        } else {
+            Ok(())
+        }
+    }
 }
 
 /// Read a response body into memory, capped at `limit` bytes.
@@ -420,7 +443,8 @@ impl JmapClient {
     /// `downloadUrl`, `eventSourceUrl`) are validated to have http/https scheme;
     /// a non-http scheme returns `ClientError::InvalidSession`.
     ///
-    /// Returns `ClientError::AuthFailed` on HTTP 401 or 403.
+    /// Returns `ClientError::AuthFailed` on HTTP 401 or 403, and
+    /// `ClientError::RateLimited` on HTTP 429.
     ///
     /// # Charset
     ///
@@ -444,6 +468,7 @@ impl JmapClient {
         let resp = {
             let raw_resp = req.send().await.map_err(ClientError::from_reqwest)?;
             Self::check_auth_status(raw_resp.status())?;
+            Self::check_rate_limit(&raw_resp)?;
             raw_resp
                 .error_for_status()
                 .map_err(ClientError::from_reqwest)?
@@ -473,7 +498,8 @@ impl JmapClient {
     /// The response body is capped at 8 MiB. Returns `ClientError::ResponseTooLarge`
     /// if the server sends more.
     ///
-    /// Returns `ClientError::AuthFailed` on HTTP 401 or 403.
+    /// Returns `ClientError::AuthFailed` on HTTP 401 or 403, and
+    /// `ClientError::RateLimited` on HTTP 429.
     ///
     /// # Charset
     ///
@@ -509,6 +535,7 @@ impl JmapClient {
         let resp = {
             let raw_resp = builder.send().await.map_err(ClientError::from_reqwest)?;
             Self::check_auth_status(raw_resp.status())?;
+            Self::check_rate_limit(&raw_resp)?;
             raw_resp
                 .error_for_status()
                 .map_err(ClientError::from_reqwest)?
@@ -883,6 +910,184 @@ impl JmapClient {
         let expanded = crate::blob::expand_url_template(session.event_source_url.as_str(), &vars)?;
         self.subscribe_events(&expanded, last_event_id).await
     }
+
+    /// Like [`Self::subscribe_events`], but reconnects automatically when
+    /// the connection drops (RFC 8620 §7.3).
+    ///
+    /// Each reconnect sends `Last-Event-ID` with the most recent
+    /// [`SseFrame::id`] seen (or `last_event_id` if no frame carried one
+    /// yet), so the server can replay changes the client missed. Frames are
+    /// yielded exactly as `subscribe_events` yields them; reconnects are
+    /// invisible to the caller.
+    ///
+    /// # Retry rules
+    ///
+    /// - **Retried:** the server closing the stream, transport failures
+    ///   (connect, mid-stream body errors), and HTTP 408, 429 and 5xx.
+    /// - **Fatal** (yielded as the last item, then the stream ends):
+    ///   `AuthFailed`, other HTTP 4xx, a wrong `Content-Type`,
+    ///   `SseFrameTooLarge`, and invalid URLs or header values (including
+    ///   a `Last-Event-ID` that is not a valid HTTP field value). Retrying
+    ///   these cannot succeed.
+    ///
+    /// The first connection is made without delay. A reconnect after a
+    /// connection that delivered at least one frame is also immediate
+    /// (`closeafter=state` servers close after every event). Otherwise each
+    /// consecutive failure waits per [`SseReconnectPolicy`]: the delay
+    /// doubles from `initial_delay` up to `max_delay`, then equal jitter
+    /// picks a uniform delay in `[d/2, d]` so many clients do not reconnect
+    /// in lockstep. After `max_retries` consecutive failures the stream
+    /// yields the last error (or just ends, if the last failure was a clean
+    /// close) and stops.
+    ///
+    /// The returned stream owns a clone of this client; drop it to stop.
+    pub fn subscribe_events_reconnecting(
+        &self,
+        event_source_url: &str,
+        last_event_id: Option<&str>,
+        policy: SseReconnectPolicy,
+    ) -> futures::stream::BoxStream<'static, Result<SseFrame, ClientError>> {
+        let state = SseReconnectState {
+            client: self.clone(),
+            url: event_source_url.to_owned(),
+            last_event_id: last_event_id.map(str::to_owned),
+            policy,
+            inner: None,
+            delivered: false,
+            failures: 0,
+        };
+        futures::stream::unfold(Some(state), |state| async move {
+            let mut st = state?;
+            loop {
+                let last_err;
+                if let Some(inner) = st.inner.as_mut() {
+                    match inner.next().await {
+                        Some(Ok(frame)) => {
+                            if let Some(id) = &frame.id {
+                                st.last_event_id = Some(id.clone());
+                            }
+                            st.delivered = true;
+                            st.failures = 0;
+                            return Some((Ok(frame), Some(st)));
+                        }
+                        Some(Err(e)) if !sse_error_is_retryable(&e) => {
+                            return Some((Err(e), None));
+                        }
+                        Some(Err(e)) => last_err = Some(e),
+                        None => last_err = None,
+                    }
+                    st.inner = None;
+                    if st.delivered {
+                        continue;
+                    }
+                } else {
+                    if st.failures > 0 {
+                        tokio::time::sleep(st.policy.delay_for(st.failures)).await;
+                    }
+                    match st
+                        .client
+                        .subscribe_events(&st.url, st.last_event_id.as_deref())
+                        .await
+                    {
+                        Ok(stream) => {
+                            st.inner = Some(stream);
+                            st.delivered = false;
+                            continue;
+                        }
+                        Err(e) if !sse_error_is_retryable(&e) => return Some((Err(e), None)),
+                        Err(e) => last_err = Some(e),
+                    }
+                }
+                // Reached only on a failed attempt: a connect error, or a
+                // connection that ended before delivering any frame.
+                st.failures = st.failures.saturating_add(1);
+                if st.policy.max_retries.is_some_and(|max| st.failures > max) {
+                    return last_err.map(|e| (Err(e), None));
+                }
+            }
+        })
+        .boxed()
+    }
+}
+
+/// Backoff policy for [`JmapClient::subscribe_events_reconnecting`].
+///
+/// Start from [`Default`] and adjust the public fields:
+///
+/// ```rust
+/// # use std::time::Duration;
+/// # use jmap_base_client::SseReconnectPolicy;
+/// let mut policy = SseReconnectPolicy::default();
+/// policy.max_delay = Duration::from_secs(300);
+/// policy.max_retries = Some(10);
+/// ```
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SseReconnectPolicy {
+    /// Delay before the first retry; doubled after each further consecutive
+    /// failure. Default: 1 s.
+    pub initial_delay: Duration,
+    /// Upper bound on the delay before jitter is applied. Default: 60 s.
+    pub max_delay: Duration,
+    /// Consecutive failed attempts to retry before giving up; `None` retries
+    /// forever. A frame arriving resets the count. Default: `None`.
+    pub max_retries: Option<u32>,
+}
+
+impl Default for SseReconnectPolicy {
+    fn default() -> Self {
+        Self {
+            initial_delay: Duration::from_secs(1),
+            max_delay: Duration::from_secs(60),
+            max_retries: None,
+        }
+    }
+}
+
+impl SseReconnectPolicy {
+    /// Delay before retry number `failures` (1-based): exponential backoff
+    /// `d = min(initial_delay * 2^(failures-1), max_delay)`, then equal
+    /// jitter, uniform in `[d/2, d]`.
+    fn delay_for(&self, failures: u32) -> Duration {
+        use std::hash::BuildHasher as _;
+        let factor = 2u32.saturating_pow(failures.saturating_sub(1));
+        let base = self
+            .initial_delay
+            .saturating_mul(factor)
+            .min(self.max_delay);
+        let half = base / 2;
+        let span = u64::try_from(half.as_nanos()).unwrap_or(u64::MAX);
+        // ponytail: jitter needs spread, not unpredictability, so a freshly
+        // keyed std SipHasher stands in for an RNG dependency.
+        let r = std::collections::hash_map::RandomState::new().hash_one(());
+        half + Duration::from_nanos(r % span.saturating_add(1))
+    }
+}
+
+/// Unfold state for [`JmapClient::subscribe_events_reconnecting`].
+struct SseReconnectState {
+    client: JmapClient,
+    url: String,
+    last_event_id: Option<String>,
+    policy: SseReconnectPolicy,
+    inner: Option<futures::stream::BoxStream<'static, Result<SseFrame, ClientError>>>,
+    /// The current connection has yielded at least one frame.
+    delivered: bool,
+    /// Consecutive failed attempts since the last delivered frame.
+    failures: u32,
+}
+
+/// `true` for errors a later reconnect can plausibly fix: transport
+/// failures and HTTP 408 / 429 / 5xx. Builder errors (an invalid URL or
+/// header value, such as a `Last-Event-ID` carrying control characters)
+/// have no status either, but resending the same request cannot fix them.
+fn sse_error_is_retryable(e: &ClientError) -> bool {
+    match e {
+        ClientError::Http(h) => {
+            !h.is_builder() && h.status().is_none_or(|s| s == 408 || s == 429 || s >= 500)
+        }
+        _ => false,
+    }
 }
 
 /// Parameters for [`JmapClient::subscribe_events_session`]
@@ -993,12 +1198,7 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
     // Invocation is a type alias (String, Value, String) = (method, args, call_id).
     // Two-pass scan: errors take precedence per §3.6.1, so look for an error
     // invocation first; otherwise return the first non-error invocation.
-    // The underlying iterator is slice::Iter, so .clone() is a cheap pointer
-    // copy — no allocation.
-    let mut candidates = resp.method_responses.iter().filter(|inv| inv.2 == call_id);
-
-    if let Some(err_inv) = candidates.clone().find(|inv| inv.0 == "error") {
-        let args = &err_inv.1;
+    if let Some(args) = find_error_args(resp, call_id) {
         let err_type = args
             .get("type")
             .and_then(|v| v.as_str())
@@ -1016,10 +1216,41 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
 
     // The early return above already handled the error case; every remaining
     // candidate is a success invocation, so we just take the first one.
-    let inv = candidates
-        .next()
+    let inv = resp
+        .method_responses
+        .iter()
+        .find(|inv| inv.2 == call_id)
         .ok_or_else(|| ClientError::MethodNotFound(call_id.to_owned()))?;
     <T as serde::Deserialize>::deserialize(&inv.1).map_err(ClientError::from_parse)
+}
+
+/// Return the full JMAP `"error"` object for `call_id`, including any
+/// properties beyond `type` and `description`.
+///
+/// RFC 8620 §3.6.2: "Other properties may be present with further
+/// information". [`ClientError::MethodError`] carries only `type` and
+/// `description`; call this with the same `resp` and `call_id` after
+/// [`extract_response`] returns `MethodError` to read the rest.
+///
+/// Uses the same lookup as [`extract_response`]: the first invocation
+/// matching `call_id` whose method name is `"error"`. Returns `None` if
+/// there is no such invocation or its arguments are not a JSON object.
+pub fn method_error_details<'a>(
+    resp: &'a jmap_types::JmapResponse,
+    call_id: &str,
+) -> Option<&'a serde_json::Map<String, serde_json::Value>> {
+    find_error_args(resp, call_id)?.as_object()
+}
+
+/// Arguments of the first `"error"` invocation matching `call_id`.
+fn find_error_args<'a>(
+    resp: &'a jmap_types::JmapResponse,
+    call_id: &str,
+) -> Option<&'a serde_json::Value> {
+    resp.method_responses
+        .iter()
+        .find(|inv| inv.2 == call_id && inv.0 == "error")
+        .map(|inv| &inv.1)
 }
 
 /// Decode as much valid UTF-8 as possible from `raw` into `buf`, draining
@@ -1240,6 +1471,43 @@ fn validate_session_url_schemes(session: &Session) -> Result<(), ClientError> {
 #[cfg(test)]
 mod tests {
     use super::decode_utf8_chunk;
+    use super::SseReconnectPolicy;
+    use std::time::Duration;
+
+    /// Oracle: the `SseReconnectPolicy` / `subscribe_events_reconnecting`
+    /// contract — retry `n` waits a uniform delay in `[d/2, d]` where
+    /// `d = min(initial_delay * 2^(n-1), max_delay)`. With 100 ms / 1 s the
+    /// expected `d` per retry is 100, 200, 400, 800, then capped at 1000
+    /// (also for an absurd retry count, which must not overflow).
+    #[test]
+    fn reconnect_delay_doubles_caps_and_jitters() {
+        let policy = SseReconnectPolicy {
+            initial_delay: Duration::from_millis(100),
+            max_delay: Duration::from_secs(1),
+            ..SseReconnectPolicy::default()
+        };
+        for (failures, d_ms) in [
+            (1, 100),
+            (2, 200),
+            (3, 400),
+            (4, 800),
+            (5, 1000),
+            (500, 1000),
+        ] {
+            let d = Duration::from_millis(d_ms);
+            let mut seen = std::collections::HashSet::new();
+            for _ in 0..64 {
+                let got = policy.delay_for(failures);
+                assert!(
+                    got >= d / 2 && got <= d,
+                    "retry {failures}: {got:?} outside [{:?}, {d:?}]",
+                    d / 2
+                );
+                seen.insert(got);
+            }
+            assert!(seen.len() > 1, "retry {failures}: delay must be jittered");
+        }
+    }
 
     /// Oracle: all-ASCII bytes pushed to buf; raw cleared.
     #[test]

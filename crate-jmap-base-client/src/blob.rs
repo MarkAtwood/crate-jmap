@@ -1,9 +1,14 @@
 //! Blob upload/download operations and supporting types (RFC 8620 §6.1, §6.2)
 
 use std::borrow::Cow;
+use std::pin::Pin;
+use std::sync::{Arc, Mutex, PoisonError};
+use std::task::{Context, Poll};
 
+use bytes::Bytes;
+use futures::{Stream, StreamExt};
 use jmap_types::Id;
-use reqwest::header::{HeaderValue, CONTENT_TYPE};
+use reqwest::header::{HeaderValue, CONTENT_LENGTH, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use subtle::ConstantTimeEq;
@@ -173,6 +178,219 @@ pub struct UploadBlobParams<'a> {
     /// (when present); the byte length is cross-checked against the
     /// server's `BlobUploadResponse.size`.
     pub data: bytes::Bytes,
+}
+
+/// Request body for [`JmapClient::upload_blob_stream`]: a stream of byte
+/// chunks sent to the server in order.
+///
+/// Build one with `Box::pin(stream)` from any
+/// `Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static`, or with
+/// [`upload_body_from_reader`] from a [`tokio::io::AsyncRead`]. A stream
+/// with another error type can be adapted with
+/// `.map_err(std::io::Error::other)`. An `Err` item aborts the upload and
+/// surfaces as [`ClientError::Http`].
+pub type BlobUploadBody = Pin<Box<dyn Stream<Item = Result<Bytes, std::io::Error>> + Send>>;
+
+/// Wrap a [`tokio::io::AsyncRead`] (a file, a pipe, a decompressor) as a
+/// [`BlobUploadBody`]. The reader is read in chunks as the request body is
+/// sent; it is never buffered whole.
+pub fn upload_body_from_reader<R>(reader: R) -> BlobUploadBody
+where
+    R: tokio::io::AsyncRead + Send + 'static,
+{
+    Box::pin(tokio_util::io::ReaderStream::new(reader))
+}
+
+/// Make `body` fail unless it yields exactly `declared` bytes.
+///
+/// hyper stops polling a body once `Content-Length` bytes have been sent,
+/// so a longer body would otherwise be truncated silently and the server
+/// would store, and report the size of, only the prefix. On reaching
+/// `declared` bytes the next item is therefore read ahead and must be the
+/// end of the stream.
+fn exact_length_body(body: BlobUploadBody, declared: u64) -> BlobUploadBody {
+    let longer = move || {
+        std::io::Error::other(format!(
+            "upload body is longer than its declared content_length of {declared} bytes"
+        ))
+    };
+    // State: (body, bytes sent so far, whether the stream has finished).
+    Box::pin(futures::stream::unfold(
+        (body, 0u64, false),
+        move |(mut body, mut sent, finished)| async move {
+            if finished {
+                return None;
+            }
+            let chunk = match body.next().await {
+                Some(Ok(chunk)) => chunk,
+                Some(Err(e)) => return Some((Err(e), (body, sent, true))),
+                None if sent == declared => return None,
+                None => {
+                    let err = std::io::Error::other(format!(
+                        "upload body ended after {sent} of its declared {declared} bytes"
+                    ));
+                    return Some((Err(err), (body, sent, true)));
+                }
+            };
+            sent += chunk.len() as u64;
+            if sent > declared {
+                return Some((Err(longer()), (body, sent, true)));
+            }
+            if sent < declared {
+                return Some((Ok(chunk), (body, sent, false)));
+            }
+            loop {
+                match body.next().await {
+                    Some(Ok(extra)) if extra.is_empty() => {}
+                    Some(Ok(_)) => return Some((Err(longer()), (body, sent, true))),
+                    Some(Err(e)) => return Some((Err(e), (body, sent, true))),
+                    None => return Some((Ok(chunk), (body, sent, true))),
+                }
+            }
+        },
+    ))
+}
+
+/// Parameters for [`JmapClient::upload_blob_stream`].
+///
+/// The streaming counterpart of [`UploadBlobParams`]: `body` replaces the
+/// in-memory `data`, and `content_length` states the body length when it
+/// is known in advance.
+///
+/// ```rust,ignore
+/// let file = tokio::fs::File::open("video.mp4").await?;
+/// let len = file.metadata().await?.len();
+/// client.upload_blob_stream(UploadBlobStreamParams {
+///     upload_url_template: &session.upload_url,
+///     account_id: "A13824",
+///     content_type: "video/mp4",
+///     body: upload_body_from_reader(file),
+///     content_length: Some(len),
+/// }).await?;
+/// ```
+pub struct UploadBlobStreamParams<'a> {
+    /// URL template from `Session.upload_url`. `{accountId}` is the only
+    /// template variable substituted before the POST request.
+    pub upload_url_template: &'a crate::request::JmapUrlTemplate,
+    /// Account ID that will own the uploaded blob; substituted for
+    /// `{accountId}` in the URL template.
+    pub account_id: &'a str,
+    /// Media type sent as the HTTP `Content-Type` request header. Must
+    /// be a valid HTTP header value or upload fails with
+    /// [`ClientError::InvalidHeaderValue`].
+    pub content_type: &'a str,
+    /// The bytes to upload. Their SHA-256 and length are computed as they
+    /// are sent and cross-checked against the server's
+    /// `BlobUploadResponse.sha256` (when present) and `size`, exactly as
+    /// [`JmapClient::upload_blob`] does.
+    pub body: BlobUploadBody,
+    /// Exact byte length of `body`, when known. `Some(n)` is sent as
+    /// `Content-Length: n`; `None` sends the body with chunked
+    /// transfer coding (RFC 9112 §7.1). If `body` yields a different
+    /// number of bytes than `Some(n)` states, the upload fails with
+    /// [`ClientError::Http`].
+    pub content_length: Option<u64>,
+}
+
+impl std::fmt::Debug for UploadBlobStreamParams<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("UploadBlobStreamParams")
+            .field("upload_url_template", &self.upload_url_template)
+            .field("account_id", &self.account_id)
+            .field("content_type", &self.content_type)
+            .field("content_length", &self.content_length)
+            .finish_non_exhaustive()
+    }
+}
+
+/// A blob body being downloaded, returned by
+/// [`JmapClient::download_blob_stream`].
+///
+/// Yields the blob as [`Bytes`] chunks in arrival order and ends after
+/// the first `Err`. The
+/// [`ClientConfig::max_download_body`](crate::ClientConfig::max_download_body)
+/// cap is enforced on the running total: the chunk that would cross it is
+/// not yielded, and [`ClientError::ResponseTooLarge`] is yielded instead.
+///
+/// When the download was started with `expected_sha256`, the digest is
+/// checked after the last chunk, and a mismatch is yielded as a final
+/// [`ClientError::BlobIntegrityMismatch`]. Chunks yielded before that
+/// point are therefore **unverified**: treat the blob as intact only once
+/// the stream has ended without an error.
+pub struct BlobDownloadStream {
+    content_length: Option<u64>,
+    inner: Pin<Box<dyn Stream<Item = Result<Bytes, ClientError>> + Send>>,
+}
+
+impl BlobDownloadStream {
+    /// The `Content-Length` the server advertised, if any — for example,
+    /// to size a progress bar. It is already known to be within the
+    /// download cap; the byte count the stream actually yields is what the
+    /// cap and the digest check apply to.
+    pub fn content_length(&self) -> Option<u64> {
+        self.content_length
+    }
+}
+
+impl Stream for BlobDownloadStream {
+    type Item = Result<Bytes, ClientError>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.inner.poll_next_unpin(cx)
+    }
+}
+
+impl std::fmt::Debug for BlobDownloadStream {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BlobDownloadStream")
+            .field("content_length", &self.content_length)
+            .finish_non_exhaustive()
+    }
+}
+
+/// State threaded through the [`BlobDownloadStream`] unfold loop.
+struct DownloadState {
+    body: Pin<Box<dyn Stream<Item = reqwest::Result<Bytes>> + Send>>,
+    /// Running hasher and the caller's expected digest; `None` when the
+    /// caller did not ask for verification.
+    verify: Option<(Sha256, jmap_cid_types::Sha256)>,
+    received: u64,
+    limit: u64,
+    /// Set once an error has been yielded, so the stream ends after it.
+    done: bool,
+}
+
+impl DownloadState {
+    async fn next(mut self) -> Option<(Result<Bytes, ClientError>, Self)> {
+        if self.done {
+            return None;
+        }
+        let err = match self.body.next().await {
+            Some(Ok(chunk)) => {
+                self.received += chunk.len() as u64;
+                if self.received > self.limit {
+                    ClientError::ResponseTooLarge {
+                        actual: self.received,
+                        limit: self.limit,
+                    }
+                } else {
+                    if let Some((hasher, _)) = self.verify.as_mut() {
+                        hasher.update(&chunk);
+                    }
+                    return Some((Ok(chunk), self));
+                }
+            }
+            Some(Err(e)) => ClientError::from_reqwest(e),
+            None => {
+                // End of body: finish with nothing when no digest was
+                // requested or it matches, else with the mismatch error.
+                let (hasher, expected) = self.verify.take()?;
+                verify_download_digest(&expected, hex_lower(&hasher.finalize())).err()?
+            }
+        };
+        self.done = true;
+        Some((Err(err), self))
+    }
 }
 
 /// Response body returned by a successful blob upload (RFC 8620 §6.1).
@@ -418,10 +636,7 @@ impl JmapClient {
             content_type,
             data,
         } = params;
-        crate::client::require_http_url(upload_url_template.as_str())?;
-        let ct_hv =
-            HeaderValue::from_str(content_type).map_err(ClientError::from_invalid_header)?;
-        let url = expand_url_template(upload_url_template.as_str(), &[("accountId", account_id)])?;
+        let req = self.upload_request(upload_url_template, account_id, content_type)?;
 
         // Compute SHA-256 and capture size before handing ownership of data
         // to the request body. local_size is used to cross-check the server's
@@ -431,17 +646,93 @@ impl JmapClient {
         let local_sha256 = compute_sha256_hex(&data);
         let local_size = data.len() as u64;
 
-        let req = self.inject_auth(
+        let upload_resp = self.send_upload(req.body(data)).await?;
+        verify_upload_response(&upload_resp, local_size, local_sha256)?;
+        Ok(upload_resp)
+    }
+
+    /// Upload a blob from a byte stream (RFC 8620 §6.1) without holding it
+    /// in memory.
+    ///
+    /// The streaming counterpart of [`Self::upload_blob`], with the same URL
+    /// expansion, `Content-Type`, response cap and integrity checks: the
+    /// SHA-256 and length of the bytes are computed as each chunk is sent,
+    /// then compared with the server's `BlobUploadResponse.size` (mismatch:
+    /// [`ClientError::UnexpectedResponse`]) and `sha256` when present
+    /// (mismatch: [`ClientError::BlobIntegrityMismatch`]).
+    ///
+    /// [`ClientConfig::request_timeout`](crate::ClientConfig::request_timeout)
+    /// bounds the whole upload, including sending the body. Large uploads
+    /// over slow links need a client configured with a longer timeout.
+    pub async fn upload_blob_stream(
+        &self,
+        params: UploadBlobStreamParams<'_>,
+    ) -> Result<BlobUploadResponse, ClientError> {
+        let UploadBlobStreamParams {
+            upload_url_template,
+            account_id,
+            content_type,
+            body,
+            content_length,
+        } = params;
+        let mut req = self.upload_request(upload_url_template, account_id, content_type)?;
+        let body = match content_length {
+            Some(len) => {
+                req = req.header(CONTENT_LENGTH, len);
+                exact_length_body(body, len)
+            }
+            None => body,
+        };
+
+        // reqwest owns the body while sending, so the digest and byte count
+        // are accumulated through a shared tally as each chunk is pulled.
+        let tally = Arc::new(Mutex::new((Sha256::new(), 0u64)));
+        let tap = Arc::clone(&tally);
+        let body = body.inspect(move |chunk| {
+            if let Ok(bytes) = chunk {
+                let mut tally = tap.lock().unwrap_or_else(PoisonError::into_inner);
+                tally.0.update(bytes);
+                tally.1 += bytes.len() as u64;
+            }
+        });
+
+        let upload_resp = self
+            .send_upload(req.body(reqwest::Body::wrap_stream(body)))
+            .await?;
+        let (hasher, local_size) = tally.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        verify_upload_response(&upload_resp, local_size, hex_lower(&hasher.finalize()))?;
+        Ok(upload_resp)
+    }
+
+    /// Build the authenticated `POST` to the expanded upload URL, with
+    /// `Content-Type` set and no body yet.
+    fn upload_request(
+        &self,
+        upload_url_template: &crate::request::JmapUrlTemplate,
+        account_id: &str,
+        content_type: &str,
+    ) -> Result<reqwest::RequestBuilder, ClientError> {
+        crate::client::require_http_url(upload_url_template.as_str())?;
+        let ct_hv =
+            HeaderValue::from_str(content_type).map_err(ClientError::from_invalid_header)?;
+        let url = expand_url_template(upload_url_template.as_str(), &[("accountId", account_id)])?;
+        Ok(self.inject_auth(
             self.http
                 .post(&url)
                 .header(CONTENT_TYPE, ct_hv)
-                .timeout(self.config.request_timeout)
-                .body(data),
-        );
+                .timeout(self.config.request_timeout),
+        ))
+    }
 
+    /// Send an upload request and parse the server's `BlobUploadResponse`.
+    async fn send_upload(
+        &self,
+        req: reqwest::RequestBuilder,
+    ) -> Result<BlobUploadResponse, ClientError> {
         let resp = req.send().await.map_err(ClientError::from_reqwest)?;
         let status = resp.status();
         Self::check_auth_status(status)?;
+        Self::check_rate_limit(&resp)?;
         let resp = resp.error_for_status().map_err(ClientError::from_reqwest)?;
 
         let upload_limit = self.config.max_upload_response_body;
@@ -451,50 +742,7 @@ impl JmapClient {
         // rationale; without per-chunk streaming, a server that under-reports
         // or omits Content-Length can force unbounded allocation here.
         let bytes = read_capped_body(resp, upload_limit).await?;
-        let upload_resp: BlobUploadResponse =
-            serde_json::from_slice(&bytes).map_err(ClientError::from_parse)?;
-
-        // Defense-in-depth: cross-check the server's reported size against the
-        // bytes we actually uploaded (bd:JMAP-6lsm.8). When sha256 is present
-        // (below) it makes a size mismatch implausible because length is
-        // implicit in the digest, but most servers do not advertise the
-        // JMAP-CID sha256 capability — in that case `size` is the only
-        // signal that the upload was complete and intact. A mismatch
-        // surfaces as UnexpectedResponse rather than a typed variant; a
-        // future minor release may add ClientError::BlobSizeMismatch for
-        // structured matching, but keeping the variant set stable in 0.1.x
-        // is the conservative choice.
-        if upload_resp.size != local_size {
-            return Err(ClientError::UnexpectedResponse(format!(
-                "blob upload size mismatch: client uploaded {local_size} bytes, server reports \
-                 {server_size} bytes",
-                server_size = upload_resp.size,
-            )));
-        }
-
-        if let Some(ref server_sha256) = upload_resp.sha256 {
-            // The typed `jmap_cid_types::Sha256` deserialize already
-            // enforces the 64-character lowercase-hex ABNF; reaching
-            // this branch implies the wire value is canonical. We
-            // can compare the locally-computed digest (also
-            // canonical lowercase hex from `compute_sha256_hex`)
-            // against the typed value's string form directly.
-            //
-            // Uppercase-hex from a non-conformant server is rejected
-            // at deserialize per draft-atwood-jmap-cid-00 §2 ABNF and
-            // surfaces as ClientError::Parse before this branch runs.
-            //
-            // Constant-time compare via `hex_digest_eq` (bd:JMAP-6r7c.61):
-            // both sides are canonical 64-char lowercase hex by construction.
-            if !hex_digest_eq(&local_sha256, server_sha256.as_str()) {
-                return Err(ClientError::BlobIntegrityMismatch {
-                    expected: local_sha256,
-                    actual: server_sha256.as_str().to_owned(),
-                });
-            }
-        }
-
-        Ok(upload_resp)
+        serde_json::from_slice(&bytes).map_err(ClientError::from_parse)
     }
 
     /// Download a blob by ID (RFC 8620 §6.2).
@@ -513,13 +761,87 @@ impl JmapClient {
         &self,
         params: DownloadBlobParams<'_>,
     ) -> Result<bytes::Bytes, ClientError> {
+        let expected_sha256 = params.expected_sha256;
+        let resp = self.download_response(params).await?;
+
+        let download_limit = self.config.max_download_body;
+
+        // Stream the body chunk-by-chunk with the cap enforced before each
+        // accumulation (bd:JMAP-6r7c.1). See `read_capped_body` for the DOS
+        // rationale; without per-chunk streaming, a server that under-reports
+        // or omits Content-Length can force unbounded allocation here.
+        let bytes = bytes::Bytes::from(read_capped_body(resp, download_limit).await?);
+
+        if let Some(expected) = expected_sha256 {
+            // The typed `jmap_cid_types::Sha256` enforces the canonical
+            // 64-char lowercase-hex ABNF at construction (bd:JMAP-6r7c.48),
+            // so the runtime length/charset check and the
+            // `to_ascii_lowercase` normalize step the previous
+            // `Option<&str>` shape required (bd:JMAP-6r7c.53) are gone.
+            verify_download_digest(expected, compute_sha256_hex(&bytes))?;
+        }
+
+        Ok(bytes)
+    }
+
+    /// Download a blob by ID (RFC 8620 §6.2) as a stream of chunks instead
+    /// of one buffer.
+    ///
+    /// The streaming counterpart of [`Self::download_blob`], with the same
+    /// URL expansion and the same
+    /// [`ClientConfig::max_download_body`](crate::ClientConfig::max_download_body)
+    /// cap. An advertised `Content-Length` over the cap fails here with
+    /// [`ClientError::ResponseTooLarge`]; a body that grows past the cap
+    /// while streaming yields that error from the stream. When
+    /// `params.expected_sha256` is `Some`, the digest is checked at end of
+    /// stream — see [`BlobDownloadStream`] for what that means for chunks
+    /// already yielded.
+    ///
+    /// [`ClientConfig::request_timeout`](crate::ClientConfig::request_timeout)
+    /// bounds the whole download, including reading the stream. Large
+    /// downloads over slow links need a client configured with a longer
+    /// timeout (and, usually, a larger `max_download_body`).
+    pub async fn download_blob_stream(
+        &self,
+        params: DownloadBlobParams<'_>,
+    ) -> Result<BlobDownloadStream, ClientError> {
+        let expected_sha256 = params.expected_sha256.cloned();
+        let resp = self.download_response(params).await?;
+
+        let limit = self.config.max_download_body;
+        let content_length = resp.content_length();
+        if let Some(len) = content_length {
+            if len > limit {
+                return Err(ClientError::ResponseTooLarge { actual: len, limit });
+            }
+        }
+
+        let state = DownloadState {
+            body: Box::pin(resp.bytes_stream()),
+            verify: expected_sha256.map(|expected| (Sha256::new(), expected)),
+            received: 0,
+            limit,
+            done: false,
+        };
+        Ok(BlobDownloadStream {
+            content_length,
+            inner: Box::pin(futures::stream::unfold(state, DownloadState::next).fuse()),
+        })
+    }
+
+    /// Send the authenticated `GET` for a blob and return the response once
+    /// its status has been checked, with the body still unread.
+    async fn download_response(
+        &self,
+        params: DownloadBlobParams<'_>,
+    ) -> Result<reqwest::Response, ClientError> {
         let DownloadBlobParams {
             download_url_template,
             account_id,
             blob_id,
             name,
             accept_type,
-            expected_sha256,
+            expected_sha256: _,
         } = params;
         crate::client::require_http_url(download_url_template.as_str())?;
         let vars = [
@@ -538,34 +860,8 @@ impl JmapClient {
         let resp = req.send().await.map_err(ClientError::from_reqwest)?;
         let status = resp.status();
         Self::check_auth_status(status)?;
-        let resp = resp.error_for_status().map_err(ClientError::from_reqwest)?;
-
-        let download_limit = self.config.max_download_body;
-
-        // Stream the body chunk-by-chunk with the cap enforced before each
-        // accumulation (bd:JMAP-6r7c.1). See `read_capped_body` for the DOS
-        // rationale; without per-chunk streaming, a server that under-reports
-        // or omits Content-Length can force unbounded allocation here.
-        let bytes = bytes::Bytes::from(read_capped_body(resp, download_limit).await?);
-
-        if let Some(expected) = expected_sha256 {
-            // The typed `jmap_cid_types::Sha256` enforces the canonical
-            // 64-char lowercase-hex ABNF at construction (bd:JMAP-6r7c.48),
-            // so the runtime length/charset check and the
-            // `to_ascii_lowercase` normalize step the previous
-            // `Option<&str>` shape required (bd:JMAP-6r7c.53) are gone.
-            let actual = compute_sha256_hex(&bytes);
-            // Constant-time compare via `hex_digest_eq` (bd:JMAP-6r7c.61):
-            // both sides are canonical 64-char lowercase hex by construction.
-            if !hex_digest_eq(&actual, expected.as_str()) {
-                return Err(ClientError::BlobIntegrityMismatch {
-                    expected: expected.as_str().to_owned(),
-                    actual,
-                });
-            }
-        }
-
-        Ok(bytes)
+        Self::check_rate_limit(&resp)?;
+        resp.error_for_status().map_err(ClientError::from_reqwest)
     }
 
     /// Upload raw bytes via a [`crate::Session`]-supplied URL
@@ -628,13 +924,84 @@ impl JmapClient {
 
 /// Compute SHA-256 of `data` and return as 64-char lowercase hex string.
 fn compute_sha256_hex(data: &[u8]) -> String {
-    let hash = Sha256::digest(data);
-    let mut s = String::with_capacity(64);
-    for b in hash.iter() {
+    hex_lower(&Sha256::digest(data))
+}
+
+/// Format a digest as lowercase hex (JMAP-CID §1 requires lowercase).
+fn hex_lower(digest: &[u8]) -> String {
+    let mut s = String::with_capacity(digest.len() * 2);
+    for b in digest {
         s.push(hex_nibble_lower(*b >> 4));
         s.push(hex_nibble_lower(*b & 0x0f));
     }
     s
+}
+
+/// Cross-check a `BlobUploadResponse` against the length and SHA-256 hex
+/// digest of the bytes the client sent.
+fn verify_upload_response(
+    upload_resp: &BlobUploadResponse,
+    local_size: u64,
+    local_sha256: String,
+) -> Result<(), ClientError> {
+    // Defense-in-depth: cross-check the server's reported size against the
+    // bytes we actually uploaded (bd:JMAP-6lsm.8). When sha256 is present
+    // (below) it makes a size mismatch implausible because length is
+    // implicit in the digest, but most servers do not advertise the
+    // JMAP-CID sha256 capability — in that case `size` is the only
+    // signal that the upload was complete and intact. A mismatch
+    // surfaces as UnexpectedResponse rather than a typed variant; a
+    // future minor release may add ClientError::BlobSizeMismatch for
+    // structured matching, but keeping the variant set stable in 0.1.x
+    // is the conservative choice.
+    if upload_resp.size != local_size {
+        return Err(ClientError::UnexpectedResponse(format!(
+            "blob upload size mismatch: client uploaded {local_size} bytes, server reports \
+             {server_size} bytes",
+            server_size = upload_resp.size,
+        )));
+    }
+
+    if let Some(ref server_sha256) = upload_resp.sha256 {
+        // The typed `jmap_cid_types::Sha256` deserialize already
+        // enforces the 64-character lowercase-hex ABNF; reaching
+        // this branch implies the wire value is canonical. We
+        // can compare the locally-computed digest (also
+        // canonical lowercase hex from `hex_lower`)
+        // against the typed value's string form directly.
+        //
+        // Uppercase-hex from a non-conformant server is rejected
+        // at deserialize per draft-atwood-jmap-cid-00 §2 ABNF and
+        // surfaces as ClientError::Parse before this branch runs.
+        //
+        // Constant-time compare via `hex_digest_eq` (bd:JMAP-6r7c.61):
+        // both sides are canonical 64-char lowercase hex by construction.
+        if !hex_digest_eq(&local_sha256, server_sha256.as_str()) {
+            return Err(ClientError::BlobIntegrityMismatch {
+                expected: local_sha256,
+                actual: server_sha256.as_str().to_owned(),
+            });
+        }
+    }
+    Ok(())
+}
+
+/// Compare the caller's expected digest with the SHA-256 hex digest of the
+/// bytes actually downloaded.
+fn verify_download_digest(
+    expected: &jmap_cid_types::Sha256,
+    actual: String,
+) -> Result<(), ClientError> {
+    // Constant-time compare via `hex_digest_eq` (bd:JMAP-6r7c.61):
+    // both sides are canonical 64-char lowercase hex by construction.
+    if hex_digest_eq(&actual, expected.as_str()) {
+        Ok(())
+    } else {
+        Err(ClientError::BlobIntegrityMismatch {
+            expected: expected.as_str().to_owned(),
+            actual,
+        })
+    }
 }
 
 /// Constant-time equality for two 64-character lowercase SHA-256 hex digests

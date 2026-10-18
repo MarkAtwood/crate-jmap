@@ -99,16 +99,19 @@ impl super::SessionClient {
     /// Per spec, either `chat_id` or `has_mention: Some(true)` must be provided.
     /// Servers MUST return `unsupportedFilter` if neither condition holds.
     ///
-    /// Sort order is controlled by `input.sort_ascending` (default `false` =
-    /// newest first). With `position:0, limit:N` and `sort_ascending:false`, the
-    /// server returns the N most recent message IDs. Callers displaying messages
-    /// chronologically should set `sort_ascending:true` or reverse after fetching.
+    /// Results are sorted by `receivedAt`; the spec forbids ordering by
+    /// `sentAt`. Sort direction is controlled by `input.sort_ascending`
+    /// (default `false` = newest first). With `position:0, limit:N` and
+    /// `sort_ascending:false`, the server returns the N most recent message
+    /// IDs. Callers displaying messages chronologically should set
+    /// `sort_ascending:true` or reverse after fetching.
     ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if neither `input.chat_id` nor `input.has_mention == Some(true)`
-    ///   is provided (spec requires at least one to scope the query).
+    ///   is provided (spec requires at least one to scope the query), or
+    ///   if the deprecated non-spec `after` / `before` fields are set.
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
@@ -123,50 +126,9 @@ impl super::SessionClient {
         &self,
         input: &MessageQueryInput<'_>,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
-        if input.chat_id.is_none() && input.has_mention != Some(true) {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "message_query: chat_id or has_mention=true must be provided".into(),
-            ));
-        }
+        check_message_query(input)?;
         let (api_url, account_id) = self.session_parts()?;
-        let mut filter = serde_json::Map::new();
-        if let Some(id) = input.chat_id {
-            filter.insert("chatId".into(), id.as_ref().into());
-        }
-        if let Some(m) = input.has_mention {
-            filter.insert("hasMention".into(), m.into());
-        }
-        if let Some(a) = input.has_attachment {
-            filter.insert("hasAttachment".into(), a.into());
-        }
-        if let Some(t) = input.text {
-            filter.insert("text".into(), t.into());
-        }
-        if let Some(tid) = input.thread_root_id {
-            filter.insert("threadRootId".into(), tid.as_ref().into());
-        }
-        if let Some(a) = input.after {
-            filter.insert("after".into(), a.as_ref().into());
-        }
-        if let Some(b) = input.before {
-            filter.insert("before".into(), b.as_ref().into());
-        }
-        let filter_val = if filter.is_empty() {
-            serde_json::Value::Null
-        } else {
-            serde_json::Value::Object(filter)
-        };
-        let mut args = serde_json::json!({
-            "accountId": account_id,
-            "filter": filter_val,
-            "sort": [{"property": "sentAt", "isAscending": input.sort_ascending}],
-        });
-        if let Some(p) = input.position {
-            args["position"] = p.into();
-        }
-        if let Some(l) = input.limit {
-            args["limit"] = l.into();
-        }
+        let args = message_query_args(account_id, input);
         let req = super::build_request("Message/query", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -237,8 +199,9 @@ impl super::SessionClient {
     /// # Errors
     ///
     /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
-    ///   serializing the typed `body_type` enum fails (pathological
-    ///   conditions only).
+    ///   serializing the typed `body_type` enum or the `attachments`,
+    ///   `mentions`, `broadcastMentions` or `actions` arrays fails
+    ///   (pathological conditions only).
     /// - [`ClientError::RateLimited`](jmap_base_client::ClientError::RateLimited)
     ///   if the server rejects the message with `error_type ==
     ///   "rateLimited"` and supplies a valid `serverRetryAfter`
@@ -274,6 +237,40 @@ impl super::SessionClient {
         });
         if let Some(rt) = input.reply_to {
             create_obj["replyTo"] = rt.as_ref().into();
+        }
+        if let Some(v) = input.attachments {
+            create_obj["attachments"] =
+                serde_json::to_value(v).map_err(jmap_base_client::ClientError::from_parse)?;
+        }
+        if let Some(v) = input.mentions {
+            create_obj["mentions"] =
+                serde_json::to_value(v).map_err(jmap_base_client::ClientError::from_parse)?;
+        }
+        if let Some(v) = input.broadcast_mentions {
+            create_obj["broadcastMentions"] =
+                serde_json::to_value(v).map_err(jmap_base_client::ClientError::from_parse)?;
+        }
+        if let Some(v) = input.actions {
+            create_obj["actions"] =
+                serde_json::to_value(v).map_err(jmap_base_client::ClientError::from_parse)?;
+        }
+        if let Some(v) = input.thread_root_id {
+            create_obj["threadRootId"] = v.as_ref().into();
+        }
+        if let Some(v) = input.topic_id {
+            create_obj["topicId"] = v.into();
+        }
+        if let Some(v) = input.subject {
+            create_obj["subject"] = v.into();
+        }
+        if let Some(v) = input.sender_expires_at {
+            create_obj["senderExpiresAt"] = v.as_ref().into();
+        }
+        if let Some(v) = input.burn_on_read {
+            create_obj["burnOnRead"] = v.into();
+        }
+        if let Some(v) = input.expires_after_read_seconds {
+            create_obj["expiresAfterReadSeconds"] = v.into();
         }
         let args = serde_json::json!({
             "accountId": account_id,
@@ -373,6 +370,12 @@ impl super::SessionClient {
                 "broadcastMentions".into(),
                 serde_json::to_value(broadcast_mentions)
                     .expect("BroadcastMention serializes infallibly"),
+            );
+        }
+        if let Some(mentions) = &patch.mentions {
+            patch_map.insert(
+                "mentions".into(),
+                serde_json::to_value(mentions).expect("Mention serializes infallibly"),
             );
         }
         for change in patch.reaction_changes.unwrap_or(&[]) {
@@ -515,4 +518,76 @@ impl super::SessionClient {
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
+}
+
+/// Reject `Message/query` inputs the spec or this crate never sends
+/// (shared with [`super::batch::Batch::message_query_get`]).
+pub(super) fn check_message_query(
+    input: &MessageQueryInput<'_>,
+) -> Result<(), jmap_base_client::ClientError> {
+    if input.chat_id.is_none() && input.has_mention != Some(true) {
+        return Err(jmap_base_client::ClientError::InvalidArgument(
+            "message_query: chat_id or has_mention=true must be provided".into(),
+        ));
+    }
+    #[allow(deprecated)]
+    if input.after.is_some() || input.before.is_some() {
+        return Err(jmap_base_client::ClientError::InvalidArgument(
+            "message_query: after/before are not Message/query filters".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Build `Message/query` arguments for `account_id`; call
+/// [`check_message_query`] first.
+pub(super) fn message_query_args(
+    account_id: &str,
+    input: &MessageQueryInput<'_>,
+) -> serde_json::Value {
+    let mut filter = serde_json::Map::new();
+    if let Some(id) = input.chat_id {
+        filter.insert("chatId".into(), id.as_ref().into());
+    }
+    if let Some(m) = input.has_mention {
+        filter.insert("hasMention".into(), m.into());
+    }
+    if let Some(a) = input.has_attachment {
+        filter.insert("hasAttachment".into(), a.into());
+    }
+    if let Some(t) = input.text {
+        filter.insert("text".into(), t.into());
+    }
+    if let Some(tid) = input.thread_root_id {
+        filter.insert("threadRootId".into(), tid.as_ref().into());
+    }
+    if let Some(t) = input.topic_id {
+        filter.insert("topicId".into(), t.into());
+    }
+    let filter_val = if filter.is_empty() {
+        serde_json::Value::Null
+    } else {
+        serde_json::Value::Object(filter)
+    };
+    let mut args = serde_json::json!({
+        "accountId": account_id,
+        "filter": filter_val,
+        "sort": [{"property": "receivedAt", "isAscending": input.sort_ascending}],
+    });
+    if let Some(p) = input.position {
+        args["position"] = p.into();
+    }
+    if let Some(a) = input.anchor {
+        args["anchor"] = a.as_ref().into();
+    }
+    if let Some(o) = input.anchor_offset {
+        args["anchorOffset"] = o.into();
+    }
+    if let Some(l) = input.limit {
+        args["limit"] = l.into();
+    }
+    if let Some(c) = input.calculate_total {
+        args["calculateTotal"] = c.into();
+    }
+    args
 }

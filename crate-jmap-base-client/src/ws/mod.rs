@@ -7,6 +7,8 @@
 //! (the session document advertises the WebSocket endpoint).
 
 use std::str::FromStr as _;
+use std::sync::Arc;
+use std::time::Duration;
 
 use futures::SinkExt as _;
 use futures::StreamExt as _;
@@ -34,6 +36,25 @@ struct WsRequestFrame<'a> {
     #[serde(flatten)]
     inner: &'a jmap_types::JmapRequest,
 }
+
+/// Wire frame for RFC 8887 §4.3.5.2 `WebSocketPushEnable`.
+///
+/// `dataTypes` is `String[]|null` — always present, `null` meaning "all
+/// supported data types" — so it is not skipped when `None`. `pushState`
+/// is optional and omitted when `None`.
+#[derive(serde::Serialize)]
+struct WsPushEnableFrame<'a> {
+    #[serde(rename = "@type")]
+    ws_type: &'static str,
+    #[serde(rename = "dataTypes")]
+    data_types: Option<&'a [&'a str]>,
+    #[serde(rename = "pushState", skip_serializing_if = "Option::is_none")]
+    push_state: Option<&'a str>,
+}
+
+/// Wire text of an RFC 8887 §4.3.5.3 `WebSocketPushDisable` message; the
+/// object has no property other than `@type`.
+const WS_PUSH_DISABLE_FRAME: &str = r#"{"@type":"WebSocketPushDisable"}"#;
 
 /// Maximum WebSocket message size (1 MiB), consistent with the SSE frame limit.
 /// Prevents a misbehaving or hostile server from forcing the client to buffer
@@ -65,18 +86,26 @@ pub enum WsFrame {
     /// state; client must re-fetch the affected data types.
     StateChange(StateChange),
     /// RFC 8887 Response — reply to a JMAP request sent on this connection.
+    ///
+    /// The RFC 8887 §4.3.3 `requestId` lands in
+    /// [`JmapResponse::extra`](jmap_types::JmapResponse::extra); read it
+    /// with [`WsFrame::request_id`].
     Response(jmap_types::JmapResponse),
+    /// RFC 8887 §4.3.4 RequestError — a request-level Problem Details
+    /// object (RFC 8620 §3.6.1) answering a request sent on this connection.
+    RequestError(WsRequestError),
     /// Unrecognized `@type` — silently ignored per forward-compatibility rules
     /// (RFC 8887 §4.3.1: clients SHOULD ignore unknown message types).
     ///
-    /// Also produced when a known type (`"Response"` or `"StateChange"`) fails
-    /// to deserialize — `type_name` will be `"Response"` or `"StateChange"` in
-    /// that case, which can signal server misbehavior or a schema version
+    /// Also produced when a known type (`"Response"`, `"RequestError"`, or
+    /// `"StateChange"`) fails to deserialize — `type_name` will be that name
+    /// in that case, which can signal server misbehavior or a schema version
     /// mismatch. Callers that log unknown frames should check for these names.
     Unknown {
         /// Value of the `@type` field. Either an unrecognized message type
-        /// per RFC 8887 §4.3.1, or `"Response"` / `"StateChange"` when a known
-        /// type failed to deserialize into its typed variant.
+        /// per RFC 8887 §4.3.1, or `"Response"` / `"RequestError"` /
+        /// `"StateChange"` when a known type failed to deserialize into its
+        /// typed variant.
         type_name: String,
         /// Raw JSON object as received from the server, preserved for
         /// forward-compatibility diagnostics.
@@ -98,11 +127,64 @@ pub enum WsFrame {
     },
 }
 
+impl WsFrame {
+    /// The `requestId` correlating this frame with the `id` passed to
+    /// [`WsSender::send_request`] (RFC 8887 §4.3.3, §4.3.4).
+    ///
+    /// Returns `None` for `StateChange` and `Unknown` frames, and for a
+    /// `Response` or `RequestError` whose `requestId` is absent, `null`, or
+    /// not a string. The server MUST echo the id when the request carried
+    /// one, but sends `null` when it could not parse the request at all
+    /// (RFC 8887 §4.4 `notJSON` example).
+    pub fn request_id(&self) -> Option<&str> {
+        match self {
+            WsFrame::Response(r) => r.extra.get("requestId").and_then(serde_json::Value::as_str),
+            WsFrame::RequestError(e) => e.request_id.as_deref(),
+            WsFrame::StateChange(_) | WsFrame::Unknown { .. } => None,
+        }
+    }
+}
+
+/// A request-level error received over WebSocket (RFC 8887 §4.3.4).
+///
+/// An RFC 8620 §3.6.1 Problem Details object extended with
+/// `"@type": "RequestError"` and `requestId`. The server sends one instead
+/// of a `Response` when the whole request is rejected (not JSON, unknown
+/// capability, limit exceeded, ...).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct WsRequestError {
+    /// `requestId`: the `id` of the request this error answers. `None` when
+    /// the server sent `null` or omitted it.
+    #[serde(rename = "requestId", default)]
+    pub request_id: Option<String>,
+    /// Problem Details `type` URI, e.g.
+    /// `"urn:ietf:params:jmap:error:notJSON"` (RFC 8620 §3.6.1).
+    #[serde(rename = "type")]
+    pub problem_type: String,
+    /// Problem Details `status`: the HTTP status code the error would carry
+    /// over HTTP.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<u16>,
+    /// Problem Details `detail`: human-readable explanation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+    /// `limit`: the name of the exceeded limit, present for
+    /// `urn:ietf:params:jmap:error:limit` (RFC 8620 §3.6.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<String>,
+    /// Remaining fields (`@type`, `title`, vendor extensions), preserved per
+    /// the workspace extras-preservation policy.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
 impl std::fmt::Debug for WsFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             WsFrame::StateChange(sc) => f.debug_tuple("StateChange").field(sc).finish(),
             WsFrame::Response(r) => f.debug_tuple("Response").field(r).finish(),
+            WsFrame::RequestError(e) => f.debug_tuple("RequestError").field(e).finish(),
             // `raw` may carry credential-grade material in failure modes
             // (see the field doc); render as a literal string so neither
             // `{:?}` nor `tracing::*` with `?frame` reveals the payload.
@@ -117,6 +199,10 @@ impl std::fmt::Debug for WsFrame {
 
 type Inner =
     tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>;
+
+/// Send half shared between [`WsSender`] and the keepalive in
+/// [`WsReceiver`], which must be able to send Ping frames after a split.
+type SharedSink = Arc<futures::lock::Mutex<futures::stream::SplitSink<Inner, Message>>>;
 
 /// An established JMAP WebSocket session (RFC 8887).
 ///
@@ -167,7 +253,7 @@ pub struct WsSession {
 /// borrow, which made concurrent send-while-receiving impossible without a
 /// `Mutex` that holds across `.await`.
 pub struct WsSender {
-    sink: futures::stream::SplitSink<Inner, Message>,
+    sink: SharedSink,
 }
 
 /// Owning receive-half of a WebSocket connection (bd:JMAP-6r7c.31).
@@ -177,6 +263,26 @@ pub struct WsSender {
 /// [`WsSender`] for the companion type and the concurrency rationale.
 pub struct WsReceiver {
     stream: futures::stream::SplitStream<Inner>,
+    keepalive: Option<Keepalive>,
+}
+
+/// Client-side keepalive state, set by [`WsSession::enable_keepalive`].
+///
+/// Lives in the receiver (not on the stack of `next_frame`) so cancelling a
+/// `next_frame` future does not reset the idle clock.
+struct Keepalive {
+    sink: SharedSink,
+    interval: Duration,
+    timeout: Duration,
+    last_rx: tokio::time::Instant,
+    ping_sent_at: Option<tokio::time::Instant>,
+}
+
+/// The transport error [`WsReceiver::next_frame`] reports for a dead peer.
+fn keepalive_timed_out(msg: &'static str) -> crate::error::ClientError {
+    crate::error::ClientError::from_ws(tokio_tungstenite::tungstenite::Error::Io(
+        std::io::Error::new(std::io::ErrorKind::TimedOut, msg),
+    ))
 }
 
 /// Maximum number of consecutive non-Text non-Close non-Binary frames
@@ -273,10 +379,71 @@ impl WsReceiver {
     /// must not be called again. After an `UnexpectedResponse` error the
     /// underlying stream is still healthy — the caller may choose to
     /// ignore it and retry, or to disconnect.
+    ///
+    /// With keepalive enabled ([`WsSession::enable_keepalive`]) this call
+    /// also sends the Ping frames, so keep a `next_frame` loop running; a
+    /// dead peer surfaces as a transport error whose
+    /// [`WebSocketError::is_io`](crate::error::WebSocketError::is_io) is
+    /// `true`.
     pub async fn next_frame(&mut self) -> Option<Result<WsFrame, crate::error::ClientError>> {
         let mut consecutive_skips = 0usize;
         loop {
-            let msg = match self.stream.next().await? {
+            let next = match self.keepalive.as_mut() {
+                None => self.stream.next().await,
+                Some(ka) => {
+                    let deadline = match ka.ping_sent_at {
+                        Some(sent) => sent + ka.timeout,
+                        None => ka.last_rx + ka.interval,
+                    };
+                    match tokio::time::timeout_at(deadline, self.stream.next()).await {
+                        Ok(next) => {
+                            // Any inbound message, not only a Pong, proves
+                            // the peer is alive.
+                            ka.last_rx = tokio::time::Instant::now();
+                            ka.ping_sent_at = None;
+                            next
+                        }
+                        Err(_elapsed) if ka.ping_sent_at.is_some() => {
+                            return Some(Err(keepalive_timed_out(
+                                "WebSocket keepalive: no traffic from server after Ping",
+                            )));
+                        }
+                        Err(_elapsed) => {
+                            // Bounded: a WsSender blocked on a dead peer's
+                            // full send buffer holds the sink lock, and an
+                            // unbounded wait here would never time out.
+                            let sent = tokio::time::timeout(ka.timeout, async {
+                                ka.sink
+                                    .lock()
+                                    .await
+                                    .send(Message::Ping(Vec::new().into()))
+                                    .await
+                            })
+                            .await;
+                            match sent {
+                                Ok(Ok(())) => {}
+                                Ok(Err(e)) => {
+                                    return Some(Err(crate::error::ClientError::from_ws(e)))
+                                }
+                                Err(_elapsed) => {
+                                    return Some(Err(keepalive_timed_out(
+                                        "WebSocket keepalive: could not send Ping in time",
+                                    )))
+                                }
+                            }
+                            ka.ping_sent_at = Some(tokio::time::Instant::now());
+                            // The Pong we just solicited is not server
+                            // misbehaviour: restart the flood count so an
+                            // idle connection never trips the cap. At most
+                            // one reset per interval keeps the flood
+                            // defence intact.
+                            consecutive_skips = 0;
+                            continue;
+                        }
+                    }
+                }
+            };
+            let msg = match next? {
                 Ok(m) => m,
                 Err(e) => return Some(Err(crate::error::ClientError::from_ws(e))),
             };
@@ -323,6 +490,8 @@ impl WsSender {
     /// ephemeral stream control messages).
     pub async fn send_text(&mut self, text: String) -> Result<(), crate::error::ClientError> {
         self.sink
+            .lock()
+            .await
             .send(Message::Text(text.into()))
             .await
             .map_err(crate::error::ClientError::from_ws)
@@ -353,10 +522,47 @@ impl WsSender {
         };
         let text =
             serde_json::to_string(&frame).map_err(crate::error::ClientError::from_serialize)?;
-        self.sink
-            .send(Message::Text(text.into()))
-            .await
-            .map_err(crate::error::ClientError::from_ws)
+        self.send_text(text).await
+    }
+
+    /// Enable push notifications on this connection (RFC 8887 §4.3.5.2).
+    ///
+    /// Sends a `WebSocketPushEnable` object. `data_types` limits pushes to
+    /// the named types (`["Mailbox", "Email"]`); `None` sends
+    /// `"dataTypes": null`, which asks for every supported type.
+    /// `push_state` is the last `pushState` seen on a previous connection,
+    /// from which the server SHOULD replay missed changes; read it from
+    /// the `"pushState"` entry of [`StateChange::extra`].
+    ///
+    /// Only meaningful when the session's WebSocket capability advertises
+    /// `supportsPush: true` (RFC 8887 §4.3.5).
+    ///
+    /// # Errors
+    ///
+    /// Returns `ClientError::WebSocket` on a transport failure.
+    pub async fn send_push_enable(
+        &mut self,
+        data_types: Option<&[&str]>,
+        push_state: Option<&str>,
+    ) -> Result<(), crate::error::ClientError> {
+        let frame = WsPushEnableFrame {
+            ws_type: "WebSocketPushEnable",
+            data_types,
+            push_state,
+        };
+        let text =
+            serde_json::to_string(&frame).map_err(crate::error::ClientError::from_serialize)?;
+        self.send_text(text).await
+    }
+
+    /// Disable push notifications on this connection (RFC 8887 §4.3.5.3)
+    /// by sending a `WebSocketPushDisable` object.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ClientError::WebSocket` on a transport failure.
+    pub async fn send_push_disable(&mut self) -> Result<(), crate::error::ClientError> {
+        self.send_text(WS_PUSH_DISABLE_FRAME.to_owned()).await
     }
 }
 
@@ -387,6 +593,61 @@ impl WsSession {
         id: Option<&str>,
     ) -> Result<(), crate::error::ClientError> {
         self.sender.send_request(req, id).await
+    }
+
+    /// Enable push notifications on this connection.
+    ///
+    /// Delegates to [`WsSender::send_push_enable`].
+    pub async fn send_push_enable(
+        &mut self,
+        data_types: Option<&[&str]>,
+        push_state: Option<&str>,
+    ) -> Result<(), crate::error::ClientError> {
+        self.sender.send_push_enable(data_types, push_state).await
+    }
+
+    /// Disable push notifications on this connection.
+    ///
+    /// Delegates to [`WsSender::send_push_disable`].
+    pub async fn send_push_disable(&mut self) -> Result<(), crate::error::ClientError> {
+        self.sender.send_push_disable().await
+    }
+
+    /// Turn on client-side keepalive (RFC 6455 §5.5.2 Ping).
+    ///
+    /// When no message has arrived from the server for `interval`,
+    /// [`next_frame`](WsReceiver::next_frame) sends a Ping. If nothing at
+    /// all (Pong or any other message) arrives within `timeout` of that
+    /// Ping, `next_frame` returns a transport error (`is_io() == true`,
+    /// timed out) and the connection should be treated as dead.
+    ///
+    /// Pings are sent from inside `next_frame`, so a receive loop must be
+    /// running for keepalive to work. Call this before
+    /// [`split`](Self::split); the receive half keeps the setting. Off by
+    /// default.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ClientError::InvalidArgument` if `interval` or `timeout` is
+    /// zero.
+    pub fn enable_keepalive(
+        &mut self,
+        interval: Duration,
+        timeout: Duration,
+    ) -> Result<(), crate::error::ClientError> {
+        if interval.is_zero() || timeout.is_zero() {
+            return Err(crate::error::ClientError::InvalidArgument(
+                "enable_keepalive: interval and timeout must be > 0".to_owned(),
+            ));
+        }
+        self.receiver.keepalive = Some(Keepalive {
+            sink: Arc::clone(&self.sender.sink),
+            interval,
+            timeout,
+            last_rx: tokio::time::Instant::now(),
+            ping_sent_at: None,
+        });
+        Ok(())
     }
 
     /// Consume the session and return its owned send and receive halves
@@ -455,6 +716,13 @@ fn parse_ws_frame(text: &str) -> Result<WsFrame, crate::error::ClientError> {
         // Same degradation policy for malformed Response frames.
         "Response" => match serde_json::from_str::<jmap_types::JmapResponse>(text) {
             Ok(r) => Ok(WsFrame::Response(r)),
+            Err(_) => Ok(WsFrame::Unknown {
+                type_name,
+                raw: val,
+            }),
+        },
+        "RequestError" => match serde_json::from_str::<WsRequestError>(text) {
+            Ok(e) => Ok(WsFrame::RequestError(e)),
             Err(_) => Ok(WsFrame::Unknown {
                 type_name,
                 raw: val,
@@ -597,8 +865,13 @@ pub async fn connect_ws_with_limit(
 
     let (sink, stream) = ws_stream.split();
     Ok(WsSession {
-        sender: WsSender { sink },
-        receiver: WsReceiver { stream },
+        sender: WsSender {
+            sink: Arc::new(futures::lock::Mutex::new(sink)),
+        },
+        receiver: WsReceiver {
+            stream,
+            keepalive: None,
+        },
     })
 }
 
@@ -635,6 +908,7 @@ mod tests {
         match frame {
             WsFrame::StateChange(_) => {}
             WsFrame::Response(_) => {}
+            WsFrame::RequestError(_) => {}
             WsFrame::Unknown { .. } => {}
         }
     }
@@ -890,6 +1164,76 @@ mod tests {
             "Response variant Debug must surface session_state for \
              diagnostics; got: {rendered}"
         );
+    }
+
+    /// Oracle: RFC 8887 §4.4 — the server's reply to a non-JSON request,
+    /// copied from the RFC example: `{"@type": "RequestError", "requestId":
+    /// null, "type": "urn:ietf:params:jmap:error:notJSON", "status": 400,
+    /// "detail": "The request did not parse as I-JSON."}`. §4.3.4 defines
+    /// this as a Problem Details object extended with `@type` and
+    /// `requestId`.
+    #[test]
+    fn parse_request_error_rfc8887_example() {
+        let json = r#"{
+            "@type": "RequestError",
+            "requestId": null,
+            "type": "urn:ietf:params:jmap:error:notJSON",
+            "status": 400,
+            "detail": "The request did not parse as I-JSON."
+        }"#;
+        let frame = parse_ws_frame(json).expect("must parse");
+        assert_eq!(frame.request_id(), None);
+        match frame {
+            WsFrame::RequestError(e) => {
+                assert_eq!(e.problem_type, "urn:ietf:params:jmap:error:notJSON");
+                assert_eq!(e.status, Some(400));
+                assert_eq!(
+                    e.detail.as_deref(),
+                    Some("The request did not parse as I-JSON.")
+                );
+                assert_eq!(e.request_id, None);
+            }
+            other => panic!("expected RequestError, got {other:?}"),
+        }
+    }
+
+    /// Oracle: RFC 8887 §4.3.4 — "requestId: ... MUST be returned if given
+    /// in the request". A RequestError answering request "R7" must expose
+    /// that id for correlation; the `limit` property is RFC 8620 §3.6.1's
+    /// extension for `urn:ietf:params:jmap:error:limit`.
+    #[test]
+    fn request_error_exposes_request_id_and_limit() {
+        let json = r#"{"@type":"RequestError","requestId":"R7",
+            "type":"urn:ietf:params:jmap:error:limit","status":400,
+            "limit":"maxSizeRequest"}"#;
+        let frame = parse_ws_frame(json).expect("must parse");
+        assert_eq!(frame.request_id(), Some("R7"));
+        match frame {
+            WsFrame::RequestError(e) => {
+                assert_eq!(e.limit.as_deref(), Some("maxSizeRequest"));
+            }
+            other => panic!("expected RequestError, got {other:?}"),
+        }
+    }
+
+    /// Oracle: RFC 8887 §4.3.3 — the Response is extended with "requestId:
+    /// ... The client-specified identifier in the corresponding request."
+    /// JSON is the RFC 8887 §4.4 Core/echo response example (`"requestId":
+    /// "R1"`), plus the `sessionState` that RFC 8620 §3.4 makes mandatory
+    /// and the RFC example elides.
+    #[test]
+    fn response_request_id_rfc8887_example() {
+        let json = r#"{
+            "@type": "Response",
+            "requestId": "R1",
+            "methodResponses": [
+                ["Core/echo", {"hello": true, "high": 5}, "b3ff"]
+            ],
+            "sessionState": "75128aab4b1b"
+        }"#;
+        let frame = parse_ws_frame(json).expect("must parse");
+        assert!(matches!(frame, WsFrame::Response(_)), "got {frame:?}");
+        assert_eq!(frame.request_id(), Some("R1"));
     }
 
     /// bd:JMAP-6r7c.31 — WsSender and WsReceiver must each be `Send` so a

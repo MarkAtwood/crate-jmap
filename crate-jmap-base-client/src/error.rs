@@ -90,6 +90,7 @@
 
 use std::error::Error as StdError;
 use std::fmt;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 // ---------------------------------------------------------------------------
 // HttpError — opaque wrapper around reqwest::Error
@@ -649,6 +650,8 @@ pub enum ClientError {
     /// |---|---|---|
     /// | [`JmapClient::upload_blob`](crate::JmapClient::upload_blob) | client's own SHA-256 of the bytes about to be uploaded | server's reported SHA-256 in the upload response |
     /// | [`JmapClient::download_blob`](crate::JmapClient::download_blob) | `DownloadBlobParams::expected_sha256` supplied by the caller (typed [`jmap_cid_types::Sha256`], guaranteed canonical lowercase) | client's SHA-256 of the actually-received bytes |
+    /// | [`JmapClient::upload_blob_stream`](crate::JmapClient::upload_blob_stream) | client's SHA-256 of the bytes streamed to the server | server's reported SHA-256 in the upload response |
+    /// | [`JmapClient::download_blob_stream`](crate::JmapClient::download_blob_stream) (final stream item) | `DownloadBlobParams::expected_sha256` supplied by the caller | client's SHA-256 of all streamed bytes |
     ///
     /// Both digests are canonical 64-character lowercase hex (per
     /// draft-atwood-jmap-cid-00 §2 ABNF).
@@ -755,46 +758,24 @@ pub enum ClientError {
 
     /// Server rate-limited the request. `retry_after` indicates when to retry.
     ///
-    /// # ⚠ Not currently produced by this crate (bd:JMAP-6lsm.3, bd:JMAP-6r7c.33)
+    /// Produced for an HTTP 429 (Too Many Requests) response from
+    /// [`JmapClient::fetch_session`](crate::JmapClient::fetch_session),
+    /// [`JmapClient::call`](crate::JmapClient::call),
+    /// [`JmapClient::upload_blob`](crate::JmapClient::upload_blob) and
+    /// [`JmapClient::download_blob`](crate::JmapClient::download_blob)
+    /// (and the `_session` wrappers that delegate to them). Extension crates
+    /// also produce it, e.g. for a `rateLimited` SetError. A 429 on the
+    /// event-source connection still surfaces as [`ClientError::Http`] so
+    /// [`JmapClient::subscribe_events_reconnecting`](crate::JmapClient::subscribe_events_reconnecting)
+    /// can keep retrying it.
     ///
-    /// **HTTP 429 responses fall through `reqwest::error_for_status()` and
-    /// surface as [`ClientError::Http`] today, NOT as `ClientError::RateLimited`.**
-    /// A caller that matches only on this variant will miss every actual
-    /// 429 from the base crate. Until bd:JMAP-6lsm.3 lands the native
-    /// 429 → `RateLimited` conversion, callers MUST handle both cases:
-    ///
-    /// ```rust,ignore
-    /// match err {
-    ///     ClientError::RateLimited { retry_after } => {
-    ///         // Eventually the only path; today only produced by extension
-    ///         // crates that wrap this crate's error conversion.
-    ///         sleep_until(retry_after).await;
-    ///     }
-    ///     ClientError::Http(http) if http.status() == Some(429) => {
-    ///         // Base-crate path today (bd:JMAP-6lsm.3 will collapse this
-    ///         // into the RateLimited arm above).
-    ///         sleep(Duration::from_secs(30)).await; // or parse Retry-After
-    ///     }
-    ///     other => { /* propagate */ }
-    /// }
-    /// ```
-    ///
-    /// # Why the variant ships anyway
-    ///
-    /// The variant is part of the public contract so:
-    ///
-    /// 1. Extension crates that wrap or replace this crate's transport may
-    ///    detect 429 + parse `Retry-After` themselves and produce
-    ///    `RateLimited` from their own error-conversion code.
-    /// 2. Callers that want to handle rate limiting via this typed variant
-    ///    have a stable target to match on, even before the conversion
-    ///    logic lands here (tracked under `bd:JMAP-6lsm.3`).
-    ///
-    /// The variant shape will not change in a backward-incompatible way
-    /// when 429 → `RateLimited` conversion lands — it is part of a
-    /// `#[non_exhaustive]` enum and the struct payload is itself stable,
-    /// so callers writing the dual-match pattern above today will not
-    /// need to adjust when the migration completes.
+    /// `retry_after` comes from the `Retry-After` header (RFC 9110 §10.2.3):
+    /// a delay-seconds value is added to the time the response was received,
+    /// and an HTTP-date in any of the three RFC 9110 §5.6.7 formats is used
+    /// as given. When the header is absent or unparseable, `retry_after` is
+    /// the time the response was received — the server gave no delay, so the
+    /// caller should apply its own backoff. Instants past
+    /// `9999-12-31T23:59:59Z` are clamped to it.
     #[error("rate limited; retry after {retry_after}")]
     RateLimited {
         /// Absolute UTC instant the client should wait until before retrying,
@@ -860,6 +841,56 @@ impl ClientError {
     pub fn from_serialize(e: serde_json::Error) -> Self {
         Self::Serialize(SerializeError(e))
     }
+
+    /// Build a [`ClientError::RateLimited`] for an HTTP 429 response
+    /// received at `now`, from its `Retry-After` value (RFC 9110 §10.2.3).
+    /// See the variant docs for the absent / unparseable fallback.
+    pub(crate) fn rate_limited(retry_after: Option<&str>, now: SystemTime) -> Self {
+        let now_secs = now.duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs());
+        let at = retry_after.map(str::trim).and_then(|v| {
+            // delay-seconds = 1*DIGIT; `u64::from_str` alone would also accept "+120".
+            if !v.is_empty() && v.bytes().all(|b| b.is_ascii_digit()) {
+                // A delay too long for u64 is still "not before year 9999".
+                Some(
+                    v.parse::<u64>()
+                        .map_or(u64::MAX, |d| now_secs.saturating_add(d)),
+                )
+            } else {
+                let t = httpdate::parse_http_date(v).ok()?;
+                t.duration_since(UNIX_EPOCH).ok().map(|d| d.as_secs())
+            }
+        });
+        Self::RateLimited {
+            retry_after: utcdate_from_epoch(at.unwrap_or(now_secs)),
+        }
+    }
+}
+
+/// Format seconds since the Unix epoch as an RFC 8620 §1.4 `UTCDate`,
+/// clamped to `9999-12-31T23:59:59Z` (the largest four-digit year).
+///
+/// Uses Howard Hinnant's `civil_from_days` ("chrono-Compatible Low-Level
+/// Date Algorithms"), the inverse of the `days_from_civil` that
+/// [`jmap_types::UTCDate::to_epoch_seconds`] uses.
+fn utcdate_from_epoch(secs: u64) -> jmap_types::UTCDate {
+    let secs = secs.min(253_402_300_799);
+    let (days, rem) = (secs / 86_400, secs % 86_400);
+    let z = days + 719_468;
+    let era = z / 146_097;
+    let doe = z - era * 146_097; // [0, 146096]
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365; // [0, 399]
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
+    let mp = (5 * doy + 2) / 153; // [0, 11], March-based month
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + u64::from(month <= 2);
+    format!(
+        "{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z",
+        rem / 3600,
+        rem / 60 % 60,
+        rem % 60
+    )
+    .into()
 }
 
 // ---------------------------------------------------------------------------
@@ -1212,5 +1243,104 @@ mod tests {
             HttpErrorKind::Builder,
             "HttpError::kind must classify a builder-side error as Builder"
         );
+    }
+
+    /// `now` for the Retry-After tests: 2014-10-30T06:12:00Z, the RFC 8620
+    /// §1.4 example instant (epoch value from `date -u -d @1414649520`).
+    fn rfc8620_now() -> SystemTime {
+        UNIX_EPOCH + std::time::Duration::from_secs(1_414_649_520)
+    }
+
+    fn retry_after_of(e: ClientError) -> String {
+        match e {
+            ClientError::RateLimited { retry_after } => retry_after.into_inner(),
+            other => panic!("expected RateLimited, got {other:?}"),
+        }
+    }
+
+    /// RFC 9110 §5.6.7: "A recipient that parses a timestamp value in an
+    /// HTTP field MUST accept all three HTTP-date formats." The section's
+    /// examples are "Sun, 06 Nov 1994 08:49:37 GMT" (IMF-fixdate),
+    /// "Sunday, 06-Nov-94 08:49:37 GMT" (RFC 850) and
+    /// "Sun Nov  6 08:49:37 1994" (asctime), all the same instant.
+    #[test]
+    fn rate_limited_accepts_all_three_http_date_formats() {
+        for v in [
+            "Sun, 06 Nov 1994 08:49:37 GMT",
+            "Sunday, 06-Nov-94 08:49:37 GMT",
+            "Sun Nov  6 08:49:37 1994",
+        ] {
+            assert_eq!(
+                retry_after_of(ClientError::rate_limited(Some(v), rfc8620_now())),
+                "1994-11-06T08:49:37Z",
+                "Retry-After: {v}"
+            );
+        }
+    }
+
+    /// RFC 9110 §10.2.3 examples: "Retry-After: Fri, 31 Dec 1999 23:59:59
+    /// GMT" and "Retry-After: 120 ... In the latter example, the delay is
+    /// 2 minutes."
+    #[test]
+    fn rate_limited_parses_rfc9110_retry_after_examples() {
+        assert_eq!(
+            retry_after_of(ClientError::rate_limited(
+                Some("Fri, 31 Dec 1999 23:59:59 GMT"),
+                rfc8620_now()
+            )),
+            "1999-12-31T23:59:59Z"
+        );
+        assert_eq!(
+            retry_after_of(ClientError::rate_limited(Some("120"), rfc8620_now())),
+            "2014-10-30T06:14:00Z"
+        );
+    }
+
+    /// RFC 9110 §10.2.3: `delay-seconds = 1*DIGIT`, so "+120" and "" are
+    /// neither delay-seconds nor HTTP-date; with no usable value the
+    /// documented fallback is the receive time.
+    #[test]
+    fn rate_limited_falls_back_to_now_without_usable_value() {
+        for v in [None, Some(""), Some("+120"), Some("soon")] {
+            assert_eq!(
+                retry_after_of(ClientError::rate_limited(v, rfc8620_now())),
+                "2014-10-30T06:12:00Z",
+                "Retry-After: {v:?}"
+            );
+        }
+    }
+
+    /// RFC 8620 §1.4 UTCDate has a four-digit year; a delay-seconds value
+    /// overflowing u64 clamps to 9999-12-31T23:59:59Z
+    /// (`date -u -d @253402300799`).
+    #[test]
+    fn rate_limited_clamps_huge_delay() {
+        assert_eq!(
+            retry_after_of(ClientError::rate_limited(
+                Some("99999999999999999999999"),
+                rfc8620_now()
+            )),
+            "9999-12-31T23:59:59Z"
+        );
+    }
+
+    /// Cross-validation against the independent `days_from_civil`
+    /// implementation in `jmap_types::UTCDate::to_epoch_seconds`, plus
+    /// fixed vectors from GNU `date -u -d @N`: 951825600 is
+    /// 2000-02-29T12:00:00Z (a 400-year leap day) and 784111777 is
+    /// 1994-11-06T08:49:37Z.
+    #[test]
+    fn utcdate_from_epoch_matches_independent_inverse() {
+        assert_eq!(utcdate_from_epoch(951_825_600), "2000-02-29T12:00:00Z");
+        assert_eq!(utcdate_from_epoch(784_111_777), "1994-11-06T08:49:37Z");
+        // Step by a prime so every time-of-day and calendar position is hit.
+        let mut s = 0u64;
+        while s <= 253_402_300_799 {
+            let d = utcdate_from_epoch(s);
+            let parsed = jmap_types::UTCDate::new_validated(d.as_ref())
+                .unwrap_or_else(|e| panic!("{d} invalid: {e}"));
+            assert_eq!(parsed.to_epoch_seconds().unwrap(), s as i64, "{d}");
+            s += 9_999_991;
+        }
     }
 }

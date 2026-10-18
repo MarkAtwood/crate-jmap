@@ -3,8 +3,9 @@
 //! Normative references:
 //!   - draft-atwood-jmap-chat-00 §3       (`ChatCapability` fields)
 //!   - draft-atwood-jmap-chat-push-00     (`ChatPushCapability` fields)
+//!   - draft-atwood-jmap-chat-filenode-00 (`ChatFilenodeCapability` fields)
 //!
-//! The Chat extension defines two account-level capability objects plus a
+//! The Chat extension defines three account-level capability objects plus a
 //! marker session-level capability (`urn:ietf:params:jmap:chat:websocket`,
 //! whose value is an empty object — see `draft-atwood-jmap-chat-wss-00`,
 //! not modelled here).
@@ -19,6 +20,14 @@ pub const JMAP_CHAT_URI: &str = "urn:ietf:params:jmap:chat";
 
 /// Capability URI for the JMAP Chat Push extension (draft-atwood-jmap-chat-push-00).
 pub const JMAP_CHAT_PUSH_URI: &str = "urn:ietf:params:jmap:chat:push";
+
+/// Capability URI for JMAP Chat File Storage (draft-atwood-jmap-chat-filenode-00
+/// §Capability).
+pub const JMAP_CHAT_FILENODE_URI: &str = "urn:ietf:params:jmap:chat:filenode";
+
+/// FileNode `role` value marking the root of a Space file tree
+/// (draft-atwood-jmap-chat-filenode-00 §Space File Tree).
+pub const CHAT_FILENODE_SPACE_ROLE: &str = "urn:jmap:chat:filenode:space";
 
 /// Account-level capability object for `"urn:ietf:params:jmap:chat"`.
 ///
@@ -139,6 +148,39 @@ pub struct ChatPushCapability {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+/// Account-level capability object for `"urn:ietf:params:jmap:chat:filenode"`.
+///
+/// Found at `accounts[id].accountCapabilities["urn:ietf:params:jmap:chat:filenode"]`.
+/// The session-level value is an empty object and is not modelled.
+///
+/// Spec: draft-atwood-jmap-chat-filenode-00 §Account-Level Capability Object
+///
+/// # Strictness
+///
+/// No struct-level `#[serde(default)]`: `autoCreateFileTree` "is REQUIRED
+/// in the account-level capability object when
+/// `urn:ietf:params:jmap:chat:filenode` is advertised", so a server that
+/// omits it is surfaced as a deserialize error.
+#[non_exhaustive]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatFilenodeCapability {
+    /// Maximum total blob storage in bytes across all FileNodes in a
+    /// single Space's file tree. `None` means the server does not
+    /// advertise a per-Space limit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_space_storage_bytes: Option<u64>,
+    /// Whether the server creates a Space file tree root automatically
+    /// for each new Space.
+    pub auto_create_file_tree: bool,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -237,5 +279,45 @@ mod tests {
     fn capability_uri_constants_match_draft() {
         assert_eq!(JMAP_CHAT_URI, "urn:ietf:params:jmap:chat");
         assert_eq!(JMAP_CHAT_PUSH_URI, "urn:ietf:params:jmap:chat:push");
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-filenode-00 §IANA Considerations
+    /// registers capability `urn:ietf:params:jmap:chat:filenode` and
+    /// FileNode role `urn:jmap:chat:filenode:space`.
+    #[test]
+    fn filenode_uri_constants_match_draft() {
+        assert_eq!(JMAP_CHAT_FILENODE_URI, "urn:ietf:params:jmap:chat:filenode");
+        assert_eq!(CHAT_FILENODE_SPACE_ROLE, "urn:jmap:chat:filenode:space");
+    }
+
+    /// Oracle: hand-built JSON from draft-atwood-jmap-chat-filenode-00
+    /// §Account-Level Capability Object field names
+    /// (`maxSpaceStorageBytes`, `autoCreateFileTree`); an unknown field
+    /// round-trips via `extra`.
+    #[test]
+    fn chat_filenode_capability_round_trip() {
+        let raw = json!({
+            "maxSpaceStorageBytes": 1_073_741_824_u64,
+            "autoCreateFileTree": true,
+            "acmeCorpTier": "gold"
+        });
+        let cap: ChatFilenodeCapability =
+            serde_json::from_value(raw.clone()).expect("must deserialize");
+        assert_eq!(cap.max_space_storage_bytes, Some(1_073_741_824));
+        assert!(cap.auto_create_file_tree);
+        assert_eq!(serde_json::to_value(&cap).expect("serialize"), raw);
+    }
+
+    /// Oracle: `maxSpaceStorageBytes` is "(UnsignedInt, optional)" and
+    /// `autoCreateFileTree` "is REQUIRED" (draft-atwood-jmap-chat-filenode-00
+    /// §Account-Level Capability Object).
+    #[test]
+    fn chat_filenode_capability_required_and_optional_fields() {
+        let cap: ChatFilenodeCapability =
+            serde_json::from_value(json!({ "autoCreateFileTree": false }))
+                .expect("optional maxSpaceStorageBytes may be absent");
+        assert!(cap.max_space_storage_bytes.is_none());
+        assert!(!cap.auto_create_file_tree);
+        assert!(serde_json::from_value::<ChatFilenodeCapability>(json!({})).is_err());
     }
 }

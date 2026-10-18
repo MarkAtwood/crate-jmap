@@ -2,9 +2,9 @@
 //!
 //! Spec: JMAP Chat draft §4.18 (SpaceBan/get, /changes, /set).
 
-use jmap_types::{Id, State};
+use jmap_types::{Id, PatchObject, State};
 
-use super::{ChangesResponse, GetResponse, SetResponse, SpaceBanCreateInput};
+use super::{ChangesResponse, GetResponse, SetResponse, SpaceBanCreateInput, SpaceBanPatch};
 
 impl super::SessionClient {
     /// Fetch SpaceBan objects by IDs (JMAP Chat §4.18 SpaceBan/get).
@@ -124,6 +124,56 @@ impl super::SessionClient {
         let args = serde_json::json!({
             "accountId": account_id,
             "create": { client_id: create_obj },
+        });
+        let req = super::build_request("SpaceBan/set", args, super::USING_CHAT);
+        let resp = self.call_internal(api_url, &req).await?;
+        jmap_base_client::extract_response(&resp, super::CALL_ID)
+    }
+
+    /// Update a SpaceBan (RFC 8620 §5.3 / SpaceBan/set update).
+    ///
+    /// Fields of `patch` left at `Patch::Keep` are omitted from the patch
+    /// and left unchanged server-side. Requires `"ban"` permission in the
+    /// Space (server-enforced).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing a `Patch` entry fails (pathological conditions only).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::space_ban_get`]. /set
+    ///   update errors (e.g. `forbidden`) appear in
+    ///   [`SetResponse::not_updated`] rather than as [`Err`].
+    pub async fn space_ban_update(
+        &self,
+        id: &Id,
+        patch: &SpaceBanPatch<'_>,
+    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+        let (api_url, account_id) = self.session_parts()?;
+        let mut patch_map = serde_json::Map::new();
+        if let Some(entry) = patch
+            .reason
+            .map_entry()
+            .map_err(jmap_base_client::ClientError::from_parse)?
+        {
+            patch_map.insert("reason".into(), entry);
+        }
+        if let Some(entry) = patch
+            .expires_at
+            .map_entry()
+            .map_err(jmap_base_client::ClientError::from_parse)?
+        {
+            patch_map.insert("expiresAt".into(), entry);
+        }
+        // PatchObject is #[serde(transparent)]; see `presence_status_update`.
+        let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
+        let args = serde_json::json!({
+            "accountId": account_id,
+            "update": { id.as_ref(): patch_value },
         });
         let req = super::build_request("SpaceBan/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;

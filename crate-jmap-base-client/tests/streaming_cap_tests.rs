@@ -297,3 +297,59 @@ async fn download_blob_streams_with_cap_against_chunked_hostile_server() {
         "expected ResponseTooLarge, got {err:?}"
     );
 }
+
+/// Oracle: bd:JMAP-6r7c.1 — download_blob_stream() enforces the same cap on
+/// the running total. The hostile server sends one 256-byte chunk against a
+/// 128-byte cap and no Content-Length (RFC 7230 §3.3.1 chunked), so the cap
+/// can only fire per chunk: the stream must yield ResponseTooLarge instead
+/// of the chunk, then end.
+#[tokio::test]
+async fn download_blob_stream_caps_chunked_hostile_server() {
+    use futures::StreamExt;
+
+    let cap: u64 = 128;
+    let addr = spawn_chunked_no_eof_server(256).await;
+    let base = format!("http://{addr}");
+    let client = build_client_with_download_cap(&base, cap);
+    let download_url = jmap_base_client::JmapUrlTemplate::new(format!(
+        "{base}/download/{{accountId}}/{{blobId}}/{{name}}"
+    ));
+
+    let mut stream = timeout(
+        Duration::from_secs(2),
+        client.download_blob_stream(jmap_base_client::DownloadBlobParams {
+            download_url_template: &download_url,
+            account_id: "account1",
+            blob_id: "blob-abc",
+            name: "file.bin",
+            accept_type: None,
+            expected_sha256: None,
+        }),
+    )
+    .await
+    .expect("download_blob_stream() must return the response within 2s")
+    .expect("no Content-Length is advertised, so the download must start");
+
+    // hyper may hand the 256-byte wire chunk over in smaller pieces, so the
+    // chunks under the cap may arrive first; the cap error must follow them.
+    let mut received = 0u64;
+    let err = loop {
+        let item = timeout(Duration::from_secs(2), stream.next())
+            .await
+            .expect("the cap must fire within 2s of the oversized chunk arriving")
+            .expect("stream must not end before the cap fires");
+        match item {
+            Ok(chunk) => received += chunk.len() as u64,
+            Err(e) => break e,
+        }
+    };
+    assert!(received <= cap, "chunks past the cap must not be yielded");
+    assert!(
+        matches!(err, ClientError::ResponseTooLarge { actual, limit: 128 } if actual > cap),
+        "expected ResponseTooLarge over the 128-byte cap, got {err:?}"
+    );
+    assert!(
+        stream.next().await.is_none(),
+        "stream must end after the cap error"
+    );
+}

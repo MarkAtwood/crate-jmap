@@ -94,30 +94,7 @@ impl super::SessionClient {
         input: &ChatQueryInput,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let mut filter = serde_json::Map::new();
-        if let Some(k) = &input.filter_kind {
-            let kind_str =
-                serde_json::to_value(k).map_err(jmap_base_client::ClientError::from_parse)?;
-            filter.insert("kind".into(), kind_str);
-        }
-        if let Some(m) = input.filter_muted {
-            filter.insert("muted".into(), m.into());
-        }
-        let filter_val = if filter.is_empty() {
-            serde_json::Value::Null
-        } else {
-            serde_json::Value::Object(filter)
-        };
-        let mut args = serde_json::json!({
-            "accountId": account_id,
-            "filter": filter_val,
-        });
-        if let Some(p) = input.position {
-            args["position"] = p.into();
-        }
-        if let Some(l) = input.limit {
-            args["limit"] = l.into();
-        }
+        let args = chat_query_args(account_id, input)?;
         let req = super::build_request("Chat/query", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -533,4 +510,46 @@ impl super::SessionClient {
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
+}
+
+/// Build `Chat/query` arguments for `account_id` (shared with
+/// [`super::batch::Batch::chat_query_get`]).
+pub(super) fn chat_query_args(
+    account_id: &str,
+    input: &ChatQueryInput,
+) -> Result<serde_json::Value, jmap_base_client::ClientError> {
+    let mut filter = serde_json::Map::new();
+    if let Some(k) = &input.filter_kind {
+        let kind_str =
+            serde_json::to_value(k).map_err(jmap_base_client::ClientError::from_parse)?;
+        filter.insert("kind".into(), kind_str);
+    }
+    if let Some(m) = input.filter_muted {
+        filter.insert("muted".into(), m.into());
+    }
+    let filter_val = if filter.is_empty() {
+        serde_json::Value::Null
+    } else {
+        serde_json::Value::Object(filter)
+    };
+    let mut args = serde_json::json!({
+        "accountId": account_id,
+        "filter": filter_val,
+    });
+    if let Some(p) = input.position {
+        args["position"] = p.into();
+    }
+    if let Some(a) = &input.anchor {
+        args["anchor"] = a.as_ref().into();
+    }
+    if let Some(o) = input.anchor_offset {
+        args["anchorOffset"] = o.into();
+    }
+    if let Some(l) = input.limit {
+        args["limit"] = l.into();
+    }
+    if let Some(c) = input.calculate_total {
+        args["calculateTotal"] = c.into();
+    }
+    Ok(args)
 }

@@ -791,3 +791,76 @@ async fn space_query_changes_all_none_omits_optional_wire_keys() {
         "maxChanges must be omitted"
     );
 }
+
+/// `Space/set` update `addRoles` / `updateRoles` must pass every color
+/// representation through verbatim. Oracle: draft-atwood-jmap-chat-00
+/// §Color Representation — Design Tokens object (`"$type": "color"`,
+/// `"$value"` in CSS Color 4 syntax), CAM16 `[J, a, b]` / `[J, M, h]`,
+/// or sRGB hex (`"#5865f2"`); "Servers MUST accept all three
+/// representations in color-valued fields and MUST preserve the
+/// representation provided by the client." §Space/set addRoles:
+/// "optionally `color` (String|Object|null, optional)"; updateRoles:
+/// "any of `name`, `color`, `permissions`, `position`".
+#[tokio::test]
+async fn space_update_roles_accept_all_color_representations() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Space/set",
+        SPACE_STATE_OLD,
+        SPACE_STATE_NEW,
+        json!({ "updated": { "space-1": null } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let space_id = Id::from("space-1");
+    let perms = ["send_messages"];
+    let token = json!({ "$type": "color", "$value": "oklch(0.7 0.15 250)" });
+    let add_roles = [
+        jmap_chat_client::methods::SpaceAddRoleInput::new("Hex", &perms, 1).with_color("#5865f2"),
+        jmap_chat_client::methods::SpaceAddRoleInput::new("Token", &perms, 2)
+            .with_color(token.clone()),
+        jmap_chat_client::methods::SpaceAddRoleInput::new("Cam16", &perms, 3)
+            .with_color(json!([62.5, 12.0, -30.25])),
+        jmap_chat_client::methods::SpaceAddRoleInput::new("None", &perms, 4)
+            .with_color(serde_json::Value::Null),
+    ];
+    let role_a = Id::from("role-a");
+    let role_b = Id::from("role-b");
+    let mut set_token = jmap_chat_client::methods::SpaceUpdateRoleInput::new(&role_a);
+    set_token.color = jmap_chat_client::methods::Patch::Set(token.clone());
+    let mut clear = jmap_chat_client::methods::SpaceUpdateRoleInput::new(&role_b);
+    clear.color = jmap_chat_client::methods::Patch::Clear;
+    let update_roles = [set_token, clear];
+
+    let mut patch = jmap_chat_client::methods::SpacePatch::default();
+    patch.add_roles = Some(&add_roles);
+    patch.update_roles = Some(&update_roles);
+    let _ = sc
+        .space_update(&space_id, &patch)
+        .await
+        .expect("space_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    let patch_obj = &args["update"]["space-1"];
+    assert_eq!(
+        patch_obj["addRoles"],
+        json!([
+            { "name": "Hex", "permissions": ["send_messages"], "position": 1, "color": "#5865f2" },
+            { "name": "Token", "permissions": ["send_messages"], "position": 2,
+              "color": { "$type": "color", "$value": "oklch(0.7 0.15 250)" } },
+            { "name": "Cam16", "permissions": ["send_messages"], "position": 3,
+              "color": [62.5, 12.0, -30.25] },
+            { "name": "None", "permissions": ["send_messages"], "position": 4, "color": null }
+        ]),
+        "addRoles must carry each color representation verbatim"
+    );
+    assert_eq!(
+        patch_obj["updateRoles"],
+        json!([
+            { "id": "role-a", "color": { "$type": "color", "$value": "oklch(0.7 0.15 250)" } },
+            { "id": "role-b", "color": null }
+        ]),
+        "updateRoles must carry the object color verbatim and Patch::Clear as null"
+    );
+}

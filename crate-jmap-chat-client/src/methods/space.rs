@@ -567,8 +567,8 @@ impl super::SessionClient {
                             "permissions": r.permissions,
                             "position": r.position,
                         });
-                        if let Some(c) = r.color {
-                            obj["color"] = c.into();
+                        if let Some(c) = &r.color {
+                            obj["color"] = c.clone();
                         }
                         Ok(obj)
                     })
