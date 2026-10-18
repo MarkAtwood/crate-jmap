@@ -189,16 +189,13 @@ cargo test --workspace
 
 ### Specs (normative)
 
-All live at `~/PROJECT/jmap-chat-spec/references/`:
-
-| File | Covers |
+| Location | Covers |
 |---|---|
-| `rfc8620.txt` | JMAP base protocol — wire types, ResultReference, Session, error codes |
-| `rfc8621.txt` | JMAP for Mail — Email, Mailbox, Thread, Identity, EmailSubmission |
-| `draft-atwood-jmap-chat-*.md` | JMAP Chat extension (in `~/PROJECT/jmap-chat-spec/`) |
-| `draft-ietf-jmap-*.txt` | Other IETF JMAP extensions (calendars, contacts, blob, etc.) |
+| `~/PROJECT/jmap-chat-spec/draft-atwood-jmap-chat-*.md` | JMAP Chat extension and companions |
+| `~/PROJECT/IETF/specs/` | Posted RFC and draft text (`draft-ietf-jmap-*.txt` etc.); some copies lag the current posted revision, so check datatracker for the latest |
+| `~/GIT/` editor's repos | Unposted upstream work; see "Upstream draft sources" in `~/PROJECT/jmap-chat-spec/AGENTS.md` for the clone-to-origin table |
 
-When implementing anything, read the relevant RFC section first. Do not guess at wire field names.
+Implement against the revision the JMAP Chat drafts cite (e.g. FileNode -16, calendars -33). When implementing anything, read the relevant RFC section first. Do not guess at wire field names.
 
 ### Reference Implementations (local — read, do not modify)
 
