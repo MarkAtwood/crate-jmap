@@ -1158,7 +1158,8 @@ async fn message_set_update_delete_for_all_purges_content() {
                     "blobId": "b1",
                     "filename": "plan.pdf",
                     "contentType": "application/pdf",
-                    "size": 1024
+                    "size": 1024,
+                    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
                 }
             ],
             "mentions": [],
@@ -1210,6 +1211,127 @@ async fn message_set_update_delete_for_all_purges_content() {
         msg.get("editHistory").is_none(),
         "deleted Message must not carry editHistory, got: {msg}"
     );
+}
+
+/// Seed Message `m1` from `sender_id` with a body, an attachment, and one
+/// prior revision, so a delete has content to purge.
+fn insert_deletable_message(backend: &MemoryBackend, sender_id: &str) {
+    backend.set_retains_edit_history_for_test(true);
+    backend.insert_object_for_test(
+        "Message",
+        ACCOUNT_ID,
+        "m1",
+        json!({
+            "id": "m1",
+            "senderMsgId": "smsg1",
+            "senderId": sender_id,
+            "chatId": "c1",
+            "body": "edited",
+            "bodyType": "text/plain",
+            "attachments": [
+                {
+                    "blobId": "b1",
+                    "filename": "plan.pdf",
+                    "contentType": "application/pdf",
+                    "size": 1024,
+                    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                }
+            ],
+            "mentions": [],
+            "broadcastMentions": [],
+            "actions": [],
+            "reactions": {},
+            "sentAt": "2024-01-01T00:00:00Z",
+            "receivedAt": "2024-01-01T00:00:01Z",
+            "deliveryState": "delivered",
+            "editedAt": "2024-01-02T00:00:00Z",
+            "editHistory": [
+                {
+                    "body": "original",
+                    "bodyType": "text/plain",
+                    "editedAt": "2024-01-02T00:00:00Z"
+                }
+            ]
+        }),
+    );
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Message `deletedAt` ("When set,
+/// `body` is empty, `attachments` is empty, and `editHistory` is absent")
+/// and §Deleting a Message ("Otherwise, deletion is local only: `body` and
+/// `attachments` are cleared on this mailbox").
+#[tokio::test]
+async fn message_set_update_local_delete_purges_content() {
+    let backend = MemoryBackend::new();
+    insert_deletable_message(&backend, "self");
+
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": { "m1": { "deletedAt": "2024-01-03T00:00:00Z" } }
+        }),
+    )
+    .await
+    .expect("update");
+    assert_eq!(update_resp["notUpdated"], json!(null));
+
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+    )
+    .await
+    .expect("get");
+    let msg = &get_resp["list"][0];
+    assert_eq!(msg["deletedAt"], "2024-01-03T00:00:00Z");
+    assert_eq!(msg["body"], "", "deleted Message body must be empty");
+    assert_eq!(
+        msg["attachments"],
+        json!([]),
+        "deleted Message attachments must be empty"
+    );
+    assert!(
+        msg.get("editHistory").is_none(),
+        "deleted Message must not carry editHistory, got: {msg}"
+    );
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Deleting a Message ("Servers MUST
+/// reject `deletedForAll: true` for messages where `senderId` is not
+/// `\"self\"`"). The rejected update leaves the stored Message unchanged.
+#[tokio::test]
+async fn message_set_update_delete_for_all_rejects_other_sender() {
+    let backend = MemoryBackend::new();
+    insert_deletable_message(&backend, "contact-alice");
+
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": { "m1": { "deletedForAll": true } }
+        }),
+    )
+    .await
+    .expect("update");
+    assert_eq!(update_resp["notUpdated"]["m1"]["type"], "forbidden");
+    assert_eq!(update_resp["updated"], json!(null));
+
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+    )
+    .await
+    .expect("get");
+    let msg = &get_resp["list"][0];
+    assert!(msg.get("deletedAt").is_none(), "got: {msg}");
+    assert!(msg.get("deletedForAll").is_none(), "got: {msg}");
+    assert_eq!(msg["body"], "edited");
+    assert_eq!(msg["attachments"][0]["blobId"], "b1");
+    assert_eq!(msg["editHistory"][0]["body"], "original");
 }
 
 /// Oracle: setting readAt stores the client-provided timestamp.
