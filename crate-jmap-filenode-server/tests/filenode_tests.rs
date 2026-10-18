@@ -2575,3 +2575,149 @@ async fn filenode_set_update_rejects_type_change() {
     .expect("get must succeed");
     assert_eq!(g_resp["list"][0]["@type"], "Directory", "{g_resp}");
 }
+
+// ---------------------------------------------------------------------------
+// Invalid create with onExists must not destroy the colliding node.
+// Oracle: RFC 8620 §5.3 "Each creation, modification, or destruction of an
+// object is considered an atomic unit"; draft-ietf-jmap-filenode-16 §3.1:
+// "An attempt to create [...] a FileNode that sets a property not defined
+// for its @type to a non-null value is an "invalidProperties" error."
+// ---------------------------------------------------------------------------
+
+async fn assert_invalid_create_keeps_existing(on_exists: &str) {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let existing_id = create_node(&backend, "acc1", "doc", None, "e").await;
+
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "onExists": on_exists,
+            "create": {
+                "c": {
+                    "@type": "Directory",
+                    "name": "doc",
+                    "parentId": null,
+                    "blobId": "b1",
+                    "modified": "2999-01-01T00:00:00Z"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    let err = &resp["notCreated"]["c"];
+    assert_eq!(err["type"], "invalidProperties", "{resp}");
+    assert_eq!(err["properties"], json!(["blobId"]), "{resp}");
+    assert!(resp["destroyed"].is_null(), "nothing destroyed: {resp}");
+
+    let (g_resp, _) = handle_filenode_get(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": [&existing_id] }),
+    )
+    .await
+    .expect("get must succeed");
+    assert_eq!(g_resp["list"][0]["id"], json!(existing_id), "{g_resp}");
+}
+
+#[tokio::test]
+async fn filenode_set_create_invalid_replace_keeps_existing() {
+    assert_invalid_create_keeps_existing("replace").await;
+}
+
+#[tokio::test]
+async fn filenode_set_create_invalid_newest_keeps_existing() {
+    assert_invalid_create_keeps_existing("newest").await;
+}
+
+// ---------------------------------------------------------------------------
+// Create rejects non-null properties of another @type; null is ignored.
+// Oracle: draft-ietf-jmap-filenode-16 §3.1: "An attempt to create or update
+// a FileNode that sets a property not defined for its @type to a non-null
+// value is an "invalidProperties" error.  The server MUST ignore a null
+// value for such a property, both on create and on update."
+// mediaType/executable are File properties (§3.1.2), role is a Directory
+// property (§3.1.3).
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_set_create_rejects_other_type_property() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "d": { "@type": "Directory", "name": "d", "parentId": null, "mediaType": "text/plain" },
+                "f": { "@type": "File", "name": "f", "parentId": null, "blobId": "b1", "role": "trash" }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(resp["created"].is_null(), "nothing may be created: {resp}");
+    let (d, f) = (&resp["notCreated"]["d"], &resp["notCreated"]["f"]);
+    assert_eq!(d["type"], "invalidProperties", "{resp}");
+    assert_eq!(d["properties"], json!(["mediaType"]), "{resp}");
+    assert_eq!(f["type"], "invalidProperties", "{resp}");
+    assert_eq!(f["properties"], json!(["role"]), "{resp}");
+}
+
+#[tokio::test]
+async fn filenode_set_create_ignores_null_other_type_property() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "d": {
+                    "@type": "Directory",
+                    "name": "d",
+                    "parentId": null,
+                    "mediaType": null,
+                    "executable": null,
+                    "blobId": null,
+                    "target": null
+                }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(resp["notCreated"].is_null(), "{resp}");
+    assert!(resp["created"]["d"]["id"].is_string(), "{resp}");
+}
+
+#[tokio::test]
+async fn filenode_copy_rejects_other_type_property() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+
+    let (resp, _) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "create": { "c": { "id": &src_id, "executable": true } }
+        }),
+        "c0",
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(resp["created"].is_null(), "nothing may be copied: {resp}");
+    let err = &resp["notCreated"]["c"];
+    assert_eq!(err["type"], "invalidProperties", "{resp}");
+    assert_eq!(err["properties"], json!(["executable"]), "{resp}");
+}

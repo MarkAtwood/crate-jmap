@@ -547,12 +547,83 @@ fn capability_deserialize_from_spec_example() {
 }
 
 #[test]
+fn capability_supported_node_types_from_spec_example() {
+    // supportedNodeTypes value from the draft-ietf-jmap-filenode-16 §2.1.1 example.
+    let json = r#"{
+        "maxFileNodeDepth": 50,
+        "maxSizeFileNodeName": 255,
+        "fileNodeQuerySortOptions": ["name"],
+        "supportedNodeTypes": ["Directory", "File", "SymLink"],
+        "forbiddenNameChars": null,
+        "forbiddenNodeNames": null,
+        "caseInsensitiveNames": false,
+        "mayCreateTopLevelFileNode": false,
+        "webTrashUrl": null,
+        "webUrlTemplate": null,
+        "webWriteUrlTemplate": null
+    }"#;
+    let cap: FileNodeCapability = serde_json::from_str(json).unwrap();
+    assert_eq!(
+        cap.supported_node_types,
+        vec![NodeType::Directory, NodeType::File, NodeType::Symlink]
+    );
+    let v = serde_json::to_value(&cap).unwrap();
+    assert_eq!(
+        v["supportedNodeTypes"],
+        serde_json::json!(["Directory", "File", "SymLink"])
+    );
+}
+
+#[test]
+fn capability_supported_node_types_keeps_unrecognised_values() {
+    // §2.1: "Clients MUST ignore values they do not recognise." An unknown
+    // registry value must not make the capability fail to parse.
+    let json = r#"{
+        "maxFileNodeDepth": null,
+        "maxSizeFileNodeName": 255,
+        "fileNodeQuerySortOptions": ["name"],
+        "supportedNodeTypes": ["Directory", "File", "VendorType"],
+        "forbiddenNameChars": null,
+        "forbiddenNodeNames": null,
+        "caseInsensitiveNames": false,
+        "mayCreateTopLevelFileNode": false,
+        "webTrashUrl": null,
+        "webUrlTemplate": null,
+        "webWriteUrlTemplate": null
+    }"#;
+    let cap: FileNodeCapability = serde_json::from_str(json).unwrap();
+    assert_eq!(
+        cap.supported_node_types[2],
+        NodeType::Other("VendorType".to_owned())
+    );
+}
+
+#[test]
+fn capability_supported_node_types_is_required() {
+    // §2.1: the object "MUST contain" supportedNodeTypes.
+    let json = r#"{
+        "maxFileNodeDepth": null,
+        "maxSizeFileNodeName": 255,
+        "fileNodeQuerySortOptions": ["name"],
+        "forbiddenNameChars": null,
+        "forbiddenNodeNames": null,
+        "caseInsensitiveNames": false,
+        "mayCreateTopLevelFileNode": false,
+        "webTrashUrl": null,
+        "webUrlTemplate": null,
+        "webWriteUrlTemplate": null
+    }"#;
+    assert!(serde_json::from_str::<FileNodeCapability>(json).is_err());
+}
+
+#[test]
 fn capability_null_depth_and_nullables() {
     // maxFileNodeDepth: null means no limit.  Other nullable fields are also null.
     let json = r#"{
         "maxFileNodeDepth": null,
         "maxSizeFileNodeName": 100,
         "fileNodeQuerySortOptions": ["name"],
+        "supportedNodeTypes": ["Directory", "File"],
         "forbiddenNameChars": null,
         "forbiddenNodeNames": null,
         "caseInsensitiveNames": true,
@@ -579,6 +650,7 @@ fn capability_nullable_fields_serialize_as_null_not_absent() {
         "maxFileNodeDepth": null,
         "maxSizeFileNodeName": 255,
         "fileNodeQuerySortOptions": ["name"],
+        "supportedNodeTypes": ["Directory", "File"],
         "forbiddenNameChars": null,
         "forbiddenNodeNames": null,
         "caseInsensitiveNames": false,
@@ -637,6 +709,7 @@ fn capability_roundtrip() {
         "maxFileNodeDepth": 100,
         "maxSizeFileNodeName": 255,
         "fileNodeQuerySortOptions": ["name", "size"],
+        "supportedNodeTypes": ["Directory", "File", "SymLink"],
         "forbiddenNameChars": "/\\",
         "forbiddenNodeNames": [".", ".."],
         "caseInsensitiveNames": false,

@@ -67,7 +67,7 @@ decision is bd JMAP-lbdy.
   properties not defined for a node's `@type` are omitted on serialization
 - §3.1 (IANA registries §11.5, §11.6) — `NodeType` and `NodeRole` registered values
 - §3.2.3 — `FileNodeFilterCondition` query filter
-- §1.6 — `FileNodeCapability` and `JMAP_FILENODE_URI`
+- §2.1 — `FileNodeCapability` and `JMAP_FILENODE_URI`
 
 ## How to use
 

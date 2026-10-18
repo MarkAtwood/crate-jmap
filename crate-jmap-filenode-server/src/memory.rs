@@ -661,9 +661,7 @@ impl FileNodeBackend for MemoryBackend {
         // RFC 8620 §5.3 PatchObject: keys may contain "/" separators naming a
         // path into nested objects (e.g. `"shareWith/alice"`). Null values
         // remove the target key; non-null values overwrite or create it.
-        // The local `apply_jmap_patch` helper mirrors the canonical
-        // jmap-mail-server pattern (it uses the same shape for
-        // `mailboxIds/<id>: null` cascade ops).
+        // A pointer whose leading parts do not exist is invalidPatch.
         let patch_val = serde_json::to_value(&patch).map_err(|e| {
             BackendSetError::Other(MemoryError::new(format!(
                 "update_object: serialize patch: {e}"
@@ -691,7 +689,9 @@ impl FileNodeBackend for MemoryBackend {
 
         if let (Some(obj), Some(patch_obj)) = (node_val.as_object_mut(), patch_val.as_object()) {
             for (k, v) in patch_obj {
-                apply_jmap_patch(obj, k, v.clone());
+                apply_jmap_patch(obj, k, v.clone()).ok_or_else(|| {
+                    BackendSetError::SetError(SetError::new(SetErrorType::InvalidPatch))
+                })?;
             }
         }
 
@@ -1190,35 +1190,28 @@ fn date_on_or_after(node_date: Option<&jmap_types::UTCDate>, bound: &jmap_types:
 /// Keys may contain "/" separators naming a path into nested objects
 /// (e.g. `"shareWith/alice"` to mutate one principal's rights in the
 /// `shareWith` map). Null values remove the target key; non-null values
-/// overwrite or create it. This is the JMAP patch format, which is a
-/// superset of RFC 7396 flat merge-patch.
+/// overwrite it or create it in its parent. This is the JMAP patch format,
+/// which is a superset of RFC 7396 flat merge-patch.
 ///
-/// Mirrors the canonical jmap-mail-server helper of the same name (mail
-/// uses the same shape for `mailboxIds/<id>: null` cascade ops).
+/// Returns `None` when a part before the last does not name an existing
+/// object: RFC 8620 §5.3 requires "All parts prior to the last ... MUST
+/// already exist on the object being patched", else `invalidPatch`. The
+/// pointer may then have been partly applied, so callers must discard
+/// `base`.
 fn apply_jmap_patch(
     base: &mut serde_json::Map<String, serde_json::Value>,
     key: &str,
     value: serde_json::Value,
-) {
-    if let Some(slash) = key.find('/') {
-        let head = &key[..slash];
-        let tail = &key[slash + 1..];
-        if let Some(entry) = base.get_mut(head) {
-            if let serde_json::Value::Object(inner) = entry {
-                apply_jmap_patch(inner, tail, value);
-            }
-        } else if !value.is_null() {
-            // Parent absent and value is non-null: create parent then set leaf.
-            let mut inner = serde_json::Map::new();
-            apply_jmap_patch(&mut inner, tail, value);
-            base.insert(head.to_owned(), serde_json::Value::Object(inner));
-        }
-        // Parent absent and value is null: nothing to remove — no-op.
-    } else if value.is_null() {
+) -> Option<()> {
+    if let Some((head, tail)) = key.split_once('/') {
+        return apply_jmap_patch(base.get_mut(head)?.as_object_mut()?, tail, value);
+    }
+    if value.is_null() {
         base.remove(key);
     } else {
         base.insert(key.to_owned(), value);
     }
+    Some(())
 }
 
 #[cfg(test)]
