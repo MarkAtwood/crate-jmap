@@ -2307,3 +2307,173 @@ async fn filenode_set_on_exists_newest_rejects_malformed_modified() {
         "malformed modified must be rejected as alreadyExists: {resp}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// FileNode/copy — the -16 create-time @type checks apply to copies.
+// Oracle: draft-ietf-jmap-filenode-16 §3.2.4 — copy has "the same
+// behaviour" and "the same additional errors as FileNode/set apply";
+// §3.1.1 (@type "MUST be provided on creation"; an @type outside
+// supportedNodeTypes is rejected with invalidProperties), §3.1.2 (blobId
+// "MUST be provided on creation"), §3.1.4 (target "MUST be provided on
+// creation"). Regression for bd JMAP-4vf8.10.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_copy_rejects_invalid_type_overrides() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+
+    let (resp, _) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "create": {
+                "bogus": { "id": &src_id, "@type": "Bogus" },
+                "notype": { "id": &src_id, "@type": null },
+                "file": { "id": &src_id, "@type": "File" },
+                "link": { "id": &src_id, "@type": "SymLink" }
+            }
+        }),
+        "c0",
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(resp["created"].is_null(), "nothing may be copied: {resp}");
+    for (cid, prop) in [
+        ("bogus", "@type"),
+        ("notype", "@type"),
+        ("file", "blobId"),
+        ("link", "target"),
+    ] {
+        let err = &resp["notCreated"][cid];
+        assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
+        assert_eq!(err["properties"], json!([prop]), "{cid}: {resp}");
+    }
+}
+
+// ---------------------------------------------------------------------------
+// FileNode/set — the unsupported-@type SetError names the rejected value and
+// the accepted ones. Oracle: bd JMAP-4vf8.2 (accepted values are the three
+// types draft-ietf-jmap-filenode-16 §3.1 defines).
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_set_unsupported_type_description_names_values() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": { "c1": { "@type": "directory", "name": "d" } }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    let description = resp["notCreated"]["c1"]["description"]
+        .as_str()
+        .unwrap_or_else(|| panic!("description must be a string: {resp}"));
+    for needle in ["\"directory\"", "File", "Directory", "SymLink"] {
+        assert!(
+            description.contains(needle),
+            "description must mention {needle}: {description}"
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// FileNode/set update — properties defined for another @type.
+// Oracle: draft-ietf-jmap-filenode-16 §3.1 — "An attempt to create or update
+// a FileNode that sets a property not defined for its @type to a non-null
+// value is an "invalidProperties" error.  The server MUST ignore a null
+// value for such a property, both on create and on update." Regression for
+// bd JMAP-4vf8.4: before the fix the value was stored, hidden by get, and
+// still matched by query filters.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_set_update_rejects_other_type_properties() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": { "l": { "@type": "SymLink", "name": "l", "target": ["d"] } }
+        }),
+    )
+    .await
+    .expect("symlink create must not return top-level error");
+    let link_id = resp["created"]["l"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("symlink must be created: {resp}"))
+        .to_owned();
+
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "update": {
+                &dir_id: { "mediaType": "text/plain" },
+                &link_id: { "executable": true }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(resp["updated"].is_null(), "nothing may be updated: {resp}");
+    for (id, prop) in [(&dir_id, "mediaType"), (&link_id, "executable")] {
+        let err = &resp["notUpdated"][id];
+        assert_eq!(err["type"], "invalidProperties", "{id}: {resp}");
+        assert_eq!(err["properties"], json!([prop]), "{id}: {resp}");
+    }
+
+    // The rejected value must not be stored where a filter can see it.
+    let (q_resp, _) = handle_filenode_query(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "filter": { "mediaType": "text/plain" } }),
+    )
+    .await
+    .expect("query must succeed");
+    assert_eq!(q_resp["ids"], json!([]), "{q_resp}");
+}
+
+#[tokio::test]
+async fn filenode_set_update_ignores_null_other_type_properties() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
+
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "update": {
+                &dir_id: {
+                    "blobId": null,
+                    "mediaType": null,
+                    "target": null,
+                    "role": "documents"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(resp["notUpdated"].is_null(), "update must succeed: {resp}");
+    assert!(
+        resp["updated"]
+            .as_object()
+            .is_some_and(|m| m.contains_key(&dir_id)),
+        "{resp}"
+    );
+}

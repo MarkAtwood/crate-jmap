@@ -318,37 +318,58 @@ impl Serialize for FileNode {
             extra: &'a serde_json::Map<String, serde_json::Value>,
         }
 
-        let known = match self.node_type.as_ref() {
+        let FileNode {
+            id,
+            parent_id,
+            node_type,
+            blob_id,
+            target,
+            size,
+            name,
+            media_type,
+            created,
+            modified,
+            accessed,
+            changed,
+            executable,
+            is_subscribed,
+            my_rights,
+            share_with,
+            role,
+            extra,
+        } = self;
+
+        let known = match node_type.as_ref() {
             Some(t @ (NodeType::File | NodeType::Directory | NodeType::Symlink)) => Some(t),
             _ => None,
         };
         let defines = |owner: &NodeType| known.is_none_or(|t| t == owner);
         let file = defines(&NodeType::File);
-        let role = match known {
-            Some(NodeType::Directory) => Some(self.role.as_ref()),
+        let wire_role = match known {
+            Some(NodeType::Directory) => Some(role.as_ref()),
             Some(_) => None,
-            None => self.role.as_ref().map(Some),
+            None => role.as_ref().map(Some),
         };
 
         Wire {
-            id: &self.id,
-            parent_id: self.parent_id.as_ref(),
-            node_type: self.node_type.as_ref(),
-            blob_id: self.blob_id.as_ref().filter(|_| file),
-            target: self.target.as_ref().filter(|_| defines(&NodeType::Symlink)),
-            size: self.size.filter(|_| file),
-            name: &self.name,
-            media_type: self.media_type.as_deref().filter(|_| file),
-            created: self.created.as_ref(),
-            modified: self.modified.as_ref(),
-            accessed: self.accessed.as_ref(),
-            changed: self.changed.as_ref(),
-            executable: self.executable.filter(|_| file),
-            is_subscribed: self.is_subscribed,
-            my_rights: self.my_rights.as_ref(),
-            share_with: self.share_with.as_ref(),
-            role,
-            extra: &self.extra,
+            id,
+            parent_id: parent_id.as_ref(),
+            node_type: node_type.as_ref(),
+            blob_id: blob_id.as_ref().filter(|_| file),
+            target: target.as_ref().filter(|_| defines(&NodeType::Symlink)),
+            size: size.filter(|_| file),
+            name,
+            media_type: media_type.as_deref().filter(|_| file),
+            created: created.as_ref(),
+            modified: modified.as_ref(),
+            accessed: accessed.as_ref(),
+            changed: changed.as_ref(),
+            executable: executable.filter(|_| file),
+            is_subscribed: *is_subscribed,
+            my_rights: my_rights.as_ref(),
+            share_with: share_with.as_ref(),
+            role: wire_role,
+            extra,
         }
         .serialize(serializer)
     }

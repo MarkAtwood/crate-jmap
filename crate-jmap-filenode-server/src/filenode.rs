@@ -1,4 +1,4 @@
-//! FileNode/* method handlers (draft-ietf-jmap-filenode-14).
+//! FileNode/* method handlers (draft-ietf-jmap-filenode-16).
 //!
 //! Provides all six JMAP FileNode method handlers:
 //! - [`handle_filenode_get`]
@@ -15,7 +15,7 @@
 //! Object whose fields match the corresponding RFC 8620 §5 method shape
 //! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3, `/copy` → §5.4,
 //! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
-//! arguments defined by draft-ietf-jmap-filenode-14 §3.2. The returned
+//! arguments defined by draft-ietf-jmap-filenode-16 §3.2. The returned
 //! `Value` is the corresponding method-response object per the same
 //! section refs.
 //!
@@ -46,11 +46,11 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 // FileNode/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `FileNode/get` method call (draft-ietf-jmap-filenode-14 §3.2.1).
+/// Handle a `FileNode/get` method call (draft-ietf-jmap-filenode-16 §3.2.1).
 ///
 /// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
 /// `ids`, optional `properties`), augmented with the
-/// draft-ietf-jmap-filenode-14 §3.2.1 `fetchParents` Boolean argument;
+/// draft-ietf-jmap-filenode-16 §3.2.1 `fetchParents` Boolean argument;
 /// the returned `Value` is the §5.1 `/get` response shape (`accountId`,
 /// `state`, `list`, `notFound`).
 ///
@@ -119,7 +119,7 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
         };
 
         if !node_ids.is_empty() {
-            // draft-ietf-jmap-filenode-14 §3.2.1 makes fetchParents
+            // draft-ietf-jmap-filenode-16 §3.2.1 makes fetchParents
             // part of the request contract: the response shape does
             // not advertise that ancestors are missing, so silently
             // dropping a backend error would let the client believe
@@ -157,7 +157,7 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
 // FileNode/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `FileNode/changes` method call (draft-ietf-jmap-filenode-14 §3.2.2).
+/// Handle a `FileNode/changes` method call (draft-ietf-jmap-filenode-16 §3.2.2).
 ///
 /// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
 /// `sinceState`, optional `maxChanges`); the returned `Value` is the
@@ -194,7 +194,7 @@ enum OnExists {
     Newest,
 }
 
-/// Handle a `FileNode/set` method call (draft-ietf-jmap-filenode-14 §3.2.3).
+/// Handle a `FileNode/set` method call (draft-ietf-jmap-filenode-16 §3.2.3).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
 /// `ifInState`, optional `create` / `update` / `destroy` maps), augmented
@@ -316,7 +316,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 
             // Tracks the rename applied by OnExists::Rename so the
             // post-create response can enforce the spec's MUST that the
-            // renamed name appears in the response (§3.2.3 lines 572-575)
+            // renamed name appears in the response (§3.2.3 lines 687-690)
             // even if the backend echoes a different name.
             let mut renamed_to: Option<String> = None;
 
@@ -354,8 +354,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                 continue;
                             }
                             OnExists::Replace => {
-                                // draft-ietf-jmap-filenode-14 §3.2.3 lines
-                                // 565-570: "If 'replace', the existing item
+                                // draft-ietf-jmap-filenode-16 §3.2.3 lines
+                                // 677-682: "If 'replace', the existing item
                                 // will be destroyed. [...] if the replaced
                                 // item is a directory which has children,
                                 // then the server MUST respond with a
@@ -511,7 +511,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                 // Fall through to create the renamed node.
                             }
                             OnExists::Newest => {
-                                // draft-ietf-jmap-filenode-14 §3.2.3: compare
+                                // draft-ietf-jmap-filenode-16 §3.2.3: compare
                                 // modified timestamps. If the incoming item has
                                 // a strictly later modified value, proceed as
                                 // with "replace". Otherwise reject as with null.
@@ -665,43 +665,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 }
             };
 
-            // -------------------------------------------------------------------
-            // Consistency validation (§3.1 type constraints).
-            // -------------------------------------------------------------------
-            let has_blob = node.blob_id.is_some();
-            let has_target = node.target.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
-            let consistency_error: Option<(&str, &str)> = match node.node_type.as_ref() {
-                Some(NodeType::File) if !has_blob => Some(("blobId", "file node requires blobId")),
-                Some(NodeType::File) if has_target => {
-                    // draft-ietf-jmap-filenode-14: target is for symlinks
-                    // only ("The target is mutable [...] updating it
-                    // changes where the symlink points"). A File with a
-                    // non-empty target is internally inconsistent and
-                    // would otherwise be stored verbatim.
-                    Some(("target", "file node must not have target"))
-                }
-                Some(NodeType::Directory) if has_blob => {
-                    Some(("blobId", "directory node must not have blobId"))
-                }
-                Some(NodeType::Directory) if has_target => {
-                    Some(("target", "directory node must not have target"))
-                }
-                Some(NodeType::Symlink) if has_blob => {
-                    Some(("blobId", "symlink node must not have blobId"))
-                }
-                Some(NodeType::Symlink) if !has_target => {
-                    Some(("target", "symlink node requires target"))
-                }
-                // draft-ietf-jmap-filenode-16 §3.1.1: an @type outside
-                // supportedNodeTypes MUST be rejected.
-                Some(NodeType::Other(_)) => Some(("@type", "unsupported @type")),
-                _ => None,
-            };
-            if let Some((field, description)) = consistency_error {
-                not_created.insert(
-                    create_id,
-                    json!({ "type": "invalidProperties", "properties": [field], "description": description }),
-                );
+            if let Some(err) = create_type_error(&node) {
+                not_created.insert(create_id, err);
                 continue;
             }
 
@@ -732,7 +697,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     mutated = true;
                     let mut value = serde_json::to_value(&created_obj)
                         .expect("derive(Serialize) on plain data is infallible");
-                    // draft-ietf-jmap-filenode-14 §3.2.3 lines 572-575:
+                    // draft-ietf-jmap-filenode-16 §3.2.3 lines 687-690:
                     // "If the server changes the name, it MUST include
                     // the new 'name' value in the created or updated
                     // response field for this id." Enforce regardless
@@ -788,6 +753,54 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 }
             };
 
+            // draft-ietf-jmap-filenode-16 §3.1: setting a property not
+            // defined for the node's @type to a non-null value is
+            // invalidProperties; a null value is ignored. The stored node
+            // is fetched only when the patch sets a type-specific property.
+            let typed: Vec<(&str, NodeType)> = patch
+                .as_map()
+                .iter()
+                .filter(|(_, v)| !v.is_null())
+                .filter_map(|(k, _)| property_owner(k).map(|owner| (k.as_str(), owner)))
+                .collect();
+            if !typed.is_empty() {
+                let stored = match backend
+                    .get_objects::<FileNode>(
+                        caller,
+                        &account_id,
+                        Some(std::slice::from_ref(&id)),
+                        None,
+                    )
+                    .await
+                {
+                    Ok((nodes, _)) => nodes.into_iter().next(),
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                };
+                // A missing node falls through so update_object reports
+                // notFound.
+                if let Some(node) = stored {
+                    let bad: Vec<&str> = typed
+                        .iter()
+                        .filter(|(_, owner)| node.node_type.as_ref() != Some(owner))
+                        .map(|(k, _)| *k)
+                        .collect();
+                    if !bad.is_empty() {
+                        not_updated.insert(
+                            id_str,
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": bad,
+                                "description": "property not defined for this node's @type",
+                            }),
+                        );
+                        continue;
+                    }
+                }
+            }
+
             // Circular reference check: if the patch touches `parentId`,
             // verify the move would not create a cycle. Introspection is
             // on PatchObject's underlying typed map so what the cycle
@@ -797,7 +810,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 if let Some(new_parent_str) = new_parent_val.as_str() {
                     let new_parent_id = Id::from(new_parent_str);
                     // A node is trivially an ancestor of itself
-                    // (draft-ietf-jmap-filenode-14 §3.2.3), and
+                    // (draft-ietf-jmap-filenode-16 §3.2.3), and
                     // `get_descendant_ids` documents that the
                     // returned set excludes the node itself — so
                     // the descendant check below cannot catch
@@ -1033,7 +1046,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 // FileNode/copy
 // ---------------------------------------------------------------------------
 
-/// Handle a `FileNode/copy` method call (draft-ietf-jmap-filenode-14 §3.2.4).
+/// Handle a `FileNode/copy` method call (draft-ietf-jmap-filenode-16 §3.2.4).
 ///
 /// `args` is the RFC 8620 §5.4 `/copy` request shape (`fromAccountId`,
 /// optional `ifFromInState`, `accountId`, optional `ifInState`, `create`
@@ -1108,7 +1121,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
         }
     }
 
-    // draft-ietf-jmap-filenode-14 §3.2.4: "This is a standard Foo/copy
+    // draft-ietf-jmap-filenode-16 §3.2.4: "This is a standard Foo/copy
     // function with the same additional top-level arguments as
     // FileNode/set, onDestroyRemoveChildren and onExists, with the
     // same behaviour." Parse and apply them to the destination account
@@ -1217,7 +1230,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             }
 
             // RFC 8620 §5.4: "a copy of the source object with the given
-            // properties overridden". draft-ietf-jmap-filenode-14 §3.2.4
+            // properties overridden". draft-ietf-jmap-filenode-16 §3.2.4
             // references this verbatim. Apply ALL override fields from
             // obj_val on top of the source, not just (parentId, name).
             // The 'id' key is the source reference, not a write target —
@@ -1237,6 +1250,13 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                     continue;
                 }
             };
+            // draft-ietf-jmap-filenode-16 §3.2.4: "the same additional
+            // errors as FileNode/set apply". Checked before any onExists
+            // destroy so an invalid copy has no side effects.
+            if let Some(err) = create_type_error(&source_node) {
+                not_copied.insert(create_id, err);
+                continue;
+            }
             // The destination assigns a new id; clear the source id so
             // create_object cannot accidentally reuse it. The id field
             // is non-Optional on FileNode, so use the default placeholder
@@ -1293,7 +1313,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
 
             // Tracks the rename applied by OnExists::Rename so the
             // post-create response can enforce the spec's MUST that the
-            // renamed name appears in the response (§3.2.3 lines 572-575)
+            // renamed name appears in the response (§3.2.3 lines 687-690)
             // even if the backend echoes a different name.
             let mut renamed_to: Option<String> = None;
 
@@ -1479,7 +1499,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                             }
                         }
                         OnExists::Newest => {
-                            // draft-ietf-jmap-filenode-14 §3.2.3: compare
+                            // draft-ietf-jmap-filenode-16 §3.2.3: compare
                             // modified timestamps. Incoming strictly later →
                             // replace; otherwise → alreadyExists.
                             //
@@ -1619,7 +1639,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                     mutated = true;
                     let mut value = serde_json::to_value(&created_obj)
                         .expect("derive(Serialize) on plain data is infallible");
-                    // §3.2.3 lines 572-575 MUST: enforce the renamed
+                    // §3.2.3 lines 687-690 MUST: enforce the renamed
                     // name in the response regardless of whether the
                     // backend echoed it.
                     if let Some(name) = renamed_to.as_deref() {
@@ -1674,7 +1694,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
     // RESPONSE object here, not request args.
     //
     // Honors the top-level `onDestroyRemoveChildren` flag for the implicit
-    // destroys, matching draft-ietf-jmap-filenode-14 §3.2.4's "with the same
+    // destroys, matching draft-ietf-jmap-filenode-16 §3.2.4's "with the same
     // behaviour" reference to FileNode/set (§3.2.3 nodeHasChildren semantics).
     let mut extra: Vec<Invocation> = Vec::new();
     if on_success_destroy_original && !copied_source_ids.is_empty() {
@@ -1798,7 +1818,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
 /// Merge override fields from a FileNode/copy create entry over a source node.
 ///
 /// RFC 8620 §5.4 ("a copy of the source object with the given properties
-/// overridden") and draft-ietf-jmap-filenode-14 §3.2.4 ("the same behaviour"
+/// overridden") and draft-ietf-jmap-filenode-16 §3.2.4 ("the same behaviour"
 /// as FileNode/set). The caller-supplied `override_val` is applied on top
 /// of the serialized source. Fields the server owns are excluded:
 ///
@@ -1850,11 +1870,67 @@ fn merge_filenode_overrides(source: FileNode, override_val: &Value) -> Result<Fi
     })
 }
 
+/// Create-time `@type` consistency checks (§3.1 type constraints), shared by
+/// `FileNode/set` create and `FileNode/copy` (draft-ietf-jmap-filenode-16
+/// §3.2.4: "the same additional errors as FileNode/set apply").
+///
+/// Returns an `invalidProperties` SetError value naming the offending
+/// property, or `None` if the node is acceptable for creation.
+fn create_type_error(node: &FileNode) -> Option<Value> {
+    let has_blob = node.blob_id.is_some();
+    let has_target = node.target.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
+    let (field, description) = match node.node_type.as_ref() {
+        // draft-ietf-jmap-filenode-16 §3.1.1: `@type` MUST be provided on
+        // creation; the server does not infer it.
+        None => ("@type", "@type is required on create".to_owned()),
+        Some(NodeType::File) if !has_blob => ("blobId", "file node requires blobId".to_owned()),
+        Some(NodeType::File) if has_target => {
+            // draft-ietf-jmap-filenode-16 §3.1: setting a property
+            // not defined for the node's @type to a non-null value
+            // is an "invalidProperties" error; target is defined only
+            // for SymLink (§3.1.4).
+            ("target", "file node must not have target".to_owned())
+        }
+        Some(NodeType::Directory) if has_blob => {
+            ("blobId", "directory node must not have blobId".to_owned())
+        }
+        Some(NodeType::Directory) if has_target => {
+            ("target", "directory node must not have target".to_owned())
+        }
+        Some(NodeType::Symlink) if has_blob => {
+            ("blobId", "symlink node must not have blobId".to_owned())
+        }
+        Some(NodeType::Symlink) if !has_target => {
+            ("target", "symlink node requires target".to_owned())
+        }
+        // draft-ietf-jmap-filenode-16 §3.1.1: an @type outside
+        // supportedNodeTypes MUST be rejected.
+        Some(NodeType::Other(s)) => (
+            "@type",
+            format!("unsupported @type {s:?}; expected File, Directory, or SymLink"),
+        ),
+        _ => return None,
+    };
+    Some(json!({ "type": "invalidProperties", "properties": [field], "description": description }))
+}
+
+/// The `@type` that defines a type-specific property
+/// (draft-ietf-jmap-filenode-16 §3.1.2-§3.1.4), or `None` for a common or
+/// unknown property.
+fn property_owner(property: &str) -> Option<NodeType> {
+    match property {
+        "blobId" | "size" | "mediaType" | "executable" => Some(NodeType::File),
+        "role" => Some(NodeType::Directory),
+        "target" => Some(NodeType::Symlink),
+        _ => None,
+    }
+}
+
 // ---------------------------------------------------------------------------
 // FileNode/query
 // ---------------------------------------------------------------------------
 
-/// Handle a `FileNode/query` method call (draft-ietf-jmap-filenode-14 §3.2.5).
+/// Handle a `FileNode/query` method call (draft-ietf-jmap-filenode-16 §3.2.5).
 ///
 /// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
 /// `filter`, optional `sort`, optional `position` / `anchor` /
@@ -1914,7 +1990,7 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
         return Ok((response, tail));
     }
 
-    // draft-ietf-jmap-filenode-14 §3.2.5: when `depth > 0` the client is
+    // draft-ietf-jmap-filenode-16 §3.2.5: when `depth > 0` the client is
     // requesting an expanded subtree. A backend error here is not optional
     // — silently downgrading to a flat result would surface as a
     // successful depth=N query containing only the level-0 ids, with no
@@ -1945,7 +2021,7 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
 // FileNode/queryChanges
 // ---------------------------------------------------------------------------
 
-/// Handle a `FileNode/queryChanges` method call (draft-ietf-jmap-filenode-14 §3.2.6).
+/// Handle a `FileNode/queryChanges` method call (draft-ietf-jmap-filenode-16 §3.2.6).
 ///
 /// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
 /// optional `filter`, optional `sort`, `sinceQueryState`, optional
@@ -2013,7 +2089,7 @@ mod tests {
     ///   object. Simulates a backend that normalises names rather than
     ///   echoing the supplied value. Used to exercise the handler's
     ///   enforcement of the rename MUST
-    ///   (draft-ietf-jmap-filenode-14 §3.2.3 lines 572-575).
+    ///   (draft-ietf-jmap-filenode-16 §3.2.3 lines 687-690).
     ///
     /// Test-only — kept inside `mod tests` rather than the public
     /// reference implementation to avoid promoting "fault-injection"
@@ -2773,7 +2849,7 @@ mod tests {
     // -----------------------------------------------------------------------
 
     /// Oracle: fetchParents=false → response unchanged (no ancestor expansion).
-    /// Source: draft-ietf-jmap-filenode-14 §3.2.1.
+    /// Source: draft-ietf-jmap-filenode-16 §3.2.1.
     #[tokio::test]
     async fn get_fetch_parents_false_unchanged() {
         let backend = MemoryBackend::new().with_account("acc1");
@@ -2786,7 +2862,7 @@ mod tests {
     }
 
     /// Oracle: fetchParents=true with no nodes → list unchanged (no ancestors to fetch).
-    /// Source: draft-ietf-jmap-filenode-14 §3.2.1.
+    /// Source: draft-ietf-jmap-filenode-16 §3.2.1.
     #[tokio::test]
     async fn get_fetch_parents_true_no_nodes() {
         let backend = MemoryBackend::new().with_account("acc1");
@@ -2898,7 +2974,7 @@ mod tests {
         assert!(resp["ids"].is_array());
     }
 
-    // ── depth parameter (draft-ietf-jmap-filenode-14 §3.2.5) ────────────────
+    // ── depth parameter (draft-ietf-jmap-filenode-16 §3.2.5) ────────────────
 
     /// Oracle: depth absent → flat query, same result as before.
     #[tokio::test]
@@ -2926,7 +3002,7 @@ mod tests {
     /// match set, NOT the recursive subtree. Regression guard for
     /// bd:JMAP-510h.45 — the trait doc previously claimed
     /// `0 = direct children only` which contradicted both the spec
-    /// (draft-ietf-jmap-filenode-14 §3.2.5 "If absent, null, or zero,
+    /// (draft-ietf-jmap-filenode-16 §3.2.5 "If absent, null, or zero,
     /// do not recurse") and the handler's actual short-circuit. This
     /// test pins down the spec semantics: depth=0 must not include
     /// children even when children exist.
@@ -3153,7 +3229,7 @@ mod tests {
     /// Oracle: destroy of a node that has children when onDestroyRemoveChildren
     /// is false (the default) returns notDestroyed with type "nodeHasChildren".
     ///
-    /// Source: draft-ietf-jmap-filenode-14 §3.2.3.
+    /// Source: draft-ietf-jmap-filenode-16 §3.2.3.
     ///
     /// Positively asserts handler-side guard ordering: the
     /// `nodeHasChildren` short-circuit MUST fire before any
@@ -3246,7 +3322,7 @@ mod tests {
 
     /// Oracle: onDestroyRemoveChildren=true; descendants go to backend destroy
     /// (notFound from mock), NOT with nodeHasChildren error.
-    /// Source: draft-ietf-jmap-filenode-14 §3.2.3.
+    /// Source: draft-ietf-jmap-filenode-16 §3.2.3.
     #[tokio::test]
     async fn set_destroy_with_remove_children_true_includes_descendants_in_destroyed() {
         let backend = FaultyBackend::new_with_account("acc1");
@@ -3295,7 +3371,7 @@ mod tests {
     /// Oracle: update that sets parentId to a value that would create a cycle
     /// returns notUpdated with invalidProperties on parentId.
     ///
-    /// Source: draft-ietf-jmap-filenode-14 §3.2.3 (no cycles constraint).
+    /// Source: draft-ietf-jmap-filenode-16 §3.2.3 (no cycles constraint).
     #[tokio::test]
     async fn set_update_circular_parent_returns_invalid_properties() {
         let backend = FaultyBackend::new_with_account("acc1");
@@ -3337,7 +3413,7 @@ mod tests {
     /// trivial cycle (a node cannot be its own parent). It must produce
     /// notUpdated with invalidProperties on parentId.
     ///
-    /// Source: draft-ietf-jmap-filenode-14 §3.2.3 — "an attempt to move a
+    /// Source: draft-ietf-jmap-filenode-16 §3.2.3 — "an attempt to move a
     /// node to a parent for which this node is also an ancestor is an
     /// error". A node is trivially an ancestor of itself. The standard
     /// descendant-set check cannot catch this because `get_descendant_ids`
@@ -3380,7 +3456,7 @@ mod tests {
     // FileNode/set — destroy parent + all children in same request
     // -----------------------------------------------------------------------
 
-    /// Oracle: draft-ietf-jmap-filenode-14 §3.2.3 — MUST NOT return
+    /// Oracle: draft-ietf-jmap-filenode-16 §3.2.3 — MUST NOT return
     /// nodeHasChildren when all children of the destroyed node are also in
     /// the same destroy request.
     #[tokio::test]
@@ -3528,9 +3604,9 @@ mod tests {
         }
     }
 
-    /// Oracle: create with nodeType="file" and blobId=null → invalidProperties
+    /// Oracle: create with @type="File" and blobId=null → invalidProperties
     /// on "blobId" (file node requires blobId).
-    /// Source: draft-ietf-jmap-filenode-14 §3.1.
+    /// Source: draft-ietf-jmap-filenode-16 §3.1.2.
     #[tokio::test]
     async fn set_create_file_without_blobid_returns_invalid_properties() {
         let backend = MemoryBackend::new().with_account("acc1");
@@ -3562,12 +3638,12 @@ mod tests {
         );
     }
 
-    /// Oracle: create with nodeType="symlink" and target=null → invalidProperties
+    /// Oracle: create with @type="SymLink" and target=null → invalidProperties
     /// Oracle: file node with both blobId and target → invalidProperties on
     /// "target". `target` is meaningful only for symlinks per the spec; a
     /// file carrying `target` is internally inconsistent and would otherwise
     /// be stored verbatim.
-    /// Source: draft-ietf-jmap-filenode-14 §3.1 (target field is symlink-only).
+    /// Source: draft-ietf-jmap-filenode-16 §3.1 (target field is SymLink-only).
     /// Regression for bd JMAP-510h.7.
     #[tokio::test]
     async fn set_create_file_with_blob_and_target_returns_invalid_properties() {
@@ -3607,7 +3683,7 @@ mod tests {
     }
 
     /// on "target" (symlink node requires target).
-    /// Source: draft-ietf-jmap-filenode-14 §3.1.
+    /// Source: draft-ietf-jmap-filenode-16 §3.1.4.
     #[tokio::test]
     async fn set_create_symlink_without_target_returns_invalid_properties() {
         let backend = MemoryBackend::new().with_account("acc1");
@@ -3645,7 +3721,7 @@ mod tests {
 
     /// Oracle: create when a sibling with the same name exists and onExists is
     /// absent (default Reject) → notCreated with type "alreadyExists".
-    /// Source: draft-ietf-jmap-filenode-14 §3.2.3.
+    /// Source: draft-ietf-jmap-filenode-16 §3.2.3.
     #[tokio::test]
     async fn set_create_collision_reject_returns_already_exists() {
         let backend = FaultyBackend::new_with_account("acc1");
@@ -3678,7 +3754,7 @@ mod tests {
     }
 
     /// Oracle: create with onExists="rename" → name is suffixed to avoid collision.
-    /// Source: draft-ietf-jmap-filenode-14 §3.2.3 lines 572-575 — "If the
+    /// Source: draft-ietf-jmap-filenode-16 §3.2.3 lines 687-690 — "If the
     /// server changes the name, it MUST include the new 'name' value in the
     /// created or updated response field for this id."
     #[tokio::test]
@@ -3720,7 +3796,7 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-filenode-14 §3.2.3 lines 572-575 — "If
+    /// Oracle: draft-ietf-jmap-filenode-16 §3.2.3 lines 687-690 — "If
     /// the server changes the name, it MUST include the new 'name'
     /// value in the created or updated response field for this id."
     ///

@@ -32,7 +32,7 @@ fn create_map_of_size(n: usize) -> Value {
     for i in 0..n {
         map.insert(
             format!("c{i}"),
-            json!({"name": format!("node-{i}"), "type": "file"}),
+            json!({"name": format!("node-{i}"), "@type": "File"}),
         );
     }
     Value::Object(map)
