@@ -1309,6 +1309,42 @@ pub trait ChatBackend: JmapBackend {
         async { Ok(Ok(())) }
     }
 
+    /// Referential check consulted by `handle_chat_set` before an update
+    /// that adds ids to `pinnedMessageIds` is applied.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: "Each id
+    /// MUST be the id of a Message in this Chat; the server MUST reject a
+    /// `Chat/set` update that would add any other id with
+    /// `invalidProperties`."
+    ///
+    /// # When the handler calls this
+    ///
+    /// After [`Self::may_set_pinned_messages`] permits the update and
+    /// BEFORE `update_object`, with `added` holding only the ids in the
+    /// new list that are not already in the stored list. Ids already
+    /// pinned are not re-checked: the requirement covers adding, and a
+    /// stale id left behind by a backend that missed a hard delete must
+    /// not make the list impossible to edit. Not called when `added` is
+    /// empty or `chat_id` does not resolve.
+    ///
+    /// Return `Ok(Err(SetError))` with type `invalidProperties` and
+    /// properties `["pinnedMessageIds"]` when any id in `added` is not a
+    /// Message whose `chatId` is `chat_id`.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(()))`, matching the parallel hooks above. Backends
+    /// that store Messages SHOULD override it; the spec rule is a MUST.
+    fn validate_pinned_message_ids(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat_id: &jmap_types::Id,
+        _added: &[jmap_types::Id],
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async { Ok(Ok(())) }
+    }
+
     /// Throttle gate consulted before a `Message/set` create lands on
     /// the rate-limited path.
     ///
@@ -1384,6 +1420,10 @@ pub trait ChatBackend: JmapBackend {
     ///   does not find it.
     /// - Bump the per-account `Message` state token and record the id
     ///   in the change log so `Message/changes` sees it as destroyed.
+    /// - Remove the id from its Chat's `pinnedMessageIds` (§Chat
+    ///   `pinnedMessageIds`: "When a pinned Message is hard-deleted, the
+    ///   server MUST remove its id from this list."). The same applies to
+    ///   `destroy_object::<Message>`.
     ///
     /// # Idempotency
     ///
