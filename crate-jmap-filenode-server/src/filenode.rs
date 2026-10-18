@@ -758,14 +758,20 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             // invalidProperties; a null value is ignored. The stored node
             // is fetched only when the patch sets a type-specific property
             // or @type. A JSON-pointer key ("mediaType/x") patches the
-            // property named by its first segment (RFC 8620 §5.3).
-            let typed: Vec<(&str, NodeType)> = patch
+            // property named by its first segment (RFC 8620 §5.3). A null
+            // pointer patch is kept: §5.3 requires its leading parts to
+            // exist, so one into another type's property is invalidPatch.
+            let typed: Vec<(&str, NodeType, bool)> = patch
                 .as_map()
                 .iter()
-                .filter(|(_, v)| !v.is_null())
-                .filter_map(|(k, _)| {
-                    let prop = k.split_once('/').map_or(k.as_str(), |(head, _)| head);
-                    property_owner(prop).map(|owner| (prop, owner))
+                .filter_map(|(k, v)| {
+                    let (prop, pointer) = k
+                        .split_once('/')
+                        .map_or((k.as_str(), false), |(head, _)| (head, true));
+                    if v.is_null() && !pointer {
+                        return None;
+                    }
+                    property_owner(prop).map(|owner| (prop, owner, v.is_null()))
                 })
                 .collect();
             let type_patch = patch.as_map().get("@type");
@@ -801,17 +807,27 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                         );
                         continue;
                     }
-                    let bad: Vec<&str> = typed
+                    let bad: Vec<(&str, bool)> = typed
                         .iter()
-                        .filter(|(_, owner)| node.node_type.as_ref() != Some(owner))
-                        .map(|(k, _)| *k)
+                        .filter(|(_, owner, _)| node.node_type.as_ref() != Some(owner))
+                        .map(|(k, _, null_pointer)| (*k, *null_pointer))
                         .collect();
+                    if bad.iter().any(|(_, null_pointer)| *null_pointer) {
+                        not_updated.insert(
+                            id_str,
+                            json!({
+                                "type": "invalidPatch",
+                                "description": "patch path into a property not defined for this node's @type",
+                            }),
+                        );
+                        continue;
+                    }
                     if !bad.is_empty() {
                         not_updated.insert(
                             id_str,
                             json!({
                                 "type": "invalidProperties",
-                                "properties": bad,
+                                "properties": bad.iter().map(|(k, _)| *k).collect::<Vec<_>>(),
                                 "description": "property not defined for this node's @type",
                             }),
                         );
