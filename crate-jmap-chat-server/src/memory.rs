@@ -457,6 +457,46 @@ impl MemoryBackend {
         }
     }
 
+    /// Decide a SpaceBan create, update or destroy with an explicitly
+    /// supplied caller id (test-only entry point — analog of
+    /// [`Self::may_set_pinned_messages_with_caller_id`]).
+    ///
+    /// Implements draft-atwood-jmap-chat-00 §SpaceBan/set: each op
+    /// "Requires `"ban"` permission in the Space." A Space that does not
+    /// exist is permitted, matching the pinned-messages gate.
+    ///
+    /// `caller_id == None` reproduces single-user-mode behavior: the
+    /// gate is skipped. Production callers must not use this method;
+    /// the API stability disclaimer on the `memory` feature applies
+    /// doubly here.
+    #[doc(hidden)]
+    #[allow(clippy::result_large_err)]
+    pub fn may_set_space_ban_with_caller_id(
+        &self,
+        caller_id: Option<&Id>,
+        account_id: &Id,
+        space_id: &Id,
+    ) -> Result<(), SetError> {
+        use crate::permissions::BAN;
+
+        let Some(caller_id) = caller_id else {
+            return Ok(());
+        };
+        let inner = self.inner.lock().unwrap();
+        let Some(space) = inner
+            .objects_ref("Space", account_id.as_ref())
+            .and_then(|m| m.get(space_id))
+        else {
+            return Ok(());
+        };
+        if caller_effective_permissions(space, caller_id).is_some_and(|perms| perms.contains(BAN)) {
+            Ok(())
+        } else {
+            Err(SetError::new(SetErrorType::Forbidden)
+                .with_description("caller lacks required permission `ban` in this Space"))
+        }
+    }
+
     /// Test-only: override the [`ChatLimits`] returned by
     /// [`ChatBackend::limits`].
     ///
@@ -1249,6 +1289,22 @@ impl ChatBackend for MemoryBackend {
     ) -> Result<Result<(), SetError>, Self::Error> {
         let caller_id = <Self as JmapBackend>::principal_id(caller);
         Ok(self.may_set_pinned_messages_with_caller_id(caller_id, account_id, chat_id))
+    }
+
+    /// Reference implementation of [`ChatBackend::may_set_space_ban`].
+    ///
+    /// Resolves caller identity through the foundation seam and defers
+    /// to [`MemoryBackend::may_set_space_ban_with_caller_id`]. With
+    /// `CallerCtx = ()` the identity is `None` and every op is permitted
+    /// (single-user mode).
+    async fn may_set_space_ban(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        space_id: &Id,
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        let caller_id = <Self as JmapBackend>::principal_id(caller);
+        Ok(self.may_set_space_ban_with_caller_id(caller_id, account_id, space_id))
     }
 
     /// Reference implementation of

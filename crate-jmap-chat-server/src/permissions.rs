@@ -47,6 +47,12 @@ pub const MANAGE_CHANNELS: &str = "manage_channels";
 /// list."
 pub const PIN: &str = "pin";
 
+/// Permission string: create, update or destroy a SpaceBan.
+///
+/// Per draft-atwood-jmap-chat-00 §SpaceBan/set: create, update and
+/// destroy each "Requires `"ban"` permission in the Space."
+pub const BAN: &str = "ban";
+
 /// Result of [`required_permissions_for_op`] — typed alternative to
 /// a sentinel-string return value.
 ///

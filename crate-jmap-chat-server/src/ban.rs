@@ -127,6 +127,9 @@ pub async fn handle_ban_changes<B: ChatBackend>(
 /// - `id`, `spaceId`, `userId`, `bannedBy`, `createdAt` are server-set/immutable
 ///   and rejected in updates.
 ///
+/// Create, update and destroy each consult
+/// [`ChatBackend::may_set_space_ban`] for the ban's Space.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_ban_set<B: ChatBackend>(
     backend: &B,
@@ -232,6 +235,11 @@ pub async fn handle_ban_set<B: ChatBackend>(
                 ban.expires_at = Some(d);
             }
 
+            if let Some(err) = ban_denied(backend, caller, &account_id, &ban.space_id).await {
+                not_created.insert(create_id.clone(), err);
+                continue;
+            }
+
             match backend
                 .create_object::<SpaceBan>(caller, &account_id, create_id, ban)
                 .await
@@ -307,6 +315,11 @@ pub async fn handle_ban_set<B: ChatBackend>(
                 continue;
             }
 
+            if let Some(err) = stored_ban_denied(backend, caller, &account_id, &id).await {
+                not_updated.insert(id_str, err);
+                continue;
+            }
+
             match backend
                 .update_object::<SpaceBan>(
                     caller,
@@ -365,6 +378,11 @@ pub async fn handle_ban_set<B: ChatBackend>(
             };
             let id = Id::from(id_str);
 
+            if let Some(err) = stored_ban_denied(backend, caller, &account_id, &id).await {
+                not_destroyed.insert(id_str.to_owned(), err);
+                continue;
+            }
+
             match backend
                 .destroy_object::<SpaceBan>(caller, &account_id, &id)
                 .await
@@ -408,4 +426,43 @@ pub async fn handle_ban_set<B: ChatBackend>(
         },
     )
     .await
+}
+
+/// draft-atwood-jmap-chat-00 §SpaceBan/set: create, update and destroy
+/// each "Requires `"ban"` permission in the Space"; the backend decides.
+/// Returns the SetError value to report when the op is denied.
+async fn ban_denied<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    space_id: &Id,
+) -> Option<Value> {
+    match backend
+        .may_set_space_ban(caller, account_id, space_id)
+        .await
+    {
+        Ok(Ok(())) => None,
+        Ok(Err(set_err)) => Some(set_error_value(&set_err)),
+        Err(e) => Some(server_fail_value_from_backend(&e)),
+    }
+}
+
+/// [`ban_denied`] for the Space of the stored ban `id`. A ban that does
+/// not resolve is not gated, so the backend surfaces `notFound`.
+async fn stored_ban_denied<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+) -> Option<Value> {
+    match backend
+        .get_objects::<SpaceBan>(caller, account_id, Some(std::slice::from_ref(id)), None)
+        .await
+    {
+        Ok((bans, _)) => match bans.first() {
+            Some(ban) => ban_denied(backend, caller, account_id, &ban.space_id).await,
+            None => None,
+        },
+        Err(e) => Some(server_fail_value_from_backend(&e)),
+    }
 }
