@@ -602,12 +602,21 @@ pub struct Message {
     /// The `unreadReplyCount` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unread_reply_count: Option<u64>,
+    /// The `topicId` property (draft-atwood-jmap-chat-00 §4.11).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub topic_id: Option<String>,
+    /// The `subject` property (draft-atwood-jmap-chat-00 §4.11).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subject: Option<String>,
     /// The `senderExpiresAt` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sender_expires_at: Option<UTCDate>,
     /// The `burnOnRead` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub burn_on_read: Option<bool>,
+    /// The `expiresAfterReadSeconds` property (draft-atwood-jmap-chat-00 §4.11).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_after_read_seconds: Option<u64>,
     /// The `deliveryReceipts` property (draft-atwood-jmap-chat-00 §4.11).
     ///
     /// Keyed by recipient `ChatContact.id` (one entry per non-owner
@@ -696,8 +705,11 @@ impl Message {
             thread_root_id: None,
             reply_count: None,
             unread_reply_count: None,
+            topic_id: None,
+            subject: None,
             sender_expires_at: None,
             burn_on_read: None,
+            expires_after_read_seconds: None,
             delivery_receipts: None,
             delivered_at: None,
             read_at: None,
@@ -1320,5 +1332,37 @@ mod tests {
         }"#;
         let msg: Message = serde_json::from_str(json).expect("deserialize");
         assert!(msg.broadcast_mentions.is_empty());
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-00 §Message — "`topicId` (String,
+    /// optional, immutable)", "`subject` (String, optional, immutable): The
+    /// human-readable name of the topic identified by `topicId`", and
+    /// "`expiresAfterReadSeconds` (UnsignedInt, optional, immutable)".
+    #[test]
+    fn message_topic_subject_expires_after_read_are_typed() {
+        let json = r#"{
+            "id": "m1",
+            "senderMsgId": "smid1",
+            "senderId": "self",
+            "chatId": "c1",
+            "body": "hi",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "sentAt": "2026-01-01T00:00:00Z",
+            "receivedAt": "2026-01-01T00:00:01Z",
+            "deliveryState": "delivered",
+            "topicId": "t-1",
+            "subject": "Q3 planning",
+            "expiresAfterReadSeconds": 30
+        }"#;
+        let msg: Message = serde_json::from_str(json).expect("deserialize");
+        assert_eq!(msg.topic_id.as_deref(), Some("t-1"));
+        assert_eq!(msg.subject.as_deref(), Some("Q3 planning"));
+        assert_eq!(msg.expires_after_read_seconds, Some(30));
+        assert!(msg.extra.is_empty(), "typed fields leaked into extra");
+        let back = serde_json::to_value(&msg).expect("serialize");
+        assert_eq!(back["topicId"], "t-1");
+        assert_eq!(back["subject"], "Q3 planning");
+        assert_eq!(back["expiresAfterReadSeconds"], 30);
     }
 }

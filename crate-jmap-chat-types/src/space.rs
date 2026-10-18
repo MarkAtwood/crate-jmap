@@ -13,8 +13,12 @@ pub struct SpaceRole {
     /// The `name` property (draft-atwood-jmap-chat-00 §4.12).
     pub name: String,
     /// The `color` property (draft-atwood-jmap-chat-00 §4.12).
+    ///
+    /// Kept as raw JSON: per draft §Color Representation this is a W3C
+    /// Design Tokens color object, a CAM16 coordinate array, or an sRGB
+    /// hex string, and servers MUST preserve the representation provided.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub color: Option<String>,
+    pub color: Option<serde_json::Value>,
     /// The `permissions` property (draft-atwood-jmap-chat-00 §4.12).
     ///
     /// Named permissions this role grants. Drawn from the
@@ -633,5 +637,31 @@ mod tests {
         assert_eq!(ban, ban2);
         assert_eq!(ban.reason, Some("Spam".to_owned()));
         assert!(ban.expires_at.is_some());
+    }
+
+    // Oracle: draft-atwood-jmap-chat-00 §Color Representation — "Servers
+    // MUST accept all three representations in color-valued fields and MUST
+    // preserve the representation provided by the client. Clients MUST
+    // handle all three representations gracefully." §SpaceRole `color`:
+    // "a Design Tokens color object, a CAM16 coordinate array, or an sRGB
+    // hex string (e.g., `"#5865f2"`)."
+    #[test]
+    fn space_role_color_accepts_all_three_representations() {
+        for color in [
+            serde_json::json!({"$type": "color", "$value": "oklch(0.7 0.15 250)"}),
+            serde_json::json!([62.5, 12.0, -30.25]),
+            serde_json::json!("#5865f2"),
+        ] {
+            let wire = serde_json::json!({
+                "id": "r1",
+                "name": "Mod",
+                "color": color,
+                "permissions": [],
+                "position": 1
+            });
+            let role: SpaceRole = serde_json::from_value(wire.clone())
+                .unwrap_or_else(|e| panic!("deserialize SpaceRole with color {color}: {e}"));
+            assert_eq!(serde_json::to_value(&role).expect("serialize"), wire);
+        }
     }
 }
