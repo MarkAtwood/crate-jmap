@@ -723,6 +723,17 @@ impl ChatBackend for IdentityBackend {
             .may_set_pinned_messages_with_caller_id(Some(caller), account_id, chat_id))
     }
 
+    async fn may_set_space_ban(
+        &self,
+        caller: &Id,
+        account_id: &Id,
+        space_id: &Id,
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        Ok(self
+            .inner
+            .may_set_space_ban_with_caller_id(Some(caller), account_id, space_id))
+    }
+
     async fn is_contact_blocked(
         &self,
         _caller: &Id,

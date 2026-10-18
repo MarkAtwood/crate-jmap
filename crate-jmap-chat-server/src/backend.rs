@@ -1309,6 +1309,36 @@ pub trait ChatBackend: JmapBackend {
         async { Ok(Ok(())) }
     }
 
+    /// Authorization gate consulted by `handle_ban_set` before each
+    /// SpaceBan create, update or destroy.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §SpaceBan/set: create, update and
+    /// destroy each "Requires `"ban"` permission in the Space."
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per entry, AFTER wire-format validation and BEFORE
+    /// `create_object` / `update_object` / `destroy_object`. `space_id`
+    /// is the create body's `spaceId`, or the stored ban's `spaceId` for
+    /// update and destroy; an update or destroy whose ban does not
+    /// resolve skips the gate so the backend surfaces `notFound`. The
+    /// return mapping is the same as [`Self::may_set_custom_emoji`].
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(()))` — every op is permitted, matching the
+    /// parallel hooks above. Production backends SHOULD override this
+    /// method and deny with
+    /// `Ok(Err(SetError::new(SetErrorType::Forbidden)))`.
+    fn may_set_space_ban(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _space_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async { Ok(Ok(())) }
+    }
+
     /// Referential check consulted by `handle_chat_set` before an update
     /// that adds ids to `pinnedMessageIds` is applied.
     ///
