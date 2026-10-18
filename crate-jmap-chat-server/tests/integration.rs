@@ -1334,6 +1334,88 @@ async fn message_set_update_delete_for_all_rejects_other_sender() {
     assert_eq!(msg["editHistory"][0]["body"], "original");
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 §Editing a Message ("`update` with
+/// changed `body`, `bodyType`, `mentions`, and/or `broadcastMentions`, on a
+/// message where `senderId` is `\"self\"` and `deletedAt` is absent. The
+/// server MUST reject an edit of any other message with a `forbidden`
+/// SetError."). Here the target's `senderId` is not `"self"`.
+#[tokio::test]
+async fn message_set_update_edit_rejects_other_sender() {
+    let backend = MemoryBackend::new();
+    insert_deletable_message(&backend, "contact-alice");
+
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": { "m1": { "body": "rewritten", "bodyType": "text/plain" } }
+        }),
+    )
+    .await
+    .expect("update");
+    assert_eq!(update_resp["notUpdated"]["m1"]["type"], "forbidden");
+    assert_eq!(update_resp["updated"], json!(null));
+
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+    )
+    .await
+    .expect("get");
+    let msg = &get_resp["list"][0];
+    assert_eq!(msg["body"], "edited");
+    assert_eq!(msg["editedAt"], "2024-01-02T00:00:00Z");
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Editing a Message ("`update` with
+/// changed `body`, `bodyType`, `mentions`, and/or `broadcastMentions`, on a
+/// message where `senderId` is `\"self\"` and `deletedAt` is absent. The
+/// server MUST reject an edit of any other message with a `forbidden`
+/// SetError."). Here the target is the owner's own, already-deleted Message.
+#[tokio::test]
+async fn message_set_update_edit_rejects_deleted_message() {
+    let backend = MemoryBackend::new();
+    insert_deletable_message(&backend, "self");
+
+    let (delete_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": { "m1": { "deletedAt": "2024-01-03T00:00:00Z" } }
+        }),
+    )
+    .await
+    .expect("delete");
+    assert_eq!(delete_resp["notUpdated"], json!(null));
+
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": {
+                "m1": { "mentions": [{ "id": "contact-alice", "offset": 0, "length": 0 }] }
+            }
+        }),
+    )
+    .await
+    .expect("update");
+    assert_eq!(update_resp["notUpdated"]["m1"]["type"], "forbidden");
+    assert_eq!(update_resp["updated"], json!(null));
+
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+    )
+    .await
+    .expect("get");
+    assert_eq!(get_resp["list"][0]["mentions"], json!([]));
+}
+
 /// Oracle: setting readAt stores the client-provided timestamp.
 #[tokio::test]
 async fn message_set_update_mark_as_read() {
