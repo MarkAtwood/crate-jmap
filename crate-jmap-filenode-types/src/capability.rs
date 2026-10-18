@@ -1,9 +1,11 @@
-//! draft-ietf-jmap-filenode-14 §2.1 — account-level capability object.
+//! draft-ietf-jmap-filenode-16 §2.1 — account-level capability object.
 //!
 //! Provides [`FileNodeCapability`] and the capability URI constant
 //! [`JMAP_FILENODE_URI`].
 
 use serde::{Deserialize, Serialize};
+
+use crate::NodeType;
 
 /// The JMAP capability URI for the FileNode extension.
 ///
@@ -13,7 +15,7 @@ use serde::{Deserialize, Serialize};
 pub const JMAP_FILENODE_URI: &str = "urn:ietf:params:jmap:filenode";
 
 /// Account-level capability for the JMAP FileNode extension
-/// (draft-ietf-jmap-filenode-14 §2.1).
+/// (draft-ietf-jmap-filenode-16 §2.1).
 ///
 /// The value of the `urn:ietf:params:jmap:filenode` key in `accountCapabilities`.
 ///
@@ -53,6 +55,11 @@ pub struct FileNodeCapability {
     ///
     /// Always serialized (as `null` when `None`).
     pub forbidden_node_names: Option<Vec<String>>,
+
+    /// The `@type` values the server allows clients to create in this account.
+    /// MUST include `"Directory"` and `"File"`; MAY include `"SymLink"` and other
+    /// registered values.  Unrecognised values deserialize as [`NodeType::Other`].
+    pub supported_node_types: Vec<NodeType>,
 
     /// All sort property values supported for the `"property"` field of a Comparator
     /// object in `FileNode/query`.

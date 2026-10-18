@@ -289,7 +289,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
         for (create_id, obj_val) in create_map {
             // Inject a placeholder `id` — the backend replaces it with the
             // server-assigned id on success.
-            let mut obj_with_id = match obj_val {
+            let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
                     m.entry("id")
                         .or_insert_with(|| Value::String("placeholder".to_owned()));
@@ -314,6 +314,44 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 continue;
             }
 
+            // Validate fully before acting on onExists, so an invalid create
+            // cannot destroy the colliding node (RFC 8620 §5.3: each creation
+            // is an atomic unit).
+            let mut node: FileNode = match serde_json::from_value(obj_with_id) {
+                Ok(n) => n,
+                Err(e) => {
+                    not_created.insert(
+                        create_id,
+                        json!({ "type": "invalidProperties", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
+
+            if let Some(err) = create_type_error(&node) {
+                not_created.insert(create_id, err);
+                continue;
+            }
+
+            // For file nodes, verify the blob exists. A transient backend
+            // error propagates as a top-level serverFail so the client
+            // retries instead of silently mis-classifying as blob-not-found.
+            if matches!(node.node_type.as_ref(), Some(NodeType::File)) {
+                if let Some(ref blob_id) = node.blob_id {
+                    match backend.blob_exists(caller, &account_id, blob_id).await {
+                        Ok(true) => {}
+                        Ok(false) => {
+                            not_created.insert(
+                                create_id,
+                                json!({ "type": "invalidProperties", "properties": ["blobId"], "description": "blob not found" }),
+                            );
+                            continue;
+                        }
+                        Err(e) => return Err(server_fail_from_backend(&e)),
+                    }
+                }
+            }
+
             // Tracks the rename applied by OnExists::Rename so the
             // post-create response can enforce the spec's MUST that the
             // renamed name appears in the response (§3.2.3 lines 687-690)
@@ -323,15 +361,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             // -------------------------------------------------------------------
             // Collision detection (onExists — §3.2.3).
             // -------------------------------------------------------------------
-            let node_name = obj_with_id
-                .get("name")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_owned();
-            let parent_id_for_collision: Option<Id> = obj_with_id
-                .get("parentId")
-                .and_then(|v| v.as_str())
-                .map(Id::from);
+            let node_name = node.name.clone();
+            let parent_id_for_collision: Option<Id> = node.parent_id.clone();
 
             if !node_name.is_empty() {
                 match backend
@@ -477,12 +508,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                         .await
                                     {
                                         Ok(None) => {
-                                            if let Value::Object(ref mut m) = obj_with_id {
-                                                m.insert(
-                                                    "name".to_owned(),
-                                                    Value::String(candidate.clone()),
-                                                );
-                                            }
+                                            node.name = candidate.clone();
                                             renamed_to = Some(candidate);
                                             renamed = true;
                                             break;
@@ -520,10 +546,10 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                 // UTCDate::new_validated to prevent malformed
                                 // strings (e.g. "9999") from lexicographically
                                 // beating any real timestamp.
-                                let incoming_modified = obj_with_id
-                                    .get("modified")
-                                    .and_then(|v| v.as_str())
-                                    .and_then(|s| UTCDate::new_validated(s).ok())
+                                let incoming_modified = node
+                                    .modified
+                                    .as_ref()
+                                    .and_then(|d| UTCDate::new_validated(d.as_ref()).ok())
                                     .map(|d| d.as_ref().to_owned())
                                     .unwrap_or_default();
                                 let (existing_nodes, _): (Vec<FileNode>, _) = backend
@@ -650,41 +676,6 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     Err(e) => {
                         not_created.insert(create_id, server_fail_value_from_backend(&e));
                         continue;
-                    }
-                }
-            }
-
-            let node: FileNode = match serde_json::from_value(obj_with_id) {
-                Ok(n) => n,
-                Err(e) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "invalidProperties", "description": e.to_string() }),
-                    );
-                    continue;
-                }
-            };
-
-            if let Some(err) = create_type_error(&node) {
-                not_created.insert(create_id, err);
-                continue;
-            }
-
-            // For file nodes, verify the blob exists. A transient backend
-            // error propagates as a top-level serverFail so the client
-            // retries instead of silently mis-classifying as blob-not-found.
-            if matches!(node.node_type.as_ref(), Some(NodeType::File)) {
-                if let Some(ref blob_id) = node.blob_id {
-                    match backend.blob_exists(caller, &account_id, blob_id).await {
-                        Ok(true) => {}
-                        Ok(false) => {
-                            not_created.insert(
-                                create_id,
-                                json!({ "type": "invalidProperties", "properties": ["blobId"], "description": "blob not found" }),
-                            );
-                            continue;
-                        }
-                        Err(e) => return Err(server_fail_from_backend(&e)),
                     }
                 }
             }
@@ -1912,39 +1903,49 @@ fn merge_filenode_overrides(source: FileNode, override_val: &Value) -> Result<Fi
 /// Returns an `invalidProperties` SetError value naming the offending
 /// property, or `None` if the node is acceptable for creation.
 fn create_type_error(node: &FileNode) -> Option<Value> {
-    let has_blob = node.blob_id.is_some();
-    let has_target = node.target.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
     let (field, description) = match node.node_type.as_ref() {
         // draft-ietf-jmap-filenode-16 §3.1.1: `@type` MUST be provided on
         // creation; the server does not infer it.
         None => ("@type", "@type is required on create".to_owned()),
-        Some(NodeType::File) if !has_blob => ("blobId", "file node requires blobId".to_owned()),
-        Some(NodeType::File) if has_target => {
-            // draft-ietf-jmap-filenode-16 §3.1: setting a property
-            // not defined for the node's @type to a non-null value
-            // is an "invalidProperties" error; target is defined only
-            // for SymLink (§3.1.4).
-            ("target", "file node must not have target".to_owned())
-        }
-        Some(NodeType::Directory) if has_blob => {
-            ("blobId", "directory node must not have blobId".to_owned())
-        }
-        Some(NodeType::Directory) if has_target => {
-            ("target", "directory node must not have target".to_owned())
-        }
-        Some(NodeType::Symlink) if has_blob => {
-            ("blobId", "symlink node must not have blobId".to_owned())
-        }
-        Some(NodeType::Symlink) if !has_target => {
-            ("target", "symlink node requires target".to_owned())
-        }
         // draft-ietf-jmap-filenode-16 §3.1.1: an @type outside
         // supportedNodeTypes MUST be rejected.
         Some(NodeType::Other(s)) => (
             "@type",
             format!("unsupported @type {s:?}; expected File, Directory, or SymLink"),
         ),
-        _ => return None,
+        Some(node_type) => {
+            // draft-ietf-jmap-filenode-16 §3.1: setting a property not
+            // defined for the node's @type to a non-null value is
+            // invalidProperties; a null value (None here) is ignored.
+            let other: Vec<&str> = [
+                ("blobId", node.blob_id.is_some()),
+                ("size", node.size.is_some()),
+                ("mediaType", node.media_type.is_some()),
+                ("executable", node.executable.is_some()),
+                ("role", node.role.is_some()),
+                ("target", node.target.is_some()),
+            ]
+            .into_iter()
+            .filter(|(prop, set)| *set && property_owner(prop).as_ref() != Some(node_type))
+            .map(|(prop, _)| prop)
+            .collect();
+            if !other.is_empty() {
+                return Some(json!({
+                    "type": "invalidProperties",
+                    "properties": other,
+                    "description": "property not defined for this node's @type",
+                }));
+            }
+            match node_type {
+                NodeType::File if node.blob_id.is_none() => {
+                    ("blobId", "file node requires blobId".to_owned())
+                }
+                NodeType::Symlink if node.target.as_ref().is_none_or(Vec::is_empty) => {
+                    ("target", "symlink node requires target".to_owned())
+                }
+                _ => return None,
+            }
+        }
     };
     Some(json!({ "type": "invalidProperties", "properties": [field], "description": description }))
 }
