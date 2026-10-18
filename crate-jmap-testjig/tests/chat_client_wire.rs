@@ -115,7 +115,11 @@ async fn session_discovery_yields_usable_chat_account() {
 /// `contactId`, a group create takes `name` and `memberIds`; "If a direct
 /// Chat with this contactId already exists, the server MUST reject the
 /// create with a SetError of type `alreadyExists`, including the existing
-/// Chat's id in the `existingId` field".
+/// Chat's id in the `existingId` field". For the group: "`memberIds`
+/// (String[], required): ChatContact.ids of additional initial members."
+/// and "The server [...] adds the creator to `members` with at least one
+/// role granting permissions sufficient to administer the chat"
+/// (§ChatMember `role`: "Either `"admin"` or `"member"`").
 #[tokio::test]
 async fn chat_create_direct_and_group_round_trip() {
     let (_jig, client, session) = connect().await;
@@ -150,6 +154,22 @@ async fn chat_create_direct_and_group_round_trip() {
         .expect("group chat");
     assert_eq!(group_chat.kind, ChatKind::Group);
     assert_eq!(group_chat.name.as_deref(), Some("Team"));
+    // The jig's single caller has no principal id, so the creator is the
+    // account itself.
+    let mut members: Vec<(&str, &str)> = group_chat
+        .members
+        .as_ref()
+        .expect("group chat members")
+        .iter()
+        .map(|m| (m.id.as_ref(), m.role.as_str()))
+        .collect();
+    members.sort();
+    let mut expected = vec![
+        (got.account_id.as_ref(), "admin"),
+        ("contact-bob", "member"),
+    ];
+    expected.sort();
+    assert_eq!(members, expected);
 
     let dup = sc
         .chat_create(&ChatCreateInput::Direct {
