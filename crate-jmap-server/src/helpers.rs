@@ -1,5 +1,7 @@
 //! Shared helper utilities for JMAP method handlers.
 
+use std::borrow::Cow;
+
 use jmap_types::{Id, JmapError, UTCDate};
 use serde_json::{Map, Value};
 
@@ -497,6 +499,124 @@ fn json_merge_patch_inner(
     Ok(())
 }
 
+/// Error returned by [`apply_jmap_patch`] when a PatchObject path cannot
+/// be applied.
+///
+/// Every variant is an RFC 8620 §5.3 violation for which "the update
+/// MUST be rejected with an "invalidPatch" error". Callers SHOULD map
+/// any variant to [`SetError`](crate::SetError) with
+/// [`SetErrorType::InvalidPatch`](crate::SetErrorType::InvalidPatch);
+/// the `Display` form is suitable as its description.
+///
+/// Marked `#[non_exhaustive]` so further §5.3 checks can be added
+/// without an API break.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PatchPathError {
+    /// A part before the last does not exist on the patched object.
+    ParentMissing,
+    /// A part before the last names an array, so the pointer would
+    /// reference inside an array.
+    InsideArray,
+    /// A part before the last names a value that is neither an object nor
+    /// an array (string, number, boolean or null), which has no members.
+    ParentNotObject,
+    /// A `~` in the path is not followed by `0` or `1`, so the path is
+    /// not a valid RFC 6901 JSON Pointer.
+    InvalidEscape,
+}
+
+impl std::fmt::Display for PatchPathError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::ParentMissing => "patch path parent does not exist",
+            Self::InsideArray => "patch path references inside an array",
+            Self::ParentNotObject => "patch path parent is not an object",
+            Self::InvalidEscape => "patch path has a '~' not followed by '0' or '1'",
+        })
+    }
+}
+
+impl std::error::Error for PatchPathError {}
+
+/// Apply one RFC 8620 §5.3 PatchObject entry (`path` → `value`) to
+/// `target` in-place.
+///
+/// `path` is a PatchObject key: an RFC 6901 JSON Pointer with the
+/// implicit leading `/` omitted (e.g. `"mailboxIds/abc123"`). Each
+/// `/`-separated reference token is decoded per RFC 6901 §4 (`~1` → `/`,
+/// then `~0` → `~`). Every token before the last must name an existing
+/// object member; the last token names the member to set. A `null`
+/// `value` removes that member (a no-op when it is absent); any other
+/// value inserts or replaces it.
+///
+/// Extracted from per-crate copies in bd:JMAP-j6ab. Extension servers
+/// MUST call this rather than reimplement it.
+///
+/// Empty tokens are legal: RFC 6901 §3 allows a zero-length
+/// `reference-token`, and its §5 example evaluates `"/"` to the member
+/// named `""`. The RFC 8620 §5.3 "null sets the property default" rule
+/// is type-specific and left to the caller, as is the rule that no two
+/// pointers in one PatchObject may be prefixes of each other.
+///
+/// # Errors
+///
+/// Returns [`PatchPathError`] when a part before the last does not exist
+/// ([`ParentMissing`](PatchPathError::ParentMissing)), is an array
+/// ([`InsideArray`](PatchPathError::InsideArray)) or is another
+/// non-object value ([`ParentNotObject`](PatchPathError::ParentNotObject)),
+/// or when `path` contains an invalid escape
+/// ([`InvalidEscape`](PatchPathError::InvalidEscape)).
+///
+/// # Mutation contract
+///
+/// A single call is all-or-nothing: on `Err`, `target` is unchanged.
+/// A PatchObject has several entries, and an error on a later entry
+/// does not undo earlier ones, so callers applying a whole PatchObject
+/// MUST apply it to a clone of the stored object and persist the clone
+/// only when every entry returns `Ok(())`.
+pub fn apply_jmap_patch(
+    target: &mut Map<String, Value>,
+    path: &str,
+    value: Value,
+) -> Result<(), PatchPathError> {
+    let (parents, leaf) = match path.rsplit_once('/') {
+        Some((parents, leaf)) => (Some(parents), leaf),
+        None => (None, path),
+    };
+    let leaf = decode_pointer_token(leaf)?;
+    let mut parent = target;
+    for token in parents.into_iter().flat_map(|p| p.split('/')) {
+        parent = match parent.get_mut(decode_pointer_token(token)?.as_ref()) {
+            Some(Value::Object(map)) => map,
+            Some(Value::Array(_)) => return Err(PatchPathError::InsideArray),
+            Some(_) => return Err(PatchPathError::ParentNotObject),
+            None => return Err(PatchPathError::ParentMissing),
+        };
+    }
+    if value.is_null() {
+        parent.remove(leaf.as_ref());
+    } else {
+        parent.insert(leaf.into_owned(), value);
+    }
+    Ok(())
+}
+
+/// Decode one RFC 6901 reference token: `~1` → `/`, then `~0` → `~`
+/// (RFC 6901 §4 order, so `~01` becomes `~1`, not `/`).
+fn decode_pointer_token(token: &str) -> Result<Cow<'_, str>, PatchPathError> {
+    if !token.contains('~') {
+        return Ok(Cow::Borrowed(token));
+    }
+    let escapes_valid = token
+        .match_indices('~')
+        .all(|(i, _)| matches!(token.as_bytes().get(i + 1), Some(b'0' | b'1')));
+    if !escapes_valid {
+        return Err(PatchPathError::InvalidEscape);
+    }
+    Ok(Cow::Owned(token.replace("~1", "/").replace("~0", "~")))
+}
+
 /// Resolve a request-side `position` argument (RFC 8620 §5.5) into a
 /// 0-based start index suitable for slicing the full ordered result
 /// list (bd:JMAP-qz9v.48).
@@ -662,8 +782,9 @@ pub fn enforce_max_objects_in_set(args: &Map<String, Value>, max: u64) -> Result
 #[cfg(test)]
 mod tests {
     use super::{
-        civil_from_days, enforce_max_objects_in_set, extract_account_id, json_merge_patch,
-        now_utc_string, resolve_query_offset, MergePatchError, MAX_MERGE_PATCH_DEPTH,
+        apply_jmap_patch, civil_from_days, enforce_max_objects_in_set, extract_account_id,
+        json_merge_patch, now_utc_string, resolve_query_offset, MergePatchError, PatchPathError,
+        MAX_MERGE_PATCH_DEPTH,
     };
     use serde_json::json;
 
@@ -999,6 +1120,230 @@ mod tests {
         assert!(
             s.contains("merge patch"),
             "Display must identify the error source; got {s:?}"
+        );
+    }
+
+    // ------------------------------------------------------------------
+    // apply_jmap_patch (RFC 8620 §5.3 PatchObject paths, RFC 6901)
+    //
+    // Oracles are hand-built JSON values derived from the quoted RFC
+    // text; the function under test is never its own oracle.
+    // ------------------------------------------------------------------
+
+    /// Build a `Map` from a JSON object literal.
+    fn obj(v: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+        match v {
+            serde_json::Value::Object(m) => m,
+            other => panic!("fixture must be a JSON object, got {other}"),
+        }
+    }
+
+    /// Apply `path` → `value` to `before` and assert it fails with `want`
+    /// and leaves the object unchanged.
+    fn assert_patch_rejected(
+        before: serde_json::Value,
+        path: &str,
+        value: serde_json::Value,
+        want: PatchPathError,
+    ) {
+        let mut target = obj(before.clone());
+        let err = apply_jmap_patch(&mut target, path, value).expect_err("patch must be rejected");
+        assert_eq!(err, want, "wrong error for path {path:?}");
+        assert_eq!(
+            serde_json::Value::Object(target),
+            before,
+            "rejected patch {path:?} must leave the object unchanged"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.3 — "Anything else: The value to set for this
+    /// property (this may be a replacement or addition to the object
+    /// being patched)."
+    #[test]
+    fn apply_jmap_patch_non_null_adds_or_replaces() {
+        let mut target = obj(json!({ "a": 1 }));
+        apply_jmap_patch(&mut target, "a", json!(2)).expect("replace");
+        apply_jmap_patch(&mut target, "b", json!("x")).expect("add");
+        assert_eq!(
+            serde_json::Value::Object(target),
+            json!({ "a": 2, "b": "x" })
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.3 — "If null, ... remove the property from the
+    /// patched object.  If the key is not present in the parent, this a
+    /// no-op."
+    #[test]
+    fn apply_jmap_patch_null_removes_and_absent_is_noop() {
+        let mut target = obj(json!({ "a": 1, "m": { "k": true } }));
+        apply_jmap_patch(&mut target, "a", serde_json::Value::Null).expect("remove");
+        apply_jmap_patch(&mut target, "m/k", serde_json::Value::Null).expect("nested remove");
+        apply_jmap_patch(&mut target, "m/absent", serde_json::Value::Null).expect("no-op");
+        assert_eq!(serde_json::Value::Object(target), json!({ "m": {} }));
+    }
+
+    /// Oracle: RFC 8620 §5.3 — "The keys are a path in JSON Pointer
+    /// format [RFC6901], with an implicit leading "/"". `mailboxIds/abc`
+    /// sets member `abc` of the existing `mailboxIds` object and leaves
+    /// its siblings alone.
+    #[test]
+    fn apply_jmap_patch_nested_path_sets_member_of_existing_object() {
+        let mut target = obj(json!({ "mailboxIds": { "inbox": true }, "x": { "y": { "z": 1 } } }));
+        apply_jmap_patch(&mut target, "mailboxIds/abc", json!(true)).expect("set");
+        apply_jmap_patch(&mut target, "x/y/w", json!(2)).expect("deep set");
+        assert_eq!(
+            serde_json::Value::Object(target),
+            json!({ "mailboxIds": { "inbox": true, "abc": true }, "x": { "y": { "z": 1, "w": 2 } } })
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.3 — "All parts prior to the last (i.e., the
+    /// value after the final slash) MUST already exist on the object
+    /// being patched." A missing parent is rejected, never created, for
+    /// both non-null and null values.
+    #[test]
+    fn apply_jmap_patch_missing_parent_is_rejected() {
+        let before = json!({ "a": { "b": {} } });
+        for value in [json!("v"), serde_json::Value::Null] {
+            assert_patch_rejected(
+                before.clone(),
+                "x/y",
+                value.clone(),
+                PatchPathError::ParentMissing,
+            );
+            assert_patch_rejected(
+                before.clone(),
+                "a/c/d",
+                value,
+                PatchPathError::ParentMissing,
+            );
+        }
+    }
+
+    /// Oracle: RFC 8620 §5.3 — "All parts prior to the last ... MUST
+    /// already exist on the object being patched." A string, number,
+    /// boolean or null has no members, so a part beneath one does not
+    /// exist; the existing value must not be clobbered.
+    #[test]
+    fn apply_jmap_patch_non_object_parent_is_rejected() {
+        let before = json!({ "s": "text", "n": 42, "b": true, "z": null });
+        for parent in ["s", "n", "b", "z"] {
+            assert_patch_rejected(
+                before.clone(),
+                &format!("{parent}/sub"),
+                json!("would-clobber"),
+                PatchPathError::ParentNotObject,
+            );
+        }
+    }
+
+    /// Oracle: RFC 8620 §5.3 — "The pointer MUST NOT reference inside an
+    /// array (i.e., you MUST NOT insert/delete from an array; the array
+    /// MUST be replaced in its entirety instead)." Applies to numeric
+    /// tokens and to paths that would descend through an array element.
+    #[test]
+    fn apply_jmap_patch_inside_array_is_rejected() {
+        let before = json!({ "list": ["a", { "k": 1 }] });
+        assert_patch_rejected(
+            before.clone(),
+            "list/0",
+            json!("x"),
+            PatchPathError::InsideArray,
+        );
+        assert_patch_rejected(
+            before.clone(),
+            "list/1/k",
+            json!(2),
+            PatchPathError::InsideArray,
+        );
+        assert_patch_rejected(
+            before,
+            "list/0",
+            serde_json::Value::Null,
+            PatchPathError::InsideArray,
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.3 — "the array MUST be replaced in its entirety
+    /// instead": setting the array-valued property itself is allowed.
+    #[test]
+    fn apply_jmap_patch_replaces_whole_array() {
+        let mut target = obj(json!({ "list": ["a"] }));
+        apply_jmap_patch(&mut target, "list", json!(["b", "c"])).expect("replace array");
+        assert_eq!(
+            serde_json::Value::Object(target),
+            json!({ "list": ["b", "c"] })
+        );
+    }
+
+    /// Oracle: RFC 6901 §4 — "first transforming any occurrence of the
+    /// sequence '~1' to '/', and then transforming any occurrence of the
+    /// sequence '~0' to '~' ... (the string '~01' correctly becomes '~1'
+    /// after transformation)." Decoding is per token, after splitting on
+    /// `/`, so `a~1b/c` addresses member `c` of member `a/b`.
+    #[test]
+    fn apply_jmap_patch_decodes_rfc6901_escapes() {
+        let mut target = obj(json!({ "a/b": {}, "m~n": {} }));
+        apply_jmap_patch(&mut target, "foo~1bar", json!(1)).expect("~1");
+        apply_jmap_patch(&mut target, "foo~0bar", json!(2)).expect("~0");
+        apply_jmap_patch(&mut target, "~01", json!(3)).expect("~01");
+        apply_jmap_patch(&mut target, "a~1b/c", json!(4)).expect("escaped parent");
+        apply_jmap_patch(&mut target, "m~0n/~1", json!(5)).expect("escaped parent and leaf");
+        assert_eq!(
+            serde_json::Value::Object(target),
+            json!({
+                "foo/bar": 1,
+                "foo~bar": 2,
+                "~1": 3,
+                "a/b": { "c": 4 },
+                "m~n": { "/": 5 }
+            })
+        );
+    }
+
+    /// Oracle: RFC 6901 §3 — `escaped = "~" ( "0" / "1" )` and "It is an
+    /// error condition if a JSON Pointer value does not conform to this
+    /// syntax". RFC 8620 §5.3 requires keys in JSON Pointer format, so a
+    /// malformed escape in any token is rejected.
+    #[test]
+    fn apply_jmap_patch_invalid_escape_is_rejected() {
+        let before = json!({ "a": {} });
+        for path in ["~2", "x~", "a/~", "~x/b", "a/b~"] {
+            assert_patch_rejected(
+                before.clone(),
+                path,
+                json!(1),
+                PatchPathError::InvalidEscape,
+            );
+        }
+    }
+
+    /// Oracle: RFC 6901 §3 — `reference-token = *( unescaped / escaped )`
+    /// permits an empty token, and the §5 example evaluates `"/"` to the
+    /// member named `""` (`"" : 0`). The PatchObject key `""` is the
+    /// pointer `"/"`; `"a/"` is the pointer `"/a/"`.
+    #[test]
+    fn apply_jmap_patch_empty_token_names_empty_member() {
+        let mut target = obj(json!({ "a": {} }));
+        apply_jmap_patch(&mut target, "", json!(0)).expect("empty top-level token");
+        apply_jmap_patch(&mut target, "a/", json!(1)).expect("empty nested token");
+        assert_eq!(
+            serde_json::Value::Object(target),
+            json!({ "": 0, "a": { "": 1 } })
+        );
+    }
+
+    /// Oracle: an empty token is an ordinary member name, so a missing
+    /// empty-named parent is rejected like any other missing parent
+    /// (RFC 8620 §5.3 "All parts prior to the last ... MUST already
+    /// exist").
+    #[test]
+    fn apply_jmap_patch_missing_empty_parent_is_rejected() {
+        assert_patch_rejected(
+            json!({ "a": {} }),
+            "a//b",
+            json!(1),
+            PatchPathError::ParentMissing,
         );
     }
 

@@ -87,7 +87,7 @@ use jmap_mail_types::{
     Email, EmailAddress, EmailFilterCondition, EmailHeader, Keyword, Mailbox,
     MailboxFilterCondition, SearchSnippet,
 };
-use jmap_server::resolve_query_offset;
+use jmap_server::{apply_jmap_patch, resolve_query_offset};
 use jmap_types::{Id, State, UTCDate};
 use serde::Deserialize;
 
@@ -1193,15 +1193,30 @@ impl MailBackend for MemoryBackend {
             .get_mut(id)
             .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
 
-        // JMAP patch (RFC 8620 §5.3): keys may be "/" separated paths into nested
-        // objects (e.g. "mailboxIds/abc123"). Null values remove the target key;
-        // non-null values overwrite it. apply_jmap_patch handles both flat and
-        // path-style keys so that cascade operations like mailboxIds/<id>: null work.
+        // JMAP patch (RFC 8620 §5.3): keys are JSON Pointer paths (e.g.
+        // "mailboxIds/abc123"), applied by the shared `apply_jmap_patch`. The
+        // patch is applied to a clone and stored only if every key applies, so
+        // an invalidPatch leaves the stored object unchanged.
         if let serde_json::Value::Object(base) = existing {
             if let serde_json::Value::Object(patch_map) = patch_val {
-                for (k, v) in patch_map {
-                    apply_jmap_patch(base, &k, v);
+                let mut patched = base.clone();
+                // RFC 8621 §4.1.1 defines Email `keywords` with "default: {}",
+                // but the stored JSON omits it when empty, so materialize the
+                // default for `keywords/<keyword>` pointers to find their parent.
+                if O::TYPE_NAME == Email::TYPE_NAME {
+                    patched
+                        .entry("keywords")
+                        .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
                 }
+                for (k, v) in patch_map {
+                    apply_jmap_patch(&mut patched, &k, v).map_err(|e| {
+                        BackendSetError::SetError(
+                            SetError::new(SetErrorType::InvalidPatch)
+                                .with_description(e.to_string()),
+                        )
+                    })?;
+                }
+                *base = patched;
             }
         }
 
@@ -2098,38 +2113,6 @@ fn highlight(haystack: &str, needle: &str) -> String {
         }
     }
     result
-}
-
-/// Apply one JMAP patch key-value pair to a JSON object (RFC 8620 §5.3).
-///
-/// Keys may contain "/" separators naming a path into nested objects
-/// (e.g. `"mailboxIds/abc123"`). Null values remove the target key; non-null
-/// values overwrite or create it.  This is the JMAP patch format, which is
-/// a superset of RFC 7396 flat merge-patch.
-fn apply_jmap_patch(
-    base: &mut serde_json::Map<String, serde_json::Value>,
-    key: &str,
-    value: serde_json::Value,
-) {
-    if let Some(slash) = key.find('/') {
-        let head = &key[..slash];
-        let tail = &key[slash + 1..];
-        if let Some(entry) = base.get_mut(head) {
-            if let serde_json::Value::Object(inner) = entry {
-                apply_jmap_patch(inner, tail, value);
-            }
-        } else if !value.is_null() {
-            // Parent absent and value is non-null: create parent then set leaf.
-            let mut inner = serde_json::Map::new();
-            apply_jmap_patch(&mut inner, tail, value);
-            base.insert(head.to_owned(), serde_json::Value::Object(inner));
-        }
-        // Parent absent and value is null: nothing to remove — no-op.
-    } else if value.is_null() {
-        base.remove(key);
-    } else {
-        base.insert(key.to_owned(), value);
-    }
 }
 
 /// Parse a strict RFC 8620 §1.4 `UTCDate` string

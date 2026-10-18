@@ -146,6 +146,8 @@ follow-up sweep bead before merging).
 | Foundation client | `jmap-base-client` | (none — sole foundation) |
 | Extension client | `jmap-mail-client` | `jmap-chat-client`, `jmap-calendars-client`, `jmap-tasks-client`, `jmap-contacts-client`, `jmap-filenode-client`, `jmap-metadata-client`, `jmap-sharing-client` |
 
+JMAP PatchObject path application (RFC 8620 §5.3) lives in `jmap-server::helpers` (`apply_jmap_patch`); extension servers must call it rather than reimplement it.
+
 `jmap-chat-types` is *also* a canonical reference for the JMAP Chat draft
 specifically (its wire format is normative for that extension), even
 though the broader extension-types family takes its idiom shape from
