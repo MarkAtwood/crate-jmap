@@ -112,6 +112,10 @@ pub struct Space {
     pub is_publicly_previewable: bool,
     /// The `memberCount` property (draft-atwood-jmap-chat-00 §4.16).
     pub member_count: u64,
+    /// The server-set `closedAt` property (draft-atwood-jmap-chat-00
+    /// §4.16). Absent while the Space is open.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub closed_at: Option<UTCDate>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -295,7 +299,7 @@ impl SpaceBan {
 impl Space {
     /// Construct a [`Space`] from its required fields.
     ///
-    /// `description` and `icon_blob_id` default to `None`.
+    /// `description`, `icon_blob_id` and `closed_at` default to `None`.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: Id,
@@ -322,6 +326,7 @@ impl Space {
             member_count,
             description: None,
             icon_blob_id: None,
+            closed_at: None,
             extra: serde_json::Map::new(),
         }
     }
@@ -398,6 +403,7 @@ mod tests {
             is_public: false,
             is_publicly_previewable: false,
             member_count: 0,
+            closed_at: None,
             extra: serde_json::Map::new(),
         };
         let json = serde_json::to_string(&space).expect("serialize Space");
@@ -663,5 +669,47 @@ mod tests {
                 .unwrap_or_else(|e| panic!("deserialize SpaceRole with color {color}: {e}"));
             assert_eq!(serde_json::to_value(&role).expect("serialize"), wire);
         }
+    }
+
+    /// draft-atwood-jmap-chat-00 §Space: "`closedAt` (UTCDate, optional,
+    /// server-set): Time the Space closed. Absent while the Space is open."
+    #[test]
+    fn space_closed_at_typed_and_absent_while_open() {
+        let raw = serde_json::json!({
+            "id": "s1",
+            "name": "Closed",
+            "roles": [],
+            "members": [],
+            "categories": [],
+            "uncategorizedChannelIds": [],
+            "createdAt": "2026-01-01T00:00:00Z",
+            "isPublic": false,
+            "isPubliclyPreviewable": false,
+            "memberCount": 1,
+            "closedAt": "2026-02-01T00:00:00Z"
+        });
+        let s: Space = serde_json::from_value(raw).expect("deserialize closed Space");
+        assert_eq!(
+            s.closed_at.as_ref().map(AsRef::as_ref),
+            Some("2026-02-01T00:00:00Z")
+        );
+        assert!(s.extra.is_empty(), "closedAt must not land in extra");
+        let back = serde_json::to_value(&s).expect("serialize Space");
+        assert_eq!(back["closedAt"], "2026-02-01T00:00:00Z");
+
+        let open = Space::new(
+            Id::from("s2"),
+            "Open",
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            UTCDate::from("2026-01-01T00:00:00Z"),
+            false,
+            false,
+            1,
+        );
+        let out = serde_json::to_value(&open).expect("serialize Space");
+        assert!(out.get("closedAt").is_none(), "{out}");
     }
 }

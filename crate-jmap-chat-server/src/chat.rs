@@ -137,7 +137,8 @@ pub async fn handle_chat_query_changes<B: ChatBackend>(
 /// - `kind` is required on create.
 /// - `direct` chats require `contactId`.
 /// - `channel` chats require `spaceId`.
-/// - `id`, `createdAt`, `unreadCount` are server-set and rejected in updates.
+/// - `id`, `createdAt`, `unreadCount`, `closedAt`, `activeCallId` are
+///   server-set and rejected in updates.
 /// - `pinnedMessageIds` updates are gated by
 ///   [`ChatBackend::may_set_pinned_messages`].
 ///
@@ -489,7 +490,8 @@ pub async fn handle_chat_set<B: ChatBackend>(
             // INVARIANT: this list must include every field on jmap_chat_types::Chat that
             // is set by the server rather than the client. Add new server-set fields here
             // at the same time as adding them to the Chat struct.
-            const CHAT_READONLY: &[&str] = &["id", "createdAt", "unreadCount"];
+            const CHAT_READONLY: &[&str] =
+                &["id", "createdAt", "unreadCount", "closedAt", "activeCallId"];
             let bad_props: Vec<&str> = CHAT_READONLY
                 .iter()
                 .copied()
