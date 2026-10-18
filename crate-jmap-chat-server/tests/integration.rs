@@ -3371,7 +3371,7 @@ async fn space_set_add_roles_position_zero_rejected() {
     .expect("handle_space_set");
 
     let nu = &resp["notUpdated"][&space_id];
-    assert!(nu.is_object(), "{} must appear in notUpdated", &space_id);
+    assert!(nu.is_object(), "{} must appear in notUpdated", space_id);
     assert_eq!(
         nu["type"], "invalidProperties",
         "wire type must be invalidProperties (the only SetError that carries a `properties` array)"
