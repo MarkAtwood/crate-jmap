@@ -437,7 +437,10 @@ mod tests {
         }))
         .unwrap();
         let v = serde_json::to_value(&m).unwrap();
-        assert_eq!(v, json!({ "path": "acme.example.com/memo", "value": "follow up" }));
+        assert_eq!(
+            v,
+            json!({ "path": "acme.example.com/memo", "value": "follow up" })
+        );
         let back: MetadataTextMatch = serde_json::from_value(v).unwrap();
         assert_eq!(back, m);
     }

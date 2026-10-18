@@ -753,9 +753,9 @@ mod tests {
     /// under test.
     #[test]
     fn mdn_request_response_constructors_match_spec_minimal_shape() {
-        let account_id = Id::try_from("a1").unwrap();
-        let identity_id = Id::try_from("i1").unwrap();
-        let blob_id = Id::try_from("b1").unwrap();
+        let account_id = Id::from("a1");
+        let identity_id = Id::from("i1");
+        let blob_id = Id::from("b1");
 
         // MdnSendRequest: required accountId, identityId, send map.
         let send_req = MdnSendRequest::new(account_id.clone(), identity_id, HashMap::new());

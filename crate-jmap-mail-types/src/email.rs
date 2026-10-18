@@ -593,8 +593,8 @@ mod tests {
     /// paths that the per-type tests do not:
     ///
     /// 1. **Multiple vendor fields on the same object** — if serde-flatten
-    ///    + Map had a single-key happy-path bias, a two-key bug would slip
-    ///    past the per-type tests.
+    ///    plus Map had a single-key happy-path bias, a two-key bug would
+    ///    slip past the per-type tests.
     /// 2. **Nested-object + nested-array extras** — exercises
     ///    `serde_json::Value`'s recursive round-trip beyond one level of
     ///    depth.

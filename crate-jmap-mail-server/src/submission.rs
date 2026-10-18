@@ -829,6 +829,7 @@ impl From<SetError> for CreateError {
 ///
 /// Returns the JSON for the `created` map on success, or a typed
 /// [`CreateError`] (converted to JSON at the call site) on failure.
+#[allow(clippy::result_large_err)]
 async fn process_create<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1002,6 +1003,7 @@ async fn process_create<B: MailBackend>(
 ///
 /// RFC 8621 §7.5: only `undoStatus` may be updated. If the current status is
 /// already `"final"`, returns `cannotUnsend`.
+#[allow(clippy::result_large_err)]
 async fn process_update<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
