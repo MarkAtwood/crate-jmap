@@ -311,6 +311,18 @@ pub enum EmojiSetOp {
     Destroy,
 }
 
+/// Why [`ChatBackend::join_space_with_invite`] refused a redemption.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InviteJoinRefusal {
+    /// The invite, or the Space it names, no longer exists.
+    NotFound,
+    /// The invite's `uses` has reached `maxUses`.
+    Exhausted,
+    /// The owner is already a member of the Space.
+    AlreadyMember,
+}
+
 // ---------------------------------------------------------------------------
 // Slow-mode rate-limit gate
 // ---------------------------------------------------------------------------
@@ -624,6 +636,39 @@ pub trait ChatBackend: JmapBackend {
     /// [`rand::rngs::OsRng`]: https://docs.rs/rand/latest/rand/rngs/struct.OsRng.html
     /// [`getrandom`]: https://docs.rs/getrandom
     fn generate_invite_code(&self) -> String;
+
+    /// Redeem the SpaceInvite `invite_id` for `Space/join`: add the owner
+    /// (member entry `account_id`, no roles, `joinedAt` = `joined_at`) to
+    /// the invite's Space and increment the invite's `uses`.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §Space/join: "The `uses` increment
+    /// and membership insertion MUST be performed within a single atomic
+    /// operation so that concurrent redemptions cannot exceed `maxUses`."
+    ///
+    /// # Atomicity contract
+    ///
+    /// The `uses < maxUses` check, the already-member check, the member
+    /// append and the `uses` increment MUST all take effect or none, and
+    /// MUST be serialized against concurrent redemptions of the invite
+    /// and concurrent membership writes to the Space (a transaction or
+    /// compare-and-swap). Composing this from `update_object` calls loses
+    /// that guarantee: a failed second write leaves a member admitted
+    /// without a use counted, and concurrent joins both pass `maxUses`.
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once, after the invite resolved by code and is unexpired, and
+    /// after the ban and `closedAt` checks. The handler maps each
+    /// [`InviteJoinRefusal`] to the draft's `invalidArguments` method
+    /// error. There is no default: a non-atomic default would reinstate
+    /// the race.
+    fn join_space_with_invite(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        invite_id: &jmap_types::Id,
+        joined_at: &jmap_types::UTCDate,
+    ) -> impl std::future::Future<Output = Result<Result<(), InviteJoinRefusal>, Self::Error>> + Send;
 
     /// Implementation-defined per-Space content limits for this caller
     /// and account.
