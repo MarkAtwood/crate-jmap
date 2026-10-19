@@ -143,12 +143,6 @@ async fn create_rejects_invalid_optional_properties() {
             "subject",
             json!({ "topicId": "t", "subject": "s".repeat(1_000_000) }),
         ),
-        // "`mentions`: reject any entry where `offset + length` exceeds
-        // body byte length." (body is "hi @bob", 7 bytes)
-        (
-            "mentions",
-            json!({ "mentions": [{ "id": "contact-bob", "offset": 3, "length": 5 }] }),
-        ),
         // "`filename`: reject values containing `/`, `\`, or null bytes."
         (
             "attachments",
@@ -249,29 +243,6 @@ async fn create_accepts_empty_routing_fields_with_encrypted_body_type() {
     assert!(resp["created"]["m"].is_object(), "{resp}");
 }
 
-/// §Rich Body Format: "When `bodyType` is `\"application/jmap-chat-rich\"`,
-/// ... Both the `mentions` and `broadcastMentions` arrays on the Message
-/// MUST be empty". The rejection matches the server's existing
-/// `invalidArguments` for a non-empty `broadcastMentions` on a rich body.
-#[tokio::test]
-async fn create_rejects_mentions_with_rich_body_type() {
-    let backend = MemoryBackend::new();
-    let chat_id = create_group(&backend).await;
-    let resp = create(
-        &backend,
-        &chat_id,
-        json!({
-            "bodyType": "application/jmap-chat-rich",
-            "mentions": [{ "id": "contact-bob", "offset": 3, "length": 4 }],
-        }),
-    )
-    .await;
-    assert_eq!(
-        resp["notCreated"]["m"]["type"], "invalidArguments",
-        "{resp}"
-    );
-}
-
 /// bd:JMAP-yt1w.16. §Creating a Message lists "`broadcastMentions`
 /// (BroadcastMention[])" among the create optionals, and §BroadcastMention:
 /// "The `broadcastMentions` array is authoritative for every `bodyType`:
@@ -282,15 +253,14 @@ async fn create_rejects_mentions_with_rich_body_type() {
 ///
 /// The same paragraph says "Like Mention, a BroadcastMention carries no
 /// position in `body`", so only each entry's `scope` and the array order
-/// are asserted. The request still sends `offset`/`length` because the
-/// current `BroadcastMention` type requires them (removed by JMAP-yt1w.17).
+/// are asserted.
 #[tokio::test]
 async fn create_stores_broadcast_mentions() {
     let backend = MemoryBackend::new();
     let chat_id = create_group(&backend).await;
     let broadcast_mentions = json!([
-        { "scope": "everyone", "offset": 0, "length": 2 },
-        { "scope": "here", "offset": 3, "length": 4 },
+        { "scope": "everyone" },
+        { "scope": "here" },
     ]);
     let resp = create(
         &backend,

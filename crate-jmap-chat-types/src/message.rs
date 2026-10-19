@@ -286,7 +286,12 @@ pub struct Attachment {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// An `@mention` within a [`Message`] body.
+/// A user that a [`Message`] mentions (draft-atwood-jmap-chat-00 §Mention).
+///
+/// A Mention carries no position in `body`. The `mentions` array is
+/// authoritative for every `bodyType`: servers take mentions only from it
+/// and never derive them from `body` (including rich-body `"mention"`
+/// spans, which are display-only).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -298,9 +303,8 @@ pub struct Mention {
     /// any future form. The textual representation in the message
     /// body (e.g. `@user@host`, `@did:web:...`, or `@display-name`)
     /// is composer-defined and is NOT recoverable from this field
-    /// alone — the composer is responsible for both rendering the
-    /// in-body span (driven by `offset` + `length`) and resolving
-    /// the displayed text out of band. Servers and clients MUST
+    /// alone — locating and rendering the displayed text is
+    /// presentation, left to the composer and renderer. Servers and clients MUST
     /// treat the value as opaque.
     ///
     /// See [`ChatContact`] (`id` field) for the full URI-latitude
@@ -310,10 +314,6 @@ pub struct Mention {
     ///
     /// [`ChatContact`]: crate::ChatContact
     pub id: Id,
-    /// The `offset` property (draft-atwood-jmap-chat-00 §4.4).
-    pub offset: u64,
-    /// The `length` property (draft-atwood-jmap-chat-00 §4.4).
-    pub length: u64,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -322,8 +322,12 @@ pub struct Mention {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// A broadcast-scope `@mention` within a [`Message`] body
-/// (draft-atwood-jmap-chat-00 §4.4.1).
+/// A broadcast-scope `@mention` in a [`Message`]
+/// (draft-atwood-jmap-chat-00 §BroadcastMention).
+///
+/// Like [`Mention`], a `BroadcastMention` carries no position in `body`.
+/// The `broadcastMentions` array is authoritative for every `bodyType`;
+/// servers never derive broadcast mentions from `body`.
 ///
 /// Unlike [`Mention`], a `BroadcastMention` does not name a specific
 /// participant; it names a member set whose composition is resolved at
@@ -340,23 +344,12 @@ pub struct Mention {
 /// value with `invalidArguments`. The [`BROADCAST_MENTION_SCOPES`] constant
 /// enumerates the accepted values for validation.
 ///
-/// # Body-type constraint
-///
-/// When `Message.bodyType` is `"application/jmap-chat-rich"`, the
-/// `broadcastMentions` array on `Message` MUST be empty; broadcast-scope
-/// mentions are carried inline as `"broadcast"` spans in the rich body.
-///
 /// # Permission
 ///
 /// Sending a `Message` with a non-empty `broadcastMentions` array requires
 /// the `"mention_broadcast"` Space permission. The server MUST reject
 /// `Message/set` create or update requests lacking this permission with
 /// `forbidden`.
-///
-/// # Offset/length validation
-///
-/// Servers MUST reject a `BroadcastMention` where `offset + length` exceeds
-/// the byte length of `Message.body`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -367,15 +360,6 @@ pub struct BroadcastMention {
     /// Clients SHOULD treat unrecognized values as opaque pass-through
     /// for forward-compatibility (a future spec revision might add scopes).
     pub scope: String,
-    /// Byte offset into `Message.body` where the broadcast-mention text
-    /// begins (draft-atwood-jmap-chat-00 §4.4.1).
-    pub offset: u64,
-    /// Byte length of the broadcast-mention text
-    /// (draft-atwood-jmap-chat-00 §4.4.1).
-    ///
-    /// Servers MUST reject a `BroadcastMention` where
-    /// `offset + length` exceeds the byte length of `Message.body`.
-    pub length: u64,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -530,11 +514,9 @@ pub struct Message {
     /// The `broadcastMentions` property (draft-atwood-jmap-chat-00 §4.11).
     ///
     /// Structured broadcast-scope mention annotations (`@everyone`,
-    /// `@here`, `@admins`). Empty by default.
-    ///
-    /// When `bodyType` is `"application/jmap-chat-rich"`, this array
-    /// MUST be empty; broadcast-scope mentions are carried inline as
-    /// `"broadcast"` spans in the rich body.
+    /// `@here`, `@admins`). Empty by default. Authoritative for every
+    /// `bodyType`, including rich bodies, whose `"broadcast"` spans are
+    /// display-only.
     ///
     /// Sending a message with a non-empty array requires the
     /// `"mention_broadcast"` Space permission.
@@ -1180,21 +1162,16 @@ mod tests {
 
     // ── BroadcastMention tests ────────────────────────────────────────────
 
-    /// Oracle: hand-crafted JSON matching spec §4.4.1 BroadcastMention shape.
-    /// All three spec-defined scope values must round-trip.
+    /// Oracle: hand-crafted JSON matching the §BroadcastMention shape.
+    /// All three spec-defined scope values must round-trip. §BroadcastMention:
+    /// "Like Mention, a BroadcastMention carries no position in `body`."
     #[test]
     fn broadcast_mention_roundtrip_all_scopes() {
         for scope in BROADCAST_MENTION_SCOPES {
-            let raw = serde_json::json!({
-                "scope": scope,
-                "offset": 0,
-                "length": 9
-            });
+            let raw = serde_json::json!({ "scope": scope });
             let bm: BroadcastMention =
                 serde_json::from_value(raw.clone()).expect("deserialize BroadcastMention");
             assert_eq!(bm.scope, *scope, "scope must match for {scope}");
-            assert_eq!(bm.offset, 0);
-            assert_eq!(bm.length, 9);
             assert!(bm.extra.is_empty(), "no extras expected");
 
             let back = serde_json::to_value(&bm).expect("serialize");
@@ -1202,19 +1179,24 @@ mod tests {
         }
     }
 
-    /// Oracle: spec §4.4.1 — wire key names must be camelCase.
+    /// Oracle: spec §BroadcastMention — wire key names must be camelCase,
+    /// and "Like Mention, a BroadcastMention carries no position in `body`."
     #[test]
     fn broadcast_mention_wire_key_names() {
         let bm = BroadcastMention {
             scope: "everyone".to_string(),
-            offset: 5,
-            length: 9,
             extra: serde_json::Map::new(),
         };
         let json = serde_json::to_string(&bm).expect("serialize");
         assert!(json.contains(r#""scope""#), "must have scope key: {json}");
-        assert!(json.contains(r#""offset""#), "must have offset key: {json}");
-        assert!(json.contains(r#""length""#), "must have length key: {json}");
+        assert!(
+            !json.contains(r#""offset""#),
+            "must not have offset key: {json}"
+        );
+        assert!(
+            !json.contains(r#""length""#),
+            "must not have length key: {json}"
+        );
         // Negative: no snake_case keys leaked.
         assert!(
             !json.contains("broadcast_mention"),
@@ -1254,7 +1236,8 @@ mod tests {
     }
 
     /// Verify a Message with broadcastMentions deserializes and round-trips.
-    /// Oracle: hand-crafted JSON with one @everyone broadcast mention.
+    /// Oracle: hand-crafted JSON with one @everyone broadcast mention, which
+    /// per §BroadcastMention "carries no position in `body`."
     #[test]
     fn message_with_broadcast_mentions_roundtrip() {
         let json = r#"{
@@ -1267,7 +1250,7 @@ mod tests {
             "attachments": [],
             "mentions": [],
             "broadcastMentions": [
-                {"scope": "everyone", "offset": 0, "length": 9}
+                {"scope": "everyone"}
             ],
             "actions": [],
             "reactions": {},
@@ -1278,8 +1261,6 @@ mod tests {
         let msg: Message = serde_json::from_str(json).expect("deserialize");
         assert_eq!(msg.broadcast_mentions.len(), 1);
         assert_eq!(msg.broadcast_mentions[0].scope, "everyone");
-        assert_eq!(msg.broadcast_mentions[0].offset, 0);
-        assert_eq!(msg.broadcast_mentions[0].length, 9);
 
         let back = serde_json::to_string(&msg).expect("serialize");
         let msg2: Message = serde_json::from_str(&back).expect("re-deserialize");

@@ -77,10 +77,8 @@
 //! use jmap_chat_types::Mention;
 //! use serde_json::json;
 //!
-//! fn make_mention(id: &str, offset: u64, length: u64) -> Mention {
-//!     serde_json::from_value(json!({
-//!         "id": id, "offset": offset, "length": length,
-//!     })).expect("valid mention fields")
+//! fn make_mention(id: &str) -> Mention {
+//!     serde_json::from_value(json!({ "id": id })).expect("valid mention fields")
 //! }
 //! ```
 //!

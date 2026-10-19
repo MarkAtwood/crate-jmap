@@ -1,6 +1,7 @@
-//! Message/set applies the `"mention_broadcast"` gate to rich-body
-//! `"broadcast"` spans and to edits that add or retain a broadcast
-//! mention (bd:JMAP-yt1w.8).
+//! Message/set applies the `"mention_broadcast"` gate to edits that add
+//! or retain a broadcast mention (bd:JMAP-yt1w.8). Rich-body spans are
+//! display-only and never gated (bd:JMAP-yt1w.17; see
+//! `message_mention_arrays.rs`).
 //!
 //! Oracle for every test: draft-atwood-jmap-chat-00 §Message/set. The
 //! `TrackingBackend` denies `may_broadcast_mention`; messages are seeded
@@ -82,30 +83,10 @@ async fn seed(backend: &TrackingBackend, message: Value) -> String {
         .to_owned()
 }
 
-/// "A create request that includes any broadcast mention — a non-empty
-/// `broadcastMentions` array, or a rich-body `body` containing one or more
-/// `"broadcast"` spans — MUST be rejected with `forbidden` when the target
-/// is a channel Chat and the sender lacks the `"mention_broadcast"`
-/// permission in its Space."
-#[tokio::test]
-async fn create_rich_broadcast_span_in_channel_is_forbidden() {
-    let backend = TrackingBackend::with_broadcast_mention_denied();
-    let chat_id = create_channel(backend.inner()).await;
-    let resp = create_on(
-        &backend,
-        json!({
-            "chatId": chat_id,
-            "body": RICH_BROADCAST,
-            "bodyType": RICH,
-            "sentAt": "2024-01-01T00:00:00Z"
-        }),
-    )
-    .await;
-    assert_eq!(resp["notCreated"]["m"]["type"], "forbidden", "{resp}");
-}
-
-/// Same sentence: only a create "that includes any broadcast mention" is
-/// gated, so a rich body without a `"broadcast"` span is accepted.
+/// "A create request with a non-empty `broadcastMentions` array MUST be
+/// rejected with `forbidden` when the target is a channel Chat and the
+/// sender lacks the `"mention_broadcast"` permission in its Space." Only
+/// such a create is gated, so a rich body without one is accepted.
 #[tokio::test]
 async fn create_rich_body_without_broadcast_span_is_accepted() {
     let backend = TrackingBackend::with_broadcast_mention_denied();
@@ -121,26 +102,6 @@ async fn create_rich_body_without_broadcast_span_is_accepted() {
     )
     .await;
     assert!(resp["created"]["m"].is_object(), "{resp}");
-}
-
-/// "The same `"mention_broadcast"` permission check applied at create time
-/// applies to updates that add or retain a broadcast mention."
-#[tokio::test]
-async fn edit_adding_rich_broadcast_span_is_forbidden() {
-    let backend = TrackingBackend::with_broadcast_mention_denied();
-    let chat_id = create_channel(backend.inner()).await;
-    let msg_id = seed(
-        &backend,
-        json!({ "chatId": chat_id, "body": "hi", "sentAt": "2024-01-01T00:00:00Z" }),
-    )
-    .await;
-    let resp = update(
-        &backend,
-        &msg_id,
-        json!({ "body": RICH_BROADCAST, "bodyType": RICH }),
-    )
-    .await;
-    assert_eq!(resp["notUpdated"][&msg_id]["type"], "forbidden", "{resp}");
 }
 
 /// "The same `"mention_broadcast"` permission check applied at create time
@@ -173,7 +134,9 @@ async fn edit_retaining_broadcast_mentions_is_forbidden() {
 
 /// "The same `"mention_broadcast"` permission check applied at create time
 /// applies to updates that add or retain a broadcast mention." An edit
-/// that removes the only broadcast mention does neither.
+/// that removes the only broadcast mention does neither. §BroadcastMention:
+/// "The `broadcastMentions` array is authoritative for every `bodyType`",
+/// so the mention is seeded and removed through the array.
 #[tokio::test]
 async fn edit_removing_broadcast_mention_is_accepted() {
     let backend = TrackingBackend::with_broadcast_mention_denied();
@@ -184,11 +147,17 @@ async fn edit_removing_broadcast_mention_is_accepted() {
             "chatId": chat_id,
             "body": RICH_BROADCAST,
             "bodyType": RICH,
+            "broadcastMentions": [{ "scope": "here" }],
             "sentAt": "2024-01-01T00:00:00Z"
         }),
     )
     .await;
-    let resp = update(&backend, &msg_id, json!({ "body": RICH_PLAIN })).await;
+    let resp = update(
+        &backend,
+        &msg_id,
+        json!({ "body": RICH_PLAIN, "broadcastMentions": [] }),
+    )
+    .await;
     assert!(
         resp["updated"]
             .as_object()
