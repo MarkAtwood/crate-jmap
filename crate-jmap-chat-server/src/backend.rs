@@ -1502,6 +1502,63 @@ pub trait ChatBackend: JmapBackend {
         async { Ok(Ok(())) }
     }
 
+    /// Visibility gate consulted by `handle_invite_get` and
+    /// `handle_invite_changes` for each stored SpaceInvite.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §SpaceInvite/get: "Only members of
+    /// the Space may retrieve its invites. Members with
+    /// `"manage_members"` permission see all invites; other members see
+    /// only invites they created." §SpaceInvite/changes: "The same
+    /// visibility rules as `SpaceInvite/get` apply".
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per invite returned by `get_objects`. `Ok(false)` hides the
+    /// invite: `/get` reports a requested id as `notFound`, and
+    /// `/changes` omits it from `created` and `updated`.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)`, so every invite is visible, matching the
+    /// parallel hooks above. Production backends SHOULD override this
+    /// method; invite codes are join credentials.
+    fn may_get_space_invite(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _invite: &jmap_chat_types::SpaceInvite,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        async { Ok(true) }
+    }
+
+    /// Visibility gate consulted by `handle_ban_get` for each stored
+    /// SpaceBan.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §SpaceBan/get: "Members with
+    /// `"ban"` permission in the Space see all SpaceBan records for that
+    /// Space. A banned user fetching their own account sees only SpaceBan
+    /// records where `userId` is the accountId."
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per ban returned by `get_objects`. `Ok(false)` hides the ban,
+    /// and a requested id is reported as `notFound`. `SpaceBan/changes`
+    /// does not consult this hook, because the spec defines it as plain
+    /// "Standard JMAP `/changes`".
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)`, so every ban is visible, matching the parallel
+    /// hooks above. Production backends SHOULD override this method.
+    fn may_get_space_ban(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _ban: &jmap_chat_types::SpaceBan,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        async { Ok(true) }
+    }
+
     /// Referential check consulted by `handle_chat_set` before an update
     /// that adds ids to `pinnedMessageIds` is applied.
     ///
