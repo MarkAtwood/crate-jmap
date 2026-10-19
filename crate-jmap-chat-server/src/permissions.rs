@@ -136,7 +136,9 @@ pub fn required_permissions_for_op(op: &SpacePatchOp) -> RequiredPermissions {
 
         // Member update — draft §Space/set line 1117. Modifying `roleIds`
         // requires `manage_roles` in addition to `manage_members`; nick-only
-        // edits require only `manage_members`.
+        // edits require only `manage_members`. The caller's own nick-only
+        // edit is exempt, but this helper has no caller identity, so the
+        // backend gate applies that exemption.
         SpacePatchOp::UpdateMember { patch, .. } => {
             if patch.role_ids.is_some() {
                 RequiredPermissions::Known(&[MANAGE_MEMBERS, MANAGE_ROLES])
@@ -272,8 +274,15 @@ mod tests {
         );
     }
 
+    // Draft §Space/set `updateMembers`: "Changing another member's `nick`
+    // requires `"manage_members"`. A member MAY set their own `nick` by
+    // submitting `updateMembers` with a single entry whose `id` is their own
+    // and which contains only `nick`; the server MUST permit this regardless
+    // of the caller's permission set." This helper sees no caller, so it
+    // states the other-member requirement; the self-nick exemption lives in
+    // the backend gate (tests/space_update_members.rs).
     #[test]
-    fn update_member_nick_only_requires_manage_members_only() {
+    fn update_other_member_nick_only_requires_manage_members_only() {
         let mut patch = MemberPatch::default();
         patch.nick = Some(Clearable::Set("Captain".to_owned()));
         let op = SpacePatchOp::UpdateMember {
