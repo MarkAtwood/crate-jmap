@@ -33,7 +33,8 @@
 mod common;
 
 use common::{seed_space, IdentityBackend, MemoryBackend, ACCOUNT_ID, SPACE_ID};
-use jmap_chat_server::{handle_space_get, handle_space_set};
+use jmap_chat_server::{handle_space_get, handle_space_set, JmapBackend};
+use jmap_chat_types::Space;
 use jmap_types::Id;
 use serde_json::json;
 
@@ -102,18 +103,19 @@ async fn owner_without_member_entry_cannot_mutate_metadata() {
         "an owner without manage_space must be refused metadata mutation: {resp:?}"
     );
 
-    // Confirm the mutation did not land.
-    let (get_resp, _) = handle_space_get(
-        &backend,
-        &(),
-        json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
-    )
-    .await
-    .expect("Space/get");
-    assert_eq!(
-        get_resp["list"][0]["description"].as_str().unwrap_or(""),
-        "original"
-    );
+    // Confirm the mutation did not land. The owner is not a member of
+    // this non-previewable Space, so draft §Space/get reports it
+    // `notFound`; read the stored Space from the backend.
+    let (stored, _) = backend
+        .get_objects::<Space>(
+            &(),
+            &Id::from(ACCOUNT_ID),
+            Some(&[Id::from(SPACE_ID)]),
+            None,
+        )
+        .await
+        .expect("get_objects");
+    assert_eq!(stored[0].description.as_deref(), Some("original"));
 }
 
 // ---------------------------------------------------------------------------
@@ -313,15 +315,19 @@ async fn non_member_caller_cannot_mutate_metadata() {
     );
 
     // Every caller of the account is its owner (draft §Terminology), who
-    // is not a member here, so read the stored Space in single-user mode.
-    let (stored, _) = handle_space_get(
-        backend.inner(),
-        &(),
-        json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
-    )
-    .await
-    .expect("Space/get");
-    assert_eq!(stored["list"][0]["description"], "original");
+    // is not a member of this non-previewable Space, so draft §Space/get
+    // reports it `notFound`; read the stored Space from the backend.
+    let (stored, _) = backend
+        .inner()
+        .get_objects::<Space>(
+            &(),
+            &Id::from(ACCOUNT_ID),
+            Some(&[Id::from(SPACE_ID)]),
+            None,
+        )
+        .await
+        .expect("get_objects");
+    assert_eq!(stored[0].description.as_deref(), Some("original"));
 }
 
 /// Oracle: bd:JMAP-g7wu.2.4.13. A caller holding `manage_roles` /

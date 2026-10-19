@@ -9,7 +9,9 @@ mod common;
 use common::{IdentityBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{
     handle_invite_set, handle_message_set, handle_space_get, handle_space_join, handle_space_set,
+    JmapBackend,
 };
+use jmap_chat_types::Space;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -278,15 +280,19 @@ async fn closed_space_rejects_updates_except_self_removal() {
     )
     .await;
     assert!(resp["updated"].get(SPACE_ID).is_some(), "{resp}");
-    // The owner has left, so read the stored Space in single-user mode.
-    let (stored, _) = handle_space_get(
-        backend.inner(),
-        &(),
-        json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
-    )
-    .await
-    .expect("Space/get");
-    let space = &stored["list"][0];
+    // The owner has left, and draft §Space/get gives a non-member only
+    // the restricted view, so read the stored Space from the backend.
+    let (stored, _) = backend
+        .inner()
+        .get_objects::<Space>(
+            &(),
+            &Id::from(ACCOUNT_ID),
+            Some(&[Id::from(SPACE_ID)]),
+            None,
+        )
+        .await
+        .expect("get_objects");
+    let space = serde_json::to_value(&stored[0]).expect("serialize Space");
     assert_eq!(space["members"].as_array().map(Vec::len), Some(1));
     assert_eq!(space["closedAt"], "2026-02-01T00:00:00Z");
 }
