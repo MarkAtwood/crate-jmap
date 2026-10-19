@@ -454,7 +454,7 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
     let mut filter = CalendarEventFilterCondition::default();
     filter.in_calendar = Some(calendar_id.clone());
     let event_ids: Vec<Id> = backend
-        .query_objects::<CalendarEvent>(caller, account_id, Some(&filter), None, None, 0)
+        .query_objects::<CalendarEvent>(caller, account_id, Some(&filter), None, None, 0, None, 0)
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?
         .ids;
@@ -662,6 +662,8 @@ mod tests {
                 _sort: Option<&[O::Comparator]>,
                 _limit: Option<u64>,
                 _position: i64,
+                _anchor: Option<&Id>,
+                _anchor_offset: i64,
             ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 Ok(QueryResult::new(
                     vec![],

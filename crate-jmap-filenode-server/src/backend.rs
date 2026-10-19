@@ -399,6 +399,8 @@ pub trait FileNodeBackend: JmapBackend {
                             None,
                             None,
                             0,
+                            None,
+                            0,
                         )
                         .await?;
                     for id in result.ids {

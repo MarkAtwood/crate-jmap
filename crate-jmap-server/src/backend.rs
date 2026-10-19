@@ -1097,6 +1097,18 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// `position` may be negative — negative values are relative to the end of
     /// the result set per RFC 8620 §5.5 (e.g. -1 means the last result).
     ///
+    /// `anchor` and `anchor_offset` are the RFC 8620 §5.5 `anchor` and
+    /// `anchorOffset` arguments. With an `anchor`, `position` MUST be
+    /// ignored and the page starts at the anchor's index in the filtered,
+    /// sorted results plus `anchor_offset`, clamped to 0; an anchor not in
+    /// the results is [`JmapError::anchor_not_found`] via
+    /// [`BackendQueryError::Method`]. Without one, `anchor_offset` MUST be
+    /// ignored. [`QueryResult::position`] is the page's actual start index.
+    /// [`crate::resolve_query_start`] implements this over an in-memory id
+    /// list.
+    ///
+    /// [`JmapError::anchor_not_found`]: jmap_types::JmapError::anchor_not_found
+    ///
     /// # Filter and sort handling
     ///
     /// Implementations MUST honour the supplied `filter` and `sort` arguments
@@ -1127,6 +1139,8 @@ pub trait JmapBackend: Send + Sync + 'static {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
+        anchor: Option<&jmap_types::Id>,
+        anchor_offset: i64,
     ) -> impl std::future::Future<Output = Result<QueryResult, BackendQueryError<Self::Error>>> + Send;
 
     /// Execute a `/queryChanges` and return deltas since `since_query_state`.
@@ -1770,6 +1784,8 @@ mod tests {
                 _sort: Option<&[O::Comparator]>,
                 _limit: Option<u64>,
                 _position: i64,
+                _anchor: Option<&jmap_types::Id>,
+                _anchor_offset: i64,
             ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 unreachable!("only principal_id is exercised in this test")
             }
@@ -1865,6 +1881,8 @@ mod tests {
                 _sort: Option<&[O::Comparator]>,
                 _limit: Option<u64>,
                 _position: i64,
+                _anchor: Option<&jmap_types::Id>,
+                _anchor_offset: i64,
             ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 unreachable!("only max_objects_in_set is exercised in this test")
             }

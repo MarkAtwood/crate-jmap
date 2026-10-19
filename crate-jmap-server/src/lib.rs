@@ -48,7 +48,8 @@ pub use helpers::ser;
 pub use helpers::{
     apply_jmap_patch, apply_patch_object, bool_arg, enforce_max_objects_in_set, extract_account_id,
     json_merge_patch, not_found_json, now_utc_string, now_utc_string_checked, optional_arg,
-    resolve_query_offset, serialize_value, take_bool_arg, MergePatchError, PatchPathError,
+    query_anchor_args, resolve_query_offset, resolve_query_start, serialize_value, take_bool_arg,
+    MergePatchError, PatchPathError,
 };
 
 mod parse;

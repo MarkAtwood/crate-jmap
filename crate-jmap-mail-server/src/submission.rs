@@ -215,6 +215,8 @@ pub async fn handle_submission_query<B: MailBackend>(
                     None,
                     None,
                     0,
+                    None,
+                    0,
                 )
                 .await
                 .map_err(JmapError::from)?;
@@ -249,6 +251,8 @@ pub async fn handle_submission_query<B: MailBackend>(
                     None,
                     limit,
                     position,
+                    None,
+                    0,
                 )
                 .await
                 .map_err(JmapError::from)?;

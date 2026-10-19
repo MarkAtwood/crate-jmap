@@ -59,7 +59,7 @@ use crate::{
     QueryObject, QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
 };
 use jmap_server::{
-    apply_patch_object, json_merge_patch, now_utc_string, resolve_query_offset, MergePatchError,
+    apply_patch_object, json_merge_patch, now_utc_string, resolve_query_start, MergePatchError,
 };
 use jmap_types::{Id, State};
 
@@ -788,6 +788,8 @@ impl JmapBackend for MemoryBackend {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
+        anchor: Option<&Id>,
+        anchor_offset: i64,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         let inner = self.inner.lock().unwrap();
 
@@ -835,8 +837,9 @@ impl JmapBackend for MemoryBackend {
                 .to_string(),
         );
 
-        // bd:JMAP-qz9v.48 — centralized in jmap_server::resolve_query_offset.
-        let start = resolve_query_offset(position, ids.len());
+        // RFC 8620 §5.5 position / anchor / anchorOffset.
+        let start = resolve_query_start(&ids, position, anchor, anchor_offset)
+            .map_err(BackendQueryError::Method)?;
 
         // `n.min(usize::MAX as u64) as usize` saturates rather than
         // truncates on 32-bit targets. Mirrors the canonical

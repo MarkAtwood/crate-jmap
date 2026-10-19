@@ -2333,6 +2333,8 @@ mod tests {
             sort: Option<&[O::Comparator]>,
             limit: Option<u64>,
             position: i64,
+            anchor: Option<&Id>,
+            anchor_offset: i64,
         ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
             // Single-shot fault: consume the entry only when the
             // configured call count is reached.
@@ -2354,7 +2356,16 @@ mod tests {
                 }
             }
             self.inner
-                .query_objects::<O>(&(), account_id, filter, sort, limit, position)
+                .query_objects::<O>(
+                    &(),
+                    account_id,
+                    filter,
+                    sort,
+                    limit,
+                    position,
+                    anchor,
+                    anchor_offset,
+                )
                 .await
         }
 
@@ -2554,7 +2565,7 @@ mod tests {
         let backend = FaultyBackend::new_with_account("acc1");
         backend.inject_query_objects_err("simulated boom");
         let err = backend
-            .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0)
+            .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0, None, 0)
             .await
             .expect_err("first call must surface the injected error");
         let BackendQueryError::Other(err) = err else {
@@ -2571,12 +2582,12 @@ mod tests {
         backend.inject_query_objects_err_after("simulated boom", 1);
         // First call: delegates to inner.
         let _first = backend
-            .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0)
+            .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0, None, 0)
             .await
             .expect("first call must succeed (after_calls = 1)");
         // Second call: fires the fault.
         let err = backend
-            .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0)
+            .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0, None, 0)
             .await
             .expect_err("second call must surface the injected error");
         let BackendQueryError::Other(err) = err else {
@@ -2721,9 +2732,20 @@ mod tests {
             sort: Option<&[O::Comparator]>,
             limit: Option<u64>,
             position: i64,
+            anchor: Option<&Id>,
+            anchor_offset: i64,
         ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
             self.0
-                .query_objects::<O>(&(), account_id, filter, sort, limit, position)
+                .query_objects::<O>(
+                    &(),
+                    account_id,
+                    filter,
+                    sort,
+                    limit,
+                    position,
+                    anchor,
+                    anchor_offset,
+                )
                 .await
         }
 

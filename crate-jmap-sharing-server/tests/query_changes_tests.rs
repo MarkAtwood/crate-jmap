@@ -129,19 +129,39 @@ impl JmapBackend for FilteringBackend {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
+        anchor: Option<&Id>,
+        anchor_offset: i64,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         // Only intercept Principal queries — all others delegate as-is.
         if O::TYPE_NAME != "Principal" {
             return self
                 .0
-                .query_objects::<O>(caller, account_id, filter, sort, limit, position)
+                .query_objects::<O>(
+                    caller,
+                    account_id,
+                    filter,
+                    sort,
+                    limit,
+                    position,
+                    anchor,
+                    anchor_offset,
+                )
                 .await;
         }
 
         // Fetch the raw result from the inner backend (which ignores filters).
         let base = self
             .0
-            .query_objects::<O>(caller, account_id, None, sort, limit, position)
+            .query_objects::<O>(
+                caller,
+                account_id,
+                None,
+                sort,
+                limit,
+                position,
+                anchor,
+                anchor_offset,
+            )
             .await?;
 
         // If no filter, return the unmodified result.

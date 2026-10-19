@@ -568,6 +568,8 @@ pub(crate) mod test_support {
             _sort: Option<&[O::Comparator]>,
             _limit: Option<u64>,
             _position: i64,
+            _anchor: Option<&Id>,
+            _anchor_offset: i64,
         ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
             // Minimal filter implementation for the cleanup test path:
             // for CalendarEvent with an `inCalendar` filter, return ids of
@@ -922,7 +924,7 @@ pub(crate) mod test_support {
             }
             let _ = args; // happy path delegates to the generic backend
             self.query_objects::<jmap_calendars_types::CalendarEvent>(
-                caller, account_id, filter, sort, limit, position,
+                caller, account_id, filter, sort, limit, position, None, 0,
             )
             .await
             .map_err(|e| match e {

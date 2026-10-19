@@ -85,6 +85,8 @@ impl JmapBackend for FaultyBackend {
         _sort: Option<&[O::Comparator]>,
         _limit: Option<u64>,
         _position: i64,
+        _anchor: Option<&Id>,
+        _anchor_offset: i64,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         Err(BackendQueryError::Other(MemoryError::new(
             "storage unavailable",
@@ -329,9 +331,20 @@ impl JmapBackend for TrackingBackend {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
+        anchor: Option<&Id>,
+        anchor_offset: i64,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         self.inner
-            .query_objects::<O>(caller, account_id, filter, sort, limit, position)
+            .query_objects::<O>(
+                caller,
+                account_id,
+                filter,
+                sort,
+                limit,
+                position,
+                anchor,
+                anchor_offset,
+            )
             .await
     }
 
@@ -612,9 +625,20 @@ impl JmapBackend for IdentityBackend {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
+        anchor: Option<&Id>,
+        anchor_offset: i64,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         self.inner
-            .query_objects::<O>(&(), account_id, filter, sort, limit, position)
+            .query_objects::<O>(
+                &(),
+                account_id,
+                filter,
+                sort,
+                limit,
+                position,
+                anchor,
+                anchor_offset,
+            )
             .await
     }
 
@@ -978,9 +1002,20 @@ impl JmapBackend for InjectableBackend {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
+        anchor: Option<&Id>,
+        anchor_offset: i64,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         self.inner
-            .query_objects::<O>(caller, account_id, filter, sort, limit, position)
+            .query_objects::<O>(
+                caller,
+                account_id,
+                filter,
+                sort,
+                limit,
+                position,
+                anchor,
+                anchor_offset,
+            )
             .await
     }
 
