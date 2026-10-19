@@ -24,8 +24,8 @@
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_chat_types::{
-    Attachment, Chat, DeliveryState, Mention, Message, MessageAction, ReadPosition, SenderId,
-    Space, BROADCAST_MENTION_SCOPES,
+    Attachment, BroadcastMention, Chat, DeliveryState, Mention, Message, MessageAction,
+    ReadPosition, SenderId, Space, BROADCAST_MENTION_SCOPES,
 };
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;
@@ -505,10 +505,11 @@ const MAX_SUBJECT_BYTES: usize = 1024;
 const MAX_UNSIGNED_INT: u64 = (1 << 53) - 1;
 
 /// Copy the optional `Message/set` create properties `attachments`,
-/// `mentions`, `actions`, `topicId`, `subject` and
+/// `mentions`, `broadcastMentions`, `actions`, `topicId`, `subject` and
 /// `expiresAfterReadSeconds` from `obj` onto `msg`, applying the
 /// draft-atwood-jmap-chat-00 §Input Validation checks. An absent or
-/// `null` property keeps the default.
+/// `null` property keeps the default. `broadcastMentions` must already
+/// have passed [`validate_broadcast_mentions`].
 ///
 /// Returns the wire name of the first offending property, for an
 /// `invalidProperties` SetError.
@@ -532,6 +533,10 @@ fn apply_create_optionals(obj: &Value, msg: &mut Message) -> Result<(), &'static
             return Err("mentions");
         }
         msg.mentions = mentions;
+    }
+    if let Some(v) = get("broadcastMentions") {
+        msg.broadcast_mentions =
+            Vec::<BroadcastMention>::deserialize(v).map_err(|_| "broadcastMentions")?;
     }
     if let Some(v) = get("actions") {
         // §MessageAction: "Servers MUST store and forward MessageAction
