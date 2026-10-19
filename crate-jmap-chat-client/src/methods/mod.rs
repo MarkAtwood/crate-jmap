@@ -1382,7 +1382,8 @@ pub struct ChatPatch<'a> {
     pub avatar_blob_id: Patch<&'a Id>,
     /// Members to add (group chats, admin only). `None` = no change.
     pub add_members: Option<&'a [AddMemberInput<'a>]>,
-    /// ChatContact.ids to remove (group chats, admin only). `None` = no change.
+    /// ChatContact.ids to remove (group chats, admin only, except that
+    /// listing only your own id leaves the group). `None` = no change.
     pub remove_members: Option<&'a [Id]>,
     /// Role changes for existing members (group chats, admin only). `None` = no change.
     pub update_member_roles: Option<&'a [UpdateMemberRoleInput<'a>]>,
