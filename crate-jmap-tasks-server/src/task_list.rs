@@ -159,8 +159,9 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             }
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
-                    m.entry("id")
-                        .or_insert_with(|| Value::String("placeholder".to_owned()));
+                    m.entry("id").or_insert_with(|| {
+                        Value::String(crate::helpers::PLACEHOLDER_ID.to_owned())
+                    });
                     Value::Object(m)
                 }
                 other => other,

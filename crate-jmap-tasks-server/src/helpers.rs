@@ -8,6 +8,21 @@ use jmap_server::server_fail_from_backend;
 
 pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
 
+/// Sentinel `id` the `/set` create handlers insert before deserializing.
+///
+/// RFC 8620 §5.3 makes `id` server-set, so the client must not supply one
+/// on create, yet `TaskList` declares `id` as a required field (and
+/// `Task` as an optional one). The `TaskList/set` and `Task/set` create
+/// handlers insert this sentinel before `serde_json::from_value`, then
+/// the backend's `create_object` MUST replace it with a real, unique,
+/// account-scoped Id. Clients must never see this value.
+///
+/// Defined as a constant so every write-side handler site uses the same
+/// string and a rename is caught at compile time. Mirrors the canonical
+/// `crate-jmap-mail-server/src/helpers.rs` `PLACEHOLDER_ID` pattern
+/// (bd:JMAP-ic0j.10).
+pub(crate) const PLACEHOLDER_ID: &str = "placeholder";
+
 /// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.
 ///
 /// The six fields correspond to the six top-level result keys (`created`,
