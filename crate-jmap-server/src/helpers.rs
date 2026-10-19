@@ -303,7 +303,7 @@ pub fn now_utc_string_checked() -> Option<UTCDate> {
 /// `.checked_neg()` branch is unreachable on a `try_from`-validated
 /// input (its output is `[0, i64::MAX]` so negation cannot underflow)
 /// but is kept for defence in depth — the failure path stays total.
-fn signed_seconds_since_epoch(now: std::time::SystemTime) -> Option<(i64, u32)> {
+pub(crate) fn signed_seconds_since_epoch(now: std::time::SystemTime) -> Option<(i64, u32)> {
     use std::time::UNIX_EPOCH;
     match now.duration_since(UNIX_EPOCH) {
         Ok(d) => {
@@ -320,6 +320,30 @@ fn signed_seconds_since_epoch(now: std::time::SystemTime) -> Option<(i64, u32)> 
             Some((neg, d.subsec_millis()))
         }
     }
+}
+
+/// Format `secs` seconds since the Unix epoch as a seconds-precision
+/// [`UTCDate`] (`YYYY-MM-DDTHH:MM:SSZ`, RFC 8620 §1.4), or `None` if the
+/// year falls outside `0000..=9999`, which that four-digit form cannot
+/// express.
+///
+/// This is the inverse of [`UTCDate::to_epoch_seconds`], which accepts only
+/// this form. [`now_utc_string`] adds milliseconds, so its output does not
+/// round-trip through `to_epoch_seconds`.
+pub fn utc_date_from_epoch_seconds(secs: i64) -> Option<UTCDate> {
+    let time_of_day = secs.rem_euclid(86400);
+    let (h, m, s) = (
+        time_of_day / 3600,
+        time_of_day % 3600 / 60,
+        time_of_day % 60,
+    );
+    let (year, month, day) = civil_from_days(secs.div_euclid(86400))?;
+    if !(0..=9999).contains(&year) {
+        return None;
+    }
+    Some(UTCDate::from(format!(
+        "{year:04}-{month:02}-{day:02}T{h:02}:{m:02}:{s:02}Z"
+    )))
 }
 
 /// Convert a count of days since the Unix epoch (1970-01-01) to a proleptic
@@ -972,7 +996,8 @@ mod tests {
     use super::{
         apply_jmap_patch, apply_patch_object, civil_from_days, enforce_max_objects_in_set,
         extract_account_id, json_merge_patch, now_utc_string, resolve_query_offset,
-        resolve_query_start, MergePatchError, PatchPathError, MAX_MERGE_PATCH_DEPTH,
+        resolve_query_start, utc_date_from_epoch_seconds, MergePatchError, PatchPathError,
+        MAX_MERGE_PATCH_DEPTH,
     };
     use serde_json::json;
 
@@ -1150,6 +1175,32 @@ mod tests {
             &checked_s[..10],
             "date portions must match: panicky={panicky_s:?} checked={checked_s:?}"
         );
+    }
+
+    /// Oracle: GNU `date -u -d @<secs> +%FT%TZ` (coreutils), plus the
+    /// RFC 8620 §7.2.3 example expiry (rfc8620.txt:3879) and the RFC 8620
+    /// §1.4 example date. -62167219200 is 0000-01-01T00:00:00Z; one second
+    /// earlier is year -1, which the four-digit form cannot express.
+    #[test]
+    fn utc_date_from_epoch_seconds_known_values() {
+        for (secs, expected) in [
+            (0, Some("1970-01-01T00:00:00Z")),
+            (-1, Some("1969-12-31T23:59:59Z")),
+            (1_414_649_520, Some("2014-10-30T06:12:00Z")),
+            (1_531_448_069, Some("2018-07-13T02:14:29Z")),
+            (253_402_300_799, Some("9999-12-31T23:59:59Z")),
+            (253_402_300_800, None),
+            (-62_167_219_200, Some("0000-01-01T00:00:00Z")),
+            (-62_167_219_201, None),
+        ] {
+            assert_eq!(
+                utc_date_from_epoch_seconds(secs)
+                    .as_ref()
+                    .map(AsRef::as_ref),
+                expected,
+                "secs = {secs}"
+            );
+        }
     }
 
     #[test]

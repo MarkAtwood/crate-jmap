@@ -157,9 +157,9 @@ attacker could exploit by guessing — MUST:
 
 Precedent: bd:JMAP-sc1b.78 (`ChatBackend::generate_invite_code` trait
 doc CSPRNG requirement) and the matching reference-impl audit work in
-bd:JMAP-sc1b.93. Forward-looking placeholder for the
-`PushSubscriptionBackend::generate_verification_code` method when the
-RFC 8620 §7.2 surface lands: bd:JMAP-sc1b.101.
+bd:JMAP-sc1b.93. The RFC 8620 §7.2 verification code carries the same
+requirement in the `PushSubscriptionBackend::create_push_subscription` trait
+doc (bd:JMAP-nbk3.3; earlier placeholder bd:JMAP-sc1b.101).
 
 ## Cross-Crate Consistency
 

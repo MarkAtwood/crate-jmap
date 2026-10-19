@@ -1194,6 +1194,7 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
+ "subtle",
  "tokio",
 ]
 

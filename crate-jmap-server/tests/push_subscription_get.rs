@@ -9,9 +9,10 @@
 use std::sync::{Arc, Mutex};
 
 use jmap_server::{
-    register_push_subscription_handlers, BackendChangesError, BackendQueryError, ChangesResult,
-    Dispatcher, GetObject, Id, JmapBackend, JmapObject, JmapRequest, PushSubscriptionBackend,
-    QueryChangesResult, QueryObject, QueryResult, State, StoredPushSubscription,
+    register_push_subscription_handlers, BackendChangesError, BackendQueryError, BackendSetError,
+    ChangesResult, Dispatcher, GetObject, Id, JmapBackend, JmapObject, JmapRequest,
+    PushSubscriptionBackend, QueryChangesResult, QueryObject, QueryResult, State,
+    StoredPushSubscription,
 };
 use jmap_types::PushSubscription;
 use serde_json::{json, Value};
@@ -129,6 +130,30 @@ impl PushSubscriptionBackend for MockBackend {
             .filter(|(owner, _)| owner == caller)
             .map(|(_, s)| s.clone())
             .collect())
+    }
+
+    async fn create_push_subscription(
+        &self,
+        _caller: &Id,
+        _new: PushSubscription,
+    ) -> Result<StoredPushSubscription, BackendSetError<MockError>> {
+        unreachable!("PushSubscription/get does not write")
+    }
+
+    async fn update_push_subscription(
+        &self,
+        _caller: &Id,
+        _sub: PushSubscription,
+    ) -> Result<PushSubscription, BackendSetError<MockError>> {
+        unreachable!("PushSubscription/get does not write")
+    }
+
+    async fn destroy_push_subscription(
+        &self,
+        _caller: &Id,
+        _id: &Id,
+    ) -> Result<(), BackendSetError<MockError>> {
+        unreachable!("PushSubscription/get does not write")
     }
 }
 

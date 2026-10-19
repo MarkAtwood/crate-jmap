@@ -60,6 +60,16 @@ pub struct StateChange {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl StateChange {
+    /// A `StateChange` with the given `changed` map and no extension fields.
+    pub fn new(changed: HashMap<Id, HashMap<String, State>>) -> Self {
+        Self {
+            changed,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 impl Serialize for StateChange {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         let mut map = s.serialize_map(None)?;
