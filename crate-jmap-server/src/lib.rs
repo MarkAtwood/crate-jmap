@@ -8,8 +8,9 @@
 //!
 //! This crate re-exports the wire-format types from `jmap-types`
 //! (`Id`, `JmapError`, `JmapRequest`, `JmapResponse`, `Invocation`,
-//! `ResultReference`, `Argument`, `State`, `UTCDate`) plus the marker
-//! traits (`GetObject`, `JmapObject`, `QueryObject`, `SetObject`).
+//! `PushSubscription`, `ResultReference`, `Argument`, `State`, `UTCDate`)
+//! plus the marker traits (`GetObject`, `JmapObject`, `QueryObject`,
+//! `SetObject`).
 //! The public API of this crate is therefore *coupled* to
 //! `jmap-types`' public API: any breaking change to a re-exported
 //! type in `jmap-types` is a breaking change here, even when this
@@ -27,7 +28,8 @@
 #![forbid(unsafe_code)]
 
 pub use jmap_types::{
-    Argument, Id, Invocation, JmapError, JmapRequest, JmapResponse, ResultReference, State, UTCDate,
+    Argument, Id, Invocation, JmapError, JmapRequest, JmapResponse, PushSubscription,
+    ResultReference, State, UTCDate,
 };
 
 pub mod backend;
@@ -53,9 +55,13 @@ pub use helpers::{
 };
 
 mod parse;
+mod push;
 mod response;
 
 pub use parse::{check_known_capabilities, parse_request, resolve_args};
+pub use push::{
+    register_push_subscription_handlers, PushSubscriptionBackend, StoredPushSubscription,
+};
 pub use response::{error_invocation, error_status, request_error, RequestError};
 
 use std::{collections::HashMap, fmt, future::Future, pin::Pin, sync::Arc};

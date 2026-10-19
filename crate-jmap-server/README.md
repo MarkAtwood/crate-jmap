@@ -100,7 +100,7 @@ take a direct dependency on `jmap-types`:
 ```rust
 pub use jmap_types::{
     Argument, Id, Invocation, JmapError, JmapRequest, JmapResponse,
-    ResultReference, State, UTCDate,
+    PushSubscription, ResultReference, State, UTCDate,
 };
 ```
 
@@ -109,7 +109,8 @@ typed identifier/timestamp/state-token fields; `JmapRequest` / `JmapResponse`
 for the top-level request/response envelopes; `Invocation` for individual
 method calls (a `(method, args, callId)` tuple); `ResultReference` and
 `Argument<T>` for the back-reference machinery in RFC 8620 §3.7;
-`JmapError` for both request-level and method-level errors.
+`JmapError` for both request-level and method-level errors;
+`PushSubscription` for the RFC 8620 §7.2 push subscription object.
 
 ### Backend infrastructure (from the `backend` module)
 
@@ -148,6 +149,9 @@ ids.
 pub use parse::{check_known_capabilities, parse_request, resolve_args};
 pub use response::{error_invocation, error_status, request_error, RequestError};
 pub use handlers::{handle_changes, handle_get, handle_query, handle_query_changes};
+pub use push::{
+    register_push_subscription_handlers, PushSubscriptionBackend, StoredPushSubscription,
+};
 // Plus the closure-based JmapHandler adapter defined in this crate's
 // crate root: ClosureHandler.
 ```
@@ -161,6 +165,13 @@ macros across the extension server crates. `ClosureHandler` forwards the
 dispatcher's `CallerCtx` value through to the wrapped closure as a fourth
 argument, so backends that need per-request auth context can read it
 without dropping down to a manual `JmapHandler<C>` impl.
+
+`register_push_subscription_handlers` registers `PushSubscription/get`
+(RFC 8620 §7.2.1) over a `PushSubscriptionBackend`. Push subscriptions
+belong to the caller's credentials, not to an account, so the backend's
+`list_push_subscriptions` MUST return only the caller's subscriptions. The
+handler never returns `url` or `keys` and answers `forbidden` when either
+is requested.
 
 ## Examples
 
