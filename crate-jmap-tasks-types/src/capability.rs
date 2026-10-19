@@ -10,6 +10,7 @@
 
 use std::collections::HashMap;
 
+use jmap_jscalendar_types::LocalDateTime;
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 
@@ -48,11 +49,17 @@ pub struct TasksCapability {}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TasksAccountCapability {
-    /// Earliest date-time the server accepts for any Task date (LocalDate).
-    pub min_date_time: String,
+    /// Earliest date-time the server accepts for any Task date.
+    ///
+    /// Typed `LocalDate` by draft-tasks-06 §1.6.1 (no time offset, per §1.2),
+    /// so this is a [`LocalDateTime`], not a `UTCDate`.
+    pub min_date_time: LocalDateTime,
 
-    /// Latest date-time the server accepts for any Task date (LocalDate).
-    pub max_date_time: String,
+    /// Latest date-time the server accepts for any Task date.
+    ///
+    /// Typed `LocalDate` by draft-tasks-06 §1.6.1 (no time offset, per §1.2),
+    /// so this is a [`LocalDateTime`], not a `UTCDate`.
+    pub max_date_time: LocalDateTime,
 
     /// If true, the user may create a task list in this account.
     pub may_create_task_list: bool,
