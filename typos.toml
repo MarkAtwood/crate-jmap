@@ -8,7 +8,12 @@
 [default]
 # Random credential canaries in redaction tests (e.g.
 # crate-jmap-base-client/src/ws/mod.rs) are not words.
-extend-ignore-re = ["redaction-canary-cred-[A-Za-z0-9]+"]
+extend-ignore-re = [
+    "redaction-canary-cred-[A-Za-z0-9]+",
+    # RFC 4648 §10 base64 test vector `"fo"` -> `"Zm8"`
+    # (crate-jmap-chat-server/src/memory.rs base64url test). Not a word.
+    '\("fo", "Zm8"\)',
+]
 
 [default.extend-words]
 # `mis` — the hyphenated prefix in "mis-expand", "mis-routed",
