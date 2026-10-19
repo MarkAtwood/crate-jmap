@@ -13,6 +13,7 @@ mod helpers;
 use helpers::{
     jmap_response, mock_jmap_post, recorded_args, recorded_body, set_response, TEST_ACCOUNT_ID,
 };
+use jmap_chat_types::query;
 use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::MockServer;
@@ -379,11 +380,16 @@ async fn custom_emoji_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
     let up_to = Id::from("CE-100");
+    let mut cond = query::CustomEmojiFilterCondition::default();
+    cond.space_id = Some(Id::from("sp-1"));
+    let sort = [query::CustomEmojiComparator::new(
+        query::CustomEmojiComparatorProperty::Name,
+    )];
     sc.custom_emoji_query_changes(
         &since,
         None,
-        Some(json!({ "spaceId": "sp-1" })),
-        Some(json!([{ "property": "name", "isAscending": true }])),
+        Some(&query::Filter::Condition(cond)),
+        Some(&sort),
         Some(&up_to),
         Some(true),
     )

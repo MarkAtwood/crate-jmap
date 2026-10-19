@@ -292,8 +292,8 @@ impl SetObject for crate::Chat {
 }
 
 impl QueryObject for crate::Chat {
-    type Filter = serde_json::Value;
-    type Comparator = serde_json::Value;
+    type Filter = crate::query::ChatFilter;
+    type Comparator = crate::query::ChatComparator;
 }
 
 impl JmapObject for crate::Message {
@@ -308,8 +308,8 @@ impl SetObject for crate::Message {
 }
 
 impl QueryObject for crate::Message {
-    type Filter = serde_json::Value;
-    type Comparator = serde_json::Value;
+    type Filter = crate::query::MessageFilter;
+    type Comparator = crate::query::MessageComparator;
 }
 
 impl JmapObject for crate::Space {
@@ -324,8 +324,8 @@ impl SetObject for crate::Space {
 }
 
 impl QueryObject for crate::Space {
-    type Filter = serde_json::Value;
-    type Comparator = serde_json::Value;
+    type Filter = crate::query::SpaceFilter;
+    type Comparator = crate::query::SpaceComparator;
 }
 
 impl JmapObject for crate::ChatContact {
@@ -340,8 +340,8 @@ impl SetObject for crate::ChatContact {
 }
 
 impl QueryObject for crate::ChatContact {
-    type Filter = serde_json::Value;
-    type Comparator = serde_json::Value;
+    type Filter = crate::query::ChatContactFilter;
+    type Comparator = crate::query::ChatContactComparator;
 }
 
 impl JmapObject for crate::ReadPosition {
@@ -367,8 +367,8 @@ impl SetObject for crate::CustomEmoji {
 }
 
 impl QueryObject for crate::CustomEmoji {
-    type Filter = serde_json::Value;
-    type Comparator = serde_json::Value;
+    type Filter = crate::query::CustomEmojiFilter;
+    type Comparator = crate::query::CustomEmojiComparator;
 }
 
 impl JmapObject for crate::SpaceInvite {

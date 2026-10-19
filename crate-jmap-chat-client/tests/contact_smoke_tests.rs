@@ -17,6 +17,7 @@ mod helpers;
 use helpers::{
     jmap_response, mock_jmap_post, recorded_args, recorded_body, set_response, TEST_ACCOUNT_ID,
 };
+use jmap_chat_types::query;
 use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::MockServer;
@@ -378,11 +379,18 @@ async fn chat_contact_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
     let up_to = Id::from("CC-100");
+    let mut cond = query::ChatContactFilterCondition::default();
+    cond.blocked = Some(false);
+    // draft-atwood-jmap-chat-00 §ChatContact/query: "Sort properties:
+    // `lastSeenAt`, `login`, `lastActiveAt`." (`name` is not one.)
+    let sort = [query::ChatContactComparator::new(
+        query::ChatContactComparatorProperty::Login,
+    )];
     sc.chat_contact_query_changes(
         &since,
         None,
-        Some(json!({ "blocked": false })),
-        Some(json!([{ "property": "name", "isAscending": true }])),
+        Some(&query::Filter::Condition(cond)),
+        Some(&sort),
         Some(&up_to),
         Some(true),
     )
@@ -397,8 +405,8 @@ async fn chat_contact_query_changes_with_filter_sort_upto_calculatetotal() {
     );
     assert_eq!(
         args["sort"][0]["property"],
-        json!("name"),
-        "sort[0].property must be 'name'"
+        json!("login"),
+        "sort[0].property must be 'login'"
     );
     assert_eq!(
         args["upToId"],

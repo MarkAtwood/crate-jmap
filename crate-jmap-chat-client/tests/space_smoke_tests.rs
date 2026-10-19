@@ -16,6 +16,7 @@ use helpers::{
     jmap_response, mock_jmap_post, recorded_args, recorded_body, set_destroy_response,
     set_response, SPACE_STATE_NEW, SPACE_STATE_OLD, TEST_ACCOUNT_ID,
 };
+use jmap_chat_types::query;
 use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::MockServer;
@@ -716,11 +717,16 @@ async fn space_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
     let up_to = Id::from("SP-100");
+    let mut cond = query::SpaceFilterCondition::default();
+    cond.is_public = Some(true);
+    let sort = [query::SpaceComparator::new(
+        query::SpaceComparatorProperty::Name,
+    )];
     sc.space_query_changes(
         &since,
         None,
-        Some(json!({ "isPublic": true })),
-        Some(json!([{ "property": "name", "isAscending": true }])),
+        Some(&query::Filter::Condition(cond)),
+        Some(&sort),
         Some(&up_to),
         Some(true),
     )

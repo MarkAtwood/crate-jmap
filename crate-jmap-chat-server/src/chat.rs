@@ -25,6 +25,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use jmap_chat_types::query::{ChatComparator, CHAT_FILTER_CONDITION_KEYS};
 use jmap_chat_types::vocabulary::SPEC_CHAT_MEMBER_ROLES;
 use jmap_chat_types::{Chat, ChatKind, ChatMember};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
@@ -34,7 +35,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, now_utc_string,
-    set_error_value, SetAccumulators,
+    reject_unsupported_query, set_error_value, SetAccumulators,
 };
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
@@ -218,12 +219,20 @@ pub async fn handle_chat_changes<B: ChatBackend>(
 /// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
 /// `total`, optional `limit`).
 ///
+/// Unknown filter clauses and sort properties are refused with
+/// `unsupportedFilter` / `unsupportedSort` (RFC 8620 §5.5).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_chat_query<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
+    reject_unsupported_query::<ChatComparator>(
+        args.get("filter"),
+        args.get("sort"),
+        CHAT_FILTER_CONDITION_KEYS,
+    )?;
     jmap_server::handlers::handle_query::<Chat, B>(backend, caller, args).await
 }
 

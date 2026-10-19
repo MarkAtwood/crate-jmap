@@ -27,6 +27,7 @@
 //! / `notUpdated` / `notDestroyed` maps within `Ok((Value, ...))`, not
 //! as `Err`.
 
+use jmap_chat_types::query::{SpaceComparator, SpaceFilter, SPACE_FILTER_CONDITION_KEYS};
 use jmap_chat_types::space_set::{
     CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch,
 };
@@ -42,8 +43,8 @@ use crate::backend::{
 };
 use crate::helpers::{
     count_add_ops, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, iso8601_before, not_found_json, now_utc_string, serialize_value,
-    set_error_value, SetAccumulators,
+    finalize_set_response, iso8601_before, not_found_json, now_utc_string, optional_arg,
+    reject_unsupported_query, serialize_value, set_error_value, SetAccumulators,
 };
 use jmap_server::{query_anchor_args, server_fail_from_backend, server_fail_value_from_backend};
 
@@ -625,7 +626,8 @@ pub async fn handle_space_changes<B: ChatBackend>(
 /// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
 /// `total`, optional `limit`).
 ///
-/// Filter and sort are passed through to the backend unchanged.
+/// Unknown filter clauses and sort properties are refused with
+/// `unsupportedFilter` / `unsupportedSort` (RFC 8620 §5.5).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_query<B: ChatBackend>(
@@ -661,18 +663,17 @@ pub async fn handle_space_query<B: ChatBackend>(
 
     let (anchor, anchor_offset) = query_anchor_args(&args)?;
 
-    let filter: Option<serde_json::Value> = match args.remove("filter") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(v),
-    };
+    reject_unsupported_query::<SpaceComparator>(
+        args.get("filter"),
+        args.get("sort"),
+        SPACE_FILTER_CONDITION_KEYS,
+    )?;
+    let filter: Option<SpaceFilter> =
+        optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
 
-    let sort: Option<Vec<serde_json::Value>> = match args.remove("sort") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v)
-                .map_err(|_| JmapError::invalid_arguments("sort must be an array"))?,
-        ),
-    };
+    let sort: Option<Vec<SpaceComparator>> = optional_arg(&mut args, "sort", || {
+        JmapError::invalid_arguments("sort must be an array")
+    })?;
 
     let result = backend
         .query_objects::<Space>(

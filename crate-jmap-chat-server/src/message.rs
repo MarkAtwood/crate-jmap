@@ -23,6 +23,9 @@
 //! `invalidPatch` paths) surface in the `notCreated` / `notUpdated` /
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
+use jmap_chat_types::query::{
+    Filter, MessageComparator, MessageFilter, MESSAGE_FILTER_CONDITION_KEYS,
+};
 use jmap_chat_types::{
     Attachment, BroadcastMention, Chat, DeliveryState, Mention, Message, MessageAction,
     ReadPosition, Space, BROADCAST_MENTION_SCOPES,
@@ -36,8 +39,8 @@ use std::collections::HashSet;
 
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
-    finalize_set_response, iso8601_before, not_found_json, now_utc_string, serialize_value,
-    set_error_value, SetAccumulators,
+    finalize_set_response, iso8601_before, not_found_json, now_utc_string, optional_arg,
+    reject_unsupported_query, serialize_value, set_error_value, SetAccumulators,
 };
 use jmap_server::{query_anchor_args, server_fail_from_backend, server_fail_value_from_backend};
 
@@ -164,7 +167,8 @@ pub async fn handle_message_changes<B: ChatBackend>(
 /// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
 /// `total`, optional `limit`).
 ///
-/// Filter and sort are passed through to the backend unchanged.
+/// Unknown filter clauses and sort properties are refused with
+/// `unsupportedFilter` / `unsupportedSort` (RFC 8620 §5.5).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_message_query<B: ChatBackend>(
@@ -200,23 +204,22 @@ pub async fn handle_message_query<B: ChatBackend>(
 
     let (anchor, anchor_offset) = query_anchor_args(&args)?;
 
-    let filter: Option<serde_json::Value> = match args.remove("filter") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(v),
-    };
+    reject_unsupported_query::<MessageComparator>(
+        args.get("filter"),
+        args.get("sort"),
+        MESSAGE_FILTER_CONDITION_KEYS,
+    )?;
+    let filter: Option<MessageFilter> =
+        optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
 
-    // JMAP Chat spec §Message — chatId filter is required unless hasMention: true.
-    let has_chat_id = filter
-        .as_ref()
-        .and_then(|f| f.get("chatId"))
-        .map(|v| !v.is_null())
-        .unwrap_or(false);
-    let has_mention_true = filter
-        .as_ref()
-        .and_then(|f| f.get("hasMention"))
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    if !has_chat_id && !has_mention_true {
+    // §Message/query: "Servers MUST return an `unsupportedFilter` error
+    // for any request that omits `chatId` without also including
+    // `hasMention: true`." Only a top-level condition can satisfy this.
+    let top = match &filter {
+        Some(Filter::Condition(c)) => Some(c),
+        _ => None,
+    };
+    if !top.is_some_and(|c| c.chat_id.is_some() || c.has_mention == Some(true)) {
         return Err(JmapError::unsupported_filter());
     }
     // §Message/query: `text` — "Servers that do not support full-text
@@ -226,22 +229,13 @@ pub async fn handle_message_query<B: ChatBackend>(
     // ponytail: no backend implements either filter, so both are refused
     // here for every backend; a backend that adds one needs a
     // ChatBackend capability hook to lift the refusal.
-    if ["text", "threadRootId"].iter().any(|k| {
-        filter
-            .as_ref()
-            .and_then(|f| f.get(k))
-            .is_some_and(|v| !v.is_null())
-    }) {
+    if top.is_some_and(|c| c.text.is_some() || c.thread_root_id.is_some()) {
         return Err(JmapError::unsupported_filter());
     }
 
-    let sort: Option<Vec<serde_json::Value>> = match args.remove("sort") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v)
-                .map_err(|_| JmapError::invalid_arguments("sort must be an array"))?,
-        ),
-    };
+    let sort: Option<Vec<MessageComparator>> = optional_arg(&mut args, "sort", || {
+        JmapError::invalid_arguments("sort must be an array")
+    })?;
 
     let result = backend
         .query_objects::<Message>(
