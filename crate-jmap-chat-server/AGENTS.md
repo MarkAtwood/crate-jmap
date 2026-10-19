@@ -83,7 +83,7 @@ so it does not get flagged as a canonical-template regression.
 |---|---|---|---|
 | `FaultyBackend` | yes | yes | Common: surfaces backend-error mapping in handlers. |
 | `TrackingBackend` | no | yes | Call-count introspection for the chat-spec policy hooks `slow_mode_check`, `may_set_custom_emoji`, `is_contact_blocked` — gates RFC 8621 does not have. |
-| `IdentityBackend` | no | yes | `CallerCtx = Id` (instead of `()`), so per-test principal_id resolves to a real `Id` and `apply_space_patch`'s identity-sensitive enforcement helpers are exercised. RFC 8621 currently has no identity-sensitive method on `MailBackend`. |
+| `IdentityBackend` | no | yes | `CallerCtx = Id` (instead of `()`), so per-test principal_id resolves to a real `Id` that differs from the accountId; tests use it to check that owner references and permission gates key on the accountId, not the principal. RFC 8621 currently has no identity-sensitive method on `MailBackend`. |
 
 The divergence is justified by spec content, not by harness-design
 drift: chat has identity-sensitive surface (role-hierarchy
@@ -112,10 +112,14 @@ check and skips the backend re-check is a bug.
 
 Caller identity is read via the foundation seam
 `JmapBackend::principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id>`.
-Backends that have not wired identity (test fixtures, single-user
-dev servers) return `None`; such backends CANNOT correctly implement
-chat role-hierarchy or per-user visibility scoping. Multi-user
-production deployments MUST override the default impl.
+Chat permission and role-hierarchy gates do not depend on it: the
+caller of a chat account is its owner, whose Space member entry is the
+accountId (draft-atwood-jmap-chat-00 §Terminology), so every gate
+resolves against that entry whether `principal_id` returns `Some` or
+`None`. A `None` return no longer skips any gate. Space/get visibility
+still treats a `None` caller as a member of every Space
+(bd:JMAP-yt1w.36). Multi-user production deployments MUST override
+the default impl.
 
 The chat-specific implications: every Space mutation must be
 authorized against the caller's effective permissions resolved
