@@ -92,10 +92,45 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
+    /// Create a ChatContact for `identity` (JMAP Chat §ChatContact/set
+    /// create).
+    ///
+    /// `identity` is the only property a create carries; the server
+    /// assigns `id` and sets the other server-set properties. A ULID is
+    /// generated as the creation id.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::chat_contact_get`]. /set
+    ///   create errors appear in [`SetResponse::not_created`] rather
+    ///   than as [`Err`]: `alreadyExists` (with `existingId`) when a
+    ///   ChatContact with that `identity` exists, and
+    ///   `invalidProperties` when `identity` is the owner's.
+    pub async fn chat_contact_create(
+        &self,
+        identity: &str,
+    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+        let (api_url, account_id) = self.session_parts()?;
+        let client_id = super::resolve_client_id(None);
+        let args = serde_json::json!({
+            "accountId": account_id,
+            "create": { client_id: { "identity": identity } },
+        });
+        let req = super::build_request("ChatContact/set", args, super::USING_CHAT);
+        let resp = self.call_internal(api_url, &req).await?;
+        jmap_base_client::extract_response(&resp, super::CALL_ID)
+    }
+
     /// Update ChatContact properties (JMAP Chat §ChatContact/set).
     ///
     /// Supports `blocked` (Boolean) and `displayName` (nullable String).
-    /// Create and destroy are not supported by spec; the server returns `forbidden`.
+    /// Create is [`Self::chat_contact_create`]; destroy is not supported
+    /// by spec and the server returns `forbidden`.
     ///
     /// # Errors
     ///
@@ -143,7 +178,7 @@ impl super::SessionClient {
 
     /// Query ChatContact IDs with optional filter (JMAP Chat §ChatContact/query).
     ///
-    /// Supported filter keys: `blocked`, `presence`. Supported sort properties:
+    /// Supported filter keys: `blocked`, `presence`, `identity`. Supported sort properties:
     /// `"lastSeenAt"`, `"login"`, `"lastActiveAt"`.
     ///
     /// # Errors
@@ -175,6 +210,9 @@ impl super::SessionClient {
                 "presence".into(),
                 serde_json::to_value(p).map_err(jmap_base_client::ClientError::from_parse)?,
             );
+        }
+        if let Some(identity) = &input.filter_identity {
+            filter.insert("identity".into(), identity.as_str().into());
         }
         let filter_val = if filter.is_empty() {
             serde_json::Value::Null

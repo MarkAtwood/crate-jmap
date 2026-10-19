@@ -103,6 +103,10 @@ struct Inner {
     /// [`MemoryBackend::set_protect_last_admin_for_test`].
     /// Production deployments override the trait method instead.
     protect_last_admin: bool,
+    /// account id → owner's identity, served by
+    /// [`ChatBackend::owner_user_id`]. Set via
+    /// [`MemoryBackend::set_owner_user_id_for_test`].
+    owner_user_ids: HashMap<String, String>,
     /// Last `SpaceRole` sequence number handed out in deterministic id
     /// mode. Only ever incremented, so a role id freed by `removeRoles`
     /// is never reissued (draft §SpaceRole: `id` is "immutable,
@@ -332,6 +336,19 @@ impl MemoryBackend {
     pub fn set_protect_last_admin_for_test(&self, value: bool) {
         let mut inner = self.inner.lock().unwrap();
         inner.protect_last_admin = value;
+    }
+
+    /// Test-only: set the owner's identity for `account_id`, as returned
+    /// by [`ChatBackend::owner_user_id`] (the `ownerUserId` Session
+    /// field). Unset accounts return `None`. Production callers must not
+    /// use this method; the API stability disclaimer on the `memory`
+    /// feature applies doubly here.
+    #[doc(hidden)]
+    pub fn set_owner_user_id_for_test(&self, account_id: &Id, owner_user_id: &str) {
+        let mut inner = self.inner.lock().unwrap();
+        inner
+            .owner_user_ids
+            .insert(account_id.as_ref().to_owned(), owner_user_id.to_owned());
     }
 
     /// Test-only: apply a [`SpacePatchOp`] sequence as if the caller's
@@ -820,6 +837,17 @@ impl JmapBackend for MemoryBackend {
                     }
                 }
 
+                // draft-atwood-jmap-chat-00 §ChatContact/query `identity`:
+                // "matches the ChatContact whose `identity` equals the
+                // value octet for octet".
+                if O::TYPE_NAME == "ChatContact" {
+                    if let Some(identity) = filter_val.as_ref().and_then(|fv| fv.get("identity")) {
+                        keys.retain(|id| {
+                            m.get(id).and_then(|obj| obj.get("identity")) == Some(identity)
+                        });
+                    }
+                }
+
                 keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
                 // RFC 8620 §5.5 `sort`; the stable sort keeps id order
                 // for ties.
@@ -924,6 +952,26 @@ impl ChatBackend for MemoryBackend {
         obj: O,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
+
+        // `ChatContact` uniqueness contract on `create_object`: at most
+        // one ChatContact per `identity`, compared octet for octet.
+        if O::TYPE_NAME == "ChatContact" {
+            let val = serde_json::to_value(&obj)
+                .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
+            let existing = inner
+                .objects_ref(O::TYPE_NAME, account_id.as_ref())
+                .and_then(|m| {
+                    m.iter()
+                        .find(|(_, c)| c.get("identity") == val.get("identity"))
+                })
+                .map(|(id, _)| id.clone());
+            if let Some(existing) = existing {
+                return Err(BackendSetError::SetError(
+                    SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing),
+                ));
+            }
+        }
+
         let server_id = Self::demo_next_id(&mut inner, O::TYPE_NAME, account_id.as_ref());
 
         // Serialize, set "id" to the server-assigned id, then deserialize back.
@@ -1242,6 +1290,20 @@ impl ChatBackend for MemoryBackend {
     fn retains_edit_history(&self) -> bool {
         let inner = self.inner.lock().unwrap();
         inner.retains_edit_history
+    }
+
+    /// Reference implementation of [`ChatBackend::owner_user_id`].
+    ///
+    /// Returns the value set via
+    /// [`MemoryBackend::set_owner_user_id_for_test`] for `account_id`,
+    /// or `None` when unset.
+    async fn owner_user_id(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+    ) -> Result<Option<String>, Self::Error> {
+        let inner = self.inner.lock().unwrap();
+        Ok(inner.owner_user_ids.get(account_id.as_ref()).cloned())
     }
 
     /// Reference implementation of [`ChatBackend::is_contact_blocked`].

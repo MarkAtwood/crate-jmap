@@ -453,3 +453,60 @@ async fn chat_contact_query_changes_all_none_omits_optional_wire_keys() {
         "maxChanges must be omitted"
     );
 }
+
+/// `chat_contact_create` must send a single `ChatContact/set` create
+/// whose object carries only `identity`. Oracle: draft-atwood-jmap-chat-00
+/// (jmap-chat-spec cefc217) §ChatContact/set: "`create` accepts only
+/// `identity`, which is required".
+#[tokio::test]
+async fn chat_contact_create_sends_only_identity() {
+    let server = MockServer::start().await;
+    let resp_body = set_response("ChatContact/set", "cc-1", "cc-2", json!({}));
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let _ = sc
+        .chat_contact_create("alice@example.com")
+        .await
+        .expect("chat_contact_create: must succeed");
+
+    let body = recorded_body(&server).await;
+    assert_eq!(body["methodCalls"][0][0], json!("ChatContact/set"));
+    let create = body["methodCalls"][0][1]["create"]
+        .as_object()
+        .expect("create map");
+    assert_eq!(create.len(), 1, "exactly one create entry: {create:?}");
+    let obj = create.values().next().expect("one create entry");
+    assert_eq!(obj, &json!({ "identity": "alice@example.com" }));
+}
+
+/// `ChatContactQueryInput::filter_identity` must serialise as the
+/// `identity` filter key. Oracle: draft-atwood-jmap-chat-00 (cefc217)
+/// §ChatContact/query: "Filter properties: `blocked` (Boolean),
+/// `presence` (String), `identity` (String; ...)".
+#[tokio::test]
+async fn chat_contact_query_filter_identity_serialise() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "ChatContact/query",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "queryState": "ccq-1",
+            "canCalculateChanges": true,
+            "position": 0,
+            "ids": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let mut input = jmap_chat_client::methods::ChatContactQueryInput::default();
+    input.filter_identity = Some("alice@example.com".to_owned());
+    let _ = sc
+        .chat_contact_query(&input)
+        .await
+        .expect("chat_contact_query: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(args["filter"], json!({ "identity": "alice@example.com" }));
+}

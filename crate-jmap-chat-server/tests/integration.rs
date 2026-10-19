@@ -5642,9 +5642,12 @@ async fn space_set_update_metadata_success() {
 // ChatContact/get and ChatContact/set
 // ---------------------------------------------------------------------------
 
-/// Oracle: ChatContact/set create is always forbidden (server-managed objects).
+/// Oracle: draft-atwood-jmap-chat-00 (jmap-chat-spec cefc217)
+/// §ChatContact/set: "`create` accepts only `identity`, which is
+/// required". A create carrying other properties and no `identity` is
+/// rejected with `invalidProperties` naming each of them.
 #[tokio::test]
-async fn contact_set_create_forbidden() {
+async fn contact_set_create_without_identity_invalid_properties() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_contact_set(
         &backend,
@@ -5658,8 +5661,15 @@ async fn contact_set_create_forbidden() {
     .expect("handle_contact_set");
 
     assert!(resp["created"].is_null());
-    assert!(resp["notCreated"]["ct0"].is_object());
-    assert_eq!(resp["notCreated"]["ct0"]["type"], "forbidden");
+    assert_eq!(resp["notCreated"]["ct0"]["type"], "invalidProperties");
+    let mut props: Vec<&str> = resp["notCreated"]["ct0"]["properties"]
+        .as_array()
+        .expect("properties array")
+        .iter()
+        .map(|p| p.as_str().expect("property name"))
+        .collect();
+    props.sort_unstable();
+    assert_eq!(props, ["blocked", "identity", "login"]);
 }
 
 /// Oracle: ChatContact/set destroy is always forbidden (server-managed objects).

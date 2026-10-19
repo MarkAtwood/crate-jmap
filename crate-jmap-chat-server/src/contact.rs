@@ -23,13 +23,13 @@
 //! `Ok((Value, ...))`, not as `Err`.
 
 use jmap_chat_types::ChatContact;
-use jmap_types::{Id, Invocation, JmapError, PatchObject, State};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, not_found_json,
-    serialize_value, set_error_value, SetAccumulators,
+    now_utc_string, serialize_value, set_error_value, SetAccumulators,
 };
 use jmap_server::{query_anchor_args, server_fail_from_backend, server_fail_value_from_backend};
 
@@ -150,10 +150,21 @@ pub async fn handle_contact_changes<B: ChatBackend>(
 /// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
 /// maps).
 ///
-/// ChatContact objects are server-managed. Clients MUST NOT create or destroy
-/// them; any attempt is rejected with `forbidden`. Only `update` is permitted,
-/// and `id`, `identity`, `firstSeenAt`, `lastSeenAt` are immutable or
-/// server-set and rejected in updates.
+/// `create` accepts only `identity`, which is required; the server sets
+/// `id`, `login` (to the `identity`), `firstSeenAt` and `lastSeenAt`
+/// (to now) and `blocked` (`false`). A create that omits `identity`,
+/// gives it as anything but a string with a non-whitespace character, or
+/// carries any other property is rejected with `invalidProperties` naming
+/// each offending property. A create whose `identity` equals
+/// [`ChatBackend::owner_user_id`] is rejected with `invalidProperties`
+/// naming `identity`. A create whose `identity` another ChatContact
+/// already holds is rejected by the backend with `alreadyExists` and
+/// `existingId` (see the `ChatContact` uniqueness contract on
+/// [`ChatBackend::create_object`]).
+///
+/// `destroy` is rejected with `forbidden`. `update` supports `blocked`
+/// and `displayName`; `id`, `identity`, `firstSeenAt`, `lastSeenAt` are
+/// immutable or server-set and rejected in updates.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_set<B: ChatBackend>(
@@ -178,7 +189,7 @@ pub async fn handle_contact_set<B: ChatBackend>(
         }
     }
 
-    let created = serde_json::Map::new();
+    let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
     let mut updated = serde_json::Map::new();
     let mut not_updated = serde_json::Map::new();
@@ -187,14 +198,93 @@ pub async fn handle_contact_set<B: ChatBackend>(
     let mut mutated = false;
 
     // -----------------------------------------------------------------------
-    // create — forbidden: ChatContact objects are server-managed
+    // create — draft-atwood-jmap-chat-00 §ChatContact/set: "`create`
+    // accepts only `identity`, which is required; the server assigns `id`
+    // and sets the other server-set properties."
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
-        for create_id in create_map.keys() {
-            not_created.insert(
-                create_id.clone(),
-                set_error_value(&SetError::new(SetErrorType::Forbidden)),
+        let owner_user_id = if create_map.is_empty() {
+            None
+        } else {
+            backend
+                .owner_user_id(caller, &account_id)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?
+        };
+        for (create_id, obj_val) in create_map {
+            // `login` is set to the identity and MUST contain a
+            // non-whitespace character (draft §ChatContact `login`).
+            let identity = obj_val
+                .get("identity")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.trim().is_empty());
+            let mut bad_props: Vec<&str> = obj_val
+                .as_object()
+                .into_iter()
+                .flat_map(|m| m.keys())
+                .map(String::as_str)
+                .filter(|&k| k != "identity")
+                .collect();
+            if identity.is_none() {
+                bad_props.push("identity");
+            }
+            let Some(identity) = identity.filter(|_| bad_props.is_empty()) else {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidProperties", "properties": bad_props }),
+                );
+                continue;
+            };
+
+            // draft §ChatContact/set: "If `identity` equals the owner's
+            // identity (the `ownerUserId` Session field), the server MUST
+            // reject the create with an `invalidProperties` SetError
+            // naming `identity`".
+            if owner_user_id.as_deref() == Some(identity) {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidProperties", "properties": ["identity"] }),
+                );
+                continue;
+            }
+
+            let now = UTCDate::from(now_utc_string().as_ref());
+            let contact = ChatContact::new(
+                Id::from("placeholder"),
+                identity,
+                identity,
+                now.clone(),
+                now,
+                false,
             );
+            match backend
+                .create_object::<ChatContact>(caller, &account_id, create_id, contact)
+                .await
+            {
+                Ok((_server_id, created_obj)) => {
+                    mutated = true;
+                    created.insert(
+                        create_id.clone(),
+                        serde_json::to_value(&created_obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
+                    );
+                }
+                Err(BackendSetError::SetError(set_err)) => {
+                    not_created.insert(create_id.clone(), set_error_value(&set_err));
+                }
+                Err(BackendSetError::Other(e)) => {
+                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
+                }
+                Err(_) => {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
+            }
         }
     }
 
@@ -300,7 +390,8 @@ pub async fn handle_contact_set<B: ChatBackend>(
     }
 
     // -----------------------------------------------------------------------
-    // destroy — forbidden: ChatContact objects are server-managed
+    // destroy — draft §ChatContact/set: "`destroy` is not supported and
+    // MUST return `forbidden`."
     // -----------------------------------------------------------------------
     if let Some(destroy_arr) = args.get("destroy").and_then(|v| v.as_array()) {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
