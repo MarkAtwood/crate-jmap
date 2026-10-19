@@ -271,3 +271,51 @@ async fn create_rejects_mentions_with_rich_body_type() {
         "{resp}"
     );
 }
+
+/// bd:JMAP-yt1w.16. §Creating a Message lists "`broadcastMentions`
+/// (BroadcastMention[])" among the create optionals, and §BroadcastMention:
+/// "The `broadcastMentions` array is authoritative for every `bodyType`:
+/// servers MUST take broadcast mentions only from it and MUST NOT derive
+/// them from `body`." A valid non-empty array on create is therefore
+/// stored, not dropped. Group chats outside any Space are exempt from the
+/// `"mention_broadcast"` check, so the create succeeds.
+///
+/// The same paragraph says "Like Mention, a BroadcastMention carries no
+/// position in `body`", so only each entry's `scope` and the array order
+/// are asserted. The request still sends `offset`/`length` because the
+/// current `BroadcastMention` type requires them (removed by JMAP-yt1w.17).
+#[tokio::test]
+async fn create_stores_broadcast_mentions() {
+    let backend = MemoryBackend::new();
+    let chat_id = create_group(&backend).await;
+    let broadcast_mentions = json!([
+        { "scope": "everyone", "offset": 0, "length": 2 },
+        { "scope": "here", "offset": 3, "length": 4 },
+    ]);
+    let resp = create(
+        &backend,
+        &chat_id,
+        json!({ "broadcastMentions": broadcast_mentions }),
+    )
+    .await;
+    let id = resp["created"]["m"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("not created: {resp}"))
+        .to_owned();
+
+    let (got, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [id] }),
+    )
+    .await
+    .expect("Message/get");
+    let msg = &got["list"][0];
+    let scopes: Vec<&str> = msg["broadcastMentions"]
+        .as_array()
+        .unwrap_or_else(|| panic!("broadcastMentions not an array: {msg}"))
+        .iter()
+        .map(|m| m["scope"].as_str().unwrap_or_default())
+        .collect();
+    assert_eq!(scopes, ["everyone", "here"], "{msg}");
+}
