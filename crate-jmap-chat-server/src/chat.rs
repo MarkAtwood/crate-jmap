@@ -37,6 +37,7 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, now_utc_string,
     reject_unsupported_query, set_error_value, SetAccumulators,
 };
+use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
 /// `Chat/set` update keys that change a group Chat's member list
@@ -354,6 +355,22 @@ pub async fn handle_chat_set<B: ChatBackend>(
         let mut batch_direct_ids: HashMap<String, Id> = HashMap::new();
 
         for (create_id, obj_val) in create_map {
+            // Optional properties: a wrongly-typed value is invalidProperties
+            // (RFC 8620 §5.3), not a silent absence.
+            if let Some(err) = mistyped_create_props(
+                obj_val,
+                &[
+                    ("contactId", PropType::Str),
+                    ("name", PropType::Str),
+                    ("description", PropType::Str),
+                    ("spaceId", PropType::Str),
+                    ("muted", PropType::Bool),
+                    ("receiveTypingIndicators", PropType::Bool),
+                ],
+            ) {
+                not_created.insert(create_id.clone(), err);
+                continue;
+            }
             // kind is required.
             let Some(kind_str) = obj_val
                 .get("kind")
@@ -544,7 +561,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
 
             let mut chat = Chat::new(
                 // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-                Id::from("placeholder"),
+                Id::from(PLACEHOLDER_ID),
                 kind,
                 now,
                 0,

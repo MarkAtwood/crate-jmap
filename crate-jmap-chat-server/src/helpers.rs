@@ -13,6 +13,66 @@ pub(crate) use jmap_server::{
     now_utc_string, optional_arg, serialize_value,
 };
 
+/// Sentinel object id that `*/set` create handlers pass to
+/// [`ChatBackend::create_object`] before the backend assigns the real one.
+///
+/// Used by the create arms in `ban.rs`, `chat.rs`, `contact.rs`,
+/// `emoji.rs`, `invite.rs`, `message.rs`, and `space.rs`, and by the
+/// `ReadPosition` that `message.rs` creates alongside a Message. The
+/// backend MUST replace this value with a real, unique, account-scoped
+/// Id and return it as the first element of the result tuple (see the
+/// `create_object` contract). Clients must never see this value.
+///
+/// Defined as a constant so every write-side site uses the same string
+/// and a rename is caught at compile time. Visibility is `pub(crate)`,
+/// matching `jmap-mail-server` (bd:JMAP-q2wa.23).
+pub(crate) const PLACEHOLDER_ID: &str = "placeholder";
+
+/// JSON type that a client-supplied optional `/set` create property must
+/// carry when present and non-null.
+#[derive(Clone, Copy)]
+pub(crate) enum PropType {
+    /// `String`, and the String-shaped `Id` and `UTCDate`. The caller
+    /// still checks any finer format.
+    Str,
+    /// `Boolean`.
+    Bool,
+    /// RFC 8620 §1.3 `UnsignedInt`: an integer in `0..=2^53-1`.
+    UnsignedInt,
+    /// A JSON array; the caller validates the elements.
+    Array,
+}
+
+/// Largest RFC 8620 §1.3 `UnsignedInt`: 2^53-1.
+const MAX_UNSIGNED_INT: u64 = (1 << 53) - 1;
+
+/// Return an `invalidProperties` SetError naming every property in
+/// `props` whose value in the create object `obj` has the wrong JSON type,
+/// or `None` when all of them are absent, `null`, or correctly typed.
+///
+/// RFC 8620 §5.3 defines `invalidProperties` as "The record given is
+/// invalid in some way", and its `properties` as the list of invalid
+/// properties. A handler that read these properties with
+/// `get(k).and_then(Value::as_str)` alone would silently treat a
+/// wrongly-typed value as absent. `null` is read as absent, so the
+/// property takes its default.
+pub(crate) fn mistyped_create_props(obj: &Value, props: &[(&str, PropType)]) -> Option<Value> {
+    let bad: Vec<&str> = props
+        .iter()
+        .filter(|(key, ty)| match obj.get(*key) {
+            None | Some(Value::Null) => false,
+            Some(v) => !match ty {
+                PropType::Str => v.is_string(),
+                PropType::Bool => v.is_boolean(),
+                PropType::UnsignedInt => v.as_u64().is_some_and(|n| n <= MAX_UNSIGNED_INT),
+                PropType::Array => v.is_array(),
+            },
+        })
+        .map(|(key, _)| *key)
+        .collect();
+    (!bad.is_empty()).then(|| json!({ "type": "invalidProperties", "properties": bad }))
+}
+
 /// Reject a `/query` `filter` clause or `sort` property this server does
 /// not define: RFC 8620 §5.5 `unsupportedFilter` and `unsupportedSort`.
 ///

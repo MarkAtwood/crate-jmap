@@ -532,28 +532,46 @@ pub trait ChatBackend: JmapBackend {
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
 
-    /// Returns true if this account supports the given JMAP object type.
-    /// Called by the server consumer (e.g. the session capability builder) —
-    /// NOT called internally by the handler library. Backends that support all
-    /// types unconditionally can return `true` always.
+    /// Returns true if this backend implements the given JMAP object type.
+    ///
+    /// # Contract
+    ///
+    /// This is a **global, stateless backend-capability check** — it asks
+    /// "did this implementation wire up the methods needed for type
+    /// `O`?", not "does this user's account have this type enabled?".
+    /// That is why the method is synchronous and takes no `caller` or
+    /// `account_id` arguments. Per-account capability variation belongs
+    /// in the consumer's session-capability builder (workspace AGENTS.md
+    /// library-kit posture), NOT here.
+    ///
+    /// # Types in scope
+    ///
+    /// Implementors should answer for the object types this trait
+    /// covers (draft-atwood-jmap-chat-00): `Chat`, `Message`, `Space`,
+    /// `SpaceInvite`, `SpaceBan`, `ChatContact`, `CustomEmoji`,
+    /// `ReadPosition`, and `PresenceStatus`. Backends MAY answer for
+    /// object types from sibling extensions if they also implement those
+    /// traits. A backend that does not recognise `O` SHOULD return
+    /// `false`.
+    ///
+    /// # Callers
+    ///
+    /// The handler library in this crate does not call this method. The
+    /// server consumer calls it when building the JMAP session capability
+    /// response.
+    ///
+    /// # Default
+    ///
+    /// Backends that support every type in this trait unconditionally
+    /// can return `true` always.
     ///
     /// # Why sync, not async
     ///
     /// Type-support is a startup-time deployment capability question,
-    /// not a per-request decision. Backends that vary supported types
-    /// per-tenant (e.g. "Pro tier exposes `CustomEmoji`") SHOULD load
-    /// the tenant configuration once at startup and answer from the
-    /// in-memory snapshot. See the trait-level "Async vs sync method
+    /// not a per-request decision. A backend whose supported types come
+    /// from configuration SHOULD load it once at startup and answer from
+    /// the in-memory snapshot. See the trait-level "Async vs sync method
     /// convention" section above for the workspace rationale.
-    ///
-    /// # Known limitation: no args
-    ///
-    /// This method takes no `caller` / `account_id` arguments, so a
-    /// multi-tenant backend cannot vary the answer per tenant from
-    /// inside this method alone — it must funnel all per-tenant
-    /// capability variation through `&self` state. Adding the
-    /// arguments would be a non-breaking signature widening; that
-    /// proposal is tracked separately.
     fn supports_type<O: JmapObject>(&self) -> bool;
 
     /// Generate a cryptographically random invite code.
