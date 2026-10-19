@@ -2194,23 +2194,24 @@ async fn memory_backend_expire_message_idempotent_on_missing() {
 // ---------------------------------------------------------------------------
 // Burn-on-read serverFail redaction canary (bd:JMAP-x2gd.99)
 //
-// The bd:JMAP-x2gd.91 fix routed a failed `expire_message` (the spec-mandated
-// hard-delete after readAt is set on a burnOnRead message) through
-// `server_fail_value_from_backend`, which substitutes the static
+// The bd:JMAP-x2gd.91 fix routed a failed burn-on-read hard-delete (the
+// spec-mandated hard-delete after readAt is set on a burnOnRead message)
+// through `server_fail_value_from_backend`, which substitutes the static
 // `SERVER_FAIL_INTERNAL_DESC` for the backend's Display text. The previous
 // shape leaked the backend error message into the wire `notUpdated[id]`
-// description.
+// description. Since bd:JMAP-x2gd.6 the burn is the single
+// `read_and_burn_message` backend call.
 //
-// This test injects a backend whose `expire_message` returns an error
-// carrying the canary literal `INJECTABLE_BACKEND_CANARY`, drives the
-// Message/set update that triggers expire_message, and asserts the wire
-// response contains no canary anywhere. Mirrors the canonical
+// This test injects a backend whose `read_and_burn_message` returns an
+// error carrying the canary literal `INJECTABLE_BACKEND_CANARY`, drives the
+// Message/set update that triggers it, and asserts the wire response
+// contains no canary anywhere. Mirrors the canonical
 // jmap-mail-server `set_per_id_server_fail_redacts_backend_display_*`
 // pattern.
 // ---------------------------------------------------------------------------
 
-/// Oracle: when `expire_message` fails after a burnOnRead readAt patch
-/// lands, the wire-format `notUpdated[id]` description MUST be the
+/// Oracle: when the burnOnRead readAt-and-hard-delete backend call fails,
+/// the wire-format `notUpdated[id]` description MUST be the
 /// static [`jmap_server::SERVER_FAIL_INTERNAL_DESC`] — the backend
 /// error's Display text MUST NOT appear in the response.
 #[tokio::test]
@@ -2245,10 +2246,9 @@ async fn message_set_burn_on_read_expire_failure_redacts_backend_display() {
         .expect("id in created response")
         .to_owned();
 
-    // Inject the fault on expire_message. The readAt patch itself will
-    // land (update_object is not injected); the spec-mandated hard-delete
-    // hook will fail with a MemoryError whose Display contains the canary.
-    backend.inject("Message", "expire");
+    // Inject the fault on the atomic readAt-and-burn call; it fails with
+    // a MemoryError whose Display contains the canary.
+    backend.inject("Message", "read_and_burn");
 
     let (resp, _) = handle_message_set(
         &backend,
@@ -2266,7 +2266,7 @@ async fn message_set_burn_on_read_expire_failure_redacts_backend_display() {
     assert!(
         !wire.contains(INJECTABLE_BACKEND_CANARY),
         "backend-error Display canary must not appear in /set response \
-         (burn-on-read expire_message failure Value path must redact); wire: {wire}"
+         (burn-on-read failure Value path must redact); wire: {wire}"
     );
 
     // Positive control: notUpdated[id] must exist with type=serverFail and

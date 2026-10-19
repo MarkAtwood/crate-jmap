@@ -400,6 +400,7 @@ impl std::error::Error for SlowModeError {}
 ///    [`ChatBackend::apply_space_patch`],
 ///    [`ChatBackend::apply_space_metadata_patch`],
 ///    [`ChatBackend::expire_message`],
+///    [`ChatBackend::read_and_burn_message`],
 ///    [`ChatBackend::slow_mode_check`],
 ///    [`ChatBackend::is_contact_blocked`], and
 ///    [`ChatBackend::may_set_custom_emoji`] all return
@@ -669,6 +670,41 @@ pub trait ChatBackend: JmapBackend {
         invite_id: &jmap_types::Id,
         joined_at: &jmap_types::UTCDate,
     ) -> impl std::future::Future<Output = Result<Result<(), InviteJoinRefusal>, Self::Error>> + Send;
+
+    /// Apply a `readAt`-setting `patch` to the `burnOnRead` Message
+    /// `message_id` and hard-delete it, as one atomic operation.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §Message `burnOnRead`: "the
+    /// receiving server MUST permanently hard-delete this message (row
+    /// removal, not tombstone) immediately after setting `readAt`."
+    ///
+    /// # Atomicity contract
+    ///
+    /// Validate `patch` against the stored Message exactly as
+    /// [`Self::update_object`] would, then remove the row, record the id
+    /// in the `destroyed` set of the `Message` change log (bumping the
+    /// `Message` state once), and unpin it from its Chat (§Chat
+    /// `pinnedMessageIds`). All of it takes effect or none: on any error
+    /// nothing is committed, so a retried `readAt` patch burns again.
+    /// Composing this from `update_object` and [`Self::expire_message`]
+    /// loses that guarantee: a failed delete leaves `readAt` stored, and
+    /// a retry finds nothing left to set.
+    ///
+    /// # When the handler calls this
+    ///
+    /// `Message/set` update calls this instead of `update_object` when
+    /// the patch sets a non-null `readAt` and the stored Message has
+    /// `burnOnRead: true`. Return `SetError` `notFound` if the Message
+    /// does not exist and the `update_object` `SetError` for an invalid
+    /// patch. There is no default: a non-atomic default would reinstate
+    /// the gap.
+    fn read_and_burn_message(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        message_id: &jmap_types::Id,
+        patch: jmap_types::PatchObject,
+    ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
 
     /// Implementation-defined per-Space content limits for this caller
     /// and account.
@@ -1678,8 +1714,8 @@ pub trait ChatBackend: JmapBackend {
     /// # Idempotency
     ///
     /// If the message no longer exists — because a previous
-    /// `expire_message` call or an atomic `update_object`
-    /// implementation has already deleted it — this method MUST
+    /// `expire_message` call or [`Self::read_and_burn_message`] has
+    /// already deleted it — this method MUST
     /// return `Ok(())`, AND MUST NOT bump the per-account `Message`
     /// state token in that case. The no-op case must be
     /// observationally indistinguishable from "the scheduler never
@@ -1687,32 +1723,22 @@ pub trait ChatBackend: JmapBackend {
     /// retry path would surface a spurious empty change set on every
     /// re-fire and induce a poll storm. Expiry events are
     /// inherently retry-friendly (a scheduler may re-fire if it
-    /// crashed mid-batch) and the burn-on-read handler integration
-    /// also treats a not-found backend response as a no-op. The
+    /// crashed mid-batch). The
     /// return type is `Result<(), Self::Error>` (not
     /// `BackendSetError`) precisely to prevent a `NotFound`
     /// SetError construction on this path: expiry is an internal
     /// scheduler hook, not a `/set`-shaped call, and there is no
     /// JMAP wire surface for per-message expiry rejection.
     ///
-    /// # Atomicity with `Message/set` update
-    ///
-    /// The reference burn-on-read handler integration calls
-    /// `update_object` to apply the `readAt` patch and then calls
-    /// `expire_message` as a separate step. A backend that wants
-    /// strict atomicity between the `readAt` write and the hard-delete
-    /// SHOULD override `update_object` to perform both inside a
-    /// single transaction; in that case `expire_message` becomes
-    /// idempotent for this code path (the message is already gone
-    /// when the handler calls it).
+    /// Burn-on-read does not use this hook; `Message/set` calls
+    /// [`Self::read_and_burn_message`] so the `readAt` write and the
+    /// hard-delete are atomic.
     ///
     /// # Default implementation
     ///
     /// The default returns `Ok(())` without doing anything. This is
-    /// appropriate for backends that have not yet implemented expiry
-    /// or that handle the burn-on-read flow atomically inside their
-    /// own `update_object`. Production backends that need expiry
-    /// SHOULD override this method.
+    /// appropriate for backends that have not yet implemented expiry.
+    /// Production backends that need expiry SHOULD override this method.
     fn expire_message(
         &self,
         _caller: &Self::CallerCtx,

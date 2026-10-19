@@ -1322,7 +1322,10 @@ pub async fn handle_message_set<B: ChatBackend>(
                     Ok((found, _not_found)) => {
                         found.first().and_then(|m| m.burn_on_read) == Some(true)
                     }
-                    Err(_) => false,
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
                 }
             } else {
                 false
@@ -1441,9 +1444,21 @@ pub async fn handle_message_set<B: ChatBackend>(
                     continue;
                 }
             };
-            let update_outcome = backend
-                .update_object::<Message>(caller, &account_id, &id, patch)
-                .await;
+            // draft-atwood-jmap-chat-00 §Message `burnOnRead`: "MUST
+            // permanently hard-delete this message (row removal, not
+            // tombstone) immediately after setting `readAt`." One atomic
+            // backend call, so a failure commits nothing and a retry
+            // burns again.
+            let update_outcome = if patch_sets_read_at && pre_patch_burn_on_read {
+                backend
+                    .read_and_burn_message(caller, &account_id, &id, patch)
+                    .await
+                    .map(|()| None)
+            } else {
+                backend
+                    .update_object::<Message>(caller, &account_id, &id, patch)
+                    .await
+            };
             let maybe_updated_obj = match update_outcome {
                 Ok(maybe_obj) => maybe_obj,
                 Err(BackendSetError::SetError(set_err)) => {
@@ -1466,49 +1481,7 @@ pub async fn handle_message_set<B: ChatBackend>(
                 }
             };
 
-            // Burn-on-read fires AFTER the readAt patch has been applied.
-            // draft-atwood-jmap-chat-00 §Message `burnOnRead`: hard-delete
-            // immediately. The patch already succeeded above; the hard
-            // delete is its own backend call so that a production backend
-            // can either (a) leave the default no-op and override
-            // `update_object` for atomic write+delete, or (b) override
-            // this method for a separate two-step deletion. The reference
-            // `MemoryBackend` uses (b). Both are conforming.
-            if patch_sets_read_at && pre_patch_burn_on_read {
-                if let Err(burn_err) = backend.expire_message(caller, &account_id, &id).await {
-                    // The readAt patch already landed in storage but
-                    // the spec-mandated hard-delete failed. Surface
-                    // as serverFail; the recipient will retry, and
-                    // the next pre-fetch will still see
-                    // `burnOnRead: true` (a sender-set field a
-                    // recipient cannot flip), so the burn will be
-                    // attempted again. Production backends that
-                    // need atomic readAt-and-burn semantics SHOULD
-                    // override `update_object` to perform both
-                    // inside a single transaction; the reference
-                    // `MemoryBackend::expire_message` does not
-                    // surface failures and so this branch is
-                    // unreachable for it.
-                    //
-                    // Route through server_fail_value_from_backend to
-                    // redact backend Display text from the wire
-                    // description per workspace redaction discipline
-                    // (otherwise the backend error message leaks to
-                    // the JMAP client).
-                    not_updated.insert(id_str, server_fail_value_from_backend(&burn_err));
-                    // Bump mutated regardless, because the readAt
-                    // write is committed even though we report
-                    // notUpdated for the wire response. Callers
-                    // relying on `mutated` to decide whether to
-                    // rotate the state token will rotate, which
-                    // correctly reflects that something changed in
-                    // storage.
-                    mutated = true;
-                    continue;
-                }
-            }
-
-            // Update succeeded (and burn, if applicable, succeeded too).
+            // Update (or burn) succeeded.
             mutated = true;
             match maybe_updated_obj {
                 Some(obj) => {
