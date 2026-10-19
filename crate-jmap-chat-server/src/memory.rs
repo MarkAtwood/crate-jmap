@@ -1804,7 +1804,8 @@ fn apply_space_metadata_patch_impl(
 /// Per draft-atwood-jmap-chat-00 §Space/set:
 /// - `addCategories`: assigns a fresh CategoryId and pushes the category
 ///   into `space.categories`. If the entry's `channelIds` list references
-///   channels of the Space, those channels' `categoryId` is updated.
+///   channels of the Space, those channels' `categoryId` is updated and
+///   they leave their previous category or `uncategorizedChannelIds`.
 /// - `removeCategories`: removes the named category. Channels currently
 ///   pointing at that category have their `categoryId` cleared and are
 ///   appended to `space.uncategorizedChannelIds` (cascade per line 1126).
@@ -1812,7 +1813,8 @@ fn apply_space_metadata_patch_impl(
 ///   wholesale-replacement updates each channel's `categoryId` to match:
 ///   channels that left the list get `categoryId = None` and join
 ///   `uncategorizedChannelIds`; channels that joined the list get
-///   `categoryId = Some(this category)`.
+///   `categoryId = Some(this category)` and leave their previous
+///   category or `uncategorizedChannelIds`.
 ///
 /// All cross-reference updates use the same in-memory Chat store so the
 /// Space-side `categories[].channel_ids` and the Chat-side `categoryId`
@@ -1909,6 +1911,7 @@ fn apply_category_op(
                     SetError::new(SetErrorType::Forbidden)
                         .with_description("internal: Space.categories not an array")
                 })?;
+            remove_from_categories(cats, &owned_channel_ids);
             cats.push(serde_json::to_value(&cat).map_err(|e| {
                 SetError::new(SetErrorType::Forbidden)
                     .with_description(format!("internal: serialize Category: {e}"))
@@ -2057,6 +2060,7 @@ fn apply_category_op(
                         SetError::new(SetErrorType::Forbidden)
                             .with_description("internal: Space.categories not an array")
                     })?;
+                remove_from_categories(cats, &added);
                 cats[pos] = serde_json::to_value(&cat).map_err(|e| {
                     SetError::new(SetErrorType::Forbidden)
                         .with_description(format!("internal: serialize Category: {e}"))
@@ -3716,6 +3720,20 @@ fn scan_channels_in_category(inner: &Inner, account_id: &str, target_id: &Id) ->
         })
         .map(|(id, _)| id.clone())
         .collect()
+}
+
+/// Remove `ids` from every category's `channelIds` so a channel being
+/// assigned elsewhere keeps a single home (draft §Category: "The server
+/// MUST keep them consistent").
+fn remove_from_categories<S: AsRef<str>>(cats: &mut [serde_json::Value], ids: &[S]) {
+    for cat in cats {
+        if let Some(ch_ids) = cat.get_mut("channelIds").and_then(|v| v.as_array_mut()) {
+            ch_ids.retain(|v| {
+                v.as_str()
+                    .is_none_or(|s| !ids.iter().any(|id| id.as_ref() == s))
+            });
+        }
+    }
 }
 
 /// Set or clear a Chat's `categoryId` field in place. Silently no-ops if

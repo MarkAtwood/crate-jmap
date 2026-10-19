@@ -4274,6 +4274,139 @@ async fn space_set_category_update_rename_and_reassign_channels() {
     );
 }
 
+/// Seed `space_id` with categories `cat-a` (holding channel `ch-m`) and
+/// `cat-b` (empty), consistent on both sides.
+async fn seed_two_categories(backend: &MemoryBackend, space_id: &str) {
+    seed_channel(backend, ACCOUNT_ID, "ch-m", space_id, Some("cat-a"));
+    let (get_resp, _) = handle_space_get(
+        backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
+    )
+    .await
+    .expect("get");
+    let mut space = get_resp["list"][0].clone();
+    space["categories"] = json!([
+        { "id": "cat-a", "name": "A", "position": 0, "channelIds": ["ch-m"] },
+        { "id": "cat-b", "name": "B", "position": 1, "channelIds": [] },
+    ]);
+    backend.insert_object_for_test("Space", ACCOUNT_ID, space_id, space);
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Category: "`Category.channelIds`,
+/// `Space.uncategorizedChannelIds`, and each channel Chat's `categoryId`
+/// describe the same assignment. The server MUST keep them consistent: a
+/// `Space/set` operation that changes one MUST update the others in the
+/// same operation." Adding a category with a channel already in category
+/// A moves the channel: A.channelIds must no longer list it.
+#[tokio::test]
+async fn space_set_category_add_moves_channel_out_of_previous_category() {
+    let backend = MemoryBackend::new();
+    let space_id = make_space(&backend, "Cat Add Move Test").await;
+    seed_two_categories(&backend, &space_id).await;
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": {
+                &space_id: {
+                    "addCategories": [{
+                        "id": "placeholder",
+                        "name": "C",
+                        "position": 2,
+                        "channelIds": ["ch-m"],
+                    }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("add cat");
+    assert!(
+        resp["notUpdated"].is_null(),
+        "addCategories must succeed: {:?}",
+        resp["notUpdated"]
+    );
+
+    let (get_resp, _) = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+    )
+    .await
+    .expect("get");
+    let cats = &get_resp["list"][0]["categories"];
+    assert_eq!(cats[0]["id"], "cat-a");
+    assert_eq!(
+        cats[0]["channelIds"],
+        json!([]),
+        "ch-m must have left category A"
+    );
+    assert_eq!(cats[2]["name"], "C");
+    assert_eq!(cats[2]["channelIds"], json!(["ch-m"]));
+    assert_eq!(
+        backend.peek_chat(&Id::from("ch-m"))["categoryId"],
+        cats[2]["id"],
+        "ch-m.categoryId must point at the new category"
+    );
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Category: "`Category.channelIds`,
+/// `Space.uncategorizedChannelIds`, and each channel Chat's `categoryId`
+/// describe the same assignment. The server MUST keep them consistent: a
+/// `Space/set` operation that changes one MUST update the others in the
+/// same operation." Putting a channel of category A into category B's
+/// channelIds via updateCategories moves it: A.channelIds must no longer
+/// list it.
+#[tokio::test]
+async fn space_set_category_update_moves_channel_out_of_previous_category() {
+    let backend = MemoryBackend::new();
+    let space_id = make_space(&backend, "Cat Update Move Test").await;
+    seed_two_categories(&backend, &space_id).await;
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": {
+                &space_id: {
+                    "updateCategories": [{ "id": "cat-b", "channelIds": ["ch-m"] }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("update cat");
+    assert!(
+        resp["notUpdated"].is_null(),
+        "updateCategories must succeed: {:?}",
+        resp["notUpdated"]
+    );
+
+    let (get_resp, _) = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+    )
+    .await
+    .expect("get");
+    let cats = &get_resp["list"][0]["categories"];
+    assert_eq!(
+        cats[0]["channelIds"],
+        json!([]),
+        "ch-m must have left category A"
+    );
+    assert_eq!(cats[1]["channelIds"], json!(["ch-m"]));
+    assert_eq!(
+        backend.peek_chat(&Id::from("ch-m"))["categoryId"],
+        "cat-b",
+        "ch-m.categoryId must point at category B"
+    );
+}
+
 /// Oracle: when a Space/set Category op cascades and mutates one or
 /// more Chat records' `categoryId` field, those Chat ids must surface
 /// in the next `Chat/changes` delta as `updated`. This regression test
