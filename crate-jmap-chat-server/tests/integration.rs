@@ -1737,6 +1737,57 @@ async fn message_set_lone_read_disposition_is_invalid_properties() {
     assert_eq!(get_resp["list"][0]["readDisposition"], json!(null));
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 §Message `bodyType`: "MIME type of
+/// `body`. MUST be in `supportedBodyTypes`."; §Input Validation:
+/// "`bodyType`: validate against `supportedBodyTypes`." and "When a
+/// `Message/set` create or update fails one of these checks and this
+/// document names no other error for that check, the server MUST reject the
+/// entry with an `invalidProperties` SetError ({{RFC8620}} §5.3) whose
+/// `properties` names the offending property."
+#[tokio::test]
+async fn message_set_unsupported_body_type_is_invalid_properties() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "create": {
+            "bad": { "chatId": "c1", "body": "hi", "bodyType": "text/html", "sentAt": "2026-01-01T00:00:00Z" },
+            "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" }
+        } }),
+    )
+    .await
+    .expect("create");
+    assert_eq!(
+        create_resp["notCreated"]["bad"],
+        json!({ "type": "invalidProperties", "properties": ["bodyType"] })
+    );
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): { "bodyType": "text/html" } } }),
+    )
+    .await
+    .expect("update");
+    assert_eq!(
+        update_resp["notUpdated"][msg_id.as_str()],
+        json!({ "type": "invalidProperties", "properties": ["bodyType"] })
+    );
+
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
+    )
+    .await
+    .expect("get");
+    assert_eq!(get_resp["list"][0]["bodyType"], json!("text/plain"));
+}
+
 /// Oracle: draft-atwood-jmap-chat-00 §Message `readDisposition`: "Absent
 /// when `readAt` is not set."
 ///

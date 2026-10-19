@@ -179,7 +179,8 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
         account_capabilities.insert((*uri).to_owned(), json!({}));
     }
     // ponytail: the reference chat backend enforces only the body cap
-    // (message.rs rejects bodies over 100_000 bytes) and does not parse
+    // (message.rs rejects bodies over 100_000 bytes) and the body types
+    // (message.rs SUPPORTED_BODY_TYPES), and does not parse
     // attachments, so the attachment limits mirror the upload cap and
     // an arbitrary count rather than an enforced rule. It implements
     // neither the `threadRootId` query filter nor `replyCount`, hence
@@ -190,7 +191,7 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
             "maxBodyBytes": 100_000_u64,
             "maxAttachmentBytes": 50_000_000_u64,
             "maxAttachmentsPerMessage": 16_u64,
-            "supportedBodyTypes": ["text/plain", "text/markdown", "application/jmap-chat-rich"],
+            "supportedBodyTypes": jmap_chat_server::message::SUPPORTED_BODY_TYPES,
             "supportsThreads": false,
         }),
     );
