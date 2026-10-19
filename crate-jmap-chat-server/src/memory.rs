@@ -109,6 +109,12 @@ struct Inner {
     /// server-set"; §Space/set `addRoles`: "Server assigns ULIDs").
     #[cfg(not(feature = "realistic-demo-ids"))]
     role_seq: u64,
+    /// Last `Category` sequence number handed out in deterministic id
+    /// mode. Only ever incremented, so category ids are unique across
+    /// Spaces and a removed category's id is never reissued (draft
+    /// §Space/set `addCategories`: "Server assigns ULIDs").
+    #[cfg(not(feature = "realistic-demo-ids"))]
+    category_seq: u64,
 }
 
 impl Inner {
@@ -1863,9 +1869,16 @@ fn apply_category_op(
     let assigned_id = match op {
         SpacePatchOp::AddCategory(mut cat) => {
             // Mint a fresh CategoryId. Categories live inside the Space
-            // (no separate `objects` slot) so we synthesize a unique id
-            // via the shared `demo_next_id` helper with a synthetic type name.
+            // object, not the per-type object map `demo_next_id` counts in
+            // deterministic mode, so that mode uses its own monotonic counter.
+            // ponytail: demo-quality like `demo_next_id`; production backends mint ULIDs.
+            #[cfg(feature = "realistic-demo-ids")]
             let new_id = MemoryBackend::demo_next_id(inner, "Category", account_id);
+            #[cfg(not(feature = "realistic-demo-ids"))]
+            let new_id = {
+                inner.category_seq += 1;
+                Id::from(format!("category{:016x}", inner.category_seq))
+            };
             cat.id = new_id.clone();
 
             // Validate every channel id in the entry's channel_ids refers
