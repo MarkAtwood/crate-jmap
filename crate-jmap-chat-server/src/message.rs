@@ -1700,10 +1700,11 @@ mod tests {
     //
     // Oracle: the spec text itself. Group/direct chats without a spaceId
     // are unrestricted; channel chats with a spaceId must pass the
-    // mention_broadcast gate. The MemoryBackend's default
-    // may_broadcast_mention returns Ok(Ok(())) (always permits), so
-    // these tests verify the handler CODE PATH is wired correctly and
-    // that the gate is skipped or invoked in the right circumstances.
+    // mention_broadcast gate. The channel fixture's owner role holds
+    // mention_broadcast, so these tests verify the handler CODE PATH is
+    // wired correctly and that the gate is skipped or invoked in the
+    // right circumstances; tests/message_broadcast_permission_memory.rs
+    // covers denial.
     // -----------------------------------------------------------------------
 
     /// Helper: create a group Chat (no spaceId) via handle_chat_set and
@@ -1743,7 +1744,7 @@ mod tests {
                 "uncategorizedChannelIds": [],
                 "isPublic": false,
                 "isPubliclyPreviewable": false,
-                "roles": [{ "id": "r-owner", "name": "Owner", "permissions": ["manage_channels"], "position": 10 }],
+                "roles": [{ "id": "r-owner", "name": "Owner", "permissions": ["manage_channels", "mention_broadcast"], "position": 10 }],
                 "members": [{ "id": ACCOUNT_ID, "roleIds": ["r-owner"], "joinedAt": "2026-01-01T00:00:00Z" }],
             }),
         );
@@ -1812,8 +1813,8 @@ mod tests {
     }
 
     /// Create a Message with broadcastMentions in a channel chat (has spaceId).
-    /// The MemoryBackend's default may_broadcast_mention permits all,
-    /// so the message must succeed.
+    /// The owner holds mention_broadcast in the Space, so the message
+    /// must succeed.
     #[tokio::test]
     async fn broadcast_mention_create_in_channel_succeeds() {
         let backend = MemoryBackend::new();
@@ -1880,8 +1881,8 @@ mod tests {
     }
 
     /// Update a Message to retain non-empty broadcastMentions in a channel chat.
-    /// The MemoryBackend's default may_broadcast_mention permits all,
-    /// so the update must succeed.
+    /// The owner holds mention_broadcast in the Space, so the update
+    /// must succeed.
     #[tokio::test]
     async fn broadcast_mention_update_retaining_broadcast_succeeds() {
         let backend = MemoryBackend::new();

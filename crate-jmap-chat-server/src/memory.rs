@@ -1157,6 +1157,42 @@ impl ChatBackend for MemoryBackend {
         Ok(Ok(()))
     }
 
+    /// Reference implementation of [`ChatBackend::may_broadcast_mention`].
+    ///
+    /// Implements draft-atwood-jmap-chat-00 §BroadcastMention: a
+    /// non-empty `broadcastMentions` array in a channel requires the
+    /// [`MENTION_BROADCAST`](crate::permissions::MENTION_BROADCAST)
+    /// permission in the containing Space. The caller's member entry is
+    /// `account_id` (draft §Terminology). A Space that does not exist is
+    /// permitted, matching the ban gate.
+    async fn may_broadcast_mention(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        space_id: &Id,
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        use crate::permissions::MENTION_BROADCAST;
+
+        let inner = self.inner.lock().unwrap();
+        let Some(space) = inner
+            .objects_ref("Space", account_id.as_ref())
+            .and_then(|m| m.get(space_id))
+        else {
+            return Ok(Ok(()));
+        };
+        Ok(
+            if caller_effective_permissions(space, account_id)
+                .is_some_and(|perms| perms.contains(MENTION_BROADCAST))
+            {
+                Ok(())
+            } else {
+                Err(SetError::new(SetErrorType::Forbidden).with_description(
+                    "caller lacks required permission `mention_broadcast` in this Space",
+                ))
+            },
+        )
+    }
+
     /// Reference implementation of [`ChatBackend::may_set_pinned_messages`].
     ///
     /// Implements draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`:

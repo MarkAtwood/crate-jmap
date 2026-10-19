@@ -5,7 +5,8 @@
 //!
 //! Oracle for every test: draft-atwood-jmap-chat-00 §Message/set. The
 //! `TrackingBackend` denies `may_broadcast_mention`; messages are seeded
-//! through its permissive inner `MemoryBackend`, which shares storage.
+//! through its inner `MemoryBackend`, which shares storage and permits
+//! them because Space/set create gives the owner every permission.
 
 mod common;
 
