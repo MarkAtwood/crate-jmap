@@ -508,13 +508,30 @@ fn tasks_capability_empty_object() {
 fn tasks_account_capability_roundtrip() {
     let json = include_str!("fixtures/capability.json");
     let cap: TasksAccountCapability = serde_json::from_str(json).expect("account capability");
-    assert_eq!(cap.min_date_time, "1970-01-01T00:00:00");
-    assert_eq!(cap.max_date_time, "2100-12-31T23:59:59");
+    assert_eq!(cap.min_date_time.as_ref(), "1970-01-01T00:00:00");
+    assert_eq!(cap.max_date_time.as_ref(), "2100-12-31T23:59:59");
     assert!(cap.may_create_task_list);
 
     let out = serde_json::to_string(&cap).expect("serialize");
     let recovered: TasksAccountCapability = serde_json::from_str(&out).expect("re-deserialize");
     assert_eq!(cap, recovered);
+}
+
+/// draft-ietf-jmap-tasks-06 §1.6.1: "minDateTime: LocalDate" and
+/// "maxDateTime: LocalDate". §1.2 defines LocalDate as "a string in the same
+/// format as Date (see RFC 8620 Section 1.4), but with the time-offset omitted
+/// from the end. For example, 2014-10-30T14:12:00."
+///
+/// The spec's own example value must deserialize unchanged (no `Z` added or
+/// required) and serialize back to the identical JSON.
+#[test]
+fn tasks_account_capability_local_date_spec_example() {
+    let json = r#"{"minDateTime":"2014-10-30T14:12:00","maxDateTime":"2014-10-30T14:12:00","mayCreateTaskList":true}"#;
+    let cap: TasksAccountCapability = serde_json::from_str(json).expect("deserialize");
+    assert_eq!(cap.min_date_time.as_ref(), "2014-10-30T14:12:00");
+    assert_eq!(cap.max_date_time.as_ref(), "2014-10-30T14:12:00");
+    assert!(cap.may_create_task_list);
+    assert_eq!(serde_json::to_string(&cap).expect("serialize"), json);
 }
 
 /// Capability URI constants have the expected values.
