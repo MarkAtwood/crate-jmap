@@ -980,24 +980,56 @@ pub async fn handle_message_set<B: ChatBackend>(
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
-            // Reject patches that include server-set fields.
-            // MAINTENANCE: when adding a server-set field to Message in
-            // jmap-chat-types, add its wire name here too.  A missing entry
-            // silently allows clients to overwrite server-managed state.
-            const MESSAGE_READONLY: &[&str] = &[
-                "id",
-                "senderMsgId",
-                "senderId",
-                "chatId",
-                "sentAt",
-                "receivedAt",
-                "deliveryState",
+            // RFC 8620 §5.3: "There MUST NOT be two patches in the
+            // PatchObject where the pointer of one is the prefix of the
+            // pointer of the other" or the update "MUST be rejected with an
+            // "invalidPatch" error".
+            if patch_val.get("reactions").is_some()
+                && patch_val
+                    .as_object()
+                    .is_some_and(|obj| obj.keys().any(|k| k.starts_with("reactions/")))
+            {
+                not_updated.insert(
+                    id_str,
+                    json!({
+                        "type": "invalidPatch",
+                        "description":
+                            "patch must not combine top-level `reactions` with `reactions/{id}` entries",
+                    }),
+                );
+                continue;
+            }
+
+            // draft-atwood-jmap-chat-00 §Message/set defines the only
+            // client updates: Editing (`body`, `bodyType`, `mentions`,
+            // `broadcastMentions`), Adding and Removing Reactions
+            // (`reactions/<senderReactionId>` JSON Pointer keys), Deleting
+            // (`deletedAt`, `deletedForAll`) and Marking as Read (`readAt`,
+            // `readDisposition`). Every other key names a server-set or
+            // immutable property, so it is rejected with RFC 8620 §5.3
+            // `invalidProperties`. A field added to Message later is
+            // rejected until it is listed here.
+            const MESSAGE_UPDATE_ALLOWED: &[&str] = &[
+                "body",
+                "bodyType",
+                "mentions",
+                "broadcastMentions",
+                "deletedAt",
+                "deletedForAll",
+                "readAt",
+                "readDisposition",
             ];
-            let bad_props: Vec<&str> = MESSAGE_READONLY
-                .iter()
-                .copied()
-                .filter(|&field| patch_val.get(field).is_some())
-                .collect();
+            let bad_props: Vec<&str> = patch_val
+                .as_object()
+                .map(|obj| {
+                    obj.keys()
+                        .map(String::as_str)
+                        .filter(|k| {
+                            !MESSAGE_UPDATE_ALLOWED.contains(k) && !k.starts_with("reactions/")
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
             if !bad_props.is_empty() {
                 not_updated.insert(
                     id_str,
@@ -1157,25 +1189,6 @@ pub async fn handle_message_set<B: ChatBackend>(
                 .unwrap_or_default();
 
             if !reaction_pointer_keys.is_empty() {
-                // Reject mixing top-level `reactions` with
-                // `reactions/{id}` — the two have incompatible
-                // semantics (wholesale replace vs per-key merge) and
-                // a single patch should not attempt both.
-                if augmented
-                    .as_object()
-                    .is_some_and(|obj| obj.contains_key("reactions"))
-                {
-                    not_updated.insert(
-                        id_str,
-                        json!({
-                            "type": "invalidPatch",
-                            "description":
-                                "patch must not combine top-level `reactions` with `reactions/{id}` entries",
-                        }),
-                    );
-                    continue;
-                }
-
                 // Validate each pointer key + value shape. The
                 // `.collect::<Result<Vec<_>, _>>()` form short-circuits
                 // on the first Err and is the idiomatic Rust expression
@@ -1295,10 +1308,7 @@ pub async fn handle_message_set<B: ChatBackend>(
             // If the patch sets readAt, pre-fetch the message so we can
             // decide whether it is burn-on-read. We deliberately consult
             // the pre-patch state: a recipient setting readAt for the
-            // first time should fire the burn, regardless of whether the
-            // same patch attempts to also clear `burnOnRead` (which is a
-            // sender-set field and the spec does not authorize a
-            // recipient to flip).
+            // first time should fire the burn.
             let pre_patch_burn_on_read = if patch_sets_read_at {
                 match backend
                     .get_objects::<Message>(
