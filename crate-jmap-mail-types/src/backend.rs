@@ -11,6 +11,7 @@ use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 // ---------------------------------------------------------------------------
 
 /// Property selector for [`crate::Mailbox`] `/get` and `/set`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MailboxProperty {
     /// The `id` property (RFC 8621 §2).
@@ -38,6 +39,7 @@ pub enum MailboxProperty {
 }
 
 /// Property selector for [`crate::Thread`] `/get`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ThreadProperty {
     /// The `id` property (RFC 8621 §3).
@@ -47,6 +49,7 @@ pub enum ThreadProperty {
 }
 
 /// Property selector for [`crate::Email`] `/get` and `/set`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum EmailProperty {
     /// The `id` property (RFC 8621 §4).
@@ -104,6 +107,7 @@ pub enum EmailProperty {
 }
 
 /// Property selector for [`crate::Identity`] `/get` and `/set`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum IdentityProperty {
     /// The `id` property (RFC 8621 §6).
@@ -125,6 +129,7 @@ pub enum IdentityProperty {
 }
 
 /// Property selector for [`crate::EmailSubmission`] `/get` and `/set`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum EmailSubmissionProperty {
     /// The `id` property (RFC 8621 §7).
@@ -150,6 +155,7 @@ pub enum EmailSubmissionProperty {
 }
 
 /// Property selector for [`crate::VacationResponse`] `/get` and `/set`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum VacationResponseProperty {
     /// The `id` property (RFC 8621 §8).
@@ -169,6 +175,7 @@ pub enum VacationResponseProperty {
 }
 
 /// Property selector for [`crate::SearchSnippet`] `/get`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SearchSnippetProperty {
     /// The `emailId` property (RFC 8621 §5).
@@ -181,6 +188,7 @@ pub enum SearchSnippetProperty {
 
 /// Property selector for [`crate::SieveScript`] `/get` and `/set`.
 #[cfg(feature = "sieve")]
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SieveScriptProperty {
     /// The `id` property (RFC 9661).
