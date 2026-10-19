@@ -365,32 +365,45 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
 
 /// Validate broadcast mentions against spec §4.4.1 / §4.16 constraints.
 ///
-/// Returns an error description string on failure, None on success.
+/// Returns the SetError value on failure, None on success. The draft names
+/// `invalidArguments` for an unrecognized `scope` (§BroadcastMention); the
+/// other checks take the §Input Validation default: "the server MUST
+/// reject the entry with an `invalidProperties` SetError ... whose
+/// `properties` names the offending property."
 fn validate_broadcast_mentions(
     broadcast_mentions: &[serde_json::Value],
     body: &str,
     body_type: &str,
-) -> Option<String> {
+) -> Option<Value> {
+    let invalid_arguments =
+        |desc: String| json!({ "type": "invalidArguments", "description": desc });
+    let invalid_properties = |desc: String| {
+        json!({
+            "type": "invalidProperties",
+            "properties": ["broadcastMentions"],
+            "description": desc,
+        })
+    };
     // Rich body: broadcastMentions MUST be empty
     if body_type == "application/jmap-chat-rich" && !broadcast_mentions.is_empty() {
-        return Some(
+        return Some(invalid_arguments(
             "broadcastMentions must be empty when bodyType is application/jmap-chat-rich".into(),
-        );
+        ));
     }
     for (i, bm) in broadcast_mentions.iter().enumerate() {
         // scope validation
         let scope = match bm.get("scope").and_then(|v| v.as_str()) {
             Some(s) => s,
             None => {
-                return Some(format!(
+                return Some(invalid_properties(format!(
                     "broadcastMentions[{i}]: missing or non-string scope"
-                ));
+                )));
             }
         };
         if !BROADCAST_MENTION_SCOPES.contains(&scope) {
-            return Some(format!(
+            return Some(invalid_arguments(format!(
                 "broadcastMentions[{i}]: unrecognized scope \"{scope}\""
-            ));
+            )));
         }
         // offset + length bounds check with overflow protection
         let offset = bm.get("offset").and_then(|v| v.as_u64()).unwrap_or(0);
@@ -398,16 +411,16 @@ fn validate_broadcast_mentions(
         let end = match offset.checked_add(length) {
             Some(e) => e,
             None => {
-                return Some(format!(
+                return Some(invalid_properties(format!(
                     "broadcastMentions[{i}]: offset + length overflows u64"
-                ));
+                )));
             }
         };
         let body_len = body.len() as u64;
         if end > body_len {
-            return Some(format!(
+            return Some(invalid_properties(format!(
                 "broadcastMentions[{i}]: offset({offset}) + length({length}) = {end} exceeds body byte length {body_len}"
-            ));
+            )));
         }
     }
     None
@@ -735,13 +748,10 @@ pub async fn handle_message_set<B: ChatBackend>(
                 .and_then(|v| v.as_array())
                 .cloned()
                 .unwrap_or_default();
-            if let Some(desc) =
+            if let Some(err) =
                 validate_broadcast_mentions(&broadcast_mentions_val, &body, &body_type)
             {
-                not_created.insert(
-                    create_id.clone(),
-                    json!({ "type": "invalidArguments", "description": desc }),
-                );
+                not_created.insert(create_id.clone(), err);
                 continue;
             }
 
@@ -1326,13 +1336,10 @@ pub async fn handle_message_set<B: ChatBackend>(
                     .and_then(|v| v.as_array())
                     .cloned()
                     .unwrap_or_default();
-                if let Some(desc) =
+                if let Some(err) =
                     validate_broadcast_mentions(&bm_arr, post_patch_body, post_patch_body_type)
                 {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "invalidArguments", "description": desc }),
-                    );
+                    not_updated.insert(id_str, err);
                     continue;
                 }
 
@@ -1600,6 +1607,12 @@ mod tests {
     }
 
     /// offset=u64::MAX + length=1 overflows u64; must be rejected.
+    ///
+    /// draft-atwood-jmap-chat-00 §Input Validation: "When a `Message/set`
+    /// create or update fails one of these checks and this document names
+    /// no other error for that check, the server MUST reject the entry with
+    /// an `invalidProperties` SetError ([RFC8620] §5.3) whose `properties`
+    /// names the offending property."
     #[tokio::test]
     async fn broadcast_mention_validation_rejects_overflow() {
         let backend = MemoryBackend::new();
@@ -1624,7 +1637,7 @@ mod tests {
         .expect("handle_message_set");
 
         assert!(resp["notCreated"]["m0"].is_object());
-        assert_eq!(resp["notCreated"]["m0"]["type"], "invalidArguments");
+        assert_eq!(resp["notCreated"]["m0"]["type"], "invalidProperties");
         let desc = resp["notCreated"]["m0"]["description"]
             .as_str()
             .expect("description");
@@ -1635,6 +1648,12 @@ mod tests {
     }
 
     /// offset + length exceeding body byte length must be rejected.
+    ///
+    /// draft-atwood-jmap-chat-00 §Input Validation: "When a `Message/set`
+    /// create or update fails one of these checks and this document names
+    /// no other error for that check, the server MUST reject the entry with
+    /// an `invalidProperties` SetError ([RFC8620] §5.3) whose `properties`
+    /// names the offending property."
     #[tokio::test]
     async fn broadcast_mention_validation_rejects_exceeds_body() {
         let backend = MemoryBackend::new();
@@ -1659,7 +1678,7 @@ mod tests {
         .expect("handle_message_set");
 
         assert!(resp["notCreated"]["m0"].is_object());
-        assert_eq!(resp["notCreated"]["m0"]["type"], "invalidArguments");
+        assert_eq!(resp["notCreated"]["m0"]["type"], "invalidProperties");
         let desc = resp["notCreated"]["m0"]["description"]
             .as_str()
             .expect("description");
