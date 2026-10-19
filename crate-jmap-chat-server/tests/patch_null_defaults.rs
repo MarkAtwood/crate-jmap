@@ -12,9 +12,11 @@ mod common;
 use common::{make_chat_group, MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{
     handle_chat_get, handle_chat_set, handle_contact_get, handle_contact_set, handle_message_get,
-    handle_message_set, handle_presence_get, handle_presence_set,
+    handle_message_set, handle_presence_get, handle_presence_set, ChatBackend,
 };
-use serde_json::{json, Value};
+use jmap_chat_types::Message;
+use jmap_types::{Id, PatchObject};
+use serde_json::{json, Map, Value};
 
 /// Assert a `/set` response updated `id` without error.
 fn assert_updated(resp: &Value, id: &str) {
@@ -193,7 +195,15 @@ async fn presence_receipt_sharing_null_resets_to_true() {
     assert_eq!(ps["receiptSharing"], json!(true), "{ps:?}");
 }
 
-/// Create a Message, patch `prop` to null, and return the fetched Message.
+/// Create a Message, patch `prop` to null in the backend, and return the
+/// fetched Message.
+///
+/// The patch goes to `update_object` directly rather than through
+/// `Message/set`: draft-atwood-jmap-chat-00 §Message/set admits only the
+/// Editing, Reactions (`reactions/<senderReactionId>`), Deleting and
+/// Marking as Read updates, so the handler rejects a whole-property
+/// `actions` or `reactions` patch. The default-on-absence contract under
+/// test belongs to the stored record, not to the handler.
 async fn message_null_then_get(prop: &str) -> Value {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_message_set(
@@ -211,14 +221,11 @@ async fn message_null_then_get(prop: &str) -> Value {
         .expect("created id")
         .to_owned();
 
-    let (resp, _) = handle_message_set(
-        &backend,
-        &(),
-        json!({ "accountId": ACCOUNT_ID, "update": { &id: { prop: null } } }),
-    )
-    .await
-    .expect("Message/set update");
-    assert_updated(&resp, &id);
+    let patch = PatchObject::from(Map::from_iter([(prop.to_owned(), Value::Null)]));
+    backend
+        .update_object::<Message>(&(), &Id::from(ACCOUNT_ID), &Id::from(id.as_str()), patch)
+        .await
+        .expect("update_object");
 
     let (resp, _) = handle_message_get(
         &backend,

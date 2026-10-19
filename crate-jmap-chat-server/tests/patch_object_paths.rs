@@ -3,14 +3,21 @@
 //!
 //! The backend previously applied PatchObjects as RFC 7396 merge
 //! patches, storing path keys as literal top-level properties and
-//! merging object values. These tests drive `Message/set` against the
-//! client-writable `deliveryReceipts` map (draft-atwood-jmap-chat-00
-//! §Message), a real object-of-objects property.
+//! merging object values. These tests drive the backend's
+//! `update_object` against the Message `deliveryReceipts` map, a real
+//! object-of-objects property. draft-atwood-jmap-chat-00 §Message marks
+//! it "`deliveryReceipts` (Object, optional, server-set)", so
+//! `Message/set` rejects client patches to it; the server's own
+//! delivery-receipt writes reach the backend through this path.
 
 mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
-use jmap_chat_server::{handle_message_get, handle_message_set};
+use jmap_chat_server::{
+    handle_message_get, handle_message_set, BackendSetError, ChatBackend, SetErrorType,
+};
+use jmap_chat_types::Message;
+use jmap_types::{Id, PatchObject};
 use serde_json::{json, Value};
 
 /// Create a Message and return its server id.
@@ -31,16 +38,18 @@ async fn create_message(backend: &MemoryBackend) -> String {
         .to_owned()
 }
 
-/// Apply `patch` to message `id` and return the `Message/set` response.
-async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
-    let (resp, _) = handle_message_set(
-        backend,
-        &(),
-        json!({ "accountId": ACCOUNT_ID, "update": { id: patch } }),
-    )
-    .await
-    .expect("update");
-    resp
+/// Apply `patch` to message `id` in the backend, returning the SetError
+/// type on rejection.
+async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Result<(), SetErrorType> {
+    let patch: PatchObject = serde_json::from_value(patch).expect("patch is a JSON object");
+    match backend
+        .update_object::<Message>(&(), &Id::from(ACCOUNT_ID), &Id::from(id), patch)
+        .await
+    {
+        Ok(_) => Ok(()),
+        Err(BackendSetError::SetError(e)) => Err(e.error_type),
+        Err(e) => panic!("backend error: {e:?}"),
+    }
 }
 
 /// Fetch message `id` as its wire JSON.
@@ -64,7 +73,7 @@ async fn message_with_receipt(backend: &MemoryBackend) -> String {
         json!({ "deliveryReceipts": { "u1": { "deliveredAt": "2024-01-01T00:00:01Z" } } }),
     )
     .await;
-    assert_eq!(resp["notUpdated"], Value::Null, "{resp:?}");
+    assert_eq!(resp, Ok(()));
     id
 }
 
@@ -84,7 +93,7 @@ async fn path_key_updates_nested_member() {
         json!({ "deliveryReceipts/u2": { "readAt": "2024-01-01T00:00:02Z" } }),
     )
     .await;
-    assert_eq!(resp["notUpdated"], Value::Null, "{resp:?}");
+    assert_eq!(resp, Ok(()));
 
     let msg = get(&backend, &id).await;
     assert!(msg.get("deliveryReceipts/u2").is_none(), "{msg:?}");
@@ -112,7 +121,7 @@ async fn top_level_object_value_replaces_property() {
         json!({ "deliveryReceipts": { "u2": { "readAt": "2024-01-01T00:00:02Z" } } }),
     )
     .await;
-    assert_eq!(resp["notUpdated"], Value::Null, "{resp:?}");
+    assert_eq!(resp, Ok(()));
 
     let msg = get(&backend, &id).await;
     assert_eq!(
@@ -140,8 +149,7 @@ async fn path_through_absent_parent_is_invalid_patch() {
         json!({ "deliveryReceipts/u1": { "readAt": "2024-01-01T00:00:02Z" } }),
     )
     .await;
-    assert_eq!(resp["notUpdated"][&id]["type"], "invalidPatch", "{resp:?}");
-    assert!(resp["updated"].get(&id).is_none(), "{resp:?}");
+    assert_eq!(resp, Err(SetErrorType::InvalidPatch));
     assert_eq!(get(&backend, &id).await, before);
 }
 
@@ -165,8 +173,7 @@ async fn prefix_conflict_is_invalid_patch() {
         }),
     )
     .await;
-    assert_eq!(resp["notUpdated"][&id]["type"], "invalidPatch", "{resp:?}");
-    assert!(resp["updated"].get(&id).is_none(), "{resp:?}");
+    assert_eq!(resp, Err(SetErrorType::InvalidPatch));
     assert_eq!(get(&backend, &id).await, before);
 }
 
@@ -192,12 +199,11 @@ async fn path_depth_counts_toward_nesting_cap() {
         json!({ "deliveryReceipts": { "u1": nested(21) } }),
     )
     .await;
-    assert_eq!(resp["notUpdated"], Value::Null, "{resp:?}");
+    assert_eq!(resp, Ok(()));
     let before = get(&backend, &id).await;
 
     let path = format!("deliveryReceipts/u1{}", "/k".repeat(19));
     let resp = update(&backend, &id, json!({ path: nested(21) })).await;
-    assert_eq!(resp["notUpdated"][&id]["type"], "invalidPatch", "{resp:?}");
-    assert!(resp["updated"].get(&id).is_none(), "{resp:?}");
+    assert_eq!(resp, Err(SetErrorType::InvalidPatch));
     assert_eq!(get(&backend, &id).await, before);
 }
