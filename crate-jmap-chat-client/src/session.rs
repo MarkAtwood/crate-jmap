@@ -7,14 +7,18 @@
 //!   - draft-atwood-jmap-chat-push-00    (ChatPushCapability fields)
 //!   - draft-atwood-jmap-chat-wss-00     (supports_chat_websocket)
 //!   - draft-atwood-jmap-chat-filenode-00 (ChatFilenodeCapability fields)
+//!   - draft-atwood-jmap-chat-00 §Session Object Extensions (`ownerUserId`,
+//!     `ownerLogin`, `ownerEndpoints`)
+//!   - draft-atwood-jmap-chat-federation-00 §session-extensions
+//!     (`ownerDirectAddress`)
 //!
-//! [`ChatCapability`], [`ChatPushCapability`] and [`ChatFilenodeCapability`]
-//! live in `jmap-chat-types`
+//! [`ChatCapability`], [`ChatPushCapability`], [`ChatFilenodeCapability`]
+//! and [`Endpoint`] live in `jmap-chat-types`
 //! (the canonical home for chat wire-format types); this module re-exports
 //! them for ergonomic use from the trait signatures below.
 
 pub use jmap_chat_types::{
-    ChatCapability, ChatCapabilityRole, ChatFilenodeCapability, ChatPushCapability,
+    ChatCapability, ChatCapabilityRole, ChatFilenodeCapability, ChatPushCapability, Endpoint,
 };
 
 // ---------------------------------------------------------------------------
@@ -102,6 +106,49 @@ pub trait ChatSessionExt: sealed::Sealed {
     ///
     /// Checks for `capabilities["urn:ietf:params:jmap:quota"]`.
     fn supports_quotas(&self) -> bool;
+
+    /// Returns the mailbox owner's identity, if advertised.
+    ///
+    /// Reads the top-level Session field `ownerUserId`
+    /// (draft-atwood-jmap-chat-00 §Session Object Extensions). Servers
+    /// implementing draft-atwood-jmap-chat-federation-00 MUST include it;
+    /// other servers MAY, so it is optional here.
+    ///
+    /// Returns `None` when the field is absent or not a string.
+    fn owner_user_id(&self) -> Option<&str>;
+
+    /// Returns the mailbox owner's human-readable login name, if advertised.
+    ///
+    /// Reads the top-level Session field `ownerLogin`
+    /// (draft-atwood-jmap-chat-00 §Session Object Extensions).
+    ///
+    /// Returns `None` when the field is absent or not a string.
+    fn owner_login(&self) -> Option<&str>;
+
+    /// Returns the owner's advertised out-of-band [`Endpoint`]s, if present.
+    ///
+    /// Reads the top-level Session field `ownerEndpoints`
+    /// (draft-atwood-jmap-chat-00 §Session Object Extensions). Endpoints
+    /// with an unrecognised `type` are returned unchanged; callers MUST
+    /// silently ignore those they do not recognise (§endpoint). Each `uri`
+    /// is peer-supplied and MUST be treated as untrusted.
+    ///
+    /// - `Ok(None)` — the field is absent.
+    /// - `Ok(Some(endpoints))` — the field is present and valid.
+    /// - `Err(ClientError::Parse(...))` — the field is present but malformed.
+    fn owner_endpoints(&self) -> Result<Option<Vec<Endpoint>>, jmap_base_client::ClientError>;
+
+    /// Returns the owner's direct-delivery address hint, if advertised.
+    ///
+    /// Reads the top-level Session field `ownerDirectAddress`
+    /// (draft-atwood-jmap-chat-federation-00 §session-extensions). The
+    /// value is peer-supplied, deployment-defined and advisory only: it
+    /// MUST be treated as untrusted, MUST NOT be treated as authoritative,
+    /// and MUST NOT be used as a blob fetch target or in any other context
+    /// subject to the SSRF restrictions (§direct-address-security).
+    ///
+    /// Returns `None` when the field is absent or not a string.
+    fn owner_direct_address(&self) -> Option<&str>;
 }
 
 mod sealed {
@@ -175,6 +222,27 @@ impl ChatSessionExt for jmap_base_client::Session {
 
     fn supports_quotas(&self) -> bool {
         self.capabilities.contains_key("urn:ietf:params:jmap:quota")
+    }
+
+    fn owner_user_id(&self) -> Option<&str> {
+        self.extra.get("ownerUserId")?.as_str()
+    }
+
+    fn owner_login(&self) -> Option<&str> {
+        self.extra.get("ownerLogin")?.as_str()
+    }
+
+    fn owner_endpoints(&self) -> Result<Option<Vec<Endpoint>>, jmap_base_client::ClientError> {
+        let Some(raw) = self.extra.get("ownerEndpoints") else {
+            return Ok(None);
+        };
+        <Vec<Endpoint> as serde::Deserialize>::deserialize(raw)
+            .map(Some)
+            .map_err(jmap_base_client::ClientError::from_parse)
+    }
+
+    fn owner_direct_address(&self) -> Option<&str> {
+        self.extra.get("ownerDirectAddress")?.as_str()
     }
 }
 
@@ -633,6 +701,144 @@ mod tests {
         assert!(
             cap.max_messages_per_push.is_none(),
             "maxMessagesPerPush optional must default to None when absent"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Session Object Extensions (ownerUserId, ownerLogin, ownerEndpoints,
+    // ownerDirectAddress)
+    // -----------------------------------------------------------------------
+
+    /// Build a Session whose top level carries the given extension fields.
+    fn session_with_extras(extras: serde_json::Value) -> Session {
+        let mut raw = json!({
+            "capabilities": {"urn:ietf:params:jmap:chat": {}},
+            "accounts": {},
+            "primaryAccounts": {},
+            "username": "",
+            "apiUrl": "https://alice.example/api/",
+            "downloadUrl": "https://alice.example/dl/{accountId}/{blobId}/{name}?accept={type}",
+            "uploadUrl": "https://alice.example/ul/{accountId}/",
+            "eventSourceUrl": "https://alice.example/sse/?types={types}&closeafter={closeafter}&ping={ping}",
+            "state": "s1"
+        });
+        let obj = raw.as_object_mut().expect("fixture is an object");
+        for (k, v) in extras.as_object().expect("extras is an object") {
+            obj.insert(k.clone(), v.clone());
+        }
+        serde_json::from_value(raw).expect("session_with_extras: malformed test JSON")
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-00 §Session Object Extensions:
+    /// "`ownerUserId` (String): The identity of the mailbox owner",
+    /// "`ownerLogin` (String): A human-readable login name for the mailbox
+    /// owner", "`ownerEndpoints` (Endpoint[], optional): The owner's
+    /// advertised out-of-band capability endpoints"; and
+    /// draft-atwood-jmap-chat-federation-00 §session-extensions:
+    /// "`ownerDirectAddress` (String, optional): A deployment-specific
+    /// address at which the owner's client may be reachable directly".
+    /// Endpoint field shapes from draft-atwood-jmap-chat-00 §endpoint.
+    #[test]
+    fn owner_fields_present() {
+        let session = session_with_extras(json!({
+            "ownerUserId": "alice@alice.example",
+            "ownerLogin": "alice",
+            "ownerEndpoints": [{
+                "type": "urn:jmap:chat:cap:vtc",
+                "uri": "https://meet.alice.example/room",
+                "label": "Personal Jitsi"
+            }],
+            "ownerDirectAddress": "alice-laptop.tailnet.example"
+        }));
+        assert_eq!(session.owner_user_id(), Some("alice@alice.example"));
+        assert_eq!(session.owner_login(), Some("alice"));
+        assert_eq!(
+            session.owner_direct_address(),
+            Some("alice-laptop.tailnet.example")
+        );
+        let endpoints = session
+            .owner_endpoints()
+            .expect("valid ownerEndpoints must parse")
+            .expect("ownerEndpoints is present");
+        assert_eq!(endpoints.len(), 1);
+        assert_eq!(endpoints[0].endpoint_type, "urn:jmap:chat:cap:vtc");
+        assert_eq!(endpoints[0].uri, "https://meet.alice.example/room");
+        assert_eq!(endpoints[0].label.as_deref(), Some("Personal Jitsi"));
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-00 §Session Object Extensions:
+    /// "servers MAY include the following additional fields", so a Session
+    /// without them is valid and every accessor reports absence.
+    #[test]
+    fn owner_fields_absent() {
+        let session = session_with_extras(json!({}));
+        assert_eq!(session.owner_user_id(), None);
+        assert_eq!(session.owner_login(), None);
+        assert_eq!(session.owner_direct_address(), None);
+        assert!(matches!(session.owner_endpoints(), Ok(None)));
+    }
+
+    /// Oracle: the spec types `ownerUserId`, `ownerLogin` and
+    /// `ownerDirectAddress` as String (§Session Object Extensions,
+    /// federation §session-extensions); a non-string value is not that
+    /// field, so the string accessors report `None`.
+    #[test]
+    fn owner_string_fields_wrong_type_are_none() {
+        let session = session_with_extras(json!({
+            "ownerUserId": 42,
+            "ownerLogin": ["alice"],
+            "ownerDirectAddress": {"host": "alice"}
+        }));
+        assert_eq!(session.owner_user_id(), None);
+        assert_eq!(session.owner_login(), None);
+        assert_eq!(session.owner_direct_address(), None);
+    }
+
+    /// Oracle: §Session Object Extensions types `ownerEndpoints` as
+    /// Endpoint[], and §endpoint makes `type` and `uri` (String) required.
+    /// A non-array, or an entry missing `uri`, is malformed and must be an
+    /// error, matching the `chat_capability` convention.
+    #[test]
+    fn owner_endpoints_malformed_is_parse_error() {
+        for bad in [
+            json!("urn:jmap:chat:cap:vtc"),
+            json!([{"type": "urn:jmap:chat:cap:vtc"}]),
+        ] {
+            let session = session_with_extras(json!({ "ownerEndpoints": bad }));
+            assert!(
+                matches!(
+                    session.owner_endpoints(),
+                    Err(jmap_base_client::ClientError::Parse(_))
+                ),
+                "malformed ownerEndpoints {bad} must be a Parse error"
+            );
+        }
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-00 §endpoint: "The `type` field uses
+    /// an extensible URI namespace; clients MUST silently ignore Endpoint
+    /// records whose `type` they do not recognize." An unknown type must
+    /// therefore not fail the whole list; it is returned for the caller to
+    /// ignore.
+    #[test]
+    fn owner_endpoints_unknown_type_preserved() {
+        let session = session_with_extras(json!({
+            "ownerEndpoints": [
+                {"type": "https://vendor.example/cap/hologram", "uri": "holo:alice"},
+                {"type": "urn:jmap:chat:cap:payment", "uri": "lightning:alice@alice.example"}
+            ]
+        }));
+        let endpoints = session
+            .owner_endpoints()
+            .expect("unknown Endpoint type must not be rejected")
+            .expect("ownerEndpoints is present");
+        let types: Vec<&str> = endpoints.iter().map(|e| e.endpoint_type.as_str()).collect();
+        assert_eq!(
+            types,
+            [
+                "https://vendor.example/cap/hologram",
+                "urn:jmap:chat:cap:payment"
+            ]
         );
     }
 }
