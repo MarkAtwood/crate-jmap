@@ -1,7 +1,7 @@
 //! Shared backend infrastructure for all JMAP server crates.
 //!
 //! Re-exports the marker traits from `jmap-types` and adds the result types,
-//! `BackendChangesError`, and [`JmapBackend`] supertrait. Domain crates add
+//! `BackendChangesError`, `BackendQueryError`, and [`JmapBackend`] supertrait. Domain crates add
 //! their write-side methods and domain-specific error variants on top.
 
 pub use jmap_types::{GetObject, JmapObject, QueryObject, SetObject};
@@ -700,6 +700,60 @@ impl<E: std::error::Error> From<BackendChangesError<E>> for jmap_types::JmapErro
     }
 }
 
+/// Error type returned by [`JmapBackend::query_objects`].
+///
+/// RFC 8620 §5.5 lets a `/query` fail with method errors that only the
+/// backend can detect (`unsupportedFilter`, `unsupportedSort`,
+/// `anchorNotFound`, ...). [`Self::Method`] carries such an error to the
+/// client unchanged; [`Self::Other`] is an internal storage-layer failure
+/// that handlers surface as the redacted `serverFail`.
+#[derive(Debug)]
+pub enum BackendQueryError<E> {
+    /// An RFC 8620 §5.5 method error, returned to the client as-is
+    /// (type and description). Backends MUST NOT put internal error
+    /// text in it.
+    Method(jmap_types::JmapError),
+    /// An unexpected storage-layer error.
+    Other(E),
+}
+
+impl<E: std::fmt::Display> std::fmt::Display for BackendQueryError<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Method(e) => write!(f, "{e}"),
+            Self::Other(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl<E: std::error::Error + 'static> std::error::Error for BackendQueryError<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Method(_) => None,
+            Self::Other(e) => Some(e),
+        }
+    }
+}
+
+impl<E> From<E> for BackendQueryError<E> {
+    fn from(e: E) -> Self {
+        Self::Other(e)
+    }
+}
+
+impl<E> From<BackendQueryError<E>> for jmap_types::JmapError {
+    fn from(e: BackendQueryError<E>) -> Self {
+        match e {
+            BackendQueryError::Method(err) => err,
+            // Same redaction as `BackendChangesError::Other`: the backend
+            // error's text never reaches the wire.
+            BackendQueryError::Other(_inner) => {
+                jmap_types::JmapError::server_fail(crate::handlers::SERVER_FAIL_INTERNAL_DESC)
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Result types
 // ---------------------------------------------------------------------------
@@ -1056,6 +1110,14 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// the O(n) cost this method exists to avoid. The Mailbox handler in
     /// `jmap-mail-server` is the canonical example of pushing filter/sort
     /// fully into the backend.
+    ///
+    /// # Errors
+    ///
+    /// Return [`BackendQueryError::Method`] for an RFC 8620 §5.5 method
+    /// error (`unsupportedFilter`, `unsupportedSort`, `anchorNotFound`,
+    /// ...); handlers pass it to the client unchanged. Return
+    /// [`BackendQueryError::Other`] (or use `?` on `Self::Error`) for an
+    /// internal failure; handlers surface it as a redacted `serverFail`.
     #[allow(clippy::too_many_arguments)]
     fn query_objects<O: QueryObject + Send + Sync>(
         &self,
@@ -1065,7 +1127,7 @@ pub trait JmapBackend: Send + Sync + 'static {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
-    ) -> impl std::future::Future<Output = Result<QueryResult, Self::Error>> + Send;
+    ) -> impl std::future::Future<Output = Result<QueryResult, BackendQueryError<Self::Error>>> + Send;
 
     /// Execute a `/queryChanges` and return deltas since `since_query_state`.
     ///
@@ -1708,7 +1770,7 @@ mod tests {
                 _sort: Option<&[O::Comparator]>,
                 _limit: Option<u64>,
                 _position: i64,
-            ) -> Result<QueryResult, Self::Error> {
+            ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 unreachable!("only principal_id is exercised in this test")
             }
 
@@ -1803,7 +1865,7 @@ mod tests {
                 _sort: Option<&[O::Comparator]>,
                 _limit: Option<u64>,
                 _position: i64,
-            ) -> Result<QueryResult, Self::Error> {
+            ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 unreachable!("only max_objects_in_set is exercised in this test")
             }
 

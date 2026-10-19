@@ -217,7 +217,7 @@ pub async fn handle_submission_query<B: MailBackend>(
                     0,
                 )
                 .await
-                .map_err(|e| server_fail_from_backend(&e))?;
+                .map_err(JmapError::from)?;
             let anchor_idx = all
                 .ids
                 .iter()
@@ -251,7 +251,7 @@ pub async fn handle_submission_query<B: MailBackend>(
                     position,
                 )
                 .await
-                .map_err(|e| server_fail_from_backend(&e))?;
+                .map_err(JmapError::from)?;
             let pos = result.position;
             let total = result.total;
             (

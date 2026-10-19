@@ -310,7 +310,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         let full = backend
             .query_objects::<Mailbox>(caller, &account_id, filter.as_ref(), sort_slice, None, 0)
             .await
-            .map_err(|e| server_fail_from_backend(&e))?;
+            .map_err(JmapError::from)?;
         query_state_str = full.query_state.as_ref().to_owned();
         let all_ids = full.ids;
         let total = all_ids.len() as u64;
@@ -339,7 +339,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
                 position,
             )
             .await
-            .map_err(|e| server_fail_from_backend(&e))?;
+            .map_err(JmapError::from)?;
         query_state_str = result.query_state.as_ref().to_owned();
         let total = result.total.unwrap_or(result.ids.len() as u64);
         let start = result.position as usize;

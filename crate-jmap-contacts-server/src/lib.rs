@@ -47,9 +47,9 @@ pub use addressbook::{
     handle_address_book_changes, handle_address_book_get, handle_address_book_set,
 };
 pub use backend::{
-    AddedItem, AddressBookProperty, BackendChangesError, BackendSetError, ChangesResult,
-    ContactCardProperty, ContactsBackend, GetObject, JmapBackend, JmapObject, QueryChangesResult,
-    QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    AddedItem, AddressBookProperty, BackendChangesError, BackendQueryError, BackendSetError,
+    ChangesResult, ContactCardProperty, ContactsBackend, GetObject, JmapBackend, JmapObject,
+    QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
 };
 pub use card::{
     handle_contact_card_changes, handle_contact_card_copy, handle_contact_card_get,
@@ -211,8 +211,9 @@ pub(crate) mod test_support {
 
     use jmap_contacts_types::{AddressBook, ContactCard};
     use jmap_server::{
-        BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend, JmapObject,
-        QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+        BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+        JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError,
+        SetErrorType, SetObject,
     };
     use jmap_types::{Id, State};
 
@@ -418,7 +419,7 @@ pub(crate) mod test_support {
             _sort: Option<&[O::Comparator]>,
             _limit: Option<u64>,
             _position: i64,
-        ) -> Result<QueryResult, Self::Error> {
+        ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
             Ok(QueryResult::new(
                 vec![],
                 0,

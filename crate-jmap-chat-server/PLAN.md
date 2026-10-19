@@ -88,7 +88,7 @@ pub trait ChatBackend: Send + Sync + 'static {
     async fn destroy_object<O: SetObject>(...) -> Result<(), BackendSetError<Self::Error>>;
     async fn get_state<O: JmapObject>(...) -> Result<State, Self::Error>;
     async fn get_changes<O: JmapObject>(...) -> Result<ChangesResult, BackendChangesError<Self::Error>>;
-    async fn query_objects<O: QueryObject>(...) -> Result<QueryResult, Self::Error>;
+    async fn query_objects<O: QueryObject>(...) -> Result<QueryResult, BackendQueryError<Self::Error>>;
     async fn get_session(&self, user_id: &Id) -> Result<Session, Self::Error>;
     fn supports_type<O: JmapObject>(&self) -> bool;
 }

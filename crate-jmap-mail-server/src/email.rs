@@ -858,7 +858,7 @@ pub async fn handle_email_query<B: MailBackend>(
                         0,
                     )
                     .await
-                    .map_err(|e| server_fail_from_backend(&e))?;
+                    .map_err(JmapError::from)?;
                 return Ok((
                     serde_json::json!({
                         "accountId": account_id.as_ref(),
@@ -885,7 +885,7 @@ pub async fn handle_email_query<B: MailBackend>(
                     0,
                 )
                 .await
-                .map_err(|e| server_fail_from_backend(&e))?;
+                .map_err(JmapError::from)?;
             let fetched_count = all.ids.len();
             let query_state = all.query_state.clone();
             let can_calculate_changes = all.can_calculate_changes;
@@ -956,7 +956,7 @@ pub async fn handle_email_query<B: MailBackend>(
                     position,
                 )
                 .await
-                .map_err(|e| server_fail_from_backend(&e))?;
+                .map_err(JmapError::from)?;
             let pos = result.position;
             let total = result.total;
             (

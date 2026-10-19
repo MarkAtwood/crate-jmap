@@ -62,9 +62,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
-    TasksBackend,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
+    SetObject, TasksBackend,
 };
 use jmap_server::{apply_patch_object, resolve_query_offset};
 use jmap_types::{Id, State};
@@ -588,7 +588,7 @@ impl JmapBackend for MemoryBackend {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
-    ) -> Result<QueryResult, Self::Error> {
+    ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         // Fail loud on any non-trivial filter. A `None` or all-fields-None
         // filter passes (matches everything); any populated field rejects.
         //
@@ -607,13 +607,13 @@ impl JmapBackend for MemoryBackend {
                 None => true,
             };
             if any_field_set {
-                return Err(MemoryError::new(format!(
+                return Err(BackendQueryError::Other(MemoryError::new(format!(
                     "MemoryBackend does not support filter on {}/query — reference \
                      implementation; a production backend MUST honor RFC 8620 §5.5 \
                      filter / supported_filter for {}",
                     O::TYPE_NAME,
                     O::TYPE_NAME
-                )));
+                ))));
             }
         }
 
@@ -621,13 +621,13 @@ impl JmapBackend for MemoryBackend {
         // implementation-defined; this reference impl returns ids in
         // id-lexicographic order, which a client must not assume.
         if sort.is_some_and(|s| !s.is_empty()) {
-            return Err(MemoryError::new(format!(
+            return Err(BackendQueryError::Other(MemoryError::new(format!(
                 "MemoryBackend does not support sort on {}/query — reference \
                  implementation returns id-lexicographic order; a production \
                  backend MUST honor RFC 8620 §5.5 sort / supported_sort for {}",
                 O::TYPE_NAME,
                 O::TYPE_NAME
-            )));
+            ))));
         }
 
         let inner = self.inner.lock().unwrap();

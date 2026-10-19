@@ -56,9 +56,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, ContactsBackend, GetObject,
-    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
-    SetObject,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult,
+    ContactsBackend, GetObject, JmapBackend, JmapObject, QueryChangesResult, QueryObject,
+    QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_contacts_types::ContactCardFilterCondition;
 use jmap_server::{apply_patch_object, resolve_query_offset};
@@ -748,7 +748,7 @@ impl JmapBackend for MemoryBackend {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
-    ) -> Result<QueryResult, Self::Error> {
+    ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         let inner = self.inner.lock().unwrap();
 
         // Filter + sort dispatch.

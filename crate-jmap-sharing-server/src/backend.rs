@@ -38,8 +38,9 @@
 //! [`ShareNotificationProperty`]: jmap_sharing_types::backend::ShareNotificationProperty
 
 pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
+    SetObject,
 };
 pub use jmap_sharing_types::backend::{PrincipalProperty, ShareNotificationProperty};
 

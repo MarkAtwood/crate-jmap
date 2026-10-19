@@ -25,9 +25,9 @@ use std::sync::Arc;
 pub use jmap_chat_server::memory::{MemoryBackend, MemoryError};
 
 use jmap_chat_server::{
-    BackendChangesError, BackendSetError, ChangesResult, ChatBackend, ChatLimits, EmojiSetOp,
-    GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult,
-    SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
+    ChatLimits, EmojiSetOp, GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult,
+    QueryObject, QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
 };
 use jmap_types::{Id, State, UTCDate};
 
@@ -85,8 +85,10 @@ impl JmapBackend for FaultyBackend {
         _sort: Option<&[O::Comparator]>,
         _limit: Option<u64>,
         _position: i64,
-    ) -> Result<QueryResult, Self::Error> {
-        Err(MemoryError::new("storage unavailable"))
+    ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+        Err(BackendQueryError::Other(MemoryError::new(
+            "storage unavailable",
+        )))
     }
 
     async fn query_changes<O: QueryObject + Send + Sync>(
@@ -327,7 +329,7 @@ impl JmapBackend for TrackingBackend {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
-    ) -> Result<QueryResult, Self::Error> {
+    ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         self.inner
             .query_objects::<O>(caller, account_id, filter, sort, limit, position)
             .await
@@ -610,7 +612,7 @@ impl JmapBackend for IdentityBackend {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
-    ) -> Result<QueryResult, Self::Error> {
+    ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         self.inner
             .query_objects::<O>(&(), account_id, filter, sort, limit, position)
             .await
@@ -976,7 +978,7 @@ impl JmapBackend for InjectableBackend {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
-    ) -> Result<QueryResult, Self::Error> {
+    ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         self.inner
             .query_objects::<O>(caller, account_id, filter, sort, limit, position)
             .await

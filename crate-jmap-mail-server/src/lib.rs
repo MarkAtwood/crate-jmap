@@ -87,10 +87,11 @@ pub mod thread;
 pub mod vacation;
 
 pub use backend::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, EmailProperty,
-    EmailSubmissionProperty, GetObject, IdentityProperty, JmapBackend, JmapObject, MailBackend,
-    MailboxProperty, QueryChangesResult, QueryObject, QueryResult, SearchSnippetProperty, SetError,
-    SetErrorType, SetObject, ThreadProperty, VacationResponseProperty,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult,
+    EmailProperty, EmailSubmissionProperty, GetObject, IdentityProperty, JmapBackend, JmapObject,
+    MailBackend, MailboxProperty, QueryChangesResult, QueryObject, QueryResult,
+    SearchSnippetProperty, SetError, SetErrorType, SetObject, ThreadProperty,
+    VacationResponseProperty,
 };
 pub use email::{
     handle_email_changes, handle_email_copy, handle_email_get, handle_email_import,
