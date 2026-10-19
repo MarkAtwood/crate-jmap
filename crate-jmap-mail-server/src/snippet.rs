@@ -15,7 +15,8 @@
 //!
 //! Each handler returns `Err(JmapError)` for method-level failures
 //! (`accountNotFound`, `accountNotSupportedByMethod`, `invalidArguments`,
-//! `serverFail` — per RFC 8620 §3.6 and §5).
+//! `requestTooLarge`, `serverFail` — per RFC 8620 §3.6 and §5, and
+//! RFC 8621 §5.1).
 
 use jmap_mail_types::{query::EmailFilter, SearchSnippet};
 use jmap_types::{Id, Invocation, JmapError};
@@ -45,6 +46,14 @@ use jmap_server::server_fail_from_backend;
 /// backend; operator trees (`AND`/`OR`/`NOT`) are passed as `None` (no
 /// highlight — valid per RFC 8621 §5.1 which allows `null` snippets).
 ///
+/// # Request size
+///
+/// If `emailIds` has more entries than
+/// [`max_objects_in_get`](jmap_server::JmapBackend::max_objects_in_get)
+/// returns for the account, the handler returns `requestTooLarge`
+/// (description `"maxObjectsInGet"`) per RFC 8621 §5.1, before calling the
+/// backend.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_search_snippet_get<B: MailBackend>(
     backend: &B,
@@ -63,6 +72,19 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
         .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
+    }
+
+    // RFC 8621 §5.1: requestTooLarge when the number of emailIds exceeds the
+    // maximum the server will process in one call. Same cap as every other
+    // /get (bd:JMAP-yt1w.38), checked before parsing the id list.
+    let requested = args
+        .get("emailIds")
+        .and_then(|v| v.as_array())
+        .map_or(0u64, |a| a.len() as u64);
+    if requested > backend.max_objects_in_get(caller, &account_id) {
+        let mut err = JmapError::request_too_large();
+        err.description = Some("maxObjectsInGet".into());
+        return Err(err);
     }
 
     let email_ids: Vec<Id> = match args.get("emailIds") {
