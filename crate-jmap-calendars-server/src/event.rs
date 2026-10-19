@@ -38,8 +38,8 @@ use crate::backend::{
     CalendarsBackend, QueryCalendarEventsError,
 };
 use crate::helpers::{
-    enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
-    SetAccumulators, PLACEHOLDER_ID,
+    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+    finalize_set_response, set_error_value, SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_backend};
 
@@ -85,6 +85,7 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+    enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
 
     // Standard /get parameters (RFC 8620 §5.1).
     let ids: Option<Vec<Id>> = match args.remove("ids") {

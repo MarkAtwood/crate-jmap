@@ -26,8 +26,8 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend};
 use crate::helpers::{
-    enforce_max_objects_in_set, extract_account_id, filter_properties, finalize_set_response,
-    not_found_json, serialize_value, set_error_value, SetAccumulators,
+    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
+    finalize_set_response, not_found_json, serialize_value, set_error_value, SetAccumulators,
 };
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
@@ -52,6 +52,7 @@ pub async fn handle_identity_get<B: MailBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+    enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
 
     // ids: absent or null means "return all"; Some([]) means "return nothing".
     let ids: Option<Vec<Id>> = match args.remove("ids") {

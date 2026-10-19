@@ -29,8 +29,9 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, EmojiSetOp};
 use crate::helpers::{
-    enforce_max_objects_in_set, extract_account_id, finalize_set_response, not_found_json,
-    now_utc_string, serialize_value, set_error_value, SetAccumulators,
+    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+    finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
+    SetAccumulators,
 };
 use jmap_server::{query_anchor_args, server_fail_from_backend, server_fail_value_from_backend};
 
@@ -51,6 +52,7 @@ pub async fn handle_emoji_get<B: ChatBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
+    enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
 
     let ids: Option<Vec<Id>> = match args.remove("ids") {
         None | Some(Value::Null) => None,

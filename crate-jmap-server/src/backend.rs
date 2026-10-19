@@ -1248,6 +1248,24 @@ pub trait JmapBackend: Send + Sync + 'static {
         let _ = (caller, account_id);
         500
     }
+
+    /// Maximum number of ids this account permits in a single `/get`
+    /// call (RFC 8620 §5.1 `maxObjectsInGet`) (bd:JMAP-yt1w.31).
+    ///
+    /// Handlers MUST enforce this at the top of every `/get` handler via
+    /// [`crate::helpers::enforce_max_objects_in_get`]; the generic
+    /// [`crate::handlers::handle_get`] already does. A null `ids` (fetch
+    /// all) is not counted.
+    ///
+    /// The default value `500` is the RFC 8620 §2 suggested minimum and
+    /// mirrors [`JmapBackend::max_objects_in_set`]. Backends MAY override
+    /// per account; the `caller` and `account_id` arguments exist for
+    /// that. Keep the value in step with the `maxObjectsInGet` advertised
+    /// in the Session object.
+    fn max_objects_in_get(&self, caller: &Self::CallerCtx, account_id: &jmap_types::Id) -> u64 {
+        let _ = (caller, account_id);
+        500
+    }
 }
 
 // ---------------------------------------------------------------------------

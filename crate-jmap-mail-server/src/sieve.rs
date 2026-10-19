@@ -45,8 +45,8 @@ use std::collections::{HashMap, HashSet};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{
-    enforce_max_objects_in_set, extract_account_id, filter_properties, finalize_set_response,
-    set_error_value, SetAccumulators,
+    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
+    finalize_set_response, set_error_value, SetAccumulators,
 };
 use jmap_server::{
     resolve_query_offset, server_fail_from_backend, server_fail_value_from_backend, take_bool_arg,
@@ -255,6 +255,7 @@ pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+    enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
 
     // Step 3: Fetch objects from backend.
     let (list, not_found) = backend

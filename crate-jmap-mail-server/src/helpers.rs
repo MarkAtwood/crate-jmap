@@ -8,7 +8,8 @@ use crate::backend::MailBackend;
 use jmap_server::server_fail_from_backend;
 
 pub(crate) use jmap_server::{
-    enforce_max_objects_in_set, extract_account_id, not_found_json, now_utc_string, serialize_value,
+    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, not_found_json,
+    now_utc_string, serialize_value,
 };
 
 /// Sentinel blob ID set by the `Email/set` create and import handlers.

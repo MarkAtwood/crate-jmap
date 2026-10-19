@@ -44,8 +44,8 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{
-    enforce_max_objects_in_set, extract_account_id, find_immutable_patch_key, not_found_json,
-    now_utc_string, serialize_value, set_error_value,
+    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+    find_immutable_patch_key, not_found_json, now_utc_string, serialize_value, set_error_value,
 };
 use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_backend};
 
@@ -73,6 +73,7 @@ pub async fn handle_submission_get<B: MailBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+    enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
 
     let ids: Option<Vec<Id>> = match args.remove("ids") {
         None | Some(Value::Null) => None,

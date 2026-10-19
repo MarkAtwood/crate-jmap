@@ -35,9 +35,9 @@ use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use std::collections::HashSet;
 
 use crate::helpers::{
-    enforce_max_objects_in_set, extract_account_id, filter_properties, finalize_set_response,
-    iso8601_before, not_found_json, now_utc_string, serialize_value, set_error_value,
-    SetAccumulators,
+    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
+    finalize_set_response, iso8601_before, not_found_json, now_utc_string, serialize_value,
+    set_error_value, SetAccumulators,
 };
 use jmap_server::{query_anchor_args, server_fail_from_backend, server_fail_value_from_backend};
 
@@ -58,6 +58,7 @@ pub async fn handle_message_get<B: ChatBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
+    enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
 
     let ids: Option<Vec<Id>> = match args.remove("ids") {
         None | Some(Value::Null) => None,
