@@ -54,7 +54,7 @@ struct MemberRoleEntry {
 }
 
 /// Apply the member patch keys in `patch` to `chat.members` on behalf of
-/// `caller_id` and return the resulting member list, and whether the
+/// `owner_id` and return the resulting member list, and whether the
 /// patch closes the group.
 ///
 /// Per draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat":
@@ -63,7 +63,9 @@ struct MemberRoleEntry {
 ///   must carry a `role` and name a current member;
 /// - "all require admin role, except leaving the group": a non-admin may
 ///   only send `removeMembers` listing just their own id, else
-///   `forbidden`; the keys apply to group chats only;
+///   `forbidden`. `owner_id` is the accountId, which references the owner
+///   (draft §Terminology), so a non-admin owner leaves with
+///   `removeMembers: [accountId]`; the keys apply to group chats only;
 /// - more members than `max_members` after `addMembers` is `overQuota`;
 /// - "If the owner is the last admin and other members remain, leaving
 ///   closes the group": the caller was an admin, is removed, and members
@@ -76,7 +78,7 @@ struct MemberRoleEntry {
 #[allow(clippy::result_large_err)]
 fn apply_member_patch_keys(
     chat: &Chat,
-    caller_id: &Id,
+    owner_id: &Id,
     patch: &serde_json::Map<String, Value>,
     max_members: u32,
 ) -> Result<(Vec<ChatMember>, bool), SetError> {
@@ -118,10 +120,10 @@ fn apply_member_patch_keys(
     let mut members = chat.members.clone().unwrap_or_default();
     let is_admin = members
         .iter()
-        .any(|m| m.id == *caller_id && m.role == "admin");
+        .any(|m| m.id == *owner_id && m.role == "admin");
     let self_leave = add.is_none()
         && update.is_none()
-        && remove.as_deref() == Some(std::slice::from_ref(caller_id));
+        && remove.as_deref() == Some(std::slice::from_ref(owner_id));
     if !is_admin && !self_leave {
         return Err(forbidden("only group chat admins may change members"));
     }
@@ -132,7 +134,7 @@ fn apply_member_patch_keys(
             if members.iter().all(|m| m.id != entry.id) {
                 let role = entry.role.clone().unwrap_or_else(|| "member".to_owned());
                 let mut m = ChatMember::new(entry.id.clone(), role, now.clone());
-                m.invited_by = Some(caller_id.clone());
+                m.invited_by = Some(owner_id.clone());
                 members.push(m);
             }
         }
@@ -157,7 +159,7 @@ fn apply_member_patch_keys(
         }
     }
     let closes = is_admin
-        && members.iter().all(|m| m.id != *caller_id)
+        && members.iter().all(|m| m.id != *owner_id)
         && !members.is_empty()
         && members.iter().all(|m| m.role != "admin");
     Ok((members, closes))
@@ -487,12 +489,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
             // "The server [...] adds the creator to `members` with at least
             // one role granting permissions sufficient to administer the
             // chat": the creator is `"admin"`, each distinct memberIds entry
-            // is `"member"` invited by the creator. Creator identity falls
-            // back to `account_id` in single-user posture (as in Space/join).
+            // is `"member"` invited by the creator. The creator is the owner,
+            // referenced by the accountId (§Terminology).
             let members: Option<Vec<ChatMember>> = member_ids.map(|ids| {
-                let creator: Id = B::principal_id(caller)
-                    .cloned()
-                    .unwrap_or_else(|| account_id.clone());
+                let creator: Id = account_id.clone();
                 let mut members = vec![ChatMember::new(
                     creator.clone(),
                     "admin".to_owned(),
@@ -741,13 +741,8 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     }
                 };
                 if let Some(stored) = stored {
-                    // Caller identity falls back to `account_id` in
-                    // single-user posture, as in group create.
-                    let caller_id: Id = B::principal_id(caller)
-                        .cloned()
-                        .unwrap_or_else(|| account_id.clone());
                     let max_members = backend.limits(caller, &account_id).max_group_chat_members;
-                    match apply_member_patch_keys(&stored, &caller_id, patch.as_map(), max_members)
+                    match apply_member_patch_keys(&stored, &account_id, patch.as_map(), max_members)
                     {
                         Ok((members, closes)) => {
                             let map = patch.as_map_mut();
@@ -1006,8 +1001,8 @@ pub async fn handle_chat_typing<B: ChatBackend>(
     // return an `invalidArguments` method error if `chatId` does not
     // exist or the account is not a participant in that Chat, and MUST
     // NOT distinguish the two cases." A group chat's participants are its
-    // `members`; caller identity falls back to `account_id` in
-    // single-user posture, as in Chat/set member patches.
+    // `members`, where the owner is referenced by the accountId
+    // (§Terminology).
     let (found, _not_found) = backend
         .get_objects::<Chat>(
             caller,
@@ -1017,12 +1012,11 @@ pub async fn handle_chat_typing<B: ChatBackend>(
         )
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
-    let caller_id = B::principal_id(caller).unwrap_or(&account_id);
     let chat = found
         .into_iter()
         .next()
         .filter(|c| {
-            c.kind != ChatKind::Group || c.members.iter().flatten().any(|m| m.id == *caller_id)
+            c.kind != ChatKind::Group || c.members.iter().flatten().any(|m| m.id == account_id)
         })
         .ok_or_else(|| {
             JmapError::invalid_arguments("chatId is not a Chat the account participates in")

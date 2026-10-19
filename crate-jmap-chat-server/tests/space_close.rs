@@ -1,6 +1,8 @@
 //! Space close: when the last `manage_space` holder leaves, the server
 //! sets `Space.closedAt`, per draft-atwood-jmap-chat-00 §Space
-//! `closedAt` and §Space/set `removeMembers`.
+//! `closedAt` and §Space/set `removeMembers`. The owner's member entry is
+//! the accountId (§Terminology), and the owner removes themselves "by
+//! including only the accountId in `removeMembers`".
 
 mod common;
 
@@ -12,7 +14,7 @@ use jmap_types::Id;
 use serde_json::{json, Value};
 
 /// Seed a public, publicly-previewable Space with `members`, where
-/// `admin-user` (if listed) holds the only `manage_space` role.
+/// members listed with `r-admin` hold the only `manage_space` role.
 fn seed(backend: &IdentityBackend, members: Value, closed_at: Option<&str>) {
     let mut space_val = json!({
         "id": SPACE_ID,
@@ -42,7 +44,7 @@ fn seed(backend: &IdentityBackend, members: Value, closed_at: Option<&str>) {
 
 fn admin_and_regular() -> Value {
     json!([
-        { "id": "admin-user", "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" },
+        { "id": ACCOUNT_ID, "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" },
         { "id": "u-regular", "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" }
     ])
 }
@@ -69,12 +71,13 @@ async fn space_as(backend: &IdentityBackend, viewer: &str) -> Value {
     resp["list"][0].clone()
 }
 
-/// Close the Space by having its only `manage_space` holder leave.
+/// Close the Space by having its only `manage_space` holder, the owner,
+/// leave.
 async fn close(backend: &IdentityBackend) {
     let resp = update_as(
         backend,
-        "admin-user",
-        json!({ "removeMembers": ["admin-user"] }),
+        ACCOUNT_ID,
+        json!({ "removeMembers": [ACCOUNT_ID] }),
     )
     .await;
     assert!(resp["updated"].get(SPACE_ID).is_some(), "{resp}");
@@ -109,13 +112,20 @@ async fn last_manage_space_holder_leaving_sets_closed_at() {
 /// `"manage_space"`, leaves while other members remain".
 #[tokio::test]
 async fn leaving_without_closing_conditions_keeps_space_open() {
-    // A member without `manage_space` leaves.
+    // A member without `manage_space` (the owner) leaves.
     let backend = IdentityBackend::new();
-    seed(&backend, admin_and_regular(), None);
+    seed(
+        &backend,
+        json!([
+            { "id": "admin-user", "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" },
+            { "id": ACCOUNT_ID, "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" }
+        ]),
+        None,
+    );
     let resp = update_as(
         &backend,
-        "u-regular",
-        json!({ "removeMembers": ["u-regular"] }),
+        ACCOUNT_ID,
+        json!({ "removeMembers": [ACCOUNT_ID] }),
     )
     .await;
     assert!(resp["updated"].get(SPACE_ID).is_some(), "{resp}");
@@ -126,7 +136,7 @@ async fn leaving_without_closing_conditions_keeps_space_open() {
     let backend = IdentityBackend::new();
     seed(
         &backend,
-        json!([{ "id": "admin-user", "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" }]),
+        json!([{ "id": ACCOUNT_ID, "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" }]),
         None,
     );
     close(&backend).await;
@@ -143,12 +153,12 @@ async fn closed_space_rejects_channel_message_create() {
     seed(&backend, admin_and_regular(), None);
     let resp = update_as(
         &backend,
-        "admin-user",
+        ACCOUNT_ID,
         json!({ "addChannels": [{ "name": "general" }] }),
     )
     .await;
     assert!(resp["updated"].get(SPACE_ID).is_some(), "{resp}");
-    let channel_id = space_as(&backend, "admin-user").await["uncategorizedChannelIds"][0]
+    let channel_id = space_as(&backend, ACCOUNT_ID).await["uncategorizedChannelIds"][0]
         .as_str()
         .expect("channel id")
         .to_owned();
@@ -190,7 +200,7 @@ async fn closed_space_rejects_channel_message_create() {
 async fn closed_space_rejects_join_in_draft_check_order() {
     let backend = IdentityBackend::new();
     seed(&backend, admin_and_regular(), None);
-    let resp = create_invite_as(&backend, "admin-user").await;
+    let resp = create_invite_as(&backend, ACCOUNT_ID).await;
     let code = resp["created"]["i"]["code"]
         .as_str()
         .expect("invite code")
@@ -251,24 +261,24 @@ async fn closed_space_rejects_updates_except_self_removal() {
         json!({ "addChannels": [{ "name": "general" }] }),
         json!({ "removeMembers": ["u-regular"] }),
     ] {
-        let resp = update_as(&backend, "admin-user", patch.clone()).await;
+        let resp = update_as(&backend, ACCOUNT_ID, patch.clone()).await;
         assert_eq!(
             resp["notUpdated"][SPACE_ID]["type"], "forbidden",
             "{patch}: {resp}"
         );
     }
-    let space = space_as(&backend, "admin-user").await;
+    let space = space_as(&backend, ACCOUNT_ID).await;
     assert_eq!(space["name"], "Test Space");
     assert_eq!(space["members"].as_array().map(Vec::len), Some(2));
 
     let resp = update_as(
         &backend,
-        "u-regular",
-        json!({ "removeMembers": ["u-regular"] }),
+        ACCOUNT_ID,
+        json!({ "removeMembers": [ACCOUNT_ID] }),
     )
     .await;
     assert!(resp["updated"].get(SPACE_ID).is_some(), "{resp}");
-    let space = space_as(&backend, "admin-user").await;
+    let space = space_as(&backend, "u-regular").await;
     assert_eq!(space["members"].as_array().map(Vec::len), Some(1));
     assert_eq!(space["closedAt"], "2026-02-01T00:00:00Z");
 }

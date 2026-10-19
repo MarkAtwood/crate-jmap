@@ -1562,7 +1562,13 @@ fn apply_space_patch_impl(
         .cloned()
         .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
 
-    if let Err(e) = validate_space_patch_ops(&space_snapshot, caller_id, &ops, protect_last_admin) {
+    if let Err(e) = validate_space_patch_ops(
+        &space_snapshot,
+        caller_id,
+        account_id,
+        &ops,
+        protect_last_admin,
+    ) {
         return Err(BackendSetError::SetError(e));
     }
 
@@ -1588,12 +1594,12 @@ fn apply_space_patch_impl(
     // members remain, leaving closes the Space: the server MUST set
     // `closedAt` ({{space}}) in the same operation." Record a leaving
     // `manage_space` holder here; the close is decided after the ops.
-    let leaving_space_manager = caller_id.filter(|c| {
-        ops.iter()
-            .any(|op| matches!(op, SpacePatchOp::RemoveMember(id) if id == *c))
-            && member_effective_permissions(&space_snapshot, c.as_ref())
-                .is_some_and(|p| p.contains(crate::permissions::MANAGE_SPACE))
-    });
+    // The owner removes themselves by the accountId (§Terminology).
+    let leaving_space_manager = ops
+        .iter()
+        .any(|op| matches!(op, SpacePatchOp::RemoveMember(id) if id == account_id))
+        && member_effective_permissions(&space_snapshot, account_id.as_ref())
+            .is_some_and(|p| p.contains(crate::permissions::MANAGE_SPACE));
 
     for (op_index, op) in ops.into_iter().enumerate() {
         let outcome = match &op {
@@ -1660,7 +1666,7 @@ fn apply_space_patch_impl(
         results.push(OpResult { op_index, outcome });
     }
 
-    if let Some(leaver) = leaving_space_manager {
+    if leaving_space_manager {
         if let Some(space) = inner
             .objects_mut("Space", account_id.as_ref())
             .get_mut(space_id)
@@ -1672,7 +1678,7 @@ fn apply_space_patch_impl(
                 .unwrap_or_default();
             let closes = space.get("closedAt").is_none()
                 && !member_ids.is_empty()
-                && !member_ids.contains(&leaver.as_ref())
+                && !member_ids.contains(&account_id.as_ref())
                 && member_ids.iter().all(|m| {
                     !member_effective_permissions(space, m)
                         .is_some_and(|p| p.contains(crate::permissions::MANAGE_SPACE))
@@ -3289,11 +3295,13 @@ fn check_count_caps(
 ///   aggregate must not leave the Space with zero members holding
 ///   either `manage_members` or `manage_space`; refused with
 ///   `invalidProperties` naming `removeMembers`. Self-removal (only
-///   the caller's own id in `removeMembers`) skips this check and the
+///   `account_id` in `removeMembers`) skips this check and the
 ///   `manage_members` gate, per draft §Space/set `removeMembers`.
-///   Likewise a single `updateMembers` entry for the caller's own id
-///   holding only `nick` skips the `manage_members` gate, per draft
-///   §Space/set `updateMembers`.
+///   Likewise a single `updateMembers` entry for `account_id` holding
+///   only `nick` skips the `manage_members` gate, per draft §Space/set
+///   `updateMembers`. The owner's own member entry is keyed by the
+///   accountId (draft §Terminology), so self-operations compare against
+///   `account_id`, not `caller_id`.
 ///
 /// Returns `Ok(())` if the patch passes all checks. Returns
 /// `Err(SetError)` on the FIRST failure encountered — this is the
@@ -3317,6 +3325,7 @@ fn check_count_caps(
 fn validate_space_patch_ops(
     space_val: &serde_json::Value,
     caller_id: Option<&Id>,
+    account_id: &Id,
     ops: &[SpacePatchOp],
     protect_last_admin: bool,
 ) -> Result<(), SetError> {
@@ -3325,29 +3334,27 @@ fn validate_space_patch_ops(
     };
 
     // Draft §Space/set `removeMembers`: a patch whose `removeMembers`
-    // holds only the caller's own id is self-removal, which "the server
+    // holds only the accountId is self-removal, which "the server
     // MUST permit ... regardless of the caller's permission set" and to
     // which "Last-administrator protection does not apply".
     let mut removed = ops.iter().filter_map(|op| match op {
         SpacePatchOp::RemoveMember(id) => Some(id),
         _ => None,
     });
-    let self_removal = match (removed.next(), removed.next(), caller_id) {
-        (Some(id), None, Some(caller_id)) => id == caller_id,
-        _ => false,
-    };
+    let self_removal =
+        matches!((removed.next(), removed.next()), (Some(id), None) if id == account_id);
 
     // Draft §Space/set `updateMembers`: "A member MAY set their own
     // `nick` by submitting `updateMembers` with a single entry whose `id`
-    // is their own and which contains only `nick`; the server MUST permit
-    // this regardless of the caller's permission set."
+    // is the accountId and which contains only `nick`; the server MUST
+    // permit this regardless of the caller's permission set."
     let mut updated = ops.iter().filter_map(|op| match op {
         SpacePatchOp::UpdateMember { user_id, patch } => Some((user_id, patch)),
         _ => None,
     });
-    let self_nick = match (updated.next(), updated.next(), caller_id) {
-        (Some((id, patch)), None, Some(caller_id)) => {
-            id == caller_id
+    let self_nick = match (updated.next(), updated.next()) {
+        (Some((id, patch)), None) => {
+            id == account_id
                 && patch.nick.is_some()
                 && patch.role_ids.is_none()
                 && patch.extra.is_empty()

@@ -352,19 +352,6 @@ pub async fn handle_emoji_set<B: ChatBackend>(
     // unbounded /set batches before touching the storage layer.
     enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;
 
-    // Resolve the caller's identity via the foundation seam so newly
-    // created CustomEmoji records carry `createdBy = ChatContact.id`
-    // rather than the JMAP `accountId`. The draft does not enumerate
-    // CustomEmoji.createdBy explicitly the way SpaceMember.id and
-    // SpaceInvite.createdBy are enumerated, but the semantic is the
-    // same: identity-bearing fields on chat objects carry the
-    // ChatContact.id of the actor, not the account_id. Falls back to
-    // `account_id` in single-user / no-identity-wired posture per
-    // workspace AGENTS.md "Caller identity (foundation seam)".
-    let caller_identity: Id = B::principal_id(caller)
-        .cloned()
-        .unwrap_or_else(|| account_id.clone());
-
     let old_state = backend
         .get_state::<CustomEmoji>(caller, &account_id)
         .await
@@ -461,11 +448,13 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 }
             }
 
+            // createdBy is the owner, referenced by the accountId
+            // (draft-atwood-jmap-chat-00 §Terminology).
             let mut emoji = CustomEmoji::new(
                 Id::from("placeholder"),
                 name,
                 blob_id,
-                caller_identity.clone(),
+                account_id.clone(),
                 now,
             );
             emoji.space_id = space_id;
