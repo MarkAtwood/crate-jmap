@@ -223,8 +223,12 @@ impl super::SessionClient {
             args["properties"] =
                 serde_json::to_value(props).expect("&[&str] Serialize is infallible");
         }
-        if let Some(p) = params {
-            let pv = serde_json::to_value(p).map_err(|e| {
+        if let Some(mut p) = params {
+            // Take `extra` out before serializing `p`: a flattened map
+            // overwrites `p`'s own typed fields inside `to_value`. It is
+            // merged last below so typed values win on collision.
+            let extra = std::mem::take(&mut p.extra);
+            let pv = serde_json::to_value(&p).map_err(|e| {
                 jmap_base_client::ClientError::InvalidArgument(format!(
                     "filenode_get: failed to serialize params: {e}"
                 ))
@@ -238,7 +242,7 @@ impl super::SessionClient {
                 let args_obj = args
                     .as_object_mut()
                     .expect("filenode_get: args is constructed as Object");
-                for (k, v) in map {
+                for (k, v) in map.into_iter().chain(extra) {
                     args_obj.entry(k).or_insert(v);
                 }
             }
@@ -354,7 +358,11 @@ impl super::SessionClient {
         if let Some(d) = destroy {
             args["destroy"] = serde_json::to_value(&d).expect("Id Vec Serialize is infallible");
         }
-        if let Some(p) = params {
+        if let Some(mut p) = params {
+            // Take `extra` out before serializing `p`: a flattened map
+            // overwrites `p`'s own typed fields inside `to_value`. It is
+            // merged last below so typed values win on collision.
+            let extra = std::mem::take(&mut p.extra);
             let params_val = serde_json::to_value(&p).map_err(|e| {
                 jmap_base_client::ClientError::InvalidArgument(format!(
                     "filenode_set: failed to serialize params: {e}"
@@ -368,7 +376,7 @@ impl super::SessionClient {
                 let args_obj = args
                     .as_object_mut()
                     .expect("filenode_set: args is constructed as Object");
-                for (k, v) in map {
+                for (k, v) in map.into_iter().chain(extra) {
                     args_obj.entry(k).or_insert(v);
                 }
             }

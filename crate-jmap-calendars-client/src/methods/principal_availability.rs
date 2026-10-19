@@ -55,7 +55,11 @@ impl SessionClient {
             "utcStart": utc_start,
             "utcEnd": utc_end,
         });
-        if let Some(p) = params {
+        if let Some(mut p) = params {
+            // Take `extra` out before serializing `p`: a flattened map
+            // overwrites `p`'s own typed fields inside `to_value`. It is
+            // merged last below so typed values win on collision.
+            let extra = std::mem::take(&mut p.extra);
             let pv = serde_json::to_value(&p).map_err(|e| {
                 ClientError::InvalidArgument(format!(
                     "principal_get_availability: failed to serialize params: {e}"
@@ -69,7 +73,7 @@ impl SessionClient {
                 let args_obj = args
                     .as_object_mut()
                     .expect("principal_get_availability: args is constructed as Object");
-                for (k, v) in map {
+                for (k, v) in map.into_iter().chain(extra) {
                     args_obj.entry(k).or_insert(v);
                 }
             }
