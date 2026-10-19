@@ -353,6 +353,13 @@ pub trait SharingBackend: JmapBackend {
     /// all-or-nothing, and map any [`jmap_server::PatchPathError`] to
     /// [`jmap_server::SetErrorType::InvalidPatch`], as the reference
     /// `MemoryBackend` does.
+    ///
+    /// # Atomicity
+    ///
+    /// RFC 8620 §5.3: the server "MUST NOT only commit part of an update
+    /// to a single record". Apply the whole patch and validate the result
+    /// before writing it, so that on any error the stored record is
+    /// unchanged.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -409,6 +416,12 @@ pub trait SharingBackend: JmapBackend {
     /// exist".
     ///
     /// [`memory::MemoryBackend`]: crate::memory::MemoryBackend
+    ///
+    /// # Cascades
+    ///
+    /// If the backend itself changes another record because of the
+    /// destroy, it MUST advance that record type's state and record the
+    /// change in the same atomic step, so `/changes` on that type sees it.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
