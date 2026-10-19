@@ -59,12 +59,16 @@ pub struct ChatCapability {
     pub max_attachments_per_message: u64,
     /// Whether the server supports the optional thread model.
     pub supports_threads: bool,
-    /// The set of Message `bodyType` values this server understands
-    /// (draft-atwood-jmap-chat-00 §3).
+    /// The MIME types a Message `bodyType` can take on this account
+    /// (draft-atwood-jmap-chat-00 §Account-Level Capability Object).
     ///
     /// Spec requirements for compliant servers:
     ///
-    /// - MUST include [`BodyType::Plain`] (`"text/plain"`).
+    /// - MUST accept every listed type in `Message/set` create, except
+    ///   types a companion specification reserves for server-created
+    ///   Messages.
+    /// - MUST include [`BodyType::Plain`] (`"text/plain"`) unless the
+    ///   server accepts only end-to-end encrypted body types.
     /// - SHOULD include [`BodyType::Markdown`] (`"text/markdown"`,
     ///   RFC 7763 CommonMark).
     /// - SHOULD include [`BodyType::Rich`]
@@ -76,8 +80,7 @@ pub struct ChatCapability {
     ///   unencrypted MIMI content; MLS-wrapped bodies use `"message/mls"`
     ///   (draft-atwood-jmap-chat-mimi-00).
     ///
-    /// An empty `Vec` is non-compliant per spec ([`BodyType::Plain`] is
-    /// mandatory) but consumers tolerate it via `Default` — the consumer is
+    /// An empty `Vec` is non-compliant per spec but consumers tolerate it via `Default` — the consumer is
     /// responsible for enforcing the MUST and acting accordingly (e.g.
     /// refusing to send rich messages to a server that does not advertise
     /// the matching variant).

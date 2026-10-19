@@ -150,7 +150,7 @@ impl OpResult {
 /// Client visibility of these caps (when desired) is via JMAP Quotas
 /// (`urn:ietf:params:jmap:quotas`, RFC 9425), not via this struct.
 /// The `urn:ietf:params:jmap:chat` session capability does NOT advertise
-/// these caps (the previous cap-advertising fields `maxRolesPerSpace`,
+/// the count caps (the previous cap-advertising fields `maxRolesPerSpace`,
 /// `maxSpaceMembers`, `maxChannelsPerSpace`, `maxCategoriesPerSpace`
 /// were removed from the draft in spec commit `80d5e11`).
 ///
@@ -181,6 +181,19 @@ pub struct ChatLimits {
     /// resulting count after applying every `addMembers` entry in a
     /// `Chat/set` update patch.
     pub max_group_chat_members: u32,
+    /// `bodyType` values the account advertises as `supportedBodyTypes`
+    /// and `Message/set` accepts (draft-atwood-jmap-chat-00
+    /// §Account-Level Capability Object). Defaults to
+    /// [`crate::message::SUPPORTED_BODY_TYPES`]. The list "MUST include
+    /// `"text/plain"` unless the server accepts only end-to-end encrypted
+    /// body types"; `Message/set` rejects a `bodyType` not listed here,
+    /// including the implied `"text/plain"` of an omitted `bodyType`.
+    pub supported_body_types: &'static [&'static str],
+    /// Listed types that a companion specification reserves for
+    /// server-created Messages (e.g. `"application/mimi-fanout"`,
+    /// draft-atwood-jmap-chat-mimi-00). `Message/set` create rejects
+    /// them with `invalidArguments`; update does not. Defaults to empty.
+    pub server_reserved_body_types: &'static [&'static str],
 }
 
 impl Default for ChatLimits {
@@ -218,6 +231,8 @@ impl ChatLimits {
             max_channels_per_space,
             max_categories_per_space,
             max_group_chat_members: 1_000,
+            supported_body_types: crate::message::SUPPORTED_BODY_TYPES,
+            server_reserved_body_types: &[],
         }
     }
 
@@ -253,6 +268,20 @@ impl ChatLimits {
     #[must_use]
     pub const fn with_max_group_chat_members(mut self, max: u32) -> Self {
         self.max_group_chat_members = max;
+        self
+    }
+
+    /// Builder-style setter for [`Self::supported_body_types`].
+    #[must_use]
+    pub const fn with_supported_body_types(mut self, types: &'static [&'static str]) -> Self {
+        self.supported_body_types = types;
+        self
+    }
+
+    /// Builder-style setter for [`Self::server_reserved_body_types`].
+    #[must_use]
+    pub const fn with_server_reserved_body_types(mut self, types: &'static [&'static str]) -> Self {
+        self.server_reserved_body_types = types;
         self
     }
 }
@@ -603,7 +632,9 @@ pub trait ChatBackend: JmapBackend {
     /// dispatching to [`Self::apply_space_patch`], to enforce
     /// per-aggregate caps on roles, members, channels, and categories
     /// per Space (draft-atwood-jmap-chat-00 §Space/set, spec commit
-    /// `80d5e11`).
+    /// `80d5e11`), and by `handle_message_set` once per request to
+    /// validate `bodyType` against [`ChatLimits::supported_body_types`]
+    /// and [`ChatLimits::server_reserved_body_types`].
     ///
     /// The default implementation returns [`ChatLimits::default`],
     /// which carries conservative reference-impl-grade values. The
