@@ -624,14 +624,20 @@ landed in bd:JMAP-ga0q.1.
 - **`None` is deliberate, not an error.** A backend that returns
   `None` from `principal_id` is signalling "this deployment does
   not honor identity-dependent JMAP semantics". Such a backend
-  CANNOT correctly implement chat role-hierarchy, calendar ACLs,
-  sharing/myRights, per-user `$seen` on shared mailboxes, or
-  metadata `isPrivate` visibility scoping. Test fixtures and
-  single-user dev servers use the default `None`-returning impl
-  and are fine; multi-user production deployments MUST override.
+  CANNOT correctly implement calendar ACLs, sharing/myRights,
+  per-user `$seen` on shared mailboxes, or metadata `isPrivate`
+  visibility scoping. Test fixtures and single-user dev servers use
+  the default `None`-returning impl and are fine; multi-user
+  production deployments MUST override.
+- **Chat gates do not depend on identity.** Chat permission and
+  role-hierarchy gates resolve against the owner's Space member
+  entry, whose id is the accountId (draft-atwood-jmap-chat-00
+  §Terminology), and apply whether or not `principal_id` returns
+  `Some` (bd:JMAP-yt1w.33).
 
-The first consumer is bd:JMAP-g7wu.2.4 (chat Space/set permission
-enforcement). Future consumers: jmap-mail-server (RFC 8621 `$seen`
+The first consumer was bd:JMAP-g7wu.2.4 (chat Space/set permission
+enforcement); since bd:JMAP-yt1w.33 those gates no longer consult
+`principal_id`. Future consumers: jmap-mail-server (RFC 8621 `$seen`
 on shared mailboxes), jmap-calendars-server (calendar ACLs),
 jmap-sharing-server (RFC 9670 myRights), jmap-metadata-server
 (isPrivate visibility scoping).

@@ -3427,11 +3427,10 @@ async fn space_set_update_readonly_fields_rejected() {
 /// test is the cross-variant smoke check: every Role/Member wire key
 /// reaches the backend successfully through the parsing layer.
 ///
-/// MemoryBackend's `CallerCtx = ()` puts the backend in single-user
-/// mode (criterion 7 of bd:JMAP-g7wu.2.4.3): identity-dependent
-/// gates are skipped, so AddRole / AddMember succeed unconditionally
-/// and Remove/Update against non-existent ids surface as per-op
-/// NotFound rather than Forbidden.
+/// `Space/set` create makes the owner an administrator of the Space, so
+/// the permission gates pass, AddRole / AddMember succeed, and
+/// Remove/Update against non-existent ids surface as per-op NotFound
+/// rather than Forbidden.
 #[tokio::test]
 async fn space_set_update_role_member_variants_dispatch_to_backend() {
     let backend = MemoryBackend::new();
@@ -3458,7 +3457,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     );
     assert!(
         add_role_resp["notUpdated"][&space_id].is_null(),
-        "addRoles should NOT produce notUpdated in single-user mode: {add_role_resp:?}"
+        "addRoles should NOT produce notUpdated for the owner-admin: {add_role_resp:?}"
     );
 
     // Discover the server-assigned RoleId via Space/get.
@@ -3469,8 +3468,10 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     )
     .await
     .expect("Space/get");
-    let role_id = get_resp["list"][0]["roles"][0]["id"]
-        .as_str()
+    let role_id = get_resp["list"][0]["roles"]
+        .as_array()
+        .and_then(|roles| roles.iter().find(|r| r["name"] == "Mod"))
+        .and_then(|r| r["id"].as_str())
         .expect("server-assigned role id")
         .to_owned();
 
@@ -3507,7 +3508,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     .expect("handle_space_set (addMembers)");
     assert!(
         resp["notUpdated"][&space_id].is_null(),
-        "addMembers should succeed in single-user mode: {resp:?}"
+        "addMembers should succeed for the owner-admin: {resp:?}"
     );
 
     // UpdateMember nick: succeeds.
@@ -7267,6 +7268,7 @@ async fn space_join_via_invite_code_success() {
         .as_str()
         .expect("code")
         .to_owned();
+    clear_members(&backend, &space_id).await;
 
     // Join using the invite code.
     let (resp, invocations) = handle_space_join(
@@ -7391,6 +7393,7 @@ async fn space_join_public_space_success() {
         json!({ "name": "Public Space", "isPublic": true }),
     )
     .await;
+    clear_members(&backend, &space_id).await;
 
     let (resp, invocations) = handle_space_join(
         &backend,
@@ -7408,7 +7411,7 @@ async fn space_join_public_space_success() {
     assert_eq!(resp["spaceId"].as_str().expect("spaceId"), space_id);
 }
 
-/// Create a SpaceBan on the caller (`ACCOUNT_ID`, the single-user identity)
+/// Create a SpaceBan on the caller (`ACCOUNT_ID`, the owner's accountId)
 /// in `space_id`, optionally expiring at `expires_at`.
 async fn ban_caller(backend: &MemoryBackend, space_id: &str, expires_at: Option<&str>) {
     let mut ban = json!({ "spaceId": space_id, "userId": ACCOUNT_ID });
@@ -7423,6 +7426,24 @@ async fn ban_caller(backend: &MemoryBackend, space_id: &str, expires_at: Option<
     .await
     .expect("handle_ban_set");
     assert!(resp["created"]["b0"].is_object(), "ban not created: {resp}");
+}
+
+/// Empty the `members` of `space_id`, so the owner can join it.
+/// `Space/set` create makes the creator a member (draft-atwood-jmap-chat-00
+/// §Space/set "Creating a Space"), and `Space/join` rejects a caller who
+/// is already one.
+async fn clear_members(backend: &MemoryBackend, space_id: &str) {
+    let (get_resp, _) = handle_space_get(
+        backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
+    )
+    .await
+    .expect("get");
+    let mut space = get_resp["list"][0].clone();
+    space["members"] = json!([]);
+    space["memberCount"] = json!(0);
+    backend.insert_object_for_test("Space", ACCOUNT_ID, space_id, space);
 }
 
 /// Oracle: draft-atwood-jmap-chat-00 §Space/join — "The server MUST verify
@@ -7495,6 +7516,7 @@ async fn space_join_expired_ban_does_not_block() {
     )
     .await;
     ban_caller(&backend, &space_id, Some("2020-01-01T00:00:00Z")).await;
+    clear_members(&backend, &space_id).await;
 
     let (resp, _) = handle_space_join(
         &backend,
@@ -7997,7 +8019,7 @@ async fn space_set_count_limits_create_only_unaffected() {
 //
 // These tests verify that the cap check fires when callers bypass the
 // `handle_space_set` handler and call `apply_space_patch` (via the
-// test-only `apply_space_patch_with_caller_id` entry point) directly.
+// `ChatBackend` trait method) directly.
 // Per bd:JMAP-x2gd.44, cap enforcement is backend-canonical: a direct
 // caller (admin tool, federation receiver, batch importer) must still
 // see caps enforced.
@@ -8028,12 +8050,14 @@ async fn apply_space_patch_direct_call_enforces_roles_cap() {
     .expect("deserialize SpaceRole");
     let ops = vec![SpacePatchOp::AddRole(role)];
 
-    let result = backend.apply_space_patch_with_caller_id(
-        None,
-        &Id::from(ACCOUNT_ID),
-        &Id::from(space_id.as_str()),
-        ops,
-    );
+    let result = backend
+        .apply_space_patch(
+            &(),
+            &Id::from(ACCOUNT_ID),
+            &Id::from(space_id.as_str()),
+            ops,
+        )
+        .await;
 
     match result {
         Err(jmap_chat_server::BackendSetError::SetError(set_err)) => {
@@ -8066,12 +8090,14 @@ async fn apply_space_patch_direct_call_no_add_ops_bypasses_cap_check() {
 
     let ops = vec![SpacePatchOp::RemoveRole(Id::from("nonexistent-role-id"))];
 
-    let result = backend.apply_space_patch_with_caller_id(
-        None,
-        &Id::from(ACCOUNT_ID),
-        &Id::from(space_id.as_str()),
-        ops,
-    );
+    let result = backend
+        .apply_space_patch(
+            &(),
+            &Id::from(ACCOUNT_ID),
+            &Id::from(space_id.as_str()),
+            ops,
+        )
+        .await;
 
     // The result should not be an overQuota — it should reach the
     // per-op apply path. (The actual outcome here depends on whether
@@ -8183,7 +8209,7 @@ async fn space_set_overquota_description_does_not_leak_counts_or_caps() {
 }
 
 /// Sibling regression canary for the backend-canonical path
-/// (`apply_space_patch_with_caller_id` direct call). Same invariant as
+/// (direct `apply_space_patch` call). Same invariant as
 /// the handler-side test above; both descriptions must be the same
 /// shape for response-shape parity per bd:JMAP-x2gd.107.
 #[tokio::test]
@@ -8203,12 +8229,14 @@ async fn apply_space_patch_direct_call_overquota_description_does_not_leak_count
     .expect("SpaceRole deserialize");
     let ops = vec![SpacePatchOp::AddRole(role_to_add)];
 
-    let result = backend.apply_space_patch_with_caller_id(
-        None,
-        &Id::from(ACCOUNT_ID),
-        &Id::from(space_id.as_str()),
-        ops,
-    );
+    let result = backend
+        .apply_space_patch(
+            &(),
+            &Id::from(ACCOUNT_ID),
+            &Id::from(space_id.as_str()),
+            ops,
+        )
+        .await;
 
     match result {
         Err(jmap_chat_server::BackendSetError::SetError(set_err)) => {

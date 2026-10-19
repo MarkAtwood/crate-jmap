@@ -887,20 +887,14 @@ pub trait ChatBackend: JmapBackend {
     /// Per draft-atwood-jmap-chat-00, every top-level metadata field
     /// carries the marker "Mutable by members with `manage_space`
     /// permission". Implementations MUST gate the mutation on the
-    /// caller's effective permissions in the target Space:
-    ///
-    /// - If [`JmapBackend::principal_id`] returns `Some(_)`, verify the
-    ///   caller holds `manage_space` (resolved through the Space's role
-    ///   hierarchy). Reject the patch with [`SetErrorType::Forbidden`]
-    ///   if not. The caller is the owner, whose `members` entry is the
-    ///   `account_id` (draft §Terminology), so look the caller up by
-    ///   `account_id`, not by the principal; the same holds for every
-    ///   caller-membership or permission check in this trait.
-    /// - If [`JmapBackend::principal_id`] returns `None` (single-user
-    ///   mode — the backend has not wired identity), the gate is
-    ///   skipped. This is consistent with the workspace AGENTS.md
-    ///   "Caller identity (foundation seam)" section: a backend that
-    ///   does not honor identity-dependent semantics opts out.
+    /// caller's effective permissions in the target Space: verify the
+    /// caller holds `manage_space` (resolved through the Space's role
+    /// hierarchy) and reject the patch with
+    /// [`SetErrorType::Forbidden`] if not. The caller is the owner, whose
+    /// `members` entry is the `account_id` (draft §Terminology), so look
+    /// the caller up by `account_id`, not by the principal, whether or
+    /// not [`JmapBackend::principal_id`] returns `Some`; the same holds
+    /// for every caller-membership or permission check in this trait.
     ///
     /// The check fires inside this method atomically with the
     /// mutation: snapshot the Space's role/member state, evaluate
