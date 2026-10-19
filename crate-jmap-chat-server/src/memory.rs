@@ -103,6 +103,12 @@ struct Inner {
     /// [`MemoryBackend::set_protect_last_admin_for_test`].
     /// Production deployments override the trait method instead.
     protect_last_admin: bool,
+    /// Last `SpaceRole` sequence number handed out in deterministic id
+    /// mode. Only ever incremented, so a role id freed by `removeRoles`
+    /// is never reissued (draft §SpaceRole: `id` is "immutable,
+    /// server-set"; §Space/set `addRoles`: "Server assigns ULIDs").
+    #[cfg(not(feature = "realistic-demo-ids"))]
+    role_seq: u64,
 }
 
 impl Inner {
@@ -2621,10 +2627,18 @@ fn apply_add_role(
         _ => unreachable!("apply_add_role called with non-AddRole variant"),
     };
 
-    // Server-assign a fresh RoleId. The wire payload's `id` field is
-    // a client-supplied placeholder per `SpacePatchOp::AddRole` doc
-    // comment; we overwrite it before storage.
+    // Server-assign a fresh RoleId, replacing the placeholder `id` per the
+    // `SpacePatchOp::AddRole` doc comment. Roles live inside the Space
+    // object, not the per-type object map `demo_next_id` counts in
+    // deterministic mode, so that mode uses its own monotonic counter.
+    // ponytail: demo-quality like `demo_next_id`; production backends mint ULIDs.
+    #[cfg(feature = "realistic-demo-ids")]
     let new_id = MemoryBackend::demo_next_id(inner, "Role", account_id);
+    #[cfg(not(feature = "realistic-demo-ids"))]
+    let new_id = {
+        inner.role_seq += 1;
+        Id::from(format!("role{:016x}", inner.role_seq))
+    };
     let mut role = role;
     role.id = new_id.clone();
 

@@ -140,6 +140,13 @@ fn parse_structural_entries(key: StructuralKey, value: Value) -> Result<Vec<Spac
     for (idx, entry) in arr.into_iter().enumerate() {
         let op = match key {
             StructuralKey::AddRoles => {
+                // Draft §Space/set addRoles entries carry no `id` ("Server
+                // assigns ULIDs"); fill the placeholder `SpacePatchOp::AddRole`
+                // documents, which the backend replaces before storing.
+                let mut entry = entry;
+                if let Value::Object(fields) = &mut entry {
+                    fields.insert("id".to_owned(), Value::String(String::new()));
+                }
                 SpacePatchOp::AddRole(parse_entry::<SpaceRole>(canonical, idx, entry)?)
             }
             StructuralKey::RemoveRoles => {
