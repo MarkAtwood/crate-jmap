@@ -1553,9 +1553,8 @@ pub async fn handle_space_join<B: ChatBackend>(
             }
             (None, Some(sid)) => {
                 // Public space path: fetch the space by id and verify is_public.
-                // The spec requires notPermitted when the space is not found or isPublic is false.
-                // JmapError has no notPermitted constructor; forbidden() is the closest standard
-                // equivalent and is what the existing tests expect.
+                // draft-atwood-jmap-chat-00 §Space/join: "If the Space does not exist or has
+                // `isPublic: false`, the server MUST return a `notPermitted` method error."
                 let space_id_typed = Id::from(sid.as_str());
                 let (spaces, _) = backend
                     .get_objects::<Space>(caller, &account_id, Some(&[space_id_typed]), None)
@@ -1566,7 +1565,7 @@ pub async fn handle_space_join<B: ChatBackend>(
                     .into_iter()
                     .next()
                     .filter(|s| s.is_public)
-                    .ok_or_else(JmapError::forbidden)?;
+                    .ok_or_else(|| JmapError::custom("notPermitted"))?;
 
                 let space_id = space.id.clone();
                 let members: Vec<Value> = space

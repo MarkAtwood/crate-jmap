@@ -6660,7 +6660,10 @@ async fn space_join_invalid_invite_code() {
     assert_eq!(err.error_type.as_str(), "invalidArguments");
 }
 
-/// Oracle: Space/join with an unknown spaceId returns forbidden.
+/// Oracle: Space/join with an unknown spaceId returns notPermitted.
+/// draft-atwood-jmap-chat-00 §Space/join: "If the Space does not exist or
+/// has `isPublic: false`, the server MUST return a `notPermitted` method
+/// error."
 #[tokio::test]
 async fn space_join_public_space_not_found() {
     let backend = MemoryBackend::new();
@@ -6674,7 +6677,7 @@ async fn space_join_public_space_not_found() {
     )
     .await
     .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "forbidden");
+    assert_eq!(err.error_type.as_str(), "notPermitted");
 }
 
 /// Oracle: Space/join via a valid invite code returns accountId and spaceId,
@@ -6807,7 +6810,10 @@ async fn space_join_invite_at_max_uses_rejected() {
     assert_eq!(err.error_type.as_str(), "invalidArguments");
 }
 
-/// Oracle: Space/join via spaceId where the space has isPublic=false returns forbidden.
+/// Oracle: Space/join via spaceId where the space has isPublic=false returns notPermitted.
+/// draft-atwood-jmap-chat-00 §Space/join: "If the Space does not exist or
+/// has `isPublic: false`, the server MUST return a `notPermitted` method
+/// error."
 #[tokio::test]
 async fn space_join_private_space_forbidden() {
     let backend = MemoryBackend::new();
@@ -6828,7 +6834,7 @@ async fn space_join_private_space_forbidden() {
     )
     .await
     .unwrap_err();
-    assert_eq!(err.error_type.as_str(), "forbidden");
+    assert_eq!(err.error_type.as_str(), "notPermitted");
 }
 
 /// Oracle: Space/join via spaceId where the space has isPublic=true returns accountId and

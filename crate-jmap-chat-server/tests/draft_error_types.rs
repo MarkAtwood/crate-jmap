@@ -1,10 +1,12 @@
-//! Error types the draft names for Chat/set, Message/set and
-//! Message/query rejections (bd:JMAP-yt1w.1).
+//! Error types the draft names for Chat/set, Message/set, Message/query
+//! and Space/join rejections (bd:JMAP-yt1w.1).
 
 mod common;
 
-use common::{make_chat_group, make_space, MemoryBackend, ACCOUNT_ID};
-use jmap_chat_server::{handle_chat_set, handle_message_query, handle_message_set};
+use common::{make_chat_group, make_space, make_space_with_props, MemoryBackend, ACCOUNT_ID};
+use jmap_chat_server::{
+    handle_chat_set, handle_message_query, handle_message_set, handle_space_join,
+};
 use serde_json::json;
 
 /// Oracle: draft-atwood-jmap-chat-00 §Chat/set — "Creating a Chat with
@@ -88,5 +90,25 @@ async fn message_query_text_and_thread_root_filters_are_unsupported() {
         .await
         .expect_err(key);
         assert_eq!(err.error_type.as_str(), "unsupportedFilter", "{key}");
+    }
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Space/join — "If the Space does not
+/// exist or has `isPublic: false`, the server MUST return a `notPermitted`
+/// method error."
+#[tokio::test]
+async fn space_join_unknown_or_private_space_is_not_permitted() {
+    let backend = MemoryBackend::new();
+    let private_id =
+        make_space_with_props(&backend, json!({ "name": "P", "isPublic": false })).await;
+    for space_id in [private_id.as_str(), "nosuchspace"] {
+        let err = handle_space_join(
+            &backend,
+            &(),
+            json!({ "accountId": ACCOUNT_ID, "spaceId": space_id }),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(err.error_type.as_str(), "notPermitted", "{space_id}");
     }
 }
