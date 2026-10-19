@@ -414,9 +414,10 @@ fn validate_broadcast_mentions(broadcast_mentions: &[serde_json::Value]) -> Opti
 /// encrypted type.
 const ENCRYPTED_BODY_TYPES: &[&str] = &["application/mls-ciphertext"];
 
-/// `bodyType` values this server accepts, advertised as the
+/// Default `bodyType` values this server accepts, advertised as the
 /// `supportedBodyTypes` capability (draft-atwood-jmap-chat-00
-/// §Account-Level Capability Object).
+/// §Account-Level Capability Object). A backend lists other types through
+/// [`ChatLimits::supported_body_types`](crate::ChatLimits::supported_body_types).
 pub const SUPPORTED_BODY_TYPES: &[&str] = &[
     "text/plain",
     "text/markdown",
@@ -643,6 +644,7 @@ pub async fn handle_message_set<B: ChatBackend>(
     let mut destroyed_list: Vec<Value> = Vec::new();
     let mut not_destroyed = serde_json::Map::new();
     let mut mutated = false;
+    let limits = backend.limits(caller, &account_id);
 
     // -----------------------------------------------------------------------
     // create
@@ -706,13 +708,15 @@ pub async fn handle_message_set<B: ChatBackend>(
                 continue;
             };
 
-            // §Input Validation: "`bodyType`: validate against
-            // `supportedBodyTypes`."
+            // §Input Validation: "`bodyType`: reject a value not listed in
+            // `supportedBodyTypes`; in `Message/set` create, also reject a
+            // type that a companion specification reserves for
+            // server-created Messages."
             let Some(body_type) = obj_val
                 .get("bodyType")
                 .filter(|v| !v.is_null())
                 .map_or(Some("text/plain"), Value::as_str)
-                .filter(|s| SUPPORTED_BODY_TYPES.contains(s))
+                .filter(|s| limits.supported_body_types.contains(s))
             else {
                 not_created.insert(
                     create_id.clone(),
@@ -720,6 +724,18 @@ pub async fn handle_message_set<B: ChatBackend>(
                 );
                 continue;
             };
+            // draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout, the
+            // one reserving companion, requires `invalidArguments`.
+            if limits.server_reserved_body_types.contains(&body_type) {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({
+                        "type": "invalidArguments",
+                        "description": format!("bodyType {body_type} is reserved for server-created Messages")
+                    }),
+                );
+                continue;
+            }
             let body_type = body_type.to_owned();
 
             if let Some(desc) = body_type_field_conflict(obj_val, &body_type) {
@@ -1008,11 +1024,11 @@ pub async fn handle_message_set<B: ChatBackend>(
                 continue;
             }
 
-            // §Input Validation: "`bodyType`: validate against
-            // `supportedBodyTypes`."
+            // §Input Validation: "`bodyType`: reject a value not listed in
+            // `supportedBodyTypes`".
             if patch_val.get("bodyType").is_some_and(|v| {
                 !v.as_str()
-                    .is_some_and(|s| SUPPORTED_BODY_TYPES.contains(&s))
+                    .is_some_and(|s| limits.supported_body_types.contains(&s))
             }) {
                 not_updated.insert(
                     id_str,
