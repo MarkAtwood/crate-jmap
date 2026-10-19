@@ -1333,6 +1333,45 @@ impl ChatBackend for MemoryBackend {
         )
     }
 
+    /// Reference implementation of [`ChatBackend::may_set_space_invite`].
+    ///
+    /// Implements draft-atwood-jmap-chat-00 §SpaceInvite/set: create
+    /// "Requires `"manage_members"` permission"; destroy also permits
+    /// "ownership of the invite", which is `createdBy` equal to
+    /// `account_id` (draft §SpaceInvite.createdBy). A Space that does not
+    /// exist is permitted, matching the ban gate.
+    async fn may_set_space_invite(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        space_id: &Id,
+        created_by: Option<&Id>,
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        use crate::permissions::MANAGE_MEMBERS;
+
+        if created_by == Some(account_id) {
+            return Ok(Ok(()));
+        }
+        let inner = self.inner.lock().unwrap();
+        let Some(space) = inner
+            .objects_ref("Space", account_id.as_ref())
+            .and_then(|m| m.get(space_id))
+        else {
+            return Ok(Ok(()));
+        };
+        Ok(
+            if caller_effective_permissions(space, account_id)
+                .is_some_and(|perms| perms.contains(MANAGE_MEMBERS))
+            {
+                Ok(())
+            } else {
+                Err(SetError::new(SetErrorType::Forbidden).with_description(
+                    "caller lacks required permission `manage_members` in this Space",
+                ))
+            },
+        )
+    }
+
     /// Reference implementation of
     /// [`ChatBackend::validate_pinned_message_ids`]: every added id must
     /// name a stored Message whose `chatId` is `chat_id`.

@@ -1424,6 +1424,39 @@ pub trait ChatBackend: JmapBackend {
         async { Ok(Ok(())) }
     }
 
+    /// Authorization gate consulted by `handle_invite_set` before each
+    /// SpaceInvite create or destroy.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §SpaceInvite/set: create "Requires
+    /// `"manage_members"` permission"; destroy "Requires
+    /// `"manage_members"` permission or ownership of the invite."
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per entry, AFTER wire-format validation and BEFORE
+    /// `create_object` / `destroy_object`. `space_id` is the create body's
+    /// `spaceId`, or the stored invite's `spaceId` for destroy.
+    /// `created_by` is `None` on create and the stored invite's
+    /// `createdBy` on destroy. A destroy whose invite does not resolve
+    /// skips the gate so the backend surfaces `notFound`. The return
+    /// mapping is the same as [`Self::may_set_custom_emoji`].
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(()))` — every op is permitted, matching the
+    /// parallel hooks above. Production backends SHOULD override this
+    /// method and deny with
+    /// `Ok(Err(SetError::new(SetErrorType::Forbidden)))`.
+    fn may_set_space_invite(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _space_id: &jmap_types::Id,
+        _created_by: Option<&jmap_types::Id>,
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async { Ok(Ok(())) }
+    }
+
     /// Referential check consulted by `handle_chat_set` before an update
     /// that adds ids to `pinnedMessageIds` is applied.
     ///

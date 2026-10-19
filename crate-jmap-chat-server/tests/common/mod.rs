@@ -782,6 +782,18 @@ impl ChatBackend for IdentityBackend {
             .await
     }
 
+    async fn may_set_space_invite(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        space_id: &Id,
+        created_by: Option<&Id>,
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        self.inner
+            .may_set_space_invite(&(), account_id, space_id, created_by)
+            .await
+    }
+
     async fn is_contact_blocked(
         &self,
         _caller: &Id,
