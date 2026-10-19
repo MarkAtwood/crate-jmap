@@ -42,6 +42,10 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 /// (draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat").
 const MEMBER_PATCH_KEYS: &[&str] = &["addMembers", "removeMembers", "updateMemberRoles"];
 
+/// `Chat/set` update keys, beyond [`MEMBER_PATCH_KEYS`], that a closed
+/// group rejects (draft-atwood-jmap-chat-00 §Chat `closedAt`).
+const SHARED_GROUP_KEYS: &[&str] = &["name", "description", "avatarBlobId", "pinnedMessageIds"];
+
 /// One `addMembers` or `updateMemberRoles` entry.
 #[derive(Deserialize)]
 struct MemberRoleEntry {
@@ -50,7 +54,8 @@ struct MemberRoleEntry {
 }
 
 /// Apply the member patch keys in `patch` to `chat.members` on behalf of
-/// `caller_id` and return the resulting member list.
+/// `caller_id` and return the resulting member list, and whether the
+/// patch closes the group.
 ///
 /// Per draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat":
 /// - a malformed entry, or a `role` other than `"admin"` or `"member"`,
@@ -59,7 +64,10 @@ struct MemberRoleEntry {
 /// - "all require admin role, except leaving the group": a non-admin may
 ///   only send `removeMembers` listing just their own id, else
 ///   `forbidden`; the keys apply to group chats only;
-/// - more members than `max_members` after `addMembers` is `overQuota`.
+/// - more members than `max_members` after `addMembers` is `overQuota`;
+/// - "If the owner is the last admin and other members remain, leaving
+///   closes the group": the caller was an admin, is removed, and members
+///   but no admin remain.
 ///
 /// Per the implementer guide's "Deployments SHOULD avoid admin-less open
 /// groups by refusing to let the last admin demote themselves via
@@ -71,7 +79,7 @@ fn apply_member_patch_keys(
     caller_id: &Id,
     patch: &serde_json::Map<String, Value>,
     max_members: u32,
-) -> Result<Vec<ChatMember>, SetError> {
+) -> Result<(Vec<ChatMember>, bool), SetError> {
     fn parse<T: serde::de::DeserializeOwned>(
         patch: &serde_json::Map<String, Value>,
         key: &str,
@@ -148,7 +156,11 @@ fn apply_member_patch_keys(
             return Err(forbidden("the last admin may not demote themselves"));
         }
     }
-    Ok(members)
+    let closes = is_admin
+        && members.iter().all(|m| m.id != *caller_id)
+        && !members.is_empty()
+        && members.iter().all(|m| m.role != "admin");
+    Ok((members, closes))
 }
 
 // ---------------------------------------------------------------------------
@@ -677,6 +689,34 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 }
             };
 
+            // draft-atwood-jmap-chat-00 §Chat `closedAt`: "After it is
+            // set, the server MUST reject with a `forbidden` SetError ...
+            // every `Chat/set` update that changes membership ... or
+            // shared group settings". Pointer paths beneath them count.
+            let touches_closed_keys = patch.as_map().keys().any(|k| {
+                let top = k.split('/').next().unwrap_or(k);
+                MEMBER_PATCH_KEYS.contains(&top) || SHARED_GROUP_KEYS.contains(&top)
+            });
+            if touches_closed_keys {
+                match backend
+                    .get_objects::<Chat>(caller, &account_id, Some(std::slice::from_ref(&id)), None)
+                    .await
+                {
+                    Ok((chats, _)) if chats.first().is_some_and(|c| c.closed_at.is_some()) => {
+                        not_updated.insert(
+                            id_str,
+                            json!({ "type": "forbidden", "description": "the group is closed" }),
+                        );
+                        continue;
+                    }
+                    Ok(_) => {}
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                }
+            }
+
             // draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat": the
             // member patch keys are operations on `members`, not
             // properties. They are applied to the stored list here and
@@ -709,7 +749,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     let max_members = backend.limits(caller, &account_id).max_group_chat_members;
                     match apply_member_patch_keys(&stored, &caller_id, patch.as_map(), max_members)
                     {
-                        Ok(members) => {
+                        Ok((members, closes)) => {
                             let map = patch.as_map_mut();
                             for key in MEMBER_PATCH_KEYS {
                                 map.remove(*key);
@@ -719,6 +759,11 @@ pub async fn handle_chat_set<B: ChatBackend>(
                                 serde_json::to_value(members)
                                     .expect("derive(Serialize) on plain data is infallible"),
                             );
+                            // "the server MUST set `closedAt` ({{chat}}) in
+                            // the same operation".
+                            if closes {
+                                map.insert("closedAt".to_owned(), json!(now_utc_string()));
+                            }
                         }
                         Err(set_err) => {
                             not_updated.insert(id_str, set_error_value(&set_err));

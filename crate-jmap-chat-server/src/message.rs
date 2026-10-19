@@ -745,46 +745,52 @@ pub async fn handle_message_set<B: ChatBackend>(
                 continue;
             }
 
+            // A Chat not found is left for create_object to surface
+            // the normal error downstream.
+            let chat = match backend
+                .get_objects::<Chat>(
+                    caller,
+                    &account_id,
+                    Some(std::slice::from_ref(&chat_id)),
+                    None,
+                )
+                .await
+            {
+                Ok((found, _)) => found.into_iter().next(),
+                Err(e) => {
+                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
+                    continue;
+                }
+            };
+
+            // draft-atwood-jmap-chat-00 §Chat `closedAt`: "After it is
+            // set, the server MUST reject with a `forbidden` SetError
+            // every `Message/set` create in this Chat".
+            if chat.as_ref().is_some_and(|c| c.closed_at.is_some()) {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "forbidden", "description": "the group is closed" }),
+                );
+                continue;
+            }
+
             // BroadcastMention permission check (§4.4.1).
             // Non-empty broadcastMentions in a Space-backed channel
             // requires mention_broadcast permission. Group/direct chats
             // (no spaceId) are unrestricted per spec.
-            if !broadcast_mentions_val.is_empty() {
-                let chat_lookup = backend
-                    .get_objects::<Chat>(
-                        caller,
-                        &account_id,
-                        Some(std::slice::from_ref(&chat_id)),
-                        None,
-                    )
-                    .await;
-                match chat_lookup {
-                    Ok((found, _)) => {
-                        if let Some(chat) = found.first() {
-                            if let Some(ref sid) = chat.space_id {
-                                match backend
-                                    .may_broadcast_mention(caller, &account_id, sid)
-                                    .await
-                                {
-                                    Ok(Ok(())) => {}
-                                    Ok(Err(set_err)) => {
-                                        not_created
-                                            .insert(create_id.clone(), set_error_value(&set_err));
-                                        continue;
-                                    }
-                                    Err(e) => {
-                                        not_created.insert(
-                                            create_id.clone(),
-                                            server_fail_value_from_backend(&e),
-                                        );
-                                        continue;
-                                    }
-                                }
-                            }
-                            // else: no spaceId — unrestricted per spec
-                        }
-                        // else: Chat not found — let create_object surface
-                        // the normal error downstream
+            if let Some(sid) = chat
+                .as_ref()
+                .and_then(|c| c.space_id.as_ref())
+                .filter(|_| !broadcast_mentions_val.is_empty())
+            {
+                match backend
+                    .may_broadcast_mention(caller, &account_id, sid)
+                    .await
+                {
+                    Ok(Ok(())) => {}
+                    Ok(Err(set_err)) => {
+                        not_created.insert(create_id.clone(), set_error_value(&set_err));
+                        continue;
                     }
                     Err(e) => {
                         not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
