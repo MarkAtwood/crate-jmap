@@ -1279,7 +1279,11 @@ pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
                 .parsed
                 .into_iter()
                 .map(|(id, events)| {
-                    let events_val = serde_json::to_value(&events).unwrap_or(Value::Null);
+                    // CalendarEvent uses #[derive(Serialize)] on plain data
+                    // with String/Id map keys; to_value is infallible
+                    // (bd:JMAP-q2wa.7.2, JMAP-r3pg.13).
+                    let events_val = serde_json::to_value(&events)
+                        .expect("derive(Serialize) on plain data is infallible");
                     (id.to_string(), events_val)
                 })
                 .collect();

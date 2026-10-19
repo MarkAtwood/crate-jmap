@@ -308,13 +308,9 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                         // proceed to destroy below
                     }
                     Err(e) => {
-                        not_destroyed.insert(
-                            id_str,
-                            json!({
-                                "type": "serverFail",
-                                "description": e.to_string(),
-                            }),
-                        );
+                        // bd:JMAP-q2wa.7.2: backend Display text never
+                        // reaches the wire.
+                        not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
                         continue;
                     }
                 }
@@ -596,6 +592,11 @@ mod tests {
         };
         use jmap_types::{Id, PatchObject, State};
 
+        // Canary for bd:JMAP-q2wa.7.2. Oracle: the workspace contract that
+        // backend Display text never reaches the wire, pinned by
+        // jmap-server `server_fail_value_from_backend_drops_display_text`.
+        const CANARY: &str = "TOKEN-DO-NOT-LEAK-ca1e";
+
         #[derive(Debug)]
         struct FaultyError(&'static str);
         impl std::fmt::Display for FaultyError {
@@ -752,7 +753,7 @@ mod tests {
             ) -> Result<bool, Self::Error> {
                 // Simulate a transient backend failure — the handler
                 // must NOT silently collapse this to Ok(false).
-                Err(FaultyError("transient backend error"))
+                Err(FaultyError(CANARY))
             }
         }
 
@@ -775,6 +776,10 @@ mod tests {
             not_destroyed["cal1"]["type"], "serverFail",
             "transient backend error must surface as serverFail, not as a deterministic \
              'calendarHasEvent' or silently-successful destroy: {resp}"
+        );
+        assert!(
+            !resp.to_string().contains(CANARY),
+            "backend Display text must not reach the wire: {resp}"
         );
     }
 
