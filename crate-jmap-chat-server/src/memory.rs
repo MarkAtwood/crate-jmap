@@ -3159,6 +3159,9 @@ fn check_count_caps(
 ///   `invalidProperties` naming `removeMembers`. Self-removal (only
 ///   the caller's own id in `removeMembers`) skips this check and the
 ///   `manage_members` gate, per draft §Space/set `removeMembers`.
+///   Likewise a single `updateMembers` entry for the caller's own id
+///   holding only `nick` skips the `manage_members` gate, per draft
+///   §Space/set `updateMembers`.
 ///
 /// Returns `Ok(())` if the patch passes all checks. Returns
 /// `Err(SetError)` on the FIRST failure encountered — this is the
@@ -3203,6 +3206,24 @@ fn validate_space_patch_ops(
         _ => false,
     };
 
+    // Draft §Space/set `updateMembers`: "A member MAY set their own
+    // `nick` by submitting `updateMembers` with a single entry whose `id`
+    // is their own and which contains only `nick`; the server MUST permit
+    // this regardless of the caller's permission set."
+    let mut updated = ops.iter().filter_map(|op| match op {
+        SpacePatchOp::UpdateMember { user_id, patch } => Some((user_id, patch)),
+        _ => None,
+    });
+    let self_nick = match (updated.next(), updated.next(), caller_id) {
+        (Some((id, patch)), None, Some(caller_id)) => {
+            id == caller_id
+                && patch.nick.is_some()
+                && patch.role_ids.is_none()
+                && patch.extra.is_empty()
+        }
+        _ => false,
+    };
+
     // Identity-dependent checks: permission gating + hierarchy.
     if let Some(caller_id) = caller_id {
         let caller_perms = caller_effective_permissions(space_val, caller_id).unwrap_or_default();
@@ -3237,7 +3258,9 @@ fn validate_space_patch_ops(
                     );
                 }
             };
-            let required = if self_removal && matches!(op, SpacePatchOp::RemoveMember(_)) {
+            let required = if (self_removal && matches!(op, SpacePatchOp::RemoveMember(_)))
+                || (self_nick && matches!(op, SpacePatchOp::UpdateMember { .. }))
+            {
                 &[]
             } else {
                 required
