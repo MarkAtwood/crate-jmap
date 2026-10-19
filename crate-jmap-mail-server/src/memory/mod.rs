@@ -1869,7 +1869,7 @@ impl MailBackend for MemoryBackend {
     // supports_type
     // -----------------------------------------------------------------------
 
-    fn supports_type<O: JmapObject>(&self) -> bool {
+    fn supports_type<O: JmapObject>(&self, _caller: &(), _account_id: &Id) -> bool {
         true
     }
 }

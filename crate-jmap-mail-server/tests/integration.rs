@@ -695,19 +695,23 @@ async fn search_snippet_get_capability_gated() {
                 .await
         }
 
-        fn supports_type<O: JmapObject>(&self) -> bool {
-            // Return false for SearchSnippet; delegate everything else.
+        fn supports_type<O: JmapObject>(&self, _caller: &(), account_id: &Id) -> bool {
+            // Return false for SearchSnippet on every account except
+            // "account2"; delegate everything else.
             if std::any::TypeId::of::<O>()
                 == std::any::TypeId::of::<jmap_mail_types::SearchSnippet>()
+                && account_id.as_ref() != "account2"
             {
                 false
             } else {
-                self.0.supports_type::<O>()
+                self.0.supports_type::<O>(&(), account_id)
             }
         }
     }
 
     let backend = NoSnippetBackend(MemoryBackend::new());
+    backend.0.register_account(&Id::from("account1"));
+    backend.0.register_account(&Id::from("account2"));
     let args = serde_json::json!({
         "accountId": "account1",
         "emailIds": ["email1"],
@@ -724,6 +728,30 @@ async fn search_snippet_get_capability_gated() {
         "accountNotSupportedByMethod",
         "error type must be accountNotSupportedByMethod; got: {err_json:?}"
     );
+
+    // Oracle: RFC 8620 §1.6.2 / §2 — capabilities are per account, so the
+    // gate on "account1" must not affect "account2".
+    let (resp, _) = handle_search_snippet_get(
+        &backend,
+        &(),
+        serde_json::json!({"accountId": "account2", "emailIds": ["email1"]}),
+    )
+    .await
+    .expect("account2 supports SearchSnippet");
+    assert_eq!(resp["accountId"], "account2");
+
+    // Oracle: RFC 8620 §3.6.2 — "accountNotSupportedByMethod: The accountId
+    // given corresponds to a valid account, but ..." — so an unknown account
+    // is reported as accountNotFound, not accountNotSupportedByMethod.
+    let err = handle_search_snippet_get(
+        &backend,
+        &(),
+        serde_json::json!({"accountId": "nosuch", "emailIds": []}),
+    )
+    .await
+    .expect_err("unknown account must fail");
+    let err_json = serde_json::to_value(&err).expect("JmapError must serialize");
+    assert_eq!(err_json["type"], "accountNotFound", "got: {err_json:?}");
 }
 
 // ---------------------------------------------------------------------------

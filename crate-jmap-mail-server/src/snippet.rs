@@ -36,8 +36,9 @@ use jmap_server::server_fail_from_backend;
 /// # Capability gating
 ///
 /// If the backend returns `false` from
-/// [`supports_type::<SearchSnippet>()`](MailBackend::supports_type) the handler
-/// returns an `accountNotSupportedByMethod` error without touching the backend.
+/// [`supports_type::<SearchSnippet>()`](MailBackend::supports_type) for the
+/// request's account, the handler returns an `accountNotSupportedByMethod`
+/// error before fetching any snippets.
 ///
 /// # Filter
 ///
@@ -60,11 +61,6 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    // Capability gate: check before touching any argument.
-    if !backend.supports_type::<SearchSnippet>() {
-        return Err(JmapError::account_not_supported_by_method());
-    }
-
     let (account_id, args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -72,6 +68,11 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
         .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
+    }
+    // Capability gate (RFC 8620 §3.6.2): accountNotSupportedByMethod
+    // applies to an account that exists, so it follows the existence check.
+    if !backend.supports_type::<SearchSnippet>(caller, &account_id) {
+        return Err(JmapError::account_not_supported_by_method());
     }
 
     // RFC 8621 §5.1: requestTooLarge when the number of emailIds exceeds the

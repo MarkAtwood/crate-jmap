@@ -416,16 +416,23 @@ pub trait MailBackend: JmapBackend {
     /// methods. For example,
     /// [`handle_search_snippet_get`](crate::handle_search_snippet_get)
     /// returns `accountNotSupportedByMethod` when
-    /// `supports_type::<SearchSnippet>()` is `false`, so that backends
-    /// without snippet support can short-circuit before any per-method
-    /// state is touched. The server consumer also calls this method
-    /// when building the JMAP session capability response.
+    /// `supports_type::<SearchSnippet>()` is `false` for the request's
+    /// `accountId`, after confirming the account exists and before any
+    /// per-method state is touched. The server consumer also calls this
+    /// method per account when building the JMAP session
+    /// `accountCapabilities` response (RFC 8620 §2).
     ///
-    /// # Default
+    /// # Per-account semantics
     ///
-    /// Backends that support every type in this trait unconditionally
-    /// can return `true` always.
-    fn supports_type<O: JmapObject>(&self) -> bool;
+    /// Capabilities are per account (RFC 8620 §1.6.2, §2
+    /// `accountCapabilities`), so the answer may vary with `caller` and
+    /// `account_id`. Backends that support every type in this trait for
+    /// every account can ignore both arguments and return `true`.
+    fn supports_type<O: JmapObject>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> bool;
 
     /// Maximum number of email IDs to fetch from the backend when
     /// `collapseThreads=true`. Fetching stops at this limit; the response

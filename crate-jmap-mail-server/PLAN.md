@@ -233,8 +233,10 @@ All of this is handler logic. The backend has no `onDestroyRemoveEmails` concept
 ### 8. SearchSnippet/get gated by supports_type
 
 SearchSnippet requires full-text search infrastructure. Backends without a
-search index return `false` from `supports_type::<SearchSnippet>()`. The handler
-maps this to `accountNotSupportedByMethod` per RFC 8620 §5.1.
+search index return `false` from `supports_type::<SearchSnippet>(caller,
+account_id)`. The answer is per account (RFC 8620 §1.6.2). The handler maps
+`false` to `accountNotSupportedByMethod` per RFC 8620 §3.6.2, after confirming
+the account exists.
 
 ### 9. register_mail_handlers is the entry point
 
@@ -371,7 +373,7 @@ pub trait MailBackend: Send + Sync + 'static {
 
     /// Whether this backend supports operations on the given object type.
     /// Return false for SearchSnippet if no full-text search is available.
-    fn supports_type<O: JmapObject>(&self) -> bool;
+    fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx, account_id: &Id) -> bool;
 }
 
 /// Register all RFC 8621 JMAP Mail handlers with a jmap-server Dispatcher.
