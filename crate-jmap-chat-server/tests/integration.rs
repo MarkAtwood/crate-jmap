@@ -4060,6 +4060,64 @@ async fn space_set_category_add_without_id_is_accepted() {
     assert_eq!(cats[0]["position"], 0);
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 §Space/set "Updating a Space",
+/// `addCategories`: "Each entry: `name` (String), optional `position`
+/// (UnsignedInt) and `channelIds` (String[]). Server assigns ULIDs."
+///
+/// ULIDs are unique, so categories added in separate operations and in
+/// separate Spaces must each get a distinct id (bd:JMAP-yt1w.15).
+#[tokio::test]
+async fn space_set_category_add_assigns_unique_ids() {
+    let backend = MemoryBackend::new();
+    let space_a = make_space(&backend, "Cat Unique A").await;
+    let space_b = make_space(&backend, "Cat Unique B").await;
+
+    for (space_id, name) in [
+        (&space_a, "First"),
+        (&space_a, "Second"),
+        (&space_b, "Third"),
+    ] {
+        let (resp, _) = handle_space_set(
+            &backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "update": {
+                    space_id: {
+                        "addCategories": [{ "name": name, "position": 0, "channelIds": [] }]
+                    }
+                }
+            }),
+        )
+        .await
+        .expect("handle_space_set");
+        assert!(
+            resp["notUpdated"].is_null(),
+            "addCategories {name} should succeed: {:?}",
+            resp["notUpdated"]
+        );
+    }
+
+    let (get_resp, _) = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [&space_a, &space_b] }),
+    )
+    .await
+    .expect("handle_space_get");
+    let mut ids: Vec<String> = get_resp["list"]
+        .as_array()
+        .expect("list array")
+        .iter()
+        .flat_map(|space| space["categories"].as_array().expect("categories array"))
+        .map(|cat| cat["id"].as_str().expect("category id").to_owned())
+        .collect();
+    assert_eq!(ids.len(), 3, "three categories present: {get_resp:?}");
+    ids.sort();
+    ids.dedup();
+    assert_eq!(ids.len(), 3, "category ids must be unique: {get_resp:?}");
+}
+
 /// Oracle: Space/set addCategories with a channelIds list referencing
 /// existing channels updates those channels' categoryId and pulls them
 /// out of uncategorizedChannelIds.
