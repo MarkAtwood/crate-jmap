@@ -351,6 +351,64 @@ async fn message_create_rejects_fields_forbidden_by_body_type() {
     }
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 §Account-Level Capability Object,
+/// `maxBodyBytes` — "Servers MUST reject messages exceeding this limit
+/// with `invalidArguments`." (bd:JMAP-yt1w.1). The limit is read from the
+/// Session, not assumed.
+#[tokio::test]
+async fn message_create_rejects_body_over_max_body_bytes() {
+    let (_jig, client, session) = connect().await;
+    let account_id = session.chat_account_id().expect("chat account");
+    let max = session.accounts[account_id].account_capabilities["urn:ietf:params:jmap:chat"]
+        ["maxBodyBytes"]
+        .as_u64()
+        .expect("maxBodyBytes");
+    let sc = client.with_chat_session(session);
+    let chat_id = create_group(&sc, "g1", "Team").await;
+    let sent_at = UTCDate::from(SENT_AT);
+    let body = "a".repeat(usize::try_from(max).expect("usize") + 1);
+    let input =
+        MessageCreateInput::new(&chat_id, &body, BodyType::Plain, &sent_at).with_client_id("m1");
+
+    let resp = sc.message_create(&input).await.expect("Message/set create");
+    let err = resp
+        .not_created
+        .as_ref()
+        .and_then(|m| m.get("m1"))
+        .unwrap_or_else(|| panic!("over-long body must be rejected: {resp:?}"));
+    assert_eq!(err.error_type, "invalidArguments");
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Message/query — `text`: "Servers
+/// that do not support full-text search MUST return
+/// `unsupportedFilter`."; `threadRootId`: "Valid only when
+/// `supportsThreads` is `true`; otherwise servers MUST return
+/// `unsupportedFilter`." (bd:JMAP-yt1w.1). The jig advertises
+/// `supportsThreads: false` and has no full-text search.
+#[tokio::test]
+async fn message_query_rejects_text_and_thread_root_filters() {
+    let (_jig, client, session) = connect().await;
+    let sc = client.with_chat_session(session);
+    let chat_id = create_group(&sc, "g1", "Team").await;
+    let root = send(&sc, &chat_id, "m1", "root").await;
+
+    let mut text = MessageQueryInput::default();
+    text.chat_id = Some(&chat_id);
+    text.text = Some("root");
+    let mut thread = MessageQueryInput::default();
+    thread.chat_id = Some(&chat_id);
+    thread.thread_root_id = Some(&root);
+
+    for (name, query) in [("text", &text), ("threadRootId", &thread)] {
+        match sc.message_query(query).await {
+            Err(ClientError::MethodError { error_type, .. }) => {
+                assert_eq!(error_type, "unsupportedFilter", "{name}");
+            }
+            other => panic!("{name}: expected unsupportedFilter, got {other:?}"),
+        }
+    }
+}
+
 /// Oracle: RFC 8620 §5.5 Comparator `isAscending` — "If false, reverse
 /// the comparator's results to sort in descending order."
 /// (bd:JMAP-yt1w.1). The sends are spaced so the millisecond `receivedAt`

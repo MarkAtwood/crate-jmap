@@ -216,6 +216,21 @@ pub async fn handle_message_query<B: ChatBackend>(
     if !has_chat_id && !has_mention_true {
         return Err(JmapError::unsupported_filter());
     }
+    // §Message/query: `text` — "Servers that do not support full-text
+    // search MUST return `unsupportedFilter`."; `threadRootId` — "Valid
+    // only when `supportsThreads` is `true`; otherwise servers MUST
+    // return `unsupportedFilter`."
+    // ponytail: no backend implements either filter, so both are refused
+    // here for every backend; a backend that adds one needs a
+    // ChatBackend capability hook to lift the refusal.
+    if ["text", "threadRootId"].iter().any(|k| {
+        filter
+            .as_ref()
+            .and_then(|f| f.get(k))
+            .is_some_and(|v| !v.is_null())
+    }) {
+        return Err(JmapError::unsupported_filter());
+    }
 
     let sort: Option<Vec<serde_json::Value>> = match args.remove("sort") {
         None | Some(Value::Null) => None,
@@ -664,10 +679,16 @@ pub async fn handle_message_set<B: ChatBackend>(
                 );
                 continue;
             };
+            // §Account-Level Capability Object `maxBodyBytes`: "Servers
+            // MUST reject messages exceeding this limit with
+            // `invalidArguments`."
             if body.len() > 100_000 {
                 not_created.insert(
                     create_id.clone(),
-                    json!({ "type": "invalidProperties", "properties": ["body"] }),
+                    json!({
+                        "type": "invalidArguments",
+                        "description": "body exceeds maxBodyBytes (100000)"
+                    }),
                 );
                 continue;
             }
@@ -1759,22 +1780,27 @@ mod tests {
             .as_str()
             .expect("space id");
 
-        // Create a channel Chat in that Space.
-        let (chat_resp, _) = crate::chat::handle_chat_set(
+        // Create a channel Chat in that Space. §Chat/set: "Channel Chats
+        // are created exclusively via the `addChannels` patch key in
+        // `Space/set`."
+        crate::space::handle_space_set(
             backend,
             &(),
             json!({
                 "accountId": ACCOUNT_ID,
-                "create": { "c0": {
-                    "kind": "channel",
-                    "name": "general",
-                    "spaceId": space_id
-                } }
+                "update": { space_id: { "addChannels": [{ "name": "general" }] } }
             }),
         )
         .await
-        .expect("make_channel_chat: chat");
-        chat_resp["created"]["c0"]["id"]
+        .expect("make_channel_chat: addChannels");
+        let (get_resp, _) = crate::space::handle_space_get(
+            backend,
+            &(),
+            json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
+        )
+        .await
+        .expect("make_channel_chat: Space/get");
+        get_resp["list"][0]["uncategorizedChannelIds"][0]
             .as_str()
             .expect("channel chat id")
             .to_owned()

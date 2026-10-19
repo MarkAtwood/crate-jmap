@@ -136,7 +136,7 @@ pub async fn handle_chat_query_changes<B: ChatBackend>(
 /// Validation enforced here (not in the backend):
 /// - `kind` is required on create.
 /// - `direct` chats require `contactId`.
-/// - `channel` chats require `spaceId`.
+/// - `channel` chats are `forbidden` (created via `Space/set` `addChannels`).
 /// - `id`, `createdAt`, `unreadCount`, `closedAt`, `activeCallId` are
 ///   server-set and rejected in updates.
 /// - `pinnedMessageIds` updates are gated by
@@ -323,15 +323,12 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     }
                     Some(contact_id_str)
                 }
+                // §Chat/set: "Creating a Chat with `kind: "channel"` via
+                // `Chat/set` is not supported; the server MUST return a
+                // SetError of type `forbidden`."
                 ChatKind::Channel => {
-                    if obj_val.get("spaceId").and_then(|v| v.as_str()).is_none() {
-                        not_created.insert(
-                            create_id.clone(),
-                            json!({ "type": "invalidProperties", "properties": ["spaceId"] }),
-                        );
-                        continue;
-                    }
-                    None
+                    not_created.insert(create_id.clone(), json!({ "type": "forbidden" }));
+                    continue;
                 }
                 _ => None,
             };
