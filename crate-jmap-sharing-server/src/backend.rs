@@ -214,8 +214,8 @@ pub trait SharingBackend: JmapBackend {
     ///
     /// Failing this invariant ships a silent wire-protocol bug: every
     /// `Principal/set create` response carries the wrong `id` (typically a
-    /// `"placeholder"` literal injected by the handler — see
-    /// `principal.rs` create branch), and no `cargo test` of the backend
+    /// `helpers::PLACEHOLDER_ID` sentinel, value `"placeholder"`, injected
+    /// by the handler — see `principal.rs` create branch), and no `cargo test` of the backend
     /// alone will catch it. End-to-end JMAP integration is the only signal.
     ///
     /// Reference implementations: see [`memory::MemoryBackend::create_object`]
@@ -422,6 +422,15 @@ pub trait SharingBackend: JmapBackend {
     /// not ship a session-capability builder; that is the consumer's
     /// responsibility (see workspace AGENTS.md: "transport/multi-tenancy/
     /// auth/storage is the consumer's responsibility").
+    ///
+    /// # Types in scope
+    ///
+    /// Implementors should answer for the JMAP object types this trait
+    /// covers (RFC 9670): `Principal` and `ShareNotification`. Backends
+    /// MAY answer for object types from sibling extensions (`Email`,
+    /// `Calendar`, etc.) if they also implement those traits, but the
+    /// typical pattern is one backend impl per extension family. A
+    /// backend that does not recognise `O` SHOULD return `false`.
     ///
     /// # Per-backend, NOT per-account
     ///
