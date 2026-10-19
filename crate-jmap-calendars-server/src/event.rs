@@ -696,10 +696,14 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
 ///
 /// Fetches each source event from `fromAccountId`, merges client-supplied
 /// property overrides, then creates the result in `accountId`.
-/// Supports `ifFromInState`, `ifInState`, and `onSuccessDestroyOriginal`.
+/// Supports `ifFromInState`, `ifInState`, `onSuccessDestroyOriginal` and
+/// `destroyFromIfInState`.
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are
-/// generated when `onSuccessDestroyOriginal: true`, per RFC 8620 §6.3.
+/// generated when `onSuccessDestroyOriginal: true`, per RFC 8620 §6.3. If
+/// `destroyFromIfInState` does not match the source account's CalendarEvent
+/// state, the single extra invocation is an `error` of type `stateMismatch`
+/// and the originals are left untouched.
 pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -905,6 +909,17 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
             .get_state::<CalendarEvent>(caller, &from_account_id)
             .await
             .map_err(|e| server_fail_from_backend(&e))?;
+
+        // RFC 8620 §5.4: `destroyFromIfInState` "is passed on as the
+        // "ifInState" argument to the implicit "Foo/set" call"; per §5.3 a
+        // mismatch aborts that whole call with a method-level stateMismatch
+        // error in place of the CalendarEvent/set response. Nothing is destroyed.
+        if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str) {
+            if if_in_state != destroy_old_state.as_ref() {
+                let err = json!({ "type": "stateMismatch" });
+                return Ok((resp, vec![("error".to_owned(), err, call_id.to_owned())]));
+            }
+        }
 
         let mut destroyed_ids: Vec<Value> = Vec::new();
         let mut not_destroyed = serde_json::Map::new();
@@ -2537,6 +2552,88 @@ mod tests {
             set_resp["destroyed"].is_array(),
             "destroyed must be an array: {set_resp}"
         );
+    }
+
+    /// Seed `src` with one event `ev1`, run CalendarEvent/copy into `dst`
+    /// with `onSuccessDestroyOriginal` and the given `destroyFromIfInState`,
+    /// and return the extra invocations plus the `list` of a later
+    /// CalendarEvent/get on `ev1` in `src`.
+    async fn copy_with_destroy_from_if_in_state(
+        destroy_from_if_in_state: Option<&str>,
+    ) -> (Vec<Invocation>, Value) {
+        let mut backend = MockBackend::new_with_account("dst");
+        backend.add_object(
+            "src",
+            "CalendarEvent",
+            "ev1",
+            json!({ "id": "ev1", "title": "Move me", "calendarIds": { "cal1": true } }),
+        );
+        let state = match destroy_from_if_in_state {
+            Some(s) => s.to_owned(),
+            None => {
+                let (get, _) = handle_calendar_event_get(
+                    &backend,
+                    &(),
+                    json!({ "accountId": "src", "ids": ["ev1"] }),
+                )
+                .await
+                .expect("get must succeed");
+                get["state"].as_str().expect("state string").to_owned()
+            }
+        };
+        let args = json!({
+            "accountId": "dst",
+            "fromAccountId": "src",
+            "onSuccessDestroyOriginal": true,
+            "destroyFromIfInState": state,
+            "create": { "c1": { "id": "ev1" } }
+        });
+        let (resp, extra) = handle_calendar_event_copy(&backend, &(), args, "c0")
+            .await
+            .expect("copy must not return a top-level error");
+        assert!(
+            resp["created"]["c1"].is_object(),
+            "copy must succeed: {resp}"
+        );
+        let (after, _) =
+            handle_calendar_event_get(&backend, &(), json!({ "accountId": "src", "ids": ["ev1"] }))
+                .await
+                .expect("get must succeed");
+        (extra, after["list"].clone())
+    }
+
+    /// Oracle: RFC 8620 §5.4 — `destroyFromIfInState` "is passed on as the
+    /// "ifInState" argument to the implicit "Foo/set" call", and §5.3
+    /// `ifInState`: "If supplied, the string must match the current state;
+    /// otherwise, the method will be aborted and a "stateMismatch" error
+    /// returned." A stale value therefore replaces the implicit
+    /// CalendarEvent/set with a stateMismatch error and destroys nothing.
+    #[tokio::test]
+    async fn copy_destroy_from_if_in_state_mismatch_aborts_destroy() {
+        let (extra, list) = copy_with_destroy_from_if_in_state(Some("stale-state")).await;
+        assert_eq!(extra.len(), 1, "one implicit response: {extra:?}");
+        let (method, body, call_id) = &extra[0];
+        assert_eq!(method, "error");
+        assert_eq!(body["type"], "stateMismatch");
+        assert_eq!(call_id, "c0");
+        assert_eq!(
+            list.as_array().map(Vec::len),
+            Some(1),
+            "source kept: {list}"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.4 / §5.3 as above — a `destroyFromIfInState`
+    /// equal to the state CalendarEvent/get reported lets the implicit
+    /// CalendarEvent/set destroy the original.
+    #[tokio::test]
+    async fn copy_destroy_from_if_in_state_match_destroys_original() {
+        let (extra, list) = copy_with_destroy_from_if_in_state(None).await;
+        assert_eq!(extra.len(), 1, "one implicit response: {extra:?}");
+        let (method, body, _) = &extra[0];
+        assert_eq!(method, "CalendarEvent/set");
+        assert_eq!(body["destroyed"], json!(["ev1"]));
+        assert_eq!(list, json!([]), "source must be destroyed");
     }
 
     /// Oracle (bd:JMAP-ic0j.70): a backend

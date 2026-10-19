@@ -1430,6 +1430,81 @@ async fn filenode_copy_on_success_destroy_original_destroys_source() {
 }
 
 // ---------------------------------------------------------------------------
+// FileNode/copy — destroyFromIfInState gates the implicit FileNode/set.
+// Oracle: RFC 8620 §5.4 — destroyFromIfInState "is passed on as the
+// "ifInState" argument to the implicit "Foo/set" call", and §5.3 ifInState:
+// "If supplied, the string must match the current state; otherwise, the
+// method will be aborted and a "stateMismatch" error returned."
+// Regression for bd JMAP-2svx.
+// ---------------------------------------------------------------------------
+
+/// Copy one leaf node from `src` to `dst` with `onSuccessDestroyOriginal`
+/// and the given `destroyFromIfInState` (`None` = the state FileNode/get
+/// reports for `src`). Returns the extra invocations and the source id's
+/// `notFound` status from a later FileNode/get on `src`.
+async fn copy_with_destroy_from_if_in_state(
+    destroy_from_if_in_state: Option<&str>,
+) -> (Vec<jmap_types::Invocation>, bool) {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+    let get_src = || {
+        handle_filenode_get(
+            &backend,
+            &(),
+            json!({ "accountId": "src", "ids": [&src_id] }),
+        )
+    };
+    let state = match destroy_from_if_in_state {
+        Some(s) => s.to_owned(),
+        None => {
+            let (get, _) = get_src().await.expect("get must succeed");
+            get["state"].as_str().expect("state string").to_owned()
+        }
+    };
+    let (resp, extra) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "onSuccessDestroyOriginal": true,
+            "destroyFromIfInState": state,
+            "create": { "c": { "id": &src_id, "role": null } }
+        }),
+        "c0",
+    )
+    .await
+    .expect("copy must succeed");
+    assert!(
+        resp["created"]["c"].is_object(),
+        "copy must succeed: {resp}"
+    );
+    let (after, _) = get_src().await.expect("get must succeed");
+    (extra, after["notFound"] == json!([&src_id]))
+}
+
+#[tokio::test]
+async fn filenode_copy_destroy_from_if_in_state_mismatch_aborts_destroy() {
+    let (extra, src_gone) = copy_with_destroy_from_if_in_state(Some("stale-state")).await;
+    assert_eq!(extra.len(), 1, "one implicit response: {extra:?}");
+    let (method, body, call_id) = &extra[0];
+    assert_eq!(method, "error");
+    assert_eq!(body["type"], "stateMismatch");
+    assert_eq!(call_id, "c0");
+    assert!(!src_gone, "source must be left untouched");
+}
+
+#[tokio::test]
+async fn filenode_copy_destroy_from_if_in_state_match_destroys_original() {
+    let (extra, src_gone) = copy_with_destroy_from_if_in_state(None).await;
+    assert_eq!(extra.len(), 1, "one implicit response: {extra:?}");
+    let (method, body, _) = &extra[0];
+    assert_eq!(method, "FileNode/set");
+    assert!(body["destroyed"].is_array(), "destroyed list: {body}");
+    assert!(src_gone, "source must be destroyed");
+}
+
+// ---------------------------------------------------------------------------
 // FileNode/copy — onSuccessDestroyOriginal without onDestroyRemoveChildren
 // MUST report `nodeHasChildren` for a source directory that has children,
 // honoring the FileNode-specific top-level flag on the implicit destroy.
