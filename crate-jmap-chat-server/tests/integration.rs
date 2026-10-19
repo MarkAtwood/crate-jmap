@@ -4001,6 +4001,65 @@ async fn space_set_category_add_assigns_id_and_pushes() {
     assert_eq!(cats[0]["position"], 0);
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 §Space/set "Updating a Space",
+/// `addCategories`: "Each entry: `name` (String), optional `position`
+/// (UnsignedInt) and `channelIds` (String[]). Server assigns ULIDs." And
+/// §Category: "`id` (String, immutable, server-set): Opaque
+/// server-assigned JMAP identifier for this category."
+///
+/// An `addCategories` entry carries no `id`; the server must accept it
+/// and give the new category an id of its own (bd:JMAP-yt1w.14).
+#[tokio::test]
+async fn space_set_category_add_without_id_is_accepted() {
+    let backend = MemoryBackend::new();
+    let space_id = make_space(&backend, "Cat No Id Test").await;
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": {
+                &space_id: {
+                    "addCategories": [{
+                        "name": "General",
+                        "position": 0,
+                        "channelIds": [],
+                    }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    assert!(
+        resp["notUpdated"].is_null(),
+        "addCategories entries without id must be accepted: {:?}",
+        resp["notUpdated"]
+    );
+    assert!(
+        resp["updated"].get(&space_id).is_some(),
+        "addCategories should land in `updated`: {resp:?}"
+    );
+
+    let (get_resp, _) = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+    )
+    .await
+    .expect("handle_space_get");
+    let cats = get_resp["list"][0]["categories"]
+        .as_array()
+        .expect("categories array");
+    assert_eq!(cats.len(), 1, "exactly one category present: {cats:?}");
+    let id = cats[0]["id"].as_str().expect("category id is a string");
+    assert!(!id.is_empty(), "server must assign a category id: {cats:?}");
+    assert_eq!(cats[0]["name"], "General");
+    assert_eq!(cats[0]["position"], 0);
+}
+
 /// Oracle: Space/set addCategories with a channelIds list referencing
 /// existing channels updates those channels' categoryId and pulls them
 /// out of uncategorizedChannelIds.

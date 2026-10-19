@@ -13,8 +13,8 @@ use jmap_base_client::{BearerAuth, ClientConfig, DefaultTransport, JmapClient, S
 use jmap_chat_client::{
     AddMemberInput, ChatCreateInput, ChatMemberRole, ChatPatch, ChatSessionExt, ClientError,
     JmapChatExt, MessageCreateInput, MessagePatch, MessageQueryInput, ReactionChange,
-    SessionClient, SetResponse, SpaceAddRoleInput, SpaceBanCreateInput, SpaceCreateInput,
-    SpaceJoinInput, SpacePatch, UpdateMemberRoleInput,
+    SessionClient, SetResponse, SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddRoleInput,
+    SpaceBanCreateInput, SpaceCreateInput, SpaceJoinInput, SpacePatch, UpdateMemberRoleInput,
 };
 use jmap_chat_types::{
     Attachment, BodyType, BroadcastMention, ChatKind, Mention, MessageAction, SenderId,
@@ -972,4 +972,88 @@ async fn space_add_roles_round_trips_each_color_representation() {
         "server-assigned role ids must be distinct: {:?}",
         space.roles
     );
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Space/set "Updating a Space",
+/// `addCategories`: "Each entry: `name` (String), optional `position`
+/// (UnsignedInt) and `channelIds` (String[]). Server assigns ULIDs." And
+/// §Category: "`Category.channelIds`, `Space.uncategorizedChannelIds`, and
+/// each channel Chat's `categoryId` describe the same assignment. The
+/// server MUST keep them consistent: a `Space/set` operation that changes
+/// one MUST update the others in the same operation."
+///
+/// `SpaceAddCategoryInput` sends no `id`; the server must accept it, and
+/// a channel listed in the new category's `channelIds` must leave
+/// `uncategorizedChannelIds` and carry the new category's id
+/// (bd:JMAP-yt1w.14).
+#[tokio::test]
+async fn space_add_categories_moves_channel_into_new_category() {
+    let (_jig, client, session) = connect().await;
+    let sc = client.with_chat_session(session);
+
+    let resp = sc
+        .space_create(&SpaceCreateInput::new("Layout").with_client_id("s0"))
+        .await
+        .expect("Space/set create");
+    let space_id = created_id(&resp, "s0");
+
+    let channels = [SpaceAddChannelInput::new("general")];
+    let mut patch = SpacePatch::default();
+    patch.add_channels = Some(&channels);
+    let resp = sc
+        .space_update(&space_id, &patch)
+        .await
+        .expect("Space/set addChannels");
+    assert!(
+        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
+        "{resp:?}"
+    );
+    let got = sc
+        .space_get(Some(std::slice::from_ref(&space_id)), None)
+        .await
+        .expect("Space/get");
+    let space = got.list.first().expect("space in list");
+    assert_eq!(
+        space.uncategorized_channel_ids.len(),
+        1,
+        "new channel starts uncategorized: {space:?}"
+    );
+    let channel_id = space.uncategorized_channel_ids[0].clone();
+
+    let channel_ids = [channel_id.clone()];
+    let mut category = SpaceAddCategoryInput::new("Text");
+    category.position = Some(0);
+    category.channel_ids = Some(&channel_ids);
+    let categories = [category];
+    let mut patch = SpacePatch::default();
+    patch.add_categories = Some(&categories);
+    let resp = sc
+        .space_update(&space_id, &patch)
+        .await
+        .expect("Space/set addCategories");
+    assert!(
+        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
+        "addCategories entries without id must be accepted: {resp:?}"
+    );
+
+    let got = sc
+        .space_get(Some(std::slice::from_ref(&space_id)), None)
+        .await
+        .expect("Space/get");
+    let space = got.list.first().expect("space in list");
+    assert_eq!(space.categories.len(), 1, "{space:?}");
+    let cat = &space.categories[0];
+    assert_eq!(cat.name, "Text");
+    assert_eq!(cat.channel_ids, vec![channel_id.clone()], "{space:?}");
+    assert!(
+        space.uncategorized_channel_ids.is_empty(),
+        "channel must leave uncategorizedChannelIds: {space:?}"
+    );
+
+    let chats = sc
+        .chat_get(Some(std::slice::from_ref(&channel_id)), None)
+        .await
+        .expect("Chat/get");
+    let chat = chats.list.first().expect("channel in list");
+    assert_eq!(chat.category_id.as_ref(), Some(&cat.id), "{chat:?}");
 }
