@@ -1,7 +1,6 @@
 //! Push notification payload types for chat message delivery.
 
 use crate::chat::ChatKind;
-use crate::message::SenderId;
 use jmap_types::{impl_string_enum, Id, State, UTCDate};
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -103,12 +102,9 @@ pub struct ChatMessageEntry {
     pub chat_kind: ChatKind,
     /// The `senderId` property (draft-atwood-jmap-chat-push-00 §5.2).
     ///
-    /// Typed identically to [`crate::Message::sender_id`] and
-    /// [`crate::Reaction::sender_id`]: `SenderId::Owner` for messages
-    /// the account owner composed, `SenderId::Contact(<id>)`
-    /// otherwise. See [`SenderId`] for the wire `"self"` sentinel
-    /// and its collision caveat.
-    pub sender_id: SenderId,
+    /// The accountId for owner-composed messages, otherwise the
+    /// sender's `ChatContact.id`.
+    pub sender_id: Id,
     /// The `sentAt` property (draft-atwood-jmap-chat-push-00 §5.2).
     pub sent_at: UTCDate,
     /// The `hasMention` property (draft-atwood-jmap-chat-push-00 §5.2).
@@ -287,7 +283,7 @@ impl ChatMessageEntry {
         message_id: Id,
         chat_id: Id,
         chat_kind: ChatKind,
-        sender_id: SenderId,
+        sender_id: Id,
         sent_at: UTCDate,
         has_mention: bool,
         mention_scopes: Vec<String>,
@@ -321,7 +317,7 @@ impl ChatMessageEntry {
         message_id: Id,
         chat_id: Id,
         chat_kind: ChatKind,
-        sender_id: SenderId,
+        sender_id: Id,
         sent_at: UTCDate,
     ) -> Self {
         Self {
@@ -436,7 +432,7 @@ mod tests {
             Id::from("m1"),
             Id::from("c1"),
             ChatKind::Channel,
-            SenderId::Contact("alice".to_owned()),
+            Id::from("alice"),
             UTCDate::from("2026-04-29T00:00:00Z"),
         );
         assert!(entry.encrypted);
@@ -460,7 +456,7 @@ mod tests {
             Id::from("m2"),
             Id::from("c1"),
             ChatKind::Direct,
-            SenderId::Contact("bob".to_owned()),
+            Id::from("bob"),
             UTCDate::from("2026-04-29T00:00:00Z"),
             false,
             vec![],
@@ -477,7 +473,7 @@ mod tests {
             Id::from("m3"),
             Id::from("c1"),
             ChatKind::Direct,
-            SenderId::Contact("carol".to_owned()),
+            Id::from("carol"),
             UTCDate::from("2026-04-29T00:00:00Z"),
             false,
             vec![],
@@ -485,28 +481,6 @@ mod tests {
         );
         assert!(!entry.encrypted);
         assert!(entry.body_snippet.is_none());
-    }
-
-    /// Oracle: the parallel SenderId routing test for push entries.
-    /// A push entry whose wire `senderId` is `"self"` decodes to
-    /// `SenderId::Owner`, in parity with Message, Reaction, and
-    /// ChatTypingEvent. Push consumers can then echo-suppress the
-    /// account owner's own messages without raw-string comparison.
-    #[test]
-    fn push_entry_self_sentinel_routes_to_owner() {
-        let json = r#"{
-            "messageId": "m4",
-            "chatId": "c1",
-            "chatKind": "direct",
-            "senderId": "self",
-            "sentAt": "2026-04-29T00:00:00Z",
-            "hasMention": false,
-            "mentionScopes": [],
-            "encrypted": false
-        }"#;
-        let entry: ChatMessageEntry =
-            serde_json::from_str(json).expect("deserialize ChatMessageEntry");
-        assert_eq!(entry.sender_id, SenderId::Owner);
     }
 
     // Oracle: hand-crafted minimal direct-chat entry with no chat_name;

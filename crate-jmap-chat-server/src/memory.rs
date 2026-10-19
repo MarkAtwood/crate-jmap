@@ -832,7 +832,7 @@ impl JmapBackend for MemoryBackend {
                             let Some(obj) = m.get(id) else {
                                 return false;
                             };
-                            message_matches_filter(obj, fv)
+                            message_matches_filter(obj, fv, account_id)
                         });
                     }
                 }
@@ -3737,12 +3737,16 @@ fn compare_by_sort(
 /// Supported filter keys:
 /// - `chatId`: exact match against the message's `chatId` field
 /// - `hasMention`: when `true`, the message must contain a mention of
-///   the owner — either in `mentions` (non-empty array) or in
+///   the owner — either a `mentions` entry whose `id` is `account_id` or in
 ///   `broadcastMentions` (at least one entry whose scope resolves to
 ///   include the owner via [`broadcast_mention_matches_owner`])
 ///
 /// All supplied filter keys must match (AND semantics).
-fn message_matches_filter(obj: &serde_json::Value, filter: &serde_json::Value) -> bool {
+fn message_matches_filter(
+    obj: &serde_json::Value,
+    filter: &serde_json::Value,
+    account_id: &Id,
+) -> bool {
     // chatId filter: exact match
     if let Some(expected_chat) = filter.get("chatId").and_then(|v| v.as_str()) {
         let actual_chat = obj.get("chatId").and_then(|v| v.as_str()).unwrap_or("");
@@ -3751,13 +3755,18 @@ fn message_matches_filter(obj: &serde_json::Value, filter: &serde_json::Value) -
         }
     }
 
-    // hasMention filter (§4.13): true means "owner is mentioned"
+    // draft-atwood-jmap-chat-00 §Message/query `hasMention`: "the
+    // accountId appears in `mentions`, OR `broadcastMentions` contains a
+    // scope whose resolved recipient set includes the owner."
     if let Some(true) = filter.get("hasMention").and_then(|v| v.as_bool()) {
         // Check direct mentions first (short-circuit)
         let has_direct = obj
             .get("mentions")
             .and_then(|v| v.as_array())
-            .is_some_and(|arr| !arr.is_empty());
+            .is_some_and(|arr| {
+                arr.iter()
+                    .any(|m| m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref()))
+            });
 
         if !has_direct {
             // Fallback: check broadcastMentions

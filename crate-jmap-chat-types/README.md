@@ -15,7 +15,7 @@ available from the crate root (e.g. `jmap_chat_types::Chat`).
 | Module | Types |
 |--------|-------|
 | `chat` | `Chat`, `ChatKind`, `ChatMember`, `ChannelPermission` |
-| `message` | `Message`, `Attachment`, `Mention`, `MessageAction`, `Reaction`, `MessageRevision`, `DeliveryReceipt`, `DeliveryState`, `ReadDisposition`, `SenderId` |
+| `message` | `Message`, `Attachment`, `Mention`, `MessageAction`, `Reaction`, `MessageRevision`, `DeliveryReceipt`, `DeliveryState`, `ReadDisposition` |
 | `space` | `Space`, `SpaceRole`, `SpaceMember`, `Category`, `SpaceInvite`, `SpaceBan` |
 | `contact` | `ChatContact`, `Endpoint` |
 | `position` | `ReadPosition` |
