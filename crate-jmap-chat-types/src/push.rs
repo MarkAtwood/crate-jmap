@@ -88,28 +88,39 @@ pub struct ChatPushConfig {
 
 /// Summary of a single message delivered via push notification.
 ///
-/// Per spec, `body_snippet` MUST be `None` when `encrypted` is `true`.
-/// The type does not enforce this — it is a caller invariant.
+/// Every field is optional on the wire. draft-atwood-jmap-chat-push-00
+/// §ChatPushConfig: "The `properties` list is authoritative: the server
+/// returns exactly the requested fields." A field the subscription did not
+/// request is `None` and is not serialized.
+///
+/// Per spec, `body_snippet`, `has_mention` and `mention_scopes` MUST be
+/// `None` when `encrypted` is `Some(true)`. The type does not enforce this;
+/// [`ChatMessageEntry::encrypted`] does.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatMessageEntry {
     /// The `messageId` property (draft-atwood-jmap-chat-push-00 §5.2).
-    pub message_id: Id,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message_id: Option<Id>,
     /// The `chatId` property (draft-atwood-jmap-chat-push-00 §5.2).
-    pub chat_id: Id,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chat_id: Option<Id>,
     /// The `chatKind` property (draft-atwood-jmap-chat-push-00 §5.2).
-    pub chat_kind: ChatKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chat_kind: Option<ChatKind>,
     /// The `senderId` property (draft-atwood-jmap-chat-push-00 §5.2).
     ///
     /// The accountId for owner-composed messages, otherwise the
     /// sender's `ChatContact.id`.
-    pub sender_id: Id,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sender_id: Option<Id>,
     /// The `sentAt` property (draft-atwood-jmap-chat-push-00 §5.2).
-    pub sent_at: UTCDate,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sent_at: Option<UTCDate>,
     /// The `hasMention` property (draft-atwood-jmap-chat-push-00 §5.2).
     ///
-    /// Per spec, this field MUST be `None` when `encrypted` is `true`:
+    /// Per spec, this field MUST be `None` when `encrypted` is `Some(true)`:
     /// mentions are inside the ciphertext, so the server cannot know.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub has_mention: Option<bool>,
@@ -118,11 +129,12 @@ pub struct ChatMessageEntry {
     /// Broadcast scopes (see [`crate::BROADCAST_MENTION_SCOPES`]) by which
     /// the account owner was targeted. Typed as `String` for the same
     /// forward-compat reason as [`crate::BroadcastMention::scope`]. Per
-    /// spec, this field MUST be `None` when `encrypted` is `true`.
+    /// spec, this field MUST be `None` when `encrypted` is `Some(true)`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mention_scopes: Option<Vec<String>>,
     /// The `encrypted` property (draft-atwood-jmap-chat-push-00 §5.2).
-    pub encrypted: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encrypted: Option<bool>,
 
     /// The `chatName` property (draft-atwood-jmap-chat-push-00 §5.2).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -135,13 +147,15 @@ pub struct ChatMessageEntry {
     pub space_name: Option<String>,
     /// The `senderDisplayName` property (draft-atwood-jmap-chat-push-00 §5.2).
     ///
-    /// For direct and group chats, derived from the sender ChatContact's
-    /// `displayName`, otherwise its `login`, otherwise its `identity`.
+    /// For channel chats, derived from the sender's `SpaceMember.nick` in
+    /// the containing Space if present, otherwise the sender ChatContact's
+    /// `displayName`, otherwise its `login`, otherwise its `identity`. For
+    /// direct and group chats, the same chain without the `nick` step.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sender_display_name: Option<String>,
     /// The `bodySnippet` property (draft-atwood-jmap-chat-push-00 §5.2).
     ///
-    /// Per spec, this field MUST be `None` when `encrypted` is `true`.
+    /// Per spec, this field MUST be `None` when `encrypted` is `Some(true)`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body_snippet: Option<String>,
     /// Catch-all for vendor / site / private extension fields not covered
@@ -276,7 +290,7 @@ impl ChatMessagePush {
 impl ChatMessageEntry {
     /// Construct a plaintext [`ChatMessageEntry`] for push delivery.
     ///
-    /// Sets `encrypted = false`. Pass `body_snippet = None` when the user has
+    /// Sets every base field and `encrypted = Some(false)`. Pass `body_snippet = None` when the user has
     /// disabled message previews; pass `Some(snippet)` to include a preview.
     ///
     /// Use [`ChatMessageEntry::encrypted`] for encrypted messages — that
@@ -293,14 +307,14 @@ impl ChatMessageEntry {
         body_snippet: Option<impl Into<String>>,
     ) -> Self {
         Self {
-            message_id,
-            chat_id,
-            chat_kind,
-            sender_id,
-            sent_at,
+            message_id: Some(message_id),
+            chat_id: Some(chat_id),
+            chat_kind: Some(chat_kind),
+            sender_id: Some(sender_id),
+            sent_at: Some(sent_at),
             has_mention: Some(has_mention),
             mention_scopes: Some(mention_scopes),
-            encrypted: false,
+            encrypted: Some(false),
             body_snippet: body_snippet.map(Into::into),
             chat_name: None,
             space_id: None,
@@ -312,7 +326,7 @@ impl ChatMessageEntry {
 
     /// Construct an encrypted [`ChatMessageEntry`] for push delivery.
     ///
-    /// Sets `encrypted = true` and leaves `body_snippet`, `has_mention`, and
+    /// Sets every base field and `encrypted = Some(true)`, and leaves `body_snippet`, `has_mention`, and
     /// `mention_scopes` as `None`. The spec forbids body content and mention
     /// information in encrypted push entries; this constructor makes the
     /// invariant impossible to violate.
@@ -324,14 +338,14 @@ impl ChatMessageEntry {
         sent_at: UTCDate,
     ) -> Self {
         Self {
-            message_id,
-            chat_id,
-            chat_kind,
-            sender_id,
-            sent_at,
+            message_id: Some(message_id),
+            chat_id: Some(chat_id),
+            chat_kind: Some(chat_kind),
+            sender_id: Some(sender_id),
+            sent_at: Some(sent_at),
             has_mention: None,
             mention_scopes: None,
-            encrypted: true,
+            encrypted: Some(true),
             body_snippet: None,
             chat_name: None,
             space_id: None,
@@ -357,8 +371,8 @@ mod tests {
         assert_eq!(push.state.as_ref(), "d35ecb040aab");
         assert_eq!(push.messages.len(), 1);
         let entry = &push.messages[0];
-        assert_eq!(entry.message_id.as_ref(), "msg1");
-        assert_eq!(entry.chat_kind, ChatKind::Channel);
+        assert_eq!(entry.message_id, Some(Id::from("msg1")));
+        assert_eq!(entry.chat_kind, Some(ChatKind::Channel));
         assert_eq!(entry.has_mention, Some(true));
     }
 
@@ -438,7 +452,7 @@ mod tests {
             Id::from("alice"),
             UTCDate::from("2026-04-29T00:00:00Z"),
         );
-        assert!(entry.encrypted);
+        assert_eq!(entry.encrypted, Some(true));
         assert!(
             entry.body_snippet.is_none(),
             "encrypted entry must have no body_snippet"
@@ -465,7 +479,7 @@ mod tests {
             vec![],
             Some("Hello!"),
         );
-        assert!(!entry.encrypted);
+        assert_eq!(entry.encrypted, Some(false));
         assert_eq!(entry.body_snippet.as_deref(), Some("Hello!"));
     }
 
@@ -482,7 +496,7 @@ mod tests {
             vec![],
             None::<String>,
         );
-        assert!(!entry.encrypted);
+        assert_eq!(entry.encrypted, Some(false));
         assert!(entry.body_snippet.is_none());
     }
 
@@ -502,7 +516,7 @@ mod tests {
         }"#;
         let entry: ChatMessageEntry =
             serde_json::from_str(json).expect("deserialize ChatMessageEntry");
-        assert_eq!(entry.chat_kind, ChatKind::Direct);
+        assert_eq!(entry.chat_kind, Some(ChatKind::Direct));
         assert!(entry.chat_name.is_none());
     }
 
