@@ -90,7 +90,7 @@ pub trait ChatBackend: Send + Sync + 'static {
     async fn get_changes<O: JmapObject>(...) -> Result<ChangesResult, BackendChangesError<Self::Error>>;
     async fn query_objects<O: QueryObject>(...) -> Result<QueryResult, BackendQueryError<Self::Error>>;
     async fn get_session(&self, user_id: &Id) -> Result<Session, Self::Error>;
-    fn supports_type<O: JmapObject>(&self) -> bool;
+    fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx, account_id: &Id) -> bool;
 }
 
 /// Register all JMAP Chat handlers with a jmap-server Dispatcher.

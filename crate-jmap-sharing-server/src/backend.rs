@@ -450,13 +450,17 @@ pub trait SharingBackend: JmapBackend {
     /// typical pattern is one backend impl per extension family. A
     /// backend that does not recognise `O` SHOULD return `false`.
     ///
-    /// # Per-backend, NOT per-account
+    /// # Per-account semantics
     ///
-    /// The signature takes no `account_id`: a `false` return means the
-    /// backend cannot host this object type for ANY account. Per-account
-    /// restrictions belong on the SetError path
-    /// (`forbidden` / `accountNotFound`), not here.
+    /// Capabilities are per account (RFC 8620 §1.6.2, §2
+    /// `accountCapabilities`), so the answer may vary with `caller` and
+    /// `account_id`. Backends that support every type in this trait for
+    /// every account can ignore both arguments and return `true`.
     ///
     /// [`memory::MemoryBackend`]: crate::memory::MemoryBackend
-    fn supports_type<O: JmapObject>(&self) -> bool;
+    fn supports_type<O: JmapObject>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> bool;
 }

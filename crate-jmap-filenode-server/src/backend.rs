@@ -214,8 +214,20 @@ pub trait FileNodeBackend: JmapBackend {
 
     /// Returns `true` if this account supports the given JMAP object type.
     ///
-    /// Backends that support all types unconditionally can always return `true`.
-    fn supports_type<O: JmapObject>(&self) -> bool;
+    /// Every `FileNode/*` handler returns `accountNotSupportedByMethod`
+    /// when this is `false` for the request's `accountId`.
+    ///
+    /// # Per-account semantics
+    ///
+    /// Capabilities are per account (RFC 8620 §1.6.2, §2
+    /// `accountCapabilities`), so the answer may vary with `caller` and
+    /// `account_id`. Backends that support every type in this trait for
+    /// every account can ignore both arguments and return `true`.
+    fn supports_type<O: JmapObject>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> bool;
 
     /// Returns the union of all ancestor nodes (immediate parent, grandparent,
     /// ..., up to the root) for every input id in `ids`.

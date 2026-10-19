@@ -237,7 +237,7 @@ pub trait SharingBackend: JmapBackend {
 
     /// Whether this backend supports operations on the given object type.
     /// Return false for Principal if backed by a read-only directory.
-    fn supports_type<O: JmapObject>(&self) -> bool;
+    fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx, account_id: &Id) -> bool;
 }
 
 /// Capability URI for urn:ietf:params:jmap:principals

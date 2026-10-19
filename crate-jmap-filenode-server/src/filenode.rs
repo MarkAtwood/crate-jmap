@@ -43,6 +43,40 @@ use crate::helpers::{
 use jmap_server::{now_utc_string, server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
+// Capability gate
+// ---------------------------------------------------------------------------
+
+/// Capability gate shared by the `FileNode/*` handlers.
+///
+/// Returns `accountNotSupportedByMethod` when
+/// [`FileNodeBackend::supports_type::<FileNode>()`](FileNodeBackend::supports_type)
+/// is `false` for the request's account. RFC 8620 §3.6.2 reserves that
+/// error for "a valid account", so a missing, malformed or unknown
+/// `accountId` passes through and the handler reports
+/// `invalidArguments` or `accountNotFound` itself.
+async fn ensure_filenode_supported<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: &Value,
+) -> Result<(), JmapError> {
+    let Some(account_id) = args
+        .get("accountId")
+        .and_then(Value::as_str)
+        .and_then(|s| Id::new_validated(s).ok())
+    else {
+        return Ok(());
+    };
+    let exists = backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    if exists && !backend.supports_type::<FileNode>(caller, &account_id) {
+        return Err(JmapError::account_not_supported_by_method());
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // FileNode/get
 // ---------------------------------------------------------------------------
 
@@ -65,13 +99,7 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    // Capability gate: backends that opted out of FileNode via
-    // supports_type::<FileNode>() short-circuit before touching
-    // any argument. Mirrors the canonical jmap-mail-server pattern
-    // (snippet.rs:35).
-    if !backend.supports_type::<FileNode>() {
-        return Err(JmapError::account_not_supported_by_method());
-    }
+    ensure_filenode_supported(backend, caller, &args).await?;
 
     let fetch_parents = args
         .get("fetchParents")
@@ -174,9 +202,7 @@ pub async fn handle_filenode_changes<B: FileNodeBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    if !backend.supports_type::<FileNode>() {
-        return Err(JmapError::account_not_supported_by_method());
-    }
+    ensure_filenode_supported(backend, caller, &args).await?;
     jmap_server::handlers::handle_changes::<FileNode, B>(backend, caller, args).await
 }
 
@@ -230,9 +256,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    if !backend.supports_type::<FileNode>() {
-        return Err(JmapError::account_not_supported_by_method());
-    }
+    ensure_filenode_supported(backend, caller, &args).await?;
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §5.3 maxObjectsInSet (bd:JMAP-ayoz.41.7). Reject
@@ -1167,9 +1191,6 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
     args: Value,
     call_id: &str,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    if !backend.supports_type::<FileNode>() {
-        return Err(JmapError::account_not_supported_by_method());
-    }
     let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
         Some(s) => Id::from(s),
         None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
@@ -1194,6 +1215,14 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
         .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
+    }
+    // RFC 8620 §3.6.2 / §5.4: both accounts exist, so a type opt-out on
+    // either side is reported against that side.
+    if !backend.supports_type::<FileNode>(caller, &account_id) {
+        return Err(JmapError::account_not_supported_by_method());
+    }
+    if !backend.supports_type::<FileNode>(caller, &from_account_id) {
+        return Err(JmapError::from_account_not_supported_by_method());
     }
 
     // ifFromInState: check source account state (RFC 8620 §5.4).
@@ -2067,9 +2096,7 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    if !backend.supports_type::<FileNode>() {
-        return Err(JmapError::account_not_supported_by_method());
-    }
+    ensure_filenode_supported(backend, caller, &args).await?;
     // Extract depth before delegating — the generic handler strips unrecognised args.
     let depth: u64 = args.get("depth").and_then(|v| v.as_u64()).unwrap_or(0);
 
@@ -2150,9 +2177,7 @@ pub async fn handle_filenode_query_changes<B: FileNodeBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    if !backend.supports_type::<FileNode>() {
-        return Err(JmapError::account_not_supported_by_method());
-    }
+    ensure_filenode_supported(backend, caller, &args).await?;
     jmap_server::handlers::handle_query_changes::<FileNode, B>(backend, caller, args).await
 }
 
@@ -2500,8 +2525,12 @@ mod tests {
             self.inner.destroy_object::<O>(&(), account_id, id).await
         }
 
-        fn supports_type<O: JmapObject>(&self) -> bool {
-            self.inner.supports_type::<O>()
+        fn supports_type<O: JmapObject>(
+            &self,
+            caller: &Self::CallerCtx,
+            account_id: &jmap_types::Id,
+        ) -> bool {
+            self.inner.supports_type::<O>(caller, account_id)
         }
 
         async fn get_ancestors(
@@ -2852,14 +2881,19 @@ mod tests {
             self.0.destroy_object::<O>(&(), account_id, id).await
         }
 
-        fn supports_type<O: JmapObject>(&self) -> bool {
-            // Opt out of FileNode; everything else delegates (no
-            // other type is currently registered by this crate but
-            // a future capability expansion would want this shape).
-            if std::any::TypeId::of::<O>() == std::any::TypeId::of::<FileNode>() {
+        fn supports_type<O: JmapObject>(
+            &self,
+            caller: &Self::CallerCtx,
+            account_id: &jmap_types::Id,
+        ) -> bool {
+            // Opt out of FileNode on every account except "acc2";
+            // everything else delegates.
+            if std::any::TypeId::of::<O>() == std::any::TypeId::of::<FileNode>()
+                && account_id.as_ref() != "acc2"
+            {
                 false
             } else {
-                self.0.supports_type::<O>()
+                self.0.supports_type::<O>(caller, account_id)
             }
         }
 
@@ -2965,6 +2999,99 @@ mod tests {
                 err.error_type
             );
         }
+    }
+
+    /// Oracle: RFC 8620 §3.6.2 — "accountNotSupportedByMethod: The
+    /// accountId given corresponds to a valid account, but the account
+    /// does not support this method or data type." An unknown account is
+    /// therefore `accountNotFound`, even on a backend that opts out of
+    /// FileNode for it. `FileNode/set` is not listed: it has no
+    /// `accountNotFound` check yet (bd:JMAP-2wuk).
+    #[tokio::test]
+    async fn gate_reports_unknown_account_as_account_not_found() {
+        let backend = NoFileNodeBackend(MemoryBackend::new().with_account("acc2"));
+        let cases = [
+            "FileNode/get",
+            "FileNode/changes",
+            "FileNode/copy",
+            "FileNode/query",
+            "FileNode/queryChanges",
+        ];
+        for method in cases {
+            let args = json!({
+                "accountId": "nosuch",
+                "fromAccountId": "acc2",
+                "ids": null,
+                "sinceState": "0",
+                "sinceQueryState": "0",
+            });
+            let err = match method {
+                "FileNode/get" => handle_filenode_get(&backend, &(), args).await.err(),
+                "FileNode/changes" => handle_filenode_changes(&backend, &(), args).await.err(),
+                "FileNode/copy" => handle_filenode_copy(
+                    &backend,
+                    &(),
+                    json!({"fromAccountId": "acc2", "accountId": "nosuch", "create": {}}),
+                    "c0",
+                )
+                .await
+                .err(),
+                "FileNode/query" => handle_filenode_query(&backend, &(), args).await.err(),
+                "FileNode/queryChanges" => handle_filenode_query_changes(&backend, &(), args)
+                    .await
+                    .err(),
+                _ => panic!("unknown method: {method}"),
+            };
+            let err = err.unwrap_or_else(|| panic!("{method} must error for unknown account"));
+            assert_eq!(
+                err.error_type.as_str(),
+                "accountNotFound",
+                "{method}: got {:?}",
+                err.error_type
+            );
+        }
+    }
+
+    /// Oracle: RFC 8620 §1.6.2 / §2 — capabilities are per account, so
+    /// opting "acc1" out of FileNode must not affect "acc2".
+    #[tokio::test]
+    async fn gate_is_per_account() {
+        let backend = NoFileNodeBackend(
+            MemoryBackend::new()
+                .with_account("acc1")
+                .with_account("acc2"),
+        );
+        let (resp, _) =
+            handle_filenode_get(&backend, &(), json!({"accountId": "acc2", "ids": null}))
+                .await
+                .expect("acc2 supports FileNode");
+        assert_eq!(resp["accountId"], "acc2");
+        let err = handle_filenode_get(&backend, &(), json!({"accountId": "acc1", "ids": null}))
+            .await
+            .expect_err("acc1 opts out of FileNode");
+        assert_eq!(err.error_type.as_str(), "accountNotSupportedByMethod");
+    }
+
+    /// Oracle: RFC 8620 §5.4 — "fromAccountNotSupportedByMethod: The
+    /// fromAccountId given corresponds to a valid account, but the account
+    /// does not support this data type." A supported destination with an
+    /// opted-out source reports the source side.
+    #[tokio::test]
+    async fn copy_from_unsupported_account_reports_from_side() {
+        let backend = NoFileNodeBackend(
+            MemoryBackend::new()
+                .with_account("acc1")
+                .with_account("acc2"),
+        );
+        let err = handle_filenode_copy(
+            &backend,
+            &(),
+            json!({"fromAccountId": "acc1", "accountId": "acc2", "create": {}}),
+            "c0",
+        )
+        .await
+        .expect_err("source account opts out of FileNode");
+        assert_eq!(err.error_type.as_str(), "fromAccountNotSupportedByMethod");
     }
 
     // -----------------------------------------------------------------------

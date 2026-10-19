@@ -276,8 +276,12 @@ impl SharingBackend for FilteringBackend {
         self.0.destroy_object::<O>(caller, account_id, id).await
     }
 
-    fn supports_type<O: JmapObject>(&self) -> bool {
-        self.0.supports_type::<O>()
+    fn supports_type<O: JmapObject>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> bool {
+        self.0.supports_type::<O>(caller, account_id)
     }
 }
 
