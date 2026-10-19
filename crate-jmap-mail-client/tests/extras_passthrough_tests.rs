@@ -245,12 +245,9 @@ async fn email_parse_routes_vendor_extras_to_wire() {
     assert_eq!(args["acmeCorpStrict"], json!(true));
 }
 
-/// `email_import` per-entry `EmailImportInput.extra` round-trip is currently
-/// vulnerable to the flatten-shadowing bug documented in bd:JMAP-tjvm.15 +
-/// bd:JMAP-tjvm.38. This test asserts the *current* behaviour: vendor
-/// extras DO reach the wire (via `to_value` of the input struct). The
-/// shadowing-of-typed-fields bug is tracked separately and is not in
-/// scope here.
+/// `email_import` must include each per-entry `EmailImportInput.extra` on
+/// the wire. That a colliding `extra` key cannot shadow a typed field
+/// (bd:JMAP-tjvm.38) is covered in `extras_collision_tests.rs`.
 #[tokio::test]
 async fn email_import_routes_vendor_extras_to_wire() {
     let server = MockServer::start().await;
