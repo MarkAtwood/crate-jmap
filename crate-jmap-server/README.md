@@ -150,7 +150,8 @@ pub use parse::{check_known_capabilities, parse_request, resolve_args};
 pub use response::{error_invocation, error_status, request_error, RequestError};
 pub use handlers::{handle_changes, handle_get, handle_query, handle_query_changes};
 pub use push::{
-    register_push_subscription_handlers, PushSubscriptionBackend, StoredPushSubscription,
+    is_deliverable, register_push_subscription_handlers, state_change_for, PushSubscriptionBackend,
+    StoredPushSubscription, MAX_PUSH_EXPIRY_SECS,
 };
 // Plus the closure-based JmapHandler adapter defined in this crate's
 // crate root: ClosureHandler.
@@ -167,11 +168,22 @@ argument, so backends that need per-request auth context can read it
 without dropping down to a manual `JmapHandler<C>` impl.
 
 `register_push_subscription_handlers` registers `PushSubscription/get`
-(RFC 8620 §7.2.1) over a `PushSubscriptionBackend`. Push subscriptions
-belong to the caller's credentials, not to an account, so the backend's
-`list_push_subscriptions` MUST return only the caller's subscriptions. The
-handler never returns `url` or `keys` and answers `forbidden` when either
-is requested.
+(RFC 8620 §7.2.1) and `PushSubscription/set` (RFC 8620 §7.2.2) over a
+`PushSubscriptionBackend`. Push subscriptions belong to the caller's
+credentials, not to an account, so the backend's methods MUST see and change
+only the caller's subscriptions. `/get` never returns `url` or `keys` and
+answers `forbidden` when either is requested. `/set` takes no `accountId` or
+`ifInState` and returns no `oldState` or `newState`. It requires an
+`https://` url, rejects changes to `id`, `deviceClientId`, `url` and `keys`,
+compares a new `verificationCode` in constant time, and limits `expires` to
+`MAX_PUSH_EXPIRY_SECS` (7 days) from now. The backend generates the
+verification code, enforces the per-user cap, and may reject a create by
+policy with its own `SetError`, which reaches the response verbatim.
+
+`is_deliverable` and `state_change_for` tell the consumer's delivery code
+whether it may push to a subscription, and what `StateChange` to send.
+Sending the pushes, and the SSRF, rate-limit, credential-revocation and
+secure-erase MUSTs, are the consumer's job; the trait docs list them.
 
 ## Examples
 

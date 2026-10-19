@@ -51,7 +51,8 @@ pub use helpers::{
     apply_jmap_patch, apply_patch_object, bool_arg, enforce_max_objects_in_get,
     enforce_max_objects_in_set, extract_account_id, json_merge_patch, not_found_json,
     now_utc_string, now_utc_string_checked, optional_arg, query_anchor_args, resolve_query_offset,
-    resolve_query_start, serialize_value, take_bool_arg, MergePatchError, PatchPathError,
+    resolve_query_start, serialize_value, take_bool_arg, utc_date_from_epoch_seconds,
+    MergePatchError, PatchPathError,
 };
 
 mod parse;
@@ -60,7 +61,8 @@ mod response;
 
 pub use parse::{check_known_capabilities, parse_request, resolve_args};
 pub use push::{
-    register_push_subscription_handlers, PushSubscriptionBackend, StoredPushSubscription,
+    is_deliverable, register_push_subscription_handlers, state_change_for, PushSubscriptionBackend,
+    StoredPushSubscription, MAX_PUSH_EXPIRY_SECS,
 };
 pub use response::{error_invocation, error_status, request_error, RequestError};
 
