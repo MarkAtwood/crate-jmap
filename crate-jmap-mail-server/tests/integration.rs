@@ -3981,6 +3981,99 @@ async fn email_copy_on_success_update_original_immutable_field_rejected() {
     );
 }
 
+/// Import one email into `src`, then Email/copy it to `dst` with
+/// `onSuccessDestroyOriginal`, an `onSuccessUpdateOriginal` patch setting
+/// `$flagged`, and the given `destroyFromIfInState` (`None` = the state
+/// Email/get reports for `src`). Returns the extra invocations and the
+/// later Email/get `list` for the source id.
+async fn email_copy_with_destroy_from_if_in_state(
+    destroy_from_if_in_state: Option<&str>,
+) -> (Vec<jmap_types::Invocation>, serde_json::Value) {
+    use jmap_mail_server::handle_email_copy;
+
+    let backend = MemoryBackend::new();
+    let src_account = Id::from("src-dfis");
+    backend.register_account(&src_account);
+    backend.register_account(&Id::from("dst-dfis"));
+    let blob_id = Id::from("blob-dfis");
+    backend.store_blob(&blob_id, b"Subject: dfis\r\n\r\nbody".to_vec());
+    let (src_id, _) = backend
+        .import_email(&(), &src_account, &blob_id, &[Id::from("inbox")], &[], None)
+        .await
+        .expect("import source email");
+
+    let get_src = || {
+        handle_email_get(
+            &backend,
+            &(),
+            serde_json::json!({ "accountId": "src-dfis", "ids": [src_id.as_ref()] }),
+        )
+    };
+    let state = match destroy_from_if_in_state {
+        Some(s) => s.to_owned(),
+        None => {
+            let (get, _) = get_src().await.expect("Email/get must succeed");
+            get["state"].as_str().expect("state string").to_owned()
+        }
+    };
+    let args = serde_json::json!({
+        "accountId": "dst-dfis",
+        "fromAccountId": "src-dfis",
+        "onSuccessDestroyOriginal": true,
+        "destroyFromIfInState": state,
+        "onSuccessUpdateOriginal": { "c1": { "keywords/$flagged": true } },
+        "create": {
+            "c1": { "id": src_id.as_ref(), "mailboxIds": { "inbox": true } }
+        }
+    });
+    let (resp, extra) = handle_email_copy(&backend, &(), args, "call-dfis")
+        .await
+        .expect("Email/copy must not return a top-level JmapError");
+    assert!(
+        resp["created"]["c1"].is_object(),
+        "copy must succeed: {resp}"
+    );
+    let (after, _) = get_src().await.expect("Email/get must succeed");
+    (extra, after["list"].clone())
+}
+
+/// Oracle: RFC 8620 §5.4 — destroyFromIfInState "is passed on as the
+/// "ifInState" argument to the implicit "Foo/set" call", and §5.3
+/// ifInState: "If supplied, the string must match the current state;
+/// otherwise, the method will be aborted and a "stateMismatch" error
+/// returned." Mail folds onSuccessUpdateOriginal into the same implicit
+/// Email/set, so a stale state aborts both: the source email survives
+/// without the `$flagged` patch. Regression for bd JMAP-2svx.
+#[tokio::test]
+async fn email_copy_destroy_from_if_in_state_mismatch_aborts_destroy() {
+    let (extra, list) = email_copy_with_destroy_from_if_in_state(Some("stale-state")).await;
+    assert_eq!(extra.len(), 1, "one implicit response: {extra:?}");
+    let (method, body, call_id) = &extra[0];
+    assert_eq!(method, "error");
+    assert_eq!(body["type"], "stateMismatch");
+    assert_eq!(call_id, "call-dfis");
+    let list = list.as_array().expect("list array");
+    assert_eq!(list.len(), 1, "source email must survive: {list:?}");
+    assert!(
+        list[0]["keywords"].get("$flagged").is_none(),
+        "onSuccessUpdateOriginal must not apply: {}",
+        list[0]
+    );
+}
+
+/// Oracle: RFC 8620 §5.4 / §5.3 as above — a destroyFromIfInState equal to
+/// the state Email/get reported lets the implicit Email/set destroy the
+/// original.
+#[tokio::test]
+async fn email_copy_destroy_from_if_in_state_match_destroys_original() {
+    let (extra, list) = email_copy_with_destroy_from_if_in_state(None).await;
+    assert_eq!(extra.len(), 1, "one implicit response: {extra:?}");
+    let (method, body, _) = &extra[0];
+    assert_eq!(method, "Email/set");
+    assert!(body["destroyed"].is_array(), "destroyed list: {body}");
+    assert_eq!(list, serde_json::json!([]), "source must be destroyed");
+}
+
 /// Oracle: EmailSubmission/set update that patches a field other than undoStatus
 /// is rejected with invalidProperties.
 ///

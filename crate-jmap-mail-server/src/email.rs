@@ -2372,11 +2372,14 @@ pub async fn handle_email_parse<B: MailBackend>(
 /// `onSuccessUpdateOriginal` to the standard request.
 ///
 /// Copies one or more emails from `fromAccountId` into the current account.
-/// Supports `onSuccessDestroyOriginal` and `onSuccessUpdateOriginal`.
+/// Supports `onSuccessDestroyOriginal`, `destroyFromIfInState` and
+/// `onSuccessUpdateOriginal`.
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are
 /// generated when `onSuccessDestroyOriginal: true` or `onSuccessUpdateOriginal`
-/// is non-null, per RFC 8620 §6.3.
+/// is non-null, per RFC 8620 §6.3. If `destroyFromIfInState` does not match
+/// the source account's Email state, the single extra invocation is an
+/// `error` of type `stateMismatch` and the originals are left untouched.
 pub async fn handle_email_copy<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -2562,6 +2565,18 @@ pub async fn handle_email_copy<B: MailBackend>(
             .get_state::<Email>(caller, &from_account_id)
             .await
             .map_err(|e| server_fail_from_backend(&e))?;
+
+        // RFC 8620 §5.4: `destroyFromIfInState` "is passed on as the
+        // "ifInState" argument to the implicit "Foo/set" call"; per §5.3 a
+        // mismatch aborts that whole call with a method-level stateMismatch
+        // error in place of the Email/set response. Nothing is destroyed and no
+        // onSuccessUpdateOriginal patch is applied.
+        if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str) {
+            if if_in_state != email_old_state.as_ref() {
+                let err = json!({ "type": "stateMismatch" });
+                return Ok((resp, vec![("error".to_owned(), err, call_id.to_owned())]));
+            }
+        }
 
         let mut email_destroyed: Vec<Value> = Vec::new();
         let mut email_not_destroyed = serde_json::Map::new();

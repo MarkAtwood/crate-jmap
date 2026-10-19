@@ -1156,7 +1156,11 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 ///
 /// The source nodes are fetched with `get_objects` before copying.
 ///
-/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+/// Returns `(response_args, extra_invocations)`. When
+/// `onSuccessDestroyOriginal` is true the extra list holds the implicit
+/// `FileNode/set` response (RFC 8620 §5.4, §6.3), or an `error` of type
+/// `stateMismatch` if `destroyFromIfInState` does not match the source
+/// account's FileNode state, in which case the originals are left untouched.
 pub async fn handle_filenode_copy<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1249,11 +1253,6 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
     // RFC 8620 §5.4: if onSuccessDestroyOriginal is true, after emitting the
     // Foo/copy response the server MUST make a single call to Foo/set to
     // destroy the original of each successfully copied record.
-    //
-    // Scope note (bd:JMAP-510h.56): the canonical mail-server sibling does
-    // not yet read `destroyFromIfInState`; honoring that argument here would
-    // diverge from the canonical template. The cross-sibling fix is filed
-    // separately as a workspace-canonical bead.
     let on_success_destroy_original: bool = args
         .get("onSuccessDestroyOriginal")
         .and_then(|v| v.as_bool())
@@ -1796,6 +1795,17 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             .get_state::<FileNode>(caller, &from_account_id)
             .await
             .map_err(|e| server_fail_from_backend(&e))?;
+
+        // RFC 8620 §5.4: `destroyFromIfInState` "is passed on as the
+        // "ifInState" argument to the implicit "Foo/set" call"; per §5.3 a
+        // mismatch aborts that whole call with a method-level stateMismatch
+        // error in place of the FileNode/set response. Nothing is destroyed.
+        if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str) {
+            if if_in_state != from_old_state.as_ref() {
+                let err = json!({ "type": "stateMismatch" });
+                return Ok((resp, vec![("error".to_owned(), err, call_id.to_owned())]));
+            }
+        }
 
         let mut destroyed_ids: Vec<Value> = Vec::new();
         let mut not_destroyed = serde_json::Map::new();
