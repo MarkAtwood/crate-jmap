@@ -317,8 +317,8 @@ impl MailBackend for FaultyBackend {
             .await
     }
 
-    fn supports_type<O: JmapObject>(&self) -> bool {
-        self.inner.supports_type::<O>()
+    fn supports_type<O: JmapObject>(&self, _caller: &(), account_id: &Id) -> bool {
+        self.inner.supports_type::<O>(&(), account_id)
     }
 }
 

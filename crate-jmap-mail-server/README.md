@@ -137,8 +137,9 @@ pub trait MailBackend: JmapBackend {
         -> impl Future<Output = Result<Vec<SearchSnippet>, Self::Error>> + Send;
 
     /// Return true if this account supports the given JMAP object type.
-    /// Not called internally — used by the session capability builder.
-    fn supports_type<O: JmapObject>(&self) -> bool;
+    /// Used by the session capability builder and by SearchSnippet/get.
+    fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx,
+        account_id: &Id) -> bool;
 
     // --- Optional overrides (have sensible defaults) ---
 
@@ -289,7 +290,8 @@ pub const JMAP_VACATION_RESPONSE_URI: &str = "urn:ietf:params:jmap:vacationrespo
 ```
 
 Which URIs to advertise depends on which object types your backend supports.
-Use `MailBackend::supports_type::<O>()` to check at session-build time.
+Use `MailBackend::supports_type::<O>(caller, account_id)` to check each
+account at session-build time.
 
 ## Crate family
 
