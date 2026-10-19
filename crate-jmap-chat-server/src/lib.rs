@@ -103,6 +103,7 @@ pub mod message;
 pub mod permissions;
 pub mod position;
 pub mod presence;
+pub mod push;
 pub mod space;
 
 pub use backend::{
@@ -136,6 +137,7 @@ pub use permissions::{
 };
 pub use position::{handle_position_changes, handle_position_get, handle_position_set};
 pub use presence::{handle_presence_changes, handle_presence_get, handle_presence_set};
+pub use push::{chat_state_change_for, strip_unsupported_chat_push, validate_chat_push};
 pub use space::{
     handle_space_changes, handle_space_get, handle_space_join, handle_space_query,
     handle_space_query_changes, handle_space_set,
