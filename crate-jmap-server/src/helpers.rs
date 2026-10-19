@@ -923,6 +923,50 @@ pub fn enforce_max_objects_in_set(args: &Map<String, Value>, max: u64) -> Result
     Ok(())
 }
 
+/// Enforce RFC 8620 §5.1 `maxObjectsInGet` at the top of a `/get`
+/// handler (bd:JMAP-yt1w.31).
+///
+/// Counts the entries in the wire `ids` argument. Returns the
+/// method-level error [`JmapError::request_too_large`] (wire
+/// `type: "requestTooLarge"`, `description: "maxObjectsInGet"`) when the
+/// count exceeds `max`. Per RFC 8620 §5.1 it is returned instead of the
+/// `Foo/get` response.
+///
+/// Call after the `account_exists` gate and before parsing `ids`:
+///
+/// ```ignore
+/// jmap_server::helpers::enforce_max_objects_in_get(
+///     &args,
+///     backend.max_objects_in_get(caller, &account_id),
+/// )?;
+/// ```
+///
+/// # Counting rules
+///
+/// `ids` is counted as `args["ids"].as_array()?.len()`. A missing key,
+/// `null` (fetch all), or a non-array value counts as 0: RFC 8620 §5.1
+/// bounds "the number of ids requested by the client", and a null `ids`
+/// requests none. Bounding a fetch-all by the number of records is the
+/// backend's job, since only it knows how many records exist. Wire-shape
+/// validation of `ids` belongs to the handler's argument parsing.
+///
+/// # Errors
+///
+/// Returns `JmapError::request_too_large()` with description
+/// `"maxObjectsInGet"` when the count exceeds `max` (RFC 8620 §5.1).
+pub fn enforce_max_objects_in_get(args: &Map<String, Value>, max: u64) -> Result<(), JmapError> {
+    let count = args
+        .get("ids")
+        .and_then(|v| v.as_array())
+        .map_or(0u64, |a| a.len() as u64);
+    if count > max {
+        let mut err = JmapError::request_too_large();
+        err.description = Some("maxObjectsInGet".into());
+        return Err(err);
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{

@@ -23,7 +23,10 @@ use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{json, Value};
 
 use crate::backend::MailBackend;
-use crate::helpers::{extract_account_id, filter_properties, not_found_json, serialize_value};
+use crate::helpers::{
+    enforce_max_objects_in_get, extract_account_id, filter_properties, not_found_json,
+    serialize_value,
+};
 use jmap_server::server_fail_from_backend;
 
 /// Handle a `Thread/get` method call (RFC 8621 §3.1).
@@ -46,6 +49,7 @@ pub async fn handle_thread_get<B: MailBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+    enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
 
     // ids: absent or null means "return all"; Some([]) means "return nothing".
     let ids: Option<Vec<Id>> = match args.remove("ids") {

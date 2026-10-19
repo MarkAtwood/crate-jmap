@@ -30,8 +30,8 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{
-    enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
-    SetAccumulators,
+    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+    finalize_set_response, set_error_value, SetAccumulators,
 };
 use jmap_server::server_fail_from_backend;
 
@@ -66,6 +66,7 @@ pub async fn handle_vacation_get<B: MailBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+    enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
 
     let requested_ids: Option<Vec<String>> = match args.remove("ids") {
         None | Some(Value::Null) => None,

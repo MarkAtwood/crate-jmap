@@ -6,7 +6,9 @@ use serde_json::{json, Map, Value};
 use crate::backend::{CalendarsBackend, SetDefaultResult};
 use jmap_server::server_fail_from_backend;
 
-pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
+pub(crate) use jmap_server::{
+    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+};
 
 /// Sentinel object ID set by `*/set` create handlers before the backend
 /// assigns the real one.

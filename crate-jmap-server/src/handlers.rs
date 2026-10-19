@@ -28,7 +28,8 @@ use serde_json::{json, Value};
 
 use crate::backend::{GetObject, JmapBackend, JmapObject, QueryObject};
 use crate::helpers::{
-    extract_account_id, not_found_json, optional_arg, query_anchor_args, serialize_value,
+    enforce_max_objects_in_get, extract_account_id, not_found_json, optional_arg,
+    query_anchor_args, serialize_value,
 };
 
 /// Static description used for every `serverFail` invocation that wraps a
@@ -140,7 +141,9 @@ pub fn server_fail_value_from_backend<E: std::fmt::Display + ?Sized>(_err: &E) -
 /// Generic `*/get` handler (RFC 8620 §5.1).
 ///
 /// Fetches objects by id (or all objects when `ids` is absent or `null`) and
-/// returns the standard `get` response shape.
+/// returns the standard `get` response shape. Returns the method-level
+/// `requestTooLarge` error when `ids` holds more entries than
+/// [`JmapBackend::max_objects_in_get`] allows; a null `ids` is not counted.
 pub async fn handle_get<O: GetObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -154,6 +157,7 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+    enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
 
     let ids: Option<Vec<Id>> = optional_arg(&mut args, "ids", || {
         JmapError::invalid_arguments("ids must be an Id array")
@@ -764,5 +768,143 @@ mod tests {
             !wire.to_string().contains(CANARY),
             "internal backend error Display must not reach the wire; got {wire}"
         );
+    }
+
+    // -----------------------------------------------------------------
+    // handle_get: maxObjectsInGet cap (bd:JMAP-yt1w.31)
+    // -----------------------------------------------------------------
+
+    /// Minimal `GetObject` used only to instantiate [`handle_get`].
+    #[derive(serde::Serialize, serde::Deserialize)]
+    struct GetProbe;
+
+    impl JmapObject for GetProbe {
+        const TYPE_NAME: &'static str = "GetProbe";
+        type Property = ();
+    }
+
+    impl GetObject for GetProbe {}
+
+    /// Backend whose account exists, holds no objects (every requested id
+    /// is `notFound`), and keeps the default [`JmapBackend`] caps.
+    struct GetProbeBackend;
+
+    impl JmapBackend for GetProbeBackend {
+        type Error = LeakyQueryError;
+        type CallerCtx = ();
+
+        async fn account_exists(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+        ) -> Result<bool, Self::Error> {
+            Ok(true)
+        }
+
+        async fn get_objects<O: GetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            ids: Option<&[Id]>,
+            _properties: Option<&[String]>,
+        ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+            Ok((vec![], ids.map(<[Id]>::to_vec).unwrap_or_default()))
+        }
+
+        async fn get_state<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+        ) -> Result<State, Self::Error> {
+            Ok(State::from("s0"))
+        }
+
+        async fn get_changes<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _since_state: &State,
+            _max_changes: Option<u64>,
+        ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+            unreachable!("only /get is exercised")
+        }
+
+        async fn query_objects<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _filter: Option<&O::Filter>,
+            _sort: Option<&[O::Comparator]>,
+            _limit: Option<u64>,
+            _position: i64,
+            _anchor: Option<&Id>,
+            _anchor_offset: i64,
+        ) -> Result<crate::backend::QueryResult, BackendQueryError<Self::Error>> {
+            unreachable!("only /get is exercised")
+        }
+
+        async fn query_changes<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _since_query_state: &State,
+            _filter: Option<&O::Filter>,
+            _sort: Option<&[O::Comparator]>,
+            _max_changes: Option<u64>,
+            _up_to_id: Option<&Id>,
+            _collapse_threads: bool,
+        ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+            unreachable!("only /get is exercised")
+        }
+    }
+
+    /// Oracle: RFC 8620 §5.1 "/get" (/home/mark/PROJECT/IETF/specs/rfc8620.txt
+    /// L1660-1665):
+    ///
+    /// > The following additional error may be returned instead of the "Foo/
+    /// > get" response:
+    /// >
+    /// > "requestTooLarge": The number of ids requested by the client exceeds
+    /// > the maximum number the server is willing to process in a single
+    /// > method call.
+    ///
+    /// The backend keeps the default cap, mirroring the `max_objects_in_set`
+    /// default of 500, which is RFC 8620 §2 (L546-547) "maxObjectsInGet ...
+    /// Suggested minimum: 500." Requesting 501 ids MUST yield the
+    /// method-level `requestTooLarge` instead of a `GetProbe/get` response.
+    #[tokio::test]
+    async fn handle_get_over_max_objects_is_request_too_large() {
+        let ids: Vec<String> = (0..501).map(|i| format!("id{i}")).collect();
+        let args = json!({ "accountId": "a1", "ids": ids });
+
+        match handle_get::<GetProbe, _>(&GetProbeBackend, &(), args).await {
+            Ok((resp, _)) => panic!(
+                "501 ids exceed the maxObjectsInGet cap, but handle_get \
+                 returned a response with {} notFound ids instead of \
+                 requestTooLarge",
+                resp["notFound"].as_array().map_or(0, Vec::len)
+            ),
+            Err(e) => assert_eq!(e.error_type.as_str(), "requestTooLarge"),
+        }
+    }
+
+    /// Oracle: RFC 8620 §5.1 "/get" (/home/mark/PROJECT/IETF/specs/rfc8620.txt
+    /// L1596-1601): "ids: "Id[]|null" The ids of the Foo objects to return.
+    /// If null, then *all* records of the data type are returned, if this is
+    /// supported for that data type and the number of records does not
+    /// exceed the "maxObjectsInGet" limit."
+    ///
+    /// `requestTooLarge` counts "the number of ids requested by the client"
+    /// (L1663), and a null `ids` requests none, so the generic handler MUST
+    /// NOT reject it as over the cap; the record-count bound for fetch-all
+    /// belongs to the backend, which knows how many records exist.
+    #[tokio::test]
+    async fn handle_get_null_ids_is_not_counted_against_cap() {
+        let args = json!({ "accountId": "a1", "ids": null });
+
+        let (resp, _) = handle_get::<GetProbe, _>(&GetProbeBackend, &(), args)
+            .await
+            .expect("null ids must not be rejected by the maxObjectsInGet cap");
+        assert_eq!(resp["list"], json!([]));
     }
 }
