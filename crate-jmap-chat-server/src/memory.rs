@@ -1506,6 +1506,18 @@ fn apply_space_patch_impl(
     let mut chats_destroyed: Vec<Id> = Vec::new();
     let mut messages_destroyed: Vec<Id> = Vec::new();
 
+    // Draft §Space/set `removeMembers`: "If the member removing
+    // themselves is the last member holding `"manage_space"` and other
+    // members remain, leaving closes the Space: the server MUST set
+    // `closedAt` ({{space}}) in the same operation." Record a leaving
+    // `manage_space` holder here; the close is decided after the ops.
+    let leaving_space_manager = caller_id.filter(|c| {
+        ops.iter()
+            .any(|op| matches!(op, SpacePatchOp::RemoveMember(id) if id == *c))
+            && member_effective_permissions(&space_snapshot, c.as_ref())
+                .is_some_and(|p| p.contains(crate::permissions::MANAGE_SPACE))
+    });
+
     for (op_index, op) in ops.into_iter().enumerate() {
         let outcome = match &op {
             SpacePatchOp::AddRole(_) => {
@@ -1569,6 +1581,30 @@ fn apply_space_patch_impl(
             }
         };
         results.push(OpResult { op_index, outcome });
+    }
+
+    if let Some(leaver) = leaving_space_manager {
+        if let Some(space) = inner
+            .objects_mut("Space", account_id.as_ref())
+            .get_mut(space_id)
+        {
+            let member_ids: Vec<&str> = space
+                .get("members")
+                .and_then(|v| v.as_array())
+                .map(|arr| arr.iter().filter_map(|m| m["id"].as_str()).collect())
+                .unwrap_or_default();
+            let closes = space.get("closedAt").is_none()
+                && !member_ids.is_empty()
+                && !member_ids.contains(&leaver.as_ref())
+                && member_ids.iter().all(|m| {
+                    !member_effective_permissions(space, m)
+                        .is_some_and(|p| p.contains(crate::permissions::MANAGE_SPACE))
+                });
+            if closes {
+                space["closedAt"] = serde_json::Value::String(now_utc_string().into_inner());
+                space_mutated = true;
+            }
+        }
     }
 
     // Bump state + log a change entry on the Space if any op mutated it.
@@ -3195,8 +3231,7 @@ fn validate_space_patch_ops(
     // Draft §Space/set `removeMembers`: a patch whose `removeMembers`
     // holds only the caller's own id is self-removal, which "the server
     // MUST permit ... regardless of the caller's permission set" and to
-    // which "Last-administrator protection does not apply". Closing the
-    // Space when the last `manage_space` holder leaves is not modelled.
+    // which "Last-administrator protection does not apply".
     let mut removed = ops.iter().filter_map(|op| match op {
         SpacePatchOp::RemoveMember(id) => Some(id),
         _ => None,

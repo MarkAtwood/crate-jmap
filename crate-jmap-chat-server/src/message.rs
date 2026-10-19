@@ -25,7 +25,7 @@
 
 use jmap_chat_types::{
     Attachment, Chat, DeliveryState, Mention, Message, MessageAction, ReadPosition, SenderId,
-    BROADCAST_MENTION_SCOPES,
+    Space, BROADCAST_MENTION_SCOPES,
 };
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;
@@ -772,6 +772,35 @@ pub async fn handle_message_set<B: ChatBackend>(
                     json!({ "type": "forbidden", "description": "the group is closed" }),
                 );
                 continue;
+            }
+
+            // draft-atwood-jmap-chat-00 §Space `closedAt`: "After it is
+            // set, the Space's channels are read-only: the server MUST
+            // reject every `Message/set` create in them with a
+            // `forbidden` SetError."
+            if let Some(sid) = chat.as_ref().and_then(|c| c.space_id.as_ref()) {
+                match backend
+                    .get_objects::<Space>(
+                        caller,
+                        &account_id,
+                        Some(std::slice::from_ref(sid)),
+                        None,
+                    )
+                    .await
+                {
+                    Ok((spaces, _)) if spaces.first().is_some_and(|s| s.closed_at.is_some()) => {
+                        not_created.insert(
+                            create_id.clone(),
+                            json!({ "type": "forbidden", "description": "the Space is closed" }),
+                        );
+                        continue;
+                    }
+                    Ok(_) => {}
+                    Err(e) => {
+                        not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                }
             }
 
             // BroadcastMention permission check (§4.4.1).
