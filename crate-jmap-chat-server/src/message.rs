@@ -426,6 +426,18 @@ fn validate_broadcast_mentions(
     None
 }
 
+/// Whether a rich `body` carries a `"broadcast"` span (§Rich Body Format),
+/// which needs the same `"mention_broadcast"` permission as a non-empty
+/// `broadcastMentions` array (§BroadcastMention).
+fn rich_body_has_broadcast(body: &str, body_type: &str) -> bool {
+    body_type == "application/jmap-chat-rich"
+        && serde_json::from_str::<Value>(body).is_ok_and(|v| {
+            v["spans"]
+                .as_array()
+                .is_some_and(|spans| spans.iter().any(|s| s["type"] == "broadcast"))
+        })
+}
+
 // ---------------------------------------------------------------------------
 // Optional create properties
 // ---------------------------------------------------------------------------
@@ -814,14 +826,13 @@ pub async fn handle_message_set<B: ChatBackend>(
             }
 
             // BroadcastMention permission check (§4.4.1).
-            // Non-empty broadcastMentions in a Space-backed channel
-            // requires mention_broadcast permission. Group/direct chats
-            // (no spaceId) are unrestricted per spec.
-            if let Some(sid) = chat
-                .as_ref()
-                .and_then(|c| c.space_id.as_ref())
-                .filter(|_| !broadcast_mentions_val.is_empty())
-            {
+            // Non-empty broadcastMentions or a rich-body "broadcast" span
+            // in a Space-backed channel requires mention_broadcast
+            // permission. Group/direct chats (no spaceId) are unrestricted
+            // per spec.
+            if let Some(sid) = chat.as_ref().and_then(|c| c.space_id.as_ref()).filter(|_| {
+                !broadcast_mentions_val.is_empty() || rich_body_has_broadcast(&body, &body_type)
+            }) {
                 match backend
                     .may_broadcast_mention(caller, &account_id, sid)
                     .await
@@ -1307,17 +1318,13 @@ pub async fn handle_message_set<B: ChatBackend>(
                 false
             };
 
-            // BroadcastMention structural validation on update (§4.4.1 / §4.16).
-            // Only triggered when broadcastMentions is part of the patch.
-            let patch_has_bm = augmented
-                .as_object()
-                .is_some_and(|obj| obj.contains_key("broadcastMentions"));
-            if patch_has_bm {
-                // Pre-fetch the current message to obtain the post-patch
-                // body/bodyType and chatId for the permission check. If the
-                // patch also updates body or bodyType, use the patch value;
-                // otherwise fall back to the stored value.
-                let (current_body, current_body_type, msg_chat_id) = match backend
+            // BroadcastMention validation and permission check on edit
+            // (§4.4.1 / §4.16). The post-patch body, bodyType and
+            // broadcastMentions fall back to the stored message where the
+            // patch leaves them unchanged, so an edit that retains a
+            // broadcast mention is gated like one that adds it.
+            if edits {
+                let (current_body, current_body_type, current_has_bm, msg_chat_id) = match backend
                     .get_objects::<Message>(
                         caller,
                         &account_id,
@@ -1331,12 +1338,13 @@ pub async fn handle_message_set<B: ChatBackend>(
                             (
                                 msg.body.clone(),
                                 msg.body_type.clone(),
+                                !msg.broadcast_mentions.is_empty(),
                                 Some(msg.chat_id.clone()),
                             )
                         } else {
                             // Message not found — let update_object surface
                             // the normal notFound error downstream.
-                            (String::new(), String::from("text/plain"), None)
+                            (String::new(), String::from("text/plain"), false, None)
                         }
                     }
                     Err(e) => {
@@ -1352,23 +1360,30 @@ pub async fn handle_message_set<B: ChatBackend>(
                     .get("bodyType")
                     .and_then(|v| v.as_str())
                     .unwrap_or(&current_body_type);
-                let bm_arr: Vec<Value> = augmented
-                    .get("broadcastMentions")
-                    .and_then(|v| v.as_array())
-                    .cloned()
-                    .unwrap_or_default();
-                if let Some(err) =
-                    validate_broadcast_mentions(&bm_arr, post_patch_body, post_patch_body_type)
-                {
-                    not_updated.insert(id_str, err);
-                    continue;
-                }
+                // Structural validation only when broadcastMentions is part
+                // of the patch.
+                let has_bm = match augmented.get("broadcastMentions") {
+                    Some(bm) => {
+                        let bm_arr: Vec<Value> = bm.as_array().cloned().unwrap_or_default();
+                        if let Some(err) = validate_broadcast_mentions(
+                            &bm_arr,
+                            post_patch_body,
+                            post_patch_body_type,
+                        ) {
+                            not_updated.insert(id_str, err);
+                            continue;
+                        }
+                        !bm_arr.is_empty()
+                    }
+                    None => current_has_bm,
+                };
 
                 // BroadcastMention permission check on update (§4.4.1).
-                // Non-empty post-patch broadcastMentions in a Space-backed
-                // channel requires mention_broadcast permission. Group/direct
-                // chats (no spaceId) are unrestricted per spec.
-                if !bm_arr.is_empty() {
+                // A post-patch broadcast mention (array entry or rich-body
+                // "broadcast" span) in a Space-backed channel requires
+                // mention_broadcast permission. Group/direct chats (no
+                // spaceId) are unrestricted per spec.
+                if has_bm || rich_body_has_broadcast(post_patch_body, post_patch_body_type) {
                     if let Some(ref cid) = msg_chat_id {
                         let chat_lookup = backend
                             .get_objects::<Chat>(

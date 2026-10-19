@@ -1268,8 +1268,9 @@ pub trait ChatBackend: JmapBackend {
     /// # When the handler calls this
     ///
     /// `handle_message_set` invokes `may_broadcast_mention` once per
-    /// create/update entry whose post-validation `broadcastMentions`
-    /// is non-empty AND whose target Chat has a `spaceId`. The call
+    /// create entry or edit whose post-patch `broadcastMentions` is
+    /// non-empty or whose rich `body` holds a `"broadcast"` span, AND
+    /// whose target Chat has a `spaceId`. The call
     /// fires AFTER structural validation (`validate_broadcast_mentions`)
     /// has succeeded and BEFORE `create_object` / `update_object`, so
     /// malformed payloads do not consume an authorization decision and

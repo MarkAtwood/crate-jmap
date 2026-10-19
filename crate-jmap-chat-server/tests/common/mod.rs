@@ -208,6 +208,10 @@ pub struct TrackingBackend {
     /// (Create/Update/Destroy). When `false`, forwards to `inner`
     /// (which returns `Ok(Ok(()))`).
     emoji_set_deny: bool,
+    /// When `true`, [`ChatBackend::may_broadcast_mention`] returns
+    /// `Ok(Err(SetError::new(SetErrorType::Forbidden)))`. When `false`,
+    /// forwards to `inner` (which returns `Ok(Ok(()))`).
+    broadcast_mention_deny: bool,
     /// Counter incremented every time
     /// [`ChatBackend::is_contact_blocked`] is invoked. Lets a test
     /// verify the handler reached the consultation point without
@@ -233,6 +237,7 @@ impl TrackingBackend {
             inner: MemoryBackend::new(),
             slow_mode_block: Some(retry_after),
             emoji_set_deny: false,
+            broadcast_mention_deny: false,
             is_contact_blocked_calls: Arc::default(),
         }
     }
@@ -245,7 +250,18 @@ impl TrackingBackend {
             inner: MemoryBackend::new(),
             slow_mode_block: None,
             emoji_set_deny: true,
+            broadcast_mention_deny: false,
             is_contact_blocked_calls: Arc::default(),
+        }
+    }
+
+    /// Configure the wrapper so [`ChatBackend::may_broadcast_mention`]
+    /// returns a `Forbidden` SetError. The wrapped `MemoryBackend` is
+    /// otherwise functional.
+    pub fn with_broadcast_mention_denied() -> Self {
+        Self {
+            broadcast_mention_deny: true,
+            ..Self::default()
         }
     }
 
@@ -444,6 +460,24 @@ impl ChatBackend for TrackingBackend {
         } else {
             self.inner
                 .may_set_custom_emoji(caller, account_id, target_space_id, op)
+                .await
+        }
+    }
+
+    async fn may_broadcast_mention(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        space_id: &Id,
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        if self.broadcast_mention_deny {
+            Ok(Err(SetError::new(SetErrorType::Forbidden)
+                .with_description(
+                    "TrackingBackend deny_broadcast_mention: mention_broadcast denied for test.",
+                )))
+        } else {
+            self.inner
+                .may_broadcast_mention(caller, account_id, space_id)
                 .await
         }
     }
