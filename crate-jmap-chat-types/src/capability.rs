@@ -4,12 +4,15 @@
 //!   - draft-atwood-jmap-chat-00 §3       (`ChatCapability` fields)
 //!   - draft-atwood-jmap-chat-push-00     (`ChatPushCapability` fields)
 //!   - draft-atwood-jmap-chat-filenode-00 (`ChatFilenodeCapability` fields)
+//!   - draft-atwood-jmap-chat-federation-00 §Account-Level Capability
+//!     (`ChatCapability::role`)
 //!
 //! The Chat extension defines three account-level capability objects plus a
 //! marker session-level capability (`urn:ietf:params:jmap:chat:websocket`,
 //! see `draft-atwood-jmap-chat-wss-00`). The marker's value is an empty
 //! object, so only its URI constant is defined here, with no struct.
 
+use jmap_types::impl_string_enum;
 use serde::{Deserialize, Serialize};
 
 use crate::message::BodyType;
@@ -32,6 +35,29 @@ pub const JMAP_CHAT_WEBSOCKET_URI: &str = "urn:ietf:params:jmap:chat:websocket";
 /// FileNode `role` value marking the root of a Space file tree
 /// (draft-atwood-jmap-chat-filenode-00 §Space File Tree).
 pub const CHAT_FILENODE_SPACE_ROLE: &str = "urn:jmap:chat:filenode:space";
+
+/// The `role` of an account in its `urn:ietf:params:jmap:chat` capability
+/// (draft-atwood-jmap-chat-federation-00 §Account-Level Capability).
+///
+/// `Other` preserves any future value for round-trip fidelity without
+/// breaking deserialization.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ChatCapabilityRole {
+    /// "An account with `role: \"owner\"` has full access to all JMAP Chat
+    /// methods."
+    Owner,
+    /// "An account with `role: \"peer\"` is granted access only to the
+    /// Peer/* methods defined in this document."
+    Peer,
+    /// A value not recognized by this version of the library.
+    Other(String),
+}
+
+impl_string_enum!(ChatCapabilityRole, "a chat capability role string",
+    "owner" => Owner,
+    "peer" => Peer,
+);
 
 /// Account-level capability object for `"urn:ietf:params:jmap:chat"`.
 ///
@@ -96,6 +122,17 @@ pub struct ChatCapability {
     /// round-trip contract.
     #[serde(default)]
     pub supported_body_types: Vec<BodyType>,
+    /// Whether this is an owner or a federation peer account
+    /// (draft-atwood-jmap-chat-federation-00 §Account-Level Capability).
+    ///
+    /// Callers authenticated as a peer on an account whose role is
+    /// [`ChatCapabilityRole::Peer`] "MUST receive `forbidden` for any method
+    /// not listed" among the Peer/* methods. The field is optional in
+    /// general: "The local server MUST include this field in the account
+    /// capability for any account it provisions for peer use." `None` means
+    /// the server did not advertise a role.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub role: Option<ChatCapabilityRole>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -248,6 +285,69 @@ mod tests {
         );
         let back = serde_json::to_value(&cap).expect("serialize");
         assert_eq!(back["acmeCorpQuota"], "gold");
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-federation-00 §Account-Level
+    /// Capability: "`role` (String): Either `\"owner\"` or `\"peer\"`."
+    /// Both spec values parse to typed variants, not into `extra`, and
+    /// serialize back to the same JSON.
+    #[test]
+    fn chat_capability_role_spec_values() {
+        for (wire, want) in [
+            ("owner", ChatCapabilityRole::Owner),
+            ("peer", ChatCapabilityRole::Peer),
+        ] {
+            let raw = json!({
+                "maxBodyBytes": 1024_u64,
+                "maxAttachmentBytes": 1024_u64,
+                "maxAttachmentsPerMessage": 1_u64,
+                "supportsThreads": false,
+                "supportedBodyTypes": ["text/plain"],
+                "role": wire
+            });
+            let cap: ChatCapability =
+                serde_json::from_value(raw.clone()).expect("must deserialize");
+            assert_eq!(cap.role, Some(want));
+            assert!(cap.extra.is_empty());
+            assert_eq!(serde_json::to_value(&cap).expect("serialize"), raw);
+        }
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-federation-00 §Account-Level
+    /// Capability requires `role` only "for any account it provisions for
+    /// peer use", so an owner account may omit it; absent stays absent.
+    #[test]
+    fn chat_capability_role_absent() {
+        let raw = json!({
+            "maxBodyBytes": 1024_u64,
+            "maxAttachmentBytes": 1024_u64,
+            "maxAttachmentsPerMessage": 1_u64,
+            "supportsThreads": false,
+            "supportedBodyTypes": ["text/plain"]
+        });
+        let cap: ChatCapability = serde_json::from_value(raw.clone()).expect("must deserialize");
+        assert!(cap.role.is_none());
+        assert_eq!(serde_json::to_value(&cap).expect("serialize"), raw);
+    }
+
+    /// Oracle: workspace AGENTS.md string-enum round-trip policy; a role
+    /// string outside the federation-00 list is kept verbatim.
+    #[test]
+    fn chat_capability_role_unknown_round_trips() {
+        let raw = json!({
+            "maxBodyBytes": 1024_u64,
+            "maxAttachmentBytes": 1024_u64,
+            "maxAttachmentsPerMessage": 1_u64,
+            "supportsThreads": false,
+            "supportedBodyTypes": ["text/plain"],
+            "role": "x-future"
+        });
+        let cap: ChatCapability = serde_json::from_value(raw.clone()).expect("must deserialize");
+        assert_eq!(
+            cap.role,
+            Some(ChatCapabilityRole::Other("x-future".to_owned()))
+        );
+        assert_eq!(serde_json::to_value(&cap).expect("serialize"), raw);
     }
 
     /// Oracle: hand-built JSON from draft-atwood-jmap-chat-push-00 field
