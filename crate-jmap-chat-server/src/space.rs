@@ -394,13 +394,10 @@ pub async fn handle_space_get<B: ChatBackend>(
     // membership check fires per Space; the per-Space cost is a
     // linear scan over `members` (small in the reference impl).
     // The caller is the owner, whose member entry is the accountId
-    // (draft-atwood-jmap-chat-00 §Terminology, §SpaceMember.id).
-    // When `principal_id` returns `None` the backend has not wired
-    // identity (single-user mode) — treat every Space as if the
-    // caller were a member, which keeps the kit's no-identity
-    // posture intact and preserves prior behavior for existing
-    // single-user tests.
-    let caller_member_id: Option<&Id> = B::principal_id(caller).map(|_| &account_id);
+    // (draft-atwood-jmap-chat-00 §Terminology, §SpaceMember.id). This
+    // holds whether or not `principal_id` resolves a caller identity
+    // (bd:JMAP-yt1w.36).
+    let caller_member_id: &Id = &account_id;
 
     // First pass: classify each backend-returned Space against the
     // non-member-vs-non-previewable rule (bd:JMAP-v9py.20). Spaces
@@ -447,19 +444,13 @@ pub async fn handle_space_get<B: ChatBackend>(
 ///
 /// `caller_member_id` is the caller's member entry id: the accountId,
 /// since the caller is the owner (draft-atwood-jmap-chat-00
-/// §Terminology). Anonymous callers (`caller_member_id == None` —
-/// single-user mode) are treated as members and so cannot trip this
-/// rule. The rule fires only when caller identity is wired AND the
-/// caller is not in the Space's `members` AND
-/// `isPubliclyPreviewable: false`.
-fn non_member_non_previewable(space: &Space, caller_member_id: Option<&Id>) -> bool {
-    let Some(member_id) = caller_member_id else {
-        return false;
-    };
+/// §Terminology). The rule fires when no entry in the Space's
+/// `members` carries that id AND `isPubliclyPreviewable: false`.
+fn non_member_non_previewable(space: &Space, caller_member_id: &Id) -> bool {
     let is_member = space
         .members
         .iter()
-        .any(|m| m.id.as_ref() == member_id.as_ref());
+        .any(|m| m.id.as_ref() == caller_member_id.as_ref());
     !is_member && !space.is_publicly_previewable
 }
 
@@ -522,22 +513,17 @@ const SPACE_METADATA_FIELDS: &[&str] = &[
 /// 1. **Member caller** (`caller_member_id`, the accountId per
 ///    §Terminology, matches a `members[i].id`) → return the full Space, intersected with
 ///    `properties` if specified. No restricted-view trim.
-/// 2. **Anonymous caller** (`principal_id` returned `None`, i.e.
-///    single-user mode where the backend has not wired identity) →
-///    same as the member case. The kit's no-identity posture treats
-///    every caller as fully authorized; multi-user deployments
-///    override `principal_id` to opt out.
-/// 3. **Non-member caller AND `isPubliclyPreviewable: true`** →
+/// 2. **Non-member caller AND `isPubliclyPreviewable: true`** →
 ///    return the 8-field restricted view, intersected with
 ///    `properties` if specified. Fields outside
 ///    [`NON_MEMBER_PREVIEWABLE_FIELDS`] are omitted even when the
 ///    caller asked for them.
-/// 4. **Non-member caller AND `isPubliclyPreviewable: false`** —
+/// 3. **Non-member caller AND `isPubliclyPreviewable: false`** —
 ///    handled BEFORE this function: `handle_space_get` lifts the
 ///    Space out of `list` and into `not_found` via
 ///    [`non_member_non_previewable`]. By the time
 ///    a Space reaches this projection function, it has already
-///    been confirmed visible to the caller. This match arm is
+///    been confirmed visible to the caller. This branch is
 ///    therefore unreachable in normal flow; if it WERE reached
 ///    (e.g. via a direct call from outside `handle_space_get`),
 ///    the conservative fallback is "no field cap, no trim" — same
@@ -546,38 +532,32 @@ const SPACE_METADATA_FIELDS: &[&str] = &[
 ///    directly so the notFound classification fires.
 fn project_space_for_caller(
     space: &Space,
-    caller_member_id: Option<&Id>,
+    caller_member_id: &Id,
     properties: Option<&[String]>,
 ) -> Result<Value, JmapError> {
     let full = serialize_value(space)?;
 
     // Compute the field set the caller is allowed to see.
-    let allowed_fields: Option<Vec<&str>> = match caller_member_id {
-        // Anonymous (no-identity mode) — full visibility.
-        None => None,
-        Some(member_id) => {
-            let is_member = space
-                .members
-                .iter()
-                .any(|m| m.id.as_ref() == member_id.as_ref());
-            if is_member {
-                None
-            } else if space.is_publicly_previewable {
-                // Non-member, but the Space is publicly
-                // previewable. Apply the 8-field restricted view.
-                Some(NON_MEMBER_PREVIEWABLE_FIELDS.to_vec())
-            } else {
-                // Non-member of a non-previewable Space — the
-                // outer handler has already lifted this Space
-                // into `not_found` before calling us; reaching
-                // here implies a non-handler call site. Fall back
-                // to full visibility to keep `project_space_for_caller`
-                // a pure projection function with no
-                // notFound side-effect; the caller is responsible
-                // for the visibility decision.
-                None
-            }
-        }
+    let is_member = space
+        .members
+        .iter()
+        .any(|m| m.id.as_ref() == caller_member_id.as_ref());
+    let allowed_fields: Option<Vec<&str>> = if is_member {
+        None
+    } else if space.is_publicly_previewable {
+        // Non-member, but the Space is publicly
+        // previewable. Apply the 8-field restricted view.
+        Some(NON_MEMBER_PREVIEWABLE_FIELDS.to_vec())
+    } else {
+        // Non-member of a non-previewable Space — the
+        // outer handler has already lifted this Space
+        // into `not_found` before calling us; reaching
+        // here implies a non-handler call site. Fall back
+        // to full visibility to keep `project_space_for_caller`
+        // a pure projection function with no
+        // notFound side-effect; the caller is responsible
+        // for the visibility decision.
+        None
     };
 
     // Intersect the allowed set with the request `properties`

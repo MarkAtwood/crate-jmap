@@ -5,7 +5,8 @@
 mod common;
 
 use common::{seed_space, IdentityBackend, MemoryBackend, ACCOUNT_ID, SPACE_ID};
-use jmap_chat_server::{handle_space_get, handle_space_set};
+use jmap_chat_server::{handle_space_set, JmapBackend};
+use jmap_chat_types::Space;
 use jmap_types::Id;
 use serde_json::json;
 
@@ -26,22 +27,21 @@ fn admin_and_regular(backend: &IdentityBackend, admin: &str, regular: &str) {
     );
 }
 
-/// Stored Space member ids, read in single-user mode: every caller of the
-/// account is its owner (draft §Terminology), who has left.
+/// Stored Space member ids, read from the backend directly: every caller
+/// of the account is its owner (draft §Terminology), who has left, and
+/// draft §Space/get hides a non-previewable Space from a non-member.
 async fn member_ids(backend: &IdentityBackend) -> Vec<String> {
-    let (resp, _) = handle_space_get(
-        backend.inner(),
-        &(),
-        json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
-    )
-    .await
-    .expect("Space/get");
-    resp["list"][0]["members"]
-        .as_array()
-        .expect("members")
-        .iter()
-        .map(|m| m["id"].as_str().expect("member id").to_owned())
-        .collect()
+    let (list, _) = backend
+        .inner()
+        .get_objects::<Space>(
+            &(),
+            &Id::from(ACCOUNT_ID),
+            Some(&[Id::from(SPACE_ID)]),
+            None,
+        )
+        .await
+        .expect("get_objects");
+    list[0].members.iter().map(|m| m.id.to_string()).collect()
 }
 
 /// Oracle: draft §Space/set `removeMembers` — "A member who does not hold

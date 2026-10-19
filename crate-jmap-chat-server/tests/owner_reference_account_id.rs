@@ -19,8 +19,9 @@ mod common;
 use common::{seed_space, IdentityBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{
     handle_ban_set, handle_chat_get, handle_chat_set, handle_emoji_set, handle_invite_set,
-    handle_space_get, handle_space_join, handle_space_set,
+    handle_space_join, handle_space_set, JmapBackend,
 };
+use jmap_chat_types::Space;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -102,17 +103,22 @@ async fn space_set_update(backend: &IdentityBackend, patch: Value) -> Value {
     .0
 }
 
-/// Stored Space members, read in single-user mode: every caller of the
-/// account is its owner (draft §Terminology), who may have left.
+/// Stored Space members, read from the backend directly: the owner may
+/// have left, and draft §Space/get hides a non-previewable Space from a
+/// non-member.
 async fn space_members(backend: &IdentityBackend) -> Vec<Value> {
-    let (resp, _) = handle_space_get(
-        backend.inner(),
-        &(),
-        json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
-    )
-    .await
-    .expect("Space/get");
-    resp["list"][0]["members"]
+    let (list, _) = backend
+        .inner()
+        .get_objects::<Space>(
+            &(),
+            &Id::from(ACCOUNT_ID),
+            Some(&[Id::from(SPACE_ID)]),
+            None,
+        )
+        .await
+        .expect("get_objects");
+    serde_json::to_value(&list[0].members)
+        .expect("serialize members")
         .as_array()
         .expect("members")
         .clone()

@@ -117,7 +117,7 @@ caller of a chat account is its owner, whose Space member entry is the
 accountId (draft-atwood-jmap-chat-00 §Terminology), so every gate
 resolves against that entry whether `principal_id` returns `Some` or
 `None`. A `None` return no longer skips any gate. Space/get visibility
-still treats a `None` caller as a member of every Space
+(notFound / restricted view for non-members) keys on the same entry
 (bd:JMAP-yt1w.36). Multi-user production deployments MUST override
 the default impl.
 

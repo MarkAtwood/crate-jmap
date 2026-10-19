@@ -479,12 +479,12 @@ async fn non_member_previewable_unaffected_by_classification() {
 // Single-user mode regression bound
 // ---------------------------------------------------------------------------
 
-/// Oracle: bd:JMAP-v9py.4 + workspace AGENTS.md "Caller identity
-/// (foundation seam)". When `principal_id` returns `None`
-/// (single-user mode — the reference `MemoryBackend` with
-/// `CallerCtx = ()` does this), every caller is treated as if they
-/// were a member. The restricted-view trim must NOT fire. This is
-/// the regression bound for the kit's no-identity posture.
+/// Oracle: draft-atwood-jmap-chat-00 §SpaceMember `id`: "The
+/// participant's ChatContact.id, or the accountId for the owner." When
+/// `principal_id` returns `None` (single-user mode — the reference
+/// `MemoryBackend` with `CallerCtx = ()` does this), the owner whose
+/// accountId is in `members` is a member, so the restricted-view trim
+/// must NOT fire (bd:JMAP-yt1w.36).
 #[tokio::test]
 async fn single_user_mode_sees_full_space() {
     let backend = MemoryBackend::new();
@@ -497,13 +497,13 @@ async fn single_user_mode_sees_full_space() {
             "id": SPACE_ID,
             "name": "Single User Space",
             "createdAt": "2026-01-01T00:00:00Z",
-            "memberCount": 0,
+            "memberCount": 1,
             "categories": [],
             "uncategorizedChannelIds": [],
             "isPublic": false,
             "isPubliclyPreviewable": false,
             "roles": [{"id":"r","name":"R","permissions":[],"position":1}],
-            "members": []
+            "members": [{"id": ACCOUNT_ID, "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z"}]
         }),
     );
 
