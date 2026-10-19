@@ -235,6 +235,10 @@ async fn chat_set_create_direct_missing_contact_id() {
 }
 
 /// Oracle: Chat/set create with kind "channel" and no spaceId is rejected.
+/// draft-atwood-jmap-chat-00 §Chat/set: "Creating a Chat with `kind:
+/// "channel"` via `Chat/set` is not supported; the server MUST return a
+/// SetError of type `forbidden`." (bd:JMAP-yt1w.1), so the type is
+/// `forbidden` and carries no `properties`.
 #[tokio::test]
 async fn chat_set_create_channel_missing_space_id() {
     let backend = MemoryBackend::new();
@@ -252,11 +256,7 @@ async fn chat_set_create_channel_missing_space_id() {
     .expect("handle_chat_set");
 
     assert!(resp["notCreated"]["c0"].is_object());
-    assert_eq!(resp["notCreated"]["c0"]["type"], "invalidProperties");
-    let props = resp["notCreated"]["c0"]["properties"]
-        .as_array()
-        .expect("properties");
-    assert!(props.iter().any(|p| p == "spaceId"));
+    assert_eq!(resp["notCreated"]["c0"]["type"], "forbidden");
 }
 
 /// Oracle: Chat/set create without kind is rejected with invalidProperties.
@@ -6987,6 +6987,10 @@ async fn space_join_argument_check_precedes_ban_check() {
 // ---------------------------------------------------------------------------
 
 /// Oracle: Message/set create with body exceeding 100,000 bytes is rejected.
+/// draft-atwood-jmap-chat-00 §Account-Level Capability Object
+/// `maxBodyBytes`: "Servers MUST reject messages exceeding this limit with
+/// `invalidArguments`." (bd:JMAP-yt1w.1), so the SetError carries no
+/// `properties`.
 #[tokio::test]
 async fn message_set_create_body_too_large() {
     let backend = MemoryBackend::new();
@@ -7003,10 +7007,7 @@ async fn message_set_create_body_too_large() {
     .expect("handle_message_set");
 
     assert!(resp["notCreated"]["m0"].is_object());
-    let props = resp["notCreated"]["m0"]["properties"]
-        .as_array()
-        .expect("props");
-    assert!(props.iter().any(|p| p == "body"));
+    assert_eq!(resp["notCreated"]["m0"]["type"], "invalidArguments");
     assert_eq!(resp["created"], json!(null));
 }
 
