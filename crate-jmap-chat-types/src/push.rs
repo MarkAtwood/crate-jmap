@@ -158,6 +158,13 @@ pub struct ChatMessageEntry {
     /// Per spec, this field MUST be `None` when `encrypted` is `Some(true)`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body_snippet: Option<String>,
+    /// The `unreadCount` property (draft-atwood-jmap-chat-push-00 §5.2).
+    ///
+    /// The account owner's total unread message count across all non-muted
+    /// Chats when the push was generated. When `None`, the client derives
+    /// the badge count via `Chat/get`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unread_count: Option<u64>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -320,6 +327,7 @@ impl ChatMessageEntry {
             space_id: None,
             space_name: None,
             sender_display_name: None,
+            unread_count: None,
             extra: serde_json::Map::new(),
         }
     }
@@ -351,6 +359,7 @@ impl ChatMessageEntry {
             space_id: None,
             space_name: None,
             sender_display_name: None,
+            unread_count: None,
             extra: serde_json::Map::new(),
         }
     }
@@ -626,6 +635,24 @@ mod tests {
         );
         let back = serde_json::to_value(&entry).unwrap();
         assert_eq!(back["acmeCorpThreadDepth"], 3);
+    }
+
+    /// draft-atwood-jmap-chat-push-00 §5.2: "`unreadCount`
+    /// (UnsignedInt|null, optional)". A present value is typed, not left
+    /// in `extra`; an absent one stays absent on the wire.
+    #[test]
+    fn chat_message_entry_unread_count_typed_and_optional() {
+        let raw = serde_json::json!({ "messageId": "m1", "unreadCount": 7 });
+        let entry: ChatMessageEntry = serde_json::from_value(raw).unwrap();
+        assert_eq!(entry.unread_count, Some(7));
+        assert!(entry.extra.is_empty());
+        assert_eq!(serde_json::to_value(&entry).unwrap()["unreadCount"], 7);
+
+        let entry: ChatMessageEntry =
+            serde_json::from_value(serde_json::json!({ "messageId": "m1" })).unwrap();
+        assert_eq!(entry.unread_count, None);
+        let back = serde_json::to_value(&entry).unwrap();
+        assert!(back.get("unreadCount").is_none());
     }
 
     /// `ChatMessagePush.extra` captures vendor fields and preserves them.
