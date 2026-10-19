@@ -151,6 +151,24 @@ pub trait TasksBackend: JmapBackend {
     /// applying the patch and MUST return [`BackendSetError::SetError`] with
     /// [`SetErrorType::Forbidden`] otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
+    ///
+    /// # Patch format
+    ///
+    /// `patch` is an RFC 8620 §5.3 PatchObject, not an RFC 7396 JSON
+    /// Merge Patch: "The keys are a path in JSON Pointer format
+    /// \[RFC6901\], with an implicit leading "/"". So `{"a/b": null}`
+    /// removes member `b` of property `a`; it does not touch a top-level
+    /// property literally named `a/b`. A `null` value sets the
+    /// property's default if it has one, otherwise removes it. A pointer
+    /// into an array, a pointer whose parent does not exist, or two keys
+    /// where one pointer is a prefix of the other "MUST be rejected with
+    /// an "invalidPatch" error".
+    ///
+    /// Implementors SHOULD apply `patch` with
+    /// [`jmap_server::apply_patch_object`], which enforces these rules
+    /// all-or-nothing, and map any [`jmap_server::PatchPathError`] to
+    /// [`jmap_server::SetErrorType::InvalidPatch`], as the reference
+    /// `MemoryBackend` does.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
