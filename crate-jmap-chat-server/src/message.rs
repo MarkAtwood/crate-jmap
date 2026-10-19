@@ -23,7 +23,9 @@
 //! `invalidPatch` paths) surface in the `notCreated` / `notUpdated` /
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
-use jmap_chat_types::{Chat, DeliveryState, Message, SenderId, BROADCAST_MENTION_SCOPES};
+use jmap_chat_types::{
+    Chat, DeliveryState, Message, ReadPosition, SenderId, BROADCAST_MENTION_SCOPES,
+};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 
@@ -398,6 +400,53 @@ fn validate_broadcast_mentions(
 // Message/set
 // ---------------------------------------------------------------------------
 
+/// Create the owner's ReadPosition for each Chat in `chat_ids` that has
+/// none yet. draft-atwood-jmap-chat-00 §ReadPosition: "For direct and
+/// group Chats, a ReadPosition is created when the first message is
+/// delivered."
+///
+/// Best effort: the Messages are already stored, so a backend failure
+/// here must not become a method-level error (RFC 8620 §3.6.2: "the
+/// externally visible state of the server MUST NOT have changed if an
+/// error is returned at the method level"). A record missed here is
+/// created by the next delivery to that Chat. `alreadyExists` means a
+/// concurrent delivery created it first (see the ReadPosition uniqueness
+/// contract on `ChatBackend::create_object`).
+///
+/// ponytail: does not look up the Chat's kind, so it also fills in a
+/// missing channel position (the draft creates those on Space join).
+/// One full ReadPosition scan per `Message/set` call that created a
+/// message; a backend with a `(account, chatId)` index can replace it.
+async fn ensure_read_positions<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    mut chat_ids: Vec<Id>,
+) {
+    if chat_ids.is_empty() {
+        return;
+    }
+    let Ok((existing, _)) = backend
+        .get_objects::<ReadPosition>(caller, account_id, None, None)
+        .await
+    else {
+        return;
+    };
+    chat_ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+    chat_ids.dedup();
+    chat_ids.retain(|c| !existing.iter().any(|p| p.chat_id == *c));
+    for chat_id in chat_ids {
+        let _ = backend
+            .create_object::<ReadPosition>(
+                caller,
+                account_id,
+                chat_id.as_ref(),
+                ReadPosition::new(Id::from("placeholder"), chat_id.clone()),
+            )
+            .await;
+    }
+}
+
 /// Handle a `Message/set` method call (draft-atwood-jmap-chat-00 §Message).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
@@ -447,6 +496,7 @@ pub async fn handle_message_set<B: ChatBackend>(
     // create
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
+        let mut delivered_chat_ids: Vec<Id> = Vec::new();
         for (create_id, obj_val) in create_map {
             let Some(chat_id_str) = obj_val.get("chatId").and_then(|v| v.as_str()) else {
                 not_created.insert(
@@ -667,6 +717,7 @@ pub async fn handle_message_set<B: ChatBackend>(
             {
                 Ok((_server_id, created_obj)) => {
                     mutated = true;
+                    delivered_chat_ids.push(created_obj.chat_id.clone());
                     created.insert(
                         create_id.clone(),
                         serde_json::to_value(&created_obj)
@@ -690,6 +741,7 @@ pub async fn handle_message_set<B: ChatBackend>(
                 }
             }
         }
+        ensure_read_positions(backend, caller, &account_id, delivered_chat_ids).await;
     }
 
     // -----------------------------------------------------------------------

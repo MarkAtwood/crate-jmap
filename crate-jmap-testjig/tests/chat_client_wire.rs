@@ -17,8 +17,7 @@ use jmap_chat_client::{
 };
 use jmap_chat_types::{BodyType, ChatKind, SenderId};
 use jmap_testjig::{spawn_in_process, TestjigConfig, TestjigHandle};
-use jmap_types::{Id, JmapRequest, UTCDate};
-use serde_json::json;
+use jmap_types::{Id, UTCDate};
 
 const SENT_AT: &str = "2026-01-01T00:00:00Z";
 
@@ -377,34 +376,15 @@ async fn message_edit_after_delete_is_forbidden() {
 /// is "The `id` of the most recent Message the owner has read in this
 /// Chat"; §ReadPosition/set updates it.
 ///
-/// The spec says "For direct and group Chats, a ReadPosition is created
-/// when the first message is delivered"; the reference backend does not
-/// do that, so the test creates the record with a raw `ReadPosition/set`
-/// before exercising the client's get/update path.
+/// The record comes from the server, not the client: "For direct and
+/// group Chats, a ReadPosition is created when the first message is
+/// delivered."
 #[tokio::test]
 async fn read_position_update_round_trip() {
     let (_jig, client, session) = connect().await;
-    let account_id = session.chat_account_id().expect("chat account").to_owned();
     let sc = client.with_chat_session(session.clone());
     let chat_id = create_group(&sc, "g1", "Team").await;
     let msg_id = send(&sc, &chat_id, "m1", "hello").await;
-
-    let setup = JmapRequest::new(
-        vec![
-            "urn:ietf:params:jmap:core".into(),
-            "urn:ietf:params:jmap:chat".into(),
-        ],
-        vec![(
-            "ReadPosition/set".into(),
-            json!({ "accountId": account_id, "create": { "rp": { "chatId": chat_id } } }),
-            "c0".into(),
-        )],
-        None,
-    );
-    client
-        .call_session(&session, &setup)
-        .await
-        .expect("ReadPosition/set create setup");
 
     let positions = sc.read_position_get(None).await.expect("ReadPosition/get");
     let rp = positions

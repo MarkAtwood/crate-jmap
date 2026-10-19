@@ -2646,10 +2646,14 @@ async fn message_set_create_with_malformed_sent_at_rejected() {
 }
 
 /// Oracle: ReadPosition/set create with a malformed `lastReadAt`
-/// wire shape is rejected with `invalidProperties: ["lastReadAt"]`.
+/// wire shape is rejected and nothing reaches storage.
 /// Regression bead bd:JMAP-x2gd.7. Same exposure as the Message/set
 /// `sentAt` site — `UTCDate::from` accepted any string and the
 /// malformed value flowed through to storage.
+///
+/// draft-atwood-jmap-chat-00 §ReadPosition/set: "`create` and `destroy`
+/// are not supported; both MUST return a SetError of type `forbidden`."
+/// so the rejection is `forbidden`, not `invalidProperties`.
 #[tokio::test]
 async fn position_set_create_with_malformed_last_read_at_rejected() {
     let backend = MemoryBackend::new();
@@ -2671,14 +2675,7 @@ async fn position_set_create_with_malformed_last_read_at_rejected() {
 
     assert!(resp["created"].is_null());
     assert!(resp["notCreated"]["rp0"].is_object());
-    assert_eq!(resp["notCreated"]["rp0"]["type"], "invalidProperties");
-    let props = resp["notCreated"]["rp0"]["properties"]
-        .as_array()
-        .expect("properties array");
-    assert!(
-        props.iter().any(|p| p == "lastReadAt"),
-        "lastReadAt must be listed in rejected properties: {props:?}"
-    );
+    assert_eq!(resp["notCreated"]["rp0"]["type"], "forbidden");
 }
 
 // ---------------------------------------------------------------------------
@@ -5407,7 +5404,11 @@ async fn contact_changes_empty() {
 // ReadPosition/get and ReadPosition/set
 // ---------------------------------------------------------------------------
 
-/// Oracle: ReadPosition/set create requires chatId.
+/// Oracle: ReadPosition/set create without chatId is rejected.
+///
+/// draft-atwood-jmap-chat-00 §ReadPosition/set: "`create` and `destroy`
+/// are not supported; both MUST return a SetError of type `forbidden`."
+/// so the rejection is `forbidden` rather than naming `chatId`.
 #[tokio::test]
 async fn position_set_create_missing_chat_id() {
     let backend = MemoryBackend::new();
@@ -5423,15 +5424,15 @@ async fn position_set_create_missing_chat_id() {
     .expect("handle_position_set");
 
     assert!(resp["notCreated"]["rp0"].is_object());
-    let props = resp["notCreated"]["rp0"]["properties"]
-        .as_array()
-        .expect("props");
-    assert!(props.iter().any(|p| p == "chatId"));
+    assert_eq!(resp["notCreated"]["rp0"]["type"], "forbidden");
 }
 
-/// Oracle: ReadPosition/set create with chatId succeeds.
+/// Oracle: ReadPosition/set create with chatId is rejected.
+///
+/// draft-atwood-jmap-chat-00 §ReadPosition/set: "`create` and `destroy`
+/// are not supported; both MUST return a SetError of type `forbidden`."
 #[tokio::test]
-async fn position_set_create_success() {
+async fn position_set_create_forbidden() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_position_set(
         &backend,
@@ -5444,15 +5445,16 @@ async fn position_set_create_success() {
     .await
     .expect("handle_position_set");
 
-    assert!(resp["created"]["rp0"].is_object());
-    assert_eq!(resp["created"]["rp0"]["chatId"], "c1");
+    assert!(resp["created"]["rp0"].is_null());
+    assert_eq!(resp["notCreated"]["rp0"]["type"], "forbidden");
 }
 
 /// Oracle: Two sequential ReadPosition/set creates for the same chatId
-/// reject the second with `alreadyExists`, naming the canonical id of
-/// the existing record. The (account, chatId) uniqueness invariant
-/// (position.rs module-doc) is enforced by the handler so a retried
-/// client call doesn't produce two ReadPosition rows (bd:JMAP-x2gd.13).
+/// never produce two ReadPosition rows (bd:JMAP-x2gd.13).
+///
+/// draft-atwood-jmap-chat-00 §ReadPosition/set: "`create` and `destroy`
+/// are not supported; both MUST return a SetError of type `forbidden`."
+/// so both creates are rejected and nothing is stored.
 #[tokio::test]
 async fn position_set_create_duplicate_chat_id_sequential_rejected() {
     let backend = MemoryBackend::new();
@@ -5466,10 +5468,7 @@ async fn position_set_create_duplicate_chat_id_sequential_rejected() {
     )
     .await
     .expect("first create");
-    let canonical_id = first["created"]["rp0"]["id"]
-        .as_str()
-        .expect("first id")
-        .to_owned();
+    assert_eq!(first["notCreated"]["rp0"]["type"], "forbidden");
 
     let (second, _) = handle_position_set(
         &backend,
@@ -5483,17 +5482,20 @@ async fn position_set_create_duplicate_chat_id_sequential_rejected() {
     .expect("second create");
 
     assert!(second["notCreated"]["rp1"].is_object());
-    assert_eq!(second["notCreated"]["rp1"]["type"], "alreadyExists");
-    assert_eq!(
-        second["notCreated"]["rp1"]["existingId"], canonical_id,
-        "expected the existingId to name the canonical pre-existing ReadPosition"
-    );
+    assert_eq!(second["notCreated"]["rp1"]["type"], "forbidden");
     assert!(second["created"].as_object().is_none_or(|m| m.is_empty()));
+    let (get, _) = handle_position_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+        .await
+        .expect("get");
+    assert_eq!(get["list"].as_array().expect("list").len(), 0);
 }
 
-/// Oracle: Two creates for the same chatId in a single /set batch reject
-/// the second with `alreadyExists`, naming the id of the one that did
-/// succeed. Mirrors Chat/set Direct intra-batch dedup at chat.rs.
+/// Oracle: Two creates for the same chatId in a single /set batch never
+/// produce two ReadPosition rows.
+///
+/// draft-atwood-jmap-chat-00 §ReadPosition/set: "`create` and `destroy`
+/// are not supported; both MUST return a SetError of type `forbidden`."
+/// so both creates are rejected.
 #[tokio::test]
 async fn position_set_create_duplicate_chat_id_intra_batch_rejected() {
     let backend = MemoryBackend::new();
@@ -5511,32 +5513,13 @@ async fn position_set_create_duplicate_chat_id_intra_batch_rejected() {
     .await
     .expect("handle_position_set");
 
-    // Exactly one of rp0/rp1 should be in `created`; the other should be
-    // in `notCreated` with alreadyExists pointing at the winner's id.
     let created_keys: Vec<&str> = resp["created"]
         .as_object()
         .map(|m| m.keys().map(String::as_str).collect())
         .unwrap_or_default();
-    let not_created_keys: Vec<&str> = resp["notCreated"]
-        .as_object()
-        .map(|m| m.keys().map(String::as_str).collect())
-        .unwrap_or_default();
-    assert_eq!(created_keys.len(), 1, "exactly one create should succeed");
-    assert_eq!(
-        not_created_keys.len(),
-        1,
-        "exactly one create should be rejected"
-    );
-
-    let winner = created_keys[0];
-    let loser = not_created_keys[0];
-    assert_ne!(winner, loser);
-    let canonical_id = resp["created"][winner]["id"]
-        .as_str()
-        .expect("winner id")
-        .to_owned();
-    assert_eq!(resp["notCreated"][loser]["type"], "alreadyExists");
-    assert_eq!(resp["notCreated"][loser]["existingId"], canonical_id);
+    assert_eq!(created_keys.len(), 0, "no create may succeed");
+    assert_eq!(resp["notCreated"]["rp0"]["type"], "forbidden");
+    assert_eq!(resp["notCreated"]["rp1"]["type"], "forbidden");
 }
 
 /// Oracle: ReadPosition/set update of chatId is rejected (immutable).
@@ -5544,14 +5527,15 @@ async fn position_set_create_duplicate_chat_id_intra_batch_rejected() {
 async fn position_set_update_chat_id_rejected() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_position_set(
-        &backend,
-        &(),
-        json!({ "accountId": ACCOUNT_ID, "create": { "rp0": { "chatId": "c1" } } }),
-    )
-    .await
-    .expect("create");
-    let rp_id = create_resp["created"]["rp0"]["id"].as_str().expect("id");
+    // Seeded directly: §ReadPosition/set "`create` and `destroy` are not
+    // supported; both MUST return a SetError of type `forbidden`."
+    let rp_id = "rp0";
+    backend.insert_object_for_test(
+        "ReadPosition",
+        ACCOUNT_ID,
+        rp_id,
+        json!({ "id": rp_id, "chatId": "c1" }),
+    );
 
     let (resp, _) = handle_position_set(
         &backend,
@@ -5573,17 +5557,15 @@ async fn position_set_update_chat_id_rejected() {
 async fn position_get_returns_created() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_position_set(
-        &backend,
-        &(),
-        json!({ "accountId": ACCOUNT_ID, "create": { "rp0": { "chatId": "c99" } } }),
-    )
-    .await
-    .expect("create");
-    let rp_id = create_resp["created"]["rp0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    // Seeded directly: §ReadPosition/set "`create` and `destroy` are not
+    // supported; both MUST return a SetError of type `forbidden`."
+    let rp_id = "rp0".to_owned();
+    backend.insert_object_for_test(
+        "ReadPosition",
+        ACCOUNT_ID,
+        &rp_id,
+        json!({ "id": rp_id, "chatId": "c99" }),
+    );
 
     let (get_resp, _) = handle_position_get(
         &backend,

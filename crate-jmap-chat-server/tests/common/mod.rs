@@ -793,6 +793,8 @@ pub const INJECTABLE_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3
 ///
 /// # Supported injection targets
 ///
+/// - `(O::TYPE_NAME, "create")` — fails the next
+///   [`ChatBackend::create_object`] call for type `O`.
 /// - `(O::TYPE_NAME, "destroy")` — fails the next
 ///   [`ChatBackend::destroy_object`] call for type `O`.
 /// - `("Message", "expire")` — fails the next
@@ -980,6 +982,11 @@ impl ChatBackend for InjectableBackend {
         create_id: &str,
         obj: O,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        if self.take_fault(O::TYPE_NAME, "create") {
+            return Err(BackendSetError::Other(MemoryError::new(format!(
+                "injected create error {INJECTABLE_BACKEND_CANARY}"
+            ))));
+        }
         let result = self
             .inner
             .create_object::<O>(caller, account_id, create_id, obj)
