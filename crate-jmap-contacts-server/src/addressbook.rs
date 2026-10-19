@@ -614,7 +614,7 @@ async fn cascade_address_book_contents<B: ContactsBackend>(
     let mut filter = ContactCardFilterCondition::default();
     filter.in_address_book = Some(book_id.clone());
     let query_result = backend
-        .query_objects::<ContactCard>(caller, account_id, Some(&filter), None, None, 0)
+        .query_objects::<ContactCard>(caller, account_id, Some(&filter), None, None, 0, None, 0)
         .await
         .map_err(|e| {
             json!({

@@ -66,7 +66,7 @@ use crate::{
     JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
     SetObject, TasksBackend,
 };
-use jmap_server::{apply_patch_object, resolve_query_offset};
+use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -588,6 +588,8 @@ impl JmapBackend for MemoryBackend {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
+        anchor: Option<&Id>,
+        anchor_offset: i64,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         // Fail loud on any non-trivial filter. A `None` or all-fields-None
         // filter passes (matches everything); any populated field rejects.
@@ -649,8 +651,9 @@ impl JmapBackend for MemoryBackend {
                 .as_str(),
         );
 
-        // bd:JMAP-qz9v.48 — centralized in jmap_server::resolve_query_offset.
-        let start = resolve_query_offset(position, ids.len());
+        // RFC 8620 §5.5 position / anchor / anchorOffset.
+        let start = resolve_query_start(&ids, position, anchor, anchor_offset)
+            .map_err(BackendQueryError::Method)?;
 
         ids = ids[start..]
             .iter()

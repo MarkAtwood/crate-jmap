@@ -59,7 +59,7 @@ use crate::{
     SetErrorType, SetObject,
 };
 use jmap_filenode_types::{FileNode, NodeRole, NodeType};
-use jmap_server::apply_patch_object;
+use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -495,7 +495,9 @@ impl JmapBackend for MemoryBackend {
         filter: Option<&O::Filter>,
         _sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
-        _position: i64,
+        position: i64,
+        anchor: Option<&Id>,
+        anchor_offset: i64,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         let guard = self.inner.lock().unwrap();
         let store = match guard.get_or_err(account_id) {
@@ -540,12 +542,23 @@ impl JmapBackend for MemoryBackend {
         // Sort by id string for determinism in tests.
         ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
 
-        if let Some(lim) = limit {
-            ids.truncate(lim as usize);
-        }
         let total = ids.len() as u64;
+        // RFC 8620 §5.5 position / anchor / anchorOffset.
+        let start = resolve_query_start(&ids, position, anchor, anchor_offset)
+            .map_err(BackendQueryError::Method)?;
+        let ids: Vec<Id> = ids[start..]
+            .iter()
+            .take(limit.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize))
+            .cloned()
+            .collect();
 
-        Ok(QueryResult::new(ids, 0, Some(total), current_state, false))
+        Ok(QueryResult::new(
+            ids,
+            start as u64,
+            Some(total),
+            current_state,
+            false,
+        ))
     }
 
     async fn query_changes<O: QueryObject + Send + Sync>(

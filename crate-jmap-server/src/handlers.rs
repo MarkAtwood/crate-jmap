@@ -27,7 +27,9 @@ use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
 use crate::backend::{GetObject, JmapBackend, JmapObject, QueryObject};
-use crate::helpers::{extract_account_id, not_found_json, optional_arg, serialize_value};
+use crate::helpers::{
+    extract_account_id, not_found_json, optional_arg, query_anchor_args, serialize_value,
+};
 
 /// Static description used for every `serverFail` invocation that wraps a
 /// [`JmapBackend::Error`] (bd:JMAP-wlip.2).
@@ -260,8 +262,9 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
 
 /// Generic `*/query` handler (RFC 8620 §5.5).
 ///
-/// Parses filter and sort from args as `O::Filter` and `O::Comparator`, then
-/// delegates to [`JmapBackend::query_objects`]. A
+/// Parses filter and sort from args as `O::Filter` and `O::Comparator`, and
+/// `anchor`/`anchorOffset` via [`query_anchor_args`], then delegates to
+/// [`JmapBackend::query_objects`]. A
 /// [`BackendQueryError::Method`](crate::backend::BackendQueryError::Method)
 /// is returned to the client unchanged; any other backend error becomes the
 /// redacted `serverFail`.
@@ -303,6 +306,8 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
         })?,
     };
 
+    let (anchor, anchor_offset) = query_anchor_args(&args)?;
+
     let filter: Option<O::Filter> =
         optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
 
@@ -318,6 +323,8 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
             sort.as_deref(),
             limit,
             position,
+            anchor.as_ref(),
+            anchor_offset,
         )
         .await
         .map_err(JmapError::from)?;
@@ -654,6 +661,8 @@ mod tests {
             _sort: Option<&[O::Comparator]>,
             _limit: Option<u64>,
             _position: i64,
+            _anchor: Option<&Id>,
+            _anchor_offset: i64,
         ) -> Result<crate::backend::QueryResult, BackendQueryError<Self::Error>> {
             Err(match &self.0 {
                 QueryFailure::Method(e) => BackendQueryError::Method(e.clone()),

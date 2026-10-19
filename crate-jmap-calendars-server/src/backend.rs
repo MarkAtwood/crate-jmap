@@ -543,7 +543,7 @@ pub trait CalendarsBackend: JmapBackend {
         let _ = args;
         async move {
             self.query_objects::<jmap_calendars_types::CalendarEvent>(
-                caller, account_id, filter, sort, limit, position,
+                caller, account_id, filter, sort, limit, position, None, 0,
             )
             .await
             .map_err(|e| match e {

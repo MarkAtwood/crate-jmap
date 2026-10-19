@@ -856,6 +856,8 @@ pub async fn handle_email_query<B: MailBackend>(
                         sort_slice,
                         Some(0),
                         0,
+                        None,
+                        0,
                     )
                     .await
                     .map_err(JmapError::from)?;
@@ -882,6 +884,8 @@ pub async fn handle_email_query<B: MailBackend>(
                     filter.as_ref(),
                     sort_slice,
                     Some(collapse_cap as u64 + 1),
+                    0,
+                    None,
                     0,
                 )
                 .await
@@ -954,6 +958,8 @@ pub async fn handle_email_query<B: MailBackend>(
                     sort_slice,
                     Some(effective_limit),
                     position,
+                    None,
+                    0,
                 )
                 .await
                 .map_err(JmapError::from)?;

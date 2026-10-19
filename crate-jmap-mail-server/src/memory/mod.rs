@@ -87,7 +87,7 @@ use jmap_mail_types::{
     Email, EmailAddress, EmailFilterCondition, EmailHeader, Keyword, Mailbox,
     MailboxFilterCondition, SearchSnippet,
 };
-use jmap_server::{apply_patch_object, resolve_query_offset};
+use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State, UTCDate};
 use serde::Deserialize;
 
@@ -348,6 +348,7 @@ impl MemoryBackend {
     /// (rejecting unknown filter keys, unknown sort properties, `sortAsTree`,
     /// `filterAsTree`) before reaching this method, so the inputs here are
     /// trusted to be well-formed RFC 8621 §2.3 filter and comparator values.
+    #[allow(clippy::too_many_arguments)]
     async fn query_mailboxes(
         &self,
         account_id: &Id,
@@ -355,7 +356,9 @@ impl MemoryBackend {
         sort: &[(String, bool)],
         limit: Option<u64>,
         position: i64,
-    ) -> Result<QueryResult, MemoryError> {
+        anchor: Option<&Id>,
+        anchor_offset: i64,
+    ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
         // Pre-extract the wire-format role string from the filter to avoid
         // repeated `to_wire_str()` calls inside the per-mailbox loop.
         let filter_role_wire: Option<&str> = filter.and_then(|f| f.role.as_deref());
@@ -400,11 +403,9 @@ impl MemoryBackend {
 
         let all_ids: Vec<Id> = matching.into_iter().map(|m| m.id).collect();
         let total = all_ids.len();
-        // bd:JMAP-qz9v.48 — centralized in jmap_server::resolve_query_offset
-        // to avoid the `as usize` cast pattern that truncates on 32-bit
-        // and to handle the `i64::MIN.saturating_neg() = i64::MAX` edge
-        // case uniformly.
-        let start = resolve_query_offset(position, total);
+        // RFC 8620 §5.5 position / anchor / anchorOffset.
+        let start = resolve_query_start(&all_ids, position, anchor, anchor_offset)
+            .map_err(BackendQueryError::Method)?;
         let ids: Vec<Id> = all_ids[start..]
             .iter()
             .take(limit.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize))
@@ -729,6 +730,8 @@ impl JmapBackend for MemoryBackend {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
+        anchor: Option<&Id>,
+        anchor_offset: i64,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         // Collect and sort IDs outside the lock for deterministic ordering.
         // For Email and EmailSubmission objects, apply filter conditions in-process
@@ -793,9 +796,10 @@ impl JmapBackend for MemoryBackend {
                     &mailbox_sort,
                     limit,
                     position,
+                    anchor,
+                    anchor_offset,
                 )
-                .await
-                .map_err(BackendQueryError::Other);
+                .await;
         }
 
         // Type-identity roundtrip: when O::TYPE_NAME == "Email" the generic
@@ -996,10 +1000,9 @@ impl JmapBackend for MemoryBackend {
         let all_ids: Vec<Id> = id_date_pairs.into_iter().map(|(id, _)| id).collect();
 
         let total = all_ids.len();
-        // bd:JMAP-qz9v.48 — centralized in jmap_server::resolve_query_offset.
-        // Replaces the strictly-worse `(-position) as usize` idiom that
-        // panicked on `i64::MIN` in debug and wrapped in release.
-        let start = resolve_query_offset(position, total);
+        // RFC 8620 §5.5 position / anchor / anchorOffset.
+        let start = resolve_query_start(&all_ids, position, anchor, anchor_offset)
+            .map_err(BackendQueryError::Method)?;
 
         let ids: Vec<Id> = all_ids[start..]
             .iter()
@@ -1047,7 +1050,7 @@ impl JmapBackend for MemoryBackend {
 
         // Step 3: Get the current filtered+sorted result list (no pagination).
         let query_result = self
-            .query_objects::<O>(_caller, account_id, filter, sort, None, 0)
+            .query_objects::<O>(_caller, account_id, filter, sort, None, 0, None, 0)
             .await
             .map_err(|e| match e {
                 // Changes to a query the server cannot run cannot be

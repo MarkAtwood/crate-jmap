@@ -538,10 +538,21 @@ async fn search_snippet_get_capability_gated() {
             sort: Option<&[O::Comparator]>,
             limit: Option<u64>,
             position: i64,
+            anchor: Option<&Id>,
+            anchor_offset: i64,
         ) -> Result<jmap_mail_server::QueryResult, jmap_mail_server::BackendQueryError<Self::Error>>
         {
             self.0
-                .query_objects::<O>(&(), account_id, filter, sort, limit, position)
+                .query_objects::<O>(
+                    &(),
+                    account_id,
+                    filter,
+                    sort,
+                    limit,
+                    position,
+                    anchor,
+                    anchor_offset,
+                )
                 .await
         }
 
@@ -9307,7 +9318,7 @@ async fn memory_backend_query_objects_mailbox_honors_filter_directly() {
         serde_json::from_value(serde_json::json!({"parentId": null}))
             .expect("MailboxFilterCondition must deserialize");
     let result = backend
-        .query_objects::<Mailbox>(&(), &account_id, Some(&filter), None, None, 0)
+        .query_objects::<Mailbox>(&(), &account_id, Some(&filter), None, None, 0, None, 0)
         .await
         .expect("query_objects::<Mailbox> must not fail");
 
@@ -9339,7 +9350,7 @@ async fn memory_backend_query_objects_mailbox_honors_sort_directly() {
 
     let sort = [serde_json::json!({"property": "name", "isAscending": true})];
     let result = backend
-        .query_objects::<Mailbox>(&(), &account_id, None, Some(&sort), None, 0)
+        .query_objects::<Mailbox>(&(), &account_id, None, Some(&sort), None, 0, None, 0)
         .await
         .expect("query_objects::<Mailbox> sort must not fail");
 

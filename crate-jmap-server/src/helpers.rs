@@ -775,6 +775,67 @@ pub fn resolve_query_offset(position: i64, total: usize) -> usize {
     }
 }
 
+/// Parse the RFC 8620 §5.5 `/query` arguments `anchor` (`Id|null`) and
+/// `anchorOffset` (`Int`, default `0`) from `args`.
+///
+/// # Errors
+///
+/// `invalidArguments` when `anchor` is neither a string nor `null`, or
+/// `anchorOffset` is neither an integer nor `null`.
+pub fn query_anchor_args(args: &Map<String, Value>) -> Result<(Option<Id>, i64), JmapError> {
+    let anchor = match args.get("anchor") {
+        None | Some(Value::Null) => None,
+        // Id::from: wire-boundary validation deferred to JMAP-k9va; a
+        // malformed id is never in the results, so it is anchorNotFound.
+        Some(Value::String(s)) => Some(Id::from(s.as_str())),
+        Some(v) => {
+            return Err(JmapError::invalid_arguments(format!(
+                "anchor: expected an Id string or null, got {v}"
+            )))
+        }
+    };
+    let anchor_offset = match args.get("anchorOffset") {
+        None | Some(Value::Null) => 0,
+        Some(v) => v.as_i64().ok_or_else(|| {
+            JmapError::invalid_arguments(format!("anchorOffset: expected an integer, got {v}"))
+        })?,
+    };
+    Ok((anchor, anchor_offset))
+}
+
+/// Start index of a `/query` page within the filtered, sorted `ids`
+/// (RFC 8620 §5.5), for [`JmapBackend::query_objects`] implementations.
+///
+/// With an `anchor`, `position` is ignored and the start is the
+/// anchor's index plus `anchor_offset`, clamped to `0..=ids.len()`.
+/// Without one, `anchor_offset` is ignored and the start is
+/// [`resolve_query_offset`]`(position, ids.len())`.
+///
+/// # Errors
+///
+/// [`JmapError::anchor_not_found`] when `anchor` is not in `ids`.
+///
+/// [`JmapBackend::query_objects`]: crate::JmapBackend::query_objects
+pub fn resolve_query_start(
+    ids: &[Id],
+    position: i64,
+    anchor: Option<&Id>,
+    anchor_offset: i64,
+) -> Result<usize, JmapError> {
+    let Some(anchor) = anchor else {
+        return Ok(resolve_query_offset(position, ids.len()));
+    };
+    let index = ids
+        .iter()
+        .position(|id| id == anchor)
+        .ok_or_else(JmapError::anchor_not_found)?;
+    let start = i64::try_from(index)
+        .unwrap_or(i64::MAX)
+        .saturating_add(anchor_offset)
+        .max(0);
+    Ok(resolve_query_offset(start, ids.len()))
+}
+
 /// Enforce RFC 8620 §5.3 `maxObjectsInSet` cap at the top of a `/set`
 /// handler (bd:JMAP-ayoz.41.1).
 ///
@@ -864,7 +925,7 @@ mod tests {
     use super::{
         apply_jmap_patch, apply_patch_object, civil_from_days, enforce_max_objects_in_set,
         extract_account_id, json_merge_patch, now_utc_string, resolve_query_offset,
-        MergePatchError, PatchPathError, MAX_MERGE_PATCH_DEPTH,
+        resolve_query_start, MergePatchError, PatchPathError, MAX_MERGE_PATCH_DEPTH,
     };
     use serde_json::json;
 
@@ -1746,5 +1807,30 @@ mod tests {
                 );
             }
         }
+    }
+    /// Oracle: RFC 8620 §5.5 (https://www.rfc-editor.org/rfc/rfc8620.txt):
+    /// "If found, the "anchorOffset" is then added to its index.  If the
+    /// resulting index is now negative, it is clamped to 0. ... If the
+    /// anchor is not found, the call is rejected with an "anchorNotFound"
+    /// error.  If an "anchor" is specified, any position argument supplied
+    /// by the client MUST be ignored.  If no "anchor" is supplied, any
+    /// "anchorOffset" argument MUST be ignored."
+    ///
+    /// `ids` is `[a, b, c, d]`, so anchor `c` is index 2.
+    #[test]
+    fn resolve_query_start_follows_rfc8620_anchor_rules() {
+        let ids: Vec<jmap_types::Id> = ["a", "b", "c", "d"].map(jmap_types::Id::from).to_vec();
+        let c = jmap_types::Id::from("c");
+        let start = |position, anchor, offset| resolve_query_start(&ids, position, anchor, offset);
+        assert_eq!(start(0, Some(&c), 1), Ok(3));
+        assert_eq!(start(0, Some(&c), -1), Ok(1));
+        assert_eq!(start(0, Some(&c), -5), Ok(0));
+        assert_eq!(start(3, Some(&c), 0), Ok(2));
+        assert_eq!(start(1, None, 2), Ok(1));
+        let missing = jmap_types::Id::from("z");
+        assert_eq!(
+            start(0, Some(&missing), 0).map_err(|e| e.error_type),
+            Err("anchorNotFound".to_owned())
+        );
     }
 }

@@ -308,7 +308,16 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     //                       full-fetch on every page.
     let (start, page, total): (usize, Vec<String>, u64) = if let Some(anchor_id) = anchor.as_ref() {
         let full = backend
-            .query_objects::<Mailbox>(caller, &account_id, filter.as_ref(), sort_slice, None, 0)
+            .query_objects::<Mailbox>(
+                caller,
+                &account_id,
+                filter.as_ref(),
+                sort_slice,
+                None,
+                0,
+                None,
+                0,
+            )
             .await
             .map_err(JmapError::from)?;
         query_state_str = full.query_state.as_ref().to_owned();
@@ -337,6 +346,8 @@ pub async fn handle_mailbox_query<B: MailBackend>(
                 sort_slice,
                 limit,
                 position,
+                None,
+                0,
             )
             .await
             .map_err(JmapError::from)?;
@@ -1011,6 +1022,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     &account_id,
                     Some(&EmailFilter::Condition(email_filter)),
                     None,
+                    None,
+                    0,
                     None,
                     0,
                 )

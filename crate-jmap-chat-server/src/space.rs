@@ -43,7 +43,7 @@ use crate::helpers::{
     iso8601_before, not_found_json, now_utc_string, serialize_value, set_error_value,
     SetAccumulators,
 };
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{query_anchor_args, server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
 // Space/set structural-mutation parsing
@@ -671,6 +671,8 @@ pub async fn handle_space_query<B: ChatBackend>(
         })?,
     };
 
+    let (anchor, anchor_offset) = query_anchor_args(&args)?;
+
     let filter: Option<serde_json::Value> = match args.remove("filter") {
         None | Some(Value::Null) => None,
         Some(v) => Some(v),
@@ -692,6 +694,8 @@ pub async fn handle_space_query<B: ChatBackend>(
             sort.as_deref(),
             limit,
             position,
+            anchor.as_ref(),
+            anchor_offset,
         )
         .await
         .map_err(JmapError::from)?;
