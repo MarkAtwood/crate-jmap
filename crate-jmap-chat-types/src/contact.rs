@@ -97,6 +97,10 @@ pub struct ChatContact {
     /// `identity`.
     pub identity: String,
     /// The `login` property (draft-atwood-jmap-chat-00 §4.8).
+    ///
+    /// Clients fall back to `login` when `display_name` is absent or
+    /// empty, and to [`identity`](Self::identity) when `login` is
+    /// unavailable; never to `id`, which is a server-local handle.
     pub login: String,
     /// The `firstSeenAt` property (draft-atwood-jmap-chat-00 §4.8).
     pub first_seen_at: UTCDate,
@@ -106,6 +110,9 @@ pub struct ChatContact {
     #[serde(default)]
     pub blocked: bool,
     /// The `displayName` property (draft-atwood-jmap-chat-00 §4.8).
+    ///
+    /// When absent or empty, clients fall back to `login`, then
+    /// [`identity`](Self::identity).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     /// The `presence` property (draft-atwood-jmap-chat-00 §4.8).
