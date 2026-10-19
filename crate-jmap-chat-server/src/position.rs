@@ -1,20 +1,10 @@
 //! ReadPosition/* method handlers (draft-atwood-jmap-chat-00 §ReadPosition).
 //!
 //! ReadPosition tracks how far a user has read in a given Chat. There is at
-//! most one ReadPosition per (account, chat) pair. Create and destroy are
-//! supported (unlike singletons), but each chat's read position is unique.
-//!
-//! # Uniqueness contract
-//!
-//! The handler in this module pre-checks the (account, chatId) uniqueness
-//! invariant on every create — see the create branch of
-//! [`handle_position_set`] — and rejects sequential and intra-batch
-//! duplicates with `alreadyExists`. The pre-check is defense-in-depth only:
-//! two concurrent `ReadPosition/set` requests for the same chatId can both
-//! pass the pre-check, so backends MUST enforce the uniqueness constraint
-//! atomically with the create. See the "Per-type uniqueness contracts"
-//! section on [`crate::backend::ChatBackend::create_object`] for the full
-//! contract.
+//! most one ReadPosition per (account, chat) pair. The records are managed
+//! by the server: `ReadPosition/set` supports only `update`; `create` and
+//! `destroy` return `forbidden`. The record itself is created on first
+//! message delivery by [`crate::message::handle_message_set`].
 //!
 //! # Wire-shape contract
 //!
@@ -33,8 +23,8 @@
 //! Each handler returns `Err(JmapError)` for method-level failures
 //! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
 //! `cannotCalculateChanges` — per RFC 8620 §3.6 and §5). Per-target
-//! failures inside `/set` (including the uniqueness `alreadyExists`
-//! rejection) surface in the `notCreated` / `notUpdated` / `notDestroyed`
+//! failures inside `/set` (including the `forbidden` create/destroy
+//! rejections) surface in the `notCreated` / `notUpdated` / `notDestroyed`
 //! maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_chat_types::ReadPosition;
@@ -166,7 +156,7 @@ pub async fn handle_position_changes<B: ChatBackend>(
 /// maps).
 ///
 /// Validation enforced here (not in the backend):
-/// - `chatId` is required on create.
+/// - `create` and `destroy` are rejected with `forbidden`.
 /// - `id` and `chatId` are server-set/immutable and rejected in updates.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
@@ -192,137 +182,24 @@ pub async fn handle_position_set<B: ChatBackend>(
         }
     }
 
-    let mut created = serde_json::Map::new();
+    let created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
     let mut updated = serde_json::Map::new();
     let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
+    let destroyed_list: Vec<Value> = Vec::new();
     let mut not_destroyed = serde_json::Map::new();
     let mut mutated = false;
 
     // -----------------------------------------------------------------------
     // create
     // -----------------------------------------------------------------------
+    // §ReadPosition/set: "`create` and `destroy` are not supported; both
+    // MUST return a SetError of type `forbidden`. ReadPosition records are
+    // managed by the server." The server creates them on first message
+    // delivery (see `crate::message::handle_message_set`).
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
-        // The (account, chatId) -> ReadPosition uniqueness invariant (this
-        // module's top-level doc) is enforced here in the handler. Without
-        // this check, a client calling ReadPosition/set create twice for
-        // the same chatId — common on retry paths — would produce two
-        // ReadPosition records, leaving Chat.unreadCount derivation
-        // (draft-atwood-jmap-chat-00 §Chat) ambiguous. The hoisted fetch
-        // is paid only when the batch contains at least one create, and
-        // the in-batch HashMap covers multiple creates that target the
-        // same chatId in a single request. Production backends still need
-        // to re-verify atomically on the create_object call to defend
-        // against concurrent /set requests racing the pre-check.
-        let mut existing_positions: Vec<ReadPosition> = Vec::new();
-        if !create_map.is_empty() {
-            let (positions, _) = backend
-                .get_objects::<ReadPosition>(caller, &account_id, None, None)
-                .await
-                .map_err(|e| server_fail_from_backend(&e))?;
-            existing_positions = positions;
-        }
-        let mut batch_chat_ids: std::collections::HashMap<String, Id> =
-            std::collections::HashMap::new();
-
-        for (create_id, obj_val) in create_map {
-            let Some(chat_id_str) = obj_val.get("chatId").and_then(|v| v.as_str()) else {
-                not_created.insert(
-                    create_id.clone(),
-                    json!({ "type": "invalidProperties", "properties": ["chatId"] }),
-                );
-                continue;
-            };
-            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-            let chat_id = Id::from(chat_id_str);
-
-            // Reject if a ReadPosition already exists for this chatId
-            // (either pre-existing or created earlier in this batch). Per
-            // the Chat/set Direct dedup pattern, return alreadyExists with
-            // the canonical id so the caller can re-target the existing
-            // record via ReadPosition/set update.
-            if let Some(dup) = existing_positions
-                .iter()
-                .find(|p| p.chat_id.as_ref() == chat_id.as_ref())
-            {
-                not_created.insert(
-                    create_id.clone(),
-                    serde_json::to_value(
-                        SetError::new(SetErrorType::AlreadyExists).with_existing_id(dup.id.clone()),
-                    )
-                    .expect("derive(Serialize) on plain data is infallible"),
-                );
-                continue;
-            }
-            if let Some(prior_id) = batch_chat_ids.get(chat_id.as_ref()) {
-                not_created.insert(
-                    create_id.clone(),
-                    serde_json::to_value(
-                        SetError::new(SetErrorType::AlreadyExists)
-                            .with_existing_id(prior_id.clone()),
-                    )
-                    .expect("derive(Serialize) on plain data is infallible"),
-                );
-                continue;
-            }
-
-            let mut position = ReadPosition::new(Id::from("placeholder"), chat_id.clone());
-
-            if let Some(msg_id) = obj_val.get("lastReadMessageId").and_then(|v| v.as_str()) {
-                position.last_read_message_id = Some(Id::from(msg_id));
-            }
-            // lastReadAt is a UTCDate per RFC 8620 §1.4 (20-char
-            // YYYY-MM-DDTHH:MM:SSZ). Validate the wire shape via
-            // UTCDate::new_validated; a malformed value produces
-            // invalidProperties rather than silently flowing through
-            // to storage with undefined comparison ordering.
-            if let Some(at) = obj_val.get("lastReadAt").and_then(|v| v.as_str()) {
-                let Ok(d) = jmap_types::UTCDate::new_validated(at) else {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({
-                            "type": "invalidProperties",
-                            "properties": ["lastReadAt"],
-                        }),
-                    );
-                    continue;
-                };
-                position.last_read_at = Some(d);
-            }
-
-            match backend
-                .create_object::<ReadPosition>(caller, &account_id, create_id, position)
-                .await
-            {
-                Ok((server_id, created_obj)) => {
-                    mutated = true;
-                    // Record the just-assigned id so later iterations in
-                    // this same batch can detect duplicates targeting the
-                    // same chatId.
-                    batch_chat_ids.insert(chat_id.as_ref().to_owned(), server_id);
-                    created.insert(
-                        create_id.clone(),
-                        serde_json::to_value(&created_obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
-                }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(create_id.clone(), set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
-                }
-            }
+        for create_id in create_map.keys() {
+            not_created.insert(create_id.clone(), forbidden_server_managed());
         }
     }
 
@@ -412,32 +289,7 @@ pub async fn handle_position_set<B: ChatBackend>(
             let Some(id_str) = id_val.as_str() else {
                 continue; // unreachable: validated above
             };
-            let id = Id::from(id_str);
-
-            match backend
-                .destroy_object::<ReadPosition>(caller, &account_id, &id)
-                .await
-            {
-                Ok(()) => {
-                    mutated = true;
-                    destroyed_list.push(Value::String(id_str.to_owned()));
-                }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
-                }
-                Err(_) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
-                }
-            }
+            not_destroyed.insert(id_str.to_owned(), forbidden_server_managed());
         }
     }
 
@@ -457,4 +309,13 @@ pub async fn handle_position_set<B: ChatBackend>(
         },
     )
     .await
+}
+
+/// The `forbidden` SetError for a client `create` or `destroy` of a
+/// server-managed ReadPosition (draft-atwood-jmap-chat-00 §ReadPosition/set).
+fn forbidden_server_managed() -> Value {
+    set_error_value(
+        &SetError::new(SetErrorType::Forbidden)
+            .with_description("ReadPosition records are managed by the server"),
+    )
 }

@@ -414,12 +414,13 @@ pub trait ChatBackend: JmapBackend {
     /// two-concurrent-requests race window.
     ///
     /// - **`ReadPosition`** — at most one record per
-    ///   `(account_id, chat_id)`. The handler at
-    ///   [`crate::position::handle_position_set`] pre-checks via a
-    ///   sequential scan and rejects sequential / intra-batch
-    ///   duplicates with `alreadyExists`, but two concurrent
-    ///   `ReadPosition/set` requests for the same `chatId` can both
-    ///   pass the pre-check and then both reach `create_object`. The
+    ///   `(account_id, chat_id)`. Clients cannot create one
+    ///   (`ReadPosition/set` create is `forbidden`); the server creates
+    ///   it on first message delivery in
+    ///   [`crate::message::handle_message_set`], which pre-checks via a
+    ///   sequential scan, but two concurrent `Message/set` requests for
+    ///   the same `chatId` can both pass the pre-check and then both
+    ///   reach `create_object`. The
     ///   backend MUST enforce a unique constraint on
     ///   `(account_id, chat_id)` at the storage layer (typically a
     ///   composite unique index in a database backend) and surface a
