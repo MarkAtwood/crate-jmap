@@ -296,6 +296,52 @@ async fn last_admin_leave_closes_group() {
     );
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 §Chat/typing `chatId` — "The server
+/// MUST return an `invalidArguments` method error if `chatId` does not
+/// exist or the account is not a participant in that Chat, and MUST NOT
+/// distinguish the two cases."
+#[tokio::test]
+async fn chat_typing_unknown_or_left_chat_is_invalid_arguments() {
+    let (_jig, client, session) = connect().await;
+    let sc = client.with_chat_session(session);
+    let group_id = create_group(&sc, "g1", "Team").await;
+    sc.chat_typing(&group_id, true)
+        .await
+        .expect("a member may signal typing");
+
+    let got = sc
+        .chat_get(Some(std::slice::from_ref(&group_id)), None)
+        .await
+        .expect("Chat/get");
+    let me = [got.account_id];
+    let mut patch = ChatPatch::default();
+    patch.remove_members = Some(&me);
+    let resp = sc.chat_update(&group_id, &patch).await.expect("leave");
+    assert!(
+        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
+        "leave rejected: {resp:?}"
+    );
+
+    let mut errors = Vec::new();
+    for chat_id in [Id::from("nosuchchat"), group_id] {
+        match sc.chat_typing(&chat_id, true).await {
+            Err(ClientError::MethodError {
+                error_type,
+                description,
+                ..
+            }) => {
+                assert_eq!(error_type, "invalidArguments", "{chat_id}");
+                errors.push(description);
+            }
+            other => panic!("expected invalidArguments method error, got {other:?}"),
+        }
+    }
+    assert_eq!(
+        errors[0], errors[1],
+        "the two cases must be indistinguishable"
+    );
+}
+
 /// Oracle: draft-atwood-jmap-chat-00 §Message/set — create takes `chatId`,
 /// `body`, `bodyType`, `sentAt` and optionally `replyTo`, `senderExpiresAt`,
 /// `burnOnRead`; "The server sets `id`, `senderMsgId`, `senderId`,
