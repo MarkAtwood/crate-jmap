@@ -1042,6 +1042,10 @@ pub async fn handle_space_set<B: ChatBackend>(
             // permission at the highest UnsignedInt position. Role ids are
             // scoped to their Space, so the fixed id cannot collide with a
             // role in another Space.
+            // ponytail: one fixed bootstrap policy for every backend, though
+            // the draft calls it server-defined. If a consumer needs another
+            // policy, add a ChatBackend hook returning the bootstrap role,
+            // defaulting to this one.
             let admin_role: SpaceRole = serde_json::from_value(json!({
                 "id": BOOTSTRAP_ADMIN_ROLE_ID,
                 "name": "Admin",
