@@ -7,19 +7,20 @@
 //! subscription it returns from `list_push_subscriptions`, builds
 //! notifications with [`chat_state_change_for`], and builds the
 //! `ChatMessagePush` for each new inbound message with
-//! [`build_chat_message_push`].
+//! [`build_chat_message_push`] after [`should_push`] allows it.
 
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use jmap_chat_types::{
     BodyType, Chat, ChatContact, ChatKind, ChatMessageEntry, ChatMessagePush, ChatPushCapability,
     ChatPushConfig, Message, Space, SpaceMember, UrgencyLevel,
 };
 use jmap_server::state_change_for;
-use jmap_types::{Id, PushSubscription, State, StateChange};
+use jmap_types::{Id, PushSubscription, State, StateChange, UTCDate};
 use serde_json::{Map, Value};
 
-use crate::{SetError, SetErrorType};
+use crate::{ChatBackend, SetError, SetErrorType};
 
 /// The `PushSubscription` property this extension adds.
 const CHAT_PUSH: &str = "chatPush";
@@ -273,9 +274,7 @@ pub fn build_chat_message_push(
     let msg = item.message;
     let kind = item.chat.kind.clone();
     let body_type = msg.body_type.as_str();
-    let plaintext = [BodyType::Plain, BodyType::Markdown, BodyType::Rich]
-        .iter()
-        .any(|t| t.as_str() == body_type);
+    let plaintext = is_plaintext(body_type);
 
     let mut mentioned = false;
     let mut entry = if plaintext {
@@ -350,6 +349,147 @@ pub fn build_chat_message_push(
         payload: ChatMessagePush::new(account_id.clone(), state, vec![entry]),
         urgency,
     }
+}
+
+/// Whether a `ChatMessagePush` for the new inbound message `msg` goes to
+/// a subscription whose `chatPush` entry for `account_id` is `cfg`.
+///
+/// `caps` maps each account that advertises
+/// `urn:ietf:params:jmap:chat:push` to its capability object; a `cfg` for
+/// an account not in `caps` counts as absent and gets `false`
+/// (draft-atwood-jmap-chat-push-00 §PushSubscription Extension). `owner`
+/// is the owner's standing at delivery time, as for
+/// [`build_chat_message_push`].
+///
+/// Returns `true` only when the Chat matches `cfg` and none of the
+/// §Delivery exclusions applies:
+///
+/// - `cfg.kinds` and `cfg.chatIds` both match when present. §ChatPushConfig:
+///   "If both `kinds` and `chatIds` are present, a Chat matches only if its
+///   id appears in `chatIds` and its kind appears in `kinds`."
+/// - The sender is not the owner: `senderId` is not `account_id`.
+/// - The owner is still a member of the Chat. The account must hold the
+///   Chat; for a group Chat its `members` must have an entry whose id is
+///   `account_id`, and for a channel Chat its Space's `members` must.
+/// - The Chat is not muted, unless the owner is targeted by one of the message's broadcast
+///   mentions. Direct mentions never bypass a mute, and neither does an
+///   encrypted message (§End-to-End Encrypted Deployments: "never bypasses
+///   mute suppression"). When `muteUntil` is set, the Chat is muted until
+///   that time whatever `muted` says, because draft-atwood-jmap-chat-00
+///   §Chat `muteUntil` says "Muting expires at this time" and clearing
+///   `muted` afterwards is only a SHOULD. Otherwise the Chat is muted when
+///   `muted` is `true`. A `muteUntil` that is not a seconds-precision
+///   UTCDate, or a system clock before 1970, counts as an active mute.
+/// - The sender's `ChatContact` is not blocked, per
+///   [`ChatBackend::is_contact_blocked`].
+///
+/// # Messages stored before the subscription
+///
+/// §Delivery: "The server MUST NOT deliver a `ChatMessagePush` in any of
+/// the following cases: The message was stored before the
+/// `PushSubscription` was created." This function cannot see creation
+/// order. The caller MUST read the set of subscriptions under the same lock
+/// or transaction as the message write, and call this function only for
+/// subscriptions in that set, including when delivery fans out
+/// asynchronously afterwards.
+///
+/// # Errors
+///
+/// Returns the backend's error if reading the Chat, its Space or the
+/// sender's blocked status fails.
+pub async fn should_push<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    cfg: &ChatPushConfig,
+    caps: &HashMap<Id, ChatPushCapability>,
+    msg: &Message,
+    owner: OwnerFlags,
+) -> Result<bool, B::Error> {
+    if !caps.contains_key(account_id) || msg.sender_id == *account_id {
+        return Ok(false);
+    }
+    if cfg
+        .chat_ids
+        .as_ref()
+        .is_some_and(|ids| !ids.contains(&msg.chat_id))
+    {
+        return Ok(false);
+    }
+    let (chats, _) = backend
+        .get_objects::<Chat>(
+            caller,
+            account_id,
+            Some(std::slice::from_ref(&msg.chat_id)),
+            None,
+        )
+        .await?;
+    let Some(chat) = chats.into_iter().next() else {
+        return Ok(false);
+    };
+    if cfg
+        .kinds
+        .as_ref()
+        .is_some_and(|kinds| !kinds.contains(&chat.kind))
+    {
+        return Ok(false);
+    }
+    let is_owner = |id: &Id| id == account_id;
+    let member = match chat.kind {
+        ChatKind::Group => chat.members.iter().flatten().any(|m| is_owner(&m.id)),
+        ChatKind::Channel => match &chat.space_id {
+            Some(space_id) => backend
+                .get_objects::<Space>(
+                    caller,
+                    account_id,
+                    Some(std::slice::from_ref(space_id)),
+                    None,
+                )
+                .await?
+                .0
+                .iter()
+                .any(|space| space.members.iter().any(|m| is_owner(&m.id))),
+            None => false,
+        },
+        _ => true,
+    };
+    if !member {
+        return Ok(false);
+    }
+    let bypass = is_plaintext(&msg.body_type) && !mention_scopes(msg, owner).is_empty();
+    let muted = match &chat.mute_until {
+        Some(until) => mute_active(until),
+        None => chat.muted,
+    };
+    if muted && !bypass {
+        return Ok(false);
+    }
+    Ok(!backend
+        .is_contact_blocked(caller, account_id, &msg.sender_id)
+        .await?)
+}
+
+/// Whether a mute ending at `until` is still in effect: `until` is later
+/// than now. draft-atwood-jmap-chat-00 §Chat `muteUntil`: "Muting expires
+/// at this time." An unparseable `until` or clock counts as in effect.
+fn mute_active(until: &UTCDate) -> bool {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .and_then(|d| i64::try_from(d.as_secs()).ok());
+    match (until.to_epoch_seconds(), now) {
+        (Ok(until), Some(now)) => now < until,
+        _ => true,
+    }
+}
+
+/// Whether `body_type` is one of the plaintext body types that
+/// draft-atwood-jmap-chat-push-00 §End-to-End Encrypted Deployments says
+/// "MUST set `encrypted` to `false`"; every other type is encrypted.
+fn is_plaintext(body_type: &str) -> bool {
+    [BodyType::Plain, BodyType::Markdown, BodyType::Rich]
+        .iter()
+        .any(|t| t.as_str() == body_type)
 }
 
 /// The deduplicated `Message.broadcastMentions[]` scopes that target the
