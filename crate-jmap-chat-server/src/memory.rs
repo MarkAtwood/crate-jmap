@@ -682,8 +682,8 @@ impl JmapBackend for MemoryBackend {
         let inner = self.inner.lock().unwrap();
 
         // Serialize the generic filter to a serde_json::Value so we can
-        // inspect it for type-specific filter keys. O::Filter implements
-        // Serialize for all JMAP Chat types (all are serde_json::Value).
+        // inspect it for type-specific filter keys; O is generic here, so
+        // the typed `jmap_chat_types::query` fields are not nameable.
         let filter_val: Option<serde_json::Value> =
             filter.and_then(|f| serde_json::to_value(f).ok());
         let sort_val: Option<serde_json::Value> = sort.and_then(|s| serde_json::to_value(s).ok());

@@ -23,6 +23,9 @@
 //! deny path) surface in the `notCreated` / `notUpdated` / `notDestroyed`
 //! maps within `Ok((Value, ...))`, not as `Err`.
 
+use jmap_chat_types::query::{
+    CustomEmojiComparator, CustomEmojiFilter, CUSTOM_EMOJI_FILTER_CONDITION_KEYS,
+};
 use jmap_chat_types::CustomEmoji;
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
@@ -30,8 +33,8 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, ChatBackend, EmojiSetOp};
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
-    SetAccumulators,
+    finalize_set_response, not_found_json, now_utc_string, optional_arg, reject_unsupported_query,
+    serialize_value, set_error_value, SetAccumulators,
 };
 use jmap_server::{query_anchor_args, server_fail_from_backend, server_fail_value_from_backend};
 
@@ -153,7 +156,8 @@ pub async fn handle_emoji_changes<B: ChatBackend>(
 /// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
 /// `total`, optional `limit`).
 ///
-/// Filter and sort are passed through to the backend unchanged.
+/// Unknown filter clauses and sort properties are refused with
+/// `unsupportedFilter` / `unsupportedSort` (RFC 8620 §5.5).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_emoji_query<B: ChatBackend>(
@@ -189,18 +193,17 @@ pub async fn handle_emoji_query<B: ChatBackend>(
 
     let (anchor, anchor_offset) = query_anchor_args(&args)?;
 
-    let filter: Option<serde_json::Value> = match args.remove("filter") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(v),
-    };
+    reject_unsupported_query::<CustomEmojiComparator>(
+        args.get("filter"),
+        args.get("sort"),
+        CUSTOM_EMOJI_FILTER_CONDITION_KEYS,
+    )?;
+    let filter: Option<CustomEmojiFilter> =
+        optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
 
-    let sort: Option<Vec<serde_json::Value>> = match args.remove("sort") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v)
-                .map_err(|_| JmapError::invalid_arguments("sort must be an array"))?,
-        ),
-    };
+    let sort: Option<Vec<CustomEmojiComparator>> = optional_arg(&mut args, "sort", || {
+        JmapError::invalid_arguments("sort must be an array")
+    })?;
 
     let result = backend
         .query_objects::<CustomEmoji>(

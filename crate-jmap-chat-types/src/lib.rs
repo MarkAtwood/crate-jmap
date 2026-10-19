@@ -115,6 +115,7 @@ pub mod message;
 pub mod position;
 pub mod presence;
 pub mod push;
+pub mod query;
 pub mod space;
 pub mod space_set;
 pub mod vocabulary;

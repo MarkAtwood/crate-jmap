@@ -491,8 +491,8 @@ impl super::SessionClient {
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
-        filter: Option<serde_json::Value>,
-        sort: Option<serde_json::Value>,
+        filter: Option<&jmap_chat_types::query::MessageFilter>,
+        sort: Option<&[jmap_chat_types::query::MessageComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
@@ -508,10 +508,12 @@ impl super::SessionClient {
             "sinceQueryState": since_query_state,
         });
         if let Some(f) = filter {
-            args["filter"] = f;
+            args["filter"] =
+                serde_json::to_value(f).map_err(jmap_base_client::ClientError::from_parse)?;
         }
         if let Some(s) = sort {
-            args["sort"] = s;
+            args["sort"] =
+                serde_json::to_value(s).map_err(jmap_base_client::ClientError::from_parse)?;
         }
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();

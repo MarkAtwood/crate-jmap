@@ -16,6 +16,7 @@ use helpers::{
     jmap_response, mock_jmap_post, recorded_args, recorded_body, set_response, set_update_response,
     MESSAGE_STATE_NEW, MESSAGE_STATE_OLD, TEST_ACCOUNT_ID,
 };
+use jmap_chat_types::query;
 use jmap_types::{Id, State, UTCDate};
 use serde_json::json;
 use wiremock::MockServer;
@@ -1188,11 +1189,18 @@ async fn message_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
     let up_to = Id::from("MSG-100");
+    let mut cond = query::MessageFilterCondition::default();
+    cond.chat_id = Some(Id::from("chat-1"));
+    // draft-atwood-jmap-chat-00 §Input Validation: "`sentAt`, `editedAt`:
+    // store as-is; never use for ordering or expiry."; §Message/query
+    // "Default sort: `receivedAt`".
+    let mut cmp = query::MessageComparator::new(query::MessageComparatorProperty::ReceivedAt);
+    cmp.is_ascending = false;
     sc.message_query_changes(
         &since,
         None,
-        Some(json!({ "chatId": "chat-1" })),
-        Some(json!([{ "property": "sentAt", "isAscending": false }])),
+        Some(&query::Filter::Condition(cond)),
+        Some(&[cmp]),
         Some(&up_to),
         Some(true),
     )
@@ -1207,8 +1215,8 @@ async fn message_query_changes_with_filter_sort_upto_calculatetotal() {
     );
     assert_eq!(
         args["sort"][0]["property"],
-        json!("sentAt"),
-        "sort[0].property must be 'sentAt'"
+        json!("receivedAt"),
+        "sort[0].property must be 'receivedAt'"
     );
     assert_eq!(
         args["upToId"],

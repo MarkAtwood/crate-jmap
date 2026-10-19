@@ -10,8 +10,52 @@ use jmap_server::server_fail_from_backend;
 
 pub(crate) use jmap_server::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, not_found_json,
-    now_utc_string, serialize_value,
+    now_utc_string, optional_arg, serialize_value,
 };
+
+/// Reject a `/query` `filter` clause or `sort` property this server does
+/// not define: RFC 8620 §5.5 `unsupportedFilter` and `unsupportedSort`.
+///
+/// `condition_keys` is the object's `*_FILTER_CONDITION_KEYS` from
+/// `jmap_chat_types::query`, and `C` its comparator type. An operator node
+/// may carry only `operator` and `conditions`, so a misspelt key cannot
+/// decode as a match-all condition (see `jmap_types::query::Filter`).
+/// Values that are not objects (filter) or arrays (sort) are left for the
+/// typed decode to reject.
+pub(crate) fn reject_unsupported_query<C: serde::de::DeserializeOwned>(
+    filter: Option<&Value>,
+    sort: Option<&Value>,
+    condition_keys: &[&str],
+) -> Result<(), JmapError> {
+    if let Some(filter) = filter {
+        reject_unknown_filter_keys(filter, condition_keys)?;
+    }
+    if let Some(Value::Array(comparators)) = sort {
+        for c in comparators {
+            <C as serde::Deserialize>::deserialize(c).map_err(|_| JmapError::unsupported_sort())?;
+        }
+    }
+    Ok(())
+}
+
+fn reject_unknown_filter_keys(filter: &Value, condition_keys: &[&str]) -> Result<(), JmapError> {
+    let Value::Object(node) = filter else {
+        return Ok(());
+    };
+    if node.contains_key("operator") {
+        if node.keys().any(|k| k != "operator" && k != "conditions") {
+            return Err(JmapError::unsupported_filter());
+        }
+        if let Some(Value::Array(conditions)) = node.get("conditions") {
+            for c in conditions {
+                reject_unknown_filter_keys(c, condition_keys)?;
+            }
+        }
+    } else if node.keys().any(|k| !condition_keys.contains(&k.as_str())) {
+        return Err(JmapError::unsupported_filter());
+    }
+    Ok(())
+}
 
 /// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.
 ///

@@ -22,6 +22,7 @@ use helpers::{
     jmap_response, mock_jmap_post, recorded_args, recorded_body, set_destroy_response,
     set_response, CHAT_STATE_NEW, CHAT_STATE_OLD, TEST_ACCOUNT_ID,
 };
+use jmap_chat_types::query;
 use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::MockServer;
@@ -899,11 +900,17 @@ async fn chat_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
     let up_to = Id::from("CH-100");
+    let mut cond = query::ChatFilterCondition::default();
+    cond.kind = Some(jmap_chat_types::ChatKind::Group);
+    // draft-atwood-jmap-chat-00 §Chat/query: "Default sort:
+    // `lastMessageAt` descending". (`lastSeenAt` is a ChatContact property.)
+    let mut cmp = query::ChatComparator::new(query::ChatComparatorProperty::LastMessageAt);
+    cmp.is_ascending = false;
     sc.chat_query_changes(
         &since,
         None,
-        Some(json!({ "kind": "group" })),
-        Some(json!([{ "property": "lastSeenAt", "isAscending": false }])),
+        Some(&query::Filter::Condition(cond)),
+        Some(&[cmp]),
         Some(&up_to),
         Some(true),
     )
@@ -918,8 +925,8 @@ async fn chat_query_changes_with_filter_sort_upto_calculatetotal() {
     );
     assert_eq!(
         args["sort"][0]["property"],
-        json!("lastSeenAt"),
-        "sort[0].property must be 'lastSeenAt'"
+        json!("lastMessageAt"),
+        "sort[0].property must be 'lastMessageAt'"
     );
     assert_eq!(
         args["upToId"],
