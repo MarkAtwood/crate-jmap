@@ -469,7 +469,13 @@ async fn remove_role_cascades_demotion_to_everyone() {
 /// Oracle: bd:JMAP-g7wu.2.4.3 criterion 3 replacement. With
 /// `protect_last_admin = true`, RemoveMember that would leave the
 /// Space with zero `manage_members`/`manage_space` holders is
-/// rejected with `forbidden`.
+/// rejected with `invalidProperties`.
+///
+/// Updated to draft §Space/set `removeMembers`: "Last-administrator
+/// protection does not apply to self-removal." and "Servers MUST return
+/// an `invalidProperties` SetError ({{RFC8620}} §5.3) naming
+/// `removeMembers` when refusing on this basis." The patch therefore
+/// also removes another member, so it is not self-removal.
 #[tokio::test]
 async fn last_admin_protection_blocks_removal_when_enabled() {
     let backend = IdentityBackend::new();
@@ -498,19 +504,20 @@ async fn last_admin_protection_blocks_removal_when_enabled() {
         ]),
     );
 
-    // Caller (the only admin) tries to remove themselves → blocked.
+    // Caller (the only admin) tries to remove themselves and another
+    // member → blocked.
     let (resp, _) = handle_space_set(
         &backend,
         &caller,
         json!({
             "accountId": ACCOUNT_ID,
-            "update": { SPACE_ID: { "removeMembers": ["admin-user"] }}
+            "update": { SPACE_ID: { "removeMembers": ["admin-user", "u-regular"] }}
         }),
     )
     .await
     .expect("handle_space_set");
     assert_eq!(
-        resp["notUpdated"][SPACE_ID]["type"], "forbidden",
+        resp["notUpdated"][SPACE_ID]["type"], "invalidProperties",
         "removing the last admin must be rejected when knob is on: {resp:?}"
     );
     let desc = resp["notUpdated"][SPACE_ID]["description"]

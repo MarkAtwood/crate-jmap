@@ -3155,7 +3155,10 @@ fn check_count_caps(
 /// - **Last-admin protection** (criterion 3 replacement): when
 ///   `protect_last_admin` is true, the patch's `RemoveMember` ops in
 ///   aggregate must not leave the Space with zero members holding
-///   either `manage_members` or `manage_space`.
+///   either `manage_members` or `manage_space`; refused with
+///   `invalidProperties` naming `removeMembers`. Self-removal (only
+///   the caller's own id in `removeMembers`) skips this check and the
+///   `manage_members` gate, per draft §Space/set `removeMembers`.
 ///
 /// Returns `Ok(())` if the patch passes all checks. Returns
 /// `Err(SetError)` on the FIRST failure encountered — this is the
@@ -3184,6 +3187,20 @@ fn validate_space_patch_ops(
 ) -> Result<(), SetError> {
     use crate::permissions::{
         required_permissions_for_op, RequiredPermissions, MANAGE_MEMBERS, MANAGE_SPACE,
+    };
+
+    // Draft §Space/set `removeMembers`: a patch whose `removeMembers`
+    // holds only the caller's own id is self-removal, which "the server
+    // MUST permit ... regardless of the caller's permission set" and to
+    // which "Last-administrator protection does not apply". Closing the
+    // Space when the last `manage_space` holder leaves is not modelled.
+    let mut removed = ops.iter().filter_map(|op| match op {
+        SpacePatchOp::RemoveMember(id) => Some(id),
+        _ => None,
+    });
+    let self_removal = match (removed.next(), removed.next(), caller_id) {
+        (Some(id), None, Some(caller_id)) => id == caller_id,
+        _ => false,
     };
 
     // Identity-dependent checks: permission gating + hierarchy.
@@ -3219,6 +3236,11 @@ fn validate_space_patch_ops(
                         )),
                     );
                 }
+            };
+            let required = if self_removal && matches!(op, SpacePatchOp::RemoveMember(_)) {
+                &[]
+            } else {
+                required
             };
             for req in required {
                 if !caller_perms.contains(*req) {
@@ -3314,7 +3336,7 @@ fn validate_space_patch_ops(
     // Identity-independent check: last-admin protection (criterion 3
     // replacement). Fires regardless of caller_id when the config
     // flag is on.
-    if protect_last_admin {
+    if protect_last_admin && !self_removal {
         // Set of user_ids the patch will remove.
         let mut to_remove: HashSet<String> = HashSet::new();
         for op in ops {
@@ -3356,10 +3378,12 @@ fn validate_space_patch_ops(
                 }
             }
             if admin_remaining == 0 {
-                return Err(SetError::new(SetErrorType::Forbidden).with_description(
-                    "removing these members would leave the Space with no \
-                     `manage_members`/`manage_space` holder (last-admin protection)",
-                ));
+                return Err(SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(["removeMembers"])
+                    .with_description(
+                        "removing these members would leave the Space with no \
+                         `manage_members`/`manage_space` holder (last-admin protection)",
+                    ));
             }
         }
     }
