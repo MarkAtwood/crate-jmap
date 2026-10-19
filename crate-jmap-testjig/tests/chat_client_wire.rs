@@ -16,9 +16,7 @@ use jmap_chat_client::{
     SessionClient, SetResponse, SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddRoleInput,
     SpaceBanCreateInput, SpaceCreateInput, SpaceJoinInput, SpacePatch, UpdateMemberRoleInput,
 };
-use jmap_chat_types::{
-    Attachment, BodyType, BroadcastMention, ChatKind, Mention, MessageAction, SenderId,
-};
+use jmap_chat_types::{Attachment, BodyType, ChatKind, Mention, MessageAction, SenderId};
 use jmap_testjig::{spawn_in_process, TestjigConfig, TestjigHandle};
 use jmap_types::{Id, UTCDate};
 
@@ -428,8 +426,9 @@ async fn message_create_keeps_optional_properties() {
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     }]))
     .expect("Attachment");
+    // §Mention: "A Mention carries no position in `body`."
     let mentions: Vec<Mention> = serde_json::from_value(serde_json::json!([
-        { "id": "contact-bob", "offset": 3, "length": 4 }
+        { "id": "contact-bob" }
     ]))
     .expect("Mention");
     let actions: Vec<MessageAction> = serde_json::from_value(serde_json::json!([
@@ -476,37 +475,28 @@ async fn message_create_keeps_optional_properties() {
 /// Oracle: draft-atwood-jmap-chat-00 §Fields Inside the Ciphertext —
 /// "Servers MUST reject a `Message/set` create or update, or a
 /// `Peer/deliver` payload, that has an encrypted `bodyType` and any of
-/// these fields non-empty, with `invalidArguments`."; §Rich Body Format —
-/// "Both the `mentions` and `broadcastMentions` arrays on the Message
-/// MUST be empty" (bd:JMAP-yt1w.1).
+/// these fields non-empty, with `invalidArguments`." (bd:JMAP-yt1w.1).
+/// A rich body is not restricted: §Mention says "The `mentions` array is
+/// authoritative for every `bodyType`" (bd:JMAP-yt1w.17).
 #[tokio::test]
 async fn message_create_rejects_fields_forbidden_by_body_type() {
     let (_jig, client, session) = connect().await;
     let sc = client.with_chat_session(session);
     let chat_id = create_group(&sc, "g1", "Team").await;
     let sent_at = UTCDate::from(SENT_AT);
-    let mentions: Vec<Mention> = serde_json::from_value(serde_json::json!([
-        { "id": "contact-bob", "offset": 3, "length": 4 }
-    ]))
-    .expect("Mention");
 
     let encrypted = BodyType::Other("application/mls-ciphertext".to_owned());
     let mut e2ee =
         MessageCreateInput::new(&chat_id, "Y2lwaGVy", encrypted, &sent_at).with_client_id("m1");
     e2ee.topic_id = Some("release");
-    let mut rich =
-        MessageCreateInput::new(&chat_id, "hi @bob", BodyType::Rich, &sent_at).with_client_id("m2");
-    rich.mentions = Some(&mentions);
 
-    for (input, cid) in [(&e2ee, "m1"), (&rich, "m2")] {
-        let resp = sc.message_create(input).await.expect("Message/set create");
-        let err = resp
-            .not_created
-            .as_ref()
-            .and_then(|m| m.get(cid))
-            .unwrap_or_else(|| panic!("{cid} must be rejected: {resp:?}"));
-        assert_eq!(err.error_type, "invalidArguments", "{cid}");
-    }
+    let resp = sc.message_create(&e2ee).await.expect("Message/set create");
+    let err = resp
+        .not_created
+        .as_ref()
+        .and_then(|m| m.get("m1"))
+        .unwrap_or_else(|| panic!("m1 must be rejected: {resp:?}"));
+    assert_eq!(err.error_type, "invalidArguments");
 }
 
 /// Oracle: draft-atwood-jmap-chat-00 §Account-Level Capability Object,
@@ -535,40 +525,6 @@ async fn message_create_rejects_body_over_max_body_bytes() {
         .and_then(|m| m.get("m1"))
         .unwrap_or_else(|| panic!("over-long body must be rejected: {resp:?}"));
     assert_eq!(err.error_type, "invalidArguments");
-}
-
-/// Oracle: draft-atwood-jmap-chat-00 §Input Validation —
-/// "`broadcastMentions`: reject ... any entry where `offset + length`
-/// exceeds body byte length." and "When a `Message/set` create or update
-/// fails one of these checks and this document names no other error for
-/// that check, the server MUST reject the entry with an
-/// `invalidProperties` SetError ([RFC8620] §5.3) whose `properties` names
-/// the offending property." (bd:JMAP-yt1w.4(e)).
-#[tokio::test]
-async fn message_create_out_of_bounds_broadcast_mention_is_invalid_properties() {
-    let (_jig, client, session) = connect().await;
-    let sc = client.with_chat_session(session);
-    let chat_id = create_group(&sc, "g1", "Team").await;
-    let sent_at = UTCDate::from(SENT_AT);
-    let broadcast: Vec<BroadcastMention> = serde_json::from_value(serde_json::json!([
-        { "scope": "everyone", "offset": 3, "length": 999 }
-    ]))
-    .expect("BroadcastMention");
-    let input = MessageCreateInput::new(&chat_id, "hi @everyone", BodyType::Plain, &sent_at)
-        .with_client_id("m1")
-        .with_broadcast_mentions(&broadcast);
-
-    let resp = sc.message_create(&input).await.expect("Message/set create");
-    let err = resp
-        .not_created
-        .as_ref()
-        .and_then(|m| m.get("m1"))
-        .unwrap_or_else(|| panic!("out-of-bounds broadcast mention must be rejected: {resp:?}"));
-    assert_eq!(err.error_type, "invalidProperties");
-    assert_eq!(
-        err.properties.as_deref(),
-        Some(&["broadcastMentions".to_owned()][..])
-    );
 }
 
 /// Oracle: draft-atwood-jmap-chat-00 §Message `bodyType`: "MIME type of

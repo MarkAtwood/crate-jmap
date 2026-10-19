@@ -2,15 +2,14 @@
 //! `invalidProperties` naming `broadcastMentions` (bd:JMAP-yt1w.4(e)).
 //!
 //! Oracle for every test: draft-atwood-jmap-chat-00 §Input Validation:
-//! "`broadcastMentions`: reject any entry whose `scope` is not one of
-//! `\"everyone\"`, `\"here\"`, `\"admins\"`, and any entry where
-//! `offset + length` exceeds body byte length." and "When a `Message/set`
-//! create or update fails one of these checks and this document names no
-//! other error for that check, the server MUST reject the entry with an
-//! `invalidProperties` SetError ([RFC8620] §5.3) whose `properties` names
-//! the offending property." The draft names `invalidArguments` only for an
-//! unrecognized `scope` value (§BroadcastMention), so the bounds check and
-//! a missing `scope` take the default.
+//! "When a `Message/set` create or update fails one of these checks and
+//! this document names no other error for that check, the server MUST
+//! reject the entry with an `invalidProperties` SetError ([RFC8620] §5.3)
+//! whose `properties` names the offending property." The draft names
+//! `invalidArguments` only for an unrecognized `scope` value
+//! (§BroadcastMention), so a missing `scope` takes the default. The draft
+//! at jmap-chat-spec 0983787 removed the `offset + length` bounds check:
+//! "Like Mention, a BroadcastMention carries no position in `body`."
 
 mod common;
 
@@ -60,32 +59,6 @@ fn assert_invalid_broadcast_mentions(err: &Value) {
 }
 
 #[tokio::test]
-async fn create_rejects_out_of_bounds_broadcast_mention() {
-    let backend = MemoryBackend::new();
-    let chat_id = create_group(&backend).await;
-    let resp = create(
-        &backend,
-        &chat_id,
-        json!([{ "scope": "everyone", "offset": 3, "length": 999 }]),
-    )
-    .await;
-    assert_invalid_broadcast_mentions(&resp["notCreated"]["m"]);
-}
-
-#[tokio::test]
-async fn create_rejects_overflowing_broadcast_mention() {
-    let backend = MemoryBackend::new();
-    let chat_id = create_group(&backend).await;
-    let resp = create(
-        &backend,
-        &chat_id,
-        json!([{ "scope": "everyone", "offset": u64::MAX, "length": 1 }]),
-    )
-    .await;
-    assert_invalid_broadcast_mentions(&resp["notCreated"]["m"]);
-}
-
-#[tokio::test]
 async fn create_rejects_broadcast_mention_without_scope() {
     let backend = MemoryBackend::new();
     let chat_id = create_group(&backend).await;
@@ -94,7 +67,7 @@ async fn create_rejects_broadcast_mention_without_scope() {
 }
 
 #[tokio::test]
-async fn update_rejects_out_of_bounds_broadcast_mention() {
+async fn update_rejects_broadcast_mention_without_scope() {
     let backend = MemoryBackend::new();
     let chat_id = create_group(&backend).await;
     let resp = create(&backend, &chat_id, json!([])).await;
@@ -107,7 +80,7 @@ async fn update_rejects_out_of_bounds_broadcast_mention() {
         json!({
             "accountId": ACCOUNT_ID,
             "update": { msg_id: {
-                "broadcastMentions": [{ "scope": "everyone", "offset": 3, "length": 999 }]
+                "broadcastMentions": [{}]
             } }
         }),
     )

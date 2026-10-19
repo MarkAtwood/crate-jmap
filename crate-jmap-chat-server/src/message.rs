@@ -366,15 +366,11 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
 /// Validate broadcast mentions against spec §4.4.1 / §4.16 constraints.
 ///
 /// Returns the SetError value on failure, None on success. The draft names
-/// `invalidArguments` for an unrecognized `scope` (§BroadcastMention); the
-/// other checks take the §Input Validation default: "the server MUST
+/// `invalidArguments` for an unrecognized `scope` (§BroadcastMention); a
+/// missing or non-string `scope` takes the §Input Validation default: "the server MUST
 /// reject the entry with an `invalidProperties` SetError ... whose
 /// `properties` names the offending property."
-fn validate_broadcast_mentions(
-    broadcast_mentions: &[serde_json::Value],
-    body: &str,
-    body_type: &str,
-) -> Option<Value> {
+fn validate_broadcast_mentions(broadcast_mentions: &[serde_json::Value]) -> Option<Value> {
     let invalid_arguments =
         |desc: String| json!({ "type": "invalidArguments", "description": desc });
     let invalid_properties = |desc: String| {
@@ -384,12 +380,6 @@ fn validate_broadcast_mentions(
             "description": desc,
         })
     };
-    // Rich body: broadcastMentions MUST be empty
-    if body_type == "application/jmap-chat-rich" && !broadcast_mentions.is_empty() {
-        return Some(invalid_arguments(
-            "broadcastMentions must be empty when bodyType is application/jmap-chat-rich".into(),
-        ));
-    }
     for (i, bm) in broadcast_mentions.iter().enumerate() {
         // scope validation
         let scope = match bm.get("scope").and_then(|v| v.as_str()) {
@@ -405,37 +395,8 @@ fn validate_broadcast_mentions(
                 "broadcastMentions[{i}]: unrecognized scope \"{scope}\""
             )));
         }
-        // offset + length bounds check with overflow protection
-        let offset = bm.get("offset").and_then(|v| v.as_u64()).unwrap_or(0);
-        let length = bm.get("length").and_then(|v| v.as_u64()).unwrap_or(0);
-        let end = match offset.checked_add(length) {
-            Some(e) => e,
-            None => {
-                return Some(invalid_properties(format!(
-                    "broadcastMentions[{i}]: offset + length overflows u64"
-                )));
-            }
-        };
-        let body_len = body.len() as u64;
-        if end > body_len {
-            return Some(invalid_properties(format!(
-                "broadcastMentions[{i}]: offset({offset}) + length({length}) = {end} exceeds body byte length {body_len}"
-            )));
-        }
     }
     None
-}
-
-/// Whether a rich `body` carries a `"broadcast"` span (§Rich Body Format),
-/// which needs the same `"mention_broadcast"` permission as a non-empty
-/// `broadcastMentions` array (§BroadcastMention).
-fn rich_body_has_broadcast(body: &str, body_type: &str) -> bool {
-    body_type == "application/jmap-chat-rich"
-        && serde_json::from_str::<Value>(body).is_ok_and(|v| {
-            v["spans"]
-                .as_array()
-                .is_some_and(|spans| spans.iter().any(|s| s["type"] == "broadcast"))
-        })
 }
 
 // ---------------------------------------------------------------------------
@@ -474,9 +435,7 @@ const CIPHERTEXT_ONLY_FIELDS: [&str; 8] = [
 
 /// Check the create fields that `bodyType` requires to be empty: all of
 /// [`CIPHERTEXT_ONLY_FIELDS`] for an encrypted type (§Fields Inside the
-/// Ciphertext), and `mentions` for `application/jmap-chat-rich` (§Rich
-/// Body Format; `broadcastMentions` is checked by
-/// [`validate_broadcast_mentions`]).
+/// Ciphertext).
 ///
 /// Returns an `invalidArguments` description on failure, None on success.
 fn body_type_field_conflict(obj: &Value, body_type: &str) -> Option<String> {
@@ -490,9 +449,6 @@ fn body_type_field_conflict(obj: &Value, body_type: &str) -> Option<String> {
                 "{field} must be empty or absent when bodyType is {body_type}"
             ));
         }
-    }
-    if body_type == "application/jmap-chat-rich" && non_empty("mentions") {
-        return Some("mentions must be empty when bodyType is application/jmap-chat-rich".into());
     }
     None
 }
@@ -523,16 +479,7 @@ fn apply_create_optionals(obj: &Value, msg: &mut Message) -> Result<(), &'static
         msg.attachments = attachments;
     }
     if let Some(v) = get("mentions") {
-        let mentions = Vec::<Mention>::deserialize(v).map_err(|_| "mentions")?;
-        let body_len = msg.body.len() as u64;
-        if mentions.iter().any(|m| {
-            m.offset
-                .checked_add(m.length)
-                .is_none_or(|end| end > body_len)
-        }) {
-            return Err("mentions");
-        }
-        msg.mentions = mentions;
+        msg.mentions = Vec::<Mention>::deserialize(v).map_err(|_| "mentions")?;
     }
     if let Some(v) = get("broadcastMentions") {
         msg.broadcast_mentions =
@@ -785,9 +732,7 @@ pub async fn handle_message_set<B: ChatBackend>(
                 .and_then(|v| v.as_array())
                 .cloned()
                 .unwrap_or_default();
-            if let Some(err) =
-                validate_broadcast_mentions(&broadcast_mentions_val, &body, &body_type)
-            {
+            if let Some(err) = validate_broadcast_mentions(&broadcast_mentions_val) {
                 not_created.insert(create_id.clone(), err);
                 continue;
             }
@@ -851,13 +796,15 @@ pub async fn handle_message_set<B: ChatBackend>(
             }
 
             // BroadcastMention permission check (§4.4.1).
-            // Non-empty broadcastMentions or a rich-body "broadcast" span
-            // in a Space-backed channel requires mention_broadcast
-            // permission. Group/direct chats (no spaceId) are unrestricted
-            // per spec.
-            if let Some(sid) = chat.as_ref().and_then(|c| c.space_id.as_ref()).filter(|_| {
-                !broadcast_mentions_val.is_empty() || rich_body_has_broadcast(&body, &body_type)
-            }) {
+            // Non-empty broadcastMentions in a Space-backed channel
+            // requires mention_broadcast permission; rich-body spans are
+            // display-only and never consulted (§Rich Body Format).
+            // Group/direct chats (no spaceId) are unrestricted per spec.
+            if let Some(sid) = chat
+                .as_ref()
+                .and_then(|c| c.space_id.as_ref())
+                .filter(|_| !broadcast_mentions_val.is_empty())
+            {
                 match backend
                     .may_broadcast_mention(caller, &account_id, sid)
                     .await
@@ -1357,12 +1304,12 @@ pub async fn handle_message_set<B: ChatBackend>(
             };
 
             // BroadcastMention validation and permission check on edit
-            // (§4.4.1 / §4.16). The post-patch body, bodyType and
-            // broadcastMentions fall back to the stored message where the
-            // patch leaves them unchanged, so an edit that retains a
-            // broadcast mention is gated like one that adds it.
+            // (§4.4.1 / §4.16). The post-patch broadcastMentions fall back
+            // to the stored message where the patch leaves them unchanged,
+            // so an edit that retains a broadcast mention is gated like one
+            // that adds it.
             if edits {
-                let (current_body, current_body_type, current_has_bm, msg_chat_id) = match backend
+                let (current_has_bm, msg_chat_id) = match backend
                     .get_objects::<Message>(
                         caller,
                         &account_id,
@@ -1374,15 +1321,13 @@ pub async fn handle_message_set<B: ChatBackend>(
                     Ok((found, _)) => {
                         if let Some(msg) = found.first() {
                             (
-                                msg.body.clone(),
-                                msg.body_type.clone(),
                                 !msg.broadcast_mentions.is_empty(),
                                 Some(msg.chat_id.clone()),
                             )
                         } else {
                             // Message not found — let update_object surface
                             // the normal notFound error downstream.
-                            (String::new(), String::from("text/plain"), false, None)
+                            (false, None)
                         }
                     }
                     Err(e) => {
@@ -1390,24 +1335,12 @@ pub async fn handle_message_set<B: ChatBackend>(
                         continue;
                     }
                 };
-                let post_patch_body = augmented
-                    .get("body")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or(&current_body);
-                let post_patch_body_type = augmented
-                    .get("bodyType")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or(&current_body_type);
                 // Structural validation only when broadcastMentions is part
                 // of the patch.
                 let has_bm = match augmented.get("broadcastMentions") {
                     Some(bm) => {
                         let bm_arr: Vec<Value> = bm.as_array().cloned().unwrap_or_default();
-                        if let Some(err) = validate_broadcast_mentions(
-                            &bm_arr,
-                            post_patch_body,
-                            post_patch_body_type,
-                        ) {
+                        if let Some(err) = validate_broadcast_mentions(&bm_arr) {
                             not_updated.insert(id_str, err);
                             continue;
                         }
@@ -1417,11 +1350,11 @@ pub async fn handle_message_set<B: ChatBackend>(
                 };
 
                 // BroadcastMention permission check on update (§4.4.1).
-                // A post-patch broadcast mention (array entry or rich-body
-                // "broadcast" span) in a Space-backed channel requires
-                // mention_broadcast permission. Group/direct chats (no
-                // spaceId) are unrestricted per spec.
-                if has_bm || rich_body_has_broadcast(post_patch_body, post_patch_body_type) {
+                // A post-patch broadcastMentions entry in a Space-backed
+                // channel requires mention_broadcast permission; rich-body
+                // spans are display-only and never consulted. Group/direct
+                // chats (no spaceId) are unrestricted per spec.
+                if has_bm {
                     if let Some(ref cid) = msg_chat_id {
                         let chat_lookup = backend
                             .get_objects::<Chat>(
@@ -1677,125 +1610,6 @@ mod tests {
         assert!(
             desc.contains("unrecognized scope"),
             "expected 'unrecognized scope' in description, got: {desc}"
-        );
-    }
-
-    /// offset=u64::MAX + length=1 overflows u64; must be rejected.
-    ///
-    /// draft-atwood-jmap-chat-00 §Input Validation: "When a `Message/set`
-    /// create or update fails one of these checks and this document names
-    /// no other error for that check, the server MUST reject the entry with
-    /// an `invalidProperties` SetError ([RFC8620] §5.3) whose `properties`
-    /// names the offending property."
-    #[tokio::test]
-    async fn broadcast_mention_validation_rejects_overflow() {
-        let backend = MemoryBackend::new();
-        let (resp, _) = handle_message_set(
-            &backend,
-            &(),
-            json!({
-                "accountId": ACCOUNT_ID,
-                "create": {
-                    "m0": {
-                        "chatId": "c1",
-                        "body": "Hello @everyone",
-                        "sentAt": "2024-01-01T00:00:00Z",
-                        "broadcastMentions": [
-                            { "scope": "everyone", "offset": u64::MAX, "length": 1 }
-                        ]
-                    }
-                }
-            }),
-        )
-        .await
-        .expect("handle_message_set");
-
-        assert!(resp["notCreated"]["m0"].is_object());
-        assert_eq!(resp["notCreated"]["m0"]["type"], "invalidProperties");
-        let desc = resp["notCreated"]["m0"]["description"]
-            .as_str()
-            .expect("description");
-        assert!(
-            desc.contains("overflows u64"),
-            "expected 'overflows u64' in description, got: {desc}"
-        );
-    }
-
-    /// offset + length exceeding body byte length must be rejected.
-    ///
-    /// draft-atwood-jmap-chat-00 §Input Validation: "When a `Message/set`
-    /// create or update fails one of these checks and this document names
-    /// no other error for that check, the server MUST reject the entry with
-    /// an `invalidProperties` SetError ([RFC8620] §5.3) whose `properties`
-    /// names the offending property."
-    #[tokio::test]
-    async fn broadcast_mention_validation_rejects_exceeds_body() {
-        let backend = MemoryBackend::new();
-        let (resp, _) = handle_message_set(
-            &backend,
-            &(),
-            json!({
-                "accountId": ACCOUNT_ID,
-                "create": {
-                    "m0": {
-                        "chatId": "c1",
-                        "body": "short",
-                        "sentAt": "2024-01-01T00:00:00Z",
-                        "broadcastMentions": [
-                            { "scope": "everyone", "offset": 0, "length": 999 }
-                        ]
-                    }
-                }
-            }),
-        )
-        .await
-        .expect("handle_message_set");
-
-        assert!(resp["notCreated"]["m0"].is_object());
-        assert_eq!(resp["notCreated"]["m0"]["type"], "invalidProperties");
-        let desc = resp["notCreated"]["m0"]["description"]
-            .as_str()
-            .expect("description");
-        assert!(
-            desc.contains("exceeds body byte length"),
-            "expected 'exceeds body byte length' in description, got: {desc}"
-        );
-    }
-
-    /// broadcastMentions must be empty when bodyType is
-    /// "application/jmap-chat-rich".
-    #[tokio::test]
-    async fn broadcast_mention_validation_rejects_rich_body_nonempty() {
-        let backend = MemoryBackend::new();
-        let (resp, _) = handle_message_set(
-            &backend,
-            &(),
-            json!({
-                "accountId": ACCOUNT_ID,
-                "create": {
-                    "m0": {
-                        "chatId": "c1",
-                        "body": "Hello @everyone in rich",
-                        "bodyType": "application/jmap-chat-rich",
-                        "sentAt": "2024-01-01T00:00:00Z",
-                        "broadcastMentions": [
-                            { "scope": "everyone", "offset": 6, "length": 9 }
-                        ]
-                    }
-                }
-            }),
-        )
-        .await
-        .expect("handle_message_set");
-
-        assert!(resp["notCreated"]["m0"].is_object());
-        assert_eq!(resp["notCreated"]["m0"]["type"], "invalidArguments");
-        let desc = resp["notCreated"]["m0"]["description"]
-            .as_str()
-            .expect("description");
-        assert!(
-            desc.contains("application/jmap-chat-rich"),
-            "expected 'application/jmap-chat-rich' in description, got: {desc}"
         );
     }
 

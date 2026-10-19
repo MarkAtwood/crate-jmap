@@ -141,9 +141,7 @@ async fn message_get_decodes_populated_message() {
                     ],
                     "mentions": [
                         {
-                            "id": "u2",
-                            "offset": 7,
-                            "length": 5
+                            "id": "u2"
                         }
                     ],
                     "broadcastMentions": [],
@@ -236,9 +234,12 @@ async fn message_get_decodes_populated_message() {
     );
 
     assert_eq!(msg.mentions.len(), 1, "mentions must have 1 entry");
+    // §Mention: "A Mention carries no position in `body`."
     assert_eq!(msg.mentions[0].id.as_ref(), "u2", "mentions[0].id mismatch");
-    assert_eq!(msg.mentions[0].offset, 7, "mentions[0].offset mismatch");
-    assert_eq!(msg.mentions[0].length, 5, "mentions[0].length mismatch");
+    assert!(
+        msg.mentions[0].extra.is_empty(),
+        "mentions[0] has no other fields"
+    );
 
     assert!(msg.actions.is_empty(), "actions must round-trip as empty");
 
@@ -1246,10 +1247,8 @@ async fn message_update_broadcast_mentions_emits_wire_key() {
     let sc = helpers::make_client(&server);
     let msg_id = Id::from("msg-1");
     let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.broadcast_mentions = Some(vec![serde_json::from_value(
-        json!({"scope": "everyone", "offset": 0, "length": 9}),
-    )
-    .expect("BroadcastMention must deserialize")]);
+    patch.broadcast_mentions = Some(vec![serde_json::from_value(json!({"scope": "everyone"}))
+        .expect("BroadcastMention must deserialize")]);
     let _ = sc
         .message_update(&msg_id, &patch)
         .await
@@ -1259,7 +1258,7 @@ async fn message_update_broadcast_mentions_emits_wire_key() {
     let patch_obj = &args["update"]["msg-1"];
     assert_eq!(
         patch_obj["broadcastMentions"],
-        json!([{"scope": "everyone", "offset": 0, "length": 9}]),
+        json!([{"scope": "everyone"}]),
         "broadcastMentions must appear on the wire with the serialized array"
     );
 }
@@ -1399,8 +1398,8 @@ async fn message_create_serializes_all_optional_properties() {
         "size": 1024,
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     });
-    let mention_json = json!({"id": "alice@example.com", "offset": 0, "length": 6});
-    let broadcast_json = json!({"scope": "here", "offset": 7, "length": 5});
+    let mention_json = json!({"id": "alice@example.com"});
+    let broadcast_json = json!({"scope": "here"});
     let action_json = json!({
         "type": "urn:jmap:chat:cap:vtc",
         "uri": "https://meet.example.com/room-1",
@@ -1503,8 +1502,8 @@ async fn message_create_omits_unset_optional_properties() {
 /// `MessagePatch.mentions = Some(vec![…])` must emit `mentions` in the
 /// per-id patch object. Oracle: draft-atwood-jmap-chat-00 §Message/set
 /// "Editing a Message": "`update` with changed `body`, `bodyType`,
-/// `mentions`, and/or `broadcastMentions`"; Mention shape is `id`,
-/// `offset`, `length` per §Mention.
+/// `mentions`, and/or `broadcastMentions`"; Mention shape is `id` alone
+/// per §Mention: "A Mention carries no position in `body`."
 #[tokio::test]
 async fn message_update_mentions_emits_wire_key() {
     let server = MockServer::start().await;
@@ -1516,7 +1515,7 @@ async fn message_update_mentions_emits_wire_key() {
     let msg_id = Id::from("msg-1");
     let mut patch = jmap_chat_client::methods::MessagePatch::default();
     patch.mentions = Some(vec![serde_json::from_value(
-        json!({"id": "bob@example.com", "offset": 3, "length": 4}),
+        json!({"id": "bob@example.com"}),
     )
     .expect("Mention must deserialize")]);
     let _ = sc
@@ -1527,6 +1526,6 @@ async fn message_update_mentions_emits_wire_key() {
     let args = recorded_args(&server).await;
     assert_eq!(
         args["update"]["msg-1"]["mentions"],
-        json!([{"id": "bob@example.com", "offset": 3, "length": 4}])
+        json!([{"id": "bob@example.com"}])
     );
 }
