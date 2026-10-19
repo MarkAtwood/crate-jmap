@@ -1,5 +1,6 @@
 //! Space/set `removeMembers`: self-removal and last-administrator
-//! protection, per draft-atwood-jmap-chat-00 §Space/set.
+//! protection, per draft-atwood-jmap-chat-00 §Space/set. The owner's
+//! member entry is the accountId (§Terminology).
 
 mod common;
 
@@ -8,7 +9,8 @@ use jmap_chat_server::{handle_space_get, handle_space_set};
 use jmap_types::Id;
 use serde_json::json;
 
-fn admin_and_regular(backend: &IdentityBackend) {
+/// Seed the Space with `admin` (holding `r-admin`) and `regular` (no roles).
+fn admin_and_regular(backend: &IdentityBackend, admin: &str, regular: &str) {
     seed_space(
         backend,
         json!([{
@@ -18,8 +20,8 @@ fn admin_and_regular(backend: &IdentityBackend) {
             "position": 100
         }]),
         json!([
-            { "id": "admin-user", "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" },
-            { "id": "u-regular", "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" }
+            { "id": admin, "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" },
+            { "id": regular, "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" }
         ]),
     );
 }
@@ -43,21 +45,20 @@ async fn member_ids(backend: &IdentityBackend, viewer: &str) -> Vec<String> {
 
 /// Oracle: draft §Space/set `removeMembers` — "A member who does not hold
 /// `"manage_members"` permission MAY remove themselves from the Space by
-/// including only their own account's member id in `removeMembers`. The
-/// server MUST permit self-removal regardless of the caller's permission
-/// set."
+/// including only the accountId in `removeMembers`. The server MUST
+/// permit self-removal regardless of the caller's permission set."
 #[tokio::test]
 async fn self_removal_without_manage_members_is_permitted() {
     let backend = IdentityBackend::new();
-    admin_and_regular(&backend);
-    let caller = Id::from("u-regular");
+    admin_and_regular(&backend, "admin-user", ACCOUNT_ID);
+    let caller = Id::from(ACCOUNT_ID);
 
     let (resp, _) = handle_space_set(
         &backend,
         &caller,
         json!({
             "accountId": ACCOUNT_ID,
-            "update": { SPACE_ID: { "removeMembers": ["u-regular"] }}
+            "update": { SPACE_ID: { "removeMembers": [ACCOUNT_ID] }}
         }),
     )
     .await
@@ -72,15 +73,15 @@ async fn self_removal_without_manage_members_is_permitted() {
 async fn last_admin_self_removal_bypasses_last_admin_protection() {
     let backend = IdentityBackend::new();
     backend.inner().set_protect_last_admin_for_test(true);
-    admin_and_regular(&backend);
-    let caller = Id::from("admin-user");
+    admin_and_regular(&backend, ACCOUNT_ID, "u-regular");
+    let caller = Id::from(ACCOUNT_ID);
 
     let (resp, _) = handle_space_set(
         &backend,
         &caller,
         json!({
             "accountId": ACCOUNT_ID,
-            "update": { SPACE_ID: { "removeMembers": ["admin-user"] }}
+            "update": { SPACE_ID: { "removeMembers": [ACCOUNT_ID] }}
         }),
     )
     .await

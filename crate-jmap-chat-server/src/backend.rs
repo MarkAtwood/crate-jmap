@@ -976,7 +976,8 @@ pub trait ChatBackend: JmapBackend {
     /// patch whose post-application projection has zero members holding
     /// `manage_members` or `manage_space`, including (non-exhaustively)
     /// the cases below. Self-removal (a `removeMembers` holding only the
-    /// caller's own id) is exempt: draft §Space/set says
+    /// accountId, which references the owner per draft §Terminology) is
+    /// exempt: draft §Space/set says
     /// "Last-administrator protection does not apply to self-removal."
     ///
     ///

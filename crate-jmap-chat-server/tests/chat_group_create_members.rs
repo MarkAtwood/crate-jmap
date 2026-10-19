@@ -59,6 +59,8 @@ async fn stored_members(
 /// "adds the creator to `members` with at least one role granting
 /// permissions sufficient to administer the chat" plus "`memberIds`
 /// (String[], required): ChatContact.ids of additional initial members."
+/// The creator is the owner, whose §ChatMember `id` is "the accountId for
+/// the owner".
 #[tokio::test]
 async fn group_create_adds_creator_as_admin_and_member_ids_as_members() {
     let backend = IdentityBackend::new();
@@ -75,7 +77,7 @@ async fn group_create_adds_creator_as_admin_and_member_ids_as_members() {
     assert_eq!(
         members,
         vec![
-            ("alice".to_owned(), "admin".to_owned()),
+            (ACCOUNT_ID.to_owned(), "admin".to_owned()),
             ("bob".to_owned(), "member".to_owned()),
             ("carol".to_owned(), "member".to_owned()),
         ]

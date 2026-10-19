@@ -2,7 +2,10 @@
 //! remain, and a closed group is read-only (bd:JMAP-yt1w.4 (b)).
 //!
 //! Oracle for every test: draft-atwood-jmap-chat-00 §Chat `closedAt` and
-//! §Chat/set "Updating a Chat" `removeMembers`, quoted per test.
+//! §Chat/set "Updating a Chat" `removeMembers`, quoted per test. The
+//! owner's member entry is the accountId (§Terminology), and "The owner
+//! MAY leave the group by including only the accountId in
+//! `removeMembers`".
 
 mod common;
 
@@ -11,13 +14,13 @@ use jmap_chat_server::{handle_chat_get, handle_chat_set, handle_message_get, han
 use jmap_types::Id;
 use serde_json::{json, Value};
 
-/// Create a group Chat as `alice` (admin) with `bob` and `carol` as
+/// Create a group Chat as the owner (admin) with `bob` and `carol` as
 /// members and return its id.
 async fn group_of_three(backend: &IdentityBackend) -> String {
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
     let (resp, _) = handle_chat_set(
         backend,
-        &Id::from("alice"),
+        &Id::from(ACCOUNT_ID),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "Team", "memberIds": ["bob", "carol"] } },
@@ -29,6 +32,28 @@ async fn group_of_three(backend: &IdentityBackend) -> String {
         .as_str()
         .expect("created")
         .to_owned()
+}
+
+/// Store a group Chat `chat_id` whose `members` are `(id, role)` pairs.
+fn seed_group(backend: &IdentityBackend, chat_id: &str, members: &[(&str, &str)]) {
+    backend.inner().register_account(&Id::from(ACCOUNT_ID));
+    let members: Vec<Value> = members
+        .iter()
+        .map(|(id, role)| json!({ "id": id, "role": role, "joinedAt": "2026-01-01T00:00:00Z" }))
+        .collect();
+    backend.inner().insert_object_for_test(
+        "Chat",
+        ACCOUNT_ID,
+        chat_id,
+        json!({
+            "id": chat_id,
+            "kind": "group",
+            "name": "Team",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "unreadCount": 0,
+            "members": members,
+        }),
+    );
 }
 
 /// Send one `Chat/set` update as `caller` and return the response.
@@ -76,16 +101,21 @@ async fn send(backend: &IdentityBackend, chat_id: &str) -> Value {
     resp
 }
 
-/// Close the group by having its only admin, `alice`, leave.
-async fn close(backend: &IdentityBackend, chat_id: &str) {
+/// Have the owner leave `chat_id`.
+async fn owner_leaves(backend: &IdentityBackend, chat_id: &str) {
     let resp = update_as(
         backend,
-        "alice",
+        ACCOUNT_ID,
         chat_id,
-        json!({ "removeMembers": ["alice"] }),
+        json!({ "removeMembers": [ACCOUNT_ID] }),
     )
     .await;
     assert!(resp["updated"].get(chat_id).is_some(), "{resp}");
+}
+
+/// Close the group by having its only admin, the owner, leave.
+async fn close(backend: &IdentityBackend, chat_id: &str) {
+    owner_leaves(backend, chat_id).await;
 }
 
 /// "If the owner is the last admin and other members remain, leaving
@@ -126,54 +156,35 @@ async fn last_admin_leaving_with_members_remaining_sets_closed_at() {
 #[tokio::test]
 async fn leaving_without_closing_conditions_keeps_group_open() {
     let backend = IdentityBackend::new();
-    let chat_id = group_of_three(&backend).await;
+    seed_group(
+        &backend,
+        "non-admin",
+        &[
+            ("alice", "admin"),
+            (ACCOUNT_ID, "member"),
+            ("carol", "member"),
+        ],
+    );
+    seed_group(
+        &backend,
+        "two-admins",
+        &[(ACCOUNT_ID, "admin"), ("carol", "admin"), ("bob", "member")],
+    );
+    seed_group(&backend, "last-member", &[(ACCOUNT_ID, "admin")]);
 
-    let resp = update_as(
-        &backend,
-        "bob",
-        &chat_id,
-        json!({ "removeMembers": ["bob"] }),
-    )
-    .await;
-    assert!(resp["updated"].get(&chat_id).is_some(), "{resp}");
-    assert!(stored_chat(&backend, &chat_id)
-        .await
-        .get("closedAt")
-        .is_none());
-
-    let resp = update_as(
-        &backend,
-        "alice",
-        &chat_id,
-        json!({ "updateMemberRoles": [{ "id": "carol", "role": "admin" }] }),
-    )
-    .await;
-    assert!(resp["updated"].get(&chat_id).is_some(), "{resp}");
-    let resp = update_as(
-        &backend,
-        "alice",
-        &chat_id,
-        json!({ "removeMembers": ["alice"] }),
-    )
-    .await;
-    assert!(resp["updated"].get(&chat_id).is_some(), "{resp}");
-    assert!(stored_chat(&backend, &chat_id)
-        .await
-        .get("closedAt")
-        .is_none());
-
-    let resp = update_as(
-        &backend,
-        "carol",
-        &chat_id,
-        json!({ "removeMembers": ["carol"] }),
-    )
-    .await;
-    assert!(resp["updated"].get(&chat_id).is_some(), "{resp}");
-    assert!(stored_chat(&backend, &chat_id)
-        .await
-        .get("closedAt")
-        .is_none());
+    for chat_id in ["non-admin", "two-admins", "last-member"] {
+        owner_leaves(&backend, chat_id).await;
+        let chat = stored_chat(&backend, chat_id).await;
+        assert!(
+            chat["members"]
+                .as_array()
+                .expect("members")
+                .iter()
+                .all(|m| m["id"] != ACCOUNT_ID),
+            "{chat}"
+        );
+        assert!(chat.get("closedAt").is_none(), "{chat}");
+    }
 }
 
 /// "After it is set, the server MUST reject with a `forbidden` SetError

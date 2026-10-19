@@ -170,16 +170,6 @@ pub async fn handle_invite_set<B: ChatBackend>(
     // unbounded /set batches before touching the storage layer.
     enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;
 
-    // Resolve the caller's identity via the foundation seam so newly
-    // created invites carry `createdBy = ChatContact.id` as required by
-    // draft-atwood-jmap-chat-00 §SpaceInvite.createdBy ("ChatContact.id
-    // of the member who created this invite"). Falls back to
-    // `account_id` in single-user / no-identity-wired posture per
-    // workspace AGENTS.md "Caller identity (foundation seam)".
-    let caller_identity: Id = B::principal_id(caller)
-        .cloned()
-        .unwrap_or_else(|| account_id.clone());
-
     let old_state = backend
         .get_state::<SpaceInvite>(caller, &account_id)
         .await
@@ -290,14 +280,15 @@ pub async fn handle_invite_set<B: ChatBackend>(
             // bound.
             let code = backend.generate_invite_code();
 
-            // Security: createdBy MUST be set server-side from the caller's
-            // resolved identity (foundation seam), never accepted from the
-            // client body. See draft-atwood-jmap-chat-00 §SpaceInvite.createdBy.
+            // Security: createdBy MUST be set server-side, never accepted
+            // from the client body. The creator is the owner, referenced by
+            // the accountId (draft-atwood-jmap-chat-00 §Terminology,
+            // §SpaceInvite.createdBy).
             let invite = SpaceInvite::new(
                 Id::from("placeholder"),
                 code,
                 space_id,
-                caller_identity.clone(),
+                account_id.clone(),
                 0,
                 now,
                 default_channel_id,

@@ -1,33 +1,30 @@
 //! Integration tests for caller-identity vs account-id on
-//! identity-bearing writes (bd:JMAP-x2gd.1).
+//! identity-bearing writes (bd:JMAP-x2gd.1, bd:JMAP-yt1w.29).
 //!
-//! Per draft-atwood-jmap-chat-00 the following fields MUST carry
-//! `ChatContact.id` (i.e. the caller's authenticated userId) rather
-//! than the JMAP `accountId`:
+//! The following fields carry the ChatContact.id of the actor:
 //!
-//! - `SpaceMember.id`     (§SpaceMember.id, lines 645-646)
-//! - `SpaceInvite.createdBy` (§SpaceInvite.createdBy, lines 773-774)
-//! - `SpaceBan.bannedBy`  (§SpaceBan.bannedBy, lines 801-802)
-//! - `CustomEmoji.createdBy` (semantic parallel; the field carries
-//!   the actor's identity, not the JMAP account)
+//! - `SpaceMember.id`     (§SpaceMember.id)
+//! - `SpaceInvite.createdBy` (§SpaceInvite.createdBy)
+//! - `SpaceBan.bannedBy`  (§SpaceBan.bannedBy)
+//! - `CustomEmoji.createdBy` (§CustomEmoji.createdBy)
 //!
-//! Each test exercises both postures via two distinct backends:
+//! The actor here is always the owner, and draft-atwood-jmap-chat-00
+//! §Terminology says "a client-facing reference to the owner carries the
+//! accountId of the owner's account ..., including where this document
+//! describes the reference as a ChatContact.id". Each field therefore
+//! carries the JMAP `accountId` in both postures:
 //!
 //! - `MemoryBackend` with `CallerCtx = ()`: inherits the default
-//!   `principal_id` impl returning `None`. Workspace AGENTS.md
-//!   "Caller identity (foundation seam)" specifies this as
-//!   single-user posture — the kit falls back to `account_id`. The
-//!   tests pin the fallback as the documented behavior.
+//!   `principal_id` impl returning `None` (single-user posture).
 //!
 //! - `IdentityBackend` with `CallerCtx = Id`: overrides
-//!   `principal_id` to return `Some(caller)`. The tests assert the
-//!   resolved principal id lands in the identity-bearing field, NOT
-//!   the JMAP `accountId`.
+//!   `principal_id` to return `Some(caller)`. The resolved principal
+//!   id MUST NOT land in the owner-reference field.
 //!
 //! Oracle independence: each assertion compares against literal
 //! string constants chosen so account_id and principal_id are
-//! distinct values. A handler that writes `account_id` into a
-//! caller-identity field fails the assertion immediately.
+//! distinct values. A handler that writes the principal id into an
+//! owner-reference field fails the assertion immediately.
 
 mod common;
 
@@ -121,11 +118,12 @@ async fn space_join_single_user_writes_account_id_into_member_id() {
     );
 }
 
-/// Oracle: bd:JMAP-x2gd.1 acceptance. With identity wired
-/// (`principal_id == Some(caller)`), the new `SpaceMember.id`
-/// equals the resolved principal, NOT the JMAP `accountId`.
+/// Oracle: §SpaceMember.id "The participant's ChatContact.id, or the
+/// accountId for the owner". With identity wired
+/// (`principal_id == Some(caller)`), the new `SpaceMember.id` is the
+/// JMAP `accountId`, NOT the resolved principal.
 #[tokio::test]
-async fn space_join_with_identity_writes_principal_id_into_member_id() {
+async fn space_join_with_identity_writes_account_id_into_member_id() {
     let backend = IdentityBackend::new();
     seed_public_space_on_identity(&backend);
     let caller = Id::from(PRINCIPAL_ID);
@@ -139,9 +137,11 @@ async fn space_join_with_identity_writes_principal_id_into_member_id() {
     .expect("handle_space_join");
     assert_eq!(resp["spaceId"], SPACE_ID);
 
+    // Read as the preseeded member: Space/get decides membership by
+    // principal, and the joiner was recorded under the accountId.
     let (space_resp, _) = handle_space_get(
         &backend,
-        &caller,
+        &Id::from("preseeded-admin"),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
     )
     .await
@@ -155,15 +155,10 @@ async fn space_join_with_identity_writes_principal_id_into_member_id() {
         .find(|m| m["id"] != "preseeded-admin")
         .expect("new member");
     assert_eq!(
-        joiner["id"], PRINCIPAL_ID,
-        "identity-wired mode must write principal_id into SpaceMember.id per \
-         draft-atwood-jmap-chat-00 §SpaceMember.id, not the account_id ({ACCOUNT_ID}): \
-         {joiner:?}"
-    );
-    assert_ne!(
         joiner["id"], ACCOUNT_ID,
-        "regression guard: SpaceMember.id MUST NOT be the JMAP account_id when \
-         caller identity is resolvable: {joiner:?}"
+        "the owner's SpaceMember.id is the accountId per \
+         draft-atwood-jmap-chat-00 §SpaceMember.id, not the principal \
+         ({PRINCIPAL_ID}): {joiner:?}"
     );
 }
 
@@ -205,11 +200,11 @@ async fn space_join_identity_already_member_check_uses_principal() {
 // SpaceInvite/set createdBy carries the caller's identity
 // ---------------------------------------------------------------------------
 
-/// Oracle: bd:JMAP-x2gd.1 acceptance. With identity wired, a newly
-/// created SpaceInvite's `createdBy` field MUST be the caller's
-/// resolved principal id, NOT the JMAP `accountId`.
+/// Oracle: §Terminology (owner references carry the accountId). With
+/// identity wired, a SpaceInvite the owner creates has `createdBy` equal
+/// to the JMAP `accountId`, NOT the resolved principal id.
 #[tokio::test]
-async fn invite_set_with_identity_writes_principal_id_into_created_by() {
+async fn invite_set_with_identity_writes_account_id_into_created_by() {
     let backend = IdentityBackend::new();
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
     let caller = Id::from(PRINCIPAL_ID);
@@ -242,10 +237,10 @@ async fn invite_set_with_identity_writes_principal_id_into_created_by() {
 
     let created_by = inv_get["list"][0]["createdBy"].as_str().expect("createdBy");
     assert_eq!(
-        created_by, PRINCIPAL_ID,
-        "SpaceInvite.createdBy MUST be the caller's ChatContact.id per \
-         draft-atwood-jmap-chat-00 §SpaceInvite.createdBy, not account_id \
-         ({ACCOUNT_ID})"
+        created_by, ACCOUNT_ID,
+        "SpaceInvite.createdBy references the owner by the accountId per \
+         draft-atwood-jmap-chat-00 §Terminology, not the principal \
+         ({PRINCIPAL_ID})"
     );
 }
 
@@ -282,11 +277,11 @@ async fn invite_set_single_user_writes_account_id_into_created_by() {
 // SpaceBan/set bannedBy carries the caller's identity
 // ---------------------------------------------------------------------------
 
-/// Oracle: bd:JMAP-x2gd.1 acceptance. With identity wired, a newly
-/// created SpaceBan's `bannedBy` field MUST be the caller's
-/// resolved principal id.
+/// Oracle: §Terminology (owner references carry the accountId). With
+/// identity wired, a SpaceBan the owner creates has `bannedBy` equal to
+/// the JMAP `accountId`, NOT the resolved principal id.
 #[tokio::test]
-async fn ban_set_with_identity_writes_principal_id_into_banned_by() {
+async fn ban_set_with_identity_writes_account_id_into_banned_by() {
     let backend = IdentityBackend::new();
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
     let caller = Id::from(PRINCIPAL_ID);
@@ -311,9 +306,9 @@ async fn ban_set_with_identity_writes_principal_id_into_banned_by() {
         .as_str()
         .expect("bannedBy");
     assert_eq!(
-        banned_by, PRINCIPAL_ID,
-        "SpaceBan.bannedBy MUST be the caller's ChatContact.id per \
-         draft-atwood-jmap-chat-00 §SpaceBan.bannedBy, not account_id ({ACCOUNT_ID})"
+        banned_by, ACCOUNT_ID,
+        "SpaceBan.bannedBy references the owner by the accountId per \
+         draft-atwood-jmap-chat-00 §Terminology, not the principal ({PRINCIPAL_ID})"
     );
 }
 
@@ -353,11 +348,11 @@ async fn ban_set_single_user_writes_account_id_into_banned_by() {
 // CustomEmoji/set createdBy carries the caller's identity
 // ---------------------------------------------------------------------------
 
-/// Oracle: bd:JMAP-x2gd.1 acceptance. With identity wired, a newly
-/// created CustomEmoji's `createdBy` field MUST be the caller's
-/// resolved principal id.
+/// Oracle: §Terminology (owner references carry the accountId). With
+/// identity wired, a CustomEmoji the owner creates has `createdBy` equal
+/// to the JMAP `accountId`, NOT the resolved principal id.
 #[tokio::test]
-async fn emoji_set_with_identity_writes_principal_id_into_created_by() {
+async fn emoji_set_with_identity_writes_account_id_into_created_by() {
     let backend = IdentityBackend::new();
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
     let caller = Id::from(PRINCIPAL_ID);
@@ -382,9 +377,9 @@ async fn emoji_set_with_identity_writes_principal_id_into_created_by() {
         .as_str()
         .expect("createdBy");
     assert_eq!(
-        created_by, PRINCIPAL_ID,
-        "CustomEmoji.createdBy MUST be the caller's ChatContact.id, \
-         not account_id ({ACCOUNT_ID})"
+        created_by, ACCOUNT_ID,
+        "CustomEmoji.createdBy references the owner by the accountId, \
+         not the principal ({PRINCIPAL_ID})"
     );
 }
 

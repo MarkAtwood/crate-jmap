@@ -1092,9 +1092,6 @@ pub async fn handle_space_set<B: ChatBackend>(
     // once per request (rather than once per target) is correct because
     // the limits are scoped to the account, not the Space.
     let space_limits = backend.limits(caller, &account_id);
-    let caller_identity: Id = B::principal_id(caller)
-        .cloned()
-        .unwrap_or_else(|| account_id.clone());
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
@@ -1187,9 +1184,10 @@ pub async fn handle_space_set<B: ChatBackend>(
             // draft-atwood-jmap-chat-00 §Space `closedAt`: "The server
             // MUST also reject ... every `Space/set` update to the Space
             // with a `forbidden` SetError, except a member removing
-            // themselves via `removeMembers`."
+            // themselves via `removeMembers`." The owner removes themselves
+            // by the accountId (§Terminology).
             let self_removal = clean_patch.is_empty()
-                && matches!(ops.as_slice(), [SpacePatchOp::RemoveMember(m)] if *m == caller_identity);
+                && matches!(ops.as_slice(), [SpacePatchOp::RemoveMember(m)] if *m == account_id);
             if !self_removal {
                 match backend
                     .get_objects::<Space>(
@@ -1479,28 +1477,10 @@ pub async fn handle_space_join<B: ChatBackend>(
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let (account_id, args) = extract_account_id(args)?;
 
-    // Resolve the caller's identity via the foundation seam
-    // (`JmapBackend::principal_id`) and use it for the
-    // `SpaceMember.id` we write. draft-atwood-jmap-chat-00
-    // §SpaceMember.id requires that field to carry the participant's
-    // `ChatContact.id` — i.e. the caller's authenticated userId, not
-    // the JMAP `accountId`. The reader-side membership checks in
-    // `non_member_non_previewable` and `project_space_for_caller`
-    // already compare against `principal_id`; writing `account_id`
-    // here desynchronizes the writer from the reader and is invisible
-    // only in single-user deployments where `account_id ==
-    // principal_id` collapses both into the same value.
-    //
-    // Single-user posture per workspace AGENTS.md "Caller identity
-    // (foundation seam)": a `None` return from `principal_id` means
-    // the backend has not wired identity; fall back to `account_id`
-    // so the kit's no-identity test fixtures and the testjig keep
-    // their existing behavior (the user IS the account in that
-    // posture). Multi-user production backends override `principal_id`
-    // and get spec-correct semantics.
-    let caller_identity: Id = B::principal_id(caller)
-        .cloned()
-        .unwrap_or_else(|| account_id.clone());
+    // The joining participant is the owner, referenced by the accountId:
+    // draft-atwood-jmap-chat-00 §SpaceMember.id is "The participant's
+    // ChatContact.id, or the accountId for the owner", and the owner's
+    // SpaceBan carries the accountId as its `userId` (§Terminology).
 
     let invite_code = args
         .get("inviteCode")
@@ -1651,7 +1631,7 @@ pub async fn handle_space_join<B: ChatBackend>(
     let now = now_utc_string();
     if bans.iter().any(|b| {
         b.space_id == space_id
-            && b.user_id == caller_identity
+            && b.user_id == account_id
             && b.expires_at
                 .as_ref()
                 .is_none_or(|e| iso8601_before(&now, e))
@@ -1679,13 +1659,13 @@ pub async fn handle_space_join<B: ChatBackend>(
     // member entries. The post-write duplicate detection below catches this in
     // the common case. Storage-layer unique constraints are the authoritative guard.
     //
-    // Identity: compare against the caller's resolved identity (see top of
+    // Identity: compare against the owner's accountId (see top of
     // function). Writer and reader must agree on which value identifies the
     // member, or two distinct join paths can both succeed and the
     // duplicate-detection logic below will misclassify.
     let already_member = new_members
         .iter()
-        .any(|m| m.get("id").and_then(|v| v.as_str()) == Some(caller_identity.as_ref()));
+        .any(|m| m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref()));
     if already_member {
         return Err(JmapError::invalid_arguments(
             "caller is already a member of this space",
@@ -1693,7 +1673,7 @@ pub async fn handle_space_join<B: ChatBackend>(
     }
 
     new_members.push(json!({
-        "id": caller_identity.as_ref(),
+        "id": account_id.as_ref(),
         "roleIds": [],
         "joinedAt": now_str,
     }));
@@ -1746,12 +1726,12 @@ pub async fn handle_space_join<B: ChatBackend>(
         .unwrap_or_default();
     let duplicate_count = post_members
         .iter()
-        .filter(|m| m.get("id").and_then(|v| v.as_str()) == Some(caller_identity.as_ref()))
+        .filter(|m| m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref()))
         .count();
     if duplicate_count > 1 {
         // Same-caller TOCTOU: two concurrent Space/join requests from this
         // caller both passed the pre-check (line 1474-1481) and both wrote a
-        // member entry. The filter keys on caller_identity, so duplicate_count
+        // member entry. The filter keys on account_id, so duplicate_count
         // > 1 strictly implies same-caller — different-account races can
         // never hit this branch.
         //
@@ -1770,7 +1750,7 @@ pub async fn handle_space_join<B: ChatBackend>(
         // The unique-key constraint at the storage layer remains the
         // authoritative guard (see write comment at line 1488); this code
         // is best-effort self-healing.
-        let deduped = dedup_caller_members(post_members, caller_identity.as_ref());
+        let deduped = dedup_caller_members(post_members, account_id.as_ref());
         let mut deduped_patch = serde_json::Map::new();
         deduped_patch.insert("members".to_owned(), json!(deduped));
         backend

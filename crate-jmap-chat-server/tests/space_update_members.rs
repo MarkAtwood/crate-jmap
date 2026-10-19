@@ -1,5 +1,6 @@
 //! Space/set `updateMembers`: the self-nick exemption, per
-//! draft-atwood-jmap-chat-00 §Space/set.
+//! draft-atwood-jmap-chat-00 §Space/set. The owner, who acts here, is the
+//! regular member; its member entry is the accountId (§Terminology).
 
 mod common;
 
@@ -19,7 +20,7 @@ fn admin_and_regular(backend: &IdentityBackend) {
         }]),
         json!([
             { "id": "admin-user", "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" },
-            { "id": "u-regular", "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" }
+            { "id": ACCOUNT_ID, "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" }
         ]),
     );
 }
@@ -61,8 +62,8 @@ async fn nick_of(backend: &IdentityBackend, member: &str) -> Value {
 
 /// Oracle: draft §Space/set `updateMembers` — "A member MAY set their own
 /// `nick` by submitting `updateMembers` with a single entry whose `id` is
-/// their own and which contains only `nick`; the server MUST permit this
-/// regardless of the caller's permission set."
+/// the accountId and which contains only `nick`; the server MUST permit
+/// this regardless of the caller's permission set."
 #[tokio::test]
 async fn own_nick_without_manage_members_is_permitted() {
     let backend = IdentityBackend::new();
@@ -70,12 +71,12 @@ async fn own_nick_without_manage_members_is_permitted() {
 
     let resp = update_members(
         &backend,
-        "u-regular",
-        json!([{ "id": "u-regular", "nick": "Captain" }]),
+        ACCOUNT_ID,
+        json!([{ "id": ACCOUNT_ID, "nick": "Captain" }]),
     )
     .await;
     assert!(resp["notUpdated"][SPACE_ID].is_null(), "{resp:?}");
-    assert_eq!(nick_of(&backend, "u-regular").await, "Captain");
+    assert_eq!(nick_of(&backend, ACCOUNT_ID).await, "Captain");
 }
 
 /// Oracle: draft §Space/set `updateMembers` — "Changing another member's
@@ -87,7 +88,7 @@ async fn other_members_nick_without_manage_members_is_forbidden() {
 
     let resp = update_members(
         &backend,
-        "u-regular",
+        ACCOUNT_ID,
         json!([{ "id": "admin-user", "nick": "Boss" }]),
     )
     .await;
@@ -99,7 +100,8 @@ async fn other_members_nick_without_manage_members_is_forbidden() {
 }
 
 /// Oracle: draft §Space/set `updateMembers` — the exemption covers only "a
-/// single entry whose `id` is their own and which contains only `nick`";
+/// single entry whose `id` is the accountId and which contains only
+/// `nick`";
 /// "Role changes require `"manage_roles"`."
 #[tokio::test]
 async fn own_entry_with_role_ids_is_not_exempt() {
@@ -108,13 +110,13 @@ async fn own_entry_with_role_ids_is_not_exempt() {
 
     let resp = update_members(
         &backend,
-        "u-regular",
-        json!([{ "id": "u-regular", "nick": "Captain", "roleIds": [] }]),
+        ACCOUNT_ID,
+        json!([{ "id": ACCOUNT_ID, "nick": "Captain", "roleIds": [] }]),
     )
     .await;
     assert_eq!(
         resp["notUpdated"][SPACE_ID]["type"], "forbidden",
         "{resp:?}"
     );
-    assert_eq!(nick_of(&backend, "u-regular").await, Value::Null);
+    assert_eq!(nick_of(&backend, ACCOUNT_ID).await, Value::Null);
 }

@@ -7,6 +7,10 @@
 //! `removeMembers`)". The last test follows the implementer guide's
 //! "Deployments SHOULD avoid admin-less open groups by refusing to let the
 //! last admin demote themselves via `updateMemberRoles`."
+//!
+//! The owner's own member entry is the accountId (§Terminology: "a
+//! client-facing reference to the owner carries the accountId of the
+//! owner's account").
 
 mod common;
 
@@ -15,13 +19,13 @@ use jmap_chat_server::{handle_chat_get, handle_chat_set, ChatLimits};
 use jmap_types::Id;
 use serde_json::{json, Value};
 
-/// Create a group Chat as `alice` (admin) with `bob` and `carol` as
+/// Create a group Chat as the owner (admin) with `bob` and `carol` as
 /// members and return its id.
 async fn group_of_three(backend: &IdentityBackend) -> String {
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
     let (resp, _) = handle_chat_set(
         backend,
-        &Id::from("alice"),
+        &Id::from(ACCOUNT_ID),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "g": { "kind": "group", "name": "Team", "memberIds": ["bob", "carol"] } },
@@ -33,6 +37,30 @@ async fn group_of_three(backend: &IdentityBackend) -> String {
         .as_str()
         .expect("created")
         .to_owned()
+}
+
+/// Store a group Chat in which `alice` is the admin and the owner and
+/// `carol` are members, and return its id.
+fn group_with_owner_as_member(backend: &IdentityBackend) -> String {
+    backend.inner().register_account(&Id::from(ACCOUNT_ID));
+    backend.inner().insert_object_for_test(
+        "Chat",
+        ACCOUNT_ID,
+        "g1",
+        json!({
+            "id": "g1",
+            "kind": "group",
+            "name": "Team",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "unreadCount": 0,
+            "members": [
+                { "id": "alice", "role": "admin", "joinedAt": "2026-01-01T00:00:00Z" },
+                { "id": ACCOUNT_ID, "role": "member", "joinedAt": "2026-01-01T00:00:00Z" },
+                { "id": "carol", "role": "member", "joinedAt": "2026-01-01T00:00:00Z" }
+            ],
+        }),
+    );
+    "g1".to_owned()
 }
 
 /// Send one `Chat/set` update as `caller` and return the response.
@@ -51,7 +79,7 @@ async fn update_as(backend: &IdentityBackend, caller: &str, chat_id: &str, patch
 async fn stored_chat(backend: &IdentityBackend, chat_id: &str) -> Value {
     let (resp, _) = handle_chat_get(
         backend,
-        &Id::from("alice"),
+        &Id::from(ACCOUNT_ID),
         json!({ "accountId": ACCOUNT_ID, "ids": [chat_id] }),
     )
     .await
@@ -92,7 +120,7 @@ async fn admin_add_members_adds_with_default_role() {
 
     let resp = update_as(
         &backend,
-        "alice",
+        ACCOUNT_ID,
         &chat_id,
         json!({ "addMembers": [{ "id": "dave" }, { "id": "erin", "role": "admin" }] }),
     )
@@ -102,7 +130,7 @@ async fn admin_add_members_adds_with_default_role() {
     assert_eq!(
         stored_members(&backend, &chat_id).await,
         pairs(&[
-            ("alice", "admin"),
+            (ACCOUNT_ID, "admin"),
             ("bob", "member"),
             ("carol", "member"),
             ("dave", "member"),
@@ -120,11 +148,11 @@ async fn admin_add_members_adds_with_default_role() {
 #[tokio::test]
 async fn non_admin_add_members_is_forbidden() {
     let backend = IdentityBackend::new();
-    let chat_id = group_of_three(&backend).await;
+    let chat_id = group_with_owner_as_member(&backend);
 
     let resp = update_as(
         &backend,
-        "bob",
+        ACCOUNT_ID,
         &chat_id,
         json!({ "addMembers": [{ "id": "dave" }] }),
     )
@@ -132,7 +160,11 @@ async fn non_admin_add_members_is_forbidden() {
     assert_eq!(resp["notUpdated"][&chat_id]["type"], "forbidden", "{resp}");
     assert_eq!(
         stored_members(&backend, &chat_id).await,
-        pairs(&[("alice", "admin"), ("bob", "member"), ("carol", "member")])
+        pairs(&[
+            (ACCOUNT_ID, "member"),
+            ("alice", "admin"),
+            ("carol", "member")
+        ])
     );
 }
 
@@ -144,7 +176,7 @@ async fn admin_remove_members_removes() {
 
     let resp = update_as(
         &backend,
-        "alice",
+        ACCOUNT_ID,
         &chat_id,
         json!({ "removeMembers": ["carol"] }),
     )
@@ -152,7 +184,7 @@ async fn admin_remove_members_removes() {
     assert!(resp["updated"].get(&chat_id).is_some(), "{resp}");
     assert_eq!(
         stored_members(&backend, &chat_id).await,
-        pairs(&[("alice", "admin"), ("bob", "member")])
+        pairs(&[(ACCOUNT_ID, "admin"), ("bob", "member")])
     );
     assert!(stored_chat(&backend, &chat_id)
         .await
@@ -160,19 +192,19 @@ async fn admin_remove_members_removes() {
         .is_none());
 }
 
-/// "The owner MAY leave the group by including only their own id in
+/// "The owner MAY leave the group by including only the accountId in
 /// `removeMembers`; the server MUST permit this whether or not the owner
 /// holds the admin role".
 #[tokio::test]
 async fn non_admin_may_leave_via_remove_members() {
     let backend = IdentityBackend::new();
-    let chat_id = group_of_three(&backend).await;
+    let chat_id = group_with_owner_as_member(&backend);
 
     let resp = update_as(
         &backend,
-        "bob",
+        ACCOUNT_ID,
         &chat_id,
-        json!({ "removeMembers": ["bob"] }),
+        json!({ "removeMembers": [ACCOUNT_ID] }),
     )
     .await;
     assert!(resp["updated"].get(&chat_id).is_some(), "{resp}");
@@ -187,11 +219,11 @@ async fn non_admin_may_leave_via_remove_members() {
 #[tokio::test]
 async fn non_admin_remove_other_member_is_forbidden() {
     let backend = IdentityBackend::new();
-    let chat_id = group_of_three(&backend).await;
+    let chat_id = group_with_owner_as_member(&backend);
 
     let resp = update_as(
         &backend,
-        "bob",
+        ACCOUNT_ID,
         &chat_id,
         json!({ "removeMembers": ["carol"] }),
     )
@@ -199,7 +231,11 @@ async fn non_admin_remove_other_member_is_forbidden() {
     assert_eq!(resp["notUpdated"][&chat_id]["type"], "forbidden", "{resp}");
     assert_eq!(
         stored_members(&backend, &chat_id).await,
-        pairs(&[("alice", "admin"), ("bob", "member"), ("carol", "member")])
+        pairs(&[
+            (ACCOUNT_ID, "member"),
+            ("alice", "admin"),
+            ("carol", "member")
+        ])
     );
 }
 
@@ -216,7 +252,7 @@ async fn add_members_over_limit_is_over_quota() {
 
     let resp = update_as(
         &backend,
-        "alice",
+        ACCOUNT_ID,
         &chat_id,
         json!({ "addMembers": [{ "id": "dave" }] }),
     )
@@ -224,7 +260,11 @@ async fn add_members_over_limit_is_over_quota() {
     assert_eq!(resp["notUpdated"][&chat_id]["type"], "overQuota", "{resp}");
     assert_eq!(
         stored_members(&backend, &chat_id).await,
-        pairs(&[("alice", "admin"), ("bob", "member"), ("carol", "member")])
+        pairs(&[
+            (ACCOUNT_ID, "admin"),
+            ("bob", "member"),
+            ("carol", "member")
+        ])
     );
 }
 
@@ -238,7 +278,7 @@ async fn add_members_rejects_unknown_role() {
 
     let resp = update_as(
         &backend,
-        "alice",
+        ACCOUNT_ID,
         &chat_id,
         json!({ "addMembers": [{ "id": "dave", "role": "owner" }] }),
     )
@@ -263,7 +303,7 @@ async fn update_member_roles_rejects_unknown_role() {
 
     let resp = update_as(
         &backend,
-        "alice",
+        ACCOUNT_ID,
         &chat_id,
         json!({ "updateMemberRoles": [{ "id": "bob", "role": "moderator" }] }),
     )
@@ -287,7 +327,7 @@ async fn admin_update_member_roles_changes_role() {
 
     let resp = update_as(
         &backend,
-        "alice",
+        ACCOUNT_ID,
         &chat_id,
         json!({ "updateMemberRoles": [{ "id": "bob", "role": "admin" }] }),
     )
@@ -295,7 +335,7 @@ async fn admin_update_member_roles_changes_role() {
     assert!(resp["updated"].get(&chat_id).is_some(), "{resp}");
     assert_eq!(
         stored_members(&backend, &chat_id).await,
-        pairs(&[("alice", "admin"), ("bob", "admin"), ("carol", "member")])
+        pairs(&[(ACCOUNT_ID, "admin"), ("bob", "admin"), ("carol", "member")])
     );
     assert!(stored_chat(&backend, &chat_id)
         .await
@@ -308,19 +348,23 @@ async fn admin_update_member_roles_changes_role() {
 #[tokio::test]
 async fn non_admin_update_member_roles_is_forbidden() {
     let backend = IdentityBackend::new();
-    let chat_id = group_of_three(&backend).await;
+    let chat_id = group_with_owner_as_member(&backend);
 
     let resp = update_as(
         &backend,
-        "bob",
+        ACCOUNT_ID,
         &chat_id,
-        json!({ "updateMemberRoles": [{ "id": "bob", "role": "admin" }] }),
+        json!({ "updateMemberRoles": [{ "id": ACCOUNT_ID, "role": "admin" }] }),
     )
     .await;
     assert_eq!(resp["notUpdated"][&chat_id]["type"], "forbidden", "{resp}");
     assert_eq!(
         stored_members(&backend, &chat_id).await,
-        pairs(&[("alice", "admin"), ("bob", "member"), ("carol", "member")])
+        pairs(&[
+            (ACCOUNT_ID, "member"),
+            ("alice", "admin"),
+            ("carol", "member")
+        ])
     );
 }
 
@@ -334,14 +378,18 @@ async fn last_admin_self_demote_is_refused() {
 
     let resp = update_as(
         &backend,
-        "alice",
+        ACCOUNT_ID,
         &chat_id,
-        json!({ "updateMemberRoles": [{ "id": "alice", "role": "member" }] }),
+        json!({ "updateMemberRoles": [{ "id": ACCOUNT_ID, "role": "member" }] }),
     )
     .await;
     assert_eq!(resp["notUpdated"][&chat_id]["type"], "forbidden", "{resp}");
     assert_eq!(
         stored_members(&backend, &chat_id).await,
-        pairs(&[("alice", "admin"), ("bob", "member"), ("carol", "member")])
+        pairs(&[
+            (ACCOUNT_ID, "admin"),
+            ("bob", "member"),
+            ("carol", "member")
+        ])
     );
 }
