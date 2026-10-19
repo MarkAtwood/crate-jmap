@@ -152,8 +152,6 @@ pub trait ContactsBackend: JmapBackend {
     /// The answer is **global per backend instance** — the signature has
     /// no `caller` or `account_id` parameter, so a backend cannot make
     /// the answer depend on the calling principal or target account.
-    /// Backends that support all types unconditionally can return `true`
-    /// always.
     ///
     /// Consumers needing per-account or per-caller feature gating
     /// (multi-tenant SaaS with paid contacts tiers, etc.) must implement
@@ -163,8 +161,34 @@ pub trait ContactsBackend: JmapBackend {
     /// The workspace-design discussion for adding `caller` / `account_id`
     /// parameters is tracked at bd:JMAP-qz9v.30 follow-up.
     ///
-    /// Called by the server consumer (e.g. the session capability
-    /// builder) — NOT called internally by the handler library.
+    /// # Types in scope
+    ///
+    /// Implementors should answer for the JMAP object types this trait
+    /// covers (RFC 9610): `AddressBook` and `ContactCard`. Backends MAY
+    /// answer for object types from sibling extensions (`Email`,
+    /// `Calendar`, etc.) if they also implement those traits, but the
+    /// typical pattern is one backend impl per extension family. A backend
+    /// that does not recognise `O` SHOULD return `false`.
+    ///
+    /// # Callers
+    ///
+    /// The contacts handler library itself does NOT consult
+    /// `supports_type` — every method in
+    /// [`register_contacts_handlers`](crate::register_contacts_handlers)
+    /// is registered unconditionally. The intended caller is the server
+    /// consumer's session-capability builder, which uses
+    /// `supports_type::<AddressBook>()` / `supports_type::<ContactCard>()`
+    /// to decide which capability URIs to advertise. This is a deliberate
+    /// divergence from canonical `jmap-mail-server`, where the handler
+    /// library DOES short-circuit optional methods (notably
+    /// `handle_search_snippet_get` via `supports_type::<SearchSnippet>`).
+    /// A backend impl shared across both extension families should answer
+    /// truthfully per-type, not paper over the difference.
+    ///
+    /// # Default
+    ///
+    /// Backends that support every type in this trait unconditionally can
+    /// return `true` always.
     fn supports_type<O: JmapObject>(&self) -> bool;
 
     /// Copy a ContactCard from one account to another.

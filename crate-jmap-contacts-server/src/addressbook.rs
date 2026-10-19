@@ -34,7 +34,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, ContactsBackend, SetError, SetErrorType};
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
-    SetAccumulators,
+    SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
@@ -226,7 +226,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
                     m.entry("id")
-                        .or_insert_with(|| Value::String("placeholder".to_owned()));
+                        .or_insert_with(|| Value::String(PLACEHOLDER_ID.to_owned()));
                     // AddressBook requires myRights — inject a default if absent.
                     m.entry("myRights").or_insert_with(|| {
                         json!({
