@@ -33,7 +33,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, SharingBackend};
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
-    SetAccumulators,
+    SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
@@ -156,7 +156,7 @@ pub async fn handle_principal_set<B: SharingBackend>(
                     // Inject a placeholder id — the backend replaces it with the
                     // server-assigned id on success.
                     m.entry("id")
-                        .or_insert_with(|| Value::String("placeholder".to_owned()));
+                        .or_insert_with(|| Value::String(PLACEHOLDER_ID.to_owned()));
                     Value::Object(m)
                 }
                 other => other,

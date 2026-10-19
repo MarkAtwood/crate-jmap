@@ -19,6 +19,22 @@ pub(crate) fn set_error_value(e: &crate::backend::SetError) -> serde_json::Value
     serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
 }
 
+/// Sentinel `id` injected into a `Principal/set` create payload.
+///
+/// [`Principal`](jmap_sharing_types::Principal) requires an `id` field in
+/// the wire payload, but RFC 8620 §5.3 makes `id` server-assigned on
+/// create. The handler inserts this sentinel before
+/// `serde_json::from_value`, then the backend's `create_object` MUST
+/// replace it with a real, unique, account-scoped Id (see the
+/// [`SharingBackend::create_object`] contract). Clients must never see
+/// this value.
+///
+/// Defined as a constant so every handler site uses the same string and a
+/// rename is caught at compile time. Mirrors the canonical
+/// `crate-jmap-mail-server/src/helpers.rs` `PLACEHOLDER_ID` pattern
+/// (bd:JMAP-q2wa.23).
+pub(crate) const PLACEHOLDER_ID: &str = "placeholder";
+
 /// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.
 ///
 /// The six fields correspond to the six top-level result keys (`created`,
