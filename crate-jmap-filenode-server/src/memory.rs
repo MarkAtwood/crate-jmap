@@ -54,8 +54,9 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    BackendChangesError, BackendSetError, ChangesResult, FileNodeBackend, GetObject, JmapBackend,
-    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, FileNodeBackend,
+    GetObject, JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError,
+    SetErrorType, SetObject,
 };
 use jmap_filenode_types::{FileNode, NodeRole, NodeType};
 use jmap_server::apply_patch_object;
@@ -495,7 +496,7 @@ impl JmapBackend for MemoryBackend {
         _sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         _position: i64,
-    ) -> Result<QueryResult, Self::Error> {
+    ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         let guard = self.inner.lock().unwrap();
         let store = match guard.get_or_err(account_id) {
             Some(s) => s,

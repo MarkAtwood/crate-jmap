@@ -54,9 +54,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
-    SharingBackend,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
+    SetObject, SharingBackend,
 };
 use jmap_server::{apply_patch_object, resolve_query_offset};
 use jmap_types::{Id, State};
@@ -554,7 +554,7 @@ impl JmapBackend for MemoryBackend {
         _sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
-    ) -> Result<QueryResult, Self::Error> {
+    ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         let inner = self.inner.lock().unwrap();
 
         let mut ids: Vec<Id> = inner

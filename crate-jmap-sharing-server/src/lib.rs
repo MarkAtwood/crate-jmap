@@ -82,9 +82,9 @@ pub mod notification;
 pub mod principal;
 
 pub use backend::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, PrincipalProperty, QueryChangesResult, QueryObject, QueryResult, SetError,
-    SetErrorType, SetObject, ShareNotificationProperty, SharingBackend,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, PrincipalProperty, QueryChangesResult, QueryObject, QueryResult,
+    SetError, SetErrorType, SetObject, ShareNotificationProperty, SharingBackend,
 };
 pub use notification::{
     handle_share_notification_changes, handle_share_notification_get,
@@ -249,8 +249,9 @@ pub(crate) mod test_support {
     use std::sync::{Arc, Mutex};
 
     use jmap_server::{
-        BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend, JmapObject,
-        QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+        BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+        JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError,
+        SetErrorType, SetObject,
     };
     use jmap_sharing_types::{Principal, ShareNotification};
     use jmap_types::{Id, State};
@@ -384,7 +385,7 @@ pub(crate) mod test_support {
             _sort: Option<&[O::Comparator]>,
             _limit: Option<u64>,
             _position: i64,
-        ) -> Result<QueryResult, Self::Error> {
+        ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
             Ok(QueryResult::new(
                 vec![],
                 0,

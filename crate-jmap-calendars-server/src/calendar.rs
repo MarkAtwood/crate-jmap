@@ -590,9 +590,9 @@ mod tests {
     #[tokio::test]
     async fn set_destroy_calendar_has_events_error_returns_server_fail() {
         use jmap_server::{
-            BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-            JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError as JsSetError,
-            SetErrorType as JsSetErrorType, SetObject,
+            BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+            JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult,
+            SetError as JsSetError, SetErrorType as JsSetErrorType, SetObject,
         };
         use jmap_types::{Id, PatchObject, State};
 
@@ -662,7 +662,7 @@ mod tests {
                 _sort: Option<&[O::Comparator]>,
                 _limit: Option<u64>,
                 _position: i64,
-            ) -> Result<QueryResult, Self::Error> {
+            ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 Ok(QueryResult::new(
                     vec![],
                     0,

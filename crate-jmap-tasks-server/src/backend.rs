@@ -33,7 +33,7 @@ pub use jmap_server::BackendSetError;
 /// Backend-side error wrapper for `/changes` paths (RFC 8620 §5.2);
 /// distinguished from [`BackendSetError`] because the `cannotCalculateChanges`
 /// recovery is a `/changes`-specific contract.
-pub use jmap_server::BackendChangesError;
+pub use jmap_server::{BackendChangesError, BackendQueryError};
 
 /// Result of [`JmapBackend::get_changes`] (RFC 8620 §5.2). Carries
 /// `created`, `updated`, `destroyed`, the `hasMoreChanges` flag, and the

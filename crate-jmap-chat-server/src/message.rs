@@ -250,7 +250,7 @@ pub async fn handle_message_query<B: ChatBackend>(
             position,
         )
         .await
-        .map_err(|e| server_fail_from_backend(&e))?;
+        .map_err(JmapError::from)?;
 
     let mut resp = json!({
         "accountId": account_id.as_ref(),

@@ -2081,7 +2081,7 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
     let descendant_ids = backend
         .query_subtree(caller, &account_id, &root_ids, depth)
         .await
-        .map_err(|e| server_fail_from_backend(&e))?;
+        .map_err(JmapError::from)?;
 
     // Merge root_ids + descendant_ids, preserving root order then descendant order.
     let mut combined: Vec<Value> = root_ids
@@ -2135,8 +2135,8 @@ mod tests {
     use serde_json::json;
 
     use crate::backend::{
-        BackendChangesError, CaseFolding, ChangesResult, GetObject, JmapBackend, JmapObject,
-        QueryChangesResult, QueryObject, QueryResult, SetObject,
+        BackendChangesError, BackendQueryError, CaseFolding, ChangesResult, GetObject, JmapBackend,
+        JmapObject, QueryChangesResult, QueryObject, QueryResult, SetObject,
     };
     use crate::memory::{MemoryBackend, MemoryError};
     use jmap_types::State;
@@ -2333,7 +2333,7 @@ mod tests {
             sort: Option<&[O::Comparator]>,
             limit: Option<u64>,
             position: i64,
-        ) -> Result<QueryResult, Self::Error> {
+        ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
             // Single-shot fault: consume the entry only when the
             // configured call count is reached.
             {
@@ -2350,7 +2350,7 @@ mod tests {
                         .take()
                         .map(|c| c.msg)
                         .unwrap_or_default();
-                    return Err(MemoryError::new(msg));
+                    return Err(BackendQueryError::Other(MemoryError::new(msg)));
                 }
             }
             self.inner
@@ -2557,6 +2557,9 @@ mod tests {
             .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0)
             .await
             .expect_err("first call must surface the injected error");
+        let BackendQueryError::Other(err) = err else {
+            panic!("injected fault must be BackendQueryError::Other");
+        };
         assert_eq!(err.description(), "simulated boom");
     }
 
@@ -2576,6 +2579,9 @@ mod tests {
             .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0)
             .await
             .expect_err("second call must surface the injected error");
+        let BackendQueryError::Other(err) = err else {
+            panic!("injected fault must be BackendQueryError::Other");
+        };
         assert_eq!(err.description(), "simulated boom");
     }
 
@@ -2715,7 +2721,7 @@ mod tests {
             sort: Option<&[O::Comparator]>,
             limit: Option<u64>,
             position: i64,
-        ) -> Result<QueryResult, Self::Error> {
+        ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
             self.0
                 .query_objects::<O>(&(), account_id, filter, sort, limit, position)
                 .await

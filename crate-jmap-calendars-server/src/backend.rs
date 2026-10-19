@@ -12,8 +12,9 @@ pub use jmap_calendars_types::backend::{
     ParticipantIdentityProperty,
 };
 pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
+    SetObject,
 };
 
 // bd:JMAP-ic0j.30 — `jmap_types::PatchObject` is referenced as a fully
@@ -545,7 +546,10 @@ pub trait CalendarsBackend: JmapBackend {
                 caller, account_id, filter, sort, limit, position,
             )
             .await
-            .map_err(QueryCalendarEventsError::Other)
+            .map_err(|e| match e {
+                BackendQueryError::Method(e) => QueryCalendarEventsError::Method(e),
+                BackendQueryError::Other(e) => QueryCalendarEventsError::Other(e),
+            })
         }
     }
 
@@ -1095,6 +1099,10 @@ pub enum QueryCalendarEventsError<E: std::error::Error + 'static> {
     /// error (§5.11, §10.7.4).
     #[error("server cannot expand a recurrence required by the query")]
     CannotCalculateOccurrences,
+    /// An RFC 8620 §5.5 method error (e.g. `unsupportedFilter`), returned
+    /// to the client unchanged. See [`BackendQueryError::Method`].
+    #[error("{0}")]
+    Method(jmap_types::JmapError),
     /// An unexpected backend error.
     ///
     /// bd:JMAP-ic0j.59 — `#[from]` implies `#[source]`, so the

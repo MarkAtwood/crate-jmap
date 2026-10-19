@@ -301,9 +301,10 @@ mod tests {
     #[tokio::test]
     async fn get_availability_other_error_is_redacted_on_the_wire() {
         use jmap_server::{
-            BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-            JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError as JsSetError,
-            SetErrorType as JsSetErrorType, SetObject, SERVER_FAIL_INTERNAL_DESC,
+            BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+            JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult,
+            SetError as JsSetError, SetErrorType as JsSetErrorType, SetObject,
+            SERVER_FAIL_INTERNAL_DESC,
         };
         use jmap_types::State;
 
@@ -374,7 +375,7 @@ mod tests {
                 _sort: Option<&[O::Comparator]>,
                 _limit: Option<u64>,
                 _position: i64,
-            ) -> Result<QueryResult, Self::Error> {
+            ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 Ok(QueryResult::new(
                     vec![],
                     0,

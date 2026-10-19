@@ -24,8 +24,8 @@
 pub use jmap_mail_server::memory::{seed, MemoryBackend, MemoryError};
 
 use jmap_mail_server::{
-    BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend, JmapObject,
-    MailBackend, QueryChangesResult, QueryObject, QueryResult, SetObject,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+    JmapObject, MailBackend, QueryChangesResult, QueryObject, QueryResult, SetObject,
 };
 use jmap_types::{Id, State, UTCDate};
 
@@ -133,7 +133,7 @@ impl JmapBackend for FaultyBackend {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
-    ) -> Result<QueryResult, Self::Error> {
+    ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         self.inner
             .query_objects::<O>(&(), account_id, filter, sort, limit, position)
             .await

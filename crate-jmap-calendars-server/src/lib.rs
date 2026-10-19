@@ -47,10 +47,10 @@ pub mod participant_identity;
 pub mod principal;
 
 pub use backend::{
-    AddedItem, AvailabilityError, BackendChangesError, BackendSetError, CalendarEventGetArgs,
-    CalendarEventNotificationProperty, CalendarEventParseResult, CalendarEventProperty,
-    CalendarEventQueryArgs, CalendarEventSetArgs, CalendarProperty, CalendarsBackend,
-    CalendarsLimits, ChangesResult, GetObject, JmapBackend, JmapObject,
+    AddedItem, AvailabilityError, BackendChangesError, BackendQueryError, BackendSetError,
+    CalendarEventGetArgs, CalendarEventNotificationProperty, CalendarEventParseResult,
+    CalendarEventProperty, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarProperty,
+    CalendarsBackend, CalendarsLimits, ChangesResult, GetObject, JmapBackend, JmapObject,
     ParticipantIdentityProperty, QueryCalendarEventsError, QueryChangesResult, QueryObject,
     QueryResult, SetDefaultResult, SetError, SetErrorType, SetObject,
 };
@@ -288,8 +288,8 @@ pub(crate) mod test_support {
     use std::sync::{Arc, Mutex};
 
     use jmap_server::{
-        apply_patch_object, BackendChangesError, BackendSetError, ChangesResult, GetObject,
-        JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError,
+        apply_patch_object, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult,
+        GetObject, JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError,
         SetErrorType, SetObject,
     };
     use jmap_types::{Id, State};
@@ -568,7 +568,7 @@ pub(crate) mod test_support {
             _sort: Option<&[O::Comparator]>,
             _limit: Option<u64>,
             _position: i64,
-        ) -> Result<QueryResult, Self::Error> {
+        ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
             // Minimal filter implementation for the cleanup test path:
             // for CalendarEvent with an `inCalendar` filter, return ids of
             // stored events whose calendarIds map contains that calendar id.
@@ -925,7 +925,10 @@ pub(crate) mod test_support {
                 caller, account_id, filter, sort, limit, position,
             )
             .await
-            .map_err(QueryCalendarEventsError::Other)
+            .map_err(|e| match e {
+                BackendQueryError::Method(e) => QueryCalendarEventsError::Method(e),
+                BackendQueryError::Other(e) => QueryCalendarEventsError::Other(e),
+            })
         }
 
         // §4.3 onSuccessSetIsDefault for Calendar/set: track the default in

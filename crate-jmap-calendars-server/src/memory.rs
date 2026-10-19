@@ -60,8 +60,9 @@ use std::sync::{Arc, Mutex};
 
 use crate::backend::{CalendarsBackend, SetDefaultResult};
 use crate::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
+    SetObject,
 };
 use jmap_server::{apply_patch_object, resolve_query_offset};
 use jmap_types::{Id, State};
@@ -915,7 +916,7 @@ impl JmapBackend for MemoryBackend {
         _sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
-    ) -> Result<QueryResult, Self::Error> {
+    ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         // bd:JMAP-ic0j.16 — sort is NOT honored. The `_sort` parameter is
         // prefixed with `_` and never consulted; ids are returned in
         // lexical-by-id order. Production backends that override

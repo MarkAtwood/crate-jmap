@@ -107,7 +107,7 @@ pub mod presence;
 pub mod space;
 
 pub use backend::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, ChatBackend,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
     ChatContactProperty, ChatLimits, ChatProperty, EmojiSetOp, GetObject, JmapBackend, JmapObject,
     MessageProperty, OpResult, QueryChangesResult, QueryObject, QueryResult, ReadPositionProperty,
     SetError, SetErrorType, SetObject, SlowModeError, SpaceMetadataPatch, SpacePatchOp,

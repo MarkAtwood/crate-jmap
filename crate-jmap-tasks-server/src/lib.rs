@@ -45,9 +45,9 @@ pub mod task_list;
 pub mod task_notification;
 
 pub use backend::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
-    TaskListProperty, TaskNotificationProperty, TaskProperty, TasksBackend,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
+    SetObject, TaskListProperty, TaskNotificationProperty, TaskProperty, TasksBackend,
 };
 pub use task::{
     handle_task_changes, handle_task_copy, handle_task_get, handle_task_query,
@@ -209,8 +209,9 @@ pub(crate) mod test_support {
     use std::sync::{Arc, Mutex};
 
     use jmap_server::{
-        BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend, JmapObject,
-        QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+        BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+        JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError,
+        SetErrorType, SetObject,
     };
     use jmap_tasks_types::{Task, TaskList, TaskNotification};
     use jmap_types::{Id, State};
@@ -418,7 +419,7 @@ pub(crate) mod test_support {
             _sort: Option<&[O::Comparator]>,
             _limit: Option<u64>,
             _position: i64,
-        ) -> Result<QueryResult, Self::Error> {
+        ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
             Ok(QueryResult::new(
                 vec![],
                 0,
@@ -911,7 +912,7 @@ mod tests {
                 _sort: Option<&[O::Comparator]>,
                 _limit: Option<u64>,
                 _position: i64,
-            ) -> Result<QueryResult, Self::Error> {
+            ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 Ok(QueryResult::new(
                     vec![],
                     0,

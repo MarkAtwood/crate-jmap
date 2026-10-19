@@ -33,8 +33,9 @@ pub use jmap_mail_types::backend::{
     SearchSnippetProperty, ThreadProperty, VacationResponseProperty,
 };
 pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
+    SetObject,
 };
 
 // ---------------------------------------------------------------------------

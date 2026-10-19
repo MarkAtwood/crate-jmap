@@ -15,8 +15,9 @@ pub use jmap_chat_types::backend::{
 };
 pub use jmap_chat_types::space_set::{SpaceMetadataPatch, SpacePatchOp};
 pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
+    SetObject,
 };
 
 // ---------------------------------------------------------------------------

@@ -1133,6 +1133,7 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
         Err(QueryCalendarEventsError::CannotCalculateOccurrences) => {
             return Err(JmapError::custom("cannotCalculateOccurrences"));
         }
+        Err(QueryCalendarEventsError::Method(e)) => return Err(e),
         Err(QueryCalendarEventsError::Other(e)) => {
             // bd:JMAP-ic0j.70 — route through server_fail_from_backend so the
             // wire description is SERVER_FAIL_INTERNAL_DESC rather than the
@@ -1774,9 +1775,9 @@ mod tests {
         use std::sync::{Arc, Mutex};
 
         use jmap_server::{
-            BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-            JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
-            SetObject,
+            BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+            JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError,
+            SetErrorType, SetObject,
         };
         use jmap_types::{Id, PatchObject, State};
 
@@ -1872,7 +1873,7 @@ mod tests {
                 _sort: Option<&[O::Comparator]>,
                 _limit: Option<u64>,
                 _position: i64,
-            ) -> Result<QueryResult, Self::Error> {
+            ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 Ok(QueryResult::new(
                     vec![],
                     0,
@@ -2543,8 +2544,8 @@ mod tests {
     #[tokio::test]
     async fn query_other_error_is_redacted_on_the_wire() {
         use jmap_server::{
-            BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-            JmapObject, QueryChangesResult, QueryObject, QueryResult, SetObject,
+            BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+            JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetObject,
             SERVER_FAIL_INTERNAL_DESC,
         };
         use jmap_types::State;
@@ -2616,7 +2617,7 @@ mod tests {
                 _sort: Option<&[O::Comparator]>,
                 _limit: Option<u64>,
                 _position: i64,
-            ) -> Result<QueryResult, Self::Error> {
+            ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 Ok(QueryResult::new(
                     vec![],
                     0,
@@ -2729,8 +2730,8 @@ mod tests {
     async fn parse_other_error_is_redacted_on_the_wire() {
         use crate::backend::CalendarEventParseResult;
         use jmap_server::{
-            BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-            JmapObject, QueryChangesResult, QueryObject, QueryResult, SetObject,
+            BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+            JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetObject,
             SERVER_FAIL_INTERNAL_DESC,
         };
         use jmap_types::State;
@@ -2802,7 +2803,7 @@ mod tests {
                 _sort: Option<&[O::Comparator]>,
                 _limit: Option<u64>,
                 _position: i64,
-            ) -> Result<QueryResult, Self::Error> {
+            ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
                 Ok(QueryResult::new(
                     vec![],
                     0,

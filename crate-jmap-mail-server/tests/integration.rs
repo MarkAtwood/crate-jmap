@@ -538,7 +538,8 @@ async fn search_snippet_get_capability_gated() {
             sort: Option<&[O::Comparator]>,
             limit: Option<u64>,
             position: i64,
-        ) -> Result<jmap_mail_server::QueryResult, Self::Error> {
+        ) -> Result<jmap_mail_server::QueryResult, jmap_mail_server::BackendQueryError<Self::Error>>
+        {
             self.0
                 .query_objects::<O>(&(), account_id, filter, sort, limit, position)
                 .await

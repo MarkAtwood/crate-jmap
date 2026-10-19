@@ -261,7 +261,10 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
 /// Generic `*/query` handler (RFC 8620 §5.5).
 ///
 /// Parses filter and sort from args as `O::Filter` and `O::Comparator`, then
-/// delegates to [`JmapBackend::query_objects`].
+/// delegates to [`JmapBackend::query_objects`]. A
+/// [`BackendQueryError::Method`](crate::backend::BackendQueryError::Method)
+/// is returned to the client unchanged; any other backend error becomes the
+/// redacted `serverFail`.
 pub async fn handle_query<O: QueryObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -317,7 +320,7 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
             position,
         )
         .await
-        .map_err(|e| server_fail_from_backend(&e))?;
+        .map_err(JmapError::from)?;
 
     let mut resp = json!({
         "accountId": account_id.as_ref(),
@@ -555,5 +558,202 @@ mod tests {
         let owned: String = "owned".to_string();
         let _ = server_fail_value_from_backend(&owned);
         let _ = server_fail_value_from_backend(&42_u64);
+    }
+
+    // -----------------------------------------------------------------
+    // handle_query: backend method errors pass through (bd:JMAP-yt1w.21)
+    // -----------------------------------------------------------------
+
+    use crate::backend::{
+        BackendChangesError, BackendQueryError, ChangesResult, QueryChangesResult,
+    };
+
+    /// Minimal `QueryObject` used only to instantiate [`handle_query`].
+    #[derive(serde::Serialize, serde::Deserialize)]
+    struct QueryProbe;
+
+    impl JmapObject for QueryProbe {
+        const TYPE_NAME: &'static str = "QueryProbe";
+        type Property = ();
+    }
+
+    impl QueryObject for QueryProbe {
+        type Filter = Value;
+        type Comparator = Value;
+    }
+
+    #[derive(Debug)]
+    struct LeakyQueryError(&'static str);
+
+    impl std::fmt::Display for LeakyQueryError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.0)
+        }
+    }
+
+    impl std::error::Error for LeakyQueryError {}
+
+    /// What [`QueryFailBackend::query_objects`] returns.
+    enum QueryFailure {
+        /// An RFC 8620 §5.5 method error the backend chose deliberately.
+        Method(JmapError),
+        /// An internal storage-layer failure whose `Display` must never
+        /// reach the wire.
+        Internal(&'static str),
+    }
+
+    /// Backend whose account exists and whose `query_objects` always fails
+    /// with the configured [`QueryFailure`]. Every other method is unused.
+    struct QueryFailBackend(QueryFailure);
+
+    impl JmapBackend for QueryFailBackend {
+        type Error = LeakyQueryError;
+        type CallerCtx = ();
+
+        async fn account_exists(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+        ) -> Result<bool, Self::Error> {
+            Ok(true)
+        }
+
+        async fn get_objects<O: GetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _ids: Option<&[Id]>,
+            _properties: Option<&[String]>,
+        ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+            unreachable!("only query_objects is exercised")
+        }
+
+        async fn get_state<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+        ) -> Result<State, Self::Error> {
+            unreachable!("only query_objects is exercised")
+        }
+
+        async fn get_changes<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _since_state: &State,
+            _max_changes: Option<u64>,
+        ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+            unreachable!("only query_objects is exercised")
+        }
+
+        async fn query_objects<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _filter: Option<&O::Filter>,
+            _sort: Option<&[O::Comparator]>,
+            _limit: Option<u64>,
+            _position: i64,
+        ) -> Result<crate::backend::QueryResult, BackendQueryError<Self::Error>> {
+            Err(match &self.0 {
+                QueryFailure::Method(e) => BackendQueryError::Method(e.clone()),
+                QueryFailure::Internal(text) => BackendQueryError::Other(LeakyQueryError(text)),
+            })
+        }
+
+        async fn query_changes<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _since_query_state: &State,
+            _filter: Option<&O::Filter>,
+            _sort: Option<&[O::Comparator]>,
+            _max_changes: Option<u64>,
+            _up_to_id: Option<&Id>,
+            _collapse_threads: bool,
+        ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+            unreachable!("only query_objects is exercised")
+        }
+    }
+
+    /// Run `QueryProbe/query` against a [`QueryFailBackend`] and return the
+    /// method-level error serialized in its wire shape.
+    async fn query_error_wire(failure: QueryFailure) -> Value {
+        let backend = QueryFailBackend(failure);
+        let args = json!({
+            "accountId": "a1",
+            "filter": { "text": "hello" },
+            "anchor": "m1",
+        });
+        let err = match handle_query::<QueryProbe, _>(&backend, &(), args).await {
+            Ok((resp, _)) => panic!("query_objects failed but handle_query succeeded: {resp}"),
+            Err(e) => e,
+        };
+        serde_json::to_value(&err).expect("JmapError must serialize")
+    }
+
+    /// Oracle: RFC 8620 §5.5 (/home/mark/PROJECT/IETF/specs/rfc8620.txt,
+    /// Section 5.5 "/query"):
+    ///
+    /// > The following additional errors may be returned instead of the
+    /// > "Foo/query" response:
+    /// >
+    /// > "unsupportedFilter": The "filter" is syntactically valid, but the
+    /// > server cannot process it.
+    ///
+    /// Whether a syntactically valid filter can be processed is known only
+    /// to the backend, so a backend-returned `unsupportedFilter` MUST reach
+    /// the client unchanged (type and description), not as `serverFail`.
+    #[tokio::test]
+    async fn handle_query_passes_backend_unsupported_filter_through() {
+        let mut expected = JmapError::unsupported_filter();
+        expected.description = Some("Message/query requires a chatId condition".into());
+
+        let wire = query_error_wire(QueryFailure::Method(expected.clone())).await;
+
+        assert_eq!(
+            wire,
+            serde_json::to_value(&expected).expect("JmapError must serialize"),
+            "backend unsupportedFilter must pass through handle_query unchanged"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.5 (/home/mark/PROJECT/IETF/specs/rfc8620.txt,
+    /// Section 5.5 "/query"):
+    ///
+    /// > "anchorNotFound": An anchor argument was supplied, but it cannot be
+    /// > found in the results of the query.
+    ///
+    /// Only the backend evaluates the query results, so a backend-returned
+    /// `anchorNotFound` MUST reach the client unchanged.
+    #[tokio::test]
+    async fn handle_query_passes_backend_anchor_not_found_through() {
+        let expected = JmapError::anchor_not_found();
+
+        let wire = query_error_wire(QueryFailure::Method(expected.clone())).await;
+
+        assert_eq!(
+            wire,
+            serde_json::to_value(&expected).expect("JmapError must serialize"),
+            "backend anchorNotFound must pass through handle_query unchanged"
+        );
+    }
+
+    /// Oracle: the [`server_fail_from_backend_drops_display_text`] contract
+    /// still holds on the `/query` path. An internal backend error is not
+    /// one of the RFC 8620 §5.5 method errors and MUST surface as the
+    /// redacted `serverFail`, never echoing the error's `Display`.
+    #[tokio::test]
+    async fn handle_query_redacts_backend_internal_error() {
+        const CANARY: &str = "TOKEN-DO-NOT-LEAK-query-5ca1ab1e";
+
+        let wire = query_error_wire(QueryFailure::Internal(CANARY)).await;
+
+        assert_eq!(wire["type"], "serverFail");
+        assert_eq!(wire["description"], SERVER_FAIL_INTERNAL_DESC);
+        assert!(
+            !wire.to_string().contains(CANARY),
+            "internal backend error Display must not reach the wire; got {wire}"
+        );
     }
 }

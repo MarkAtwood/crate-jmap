@@ -54,9 +54,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, ChatBackend, ChatLimits,
-    EmojiSetOp, GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject,
-    QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
+    ChatLimits, EmojiSetOp, GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult,
+    QueryObject, QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
 };
 use jmap_server::{
     apply_patch_object, json_merge_patch, now_utc_string, resolve_query_offset, MergePatchError,
@@ -788,7 +788,7 @@ impl JmapBackend for MemoryBackend {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
-    ) -> Result<QueryResult, Self::Error> {
+    ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         let inner = self.inner.lock().unwrap();
 
         // Serialize the generic filter to a serde_json::Value so we can

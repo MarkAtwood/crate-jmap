@@ -13,9 +13,9 @@ use std::sync::Arc;
 
 use jmap_server::{Dispatcher, JmapRequest, State};
 use jmap_sharing_server::{
-    register_sharing_handlers, BackendChangesError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetObject,
-    SharingBackend,
+    register_sharing_handlers, BackendChangesError, BackendQueryError, BackendSetError,
+    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesResult, QueryObject,
+    QueryResult, SetObject, SharingBackend,
 };
 use jmap_sharing_types::{Principal, PrincipalFilterCondition, ShareNotification};
 use jmap_types::Id;
@@ -129,7 +129,7 @@ impl JmapBackend for FilteringBackend {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
-    ) -> Result<QueryResult, Self::Error> {
+    ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         // Only intercept Principal queries — all others delegate as-is.
         if O::TYPE_NAME != "Principal" {
             return self

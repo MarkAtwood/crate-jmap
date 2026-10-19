@@ -312,7 +312,7 @@ pub trait MailBackend: Send + Sync + 'static {
         sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
-    ) -> impl Future<Output = Result<QueryResult, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<QueryResult, BackendQueryError<Self::Error>>> + Send;
 
     // ── queryChanges (RFC 8620 §5.5) ────────────────────────────────────────
 
