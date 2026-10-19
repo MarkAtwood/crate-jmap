@@ -68,9 +68,9 @@
 //! per draft-atwood-jmap-chat-00 §Space/set. Backends consume this
 //! helper inside `apply_space_patch` after resolving the caller's
 //! effective permissions from the Space `members` entry whose `id` is
-//! the `accountId` (the owner, per draft §Terminology), with
-//! [`jmap_server::JmapBackend::principal_id`] signalling whether
-//! identity is wired.
+//! the `accountId` (the owner, per draft §Terminology). The gates apply
+//! whether or not [`jmap_server::JmapBackend::principal_id`] resolves a
+//! caller identity.
 //! Handlers MUST NOT consume the helper for gating — backends are the
 //! single source of truth. This mirrors the workspace-wide rule
 //! documented in workspace AGENTS.md "Caller identity (foundation
@@ -79,10 +79,6 @@
 //! - Handlers do NO permission checking.
 //! - Defense-in-depth handler pre-checks are allowed but the backend
 //!   MUST re-verify atomically with the mutation.
-//! - A `None` return from `JmapBackend::principal_id` means the
-//!   deployment has not wired identity; chat permission semantics
-//!   cannot be honored and the backend MUST reject the patch rather
-//!   than fail open.
 
 #![forbid(unsafe_code)]
 

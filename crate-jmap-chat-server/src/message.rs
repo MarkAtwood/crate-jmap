@@ -1724,27 +1724,33 @@ mod tests {
             .to_owned()
     }
 
-    /// Helper: create a Space, then a channel Chat inside it, and return
-    /// the channel's server-assigned id.
+    /// Helper: seed a Space whose owner member (the accountId, per
+    /// §SpaceMember `id`) holds `manage_channels`, then create a channel
+    /// Chat inside it, and return the channel's server-assigned id.
     async fn make_channel_chat(backend: &MemoryBackend) -> String {
-        // Create a Space first.
-        let (space_resp, _) = crate::space::handle_space_set(
-            backend,
-            &(),
+        let space_id = "s0";
+        backend.insert_object_for_test(
+            "Space",
+            ACCOUNT_ID,
+            space_id,
             json!({
-                "accountId": ACCOUNT_ID,
-                "create": { "s0": { "name": "test-space" } }
+                "id": space_id,
+                "name": "test-space",
+                "createdAt": "2026-01-01T00:00:00Z",
+                "memberCount": 1,
+                "categories": [],
+                "uncategorizedChannelIds": [],
+                "isPublic": false,
+                "isPubliclyPreviewable": false,
+                "roles": [{ "id": "r-owner", "name": "Owner", "permissions": ["manage_channels"], "position": 10 }],
+                "members": [{ "id": ACCOUNT_ID, "roleIds": ["r-owner"], "joinedAt": "2026-01-01T00:00:00Z" }],
             }),
-        )
-        .await
-        .expect("make_channel_chat: space");
-        let space_id = space_resp["created"]["s0"]["id"]
-            .as_str()
-            .expect("space id");
+        );
 
         // Create a channel Chat in that Space. §Chat/set: "Channel Chats
         // are created exclusively via the `addChannels` patch key in
-        // `Space/set`."
+        // `Space/set`." §Space/set `addChannels`: "Requires
+        // `"manage_channels"`."
         crate::space::handle_space_set(
             backend,
             &(),

@@ -30,7 +30,8 @@
 use jmap_chat_types::space_set::{
     CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch,
 };
-use jmap_chat_types::{Category, Space, SpaceBan, SpaceInvite, SpaceRole};
+use jmap_chat_types::vocabulary::SPEC_PERMISSION_NAMES;
+use jmap_chat_types::{Category, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 use subtle::ConstantTimeEq;
@@ -956,6 +957,14 @@ async fn check_space_count_limits<B: ChatBackend>(
 // Space/set
 // ---------------------------------------------------------------------------
 
+/// Id of the bootstrap `"Admin"` role [`handle_space_set`] gives every
+/// newly created Space (bd:JMAP-yt1w.34).
+const BOOTSTRAP_ADMIN_ROLE_ID: &str = "admin";
+
+/// Position of the bootstrap `"Admin"` role: 2^53-1, the largest JMAP
+/// `UnsignedInt` (RFC 8620 §1.3), so no later role can outrank it.
+const BOOTSTRAP_ADMIN_ROLE_POSITION: u64 = 9_007_199_254_740_991;
+
 /// Handle a `Space/set` method call (draft-atwood-jmap-chat-00 §Space).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
@@ -967,6 +976,11 @@ async fn check_space_count_limits<B: ChatBackend>(
 /// §5.3 `/set` response shape (`accountId`, `oldState`, `newState`, plus
 /// the per-operation `created` / `notCreated` / `updated` / `notUpdated`
 /// / `destroyed` / `notDestroyed` maps).
+///
+/// On create the Space is born with one role, `"Admin"` (id `"admin"`,
+/// every permission in [`SPEC_PERMISSION_NAMES`], position 2^53-1), and
+/// one member, the owner (id = `accountId`) holding that role, per
+/// draft-atwood-jmap-chat-00 §Space/set "Creating a Space".
 ///
 /// Validation enforced here (not in the backend):
 /// - `name` is required on create.
@@ -1038,17 +1052,40 @@ pub async fn handle_space_set<B: ChatBackend>(
             let now_str = now_utc_string();
             let now: UTCDate = UTCDate::from(now_str.as_ref());
 
+            // draft-atwood-jmap-chat-00 §Space/set "Creating a Space": the
+            // server "adds the caller to `members` with at least one role
+            // granting permissions sufficient to administer the Space". The
+            // caller acts as the account owner, whose member entry is the
+            // accountId (§SpaceMember `id`). Bootstrap configuration
+            // (bd:JMAP-yt1w.34): one "Admin" role holding every spec
+            // permission at the highest UnsignedInt position. Role ids are
+            // scoped to their Space, so the fixed id cannot collide with a
+            // role in another Space.
+            let admin_role: SpaceRole = serde_json::from_value(json!({
+                "id": BOOTSTRAP_ADMIN_ROLE_ID,
+                "name": "Admin",
+                "permissions": SPEC_PERMISSION_NAMES,
+                "position": BOOTSTRAP_ADMIN_ROLE_POSITION,
+            }))
+            .expect("bootstrap role literal matches SpaceRole");
+            let owner: SpaceMember = serde_json::from_value(json!({
+                "id": account_id,
+                "roleIds": [BOOTSTRAP_ADMIN_ROLE_ID],
+                "joinedAt": now_str,
+            }))
+            .expect("bootstrap member literal matches SpaceMember");
+
             let mut space = Space::new(
                 Id::from("placeholder"),
                 name,
-                vec![],
-                vec![],
+                vec![admin_role],
+                vec![owner],
                 vec![],
                 vec![],
                 now,
                 is_public,
                 is_publicly_previewable,
-                0,
+                1,
             );
 
             if let Some(desc) = obj_val.get("description").and_then(|v| v.as_str()) {

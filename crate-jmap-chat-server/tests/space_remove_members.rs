@@ -93,10 +93,11 @@ async fn last_admin_self_removal_bypasses_last_admin_protection() {
 
 /// Oracle: draft §Space/set `removeMembers` — "Servers MUST return an
 /// `invalidProperties` SetError ({{RFC8620}} §5.3) naming `removeMembers`
-/// when refusing on this basis."
+/// when refusing on this basis." and "Requires `"manage_members"`."
 ///
-/// Single-user mode (no caller identity) cannot self-remove, so removing
-/// the only admin is removing another member.
+/// The owner holds `manage_members` to remove another member, so the
+/// patch removes both admins (the other admin and the owner); naming two
+/// ids makes it more than self-removal.
 #[tokio::test]
 async fn last_admin_refusal_is_invalid_properties_naming_remove_members() {
     let backend = MemoryBackend::new();
@@ -110,7 +111,7 @@ async fn last_admin_refusal_is_invalid_properties_naming_remove_members() {
             "id": SPACE_ID,
             "name": "Test",
             "createdAt": "2026-01-01T00:00:00Z",
-            "memberCount": 2,
+            "memberCount": 3,
             "categories": [],
             "uncategorizedChannelIds": [],
             "isPublic": false,
@@ -123,6 +124,7 @@ async fn last_admin_refusal_is_invalid_properties_naming_remove_members() {
             }],
             "members": [
                 { "id": "admin-user", "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" },
+                { "id": ACCOUNT_ID, "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" },
                 { "id": "u-regular", "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" }
             ]
         }),
@@ -133,7 +135,7 @@ async fn last_admin_refusal_is_invalid_properties_naming_remove_members() {
         &(),
         json!({
             "accountId": ACCOUNT_ID,
-            "update": { SPACE_ID: { "removeMembers": ["admin-user"] }}
+            "update": { SPACE_ID: { "removeMembers": ["admin-user", ACCOUNT_ID] }}
         }),
     )
     .await

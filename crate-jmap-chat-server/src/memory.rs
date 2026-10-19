@@ -351,187 +351,6 @@ impl MemoryBackend {
             .insert(account_id.as_ref().to_owned(), owner_user_id.to_owned());
     }
 
-    /// Test-only: apply a [`SpacePatchOp`] sequence as if the caller's
-    /// resolved principal id were `caller_id`, bypassing the normal
-    /// `Self::principal_id(caller)` lookup.
-    ///
-    /// Used by integration-test backends whose `CallerCtx` is a
-    /// richer type than `()` and that override
-    /// [`jmap_server::JmapBackend::principal_id`] to expose a real
-    /// caller identity. The wrapped `MemoryBackend`'s
-    /// `CallerCtx = ()` prevents the test backend from driving
-    /// identity through `MemoryBackend`'s own
-    /// [`ChatBackend::apply_space_patch`] surface; this method offers
-    /// a direct entry point that supplies the resolved caller id to
-    /// the per-op enforcement code.
-    ///
-    /// `caller_id == None` produces single-user-mode behavior
-    /// identical to the trait method's default (criterion 7 in
-    /// `bd:JMAP-g7wu.2.4.3`): identity-dependent gates are skipped.
-    /// Production callers must not use this method; the API
-    /// stability disclaimer on the `memory` feature applies doubly
-    /// here.
-    ///
-    /// See `bd:JMAP-g7wu.2.4.3`.
-    #[doc(hidden)]
-    #[allow(clippy::result_large_err)]
-    pub fn apply_space_patch_with_caller_id(
-        &self,
-        caller_id: Option<&Id>,
-        account_id: &Id,
-        space_id: &Id,
-        ops: Vec<SpacePatchOp>,
-    ) -> Result<Vec<OpResult>, BackendSetError<MemoryError>> {
-        let mut inner = self.inner.lock().unwrap();
-        apply_space_patch_impl(&mut inner, caller_id, account_id, space_id, ops)
-    }
-
-    /// Apply a top-level metadata patch with an explicitly supplied
-    /// caller id (test-only entry point — analog of
-    /// [`Self::apply_space_patch_with_caller_id`]).
-    ///
-    /// Mirrors the rationale on the structural sibling: `MemoryBackend`
-    /// uses `CallerCtx = ()` and so the trait method
-    /// [`ChatBackend::apply_space_metadata_patch`] resolves caller
-    /// identity to `None` (single-user mode), which skips the
-    /// `manage_space` gate. Identity-bearing integration-test
-    /// backends (`IdentityBackend`) route through this method instead
-    /// to drive the gate.
-    ///
-    /// `caller_id == None` reproduces single-user-mode behavior.
-    /// Production callers must not use this method; the API
-    /// stability disclaimer on the `memory` feature applies doubly
-    /// here.
-    ///
-    /// See `bd:JMAP-g7wu.2.4.13`.
-    #[doc(hidden)]
-    #[allow(clippy::result_large_err)]
-    pub fn apply_space_metadata_patch_with_caller_id(
-        &self,
-        caller_id: Option<&Id>,
-        account_id: &Id,
-        space_id: &Id,
-        patch: jmap_chat_types::SpaceMetadataPatch,
-    ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<MemoryError>> {
-        let patch_map = space_metadata_patch_to_map(patch);
-        let mut inner = self.inner.lock().unwrap();
-        apply_space_metadata_patch_impl(&mut inner, caller_id, account_id, space_id, patch_map)
-    }
-
-    /// Decide a `pinnedMessageIds` update with an explicitly supplied
-    /// caller id (test-only entry point — analog of
-    /// [`Self::apply_space_patch_with_caller_id`]).
-    ///
-    /// Implements draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`:
-    /// group chats require the caller to be a member with role `admin`;
-    /// direct chats permit the owner freely; channel chats require the
-    /// [`PIN`](crate::permissions::PIN) permission in the containing
-    /// Space. A Chat that does not exist is permitted so `update_object`
-    /// surfaces `notFound`.
-    ///
-    /// The caller is the owner, whose member entry is the accountId
-    /// (draft §Terminology), so a `Some` `caller_id` only signals that
-    /// identity is wired: the gate looks up `account_id` in `members`.
-    /// `caller_id == None` reproduces single-user-mode behavior: the
-    /// gate is skipped. Production callers must not use this method;
-    /// the API stability disclaimer on the `memory` feature applies
-    /// doubly here.
-    #[doc(hidden)]
-    #[allow(clippy::result_large_err)]
-    pub fn may_set_pinned_messages_with_caller_id(
-        &self,
-        caller_id: Option<&Id>,
-        account_id: &Id,
-        chat_id: &Id,
-    ) -> Result<(), SetError> {
-        use crate::permissions::PIN;
-
-        if caller_id.is_none() {
-            return Ok(());
-        }
-        let inner = self.inner.lock().unwrap();
-        let Some(chat) = inner
-            .objects_ref("Chat", account_id.as_ref())
-            .and_then(|m| m.get(chat_id))
-        else {
-            return Ok(());
-        };
-        let denied = match chat.get("kind").and_then(|v| v.as_str()) {
-            Some("direct") => None,
-            Some("group") => {
-                let members = chat.get("members").and_then(|v| v.as_array());
-                let is_admin = members.is_some_and(|members| {
-                    members.iter().any(|m| {
-                        m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref())
-                            && m.get("role").and_then(|v| v.as_str()) == Some("admin")
-                    })
-                });
-                (!is_admin).then_some("only group chat admins may modify pinnedMessageIds")
-            }
-            Some("channel") => {
-                let has_pin = chat
-                    .get("spaceId")
-                    .and_then(|v| v.as_str())
-                    .and_then(|sid| {
-                        inner
-                            .objects_ref("Space", account_id.as_ref())?
-                            .get(&Id::from(sid))
-                    })
-                    .and_then(|space| caller_effective_permissions(space, account_id))
-                    .is_some_and(|perms| perms.contains(PIN));
-                (!has_pin).then_some("caller lacks required permission `pin` in this Space")
-            }
-            _ => Some("internal: Chat has no recognized kind"),
-        };
-        match denied {
-            Some(desc) => Err(SetError::new(SetErrorType::Forbidden).with_description(desc)),
-            None => Ok(()),
-        }
-    }
-
-    /// Decide a SpaceBan create, update or destroy with an explicitly
-    /// supplied caller id (test-only entry point — analog of
-    /// [`Self::may_set_pinned_messages_with_caller_id`]).
-    ///
-    /// Implements draft-atwood-jmap-chat-00 §SpaceBan/set: each op
-    /// "Requires `"ban"` permission in the Space." A Space that does not
-    /// exist is permitted, matching the pinned-messages gate.
-    ///
-    /// As in [`Self::may_set_pinned_messages_with_caller_id`], the
-    /// caller's member entry is `account_id` and a `Some` `caller_id`
-    /// only signals that identity is wired. `caller_id == None`
-    /// reproduces single-user-mode behavior: the gate is skipped.
-    /// Production callers must not use this method; the API stability
-    /// disclaimer on the `memory` feature applies doubly here.
-    #[doc(hidden)]
-    #[allow(clippy::result_large_err)]
-    pub fn may_set_space_ban_with_caller_id(
-        &self,
-        caller_id: Option<&Id>,
-        account_id: &Id,
-        space_id: &Id,
-    ) -> Result<(), SetError> {
-        use crate::permissions::BAN;
-
-        if caller_id.is_none() {
-            return Ok(());
-        }
-        let inner = self.inner.lock().unwrap();
-        let Some(space) = inner
-            .objects_ref("Space", account_id.as_ref())
-            .and_then(|m| m.get(space_id))
-        else {
-            return Ok(());
-        };
-        if caller_effective_permissions(space, account_id).is_some_and(|perms| perms.contains(BAN))
-        {
-            Ok(())
-        } else {
-            Err(SetError::new(SetErrorType::Forbidden)
-                .with_description("caller lacks required permission `ban` in this Space"))
-        }
-    }
-
     /// Test-only: override the [`ChatLimits`] returned by
     /// [`ChatBackend::limits`].
     ///
@@ -1192,9 +1011,7 @@ impl ChatBackend for MemoryBackend {
     /// best-effort transactional semantics for the reference impl. A
     /// failure mid-way through the op vector does NOT roll back ops
     /// that already succeeded — they remain applied. **Exception:**
-    /// when caller identity is resolvable (`principal_id` returns
-    /// `Some(id)`), the helper runs a pre-validation pass over
-    /// Role/Member ops and rejects the whole patch up-front with a
+    /// the helper runs a pre-validation pass over the ops and rejects the whole patch up-front with a
     /// single `forbidden` SetError if any op would fail permission or
     /// role-hierarchy enforcement. This implements criterion 6
     /// "whole-patch reject on permission failure" from
@@ -1205,14 +1022,11 @@ impl ChatBackend for MemoryBackend {
     ///
     /// # Caller identity
     ///
-    /// MemoryBackend uses `CallerCtx = ()` and inherits the default
-    /// `JmapBackend::principal_id` impl returning `None`, putting it
-    /// in single-user mode (criterion 7): identity-dependent gates
-    /// (permission, hierarchy) are skipped, so every caller may
-    /// apply every Role/Member op. The identity-bearing integration-
-    /// test backend in `tests/common/mod.rs` calls
-    /// [`MemoryBackend::apply_space_patch_with_caller_id`] directly to
-    /// drive identity through the helper.
+    /// The caller is the owner, whose member entry is the accountId
+    /// (draft-atwood-jmap-chat-00 §Terminology), so permission and
+    /// role-hierarchy gates resolve against `account_id`. They apply
+    /// whether or not [`JmapBackend::principal_id`] resolves an
+    /// identity; `MemoryBackend`'s `CallerCtx = ()` resolves none.
     ///
     /// # Change-log emission
     ///
@@ -1233,25 +1047,13 @@ impl ChatBackend for MemoryBackend {
     /// it (bd:JMAP-g7wu.2.4.9 closed the original gap).
     async fn apply_space_patch(
         &self,
-        caller: &(),
+        _caller: &(),
         account_id: &Id,
         space_id: &Id,
         ops: Vec<SpacePatchOp>,
     ) -> Result<Vec<OpResult>, BackendSetError<Self::Error>> {
-        // Resolve caller identity through the foundation seam. With
-        // `CallerCtx = ()` the default returns None and the helper
-        // skips identity-dependent enforcement (criterion 7 of
-        // bd:JMAP-g7wu.2.4.3 — "no-identity mode; not suitable for
-        // multi-user deployments").
-        let caller_id_owned = <Self as JmapBackend>::principal_id(caller).cloned();
         let mut inner = self.inner.lock().unwrap();
-        apply_space_patch_impl(
-            &mut inner,
-            caller_id_owned.as_ref(),
-            account_id,
-            space_id,
-            ops,
-        )
+        apply_space_patch_impl(&mut inner, account_id, space_id, ops)
     }
 
     /// Reference implementation of
@@ -1259,30 +1061,21 @@ impl ChatBackend for MemoryBackend {
     ///
     /// Applies the JSON Merge Patch to the target Space's top-level
     /// metadata fields under a single mutex acquisition, with the
-    /// `manage_space` permission gate applied atomically. Caller
-    /// identity is resolved through [`JmapBackend::principal_id`];
-    /// with `CallerCtx = ()` the default returns `None` and the
-    /// gate is skipped (single-user mode), mirroring the
-    /// [`Self::apply_space_patch`] contract.
+    /// `manage_space` permission gate applied atomically against the
+    /// owner's member entry, mirroring the [`Self::apply_space_patch`]
+    /// contract.
     ///
     /// See `bd:JMAP-g7wu.2.4.13`.
     async fn apply_space_metadata_patch(
         &self,
-        caller: &(),
+        _caller: &(),
         account_id: &Id,
         space_id: &Id,
         patch: jmap_chat_types::SpaceMetadataPatch,
     ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>> {
-        let caller_id_owned = <Self as JmapBackend>::principal_id(caller).cloned();
         let patch_map = space_metadata_patch_to_map(patch);
         let mut inner = self.inner.lock().unwrap();
-        apply_space_metadata_patch_impl(
-            &mut inner,
-            caller_id_owned.as_ref(),
-            account_id,
-            space_id,
-            patch_map,
-        )
+        apply_space_metadata_patch_impl(&mut inner, account_id, space_id, patch_map)
     }
 
     /// Reference implementation of [`ChatBackend::retains_edit_history`].
@@ -1366,34 +1159,96 @@ impl ChatBackend for MemoryBackend {
 
     /// Reference implementation of [`ChatBackend::may_set_pinned_messages`].
     ///
-    /// Resolves caller identity through the foundation seam and defers
-    /// to [`MemoryBackend::may_set_pinned_messages_with_caller_id`]. With
-    /// `CallerCtx = ()` the identity is `None` and every change is
-    /// permitted (single-user mode).
+    /// Implements draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`:
+    /// group chats require the caller to be a member with role `admin`;
+    /// direct chats permit the owner freely; channel chats require the
+    /// [`PIN`](crate::permissions::PIN) permission in the containing
+    /// Space. A Chat that does not exist is permitted so `update_object`
+    /// surfaces `notFound`.
+    ///
+    /// The caller is the owner, whose member entry is the accountId
+    /// (draft §Terminology), so the gate looks up `account_id` in
+    /// `members` whether or not [`JmapBackend::principal_id`] resolves
+    /// an identity.
     async fn may_set_pinned_messages(
         &self,
-        caller: &(),
+        _caller: &(),
         account_id: &Id,
         chat_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
-        let caller_id = <Self as JmapBackend>::principal_id(caller);
-        Ok(self.may_set_pinned_messages_with_caller_id(caller_id, account_id, chat_id))
+        use crate::permissions::PIN;
+
+        let inner = self.inner.lock().unwrap();
+        let Some(chat) = inner
+            .objects_ref("Chat", account_id.as_ref())
+            .and_then(|m| m.get(chat_id))
+        else {
+            return Ok(Ok(()));
+        };
+        let denied = match chat.get("kind").and_then(|v| v.as_str()) {
+            Some("direct") => None,
+            Some("group") => {
+                let members = chat.get("members").and_then(|v| v.as_array());
+                let is_admin = members.is_some_and(|members| {
+                    members.iter().any(|m| {
+                        m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref())
+                            && m.get("role").and_then(|v| v.as_str()) == Some("admin")
+                    })
+                });
+                (!is_admin).then_some("only group chat admins may modify pinnedMessageIds")
+            }
+            Some("channel") => {
+                let has_pin = chat
+                    .get("spaceId")
+                    .and_then(|v| v.as_str())
+                    .and_then(|sid| {
+                        inner
+                            .objects_ref("Space", account_id.as_ref())?
+                            .get(&Id::from(sid))
+                    })
+                    .and_then(|space| caller_effective_permissions(space, account_id))
+                    .is_some_and(|perms| perms.contains(PIN));
+                (!has_pin).then_some("caller lacks required permission `pin` in this Space")
+            }
+            _ => Some("internal: Chat has no recognized kind"),
+        };
+        Ok(match denied {
+            Some(desc) => Err(SetError::new(SetErrorType::Forbidden).with_description(desc)),
+            None => Ok(()),
+        })
     }
 
     /// Reference implementation of [`ChatBackend::may_set_space_ban`].
     ///
-    /// Resolves caller identity through the foundation seam and defers
-    /// to [`MemoryBackend::may_set_space_ban_with_caller_id`]. With
-    /// `CallerCtx = ()` the identity is `None` and every op is permitted
-    /// (single-user mode).
+    /// Implements draft-atwood-jmap-chat-00 §SpaceBan/set: each op
+    /// "Requires `"ban"` permission in the Space." A Space that does not
+    /// exist is permitted, matching the pinned-messages gate. The
+    /// caller's member entry is `account_id` (draft §Terminology).
     async fn may_set_space_ban(
         &self,
-        caller: &(),
+        _caller: &(),
         account_id: &Id,
         space_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
-        let caller_id = <Self as JmapBackend>::principal_id(caller);
-        Ok(self.may_set_space_ban_with_caller_id(caller_id, account_id, space_id))
+        use crate::permissions::BAN;
+
+        let inner = self.inner.lock().unwrap();
+        let Some(space) = inner
+            .objects_ref("Space", account_id.as_ref())
+            .and_then(|m| m.get(space_id))
+        else {
+            return Ok(Ok(()));
+        };
+        Ok(
+            if caller_effective_permissions(space, account_id)
+                .is_some_and(|perms| perms.contains(BAN))
+            {
+                Ok(())
+            } else {
+                Err(SetError::new(SetErrorType::Forbidden)
+                    .with_description("caller lacks required permission `ban` in this Space"))
+            },
+        )
     }
 
     /// Reference implementation of
@@ -1516,25 +1371,17 @@ fn hard_delete_message(inner: &mut Inner, account_id: &str, id: &Id) -> bool {
 
 /// Apply a [`SpacePatchOp`] sequence to the in-memory Space store.
 ///
-/// This is the implementation core shared by
-/// [`ChatBackend::apply_space_patch`] (whose trait method resolves
-/// `caller_id` from `Self::principal_id` and locks the `Inner` mutex
-/// before invoking it) and
-/// [`MemoryBackend::apply_space_patch_with_caller_id`] (the test-only
-/// public entry point that lets an integration-test backend with a
-/// richer `CallerCtx` drive a non-`None` `caller_id`).
-///
-/// `caller_id == None` is single-user mode: identity-dependent
-/// enforcement (permission gating, role-position hierarchy) is
-/// skipped. Identity-independent enforcement (last-admin protection
-/// when `inner.protect_last_admin == true`) still fires.
+/// This is the implementation core of
+/// [`ChatBackend::apply_space_patch`], whose trait method locks the
+/// `Inner` mutex before invoking it. Permission gating and
+/// role-position hierarchy resolve against the owner's member entry
+/// `account_id` (draft-atwood-jmap-chat-00 §Terminology).
 ///
 /// See `bd:JMAP-g7wu.2.4.3` for the acceptance criteria this
-/// implements (criteria 1, 2, 4, 5, 6, 7).
+/// implements (criteria 1, 2, 4, 5, 6).
 #[allow(clippy::result_large_err)]
 fn apply_space_patch_impl(
     inner: &mut Inner,
-    caller_id: Option<&Id>,
     account_id: &Id,
     space_id: &Id,
     ops: Vec<SpacePatchOp>,
@@ -1550,8 +1397,7 @@ fn apply_space_patch_impl(
     }
 
     // ---------------------------------------------------------------
-    // Pre-validation: identity-dependent and identity-independent
-    // policy checks that, on failure, reject the WHOLE patch with a
+    // Pre-validation: policy checks that, on failure, reject the WHOLE patch with a
     // single `forbidden` SetError. Per criterion 6 of
     // bd:JMAP-g7wu.2.4.3: "if any op in the patch is forbidden, the
     // WHOLE update for that Space id is rejected."
@@ -1568,13 +1414,8 @@ fn apply_space_patch_impl(
         .cloned()
         .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
 
-    if let Err(e) = validate_space_patch_ops(
-        &space_snapshot,
-        caller_id,
-        account_id,
-        &ops,
-        protect_last_admin,
-    ) {
+    if let Err(e) = validate_space_patch_ops(&space_snapshot, account_id, &ops, protect_last_admin)
+    {
         return Err(BackendSetError::SetError(e));
     }
 
@@ -1779,8 +1620,8 @@ fn space_metadata_patch_to_map(
 /// [`ChatBackend::apply_space_metadata_patch`] for the reference
 /// in-memory store (bd:JMAP-g7wu.2.4.13).
 ///
-/// Snapshots the target Space, enforces the `manage_space` gate
-/// when a caller identity is resolvable, and applies the JSON
+/// Snapshots the target Space, enforces the `manage_space` gate,
+/// and applies the JSON
 /// Merge Patch (RFC 7396) atomically under the inner mutex.
 ///
 /// # Permission gate
@@ -1788,12 +1629,10 @@ fn space_metadata_patch_to_map(
 /// Per draft-atwood-jmap-chat-00 §Space/set, every top-level
 /// metadata field (`name`, `description`, `iconBlobId`, `isPublic`,
 /// `isPubliclyPreviewable`) requires `manage_space`. The gate logic
-/// mirrors [`validate_space_patch_ops`]: with `caller_id == None`
-/// (single-user mode) the gate is skipped; with `caller_id ==
-/// Some(_)` the caller's effective permission set, keyed on the
-/// owner's member entry `account_id` (draft §Terminology), must
-/// contain `manage_space`, else the whole patch is rejected with
-/// [`SetErrorType::Forbidden`].
+/// mirrors [`validate_space_patch_ops`]: the caller's effective
+/// permission set, keyed on the owner's member entry `account_id`
+/// (draft §Terminology), must contain `manage_space`, else the whole
+/// patch is rejected with [`SetErrorType::Forbidden`].
 ///
 /// Empty patches (`patch_map.is_empty()`) are still rejected at the
 /// gate when the caller lacks `manage_space`. Letting them through
@@ -1811,7 +1650,6 @@ fn space_metadata_patch_to_map(
 #[allow(clippy::result_large_err)]
 fn apply_space_metadata_patch_impl(
     inner: &mut Inner,
-    caller_id: Option<&Id>,
     account_id: &Id,
     space_id: &Id,
     patch_map: serde_json::Map<String, serde_json::Value>,
@@ -1827,19 +1665,15 @@ fn apply_space_metadata_patch_impl(
         .cloned()
         .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
 
-    // Permission gate: identity-dependent. When the caller is
-    // resolvable, the caller's effective permissions in the Space
-    // must include `manage_space`. When the caller is anonymous
-    // (single-user mode), skip the gate.
-    if caller_id.is_some() {
-        let caller_perms = caller_effective_permissions(&space_val, account_id).unwrap_or_default();
-        if !caller_perms.contains(MANAGE_SPACE) {
-            return Err(BackendSetError::SetError(
-                SetError::new(SetErrorType::Forbidden).with_description(format!(
-                    "caller lacks required permission `{MANAGE_SPACE}` to mutate Space top-level metadata"
-                )),
-            ));
-        }
+    // Permission gate: the caller's effective permissions in the
+    // Space must include `manage_space`.
+    let caller_perms = caller_effective_permissions(&space_val, account_id).unwrap_or_default();
+    if !caller_perms.contains(MANAGE_SPACE) {
+        return Err(BackendSetError::SetError(
+            SetError::new(SetErrorType::Forbidden).with_description(format!(
+                "caller lacks required permission `{MANAGE_SPACE}` to mutate Space top-level metadata"
+            )),
+        ));
     }
 
     // Empty patch is a no-op. Treat as a successful update with no
@@ -3308,19 +3142,17 @@ fn check_count_caps(
 ///   only `nick` skips the `manage_members` gate, per draft §Space/set
 ///   `updateMembers`. The owner's own member entry is keyed by the
 ///   accountId (draft §Terminology), so self-operations compare against
-///   `account_id`, not `caller_id`.
+///   `account_id`.
 ///
 /// Returns `Ok(())` if the patch passes all checks. Returns
 /// `Err(SetError)` on the FIRST failure encountered — this is the
 /// whole-patch reject of criterion 6.
 ///
-/// Single-user mode (`caller_id == None`, criterion 7) skips the
-/// identity-dependent checks (permission gating, hierarchy). When
-/// identity is wired those checks resolve the caller's permissions and
-/// role position from the `account_id` member entry, which is the
-/// owner's (draft §Terminology). The
-/// last-admin-protection check is identity-independent and still
-/// fires when its config flag is on.
+/// Permission gating and hierarchy resolve the caller's permissions
+/// and role position from the `account_id` member entry, which is the
+/// owner's (draft §Terminology), whether or not the backend resolves a
+/// caller identity. The last-admin-protection check fires when its
+/// config flag is on.
 ///
 /// History: prior to bd:JMAP-g7wu.2.4.14 this helper was named
 /// `validate_role_member_ops` and only gated Role/Member ops, leaving
@@ -3334,7 +3166,6 @@ fn check_count_caps(
 #[allow(clippy::result_large_err)]
 fn validate_space_patch_ops(
     space_val: &serde_json::Value,
-    caller_id: Option<&Id>,
     account_id: &Id,
     ops: &[SpacePatchOp],
     protect_last_admin: bool,
@@ -3372,141 +3203,134 @@ fn validate_space_patch_ops(
         _ => false,
     };
 
-    // Identity-dependent checks: permission gating + hierarchy.
-    if caller_id.is_some() {
-        let caller_perms = caller_effective_permissions(space_val, account_id).unwrap_or_default();
-        let caller_highest = caller_highest_position(space_val, account_id).unwrap_or(0);
+    // Permission gating + hierarchy.
+    let caller_perms = caller_effective_permissions(space_val, account_id).unwrap_or_default();
+    let caller_highest = caller_highest_position(space_val, account_id).unwrap_or(0);
 
-        for op in ops {
-            // Permission gate (criterion 1). Applies to ALL op
-            // families. `required_permissions_for_op` returns the
-            // per-variant permission set from draft-atwood-jmap-chat-00
-            // §Space/set; a caller missing any required permission
-            // triggers a whole-patch reject (criterion 6). An unknown
-            // op variant fails closed via `RequiredPermissions::UnknownOp`
-            // — the kit cannot enumerate permissions for a variant it
-            // does not recognize, so the safe answer is "no, you cannot
-            // apply it".
-            // `RequiredPermissions` is `#[non_exhaustive]` at the public
-            // crate boundary, but the compiler sees all variants from
-            // within this crate. Match exhaustively on the in-crate
-            // variant set so a future Conditional / Layered / etc. arm
-            // forces a deliberate fail-closed decision at compile time
-            // rather than silently routing through a wildcard.
-            let required = match required_permissions_for_op(op) {
-                RequiredPermissions::Known(slice) => slice,
-                RequiredPermissions::UnknownOp => {
-                    return Err(
-                        SetError::new(SetErrorType::Forbidden).with_description(format!(
-                            "unknown SpacePatchOp variant `{}`; this version of \
+    for op in ops {
+        // Permission gate (criterion 1). Applies to ALL op
+        // families. `required_permissions_for_op` returns the
+        // per-variant permission set from draft-atwood-jmap-chat-00
+        // §Space/set; a caller missing any required permission
+        // triggers a whole-patch reject (criterion 6). An unknown
+        // op variant fails closed via `RequiredPermissions::UnknownOp`
+        // — the kit cannot enumerate permissions for a variant it
+        // does not recognize, so the safe answer is "no, you cannot
+        // apply it".
+        // `RequiredPermissions` is `#[non_exhaustive]` at the public
+        // crate boundary, but the compiler sees all variants from
+        // within this crate. Match exhaustively on the in-crate
+        // variant set so a future Conditional / Layered / etc. arm
+        // forces a deliberate fail-closed decision at compile time
+        // rather than silently routing through a wildcard.
+        let required = match required_permissions_for_op(op) {
+            RequiredPermissions::Known(slice) => slice,
+            RequiredPermissions::UnknownOp => {
+                return Err(
+                    SetError::new(SetErrorType::Forbidden).with_description(format!(
+                        "unknown SpacePatchOp variant `{}`; this version of \
                              the kit cannot determine its permission requirement, \
                              rejecting fail-closed",
-                            variant_name(op)
-                        )),
-                    );
+                        variant_name(op)
+                    )),
+                );
+            }
+        };
+        let required = if (self_removal && matches!(op, SpacePatchOp::RemoveMember(_)))
+            || (self_nick && matches!(op, SpacePatchOp::UpdateMember { .. }))
+        {
+            &[]
+        } else {
+            required
+        };
+        for req in required {
+            if !caller_perms.contains(*req) {
+                return Err(
+                    SetError::new(SetErrorType::Forbidden).with_description(format!(
+                        "caller lacks required permission `{}` for {}",
+                        req,
+                        variant_name(op)
+                    )),
+                );
+            }
+        }
+
+        // Hierarchy gate (criterion 2). Only applies to ops that
+        // grant or modify role placements:
+        //   - AddRole: the new role's position must be < caller's
+        //     highest.
+        //   - UpdateRole: both the existing role's position AND
+        //     the new position (if patch.position is set) must
+        //     be < caller's highest.
+        //   - AddMember (when role_ids is non-empty): every
+        //     role_id's position must be < caller's highest.
+        //   - UpdateMember (when patch.role_ids is set): every
+        //     role_id's position must be < caller's highest.
+        //   - RemoveMember: no hierarchy check (removing a
+        //     member doesn't reshape roles).
+        //   - RemoveRole: the existing role's position must be <
+        //     caller's highest.
+        match op {
+            SpacePatchOp::AddRole(role) if role.position >= caller_highest => {
+                return Err(hierarchy_error(role.position, caller_highest, "AddRole"));
+            }
+            SpacePatchOp::RemoveRole(target_id) => {
+                if let Some(pos) = role_position(space_val, target_id.as_ref()) {
+                    if pos >= caller_highest {
+                        return Err(hierarchy_error(pos, caller_highest, "RemoveRole"));
+                    }
                 }
-            };
-            let required = if (self_removal && matches!(op, SpacePatchOp::RemoveMember(_)))
-                || (self_nick && matches!(op, SpacePatchOp::UpdateMember { .. }))
-            {
-                &[]
-            } else {
-                required
-            };
-            for req in required {
-                if !caller_perms.contains(*req) {
-                    return Err(
-                        SetError::new(SetErrorType::Forbidden).with_description(format!(
-                            "caller lacks required permission `{}` for {}",
-                            req,
-                            variant_name(op)
-                        )),
-                    );
+                // Nonexistent role id is a per-op NotFound, not
+                // a permission failure — leave for the apply
+                // pass.
+            }
+            SpacePatchOp::UpdateRole { id, patch } => {
+                if let Some(pos) = role_position(space_val, id.as_ref()) {
+                    if pos >= caller_highest {
+                        return Err(hierarchy_error(pos, caller_highest, "UpdateRole"));
+                    }
+                }
+                if let Some(new_pos) = patch.position {
+                    if new_pos >= caller_highest {
+                        return Err(hierarchy_error(
+                            new_pos,
+                            caller_highest,
+                            "UpdateRole (new position)",
+                        ));
+                    }
                 }
             }
-
-            // Hierarchy gate (criterion 2). Only applies to ops that
-            // grant or modify role placements:
-            //   - AddRole: the new role's position must be < caller's
-            //     highest.
-            //   - UpdateRole: both the existing role's position AND
-            //     the new position (if patch.position is set) must
-            //     be < caller's highest.
-            //   - AddMember (when role_ids is non-empty): every
-            //     role_id's position must be < caller's highest.
-            //   - UpdateMember (when patch.role_ids is set): every
-            //     role_id's position must be < caller's highest.
-            //   - RemoveMember: no hierarchy check (removing a
-            //     member doesn't reshape roles).
-            //   - RemoveRole: the existing role's position must be <
-            //     caller's highest.
-            match op {
-                SpacePatchOp::AddRole(role) if role.position >= caller_highest => {
-                    return Err(hierarchy_error(role.position, caller_highest, "AddRole"));
-                }
-                SpacePatchOp::RemoveRole(target_id) => {
-                    if let Some(pos) = role_position(space_val, target_id.as_ref()) {
+            SpacePatchOp::AddMember(create) => {
+                for rid in &create.role_ids {
+                    if let Some(pos) = role_position(space_val, rid.as_ref()) {
                         if pos >= caller_highest {
-                            return Err(hierarchy_error(pos, caller_highest, "RemoveRole"));
+                            return Err(hierarchy_error(pos, caller_highest, "AddMember"));
                         }
                     }
-                    // Nonexistent role id is a per-op NotFound, not
-                    // a permission failure — leave for the apply
-                    // pass.
+                    // Nonexistent role id surfaces in apply pass
+                    // as InvalidProperties.
                 }
-                SpacePatchOp::UpdateRole { id, patch } => {
-                    if let Some(pos) = role_position(space_val, id.as_ref()) {
-                        if pos >= caller_highest {
-                            return Err(hierarchy_error(pos, caller_highest, "UpdateRole"));
-                        }
-                    }
-                    if let Some(new_pos) = patch.position {
-                        if new_pos >= caller_highest {
-                            return Err(hierarchy_error(
-                                new_pos,
-                                caller_highest,
-                                "UpdateRole (new position)",
-                            ));
-                        }
-                    }
-                }
-                SpacePatchOp::AddMember(create) => {
-                    for rid in &create.role_ids {
+            }
+            SpacePatchOp::UpdateMember { patch, .. } => {
+                if let Some(role_ids) = &patch.role_ids {
+                    for rid in role_ids {
                         if let Some(pos) = role_position(space_val, rid.as_ref()) {
                             if pos >= caller_highest {
-                                return Err(hierarchy_error(pos, caller_highest, "AddMember"));
-                            }
-                        }
-                        // Nonexistent role id surfaces in apply pass
-                        // as InvalidProperties.
-                    }
-                }
-                SpacePatchOp::UpdateMember { patch, .. } => {
-                    if let Some(role_ids) = &patch.role_ids {
-                        for rid in role_ids {
-                            if let Some(pos) = role_position(space_val, rid.as_ref()) {
-                                if pos >= caller_highest {
-                                    return Err(hierarchy_error(
-                                        pos,
-                                        caller_highest,
-                                        "UpdateMember",
-                                    ));
-                                }
+                                return Err(hierarchy_error(pos, caller_highest, "UpdateMember"));
                             }
                         }
                     }
                 }
-                SpacePatchOp::RemoveMember(_) => {
-                    // No hierarchy check on member removal.
-                }
-                _ => {}
             }
+            SpacePatchOp::RemoveMember(_) => {
+                // No hierarchy check on member removal.
+            }
+            _ => {}
         }
     }
 
-    // Identity-independent check: last-admin protection (criterion 3
-    // replacement). Fires regardless of caller_id when the config
-    // flag is on.
+    // Last-admin protection (criterion 3 replacement). Fires when the
+    // config flag is on.
     if protect_last_admin && !self_removal {
         // Set of user_ids the patch will remove.
         let mut to_remove: HashSet<String> = HashSet::new();

@@ -54,15 +54,17 @@ async fn read_space_description(backend: &IdentityBackend, caller: &Id) -> Strin
 }
 
 // ---------------------------------------------------------------------------
-// Single-user mode: gate is skipped
+// No caller identity: the gate still applies to the owner's member entry
 // ---------------------------------------------------------------------------
 
-/// Oracle: bd:JMAP-g7wu.2.4.13. The reference `MemoryBackend` with
-/// `CallerCtx = ()` returns `None` from `principal_id`; the
-/// `manage_space` gate is skipped (single-user mode). Existing
-/// integration tests in `tests/integration.rs` rely on this.
+/// Oracle: draft-atwood-jmap-chat-00 §Space/set, `name`, `description`,
+/// `iconBlobId`: "Metadata fields. Require `"manage_space"` permission."
+/// The reference `MemoryBackend` with `CallerCtx = ()` returns `None`
+/// from `principal_id`; the owner, whose member entry is the accountId
+/// (§SpaceMember `id`), has no entry in this Space and so no permissions
+/// (bd:JMAP-yt1w.33).
 #[tokio::test]
-async fn single_user_mode_skips_manage_space_gate() {
+async fn owner_without_member_entry_cannot_mutate_metadata() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
@@ -95,12 +97,12 @@ async fn single_user_mode_skips_manage_space_gate() {
     .await
     .expect("handle_space_set");
 
-    assert!(
-        resp["notUpdated"][SPACE_ID].is_null(),
-        "single-user mode must allow metadata mutation: {resp:?}"
+    assert_eq!(
+        resp["notUpdated"][SPACE_ID]["type"], "forbidden",
+        "an owner without manage_space must be refused metadata mutation: {resp:?}"
     );
 
-    // Confirm the mutation actually landed.
+    // Confirm the mutation did not land.
     let (get_resp, _) = handle_space_get(
         &backend,
         &(),
@@ -110,7 +112,7 @@ async fn single_user_mode_skips_manage_space_gate() {
     .expect("Space/get");
     assert_eq!(
         get_resp["list"][0]["description"].as_str().unwrap_or(""),
-        "renamed"
+        "original"
     );
 }
 

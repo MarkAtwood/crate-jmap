@@ -46,6 +46,7 @@ pub const SPEC_PERMISSION_NAMES: &[&str] = &[
     "manage_space",
     "ban",
     "mention_broadcast",
+    "start_call",
 ];
 
 /// Spec-enumerated values for `ChatMember.role`, per

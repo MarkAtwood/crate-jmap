@@ -533,19 +533,16 @@ impl ChatBackend for TrackingBackend {
 /// [`JmapBackend::principal_id`] to return the caller verbatim.
 ///
 /// The reference `MemoryBackend` uses `CallerCtx = ()` and inherits
-/// the default `principal_id` impl returning `None` — single-user
-/// mode. That posture is correct for the kit's "no identity wired"
-/// stance but it means identity-dependent enforcement in
-/// [`ChatBackend::apply_space_patch`] (permission gating, role-
-/// hierarchy enforcement, last-admin protection) cannot be exercised
-/// against `MemoryBackend` directly. `IdentityBackend` is the
-/// integration-test backend that closes that gap.
+/// the default `principal_id` impl returning `None`. Its permission
+/// and role-hierarchy gates resolve against the owner's member entry
+/// (the accountId) either way; `IdentityBackend` exercises callers
+/// whose resolved principal differs from the accountId, and the
+/// `Space/get` member visibility check, which applies only when
+/// `principal_id` returns `Some`.
 ///
-/// The wrapper forwards every other `ChatBackend` / `JmapBackend`
-/// method to the inner `MemoryBackend` with `&()` (the inner backend
-/// remains `CallerCtx = ()`). Only `apply_space_patch` is rerouted
-/// through [`MemoryBackend::apply_space_patch_with_caller_id`] so the
-/// resolved caller id flows into the enforcement helpers.
+/// The wrapper forwards every `ChatBackend` / `JmapBackend` method to
+/// the inner `MemoryBackend` with `&()` (the inner backend remains
+/// `CallerCtx = ()`).
 ///
 /// Per the workspace AGENTS.md "Caller identity (foundation seam)"
 /// section: "Backends that honor identity-dependent semantics MUST
@@ -720,35 +717,26 @@ impl ChatBackend for IdentityBackend {
 
     async fn apply_space_patch(
         &self,
-        caller: &Id,
+        _caller: &Id,
         account_id: &Id,
         space_id: &Id,
         ops: Vec<SpacePatchOp>,
     ) -> Result<Vec<OpResult>, BackendSetError<Self::Error>> {
-        // Route through the test-only entry point that supplies the
-        // resolved caller id directly. The trait surface on
-        // `MemoryBackend` itself would re-resolve `principal_id(&())`
-        // and get `None` — losing our identity.
         self.inner
-            .apply_space_patch_with_caller_id(Some(caller), account_id, space_id, ops)
+            .apply_space_patch(&(), account_id, space_id, ops)
+            .await
     }
 
     async fn apply_space_metadata_patch(
         &self,
-        caller: &Id,
+        _caller: &Id,
         account_id: &Id,
         space_id: &Id,
         patch: jmap_chat_types::SpaceMetadataPatch,
     ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>> {
-        // Mirror the apply_space_patch routing: hand the resolved
-        // caller id to the test-only entry on `MemoryBackend` so the
-        // `manage_space` gate can actually see who's calling.
-        self.inner.apply_space_metadata_patch_with_caller_id(
-            Some(caller),
-            account_id,
-            space_id,
-            patch,
-        )
+        self.inner
+            .apply_space_metadata_patch(&(), account_id, space_id, patch)
+            .await
     }
 
     async fn slow_mode_check(
@@ -774,24 +762,24 @@ impl ChatBackend for IdentityBackend {
 
     async fn may_set_pinned_messages(
         &self,
-        caller: &Id,
+        _caller: &Id,
         account_id: &Id,
         chat_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
-        Ok(self
-            .inner
-            .may_set_pinned_messages_with_caller_id(Some(caller), account_id, chat_id))
+        self.inner
+            .may_set_pinned_messages(&(), account_id, chat_id)
+            .await
     }
 
     async fn may_set_space_ban(
         &self,
-        caller: &Id,
+        _caller: &Id,
         account_id: &Id,
         space_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
-        Ok(self
-            .inner
-            .may_set_space_ban_with_caller_id(Some(caller), account_id, space_id))
+        self.inner
+            .may_set_space_ban(&(), account_id, space_id)
+            .await
     }
 
     async fn is_contact_blocked(

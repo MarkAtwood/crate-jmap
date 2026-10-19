@@ -3,17 +3,16 @@
 //! through [`common::IdentityBackend`] (bd:JMAP-g7wu.2.4.3).
 //!
 //! Covers acceptance criteria 1, 2, 3-replacement (last-admin
-//! protection), 6 (whole-patch reject on permission failure), and 7
-//! (single-user mode when `principal_id` returns `None`) from the
-//! bead's re-scoped acceptance block.
+//! protection), and 6 (whole-patch reject on permission failure) from
+//! the bead's re-scoped acceptance block, plus the owner's gates when
+//! `principal_id` returns `None` (bd:JMAP-yt1w.33).
 //!
 //! Tests that exercise the parse-time path or that don't need a
 //! resolved caller identity live in `tests/integration.rs`. Tests
 //! here always seed a `Space` directly via
 //! `MemoryBackend::insert_object_for_test` and drive `handle_space_set`
-//! through the `IdentityBackend`, which routes `apply_space_patch`
-//! to `MemoryBackend::apply_space_patch_with_caller_id` to supply the
-//! caller id.
+//! through the `IdentityBackend`, which forwards `apply_space_patch`
+//! to the wrapped `MemoryBackend`.
 
 mod common;
 
@@ -23,20 +22,20 @@ use jmap_types::Id;
 use serde_json::json;
 
 // ---------------------------------------------------------------------------
-// Criterion 7: single-user mode allows identity-dependent ops
+// No caller identity: the gates still apply to the owner's member entry
 // ---------------------------------------------------------------------------
 
-/// Oracle: bd:JMAP-g7wu.2.4.3 criterion 7. When the backend's
-/// `principal_id` returns `None` (the reference `MemoryBackend`'s
-/// `CallerCtx = ()` default), permission gating and role-hierarchy
-/// enforcement are skipped — every Role/Member op succeeds.
+/// Oracle: draft-atwood-jmap-chat-00 §Space/set `addRoles`: "Requires
+/// `"manage_roles"`." When the backend's `principal_id` returns `None`
+/// (the reference `MemoryBackend`'s `CallerCtx = ()` default), the
+/// owner, whose member entry is the accountId (§SpaceMember `id`), is
+/// still gated (bd:JMAP-yt1w.33).
 #[tokio::test]
-async fn single_user_mode_skips_identity_dependent_gates() {
+async fn owner_without_member_entry_cannot_add_roles() {
     let backend = MemoryBackend::new();
 
-    // No members, no roles — caller has neither manage_roles nor
-    // any role at a useful position. In single-user mode this is
-    // still allowed.
+    // No members, no roles — the owner has neither manage_roles nor
+    // any role at a useful position.
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "Space",
@@ -69,9 +68,9 @@ async fn single_user_mode_skips_identity_dependent_gates() {
     .await
     .expect("handle_space_set");
 
-    assert!(
-        resp["notUpdated"][SPACE_ID].is_null(),
-        "single-user mode should allow AddRole unconditionally: {resp:?}"
+    assert_eq!(
+        resp["notUpdated"][SPACE_ID]["type"], "forbidden",
+        "an owner without manage_roles must be refused AddRole: {resp:?}"
     );
 }
 
@@ -1056,13 +1055,13 @@ async fn add_roles_without_id_get_distinct_server_assigned_ids() {
             "id": SPACE_ID,
             "name": "Test",
             "createdAt": "2026-01-01T00:00:00Z",
-            "memberCount": 0,
+            "memberCount": 1,
             "categories": [],
             "uncategorizedChannelIds": [],
             "isPublic": false,
             "isPubliclyPreviewable": false,
-            "roles": [],
-            "members": []
+            "roles": [{ "id": "r-owner", "name": "Owner", "permissions": ["manage_roles"], "position": 100 }],
+            "members": [{ "id": ACCOUNT_ID, "roleIds": ["r-owner"], "joinedAt": "2026-01-01T00:00:00Z" }]
         }),
     );
 
@@ -1106,6 +1105,7 @@ async fn add_roles_without_id_get_distinct_server_assigned_ids() {
     let mut ids: Vec<&str> = roles
         .iter()
         .map(|r| r["id"].as_str().expect("role id is a string"))
+        .filter(|id| *id != "r-owner")
         .collect();
     assert_eq!(ids.len(), 3, "three roles added: {roles:?}");
     assert!(ids.iter().all(|id| !id.is_empty()), "{roles:?}");
@@ -1137,13 +1137,13 @@ async fn add_roles_after_remove_does_not_reuse_freed_id() {
             "id": SPACE_ID,
             "name": "Test",
             "createdAt": "2026-01-01T00:00:00Z",
-            "memberCount": 0,
+            "memberCount": 1,
             "categories": [],
             "uncategorizedChannelIds": [],
             "isPublic": false,
             "isPubliclyPreviewable": false,
-            "roles": [],
-            "members": []
+            "roles": [{ "id": "r-owner", "name": "Owner", "permissions": ["manage_roles"], "position": 100 }],
+            "members": [{ "id": ACCOUNT_ID, "roleIds": ["r-owner"], "joinedAt": "2026-01-01T00:00:00Z" }]
         }),
     );
 

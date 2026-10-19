@@ -389,12 +389,11 @@ async fn space_set_all_twelve_ops_in_one_call() {
 }
 
 /// Oracle: bd:JMAP-g7wu.2.4.6 (corollary). The same kitchen-sink
-/// patch run under single-user mode (`MemoryBackend` with
-/// `CallerCtx = ()`, `principal_id = None`) also succeeds — the
-/// gate logic short-circuits and every op applies. This serves as
-/// a regression bound: the prior pre-`.4.13`/`.4.14` behavior was
-/// "identity-less callers can do anything"; we preserve that
-/// posture in single-user mode.
+/// patch run with no caller identity (`MemoryBackend` with
+/// `CallerCtx = ()`, `principal_id = None`) also succeeds when the
+/// owner's member entry (the accountId, draft-atwood-jmap-chat-00
+/// §SpaceMember `id`) holds every permission the 12 ops require
+/// (bd:JMAP-yt1w.33).
 #[tokio::test]
 async fn space_set_all_twelve_ops_single_user_mode() {
     let backend = MemoryBackend::new();
@@ -408,7 +407,7 @@ async fn space_set_all_twelve_ops_single_user_mode() {
             "name": "Kitchen Sink Single-User",
             "description": "pre-patch",
             "createdAt": "2026-01-01T00:00:00Z",
-            "memberCount": 1,
+            "memberCount": 3,
             "categories": [
                 { "id": "cat-update", "name": "Cat U", "position": 0, "channelIds": [] },
                 { "id": "cat-remove", "name": "Cat R", "position": 1, "channelIds": [] }
@@ -417,10 +416,17 @@ async fn space_set_all_twelve_ops_single_user_mode() {
             "isPublic": false,
             "isPubliclyPreviewable": false,
             "roles": [
+                {
+                    "id": "r-admin",
+                    "name": "Admin",
+                    "permissions": ["manage_space", "manage_roles", "manage_members", "manage_channels"],
+                    "position": 100
+                },
                 { "id": "r-update", "name": "RU", "permissions": [], "position": 30 },
                 { "id": "r-remove", "name": "RR", "permissions": [], "position": 20 }
             ],
             "members": [
+                { "id": ACCOUNT_ID, "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" },
                 { "id": "u-update", "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" },
                 { "id": "u-remove", "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" }
             ]
@@ -473,6 +479,6 @@ async fn space_set_all_twelve_ops_single_user_mode() {
 
     assert!(
         resp["notUpdated"][SPACE_ID].is_null(),
-        "single-user mode must succeed on all 12 ops: {resp:?}"
+        "an owner holding every required permission must succeed on all 12 ops: {resp:?}"
     );
 }

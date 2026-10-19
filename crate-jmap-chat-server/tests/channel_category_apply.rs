@@ -20,8 +20,8 @@
 //! Tests that exercise these ops without a resolved caller identity
 //! continue to live in `tests/integration.rs` and pass through
 //! `MemoryBackend` directly — its `CallerCtx = ()` and default
-//! `principal_id` returns `None`, so identity-dependent gates are
-//! skipped (single-user mode).
+//! `principal_id` returns `None`; the gates still resolve against the
+//! owner's member entry (the accountId).
 //!
 //! The kitchen-sink mixed-op test (12 semantic-mutation keys in one
 //! /set call) lives in bd:JMAP-g7wu.2.4.6.
@@ -37,16 +37,16 @@ use jmap_types::Id;
 use serde_json::json;
 
 // ---------------------------------------------------------------------------
-// Single-user mode: identity-independent path still allows ops
+// No caller identity: the gate still applies to the owner's member entry
 // ---------------------------------------------------------------------------
 
-/// Oracle: bd:JMAP-g7wu.2.4.14 + bd:JMAP-g7wu.2.4.3 criterion 7. The
-/// reference `MemoryBackend` with `CallerCtx = ()` returns `None` from
-/// `principal_id`; identity-dependent gates (now including the
-/// Channel/Category `manage_channels` gate) are skipped. Existing
-/// integration tests in `tests/integration.rs` rely on this.
+/// Oracle: draft-atwood-jmap-chat-00 §Space/set `addChannels`: "Requires
+/// `"manage_channels"`." The reference `MemoryBackend` with
+/// `CallerCtx = ()` returns `None` from `principal_id`; the owner, whose
+/// member entry is the accountId (§SpaceMember `id`), has no entry in
+/// this Space and so no permissions (bd:JMAP-yt1w.33).
 #[tokio::test]
-async fn single_user_mode_skips_channel_permission_gate() {
+async fn owner_without_member_entry_cannot_add_channels() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
@@ -80,9 +80,9 @@ async fn single_user_mode_skips_channel_permission_gate() {
     .await
     .expect("handle_space_set");
 
-    assert!(
-        resp["notUpdated"][SPACE_ID].is_null(),
-        "single-user mode must allow addChannels unconditionally: {resp:?}"
+    assert_eq!(
+        resp["notUpdated"][SPACE_ID]["type"], "forbidden",
+        "an owner without manage_channels must be refused addChannels: {resp:?}"
     );
 }
 
