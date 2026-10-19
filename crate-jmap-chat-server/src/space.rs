@@ -37,7 +37,8 @@ use serde_json::{json, Value};
 use subtle::ConstantTimeEq;
 
 use crate::backend::{
-    BackendSetError, ChatBackend, ChatLimits, SetError, SetErrorType, SpacePatchOp,
+    BackendSetError, ChatBackend, ChatLimits, InviteJoinRefusal, SetError, SetErrorType,
+    SpacePatchOp,
 };
 use crate::helpers::{
     count_add_ops, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
@@ -1518,17 +1519,10 @@ pub async fn handle_space_join<B: ChatBackend>(
         .and_then(|v| v.as_str())
         .map(|s| s.to_owned());
 
-    // Validate the invite or space and collect the space_id, current members, and
-    // (for the invite path) the pending invite-uses increment deferred until after
-    // the already_member check.  Each branch produces
-    // (space_id: Id, current_members: Vec<Value>, invite_update: Option<(Id, u64)>,
-    // closed: bool).
-    let (space_id, current_members, invite_update, closed): (
-        Id,
-        Vec<Value>,
-        Option<(Id, u64)>,
-        bool,
-    ) = match (invite_code, space_id_str) {
+    // Validate the invite or space and collect the space_id, current members
+    // (public path only; the invite path's membership write is the backend's
+    // atomic redemption), the invite to redeem, and whether the Space is closed.
+    let (space_id, current_members, invite_id, closed) = match (invite_code, space_id_str) {
         (Some(_), Some(_)) | (None, None) => {
             return Err(JmapError::invalid_arguments(
                 "exactly one of inviteCode or spaceId must be provided",
@@ -1576,7 +1570,9 @@ pub async fn handle_space_join<B: ChatBackend>(
                 }
             }
 
-            // Check maxUses: if set, uses must be strictly less.
+            // Check maxUses: if set, uses must be strictly less. Kept here for
+            // the draft's check order; `join_space_with_invite` re-checks it
+            // atomically with the increment.
             if let Some(max) = invite.max_uses {
                 if invite.uses >= max {
                     return Err(JmapError::invalid_arguments(
@@ -1585,14 +1581,9 @@ pub async fn handle_space_join<B: ChatBackend>(
                 }
             }
 
-            let invite_id = invite.id.clone();
-            let new_uses = invite.uses.saturating_add(1);
             let space_id = invite.space_id.clone();
 
-            // Do NOT increment uses yet — defer until after the already_member check
-            // so that a failed rejoin attempt does not silently exhaust invite uses.
-
-            // Fetch the space to get the current members list.
+            // Fetch the space for its `closedAt`.
             let (spaces, _) = backend
                 .get_objects::<Space>(
                     caller,
@@ -1602,20 +1593,9 @@ pub async fn handle_space_join<B: ChatBackend>(
                 )
                 .await
                 .map_err(|e| server_fail_from_backend(&e))?;
-            let space = spaces.into_iter().next();
-            let closed = space.as_ref().is_some_and(|s| s.closed_at.is_some());
-            let members: Vec<Value> = space
-                .map(|s| {
-                    s.members
-                        .into_iter()
-                        .map(serde_json::to_value)
-                        .collect::<Result<Vec<_>, _>>()
-                })
-                .transpose()
-                .map_err(|e| server_fail_from_backend(&e))?
-                .unwrap_or_default();
+            let closed = spaces.first().is_some_and(|s| s.closed_at.is_some());
 
-            (space_id, members, Some((invite_id, new_uses)), closed)
+            (space_id, Vec::new(), Some(invite.id), closed)
         }
         (None, Some(sid)) => {
             // Public space path: fetch the space by id and verify is_public.
@@ -1673,6 +1653,36 @@ pub async fn handle_space_join<B: ChatBackend>(
     // Space resolution.
     if closed {
         return Err(JmapError::forbidden());
+    }
+
+    let joined = || {
+        Ok((
+            json!({ "accountId": account_id.as_ref(), "spaceId": space_id.as_ref() }),
+            vec![],
+        ))
+    };
+
+    // draft-atwood-jmap-chat-00 §Space/join: "The `uses` increment and
+    // membership insertion MUST be performed within a single atomic
+    // operation so that concurrent redemptions cannot exceed `maxUses`."
+    if let Some(invite_id) = invite_id {
+        let joined_at = UTCDate::from(now_utc_string().as_ref());
+        return match backend
+            .join_space_with_invite(caller, &account_id, &invite_id, &joined_at)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?
+        {
+            Ok(()) => joined(),
+            Err(InviteJoinRefusal::NotFound) => {
+                Err(JmapError::invalid_arguments("invite code not found"))
+            }
+            Err(InviteJoinRefusal::Exhausted) => Err(JmapError::invalid_arguments(
+                "invite has reached its maximum number of uses",
+            )),
+            Err(InviteJoinRefusal::AlreadyMember) => Err(JmapError::invalid_arguments(
+                "caller is already a member of this space",
+            )),
+        };
     }
 
     // Add the calling user as a Space member.
@@ -1789,33 +1799,11 @@ pub async fn handle_space_join<B: ChatBackend>(
             )
             .await
             .map_err(|e: jmap_server::BackendSetError<_>| server_fail_from_backend(&e))?;
-        // Fall through to the invite-uses increment and success return —
-        // the caller is a member of the Space, which is the join's contract.
+        // Fall through to the success return — the caller is a member of
+        // the Space, which is the join's contract.
     }
 
-    // Apply the invite uses increment only on the success path (after TOCTOU check passes).
-    // Deferring here prevents a race-loss from silently consuming an invite use.
-    if let Some((invite_id, new_uses)) = invite_update {
-        let mut uses_patch = serde_json::Map::new();
-        uses_patch.insert("uses".to_owned(), json!(new_uses));
-        backend
-            .update_object::<SpaceInvite>(
-                caller,
-                &account_id,
-                &invite_id,
-                PatchObject::from_map(uses_patch),
-            )
-            .await
-            // bd:JMAP-ic0j.70 — route through server_fail_from_backend so the
-            // wire description is the static SERVER_FAIL_INTERNAL_DESC rather
-            // than the backend BackendSetError Display output.
-            .map_err(|e: jmap_server::BackendSetError<_>| server_fail_from_backend(&e))?;
-    }
-
-    Ok((
-        json!({ "accountId": account_id.as_ref(), "spaceId": space_id.as_ref() }),
-        vec![],
-    ))
+    joined()
 }
 
 #[cfg(test)]

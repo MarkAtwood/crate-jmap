@@ -56,8 +56,8 @@ use std::sync::{Arc, Mutex};
 use crate::{
     strip_unsupported_chat_push, validate_chat_push, AddedItem, BackendChangesError,
     BackendQueryError, BackendSetError, ChangesResult, ChatBackend, ChatLimits, EmojiSetOp,
-    GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult,
-    SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
+    GetObject, InviteJoinRefusal, JmapBackend, JmapObject, OpResult, QueryChangesResult,
+    QueryObject, QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
 };
 use jmap_chat_types::ChatPushCapability;
 use jmap_server::{
@@ -1018,6 +1018,82 @@ impl ChatBackend for MemoryBackend {
             let _ = write!(out, "{byte:02x}");
         }
         out
+    }
+
+    /// Reference implementation of [`ChatBackend::join_space_with_invite`].
+    ///
+    /// Every check and both writes run under one hold of the backend
+    /// lock, which is the atomic operation draft-atwood-jmap-chat-00
+    /// §Space/join requires. All checks precede the first write, so a
+    /// refusal or error leaves storage unchanged.
+    async fn join_space_with_invite(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        invite_id: &Id,
+        joined_at: &jmap_types::UTCDate,
+    ) -> Result<Result<(), InviteJoinRefusal>, Self::Error> {
+        let mut inner = self.inner.lock().unwrap();
+        let acct = account_id.as_ref();
+
+        let Some(stored) = inner
+            .objects_ref("SpaceInvite", acct)
+            .and_then(|m| m.get(invite_id))
+        else {
+            return Ok(Err(InviteJoinRefusal::NotFound));
+        };
+        let invite: jmap_chat_types::SpaceInvite = serde_json::from_value(stored.clone())
+            .map_err(|e| MemoryError::new(format!("stored SpaceInvite: {e}")))?;
+        if invite.max_uses.is_some_and(|max| invite.uses >= max) {
+            return Ok(Err(InviteJoinRefusal::Exhausted));
+        }
+
+        let Some(space) = inner
+            .objects_mut("Space", acct)
+            .get_mut(&invite.space_id)
+            .and_then(serde_json::Value::as_object_mut)
+        else {
+            return Ok(Err(InviteJoinRefusal::NotFound));
+        };
+        let Some(members) = space
+            .entry("members")
+            .or_insert_with(|| serde_json::json!([]))
+            .as_array_mut()
+        else {
+            return Err(MemoryError::new("stored Space members is not an array"));
+        };
+        if members
+            .iter()
+            .any(|m| m.get("id").and_then(|v| v.as_str()) == Some(acct))
+        {
+            return Ok(Err(InviteJoinRefusal::AlreadyMember));
+        }
+        members.push(serde_json::json!({
+            "id": acct,
+            "roleIds": [],
+            "joinedAt": joined_at,
+        }));
+        if let Some(stored) = inner
+            .objects_mut("SpaceInvite", acct)
+            .get_mut(invite_id)
+            .and_then(serde_json::Value::as_object_mut)
+        {
+            stored.insert(
+                "uses".to_owned(),
+                serde_json::json!(invite.uses.saturating_add(1)),
+            );
+        }
+
+        for (type_name, id) in [("Space", &invite.space_id), ("SpaceInvite", invite_id)] {
+            let new_state = inner.bump_state(type_name, acct);
+            inner.change_log_mut(type_name, acct).push(ChangeEntry {
+                new_state,
+                created: vec![],
+                updated: vec![id.clone()],
+                destroyed: vec![],
+            });
+        }
+        Ok(Ok(()))
     }
 
     /// Reference implementation of [`ChatBackend::limits`].

@@ -26,8 +26,9 @@ pub use jmap_chat_server::memory::{MemoryBackend, MemoryError};
 
 use jmap_chat_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
-    ChatLimits, EmojiSetOp, GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult,
-    QueryObject, QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
+    ChatLimits, EmojiSetOp, GetObject, InviteJoinRefusal, JmapBackend, JmapObject, OpResult,
+    QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject, SlowModeError,
+    SpacePatchOp,
 };
 use jmap_types::{Id, State, UTCDate};
 
@@ -148,6 +149,16 @@ impl ChatBackend for FaultyBackend {
 
     fn supports_type<O: JmapObject>(&self) -> bool {
         false
+    }
+
+    async fn join_space_with_invite(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        _invite_id: &Id,
+        _joined_at: &UTCDate,
+    ) -> Result<Result<(), InviteJoinRefusal>, Self::Error> {
+        Err(MemoryError::new("storage unavailable"))
     }
 
     fn generate_invite_code(&self) -> String {
@@ -410,6 +421,18 @@ impl ChatBackend for TrackingBackend {
 
     fn supports_type<O: JmapObject>(&self) -> bool {
         self.inner.supports_type::<O>()
+    }
+
+    async fn join_space_with_invite(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        invite_id: &Id,
+        joined_at: &UTCDate,
+    ) -> Result<Result<(), InviteJoinRefusal>, Self::Error> {
+        self.inner
+            .join_space_with_invite(caller, account_id, invite_id, joined_at)
+            .await
     }
 
     fn generate_invite_code(&self) -> String {
@@ -701,6 +724,18 @@ impl ChatBackend for IdentityBackend {
 
     fn supports_type<O: JmapObject>(&self) -> bool {
         self.inner.supports_type::<O>()
+    }
+
+    async fn join_space_with_invite(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        invite_id: &Id,
+        joined_at: &UTCDate,
+    ) -> Result<Result<(), InviteJoinRefusal>, Self::Error> {
+        self.inner
+            .join_space_with_invite(&(), account_id, invite_id, joined_at)
+            .await
     }
 
     fn generate_invite_code(&self) -> String {
@@ -1118,6 +1153,18 @@ impl ChatBackend for InjectableBackend {
 
     fn supports_type<O: JmapObject>(&self) -> bool {
         self.inner.supports_type::<O>()
+    }
+
+    async fn join_space_with_invite(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        invite_id: &Id,
+        joined_at: &UTCDate,
+    ) -> Result<Result<(), InviteJoinRefusal>, Self::Error> {
+        self.inner
+            .join_space_with_invite(caller, account_id, invite_id, joined_at)
+            .await
     }
 
     fn generate_invite_code(&self) -> String {
