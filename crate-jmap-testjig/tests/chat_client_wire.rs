@@ -15,7 +15,7 @@ use jmap_chat_client::{
     MessageQueryInput, ReactionChange, SessionClient, SetResponse, SpaceBanCreateInput,
     SpaceCreateInput, SpaceJoinInput, SpacePatch,
 };
-use jmap_chat_types::{BodyType, ChatKind, SenderId};
+use jmap_chat_types::{Attachment, BodyType, ChatKind, Mention, MessageAction, SenderId};
 use jmap_testjig::{spawn_in_process, TestjigConfig, TestjigHandle};
 use jmap_types::{Id, UTCDate};
 
@@ -247,6 +247,108 @@ async fn message_create_query_get_round_trip() {
     assert_eq!(m3.reply_to.as_ref(), Some(&first));
     assert_eq!(m3.sender_expires_at.as_ref(), Some(&expires));
     assert_eq!(m3.burn_on_read, Some(true));
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Creating a Message — "Optional:
+/// `attachments` (Attachment[]), `mentions` (Mention[]), ... `actions`
+/// (MessageAction[]), ... `topicId` (String), `subject` (String), ...
+/// `expiresAfterReadSeconds` (UnsignedInt)."; §Input Validation —
+/// "`topicId`: reject an empty value or a value exceeding 255 bytes."
+/// and a failed check gets "an `invalidProperties` SetError ... whose
+/// `properties` names the offending property." (bd:JMAP-yt1w.1).
+#[tokio::test]
+async fn message_create_keeps_optional_properties() {
+    let (_jig, client, session) = connect().await;
+    let sc = client.with_chat_session(session);
+    let chat_id = create_group(&sc, "g1", "Team").await;
+
+    let attachments: Vec<Attachment> = serde_json::from_value(serde_json::json!([{
+        "blobId": "b1",
+        "filename": "notes.txt",
+        "contentType": "text/plain",
+        "size": 3,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    }]))
+    .expect("Attachment");
+    let mentions: Vec<Mention> = serde_json::from_value(serde_json::json!([
+        { "id": "contact-bob", "offset": 3, "length": 4 }
+    ]))
+    .expect("Mention");
+    let actions: Vec<MessageAction> = serde_json::from_value(serde_json::json!([
+        { "type": "urn:jmap:chat:cap:vtc", "uri": "https://example.com/room" }
+    ]))
+    .expect("MessageAction");
+    let sent_at = UTCDate::from(SENT_AT);
+    let mut input = MessageCreateInput::new(&chat_id, "hi @bob", BodyType::Plain, &sent_at)
+        .with_client_id("m1");
+    input.attachments = Some(&attachments);
+    input.mentions = Some(&mentions);
+    input.actions = Some(&actions);
+    input.topic_id = Some("release");
+    input.subject = Some("Release 1.0");
+    input.expires_after_read_seconds = Some(30);
+    let resp = sc.message_create(&input).await.expect("Message/set create");
+    let id = created_id(&resp, "m1");
+
+    let got = sc.message_get(&[id], None).await.expect("Message/get");
+    let msg = &got.list[0];
+    assert_eq!(msg.attachments, attachments);
+    assert_eq!(msg.mentions, mentions);
+    assert_eq!(msg.actions, actions);
+    assert_eq!(msg.topic_id.as_deref(), Some("release"));
+    assert_eq!(msg.subject.as_deref(), Some("Release 1.0"));
+    assert_eq!(msg.expires_after_read_seconds, Some(30));
+
+    let mut empty_topic =
+        MessageCreateInput::new(&chat_id, "hi", BodyType::Plain, &sent_at).with_client_id("m2");
+    empty_topic.topic_id = Some("");
+    let resp = sc
+        .message_create(&empty_topic)
+        .await
+        .expect("Message/set create");
+    let err = resp
+        .not_created
+        .as_ref()
+        .and_then(|m| m.get("m2"))
+        .unwrap_or_else(|| panic!("empty topicId must be rejected: {resp:?}"));
+    assert_eq!(err.error_type, "invalidProperties");
+    assert_eq!(err.properties.as_deref(), Some(&["topicId".to_owned()][..]));
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Fields Inside the Ciphertext —
+/// "Servers MUST reject a `Message/set` create or update, or a
+/// `Peer/deliver` payload, that has an encrypted `bodyType` and any of
+/// these fields non-empty, with `invalidArguments`."; §Rich Body Format —
+/// "Both the `mentions` and `broadcastMentions` arrays on the Message
+/// MUST be empty" (bd:JMAP-yt1w.1).
+#[tokio::test]
+async fn message_create_rejects_fields_forbidden_by_body_type() {
+    let (_jig, client, session) = connect().await;
+    let sc = client.with_chat_session(session);
+    let chat_id = create_group(&sc, "g1", "Team").await;
+    let sent_at = UTCDate::from(SENT_AT);
+    let mentions: Vec<Mention> = serde_json::from_value(serde_json::json!([
+        { "id": "contact-bob", "offset": 3, "length": 4 }
+    ]))
+    .expect("Mention");
+
+    let encrypted = BodyType::Other("application/mls-ciphertext".to_owned());
+    let mut e2ee =
+        MessageCreateInput::new(&chat_id, "Y2lwaGVy", encrypted, &sent_at).with_client_id("m1");
+    e2ee.topic_id = Some("release");
+    let mut rich =
+        MessageCreateInput::new(&chat_id, "hi @bob", BodyType::Rich, &sent_at).with_client_id("m2");
+    rich.mentions = Some(&mentions);
+
+    for (input, cid) in [(&e2ee, "m1"), (&rich, "m2")] {
+        let resp = sc.message_create(input).await.expect("Message/set create");
+        let err = resp
+            .not_created
+            .as_ref()
+            .and_then(|m| m.get(cid))
+            .unwrap_or_else(|| panic!("{cid} must be rejected: {resp:?}"));
+        assert_eq!(err.error_type, "invalidArguments", "{cid}");
+    }
 }
 
 /// Oracle: RFC 8620 §5.5 Comparator `isAscending` — "If false, reverse

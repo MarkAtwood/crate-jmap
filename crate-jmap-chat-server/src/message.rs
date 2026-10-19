@@ -24,9 +24,11 @@
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_chat_types::{
-    Chat, DeliveryState, Message, ReadPosition, SenderId, BROADCAST_MENTION_SCOPES,
+    Attachment, Chat, DeliveryState, Mention, Message, MessageAction, ReadPosition, SenderId,
+    BROADCAST_MENTION_SCOPES,
 };
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
+use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
@@ -397,6 +399,150 @@ fn validate_broadcast_mentions(
 }
 
 // ---------------------------------------------------------------------------
+// Optional create properties
+// ---------------------------------------------------------------------------
+
+/// `bodyType` values that indicate an end-to-end encrypted body.
+///
+/// ponytail: the draft names only `application/mls-ciphertext`
+/// (§Message `body`); extend this list when a deployment adds another
+/// encrypted type.
+const ENCRYPTED_BODY_TYPES: &[&str] = &["application/mls-ciphertext"];
+
+/// draft-atwood-jmap-chat-00 §Fields Inside the Ciphertext: Message fields
+/// that "MUST be empty or absent" when `bodyType` indicates an encrypted type.
+const CIPHERTEXT_ONLY_FIELDS: [&str; 8] = [
+    "mentions",
+    "broadcastMentions",
+    "attachments",
+    "actions",
+    "replyTo",
+    "threadRootId",
+    "topicId",
+    "subject",
+];
+
+/// Check the create fields that `bodyType` requires to be empty: all of
+/// [`CIPHERTEXT_ONLY_FIELDS`] for an encrypted type (§Fields Inside the
+/// Ciphertext), and `mentions` for `application/jmap-chat-rich` (§Rich
+/// Body Format; `broadcastMentions` is checked by
+/// [`validate_broadcast_mentions`]).
+///
+/// Returns an `invalidArguments` description on failure, None on success.
+fn body_type_field_conflict(obj: &Value, body_type: &str) -> Option<String> {
+    let non_empty = |key: &str| {
+        obj.get(key)
+            .is_some_and(|v| !(v.is_null() || v == "" || v.as_array().is_some_and(Vec::is_empty)))
+    };
+    if ENCRYPTED_BODY_TYPES.contains(&body_type) {
+        if let Some(field) = CIPHERTEXT_ONLY_FIELDS.into_iter().find(|&k| non_empty(k)) {
+            return Some(format!(
+                "{field} must be empty or absent when bodyType is {body_type}"
+            ));
+        }
+    }
+    if body_type == "application/jmap-chat-rich" && non_empty("mentions") {
+        return Some("mentions must be empty when bodyType is application/jmap-chat-rich".into());
+    }
+    None
+}
+
+/// Implementation-defined maximum byte length of `subject`
+/// (draft-atwood-jmap-chat-00 §Input Validation).
+const MAX_SUBJECT_BYTES: usize = 1024;
+
+/// RFC 8620 §1.3 UnsignedInt upper bound, 2^53 - 1.
+const MAX_UNSIGNED_INT: u64 = (1 << 53) - 1;
+
+/// Copy the optional `Message/set` create properties `attachments`,
+/// `mentions`, `actions`, `topicId`, `subject` and
+/// `expiresAfterReadSeconds` from `obj` onto `msg`, applying the
+/// draft-atwood-jmap-chat-00 §Input Validation checks. An absent or
+/// `null` property keeps the default.
+///
+/// Returns the wire name of the first offending property, for an
+/// `invalidProperties` SetError.
+fn apply_create_optionals(obj: &Value, msg: &mut Message) -> Result<(), &'static str> {
+    let get = |key: &str| obj.get(key).filter(|v| !v.is_null());
+    if let Some(v) = get("attachments") {
+        let attachments = Vec::<Attachment>::deserialize(v).map_err(|_| "attachments")?;
+        if !attachments.iter().all(valid_attachment) {
+            return Err("attachments");
+        }
+        msg.attachments = attachments;
+    }
+    if let Some(v) = get("mentions") {
+        let mentions = Vec::<Mention>::deserialize(v).map_err(|_| "mentions")?;
+        let body_len = msg.body.len() as u64;
+        if mentions.iter().any(|m| {
+            m.offset
+                .checked_add(m.length)
+                .is_none_or(|end| end > body_len)
+        }) {
+            return Err("mentions");
+        }
+        msg.mentions = mentions;
+    }
+    if let Some(v) = get("actions") {
+        // §MessageAction: "Servers MUST store and forward MessageAction
+        // records without inspection or transformation."
+        msg.actions = Vec::<MessageAction>::deserialize(v).map_err(|_| "actions")?;
+    }
+    if let Some(v) = get("topicId") {
+        match v.as_str() {
+            Some(s) if !s.is_empty() && s.len() <= 255 => msg.topic_id = Some(s.to_owned()),
+            _ => return Err("topicId"),
+        }
+    }
+    if let Some(v) = get("subject") {
+        match v.as_str() {
+            Some(s) if msg.topic_id.is_some() && s.len() <= MAX_SUBJECT_BYTES => {
+                msg.subject = Some(s.to_owned());
+            }
+            _ => return Err("subject"),
+        }
+    }
+    if let Some(v) = get("expiresAfterReadSeconds") {
+        match v.as_u64() {
+            Some(n) if n <= MAX_UNSIGNED_INT => msg.expires_after_read_seconds = Some(n),
+            _ => return Err("expiresAfterReadSeconds"),
+        }
+    }
+    Ok(())
+}
+
+/// draft-atwood-jmap-chat-00 §Attachment and §Input Validation:
+/// `filename` holds no `/`, `\` or null byte, `contentType` is a
+/// syntactically valid MIME type, and `sha256` is lowercase hex.
+///
+/// ponytail: `size` and `sha256` are not checked against the blob; the
+/// reference backend has no blob store. A backend with one adds that check.
+fn valid_attachment(a: &Attachment) -> bool {
+    !a.filename.contains(['/', '\\', '\0'])
+        && valid_media_type(&a.content_type)
+        && a.sha256.len() == 64
+        && a.sha256
+            .bytes()
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+/// RFC 2045 §5.1 `type "/" subtype`, each an RFC 2045 `token`.
+///
+/// ponytail: parameters after `;` are not parsed; add an RFC 2045
+/// parameter parser if they ever need validating.
+fn valid_media_type(s: &str) -> bool {
+    let is_token = |t: &str| {
+        !t.is_empty()
+            && t.bytes()
+                .all(|b| b.is_ascii_graphic() && !b"()<>@,;:\\\"/[]?=".contains(&b))
+    };
+    let essence = s.split(';').next().unwrap_or_default().trim();
+    essence
+        .split_once('/')
+        .is_some_and(|(t, sub)| is_token(t) && is_token(sub))
+}
+
+// ---------------------------------------------------------------------------
 // Message/set
 // ---------------------------------------------------------------------------
 
@@ -554,6 +700,14 @@ pub async fn handle_message_set<B: ChatBackend>(
                 .unwrap_or("text/plain")
                 .to_owned();
 
+            if let Some(desc) = body_type_field_conflict(obj_val, &body_type) {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidArguments", "description": desc }),
+                );
+                continue;
+            }
+
             // BroadcastMention structural validation (§4.4.1 / §4.16).
             let broadcast_mentions_val: Vec<Value> = obj_val
                 .get("broadcastMentions")
@@ -663,32 +817,6 @@ pub async fn handle_message_set<B: ChatBackend>(
                 }
             }
 
-            // Slow-mode rate-limit gate (draft-atwood-jmap-chat-00
-            // §Chat `slowModeSeconds` + spec commit `de60acb`).
-            //
-            // Runs AFTER wire-format validation so malformed requests
-            // don't consume rate-tracker slots, and BEFORE the
-            // `create_object` call so a throttled sender never sees the
-            // message touch storage. On a Throttled return the backend
-            // tells us when the caller may retry; we surface that
-            // verbatim as the `serverRetryAfter` extra field on the
-            // `rateLimited` SetError, built via the typed
-            // `SetError::with_extra` builder added in bd:JMAP-dha0.
-            // `serverRetryAfter` is the workspace convention paired
-            // with `rateLimited` (read by
-            // `jmap_chat_client::server_retry_after` on the client
-            // side); `SetErrorType::custom("rateLimited")` produces
-            // the spec wire string. The reference `MemoryBackend`
-            // never returns an Err here.
-            if let Err(slow_err) = backend.slow_mode_check(caller, &account_id, &chat_id).await {
-                let retry_after_str: String = slow_err.retry_after.as_ref().to_owned();
-                let set_err = SetError::new(SetErrorType::custom("rateLimited"))
-                    .with_description("Slow mode is active for this chat")
-                    .with_extra("serverRetryAfter", json!(retry_after_str));
-                not_created.insert(create_id.clone(), set_error_value(&set_err));
-                continue;
-            }
-
             let now_str = now_utc_string();
             let received_at: UTCDate = UTCDate::from(now_str.as_ref());
 
@@ -710,6 +838,43 @@ pub async fn handle_message_set<B: ChatBackend>(
                 msg.sender_expires_at = Some(d);
             }
             msg.burn_on_read = burn_on_read;
+
+            if let Err(property) = apply_create_optionals(obj_val, &mut msg) {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidProperties", "properties": [property] }),
+                );
+                continue;
+            }
+
+            // Slow-mode rate-limit gate (draft-atwood-jmap-chat-00
+            // §Chat `slowModeSeconds` + spec commit `de60acb`).
+            //
+            // Runs AFTER wire-format validation so malformed requests
+            // don't consume rate-tracker slots, and BEFORE the
+            // `create_object` call so a throttled sender never sees the
+            // message touch storage. On a Throttled return the backend
+            // tells us when the caller may retry; we surface that
+            // verbatim as the `serverRetryAfter` extra field on the
+            // `rateLimited` SetError, built via the typed
+            // `SetError::with_extra` builder added in bd:JMAP-dha0.
+            // `serverRetryAfter` is the workspace convention paired
+            // with `rateLimited` (read by
+            // `jmap_chat_client::server_retry_after` on the client
+            // side); `SetErrorType::custom("rateLimited")` produces
+            // the spec wire string. The reference `MemoryBackend`
+            // never returns an Err here.
+            if let Err(slow_err) = backend
+                .slow_mode_check(caller, &account_id, &msg.chat_id)
+                .await
+            {
+                let retry_after_str: String = slow_err.retry_after.as_ref().to_owned();
+                let set_err = SetError::new(SetErrorType::custom("rateLimited"))
+                    .with_description("Slow mode is active for this chat")
+                    .with_extra("serverRetryAfter", json!(retry_after_str));
+                not_created.insert(create_id.clone(), set_error_value(&set_err));
+                continue;
+            }
 
             match backend
                 .create_object::<Message>(caller, &account_id, create_id, msg)
