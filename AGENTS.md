@@ -57,6 +57,16 @@ pressure makes the kit-posture feel wrong, surface it as an explicit
 workspace-architectural decision bead — do not drift toward it via incremental scope
 creep on individual feature beads.
 
+### Support crates
+
+Code that no spec defines but more than one consumer (chinwag, kith, stoa, mimid)
+needs — Web Push delivery, federation peer-auth key fetching and replay stores —
+lives in dedicated support crates in this workspace (bd:JMAP-vjm0, amended
+2026-10-19). Support crates may do I/O and hold secrets. No `*-types` or `*-server`
+crate depends on a support crate, so the kit itself stays transport-, auth- and
+persistence-free; consumers opt in. Spec rules still go in the `*-types` / `*-server`
+crates, never in a support crate.
+
 ## Crate Map
 
 | Directory | Crate | Role |
