@@ -152,6 +152,7 @@ async fn contact_blocked_wrong_type_rejected_and_get_succeeds() {
         "ct1",
         json!({
             "id": "ct1",
+            "identity": "alice@example.com",
             "login": "alice@example.com",
             "firstSeenAt": "2024-01-01T00:00:00Z",
             "lastSeenAt": "2024-01-01T00:00:00Z",

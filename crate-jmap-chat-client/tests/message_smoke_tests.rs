@@ -1398,7 +1398,7 @@ async fn message_create_serializes_all_optional_properties() {
         "size": 1024,
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     });
-    let mention_json = json!({"id": "alice@example.com"});
+    let mention_json = json!({"id": "c1"});
     let broadcast_json = json!({"scope": "here"});
     let action_json = json!({
         "type": "urn:jmap:chat:cap:vtc",
@@ -1514,18 +1514,14 @@ async fn message_update_mentions_emits_wire_key() {
     let sc = helpers::make_client(&server);
     let msg_id = Id::from("msg-1");
     let mut patch = jmap_chat_client::methods::MessagePatch::default();
-    patch.mentions = Some(vec![serde_json::from_value(
-        json!({"id": "bob@example.com"}),
-    )
-    .expect("Mention must deserialize")]);
+    patch.mentions = Some(vec![
+        serde_json::from_value(json!({"id": "c2"})).expect("Mention must deserialize")
+    ]);
     let _ = sc
         .message_update(&msg_id, &patch)
         .await
         .expect("message_update: must succeed");
 
     let args = recorded_args(&server).await;
-    assert_eq!(
-        args["update"]["msg-1"]["mentions"],
-        json!([{"id": "bob@example.com"}])
-    );
+    assert_eq!(args["update"]["msg-1"]["mentions"], json!([{"id": "c2"}]));
 }

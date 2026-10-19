@@ -675,6 +675,7 @@ async fn chat_typing_returns_success_when_contact_blocked() {
         "u1",
         json!({
             "id": "u1",
+            "identity": "blocked-user@example.org",
             "login": "blocked-user@example.org",
             "firstSeenAt": "2024-01-01T00:00:00Z",
             "lastSeenAt": "2024-01-02T00:00:00Z",
@@ -784,6 +785,7 @@ async fn memory_backend_is_contact_blocked_reads_chat_contact_blocked_field() {
         "blocked-user",
         json!({
             "id": "blocked-user",
+            "identity": "b@example.org",
             "login": "b@example.org",
             "firstSeenAt": "2024-01-01T00:00:00Z",
             "lastSeenAt": "2024-01-02T00:00:00Z",
@@ -796,6 +798,7 @@ async fn memory_backend_is_contact_blocked_reads_chat_contact_blocked_field() {
         "allowed-user",
         json!({
             "id": "allowed-user",
+            "identity": "a@example.org",
             "login": "a@example.org",
             "firstSeenAt": "2024-01-01T00:00:00Z",
             "lastSeenAt": "2024-01-02T00:00:00Z",
@@ -5695,6 +5698,7 @@ async fn contact_set_update_allowed_fields_apply() {
         "ct1",
         json!({
             "id": "ct1",
+            "identity": "alice@example.com",
             "login": "alice@example.com",
             "firstSeenAt": "2024-01-01T00:00:00Z",
             "lastSeenAt": "2024-01-02T00:00:00Z",
@@ -5745,6 +5749,7 @@ async fn contact_set_update_drops_non_allowed_fields() {
         "ct1",
         json!({
             "id": "ct1",
+            "identity": "alice@example.com",
             "login": "alice@example.com",
             "firstSeenAt": "2024-01-01T00:00:00Z",
             "lastSeenAt": "2024-01-02T00:00:00Z",
@@ -5794,6 +5799,56 @@ async fn contact_set_update_drops_non_allowed_fields() {
     );
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 §ChatContact lists "`identity`
+/// (String, immutable)", and RFC 8620 §5.3 makes an update that tries to
+/// change an immutable property fail with `invalidProperties`. The whole
+/// patch is rejected, so the allowed `blocked` change is not applied
+/// either (bd:JMAP-405z.1).
+#[tokio::test]
+async fn contact_set_update_identity_rejected() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&jmap_types::Id::from(ACCOUNT_ID));
+    backend.insert_object_for_test(
+        "ChatContact",
+        ACCOUNT_ID,
+        "ct1",
+        json!({
+            "id": "ct1",
+            "identity": "alice@example.com",
+            "login": "alice@example.com",
+            "firstSeenAt": "2024-01-01T00:00:00Z",
+            "lastSeenAt": "2024-01-02T00:00:00Z",
+            "blocked": false
+        }),
+    );
+
+    let (resp, _) = handle_contact_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": { "ct1": { "identity": "did:web:mallory.example", "blocked": true } }
+        }),
+    )
+    .await
+    .expect("handle_contact_set");
+
+    assert_eq!(
+        resp["notUpdated"]["ct1"],
+        json!({ "type": "invalidProperties", "properties": ["identity"] })
+    );
+
+    let (get_resp, _) = handle_contact_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": ["ct1"] }),
+    )
+    .await
+    .expect("handle_contact_get");
+    assert_eq!(get_resp["list"][0]["identity"], "alice@example.com");
+    assert_eq!(get_resp["list"][0]["blocked"], false);
+}
+
 /// Oracle: a mixed patch carrying one spec-allowed field and one
 /// non-allowed field applies only the allowed field. The non-allowed
 /// field is silently dropped before reaching the backend, matching
@@ -5808,6 +5863,7 @@ async fn contact_set_update_mixed_patch_applies_only_allowed() {
         "ct1",
         json!({
             "id": "ct1",
+            "identity": "alice@example.com",
             "login": "alice@example.com",
             "firstSeenAt": "2024-01-01T00:00:00Z",
             "lastSeenAt": "2024-01-02T00:00:00Z",

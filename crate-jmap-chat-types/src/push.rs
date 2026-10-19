@@ -378,7 +378,7 @@ mod tests {
               "chatName": "general",
               "spaceId": "01J2WKZQM3LVST7OOBDHSI2GW",
               "spaceName": "ACME Corp",
-              "senderId": "user:alice@example.com",
+              "senderId": "c8xq2m",
               "senderDisplayName": "Alice",
               "sentAt": "2026-04-26T14:32:00Z",
               "hasMention": true,

@@ -10,7 +10,7 @@ use serde_json::json;
 /// `id`, so `{"id": ...}` deserializes and serializes back unchanged.
 #[test]
 fn mention_is_id_only() {
-    let wire = json!({ "id": "user:alice@example.com" });
+    let wire = json!({ "id": "c1" });
     let m: Mention = serde_json::from_value(wire.clone()).expect("Mention from {id}");
     assert_eq!(serde_json::to_value(&m).expect("serialize"), wire);
 }
