@@ -13,8 +13,8 @@ use jmap_base_client::{BearerAuth, ClientConfig, DefaultTransport, JmapClient, S
 use jmap_chat_client::{
     AddMemberInput, ChatCreateInput, ChatMemberRole, ChatPatch, ChatSessionExt, ClientError,
     JmapChatExt, MessageCreateInput, MessagePatch, MessageQueryInput, ReactionChange,
-    SessionClient, SetResponse, SpaceBanCreateInput, SpaceCreateInput, SpaceJoinInput, SpacePatch,
-    UpdateMemberRoleInput,
+    SessionClient, SetResponse, SpaceAddRoleInput, SpaceBanCreateInput, SpaceCreateInput,
+    SpaceJoinInput, SpacePatch, UpdateMemberRoleInput,
 };
 use jmap_chat_types::{
     Attachment, BodyType, BroadcastMention, ChatKind, Mention, MessageAction, SenderId,
@@ -909,4 +909,67 @@ async fn space_join_unknown_or_private_space_is_not_permitted() {
             other => panic!("expected notPermitted method error, got {other:?}"),
         }
     }
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Space/set "Updating a Space",
+/// `addRoles`: "Each entry: `name` (String), `permissions` (String[]),
+/// `position` (UnsignedInt), and optionally `color` (String\|Object\|null,
+/// optional) — per the color convention ({{color-convention}}). Server
+/// assigns ULIDs." And §Color Representation: "Servers MUST accept all
+/// three representations in color-valued fields and MUST preserve the
+/// representation provided by the client."
+///
+/// `SpaceAddRoleInput` sends no `id`; the server must accept that, give
+/// each role its own id, and return every color exactly as sent.
+#[tokio::test]
+async fn space_add_roles_round_trips_each_color_representation() {
+    let (_jig, client, session) = connect().await;
+    let sc = client.with_chat_session(session);
+
+    let resp = sc
+        .space_create(&SpaceCreateInput::new("Palette").with_client_id("s0"))
+        .await
+        .expect("Space/set create");
+    let space_id = created_id(&resp, "s0");
+
+    let hex = serde_json::json!("#5865f2");
+    let tokens = serde_json::json!({ "$type": "color", "$value": "oklch(0.6 0.15 270)" });
+    let cam16 = serde_json::json!([62.5, -12.25, 30.75]);
+    let roles = [
+        SpaceAddRoleInput::new("Hex", &[], 3).with_color(hex.clone()),
+        SpaceAddRoleInput::new("Tokens", &[], 2).with_color(tokens.clone()),
+        SpaceAddRoleInput::new("Cam16", &[], 1).with_color(cam16.clone()),
+    ];
+    let mut patch = SpacePatch::default();
+    patch.add_roles = Some(&roles);
+    let resp = sc
+        .space_update(&space_id, &patch)
+        .await
+        .expect("Space/set update");
+    assert!(
+        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
+        "{resp:?}"
+    );
+
+    let got = sc
+        .space_get(Some(std::slice::from_ref(&space_id)), None)
+        .await
+        .expect("Space/get");
+    let space = got.list.first().expect("space in list");
+    let mut ids = std::collections::HashSet::new();
+    for (name, color) in [("Hex", hex), ("Tokens", tokens), ("Cam16", cam16)] {
+        let role = space
+            .roles
+            .iter()
+            .find(|r| r.name == name)
+            .unwrap_or_else(|| panic!("role {name} missing: {:?}", space.roles));
+        assert_eq!(role.color.as_ref(), Some(&color), "{name} color");
+        ids.insert(role.id.clone());
+    }
+    assert_eq!(
+        ids.len(),
+        3,
+        "server-assigned role ids must be distinct: {:?}",
+        space.roles
+    );
 }

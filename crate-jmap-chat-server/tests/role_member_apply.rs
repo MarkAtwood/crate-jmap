@@ -1027,3 +1027,173 @@ async fn update_role_color_preserves_all_three_representations() {
         assert_eq!(target["color"], color, "color representation not preserved");
     }
 }
+
+// ---------------------------------------------------------------------------
+// bd:JMAP-yt1w.13 — addRoles entries carry no id; the server assigns one
+// ---------------------------------------------------------------------------
+
+/// Oracle: draft-atwood-jmap-chat-00 §Space/set "Updating a Space",
+/// `addRoles`: "Each entry: `name` (String), `permissions` (String[]),
+/// `position` (UnsignedInt), and optionally `color` (String\|Object\|null,
+/// optional) — per the color convention ({{color-convention}}). Server
+/// assigns ULIDs." And §SpaceRole: "`id` (String, immutable, server-set):
+/// Opaque server-assigned JMAP identifier for this role."
+///
+/// Entries without `id` must be accepted, and every added role — within
+/// one call and across calls — must receive its own distinct id, or
+/// `updateRoles` / `removeRoles` cannot address it.
+#[tokio::test]
+async fn add_roles_without_id_get_distinct_server_assigned_ids() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from(ACCOUNT_ID));
+    backend.insert_object_for_test(
+        "Space",
+        ACCOUNT_ID,
+        SPACE_ID,
+        json!({
+            "id": SPACE_ID,
+            "name": "Test",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "memberCount": 0,
+            "categories": [],
+            "uncategorizedChannelIds": [],
+            "isPublic": false,
+            "isPubliclyPreviewable": false,
+            "roles": [],
+            "members": []
+        }),
+    );
+
+    for add_roles in [
+        json!([
+            { "name": "Mod", "permissions": ["manage_members"], "position": 20 },
+            { "name": "Helper", "permissions": [], "position": 10 }
+        ]),
+        json!([{ "name": "Guest", "permissions": [], "position": 5 }]),
+    ] {
+        let (resp, _) = handle_space_set(
+            &backend,
+            &(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "update": { SPACE_ID: { "addRoles": add_roles } }
+            }),
+        )
+        .await
+        .expect("handle_space_set");
+        assert!(
+            resp["notUpdated"][SPACE_ID].is_null(),
+            "addRoles entries without id must be accepted: {resp:?}"
+        );
+        assert!(
+            resp["updated"].get(SPACE_ID).is_some(),
+            "addRoles should land in `updated`: {resp:?}"
+        );
+    }
+
+    let (get_resp, _) = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+    )
+    .await
+    .expect("Space/get");
+    let roles = get_resp["list"][0]["roles"]
+        .as_array()
+        .expect("roles array");
+    let mut ids: Vec<&str> = roles
+        .iter()
+        .map(|r| r["id"].as_str().expect("role id is a string"))
+        .collect();
+    assert_eq!(ids.len(), 3, "three roles added: {roles:?}");
+    assert!(ids.iter().all(|id| !id.is_empty()), "{roles:?}");
+    ids.sort_unstable();
+    ids.dedup();
+    assert_eq!(
+        ids.len(),
+        3,
+        "server-assigned role ids must be distinct: {roles:?}"
+    );
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §SpaceRole: "`id` (String,
+/// immutable, server-set): Opaque server-assigned JMAP identifier for
+/// this role." and §Space/set `addRoles`: "Server assigns ULIDs."
+/// §ChannelPermission: "`targetId`: A SpaceRole id". A ULID is never
+/// reissued, so a role added after `removeRoles` must not receive the
+/// removed role's id, or stale references to it would bind to the new
+/// role.
+#[tokio::test]
+async fn add_roles_after_remove_does_not_reuse_freed_id() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from(ACCOUNT_ID));
+    backend.insert_object_for_test(
+        "Space",
+        ACCOUNT_ID,
+        SPACE_ID,
+        json!({
+            "id": SPACE_ID,
+            "name": "Test",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "memberCount": 0,
+            "categories": [],
+            "uncategorizedChannelIds": [],
+            "isPublic": false,
+            "isPubliclyPreviewable": false,
+            "roles": [],
+            "members": []
+        }),
+    );
+
+    let update = |patch: serde_json::Value| {
+        let backend = &backend;
+        async move {
+            let (resp, _) = handle_space_set(
+                backend,
+                &(),
+                json!({ "accountId": ACCOUNT_ID, "update": { SPACE_ID: patch } }),
+            )
+            .await
+            .expect("handle_space_set");
+            assert!(
+                resp["updated"].get(SPACE_ID).is_some(),
+                "update should land in `updated`: {resp:?}"
+            );
+        }
+    };
+    let role_id_named = |name: &'static str| {
+        let backend = &backend;
+        async move {
+            let (get_resp, _) = handle_space_get(
+                backend,
+                &(),
+                json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+            )
+            .await
+            .expect("Space/get");
+            get_resp["list"][0]["roles"]
+                .as_array()
+                .expect("roles array")
+                .iter()
+                .find(|r| r["name"] == name)
+                .and_then(|r| r["id"].as_str())
+                .unwrap_or_else(|| panic!("role {name} missing: {get_resp:?}"))
+                .to_owned()
+        }
+    };
+
+    update(json!({ "addRoles": [
+        { "name": "A", "permissions": [], "position": 20 },
+        { "name": "B", "permissions": [], "position": 10 }
+    ] }))
+    .await;
+    let a_id = role_id_named("A").await;
+    let b_id = role_id_named("B").await;
+
+    update(json!({ "removeRoles": [b_id.clone()] })).await;
+    update(json!({ "addRoles": [{ "name": "C", "permissions": [], "position": 5 }] })).await;
+    let c_id = role_id_named("C").await;
+
+    assert_ne!(c_id, b_id, "removed role's id was reissued");
+    assert_ne!(c_id, a_id, "live role's id was reissued");
+}
