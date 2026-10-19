@@ -723,6 +723,61 @@ mod tests {
         assert_eq!(args["type"], "notFound");
     }
 
+    /// Oracle (bd:JMAP-yt1w.30): RFC 8620 §5.3 (rfc8620.txt L2166-2170):
+    /// "The following additional errors may be returned instead of the
+    /// "Foo/set" response: "requestTooLarge": The total number of objects
+    /// to create, update, or destroy exceeds the maximum number the server
+    /// is willing to process in a single method call." The over-cap
+    /// Foo/set gets an "error" invocation of type requestTooLarge in
+    /// place of its response, and the next method call in the same
+    /// request still runs.
+    #[tokio::test]
+    async fn set_over_max_objects_is_method_error_request_too_large() {
+        struct CappedSetHandler;
+
+        impl JmapHandler<String> for CappedSetHandler {
+            fn call(
+                &self,
+                _method: String,
+                _call_id: String,
+                args: Value,
+                _caller: String,
+            ) -> HandlerFuture {
+                Box::pin(async move {
+                    let map = args.as_object().cloned().unwrap_or_default();
+                    enforce_max_objects_in_set(&map, 1)?;
+                    Ok((json!({"created": {}}), vec![]))
+                })
+            }
+        }
+
+        let mut d: Dispatcher<String> = Dispatcher::new();
+        d.register("Foo/set", Arc::new(CappedSetHandler));
+        d.register("Foo/get", Arc::new(EchoHandler(json!({"list": []}))));
+        let req = JmapRequest::new(
+            vec!["urn:ietf:params:jmap:core".into()],
+            vec![
+                (
+                    "Foo/set".into(),
+                    json!({"accountId": "a1", "destroy": ["x1", "x2"]}),
+                    "c0".into(),
+                ),
+                ("Foo/get".into(), json!({"accountId": "a1"}), "c1".into()),
+            ],
+            None,
+        );
+        let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
+        assert_eq!(resp.method_responses.len(), 2);
+        let (name, args, call_id) = &resp.method_responses[0];
+        assert_eq!(name, "error");
+        assert_eq!(call_id, "c0");
+        assert_eq!(args["type"], "requestTooLarge");
+        let (name, args, call_id) = &resp.method_responses[1];
+        assert_eq!(name, "Foo/get");
+        assert_eq!(call_id, "c1");
+        assert_eq!(args["list"], json!([]));
+    }
+
     /// Oracle (bd:JMAP-jfia.4): try_register MUST return Ok for the
     /// first registration of a method name, and Err(DuplicateMethodError)
     /// for any subsequent registration of the same name. On Err the

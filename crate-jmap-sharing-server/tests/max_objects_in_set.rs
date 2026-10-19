@@ -1,9 +1,9 @@
 //! RFC 8620 §5.3 `maxObjectsInSet` enforcement on the sharing-server
 //! `/set` handlers (bd:JMAP-ayoz.41.8).
 //!
-//! Every test asserts the wire-format `JmapError::limit("maxObjectsInSet")`
-//! shape against a hand-built independent oracle — the helper under test
-//! is never the oracle. Oversize batches use 501 entries against the
+//! Every test asserts the wire-format method error `requestTooLarge`
+//! (description `"maxObjectsInSet"`) against a hand-built independent
+//! oracle — the helper under test is never the oracle. Oversize batches use 501 entries against the
 //! default `JmapBackend::max_objects_in_set` cap of 500.
 //!
 //! Mirrors the canonical extension-server test layout established by
@@ -40,13 +40,16 @@ fn destroy_array_of_size(n: usize) -> Value {
     Value::Array((0..n).map(|i| json!(format!("id-{i}"))).collect())
 }
 
-/// Independent oracle for `JmapError::limit("maxObjectsInSet")`.
+/// Independent oracle for the method error `requestTooLarge` with
+/// description `"maxObjectsInSet"`.
 ///
-/// Constructed against the public `JmapError::limit` API documented in
-/// `crate-jmap-types/src/error.rs` (description carries the limit name);
-/// the helper under test is NOT used to produce the expected value.
+/// Type from RFC 8620 §5.3 (bd:JMAP-yt1w.30): ""requestTooLarge": The
+/// total number of objects to create, update, or destroy exceeds the
+/// maximum number the server is willing to process in a single method
+/// call." The description names the exceeded cap. The helper under
+/// test is NOT used to produce the expected value.
 fn expected_limit_error_shape() -> (&'static str, &'static str) {
-    ("limit", "maxObjectsInSet")
+    ("requestTooLarge", "maxObjectsInSet")
 }
 
 /// Set up a `MemoryBackend` with one account ready for `/set` dispatch.
@@ -114,9 +117,9 @@ async fn principal_set_at_limit_passes_cap_check() {
     if let Err(ref err) = result {
         assert_ne!(
             err.error_type.as_str(),
-            "limit",
+            "requestTooLarge",
             "exactly {DEFAULT_CAP} entries must NOT trip the maxObjectsInSet cap; \
-             got JmapError type=limit with description={:?}",
+             got JmapError type=requestTooLarge with description={:?}",
             err.description,
         );
     }

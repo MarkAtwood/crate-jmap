@@ -1,9 +1,9 @@
 //! RFC 8620 §5.3 `maxObjectsInSet` enforcement across the 9 chat-server
 //! /set handlers (bd:JMAP-ayoz.41.3).
 //!
-//! Every test asserts the wire-format `JmapError::limit("maxObjectsInSet")`
-//! shape against a hand-built independent oracle — the helper under test
-//! is never the oracle. Oversize batches use 501 entries against the
+//! Every test asserts the wire-format method error `requestTooLarge`
+//! (description `"maxObjectsInSet"`) against a hand-built independent
+//! oracle — the helper under test is never the oracle. Oversize batches use 501 entries against the
 //! default `JmapBackend::max_objects_in_set` cap of 500.
 
 #![allow(async_fn_in_trait)]
@@ -32,9 +32,10 @@ fn destroy_array_of_size(n: usize) -> Value {
     Value::Array((0..n).map(|i| json!(format!("id-{i}"))).collect())
 }
 
-/// Independent oracle for `JmapError::limit("maxObjectsInSet")`.
+/// Independent oracle for the method error `requestTooLarge` with
+/// description `"maxObjectsInSet"`.
 fn expected_limit_error_shape() -> (&'static str, &'static str) {
-    ("limit", "maxObjectsInSet")
+    ("requestTooLarge", "maxObjectsInSet")
 }
 
 fn one_account_backend() -> (MemoryBackend, Id) {
