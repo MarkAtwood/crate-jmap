@@ -134,6 +134,9 @@ pub struct ChatMessageEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_name: Option<String>,
     /// The `senderDisplayName` property (draft-atwood-jmap-chat-push-00 §5.2).
+    ///
+    /// For direct and group chats, derived from the sender ChatContact's
+    /// `displayName`, otherwise its `login`, otherwise its `identity`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sender_display_name: Option<String>,
     /// The `bodySnippet` property (draft-atwood-jmap-chat-push-00 §5.2).
