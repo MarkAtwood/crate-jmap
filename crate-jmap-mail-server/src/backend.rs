@@ -95,6 +95,44 @@ pub trait MailBackend: JmapBackend {
     /// existing object rather than creating a duplicate. The `vacation.rs`
     /// handler relies on this guarantee to avoid a TOCTOU race between
     /// concurrent upsert requests.
+    ///
+    /// # Errors
+    ///
+    /// Reject a create that RFC 8620 §5.3 defines an error for with
+    /// [`BackendSetError::SetError`] carrying the matching
+    /// [`SetErrorType`]; the handler places it verbatim in `notCreated`.
+    /// For create these are `forbidden`, `overQuota`, `tooLarge`,
+    /// `rateLimit` and `invalidProperties`. An `invalidProperties` error
+    /// SHOULD name in `properties` "*all* the properties that were
+    /// invalid", for example `mailboxIds` when an Email names a Mailbox
+    /// that does not exist.
+    ///
+    /// Return [`BackendSetError::Other`] only for unexpected storage
+    /// failures. The handler reports it as `serverFail` without the
+    /// error's `Display` text, which tells the client to retry; a
+    /// deterministic rejection returned as `Other` invites retries that
+    /// cannot succeed.
+    ///
+    /// The `/set` handlers in this crate reject an unknown `account_id`
+    /// with the method-level `accountNotFound` error before calling the
+    /// backend.
+    ///
+    /// # State and change log
+    ///
+    /// RFC 8620 §5.1 defines the state string over "*all* the data of
+    /// this type in the account": "If the data changes, this string MUST
+    /// change." Every successful `create_object`,
+    /// [`update_object`](Self::update_object) and
+    /// [`destroy_object`](Self::destroy_object) MUST advance
+    /// [`get_state`](JmapBackend::get_state) for `O` in `account_id` and
+    /// record the id as created, updated or destroyed so
+    /// [`get_changes`](JmapBackend::get_changes) reports it.
+    ///
+    /// The write, the state advance and the change record MUST be atomic
+    /// with respect to other callers: the reference `MemoryBackend` does
+    /// all three under one mutex acquisition, and a database backend uses
+    /// one transaction. A call that returns `Err` MUST leave the stored
+    /// data, the state and the change log unchanged.
     fn create_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -136,6 +174,29 @@ pub trait MailBackend: JmapBackend {
     /// all-or-nothing, and map any [`jmap_server::PatchPathError`] to
     /// [`jmap_server::SetErrorType::InvalidPatch`], as the reference
     /// `MemoryBackend` does.
+    ///
+    /// # Errors
+    ///
+    /// As for [`create_object`](Self::create_object), plus these RFC 8620
+    /// §5.3 rules for update:
+    ///
+    /// - "If an id given cannot be found, the update or destroy MUST be
+    ///   rejected with a "notFound" set error."
+    /// - A patch that breaks the rules under "Patch format" is
+    ///   `invalidPatch`.
+    /// - A patched record that is invalid is `invalidProperties`. That
+    ///   includes changing a server-set property, though "it is not an
+    ///   error to include a server-set property in an update as long as
+    ///   the value is identical to the current value on the server."
+    ///
+    /// # Atomicity
+    ///
+    /// RFC 8620 §5.3: the server "MUST NOT only commit part of an update
+    /// to a single record". Apply the whole patch and validate the result
+    /// before writing it, so that on any error the stored record is
+    /// unchanged. State and change log follow
+    /// [`create_object`](Self::create_object) ("State and change log"); an
+    /// `Ok(None)` return still advances the state.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -145,6 +206,30 @@ pub trait MailBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
 
     /// Destroy an existing object by id.
+    ///
+    /// # Errors
+    ///
+    /// As for [`create_object`](Self::create_object), plus these RFC 8620
+    /// §5.3 rules for destroy: an unknown id, including one already
+    /// destroyed, is `notFound`, and a destroy that "would violate an ACL
+    /// or other permissions policy" is `forbidden`.
+    ///
+    /// # Cascades
+    ///
+    /// The handlers perform the cross-record effects the client chooses,
+    /// through explicit backend calls, and the backend does not repeat
+    /// them. `Mailbox/set` (RFC 8621 §2.5) rejects a non-empty Mailbox
+    /// with `mailboxHasEmail`, or with `onDestroyRemoveEmails` destroys
+    /// the Emails only in that Mailbox and removes it from the other
+    /// Emails' `mailboxIds`, before it calls `destroy_object::<Mailbox>`.
+    /// `EmailSubmission/set` (RFC 8621 §7.5) `onSuccessDestroyEmail`
+    /// calls `destroy_object::<Email>`.
+    ///
+    /// If the backend itself changes another record because of the
+    /// destroy, it MUST advance that record type's state and record the
+    /// change in the same atomic step, so `/changes` on that type sees it.
+    /// State and change log for `O` follow
+    /// [`create_object`](Self::create_object) ("State and change log").
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
