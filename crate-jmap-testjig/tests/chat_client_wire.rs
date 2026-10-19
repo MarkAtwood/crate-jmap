@@ -571,6 +571,61 @@ async fn message_create_out_of_bounds_broadcast_mention_is_invalid_properties() 
     );
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 §Message `bodyType`: "MIME type of
+/// `body`. MUST be in `supportedBodyTypes`."; §Input Validation:
+/// "`bodyType`: validate against `supportedBodyTypes`." and "When a
+/// `Message/set` create or update fails one of these checks and this
+/// document names no other error for that check, the server MUST reject
+/// the entry with an `invalidProperties` SetError ([RFC8620] §5.3) whose
+/// `properties` names the offending property." (bd:JMAP-yt1w.12).
+#[tokio::test]
+async fn message_unsupported_body_type_is_invalid_properties() {
+    let (_jig, client, session) = connect().await;
+    let html = BodyType::Other("text/html".to_owned());
+    let account_id = session.chat_account_id().expect("chat account").to_owned();
+    let cap = session
+        .chat_capability(&account_id)
+        .expect("chat capability must parse")
+        .expect("chat capability must be present");
+    assert!(
+        !cap.supported_body_types.contains(&html),
+        "{:?}",
+        cap.supported_body_types
+    );
+    let sc = client.with_chat_session(session);
+    let chat_id = create_group(&sc, "g1", "Team").await;
+    let sent_at = UTCDate::from(SENT_AT);
+    let input =
+        MessageCreateInput::new(&chat_id, "hi", html.clone(), &sent_at).with_client_id("bad");
+
+    let resp = sc.message_create(&input).await.expect("Message/set create");
+    let err = resp
+        .not_created
+        .as_ref()
+        .and_then(|m| m.get("bad"))
+        .unwrap_or_else(|| panic!("unsupported bodyType must be rejected: {resp:?}"));
+    assert_eq!(err.error_type, "invalidProperties");
+    assert_eq!(
+        err.properties.as_deref(),
+        Some(&["bodyType".to_owned()][..])
+    );
+
+    let msg_id = send(&sc, &chat_id, "m1", "hello").await;
+    let mut patch = MessagePatch::default();
+    patch.body_type = Some(html);
+    let resp = sc.message_update(&msg_id, &patch).await.expect("edit");
+    let err = resp
+        .not_updated
+        .as_ref()
+        .and_then(|m| m.get(&msg_id))
+        .unwrap_or_else(|| panic!("unsupported bodyType edit must be rejected: {resp:?}"));
+    assert_eq!(err.error_type, "invalidProperties");
+    assert_eq!(
+        err.properties.as_deref(),
+        Some(&["bodyType".to_owned()][..])
+    );
+}
+
 /// Oracle: draft-atwood-jmap-chat-00 §Message/query — `text`: "Servers
 /// that do not support full-text search MUST return
 /// `unsupportedFilter`."; `threadRootId`: "Valid only when

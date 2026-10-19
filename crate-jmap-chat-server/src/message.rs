@@ -449,6 +449,16 @@ fn rich_body_has_broadcast(body: &str, body_type: &str) -> bool {
 /// encrypted type.
 const ENCRYPTED_BODY_TYPES: &[&str] = &["application/mls-ciphertext"];
 
+/// `bodyType` values this server accepts, advertised as the
+/// `supportedBodyTypes` capability (draft-atwood-jmap-chat-00
+/// §Account-Level Capability Object).
+pub const SUPPORTED_BODY_TYPES: &[&str] = &[
+    "text/plain",
+    "text/markdown",
+    "application/jmap-chat-rich",
+    "application/mls-ciphertext",
+];
+
 /// draft-atwood-jmap-chat-00 §Fields Inside the Ciphertext: Message fields
 /// that "MUST be empty or absent" when `bodyType` indicates an encrypted type.
 const CIPHERTEXT_ONLY_FIELDS: [&str; 8] = [
@@ -740,11 +750,21 @@ pub async fn handle_message_set<B: ChatBackend>(
                 continue;
             };
 
-            let body_type = obj_val
+            // §Input Validation: "`bodyType`: validate against
+            // `supportedBodyTypes`."
+            let Some(body_type) = obj_val
                 .get("bodyType")
-                .and_then(|v| v.as_str())
-                .unwrap_or("text/plain")
-                .to_owned();
+                .filter(|v| !v.is_null())
+                .map_or(Some("text/plain"), Value::as_str)
+                .filter(|s| SUPPORTED_BODY_TYPES.contains(s))
+            else {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidProperties", "properties": ["bodyType"] }),
+                );
+                continue;
+            };
+            let body_type = body_type.to_owned();
 
             if let Some(desc) = body_type_field_conflict(obj_val, &body_type) {
                 not_created.insert(
@@ -1028,6 +1048,19 @@ pub async fn handle_message_set<B: ChatBackend>(
                 not_updated.insert(
                     id_str,
                     json!({ "type": "invalidProperties", "properties": ["readDisposition"] }),
+                );
+                continue;
+            }
+
+            // §Input Validation: "`bodyType`: validate against
+            // `supportedBodyTypes`."
+            if patch_val.get("bodyType").is_some_and(|v| {
+                !v.as_str()
+                    .is_some_and(|s| SUPPORTED_BODY_TYPES.contains(&s))
+            }) {
+                not_updated.insert(
+                    id_str,
+                    json!({ "type": "invalidProperties", "properties": ["bodyType"] }),
                 );
                 continue;
             }
