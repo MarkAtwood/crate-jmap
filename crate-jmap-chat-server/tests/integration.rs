@@ -1691,6 +1691,52 @@ async fn message_set_no_read_at_no_disposition_injected() {
     );
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 §Message `readDisposition`: "the server
+/// MUST reject an update that sets `readDisposition` without `readAt` with an
+/// `invalidProperties` SetError naming `readDisposition`."
+///
+/// `readAt: null` clears `readAt` (RFC 8620 §5.3), so it does not set it.
+#[tokio::test]
+async fn message_set_lone_read_disposition_is_invalid_properties() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
+    ).await.expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    for patch in [
+        json!({ "readDisposition": "deleted" }),
+        json!({ "readDisposition": "deleted", "readAt": null }),
+    ] {
+        let (update_resp, _) = handle_message_set(
+            &backend,
+            &(),
+            json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): patch } }),
+        )
+        .await
+        .expect("update");
+        assert_eq!(
+            update_resp["notUpdated"][msg_id.as_str()],
+            json!({ "type": "invalidProperties", "properties": ["readDisposition"] }),
+            "patch {patch}"
+        );
+    }
+
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
+    )
+    .await
+    .expect("get");
+    assert_eq!(get_resp["list"][0]["readDisposition"], json!(null));
+}
+
 // ---------------------------------------------------------------------------
 // Burn-on-read (draft-atwood-jmap-chat-00 §Message burnOnRead)
 // ---------------------------------------------------------------------------

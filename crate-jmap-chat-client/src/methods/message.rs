@@ -322,7 +322,8 @@ impl super::SessionClient {
     ///   if any [`ReactionChange`] entry carries an empty
     ///   `sender_reaction_id`, or one containing `/` or `~`
     ///   (RFC 6901 JSON Pointer reserved characters that would
-    ///   misinterpret the patch path).
+    ///   misinterpret the patch path), or if `read_disposition` is set
+    ///   without `read_at`.
     /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
     ///   serializing the typed `body_type` or `read_disposition` enums
     ///   fails (pathological conditions only).
@@ -339,6 +340,14 @@ impl super::SessionClient {
         id: &Id,
         patch: &MessagePatch<'_>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
+        // draft-atwood-jmap-chat-00 §Message `readDisposition`: "A client
+        // supplies it only in the same `Message/set` update that sets
+        // `readAt`".
+        if patch.read_disposition.is_some() && patch.read_at.is_none() {
+            return Err(jmap_base_client::ClientError::InvalidArgument(
+                "message_update: read_disposition requires read_at".into(),
+            ));
+        }
         let (api_url, account_id) = self.session_parts()?;
         let mut patch_map = serde_json::Map::new();
         if let Some(b) = patch.body {

@@ -1011,6 +1011,35 @@ async fn message_update_without_read_disposition_omits_field() {
     );
 }
 
+/// draft-atwood-jmap-chat-00 §Message `readDisposition`: "A client supplies
+/// it only in the same `Message/set` update that sets `readAt`". A lone
+/// `read_disposition` must short-circuit client-side.
+#[tokio::test]
+async fn message_update_read_disposition_without_read_at_rejected() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server);
+
+    let mut patch = jmap_chat_client::methods::MessagePatch::default();
+    patch.read_disposition = Some(jmap_chat_types::ReadDisposition::Deleted);
+    let err = sc
+        .message_update(&Id::from("msg-1"), &patch)
+        .await
+        .expect_err("message_update must reject read_disposition without read_at");
+    assert!(
+        matches!(err, jmap_base_client::ClientError::InvalidArgument(_)),
+        "expected InvalidArgument, got {err:?}"
+    );
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("recorded_requests must succeed");
+    assert!(
+        reqs.is_empty(),
+        "no HTTP request must be sent for a lone read_disposition"
+    );
+}
+
 /// `Message/queryChanges` must thread `since_query_state` to
 /// `sinceQueryState` and reject the empty token client-side
 /// (message.rs:341-362, RFC 8620 §5.6).

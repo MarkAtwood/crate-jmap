@@ -1008,6 +1008,19 @@ pub async fn handle_message_set<B: ChatBackend>(
                 continue;
             }
 
+            // draft-atwood-jmap-chat-00 §Message `readDisposition`: "the
+            // server MUST reject an update that sets `readDisposition`
+            // without `readAt` with an `invalidProperties` SetError naming
+            // `readDisposition`." A null `readAt` clears it, not sets it.
+            let sets = |field: &str| patch_val.get(field).is_some_and(|v| !v.is_null());
+            if sets("readDisposition") && !sets("readAt") {
+                not_updated.insert(
+                    id_str,
+                    json!({ "type": "invalidProperties", "properties": ["readDisposition"] }),
+                );
+                continue;
+            }
+
             // draft-atwood-jmap-chat-00 §Deleting a Message: servers MUST
             // reject `deletedForAll: true` when `senderId` is not "self".
             // §Editing a Message: an edit of `body`, `bodyType`, `mentions`

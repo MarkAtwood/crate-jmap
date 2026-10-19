@@ -915,13 +915,14 @@ pub struct MessagePatch<'a> {
     /// Set the read-receipt timestamp (`Message.readAt`).
     pub read_at: Option<&'a jmap_types::UTCDate>,
     /// Set the read disposition recorded alongside `read_at`
-    /// (draft-atwood-jmap-chat-00 §Message/set update, line 1012).
+    /// (draft-atwood-jmap-chat-00 §Marking as Read).
     ///
     /// Setting `read_at` without `read_disposition` causes the server to
-    /// store `"displayed"` (§Message line 540). Supplying both lets the
-    /// client pick `Deleted` or `Processed` explicitly, or use
-    /// `Other("...")` for a vendor / future disposition value. Clients
-    /// SHOULD only set this when they also set `read_at`.
+    /// store `"displayed"` (§Message `readDisposition`). Supplying both lets
+    /// the client pick `Deleted` or `Processed` explicitly, or use
+    /// `Other("...")` for a vendor / future disposition value. Setting this
+    /// without `read_at` is rejected client-side with
+    /// [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument).
     pub read_disposition: Option<jmap_chat_types::ReadDisposition>,
     /// Set the deletion timestamp for soft/hard delete.
     pub deleted_at: Option<&'a jmap_types::UTCDate>,
