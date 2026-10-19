@@ -7,8 +7,8 @@
 //!
 //! The Chat extension defines three account-level capability objects plus a
 //! marker session-level capability (`urn:ietf:params:jmap:chat:websocket`,
-//! whose value is an empty object — see `draft-atwood-jmap-chat-wss-00`,
-//! not modelled here).
+//! see `draft-atwood-jmap-chat-wss-00`). The marker's value is an empty
+//! object, so only its URI constant is defined here, with no struct.
 
 use serde::{Deserialize, Serialize};
 
@@ -24,6 +24,10 @@ pub const JMAP_CHAT_PUSH_URI: &str = "urn:ietf:params:jmap:chat:push";
 /// Capability URI for JMAP Chat File Storage (draft-atwood-jmap-chat-filenode-00
 /// §Capability).
 pub const JMAP_CHAT_FILENODE_URI: &str = "urn:ietf:params:jmap:chat:filenode";
+
+/// Session-level capability URI for JMAP Chat ephemeral push over WebSocket
+/// (draft-atwood-jmap-chat-wss-00 §Capability); its value is an empty object.
+pub const JMAP_CHAT_WEBSOCKET_URI: &str = "urn:ietf:params:jmap:chat:websocket";
 
 /// FileNode `role` value marking the root of a Space file tree
 /// (draft-atwood-jmap-chat-filenode-00 §Space File Tree).
@@ -285,6 +289,18 @@ mod tests {
     fn capability_uri_constants_match_draft() {
         assert_eq!(JMAP_CHAT_URI, "urn:ietf:params:jmap:chat");
         assert_eq!(JMAP_CHAT_PUSH_URI, "urn:ietf:params:jmap:chat:push");
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-wss-00 §Capability: "Servers
+    /// supporting this specification MUST add a property named
+    /// `urn:ietf:params:jmap:chat:websocket` to the JMAP Session object
+    /// capabilities. The value of this property is an empty JSON object `{}`."
+    #[test]
+    fn websocket_uri_constant_matches_draft() {
+        assert_eq!(
+            JMAP_CHAT_WEBSOCKET_URI,
+            "urn:ietf:params:jmap:chat:websocket"
+        );
     }
 
     /// Oracle: draft-atwood-jmap-chat-filenode-00 §IANA Considerations
