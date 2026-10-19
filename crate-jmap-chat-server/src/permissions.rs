@@ -53,6 +53,14 @@ pub const PIN: &str = "pin";
 /// destroy each "Requires `"ban"` permission in the Space."
 pub const BAN: &str = "ban";
 
+/// Permission string: send or keep a Message with a non-empty
+/// `broadcastMentions` array in a channel Chat.
+///
+/// Per draft-atwood-jmap-chat-00 §BroadcastMention: "Sending a Message
+/// with a non-empty `broadcastMentions` array requires the
+/// `"mention_broadcast"` Space permission."
+pub const MENTION_BROADCAST: &str = "mention_broadcast";
+
 /// Result of [`required_permissions_for_op`] — typed alternative to
 /// a sentinel-string return value.
 ///
