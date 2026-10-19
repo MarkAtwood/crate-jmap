@@ -156,7 +156,7 @@ impl ChatSessionExt for jmap_base_client::Session {
 
     fn supports_chat_websocket(&self) -> bool {
         self.capabilities
-            .contains_key("urn:ietf:params:jmap:chat:websocket")
+            .contains_key(jmap_chat_types::JMAP_CHAT_WEBSOCKET_URI)
     }
 
     fn vapid_public_key(&self) -> Option<&str> {
