@@ -176,22 +176,23 @@ pub struct ChatLimits {
     /// resulting count after applying every `addCategories` entry in
     /// a `Space/set` update patch.
     pub max_categories_per_space: u32,
+    /// Maximum number of members per group Chat. Enforced against the
+    /// resulting count after applying every `addMembers` entry in a
+    /// `Chat/set` update patch.
+    pub max_group_chat_members: u32,
 }
 
 impl Default for ChatLimits {
     fn default() -> Self {
-        Self {
-            max_roles_per_space: 50,
-            max_space_members: 10_000,
-            max_channels_per_space: 500,
-            max_categories_per_space: 100,
-        }
+        Self::new(50, 10_000, 500, 100)
     }
 }
 
 impl ChatLimits {
-    /// Construct a [`ChatLimits`] with the four cap fields specified
-    /// in declaration order: roles, members, channels, categories.
+    /// Construct a [`ChatLimits`] with the four Space cap fields
+    /// specified in declaration order: roles, members, channels,
+    /// categories. [`Self::max_group_chat_members`] defaults to 1000;
+    /// override it with [`Self::with_max_group_chat_members`].
     ///
     /// The struct is `#[non_exhaustive]` so external callers (tests
     /// using `MemoryBackend::set_limits_for_test`, production backends
@@ -215,6 +216,7 @@ impl ChatLimits {
             max_space_members,
             max_channels_per_space,
             max_categories_per_space,
+            max_group_chat_members: 1_000,
         }
     }
 
@@ -243,6 +245,13 @@ impl ChatLimits {
     #[must_use]
     pub const fn with_max_categories_per_space(mut self, max: u32) -> Self {
         self.max_categories_per_space = max;
+        self
+    }
+
+    /// Builder-style setter for [`Self::max_group_chat_members`].
+    #[must_use]
+    pub const fn with_max_group_chat_members(mut self, max: u32) -> Self {
+        self.max_group_chat_members = max;
         self
     }
 }

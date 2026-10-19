@@ -11,9 +11,10 @@
 
 use jmap_base_client::{BearerAuth, ClientConfig, DefaultTransport, JmapClient, Session};
 use jmap_chat_client::{
-    ChatCreateInput, ChatSessionExt, ClientError, JmapChatExt, MessageCreateInput, MessagePatch,
-    MessageQueryInput, ReactionChange, SessionClient, SetResponse, SpaceBanCreateInput,
-    SpaceCreateInput, SpaceJoinInput, SpacePatch,
+    AddMemberInput, ChatCreateInput, ChatMemberRole, ChatPatch, ChatSessionExt, ClientError,
+    JmapChatExt, MessageCreateInput, MessagePatch, MessageQueryInput, ReactionChange,
+    SessionClient, SetResponse, SpaceBanCreateInput, SpaceCreateInput, SpaceJoinInput, SpacePatch,
+    UpdateMemberRoleInput,
 };
 use jmap_chat_types::{Attachment, BodyType, ChatKind, Mention, MessageAction, SenderId};
 use jmap_testjig::{spawn_in_process, TestjigConfig, TestjigHandle};
@@ -184,6 +185,61 @@ async fn chat_create_direct_and_group_round_trip() {
         .expect("duplicate direct chat must be rejected");
     assert_eq!(err.error_type, "alreadyExists");
     assert_eq!(err.existing_id.as_ref(), Some(&direct_id));
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat" —
+/// "`addMembers` (Object[]): Each entry: `id` (String, ChatContact.id) and
+/// optional `role` (String, default `"member"`)." and "The `role` value in
+/// `addMembers` and `updateMemberRoles` entries MUST be `"admin"` or
+/// `"member"` ({{chat-member}}); the server MUST reject any other value
+/// with an `invalidProperties` SetError."
+#[tokio::test]
+async fn chat_update_member_patch_keys() {
+    let (_jig, client, session) = connect().await;
+    let sc = client.with_chat_session(session);
+    let group_id = create_group(&sc, "g1", "Team").await;
+    let carol = Id::from("contact-carol");
+
+    // The jig's single caller is the creator, so it holds `"admin"`.
+    let add = [AddMemberInput::new(&carol)];
+    let mut patch = ChatPatch::default();
+    patch.add_members = Some(&add);
+    let resp = sc.chat_update(&group_id, &patch).await.expect("addMembers");
+    assert!(
+        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
+        "addMembers rejected: {resp:?}"
+    );
+    let got = sc
+        .chat_get(Some(std::slice::from_ref(&group_id)), None)
+        .await
+        .expect("Chat/get");
+    let members = got.list[0].members.as_ref().expect("group chat members");
+    let added = members
+        .iter()
+        .find(|m| m.id == carol)
+        .expect("carol added to members");
+    assert_eq!(added.role, "member");
+
+    let bad = [UpdateMemberRoleInput::new(
+        &carol,
+        ChatMemberRole::Other("owner".to_owned()),
+    )];
+    let mut patch = ChatPatch::default();
+    patch.update_member_roles = Some(&bad);
+    let resp = sc
+        .chat_update(&group_id, &patch)
+        .await
+        .expect("updateMemberRoles");
+    let err = resp
+        .not_updated
+        .as_ref()
+        .and_then(|m| m.get(&group_id))
+        .expect("unknown role must be rejected");
+    assert_eq!(err.error_type, "invalidProperties");
+    assert_eq!(
+        err.properties.as_deref(),
+        Some(&["updateMemberRoles".to_owned()][..])
+    );
 }
 
 /// Oracle: draft-atwood-jmap-chat-00 §Message/set — create takes `chatId`,

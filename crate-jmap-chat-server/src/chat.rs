@@ -25,8 +25,10 @@
 
 use std::collections::{HashMap, HashSet};
 
+use jmap_chat_types::vocabulary::SPEC_CHAT_MEMBER_ROLES;
 use jmap_chat_types::{Chat, ChatKind, ChatMember};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
+use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
@@ -35,6 +37,119 @@ use crate::helpers::{
     set_error_value, SetAccumulators,
 };
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
+
+/// `Chat/set` update keys that change a group Chat's member list
+/// (draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat").
+const MEMBER_PATCH_KEYS: &[&str] = &["addMembers", "removeMembers", "updateMemberRoles"];
+
+/// One `addMembers` or `updateMemberRoles` entry.
+#[derive(Deserialize)]
+struct MemberRoleEntry {
+    id: Id,
+    role: Option<String>,
+}
+
+/// Apply the member patch keys in `patch` to `chat.members` on behalf of
+/// `caller_id` and return the resulting member list.
+///
+/// Per draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat":
+/// - a malformed entry, or a `role` other than `"admin"` or `"member"`,
+///   is `invalidProperties` naming the key; an `updateMemberRoles` entry
+///   must carry a `role` and name a current member;
+/// - "all require admin role, except leaving the group": a non-admin may
+///   only send `removeMembers` listing just their own id, else
+///   `forbidden`; the keys apply to group chats only;
+/// - more members than `max_members` after `addMembers` is `overQuota`.
+///
+/// Per the implementer guide's "Deployments SHOULD avoid admin-less open
+/// groups by refusing to let the last admin demote themselves via
+/// `updateMemberRoles`", an `updateMemberRoles` patch that leaves members
+/// but no admin is `forbidden`.
+#[allow(clippy::result_large_err)]
+fn apply_member_patch_keys(
+    chat: &Chat,
+    caller_id: &Id,
+    patch: &serde_json::Map<String, Value>,
+    max_members: u32,
+) -> Result<Vec<ChatMember>, SetError> {
+    fn parse<T: serde::de::DeserializeOwned>(
+        patch: &serde_json::Map<String, Value>,
+        key: &str,
+    ) -> Result<Option<T>, SetError> {
+        patch
+            .get(key)
+            .map(|v| serde_json::from_value(v.clone()))
+            .transpose()
+            .map_err(|_| SetError::new(SetErrorType::InvalidProperties).with_properties([key]))
+    }
+    let valid_role = |role: &str| SPEC_CHAT_MEMBER_ROLES.contains(&role);
+    let invalid = |key: &str| SetError::new(SetErrorType::InvalidProperties).with_properties([key]);
+    let forbidden = |desc: &str| SetError::new(SetErrorType::Forbidden).with_description(desc);
+
+    let add: Option<Vec<MemberRoleEntry>> = parse(patch, "addMembers")?;
+    let remove: Option<Vec<Id>> = parse(patch, "removeMembers")?;
+    let update: Option<Vec<MemberRoleEntry>> = parse(patch, "updateMemberRoles")?;
+    if add
+        .iter()
+        .flatten()
+        .any(|e| e.role.as_deref().is_some_and(|r| !valid_role(r)))
+    {
+        return Err(invalid("addMembers"));
+    }
+    if update
+        .iter()
+        .flatten()
+        .any(|e| !e.role.as_deref().is_some_and(valid_role))
+    {
+        return Err(invalid("updateMemberRoles"));
+    }
+
+    if chat.kind != ChatKind::Group {
+        return Err(forbidden("member patch keys apply to group chats only"));
+    }
+    let mut members = chat.members.clone().unwrap_or_default();
+    let is_admin = members
+        .iter()
+        .any(|m| m.id == *caller_id && m.role == "admin");
+    let self_leave = add.is_none()
+        && update.is_none()
+        && remove.as_deref() == Some(std::slice::from_ref(caller_id));
+    if !is_admin && !self_leave {
+        return Err(forbidden("only group chat admins may change members"));
+    }
+
+    if let Some(add) = &add {
+        let now = UTCDate::from(now_utc_string().as_ref());
+        for entry in add {
+            if members.iter().all(|m| m.id != entry.id) {
+                let role = entry.role.clone().unwrap_or_else(|| "member".to_owned());
+                let mut m = ChatMember::new(entry.id.clone(), role, now.clone());
+                m.invited_by = Some(caller_id.clone());
+                members.push(m);
+            }
+        }
+        if members.len() > max_members as usize {
+            return Err(SetError::new(SetErrorType::OverQuota)
+                .with_description("group chat member limit exceeded"));
+        }
+    }
+    if let Some(remove) = &remove {
+        members.retain(|m| !remove.contains(&m.id));
+    }
+    if let Some(update) = &update {
+        for entry in update {
+            let member = members
+                .iter_mut()
+                .find(|m| m.id == entry.id)
+                .ok_or_else(|| invalid("updateMemberRoles"))?;
+            member.role = entry.role.clone().expect("role checked above");
+        }
+        if !members.is_empty() && members.iter().all(|m| m.role != "admin") {
+            return Err(forbidden("the last admin may not demote themselves"));
+        }
+    }
+    Ok(members)
+}
 
 // ---------------------------------------------------------------------------
 // Chat/get
@@ -551,7 +666,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
             // values produce an `invalidPatch` SetError.
-            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
                     not_updated.insert(
@@ -561,6 +676,57 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     continue;
                 }
             };
+
+            // draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat": the
+            // member patch keys are operations on `members`, not
+            // properties. They are applied to the stored list here and
+            // replaced by the resulting `members`, so the backend never
+            // stores them. A Chat that does not resolve is left for
+            // update_object to surface `notFound`.
+            // ponytail: check-then-update is not atomic; two concurrent
+            // member patches can lose one. A backend needing strictness
+            // re-checks inside its update transaction.
+            if MEMBER_PATCH_KEYS
+                .iter()
+                .any(|k| patch.as_map().contains_key(*k))
+            {
+                let stored = match backend
+                    .get_objects::<Chat>(caller, &account_id, Some(std::slice::from_ref(&id)), None)
+                    .await
+                {
+                    Ok((chats, _)) => chats.into_iter().next(),
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                };
+                if let Some(stored) = stored {
+                    // Caller identity falls back to `account_id` in
+                    // single-user posture, as in group create.
+                    let caller_id: Id = B::principal_id(caller)
+                        .cloned()
+                        .unwrap_or_else(|| account_id.clone());
+                    let max_members = backend.limits(caller, &account_id).max_group_chat_members;
+                    match apply_member_patch_keys(&stored, &caller_id, patch.as_map(), max_members)
+                    {
+                        Ok(members) => {
+                            let map = patch.as_map_mut();
+                            for key in MEMBER_PATCH_KEYS {
+                                map.remove(*key);
+                            }
+                            map.insert(
+                                "members".to_owned(),
+                                serde_json::to_value(members)
+                                    .expect("derive(Serialize) on plain data is infallible"),
+                            );
+                        }
+                        Err(set_err) => {
+                            not_updated.insert(id_str, set_error_value(&set_err));
+                            continue;
+                        }
+                    }
+                }
+            }
 
             // draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: who may
             // modify the list depends on the chat kind; the backend decides.
