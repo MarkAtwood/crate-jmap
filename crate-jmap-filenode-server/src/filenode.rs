@@ -38,7 +38,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, FileNodeBackend};
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
-    SetAccumulators,
+    SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{now_utc_string, server_fail_from_backend, server_fail_value_from_backend};
 
@@ -142,9 +142,13 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
                 // Deduplicate: only append if not already in the list.
                 let ancestor_id = ancestor.id.as_ref().to_owned();
                 if !existing_ids.contains(&ancestor_id) {
-                    if let Ok(v) = serde_json::to_value(&ancestor) {
-                        list.push(v);
-                    }
+                    // FileNode is plain data with derive(Serialize): no
+                    // non-string map keys, no custom serializers that can
+                    // fail, so to_value cannot return Err.
+                    list.push(
+                        serde_json::to_value(&ancestor)
+                            .expect("derive(Serialize) on plain data is infallible"),
+                    );
                 }
             }
         }
@@ -292,7 +296,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
                     m.entry("id")
-                        .or_insert_with(|| Value::String("placeholder".to_owned()));
+                        .or_insert_with(|| Value::String(PLACEHOLDER_ID.to_owned()));
                     // `name` is required and non-nullable; if missing, serde will
                     // produce an `invalidProperties` error below.
                     Value::Object(m)
@@ -879,7 +883,24 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             // on PatchObject's underlying typed map so what the cycle
             // guard sees is byte-identical to what the backend will see
             // via `update_object`.
+            //
+            // RFC 8620 §5.3: a property value of the wrong type is an
+            // invalidProperties SetError. parentId is `Id|null`
+            // (draft-ietf-jmap-filenode-16 §3.1.1), so reject anything else
+            // here instead of skipping the cycle guard and relying on each
+            // backend to catch the bad type.
             if let Some(new_parent_val) = patch.as_map().get("parentId") {
+                if !new_parent_val.is_null() && !new_parent_val.is_string() {
+                    not_updated.insert(
+                        id_str,
+                        json!({
+                            "type": "invalidProperties",
+                            "properties": ["parentId"],
+                            "description": "parentId must be a string or null"
+                        }),
+                    );
+                    continue;
+                }
                 if let Some(new_parent_str) = new_parent_val.as_str() {
                     let new_parent_id = Id::from(new_parent_str);
                     // A node is trivially an ancestor of itself
@@ -1332,9 +1353,9 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             }
             // The destination assigns a new id; clear the source id so
             // create_object cannot accidentally reuse it. The id field
-            // is non-Optional on FileNode, so use the default placeholder
-            // the backend will overwrite during create_object.
-            source_node.id = Id::from("");
+            // is non-Optional on FileNode, so use the same sentinel as
+            // FileNode/set create, which create_object overwrites.
+            source_node.id = Id::from(PLACEHOLDER_ID);
 
             // Same-account cycle check (bd:JMAP-510h.59): when
             // fromAccountId == accountId and the copy descriptor moves
@@ -2209,6 +2230,10 @@ mod tests {
         /// (e.g. `nodeHasChildren` short-circuit must NOT call destroy
         /// on the parent).
         destroy_object_calls: u64,
+        /// Running count of `update_object` invocations on this backend.
+        /// Lets tests assert a handler-side guard rejected an update
+        /// before it reached the backend.
+        update_object_calls: u64,
     }
 
     struct QueryObjectsErrConfig {
@@ -2282,6 +2307,12 @@ mod tests {
         #[allow(dead_code)]
         fn destroy_object_call_count(&self) -> u64 {
             self.faults.lock().unwrap().destroy_object_calls
+        }
+
+        /// Running total of `update_object` invocations seen by this
+        /// backend wrapper.
+        fn update_object_call_count(&self) -> u64 {
+            self.faults.lock().unwrap().update_object_calls
         }
     }
 
@@ -2437,6 +2468,10 @@ mod tests {
             id: &Id,
             patch: O::Patch,
         ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+            {
+                let mut guard = self.faults.lock().unwrap();
+                guard.update_object_calls = guard.update_object_calls.saturating_add(1);
+            }
             self.inner
                 .update_object::<O>(&(), account_id, id, patch)
                 .await
@@ -3517,6 +3552,48 @@ mod tests {
                 .map(|a| a.contains(&json!("parentId")))
                 .unwrap_or(false),
             "parentId must be listed in properties: {resp}"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.3 — "invalidProperties": "The record given is
+    /// invalid in some way. For example: It contains properties that are
+    /// invalid according to the type specification of this record type."
+    /// and "The SetError object SHOULD also have a property called
+    /// "properties" of type "String[]" that lists *all* the properties
+    /// that were invalid." draft-ietf-jmap-filenode-16 §3.1.1 types
+    /// parentId as `Id|null`, so a number is a wrong-typed value.
+    ///
+    /// The handler itself must reject it: the update must not reach
+    /// `update_object`, which would otherwise be trusted to catch the
+    /// bad type after the cycle guard was skipped.
+    #[tokio::test]
+    async fn set_update_non_string_parent_id_returns_invalid_properties() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("node1", None, "node1"));
+
+        let args = json!({
+            "accountId": "acc1",
+            "update": {
+                "node1": { "parentId": 42 }
+            }
+        });
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
+            .await
+            .expect("must not return top-level error");
+
+        assert_eq!(
+            resp["notUpdated"]["node1"]["type"], "invalidProperties",
+            "non-string parentId must produce invalidProperties: {resp}"
+        );
+        assert_eq!(
+            resp["notUpdated"]["node1"]["properties"],
+            json!(["parentId"]),
+            "parentId must be the only listed property: {resp}"
+        );
+        assert_eq!(
+            backend.update_object_call_count(),
+            0,
+            "handler must reject the wrong-typed parentId before update_object"
         );
     }
 
