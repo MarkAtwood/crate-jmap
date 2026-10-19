@@ -60,8 +60,19 @@ use crate::{
 };
 use jmap_server::{
     apply_patch_object, json_merge_patch, now_utc_string, resolve_query_start, MergePatchError,
+    PushSubscriptionBackend, StoredPushSubscription,
 };
-use jmap_types::{Id, State};
+use jmap_types::{Id, PushSubscription, State};
+
+/// The most push subscriptions the single owner may hold at once.
+///
+/// RFC 8620 §8.6 (rfc8620.txt:4172-4175): "The server MUST limit the number
+/// of push subscriptions any one user may have". A create at the cap gets
+/// `overQuota`.
+///
+/// ponytail: one fixed cap for every caller. The upgrade path is a
+/// per-caller limit read from the backend's configuration.
+pub const MAX_PUSH_SUBSCRIPTIONS: usize = 50;
 
 // ---------------------------------------------------------------------------
 // Internal state
@@ -119,6 +130,12 @@ struct Inner {
     /// §Space/set `addCategories`: "Server assigns ULIDs").
     #[cfg(not(feature = "realistic-demo-ids"))]
     category_seq: u64,
+    /// Push subscriptions by id. `CallerCtx = ()` means one owner, so
+    /// every stored subscription belongs to every caller.
+    push_subscriptions: HashMap<Id, StoredPushSubscription>,
+    /// Last push subscription sequence number handed out. Only ever
+    /// incremented, so a destroyed subscription's id is never reissued.
+    push_seq: u64,
 }
 
 impl Inner {
@@ -1369,6 +1386,114 @@ impl ChatBackend for MemoryBackend {
         }
         Ok(())
     }
+}
+
+/// Reference RFC 8620 §7.2 push subscription storage.
+///
+/// `CallerCtx = ()` means single-owner mode: every subscription belongs to
+/// the one caller, and [`MAX_PUSH_SUBSCRIPTIONS`] caps them all.
+///
+/// ponytail: `url` and `keys` are stored as plain values and dropped on
+/// destroy without zeroization. This backend is demonstration-quality; the
+/// secure-erase MUST (rfc8620.txt:3725-3727) is a consumer MUST stated on
+/// [`PushSubscriptionBackend`].
+///
+/// ponytail: no creation rate limit and no `PushVerification` delivery. The
+/// backend has no clock window and no HTTP client; both are consumer MUSTs
+/// stated on [`PushSubscriptionBackend`].
+impl PushSubscriptionBackend for MemoryBackend {
+    async fn list_push_subscriptions(
+        &self,
+        _caller: &(),
+    ) -> Result<Vec<StoredPushSubscription>, MemoryError> {
+        let inner = self.inner.lock().unwrap();
+        Ok(inner.push_subscriptions.values().cloned().collect())
+    }
+
+    /// Store `new` under a fresh id with a 128-bit verification code, or
+    /// return `overQuota` when [`MAX_PUSH_SUBSCRIPTIONS`] are already
+    /// stored. The cap is checked under the same lock as the insert.
+    async fn create_push_subscription(
+        &self,
+        _caller: &(),
+        mut new: PushSubscription,
+    ) -> Result<StoredPushSubscription, BackendSetError<MemoryError>> {
+        let expected_code = random_base64url_code();
+        let mut inner = self.inner.lock().unwrap();
+        if inner.push_subscriptions.len() >= MAX_PUSH_SUBSCRIPTIONS {
+            return Err(BackendSetError::SetError(
+                SetError::new(SetErrorType::OverQuota).with_description(format!(
+                    "at most {MAX_PUSH_SUBSCRIPTIONS} push subscriptions per user"
+                )),
+            ));
+        }
+        inner.push_seq += 1;
+        let id = Id::from(format!("pushsubscription{:016x}", inner.push_seq));
+        new.id = Some(id.clone());
+        let stored = StoredPushSubscription {
+            subscription: new,
+            expected_code,
+        };
+        inner.push_subscriptions.insert(id, stored.clone());
+        Ok(stored)
+    }
+
+    async fn update_push_subscription(
+        &self,
+        _caller: &(),
+        sub: PushSubscription,
+    ) -> Result<PushSubscription, BackendSetError<MemoryError>> {
+        let mut inner = self.inner.lock().unwrap();
+        let stored = sub
+            .id
+            .as_ref()
+            .and_then(|id| inner.push_subscriptions.get_mut(id))
+            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+        stored.subscription = sub.clone();
+        Ok(sub)
+    }
+
+    async fn destroy_push_subscription(
+        &self,
+        _caller: &(),
+        id: &Id,
+    ) -> Result<(), BackendSetError<MemoryError>> {
+        let mut inner = self.inner.lock().unwrap();
+        inner
+            .push_subscriptions
+            .remove(id)
+            .map(|_| ())
+            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))
+    }
+}
+
+/// A push verification code: 16 bytes from the OS CSPRNG (128 bits),
+/// encoded as unpadded base64url (RFC 4648 §5), always 22 characters.
+///
+/// RFC 8620 §7.2.2 (rfc8620.txt:3784-3786): the code "MUST contain
+/// sufficient entropy to avoid the client being able to guess the code via
+/// brute force." Panics if the OS CSPRNG fails, for the reason given in
+/// `generate_invite_code`.
+fn random_base64url_code() -> String {
+    let mut bytes = [0u8; 16];
+    getrandom::fill(&mut bytes).expect("OS CSPRNG must be available for push verification codes");
+    base64url_unpadded(&bytes)
+}
+
+/// Encode `bytes` as unpadded base64url (RFC 4648 §5).
+fn base64url_unpadded(bytes: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let n = chunk
+            .iter()
+            .enumerate()
+            .fold(0u32, |n, (i, &b)| n | u32::from(b) << (16 - 8 * i));
+        for i in 0..=chunk.len() {
+            out.push(char::from(ALPHABET[(n >> (18 - 6 * i)) as usize & 63]));
+        }
+    }
+    out
 }
 
 /// Remove Message `id` and unpin it from its Chat under the same lock.
@@ -3853,6 +3978,24 @@ mod tests {
             max_prefix < 10,
             "max shared prefix across sorted codes is {max_prefix}; >=10 suggests timestamp-derived output (bd:JMAP-sc1b.93 regression)"
         );
+    }
+
+    /// Oracle: RFC 4648 §10 test vectors, with `+`/`/` mapped to `-`/`_`
+    /// (§5) and `=` padding removed.
+    #[test]
+    fn base64url_unpadded_matches_rfc4648_vectors() {
+        for (input, expected) in [
+            ("", ""),
+            ("f", "Zg"),
+            ("fo", "Zm8"),
+            ("foo", "Zm9v"),
+            ("foob", "Zm9vYg"),
+            ("fooba", "Zm9vYmE"),
+            ("foobar", "Zm9vYmFy"),
+        ] {
+            assert_eq!(base64url_unpadded(input.as_bytes()), expected);
+        }
+        assert_eq!(base64url_unpadded(&[0xfb, 0xff, 0xbf]), "-_-_");
     }
 
     // json_merge_patch tests live in jmap-server (the function's home
