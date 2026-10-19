@@ -178,6 +178,14 @@ fn parse_structural_entries(key: StructuralKey, value: Value) -> Result<Vec<Spac
                 SpacePatchOp::UpdateChannel { id, patch }
             }
             StructuralKey::AddCategories => {
+                // Draft §Space/set addCategories entries carry no `id`
+                // ("Server assigns ULIDs"); fill the placeholder
+                // `SpacePatchOp::AddCategory` documents, which the backend
+                // replaces before storing.
+                let mut entry = entry;
+                if let Value::Object(fields) = &mut entry {
+                    fields.insert("id".to_owned(), Value::String(String::new()));
+                }
                 SpacePatchOp::AddCategory(parse_entry::<Category>(canonical, idx, entry)?)
             }
             StructuralKey::RemoveCategories => {
