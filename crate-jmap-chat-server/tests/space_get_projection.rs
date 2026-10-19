@@ -28,13 +28,15 @@ use serde_json::json;
 /// Seed a fully-populated Space for the projection tests.
 /// `isPubliclyPreviewable` is controlled by `previewable`; everything
 /// else is identical. Members include an `admin` plus an additional
-/// `member-user` (so a member caller can be exercised without being
-/// the admin).
+/// non-admin member `member_id`. Every caller of the account is its
+/// owner, whose member entry is the accountId (draft §Terminology), so
+/// member-caller tests pass [`ACCOUNT_ID`] and non-member-caller tests
+/// pass another id.
 ///
 /// This fixture is structurally different from the shared
 /// [`common::seed_space`] (full categories/channels) and stays
 /// local to this file. See bd:JMAP-x2gd.80.
-fn seed_space(backend: &IdentityBackend, previewable: bool) {
+fn seed_space(backend: &IdentityBackend, previewable: bool, member_id: &str) {
     let space_val = json!({
         "id": SPACE_ID,
         "name": "Project Atlas",
@@ -63,7 +65,7 @@ fn seed_space(backend: &IdentityBackend, previewable: bool) {
         ],
         "members": [
             { "id": "admin",       "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" },
-            { "id": "member-user", "roleIds": [],          "joinedAt": "2026-01-02T00:00:00Z" }
+            { "id": member_id,     "roleIds": [],          "joinedAt": "2026-01-02T00:00:00Z" }
         ]
     });
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
@@ -81,7 +83,7 @@ fn seed_space(backend: &IdentityBackend, previewable: bool) {
 #[tokio::test]
 async fn member_caller_sees_full_space() {
     let backend = IdentityBackend::new();
-    seed_space(&backend, /* previewable = */ true);
+    seed_space(&backend, /* previewable = */ true, ACCOUNT_ID);
     let caller = Id::from("member-user");
 
     let (resp, _) = handle_space_get(
@@ -135,7 +137,7 @@ async fn member_caller_sees_full_space() {
 #[tokio::test]
 async fn member_caller_honors_properties_filter() {
     let backend = IdentityBackend::new();
-    seed_space(&backend, /* previewable = */ true);
+    seed_space(&backend, /* previewable = */ true, ACCOUNT_ID);
     let caller = Id::from("member-user");
 
     let (resp, _) = handle_space_get(
@@ -181,7 +183,7 @@ async fn member_caller_honors_properties_filter() {
 #[tokio::test]
 async fn non_member_caller_sees_restricted_view_on_previewable_space() {
     let backend = IdentityBackend::new();
-    seed_space(&backend, /* previewable = */ true);
+    seed_space(&backend, /* previewable = */ true, "member-user");
     let outsider = Id::from("outsider");
 
     let (resp, _) = handle_space_get(
@@ -243,7 +245,7 @@ async fn non_member_caller_sees_restricted_view_on_previewable_space() {
 #[tokio::test]
 async fn non_member_properties_filter_intersected_with_allowed_cap() {
     let backend = IdentityBackend::new();
-    seed_space(&backend, /* previewable = */ true);
+    seed_space(&backend, /* previewable = */ true, "member-user");
     let outsider = Id::from("outsider");
 
     let (resp, _) = handle_space_get(
@@ -284,7 +286,7 @@ async fn non_member_properties_filter_intersected_with_allowed_cap() {
 #[tokio::test]
 async fn non_member_properties_filter_full_allowed_set() {
     let backend = IdentityBackend::new();
-    seed_space(&backend, /* previewable = */ true);
+    seed_space(&backend, /* previewable = */ true, "member-user");
     let outsider = Id::from("outsider");
 
     let (resp, _) = handle_space_get(
@@ -319,7 +321,7 @@ async fn non_member_properties_filter_full_allowed_set() {
 #[tokio::test]
 async fn non_member_non_previewable_classified_as_not_found() {
     let backend = IdentityBackend::new();
-    seed_space(&backend, /* previewable = */ false);
+    seed_space(&backend, /* previewable = */ false, "member-user");
     let outsider = Id::from("outsider");
 
     let (resp, _) = handle_space_get(
@@ -354,7 +356,7 @@ async fn non_member_non_previewable_classified_as_not_found() {
 #[tokio::test]
 async fn non_member_cannot_distinguish_non_previewable_from_nonexistent() {
     let backend = IdentityBackend::new();
-    seed_space(&backend, /* previewable = */ false);
+    seed_space(&backend, /* previewable = */ false, "member-user");
     let outsider = Id::from("outsider");
 
     // Request the seeded non-previewable Space.
@@ -409,7 +411,7 @@ async fn non_member_cannot_distinguish_non_previewable_from_nonexistent() {
 #[tokio::test]
 async fn member_caller_unaffected_by_non_previewable_classification() {
     let backend = IdentityBackend::new();
-    seed_space(&backend, /* previewable = */ false);
+    seed_space(&backend, /* previewable = */ false, ACCOUNT_ID);
     let caller = Id::from("member-user");
 
     let (resp, _) = handle_space_get(
@@ -445,7 +447,7 @@ async fn member_caller_unaffected_by_non_previewable_classification() {
 #[tokio::test]
 async fn non_member_previewable_unaffected_by_classification() {
     let backend = IdentityBackend::new();
-    seed_space(&backend, /* previewable = */ true);
+    seed_space(&backend, /* previewable = */ true, "member-user");
     let outsider = Id::from("outsider");
 
     let (resp, _) = handle_space_get(

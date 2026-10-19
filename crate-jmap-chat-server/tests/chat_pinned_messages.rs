@@ -37,30 +37,43 @@ fn seed_chat(backend: &IdentityBackend, kind: &str, extra: Value) {
         .insert_object_for_test("Chat", ACCOUNT_ID, CHAT_ID, chat);
 }
 
-/// Seed a group Chat where `admin` is an admin and `member` is not.
-fn seed_group(backend: &IdentityBackend) {
+/// Seed a group Chat where the owner, whose member entry is the
+/// accountId (draft §Terminology), has `owner_role` and `c-peer` has the
+/// other role.
+fn seed_group(backend: &IdentityBackend, owner_role: &str) {
+    let peer_role = if owner_role == "admin" {
+        "member"
+    } else {
+        "admin"
+    };
     seed_chat(
         backend,
         "group",
         json!({
             "name": "g",
             "members": [
-                { "id": "admin", "role": "admin", "joinedAt": "2026-01-01T00:00:00Z" },
-                { "id": "member", "role": "member", "joinedAt": "2026-01-01T00:00:00Z" },
+                { "id": ACCOUNT_ID, "role": owner_role, "joinedAt": "2026-01-01T00:00:00Z" },
+                { "id": "c-peer", "role": peer_role, "joinedAt": "2026-01-01T00:00:00Z" },
             ],
         }),
     );
 }
 
-/// Seed a Space where `pinner` holds a role granting `pin` and
-/// `other` holds no roles, plus a channel Chat in that Space.
-fn seed_channel(backend: &IdentityBackend) {
+/// Seed a Space where exactly one of the owner (member entry =
+/// accountId) and `c-peer` holds a role granting `pin`, plus a channel
+/// Chat in that Space.
+fn seed_channel(backend: &IdentityBackend, owner_may_pin: bool) {
+    let (owner_roles, peer_roles) = if owner_may_pin {
+        (json!(["r-pin"]), json!([]))
+    } else {
+        (json!([]), json!(["r-pin"]))
+    };
     seed_space(
         backend,
         json!([{ "id": "r-pin", "name": "Pinner", "permissions": ["pin"], "position": 10 }]),
         json!([
-            { "id": "pinner", "roleIds": ["r-pin"], "joinedAt": "2026-01-01T00:00:00Z" },
-            { "id": "other", "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" },
+            { "id": ACCOUNT_ID, "roleIds": owner_roles, "joinedAt": "2026-01-01T00:00:00Z" },
+            { "id": "c-peer", "roleIds": peer_roles, "joinedAt": "2026-01-01T00:00:00Z" },
         ]),
     );
     seed_chat(
@@ -70,11 +83,11 @@ fn seed_channel(backend: &IdentityBackend) {
     );
 }
 
-/// Send `patch` as `caller` and return the `Chat/set` response.
-async fn update_as(backend: &IdentityBackend, caller: &str, patch: Value) -> Value {
+/// Send `patch` as the owner and return the `Chat/set` response.
+async fn update(backend: &IdentityBackend, patch: Value) -> Value {
     let (resp, _) = handle_chat_set(
         backend,
-        &Id::from(caller),
+        &Id::from("owner"),
         json!({ "accountId": ACCOUNT_ID, "update": { CHAT_ID: patch } }),
     )
     .await
@@ -110,12 +123,7 @@ async fn direct_chat_owner_may_update_pins() {
     let backend = IdentityBackend::new();
     seed_chat(&backend, "direct", json!({ "contactId": "peer" }));
 
-    let resp = update_as(
-        &backend,
-        "owner",
-        json!({ "pinnedMessageIds": ["m2", "m1"] }),
-    )
-    .await;
+    let resp = update(&backend, json!({ "pinnedMessageIds": ["m2", "m1"] })).await;
 
     assert_updated(&resp);
     assert_eq!(pinned(&backend).await, json!(["m2", "m1"]));
@@ -125,9 +133,9 @@ async fn direct_chat_owner_may_update_pins() {
 #[tokio::test]
 async fn group_chat_admin_may_update_pins() {
     let backend = IdentityBackend::new();
-    seed_group(&backend);
+    seed_group(&backend, "admin");
 
-    let resp = update_as(&backend, "admin", json!({ "pinnedMessageIds": ["m1"] })).await;
+    let resp = update(&backend, json!({ "pinnedMessageIds": ["m1"] })).await;
 
     assert_updated(&resp);
     assert_eq!(pinned(&backend).await, json!(["m1"]));
@@ -137,9 +145,9 @@ async fn group_chat_admin_may_update_pins() {
 #[tokio::test]
 async fn group_chat_non_admin_forbidden() {
     let backend = IdentityBackend::new();
-    seed_group(&backend);
+    seed_group(&backend, "member");
 
-    let resp = update_as(&backend, "member", json!({ "pinnedMessageIds": ["m1"] })).await;
+    let resp = update(&backend, json!({ "pinnedMessageIds": ["m1"] })).await;
 
     assert_forbidden(&resp);
     assert_eq!(pinned(&backend).await, json!([]));
@@ -150,9 +158,9 @@ async fn group_chat_non_admin_forbidden() {
 #[tokio::test]
 async fn group_chat_non_admin_pointer_path_forbidden() {
     let backend = IdentityBackend::new();
-    seed_group(&backend);
+    seed_group(&backend, "member");
 
-    let resp = update_as(&backend, "member", json!({ "pinnedMessageIds/0": "m1" })).await;
+    let resp = update(&backend, json!({ "pinnedMessageIds/0": "m1" })).await;
 
     assert_forbidden(&resp);
     assert_eq!(pinned(&backend).await, json!([]));
@@ -163,9 +171,9 @@ async fn group_chat_non_admin_pointer_path_forbidden() {
 #[tokio::test]
 async fn channel_without_pin_permission_forbidden() {
     let backend = IdentityBackend::new();
-    seed_channel(&backend);
+    seed_channel(&backend, false);
 
-    let resp = update_as(&backend, "other", json!({ "pinnedMessageIds": ["m1"] })).await;
+    let resp = update(&backend, json!({ "pinnedMessageIds": ["m1"] })).await;
 
     assert_forbidden(&resp);
     assert_eq!(pinned(&backend).await, json!([]));
@@ -176,9 +184,9 @@ async fn channel_without_pin_permission_forbidden() {
 #[tokio::test]
 async fn channel_with_pin_permission_may_update_pins() {
     let backend = IdentityBackend::new();
-    seed_channel(&backend);
+    seed_channel(&backend, true);
 
-    let resp = update_as(&backend, "pinner", json!({ "pinnedMessageIds": ["m1"] })).await;
+    let resp = update(&backend, json!({ "pinnedMessageIds": ["m1"] })).await;
 
     assert_updated(&resp);
     assert_eq!(pinned(&backend).await, json!(["m1"]));

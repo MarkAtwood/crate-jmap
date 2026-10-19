@@ -889,10 +889,13 @@ pub trait ChatBackend: JmapBackend {
     /// permission". Implementations MUST gate the mutation on the
     /// caller's effective permissions in the target Space:
     ///
-    /// - If [`JmapBackend::principal_id`] returns `Some(caller_id)`,
-    ///   verify the caller holds `manage_space` (resolved through the
-    ///   Space's role hierarchy). Reject the patch with
-    ///   [`SetErrorType::Forbidden`] if not.
+    /// - If [`JmapBackend::principal_id`] returns `Some(_)`, verify the
+    ///   caller holds `manage_space` (resolved through the Space's role
+    ///   hierarchy). Reject the patch with [`SetErrorType::Forbidden`]
+    ///   if not. The caller is the owner, whose `members` entry is the
+    ///   `account_id` (draft §Terminology), so look the caller up by
+    ///   `account_id`, not by the principal; the same holds for every
+    ///   caller-membership or permission check in this trait.
     /// - If [`JmapBackend::principal_id`] returns `None` (single-user
     ///   mode — the backend has not wired identity), the gate is
     ///   skipped. This is consistent with the workspace AGENTS.md
@@ -1290,9 +1293,11 @@ pub trait ChatBackend: JmapBackend {
     /// # Foundation seam
     ///
     /// Backends that wish to identify the caller call
-    /// [`jmap_server::JmapBackend::principal_id`] on `caller` and
-    /// compare against the Space's `members` list, ACLs, or whatever
-    /// permission model the deployment uses. Backends whose
+    /// [`jmap_server::JmapBackend::principal_id`] on `caller` to learn
+    /// whether identity is wired, and compare `account_id` (the owner's
+    /// member entry, draft §Terminology) against the Space's `members`
+    /// list, or consult ACLs or whatever permission model the
+    /// deployment uses. Backends whose
     /// `principal_id` returns `None` (the workspace default, see the
     /// "Caller identity (foundation seam)" section of the workspace
     /// `AGENTS.md`) cannot meaningfully implement identity-scoped

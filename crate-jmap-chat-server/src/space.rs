@@ -388,15 +388,17 @@ pub async fn handle_space_get<B: ChatBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    // Resolve the caller's identity once for the whole request. The
+    // Resolve the caller's member id once for the whole request. The
     // membership check fires per Space; the per-Space cost is a
     // linear scan over `members` (small in the reference impl).
+    // The caller is the owner, whose member entry is the accountId
+    // (draft-atwood-jmap-chat-00 §Terminology, §SpaceMember.id).
     // When `principal_id` returns `None` the backend has not wired
     // identity (single-user mode) — treat every Space as if the
     // caller were a member, which keeps the kit's no-identity
     // posture intact and preserves prior behavior for existing
     // single-user tests.
-    let caller_principal: Option<&Id> = B::principal_id(caller);
+    let caller_member_id: Option<&Id> = B::principal_id(caller).map(|_| &account_id);
 
     // First pass: classify each backend-returned Space against the
     // non-member-vs-non-previewable rule (bd:JMAP-v9py.20). Spaces
@@ -407,7 +409,7 @@ pub async fn handle_space_get<B: ChatBackend>(
     // draft-atwood-jmap-chat-00 §Space/get.
     let mut visible_list: Vec<&Space> = Vec::with_capacity(list.len());
     for space in &list {
-        if non_member_non_previewable(space, caller_principal) {
+        if non_member_non_previewable(space, caller_member_id) {
             not_found.push(space.id.clone());
         } else {
             visible_list.push(space);
@@ -416,7 +418,7 @@ pub async fn handle_space_get<B: ChatBackend>(
 
     let list_json: Vec<Value> = visible_list
         .iter()
-        .map(|space| project_space_for_caller(space, caller_principal, properties.as_deref()))
+        .map(|space| project_space_for_caller(space, caller_member_id, properties.as_deref()))
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok((
@@ -441,18 +443,21 @@ pub async fn handle_space_get<B: ChatBackend>(
 /// non-member caller cannot probe for the existence of a private
 /// Space.
 ///
-/// Anonymous callers (`caller_principal == None` — single-user
-/// mode) are treated as members and so cannot trip this rule. The
-/// rule fires only when caller identity is wired AND the caller is
-/// not in the Space's `members` AND `isPubliclyPreviewable: false`.
-fn non_member_non_previewable(space: &Space, caller_principal: Option<&Id>) -> bool {
-    let Some(principal) = caller_principal else {
+/// `caller_member_id` is the caller's member entry id: the accountId,
+/// since the caller is the owner (draft-atwood-jmap-chat-00
+/// §Terminology). Anonymous callers (`caller_member_id == None` —
+/// single-user mode) are treated as members and so cannot trip this
+/// rule. The rule fires only when caller identity is wired AND the
+/// caller is not in the Space's `members` AND
+/// `isPubliclyPreviewable: false`.
+fn non_member_non_previewable(space: &Space, caller_member_id: Option<&Id>) -> bool {
+    let Some(member_id) = caller_member_id else {
         return false;
     };
     let is_member = space
         .members
         .iter()
-        .any(|m| m.id.as_ref() == principal.as_ref());
+        .any(|m| m.id.as_ref() == member_id.as_ref());
     !is_member && !space.is_publicly_previewable
 }
 
@@ -512,8 +517,8 @@ const SPACE_METADATA_FIELDS: &[&str] = &[
 ///
 /// Three cases (draft-atwood-jmap-chat-00 §Space/get):
 ///
-/// 1. **Member caller** (the caller's principal id matches a
-///    `members[i].id`) → return the full Space, intersected with
+/// 1. **Member caller** (`caller_member_id`, the accountId per
+///    §Terminology, matches a `members[i].id`) → return the full Space, intersected with
 ///    `properties` if specified. No restricted-view trim.
 /// 2. **Anonymous caller** (`principal_id` returned `None`, i.e.
 ///    single-user mode where the backend has not wired identity) →
@@ -539,20 +544,20 @@ const SPACE_METADATA_FIELDS: &[&str] = &[
 ///    directly so the notFound classification fires.
 fn project_space_for_caller(
     space: &Space,
-    caller_principal: Option<&Id>,
+    caller_member_id: Option<&Id>,
     properties: Option<&[String]>,
 ) -> Result<Value, JmapError> {
     let full = serialize_value(space)?;
 
     // Compute the field set the caller is allowed to see.
-    let allowed_fields: Option<Vec<&str>> = match caller_principal {
+    let allowed_fields: Option<Vec<&str>> = match caller_member_id {
         // Anonymous (no-identity mode) — full visibility.
         None => None,
-        Some(principal) => {
+        Some(member_id) => {
             let is_member = space
                 .members
                 .iter()
-                .any(|m| m.id.as_ref() == principal.as_ref());
+                .any(|m| m.id.as_ref() == member_id.as_ref());
             if is_member {
                 None
             } else if space.is_publicly_previewable {

@@ -26,11 +26,12 @@ fn admin_and_regular(backend: &IdentityBackend, admin: &str, regular: &str) {
     );
 }
 
-/// Space member ids as seen by `viewer`, who must still be a member.
-async fn member_ids(backend: &IdentityBackend, viewer: &str) -> Vec<String> {
+/// Stored Space member ids, read in single-user mode: every caller of the
+/// account is its owner (draft §Terminology), who has left.
+async fn member_ids(backend: &IdentityBackend) -> Vec<String> {
     let (resp, _) = handle_space_get(
-        backend,
-        &Id::from(viewer),
+        backend.inner(),
+        &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
     )
     .await
@@ -64,7 +65,7 @@ async fn self_removal_without_manage_members_is_permitted() {
     .await
     .expect("handle_space_set");
     assert!(resp["notUpdated"][SPACE_ID].is_null(), "{resp:?}");
-    assert_eq!(member_ids(&backend, "admin-user").await, ["admin-user"]);
+    assert_eq!(member_ids(&backend).await, ["admin-user"]);
 }
 
 /// Oracle: draft §Space/set `removeMembers` — "Last-administrator
@@ -87,7 +88,7 @@ async fn last_admin_self_removal_bypasses_last_admin_protection() {
     .await
     .expect("handle_space_set");
     assert!(resp["notUpdated"][SPACE_ID].is_null(), "{resp:?}");
-    assert_eq!(member_ids(&backend, "u-regular").await, ["u-regular"]);
+    assert_eq!(member_ids(&backend).await, ["u-regular"]);
 }
 
 /// Oracle: draft §Space/set `removeMembers` — "Servers MUST return an
