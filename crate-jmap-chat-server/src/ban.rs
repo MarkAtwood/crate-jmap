@@ -46,6 +46,9 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
+/// Each returned ban must pass [`ChatBackend::may_get_space_ban`]; a
+/// hidden ban is reported exactly like a missing one.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_ban_get<B: ChatBackend>(
     backend: &B,
@@ -64,10 +67,26 @@ pub async fn handle_ban_get<B: ChatBackend>(
     };
 
     let ids_slice = ids.as_deref();
-    let (list, not_found) = backend
+    let (fetched, mut not_found) = backend
         .get_objects::<SpaceBan>(caller, &account_id, ids_slice, None)
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
+
+    // A hidden ban is indistinguishable from a missing one: a requested
+    // id goes to notFound, and a full fetch (`ids: null`) drops it, since
+    // RFC 8620 §5.1 notFound lists only requested ids.
+    let mut list = Vec::with_capacity(fetched.len());
+    for ban in fetched {
+        if backend
+            .may_get_space_ban(caller, &account_id, &ban)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?
+        {
+            list.push(ban);
+        } else if ids_slice.is_some() {
+            not_found.push(ban.id);
+        }
+    }
 
     let state = backend
         .get_state::<SpaceBan>(caller, &account_id)

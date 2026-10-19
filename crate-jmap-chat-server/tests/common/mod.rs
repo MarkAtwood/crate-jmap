@@ -829,6 +829,26 @@ impl ChatBackend for IdentityBackend {
             .await
     }
 
+    async fn may_get_space_invite(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        invite: &jmap_chat_types::SpaceInvite,
+    ) -> Result<bool, Self::Error> {
+        self.inner
+            .may_get_space_invite(&(), account_id, invite)
+            .await
+    }
+
+    async fn may_get_space_ban(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        ban: &jmap_chat_types::SpaceBan,
+    ) -> Result<bool, Self::Error> {
+        self.inner.may_get_space_ban(&(), account_id, ban).await
+    }
+
     async fn is_contact_blocked(
         &self,
         _caller: &Id,

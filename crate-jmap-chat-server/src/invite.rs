@@ -24,6 +24,8 @@
 //! rejection) surface in the `notCreated` / `notUpdated` / `notDestroyed`
 //! maps within `Ok((Value, ...))`, not as `Err`.
 
+use std::collections::HashSet;
+
 use jmap_chat_types::{Space, SpaceInvite};
 use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
@@ -46,6 +48,9 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
+/// Each returned invite must pass [`ChatBackend::may_get_space_invite`];
+/// a hidden invite is reported exactly like a missing one.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_invite_get<B: ChatBackend>(
     backend: &B,
@@ -64,10 +69,26 @@ pub async fn handle_invite_get<B: ChatBackend>(
     };
 
     let ids_slice = ids.as_deref();
-    let (list, not_found) = backend
+    let (fetched, mut not_found) = backend
         .get_objects::<SpaceInvite>(caller, &account_id, ids_slice, None)
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
+
+    // A hidden invite is indistinguishable from a missing one: a requested
+    // id goes to notFound, and a full fetch (`ids: null`) drops it, since
+    // RFC 8620 §5.1 notFound lists only requested ids.
+    let mut list = Vec::with_capacity(fetched.len());
+    for invite in fetched {
+        if backend
+            .may_get_space_invite(caller, &account_id, &invite)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?
+        {
+            list.push(invite);
+        } else if ids_slice.is_some() {
+            not_found.push(invite.id);
+        }
+    }
 
     let state = backend
         .get_state::<SpaceInvite>(caller, &account_id)
@@ -101,6 +122,9 @@ pub async fn handle_invite_get<B: ChatBackend>(
 /// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
+/// `created` and `updated` list only invites that still exist and pass
+/// [`ChatBackend::may_get_space_invite`]; `destroyed` is not filtered.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_invite_changes<B: ChatBackend>(
     backend: &B,
@@ -126,6 +150,41 @@ pub async fn handle_invite_changes<B: ChatBackend>(
         .await
         .map_err(JmapError::from)?;
 
+    // Keep only created/updated ids whose invite still resolves and passes
+    // the SpaceInvite/get visibility gate.
+    // ponytail: `destroyed` is passed through unfiltered because a destroyed
+    // invite can no longer be evaluated, so its id leaks to callers who could
+    // not see it. Closing that needs the backend's change log to record each
+    // invite's visibility at destroy time.
+    let changed: Vec<Id> = result
+        .created
+        .iter()
+        .chain(&result.updated)
+        .cloned()
+        .collect();
+    let mut visible: HashSet<Id> = HashSet::with_capacity(changed.len());
+    if !changed.is_empty() {
+        let (invites, _) = backend
+            .get_objects::<SpaceInvite>(caller, &account_id, Some(&changed), None)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+        for invite in invites {
+            if backend
+                .may_get_space_invite(caller, &account_id, &invite)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?
+            {
+                visible.insert(invite.id);
+            }
+        }
+    }
+    let visible_ids = |ids: &[Id]| -> Vec<Value> {
+        ids.iter()
+            .filter(|id| visible.contains(*id))
+            .map(|id| Value::from(id.as_ref()))
+            .collect()
+    };
+
     Ok((
         json!({
             "accountId": account_id.as_ref(),
@@ -133,8 +192,8 @@ pub async fn handle_invite_changes<B: ChatBackend>(
             "newState": result.new_state.as_ref(),
             "hasMoreChanges": result.has_more_changes,
             "updatedProperties": Value::Null,
-            "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-            "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+            "created":   visible_ids(&result.created),
+            "updated":   visible_ids(&result.updated),
             "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         }),
         vec![],

@@ -1448,6 +1448,62 @@ impl ChatBackend for MemoryBackend {
         )
     }
 
+    /// Reference implementation of [`ChatBackend::may_get_space_invite`].
+    ///
+    /// Implements draft-atwood-jmap-chat-00 §SpaceInvite/get: only a
+    /// member of the invite's Space sees it, and only if it holds
+    /// `manage_members` or created the invite (`createdBy` equal to
+    /// `account_id`, the caller's member entry per draft §Terminology).
+    /// An invite whose Space does not exist is visible, matching
+    /// [`Self::may_set_space_invite`], which lets such an invite be
+    /// created.
+    async fn may_get_space_invite(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        invite: &jmap_chat_types::SpaceInvite,
+    ) -> Result<bool, Self::Error> {
+        use crate::permissions::MANAGE_MEMBERS;
+
+        let inner = self.inner.lock().unwrap();
+        let Some(space) = inner
+            .objects_ref("Space", account_id.as_ref())
+            .and_then(|m| m.get(&invite.space_id))
+        else {
+            return Ok(true);
+        };
+        Ok(caller_effective_permissions(space, account_id)
+            .is_some_and(|p| p.contains(MANAGE_MEMBERS) || invite.created_by == *account_id))
+    }
+
+    /// Reference implementation of [`ChatBackend::may_get_space_ban`].
+    ///
+    /// Implements draft-atwood-jmap-chat-00 §SpaceBan/get: a holder of
+    /// `ban` in the ban's Space sees it, and so does the banned user
+    /// (`userId` equal to `account_id`). Everyone else does not. A ban
+    /// whose Space does not exist is visible, matching
+    /// [`Self::may_set_space_ban`], which lets such a ban be created.
+    async fn may_get_space_ban(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        ban: &jmap_chat_types::SpaceBan,
+    ) -> Result<bool, Self::Error> {
+        use crate::permissions::BAN;
+
+        if ban.user_id == *account_id {
+            return Ok(true);
+        }
+        let inner = self.inner.lock().unwrap();
+        let Some(space) = inner
+            .objects_ref("Space", account_id.as_ref())
+            .and_then(|m| m.get(&ban.space_id))
+        else {
+            return Ok(true);
+        };
+        Ok(caller_effective_permissions(space, account_id).is_some_and(|p| p.contains(BAN)))
+    }
+
     /// Reference implementation of
     /// [`ChatBackend::validate_pinned_message_ids`]: every added id must
     /// name a stored Message whose `chatId` is `chat_id`.
