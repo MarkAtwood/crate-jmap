@@ -1737,6 +1737,56 @@ async fn message_set_lone_read_disposition_is_invalid_properties() {
     assert_eq!(get_resp["list"][0]["readDisposition"], json!(null));
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 §Message `readDisposition`: "Absent
+/// when `readAt` is not set."
+///
+/// `readAt: null` (mark unread) must neither inject `"displayed"` nor leave
+/// an earlier disposition behind (bd:JMAP-yt1w.5).
+#[tokio::test]
+async fn message_set_read_at_null_clears_read_disposition() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
+    ).await.expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    for (step, patch, disposition) in [
+        ("unread never-read", json!({ "readAt": null }), json!(null)),
+        (
+            "read",
+            json!({ "readAt": "2026-01-05T10:00:00Z", "readDisposition": "deleted" }),
+            json!("deleted"),
+        ),
+        ("unread after read", json!({ "readAt": null }), json!(null)),
+    ] {
+        let (update_resp, _) = handle_message_set(
+            &backend,
+            &(),
+            json!({ "accountId": ACCOUNT_ID, "update": { msg_id.as_str(): patch } }),
+        )
+        .await
+        .expect("update");
+        assert_eq!(update_resp["notUpdated"], json!(null), "{step}");
+
+        let (get_resp, _) = handle_message_get(
+            &backend,
+            &(),
+            json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
+        )
+        .await
+        .expect("get");
+        assert_eq!(
+            get_resp["list"][0]["readDisposition"], disposition,
+            "{step}"
+        );
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Burn-on-read (draft-atwood-jmap-chat-00 §Message burnOnRead)
 // ---------------------------------------------------------------------------

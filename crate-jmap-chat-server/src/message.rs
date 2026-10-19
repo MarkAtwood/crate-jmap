@@ -1095,9 +1095,17 @@ pub async fn handle_message_set<B: ChatBackend>(
                 }
             }
             // Spec §557 + §1029: when readAt is set without readDisposition, default to "displayed".
+            // draft-atwood-jmap-chat-00 §Message `readDisposition`: "Absent
+            // when `readAt` is not set." so clearing readAt clears it too.
             if let Some(obj) = augmented.as_object_mut() {
-                if obj.contains_key("readAt") && !obj.contains_key("readDisposition") {
-                    obj.insert("readDisposition".to_owned(), json!("displayed"));
+                match obj.get("readAt") {
+                    Some(Value::Null) => {
+                        obj.insert("readDisposition".to_owned(), Value::Null);
+                    }
+                    Some(_) if !obj.contains_key("readDisposition") => {
+                        obj.insert("readDisposition".to_owned(), json!("displayed"));
+                    }
+                    _ => {}
                 }
             }
 
