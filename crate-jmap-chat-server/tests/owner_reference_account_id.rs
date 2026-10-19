@@ -102,11 +102,12 @@ async fn space_set_update(backend: &IdentityBackend, patch: Value) -> Value {
     .0
 }
 
-/// Space members as seen by the Space admin `c-admin`.
+/// Stored Space members, read in single-user mode: every caller of the
+/// account is its owner (draft §Terminology), who may have left.
 async fn space_members(backend: &IdentityBackend) -> Vec<Value> {
     let (resp, _) = handle_space_get(
-        backend,
-        &Id::from("c-admin"),
+        backend.inner(),
+        &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
     )
     .await

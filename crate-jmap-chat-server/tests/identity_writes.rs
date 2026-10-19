@@ -137,8 +137,8 @@ async fn space_join_with_identity_writes_account_id_into_member_id() {
     .expect("handle_space_join");
     assert_eq!(resp["spaceId"], SPACE_ID);
 
-    // Read as the preseeded member: Space/get decides membership by
-    // principal, and the joiner was recorded under the accountId.
+    // Read as another principal: every caller of the account is its
+    // owner, whose member entry is the accountId (draft §Terminology).
     let (space_resp, _) = handle_space_get(
         &backend,
         &Id::from("preseeded-admin"),

@@ -429,6 +429,9 @@ impl MemoryBackend {
     /// Space. A Chat that does not exist is permitted so `update_object`
     /// surfaces `notFound`.
     ///
+    /// The caller is the owner, whose member entry is the accountId
+    /// (draft §Terminology), so a `Some` `caller_id` only signals that
+    /// identity is wired: the gate looks up `account_id` in `members`.
     /// `caller_id == None` reproduces single-user-mode behavior: the
     /// gate is skipped. Production callers must not use this method;
     /// the API stability disclaimer on the `memory` feature applies
@@ -443,9 +446,9 @@ impl MemoryBackend {
     ) -> Result<(), SetError> {
         use crate::permissions::PIN;
 
-        let Some(caller_id) = caller_id else {
+        if caller_id.is_none() {
             return Ok(());
-        };
+        }
         let inner = self.inner.lock().unwrap();
         let Some(chat) = inner
             .objects_ref("Chat", account_id.as_ref())
@@ -459,7 +462,7 @@ impl MemoryBackend {
                 let members = chat.get("members").and_then(|v| v.as_array());
                 let is_admin = members.is_some_and(|members| {
                     members.iter().any(|m| {
-                        m.get("id").and_then(|v| v.as_str()) == Some(caller_id.as_ref())
+                        m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref())
                             && m.get("role").and_then(|v| v.as_str()) == Some("admin")
                     })
                 });
@@ -474,7 +477,7 @@ impl MemoryBackend {
                             .objects_ref("Space", account_id.as_ref())?
                             .get(&Id::from(sid))
                     })
-                    .and_then(|space| caller_effective_permissions(space, caller_id))
+                    .and_then(|space| caller_effective_permissions(space, account_id))
                     .is_some_and(|perms| perms.contains(PIN));
                 (!has_pin).then_some("caller lacks required permission `pin` in this Space")
             }
@@ -494,10 +497,12 @@ impl MemoryBackend {
     /// "Requires `"ban"` permission in the Space." A Space that does not
     /// exist is permitted, matching the pinned-messages gate.
     ///
-    /// `caller_id == None` reproduces single-user-mode behavior: the
-    /// gate is skipped. Production callers must not use this method;
-    /// the API stability disclaimer on the `memory` feature applies
-    /// doubly here.
+    /// As in [`Self::may_set_pinned_messages_with_caller_id`], the
+    /// caller's member entry is `account_id` and a `Some` `caller_id`
+    /// only signals that identity is wired. `caller_id == None`
+    /// reproduces single-user-mode behavior: the gate is skipped.
+    /// Production callers must not use this method; the API stability
+    /// disclaimer on the `memory` feature applies doubly here.
     #[doc(hidden)]
     #[allow(clippy::result_large_err)]
     pub fn may_set_space_ban_with_caller_id(
@@ -508,9 +513,9 @@ impl MemoryBackend {
     ) -> Result<(), SetError> {
         use crate::permissions::BAN;
 
-        let Some(caller_id) = caller_id else {
+        if caller_id.is_none() {
             return Ok(());
-        };
+        }
         let inner = self.inner.lock().unwrap();
         let Some(space) = inner
             .objects_ref("Space", account_id.as_ref())
@@ -518,7 +523,8 @@ impl MemoryBackend {
         else {
             return Ok(());
         };
-        if caller_effective_permissions(space, caller_id).is_some_and(|perms| perms.contains(BAN)) {
+        if caller_effective_permissions(space, account_id).is_some_and(|perms| perms.contains(BAN))
+        {
             Ok(())
         } else {
             Err(SetError::new(SetErrorType::Forbidden)
@@ -1784,8 +1790,9 @@ fn space_metadata_patch_to_map(
 /// `isPubliclyPreviewable`) requires `manage_space`. The gate logic
 /// mirrors [`validate_space_patch_ops`]: with `caller_id == None`
 /// (single-user mode) the gate is skipped; with `caller_id ==
-/// Some(id)` the caller's effective permission set must contain
-/// `manage_space`, else the whole patch is rejected with
+/// Some(_)` the caller's effective permission set, keyed on the
+/// owner's member entry `account_id` (draft §Terminology), must
+/// contain `manage_space`, else the whole patch is rejected with
 /// [`SetErrorType::Forbidden`].
 ///
 /// Empty patches (`patch_map.is_empty()`) are still rejected at the
@@ -1824,8 +1831,8 @@ fn apply_space_metadata_patch_impl(
     // resolvable, the caller's effective permissions in the Space
     // must include `manage_space`. When the caller is anonymous
     // (single-user mode), skip the gate.
-    if let Some(caller_id) = caller_id {
-        let caller_perms = caller_effective_permissions(&space_val, caller_id).unwrap_or_default();
+    if caller_id.is_some() {
+        let caller_perms = caller_effective_permissions(&space_val, account_id).unwrap_or_default();
         if !caller_perms.contains(MANAGE_SPACE) {
             return Err(BackendSetError::SetError(
                 SetError::new(SetErrorType::Forbidden).with_description(format!(
@@ -3308,7 +3315,10 @@ fn check_count_caps(
 /// whole-patch reject of criterion 6.
 ///
 /// Single-user mode (`caller_id == None`, criterion 7) skips the
-/// identity-dependent checks (permission gating, hierarchy). The
+/// identity-dependent checks (permission gating, hierarchy). When
+/// identity is wired those checks resolve the caller's permissions and
+/// role position from the `account_id` member entry, which is the
+/// owner's (draft §Terminology). The
 /// last-admin-protection check is identity-independent and still
 /// fires when its config flag is on.
 ///
@@ -3363,9 +3373,9 @@ fn validate_space_patch_ops(
     };
 
     // Identity-dependent checks: permission gating + hierarchy.
-    if let Some(caller_id) = caller_id {
-        let caller_perms = caller_effective_permissions(space_val, caller_id).unwrap_or_default();
-        let caller_highest = caller_highest_position(space_val, caller_id).unwrap_or(0);
+    if caller_id.is_some() {
+        let caller_perms = caller_effective_permissions(space_val, account_id).unwrap_or_default();
+        let caller_highest = caller_highest_position(space_val, account_id).unwrap_or(0);
 
         for op in ops {
             // Permission gate (criterion 1). Applies to ALL op
@@ -3564,8 +3574,10 @@ fn hierarchy_error(target_pos: u64, caller_highest: u64, op_label: &str) -> SetE
 
 /// Resolve the caller's effective permission set within `space_val`.
 ///
-/// Returns the union of `permissions` across every `SpaceRole`
-/// referenced by the caller's `members[i].role_ids`. The reference
+/// `caller_id` is the caller's member entry id: the accountId, since
+/// the caller is the owner (draft §Terminology). Returns the union of
+/// `permissions` across every `SpaceRole` referenced by the caller's
+/// `members[i].role_ids`. The reference
 /// impl treats `@everyone` as having an empty (implementation-
 /// defined) permission floor; production deployments override this
 /// behavior via their own backend.
@@ -3620,6 +3632,9 @@ fn member_effective_permissions(
 }
 
 /// Resolve the caller's highest role `position` within `space_val`.
+///
+/// `caller_id` is the caller's member entry id (the accountId), as in
+/// [`caller_effective_permissions`].
 ///
 /// Returns `Some(max position)` if the caller is a member; the value
 /// is at least 0 (a member with no explicit roles implicitly holds

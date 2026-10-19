@@ -133,7 +133,7 @@ async fn manage_space_holder_can_mutate_description() {
             "position": 100
         }]),
         json!([{
-            "id": "admin",
+            "id": ACCOUNT_ID,
             "roleIds": ["r-admin"],
             "joinedAt": "2026-01-01T00:00:00Z"
         }]),
@@ -176,7 +176,7 @@ async fn manage_space_holder_can_mutate_all_metadata_fields() {
             "position": 100
         }]),
         json!([{
-            "id": "admin",
+            "id": ACCOUNT_ID,
             "roleIds": ["r-admin"],
             "joinedAt": "2026-01-01T00:00:00Z"
         }]),
@@ -241,7 +241,7 @@ async fn everyone_only_member_cannot_mutate_description() {
         }]),
         json!([
             { "id": "admin", "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" },
-            { "id": "user",  "roleIds": [],          "joinedAt": "2026-01-02T00:00:00Z" }
+            { "id": ACCOUNT_ID, "roleIds": [],          "joinedAt": "2026-01-02T00:00:00Z" }
         ]),
     );
 
@@ -310,8 +310,16 @@ async fn non_member_caller_cannot_mutate_metadata() {
         "non-member must be forbidden: {resp:?}"
     );
 
-    let admin = Id::from("admin");
-    assert_eq!(read_space_description(&backend, &admin).await, "original");
+    // Every caller of the account is its owner (draft §Terminology), who
+    // is not a member here, so read the stored Space in single-user mode.
+    let (stored, _) = handle_space_get(
+        backend.inner(),
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+    )
+    .await
+    .expect("Space/get");
+    assert_eq!(stored["list"][0]["description"], "original");
 }
 
 /// Oracle: bd:JMAP-g7wu.2.4.13. A caller holding `manage_roles` /
@@ -330,7 +338,7 @@ async fn other_permissions_do_not_subsume_manage_space() {
             "position": 50
         }]),
         json!([{
-            "id": "partial-admin",
+            "id": ACCOUNT_ID,
             "roleIds": ["r-pa"],
             "joinedAt": "2026-01-01T00:00:00Z"
         }]),
@@ -385,7 +393,7 @@ async fn mixed_patch_metadata_plus_structural_atomic_reject() {
         }]),
         json!([
             { "id": "admin", "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" },
-            { "id": "user",  "roleIds": [],          "joinedAt": "2026-01-02T00:00:00Z" }
+            { "id": ACCOUNT_ID, "roleIds": [],          "joinedAt": "2026-01-02T00:00:00Z" }
         ]),
     );
 
@@ -443,7 +451,7 @@ async fn mixed_patch_metadata_plus_structural_admin_succeeds() {
             "position": 100
         }]),
         json!([{
-            "id": "admin",
+            "id": ACCOUNT_ID,
             "roleIds": ["r-admin"],
             "joinedAt": "2026-01-01T00:00:00Z"
         }]),
@@ -506,7 +514,7 @@ async fn single_field_metadata_patch_still_gated() {
         }]),
         json!([
             { "id": "admin", "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" },
-            { "id": "user",  "roleIds": [],          "joinedAt": "2026-01-02T00:00:00Z" }
+            { "id": ACCOUNT_ID, "roleIds": [],          "joinedAt": "2026-01-02T00:00:00Z" }
         ]),
     );
 

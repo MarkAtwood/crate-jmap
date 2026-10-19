@@ -46,7 +46,8 @@ const ADMIN_USER: &str = "admin";
 /// - Roles: `r-admin` (the caller's full-permission role at position
 ///   100), `r-update` (position 30, to be renamed), `r-remove`
 ///   (position 20, to be removed).
-/// - Members: `admin` (the caller), `u-update` (to be renamed via
+/// - Members: the accountId (the caller, who is the owner; draft
+///   §Terminology), `u-update` (to be renamed via
 ///   `updateMembers`), `u-remove` (to be removed).
 /// - Channels: `ch-update`, `ch-remove`, plus the channels created
 ///   by `addChannels` in the test patch.
@@ -109,7 +110,7 @@ fn seed_kitchen_sink_space(backend: &IdentityBackend) {
         ],
         "members": [
             {
-                "id": ADMIN_USER,
+                "id": ACCOUNT_ID,
                 "roleIds": ["r-admin"],
                 "joinedAt": "2026-01-01T00:00:00Z"
             },

@@ -134,7 +134,7 @@ async fn member_with_only_everyone_role_lacks_permissions() {
             "position": 100
         }]),
         json!([{
-            "id": "caller",
+            "id": ACCOUNT_ID,
             "roleIds": [],
             "joinedAt": "2026-01-01T00:00:00Z"
         }]),
@@ -165,7 +165,7 @@ async fn member_with_only_everyone_role_lacks_permissions() {
 async fn admin_with_required_permissions_succeeds() {
     let backend = IdentityBackend::new();
     let caller = Id::from("admin-user");
-    seed_with_admin(&backend, "admin-user");
+    seed_with_admin(&backend, ACCOUNT_ID);
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -209,7 +209,7 @@ async fn add_role_at_caller_position_rejected() {
             "position": 50
         }]),
         json!([{
-            "id": "mod-user",
+            "id": ACCOUNT_ID,
             "roleIds": ["r-mod"],
             "joinedAt": "2026-01-01T00:00:00Z"
         }]),
@@ -286,7 +286,7 @@ async fn update_role_hierarchy_checks_both_old_and_new_position() {
             }
         ]),
         json!([{
-            "id": "mod-user",
+            "id": ACCOUNT_ID,
             "roleIds": ["r-mod"],
             "joinedAt": "2026-01-01T00:00:00Z"
         }]),
@@ -339,7 +339,7 @@ async fn add_member_with_role_above_caller_rejected() {
             }
         ]),
         json!([{
-            "id": "mod-user",
+            "id": ACCOUNT_ID,
             "roleIds": ["r-mod"],
             "joinedAt": "2026-01-01T00:00:00Z"
         }]),
@@ -396,7 +396,7 @@ async fn remove_role_cascades_demotion_to_everyone() {
         ]),
         json!([
             {
-                "id": "admin-user",
+                "id": ACCOUNT_ID,
                 "roleIds": ["r-admin"],
                 "joinedAt": "2026-01-01T00:00:00Z"
             },
@@ -492,7 +492,7 @@ async fn last_admin_protection_blocks_removal_when_enabled() {
         }]),
         json!([
             {
-                "id": "admin-user",
+                "id": ACCOUNT_ID,
                 "roleIds": ["r-admin"],
                 "joinedAt": "2026-01-01T00:00:00Z"
             },
@@ -511,7 +511,7 @@ async fn last_admin_protection_blocks_removal_when_enabled() {
         &caller,
         json!({
             "accountId": ACCOUNT_ID,
-            "update": { SPACE_ID: { "removeMembers": ["admin-user", "u-regular"] }}
+            "update": { SPACE_ID: { "removeMembers": [ACCOUNT_ID, "u-regular"] }}
         }),
     )
     .await
@@ -539,15 +539,17 @@ async fn last_admin_protection_blocks_removal_when_enabled() {
     .expect("Space/get");
     let members = get_resp["list"][0]["members"].as_array().expect("members");
     assert!(
-        members.iter().any(|m| m["id"] == "admin-user"),
-        "admin-user must remain a member after the rejected removal"
+        members.iter().any(|m| m["id"] == ACCOUNT_ID),
+        "the owner must remain a member after the rejected removal"
     );
 }
 
 /// Oracle: bd:JMAP-g7wu.2.4.3 criterion 3 replacement. With
 /// `protect_last_admin = false` (the reference backend default),
 /// removing the last admin succeeds. The protection is a deployment-
-/// policy stand-in only.
+/// policy stand-in only. The patch also removes another member, so it is
+/// not self-removal (draft §Space/set `removeMembers`), which is exempt
+/// regardless of the knob.
 #[tokio::test]
 async fn last_admin_protection_disabled_allows_removal() {
     let backend = IdentityBackend::new();
@@ -564,7 +566,7 @@ async fn last_admin_protection_disabled_allows_removal() {
         }]),
         json!([
             {
-                "id": "admin-user",
+                "id": ACCOUNT_ID,
                 "roleIds": ["r-admin"],
                 "joinedAt": "2026-01-01T00:00:00Z"
             },
@@ -581,7 +583,7 @@ async fn last_admin_protection_disabled_allows_removal() {
         &caller,
         json!({
             "accountId": ACCOUNT_ID,
-            "update": { SPACE_ID: { "removeMembers": ["admin-user"] }}
+            "update": { SPACE_ID: { "removeMembers": [ACCOUNT_ID, "u-regular"] }}
         }),
     )
     .await
@@ -610,7 +612,7 @@ async fn last_admin_protection_allows_when_other_admin_remains() {
         }]),
         json!([
             {
-                "id": "admin-1",
+                "id": ACCOUNT_ID,
                 "roleIds": ["r-admin"],
                 "joinedAt": "2026-01-01T00:00:00Z"
             },
@@ -667,7 +669,7 @@ async fn whole_patch_reject_on_permission_failure_no_partial_mutation() {
             }
         ]),
         json!([{
-            "id": "mod-user",
+            "id": ACCOUNT_ID,
             "roleIds": ["r-mod"],
             "joinedAt": "2026-01-01T00:00:00Z"
         }]),
@@ -737,7 +739,7 @@ async fn whole_patch_reject_on_hierarchy_failure() {
             "position": 50
         }]),
         json!([{
-            "id": "mod-user",
+            "id": ACCOUNT_ID,
             "roleIds": ["r-mod"],
             "joinedAt": "2026-01-01T00:00:00Z"
         }]),
@@ -809,7 +811,7 @@ async fn member_lifecycle_with_authenticated_admin() {
             "position": 10
         }]),
         json!([{
-            "id": "admin",
+            "id": ACCOUNT_ID,
             "roleIds": ["r-admin"],
             "joinedAt": "2026-01-01T00:00:00Z"
         }]),
@@ -908,7 +910,7 @@ async fn member_lifecycle_with_authenticated_admin() {
 async fn add_member_duplicate_user_id_rejected() {
     let backend = IdentityBackend::new();
     let caller = Id::from("admin");
-    seed_with_admin(&backend, "admin");
+    seed_with_admin(&backend, ACCOUNT_ID);
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -916,7 +918,7 @@ async fn add_member_duplicate_user_id_rejected() {
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addMembers": [{
-                "id": "admin",
+                "id": ACCOUNT_ID,
                 "roleIds": []
             }]}}
         }),
@@ -934,7 +936,7 @@ async fn add_member_duplicate_user_id_rejected() {
 async fn add_member_unknown_role_id_rejected() {
     let backend = IdentityBackend::new();
     let caller = Id::from("admin");
-    seed_with_admin(&backend, "admin");
+    seed_with_admin(&backend, ACCOUNT_ID);
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -983,7 +985,7 @@ async fn update_role_color_preserves_all_three_representations() {
             }
         ]),
         json!([{
-            "id": "admin",
+            "id": ACCOUNT_ID,
             "roleIds": ["r-admin"],
             "joinedAt": "2026-01-01T00:00:00Z"
         }]),

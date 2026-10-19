@@ -278,7 +278,15 @@ async fn closed_space_rejects_updates_except_self_removal() {
     )
     .await;
     assert!(resp["updated"].get(SPACE_ID).is_some(), "{resp}");
-    let space = space_as(&backend, "u-regular").await;
+    // The owner has left, so read the stored Space in single-user mode.
+    let (stored, _) = handle_space_get(
+        backend.inner(),
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+    )
+    .await
+    .expect("Space/get");
+    let space = &stored["list"][0];
     assert_eq!(space["members"].as_array().map(Vec::len), Some(1));
     assert_eq!(space["closedAt"], "2026-02-01T00:00:00Z");
 }
@@ -290,7 +298,12 @@ async fn closed_space_rejects_updates_except_self_removal() {
 #[tokio::test]
 async fn non_member_preview_includes_closed_at() {
     let backend = IdentityBackend::new();
-    seed(&backend, admin_and_regular(), Some("2026-02-01T00:00:00Z"));
+    // The owner (member entry = accountId, §Terminology) is not a member.
+    seed(
+        &backend,
+        json!([{ "id": "u-admin", "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" }]),
+        Some("2026-02-01T00:00:00Z"),
+    );
     let space = space_as(&backend, "outsider").await;
     assert_eq!(space["closedAt"], "2026-02-01T00:00:00Z", "{space}");
     assert!(space.get("members").is_none(), "{space}");

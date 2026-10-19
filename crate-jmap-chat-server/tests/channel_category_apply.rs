@@ -135,7 +135,7 @@ async fn non_member_caller_lacks_manage_channels() {
 async fn everyone_only_member_cannot_add_channel() {
     let backend = IdentityBackend::new();
     let caller = Id::from("user");
-    seed_with_non_admin_caller(&backend, "user");
+    seed_with_non_admin_caller(&backend, ACCOUNT_ID);
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -166,7 +166,7 @@ async fn everyone_only_member_cannot_add_channel() {
 async fn everyone_only_member_cannot_remove_channel() {
     let backend = IdentityBackend::new();
     let caller = Id::from("user");
-    seed_with_non_admin_caller(&backend, "user");
+    seed_with_non_admin_caller(&backend, ACCOUNT_ID);
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -197,7 +197,7 @@ async fn everyone_only_member_cannot_remove_channel() {
 async fn everyone_only_member_cannot_update_channel() {
     let backend = IdentityBackend::new();
     let caller = Id::from("user");
-    seed_with_non_admin_caller(&backend, "user");
+    seed_with_non_admin_caller(&backend, ACCOUNT_ID);
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -223,7 +223,7 @@ async fn everyone_only_member_cannot_update_channel() {
 async fn everyone_only_member_cannot_add_category() {
     let backend = IdentityBackend::new();
     let caller = Id::from("user");
-    seed_with_non_admin_caller(&backend, "user");
+    seed_with_non_admin_caller(&backend, ACCOUNT_ID);
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -261,7 +261,7 @@ async fn everyone_only_member_cannot_add_category() {
 async fn everyone_only_member_cannot_remove_category() {
     let backend = IdentityBackend::new();
     let caller = Id::from("user");
-    seed_with_non_admin_caller(&backend, "user");
+    seed_with_non_admin_caller(&backend, ACCOUNT_ID);
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -285,7 +285,7 @@ async fn everyone_only_member_cannot_remove_category() {
 async fn everyone_only_member_cannot_update_category() {
     let backend = IdentityBackend::new();
     let caller = Id::from("user");
-    seed_with_non_admin_caller(&backend, "user");
+    seed_with_non_admin_caller(&backend, ACCOUNT_ID);
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -327,7 +327,7 @@ async fn member_with_manage_channels_succeeds() {
             "position": 50
         }]),
         json!([{
-            "id": "editor",
+            "id": ACCOUNT_ID,
             "roleIds": ["r-editor"],
             "joinedAt": "2026-01-01T00:00:00Z"
         }]),
@@ -388,7 +388,7 @@ async fn whole_patch_reject_on_channel_permission_failure() {
             }
         ]),
         json!([{
-            "id": "partial-admin",
+            "id": ACCOUNT_ID,
             "roleIds": ["r-pa"],
             "joinedAt": "2026-01-01T00:00:00Z"
         }]),
@@ -454,7 +454,7 @@ async fn whole_patch_reject_on_channel_permission_failure() {
 async fn mixed_channel_category_patch_atomic_reject() {
     let backend = IdentityBackend::new();
     let caller = Id::from("user");
-    seed_with_non_admin_caller(&backend, "user");
+    seed_with_non_admin_caller(&backend, ACCOUNT_ID);
 
     // Caller has @everyone only. The patch carries both addChannels
     // and addCategories — both require manage_channels. The first
