@@ -158,7 +158,10 @@ pub async fn handle_invite_changes<B: ChatBackend>(
 /// - create: accepted (`spaceId` required; server sets `code`, `createdBy`,
 ///   `uses`, `createdAt`).
 /// - update: always rejected with `forbidden`.
-/// - destroy: allowed.
+/// - destroy: revokes the invite.
+///
+/// Create and destroy each consult [`ChatBackend::may_set_space_invite`]
+/// for the invite's Space.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_invite_set<B: ChatBackend>(
@@ -298,6 +301,13 @@ pub async fn handle_invite_set<B: ChatBackend>(
                 max_uses,
             );
 
+            if let Some(err) =
+                invite_denied(backend, caller, &account_id, &invite.space_id, None).await
+            {
+                not_created.insert(create_id.clone(), err);
+                continue;
+            }
+
             match backend
                 .create_object::<SpaceInvite>(caller, &account_id, create_id, invite)
                 .await
@@ -359,6 +369,11 @@ pub async fn handle_invite_set<B: ChatBackend>(
             };
             let id = Id::from(id_str);
 
+            if let Some(err) = stored_invite_denied(backend, caller, &account_id, &id).await {
+                not_destroyed.insert(id_str.to_owned(), err);
+                continue;
+            }
+
             match backend
                 .destroy_object::<SpaceInvite>(caller, &account_id, &id)
                 .await
@@ -402,4 +417,54 @@ pub async fn handle_invite_set<B: ChatBackend>(
         },
     )
     .await
+}
+
+/// draft-atwood-jmap-chat-00 §SpaceInvite/set: create "Requires
+/// `"manage_members"` permission"; destroy "Requires `"manage_members"`
+/// permission or ownership of the invite"; the backend decides. Returns
+/// the SetError value to report when the op is denied.
+async fn invite_denied<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    space_id: &Id,
+    created_by: Option<&Id>,
+) -> Option<Value> {
+    match backend
+        .may_set_space_invite(caller, account_id, space_id, created_by)
+        .await
+    {
+        Ok(Ok(())) => None,
+        Ok(Err(set_err)) => Some(set_error_value(&set_err)),
+        Err(e) => Some(server_fail_value_from_backend(&e)),
+    }
+}
+
+/// [`invite_denied`] for the stored invite `id`. An invite that does not
+/// resolve is not gated, so the backend surfaces `notFound`.
+async fn stored_invite_denied<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+) -> Option<Value> {
+    match backend
+        .get_objects::<SpaceInvite>(caller, account_id, Some(std::slice::from_ref(id)), None)
+        .await
+    {
+        Ok((invites, _)) => match invites.first() {
+            Some(invite) => {
+                invite_denied(
+                    backend,
+                    caller,
+                    account_id,
+                    &invite.space_id,
+                    Some(&invite.created_by),
+                )
+                .await
+            }
+            None => None,
+        },
+        Err(e) => Some(server_fail_value_from_backend(&e)),
+    }
 }
