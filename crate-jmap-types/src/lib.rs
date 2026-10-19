@@ -1,7 +1,8 @@
 //! Shared JMAP wire types for RFC 8620.
 //!
 //! Provides [`Id`], [`UTCDate`], [`State`], [`JmapError`],
-//! [`JmapRequest`], [`JmapResponse`], [`Filter`], and [`ResultReference`] —
+//! [`JmapRequest`], [`JmapResponse`], [`Filter`], [`ResultReference`], and
+//! the RFC 8620 §7 push types ([`StateChange`], [`PushSubscription`]) —
 //! the primitives shared by all crates in the `jmap-*` family.
 //!
 //! This crate is types-only: no method handlers, no async, no network I/O.
@@ -33,6 +34,7 @@ pub mod error;
 pub mod id;
 pub mod methods;
 pub mod patch;
+pub mod push;
 pub mod query;
 pub mod resultref;
 pub mod wire;
@@ -51,6 +53,7 @@ pub use methods::{
     SetResponse,
 };
 pub use patch::PatchObject;
+pub use push::{PushKeys, PushSubscription, PushVerification, StateChange};
 pub use query::{Filter, FilterOperator, Operator};
 pub use resultref::{Argument, ResultReference};
 pub use wire::{Invocation, JmapRequest, JmapResponse};

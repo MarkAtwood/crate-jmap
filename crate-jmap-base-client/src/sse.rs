@@ -2,10 +2,6 @@
 //! Spec: RFC 8620 §7.3 (Push via Server-Sent Events)
 //! Wire format: RFC 8895 (Server-Sent Events)
 
-use std::collections::HashMap;
-
-use jmap_types::{Id, State};
-
 use crate::push;
 
 /// A parsed SSE frame: the event and the `id:` line value (if any).
@@ -136,21 +132,13 @@ fn parse_state_data(event_type: &str, data: &str) -> SseEvent {
 
 /// Try to parse a StateChange payload; returns `None` on any parse failure.
 ///
-/// Strips the optional `@type` discriminator (RFC 8620 §7.3) before
-/// extracting `changed`. Any remaining unknown top-level keys are captured
-/// in `StateChange.extra` per the workspace extras-preservation policy.
+/// The `@type` discriminator (RFC 8620 §7.1) is optional here but, when
+/// present, must be `"StateChange"`; [`push::StateChange`]'s deserializer
+/// consumes it so it never lands in `extra`. Any remaining unknown top-level
+/// keys are captured in `StateChange.extra` per the workspace
+/// extras-preservation policy.
 fn try_parse_state_change(data: &str) -> Option<push::StateChange> {
-    let mut v = serde_json::from_str::<serde_json::Value>(data).ok()?;
-    let obj = v.as_object_mut()?;
-    // Strip the optional "@type":"StateChange" discriminator before
-    // extracting the typed field; it must not leak into `extra`.
-    obj.remove("@type");
-    let changed_val = obj.remove("changed")?;
-    let changed =
-        serde_json::from_value::<HashMap<Id, HashMap<String, State>>>(changed_val).ok()?;
-    // Whatever remains is vendor / site extension data; preserve it.
-    let extra = std::mem::take(obj);
-    Some(push::StateChange { changed, extra })
+    serde_json::from_str(data).ok()
 }
 
 #[cfg(test)]
