@@ -1231,7 +1231,7 @@ async fn message_set_update_delete_for_all_purges_content() {
         json!({
             "id": "m1",
             "senderMsgId": "smsg1",
-            "senderId": "self",
+            "senderId": ACCOUNT_ID,
             "chatId": "c1",
             "body": "edited",
             "bodyType": "text/plain",
@@ -1381,8 +1381,8 @@ async fn message_set_update_local_delete_purges_content() {
 }
 
 /// Oracle: draft-atwood-jmap-chat-00 §Deleting a Message ("Servers MUST
-/// reject `deletedForAll: true` for messages where `senderId` is not
-/// `\"self\"`"). The rejected update leaves the stored Message unchanged.
+/// reject `deletedForAll: true` for messages where `senderId` is not the
+/// accountId"). The rejected update leaves the stored Message unchanged.
 #[tokio::test]
 async fn message_set_update_delete_for_all_rejects_other_sender() {
     let backend = MemoryBackend::new();
@@ -1418,9 +1418,9 @@ async fn message_set_update_delete_for_all_rejects_other_sender() {
 
 /// Oracle: draft-atwood-jmap-chat-00 §Editing a Message ("`update` with
 /// changed `body`, `bodyType`, `mentions`, and/or `broadcastMentions`, on a
-/// message where `senderId` is `\"self\"` and `deletedAt` is absent. The
+/// message where `senderId` is the accountId and `deletedAt` is absent. The
 /// server MUST reject an edit of any other message with a `forbidden`
-/// SetError."). Here the target's `senderId` is not `"self"`.
+/// SetError."). Here the target's `senderId` is not the accountId.
 #[tokio::test]
 async fn message_set_update_edit_rejects_other_sender() {
     let backend = MemoryBackend::new();
@@ -1453,13 +1453,13 @@ async fn message_set_update_edit_rejects_other_sender() {
 
 /// Oracle: draft-atwood-jmap-chat-00 §Editing a Message ("`update` with
 /// changed `body`, `bodyType`, `mentions`, and/or `broadcastMentions`, on a
-/// message where `senderId` is `\"self\"` and `deletedAt` is absent. The
+/// message where `senderId` is the accountId and `deletedAt` is absent. The
 /// server MUST reject an edit of any other message with a `forbidden`
 /// SetError."). Here the target is the owner's own, already-deleted Message.
 #[tokio::test]
 async fn message_set_update_edit_rejects_deleted_message() {
     let backend = MemoryBackend::new();
-    insert_deletable_message(&backend, "self");
+    insert_deletable_message(&backend, ACCOUNT_ID);
 
     let (delete_resp, _) = handle_message_set(
         &backend,
@@ -2913,11 +2913,12 @@ async fn position_set_create_with_malformed_last_read_at_rejected() {
 // ---------------------------------------------------------------------------
 
 /// Oracle: a `reactions/{senderReactionId}` patch with an emoji-only
-/// object adds a new Reaction whose stored `senderId` is `"self"`
-/// (`SenderId::Owner`). The client supplies just `emoji`; the server
-/// injects `senderId` and `sentAt`.
+/// object adds a new Reaction whose stored `senderId` is the accountId
+/// (draft-atwood-jmap-chat-00 §Adding a Reaction: "The server MUST set
+/// `senderId` to the accountId"). The client supplies just `emoji`; the
+/// server injects `senderId` and `sentAt`.
 #[tokio::test]
-async fn message_set_update_reaction_add_overrides_sender_id_to_self() {
+async fn message_set_update_reaction_add_overrides_sender_id_to_account_id() {
     let backend = MemoryBackend::new();
     let (create_resp, _) = handle_message_set(
         &backend,
@@ -2963,8 +2964,8 @@ async fn message_set_update_reaction_add_overrides_sender_id_to_self() {
     );
     assert_eq!(stored["emoji"], "👍");
     assert_eq!(
-        stored["senderId"], "self",
-        "server MUST set senderId=\"self\" on owner-authored reactions"
+        stored["senderId"], ACCOUNT_ID,
+        "server MUST set senderId to the accountId on owner-authored reactions"
     );
     assert!(
         stored["sentAt"].is_string(),
@@ -2973,7 +2974,7 @@ async fn message_set_update_reaction_add_overrides_sender_id_to_self() {
 }
 
 /// Oracle: when the client supplies an explicit `senderId` on a
-/// reaction patch value, the server MUST override it to `"self"` —
+/// reaction patch value, the server MUST override it to the accountId —
 /// defense in depth per draft-atwood-jmap-chat-00 §Reaction.
 #[tokio::test]
 async fn message_set_update_reaction_add_overrides_client_supplied_sender_id() {
@@ -3015,8 +3016,8 @@ async fn message_set_update_reaction_add_overrides_client_supplied_sender_id() {
     .await
     .expect("get");
     assert_eq!(
-        get_resp["list"][0]["reactions"]["bar"]["senderId"], "self",
-        "client-supplied senderId MUST be overridden to \"self\""
+        get_resp["list"][0]["reactions"]["bar"]["senderId"], ACCOUNT_ID,
+        "client-supplied senderId MUST be overridden to the accountId"
     );
 }
 
@@ -3026,7 +3027,7 @@ async fn message_set_update_reaction_add_overrides_client_supplied_sender_id() {
 async fn message_set_update_reaction_remove_others_rejected_forbidden() {
     let backend = MemoryBackend::new();
     // Seed a Message with a pre-existing reaction whose senderId is
-    // NOT "self" — simulates a reaction authored by a peer.
+    // NOT the accountId — simulates a reaction authored by a peer.
     backend.insert_object_for_test(
         "Message",
         ACCOUNT_ID,
@@ -3218,7 +3219,7 @@ async fn message_set_update_reaction_non_object_value_rejected() {
     assert_eq!(update_resp["notUpdated"][&msg_id]["type"], "invalidPatch");
 }
 
-/// Oracle: removing one's own reaction (sender_id == "self")
+/// Oracle: removing one's own reaction (sender_id == accountId)
 /// succeeds. The reaction is removed from the stored Message.
 #[tokio::test]
 async fn message_set_update_reaction_remove_self_succeeds() {

@@ -105,8 +105,8 @@ async fn message_get_threads_ids_and_omits_properties_when_none() {
 /// regression that broke `Message` deserialize would still pass every
 /// other `Message/get` smoke test (they all return `"list": []`).
 ///
-/// Also exercises the manual `SenderId` `Deserialize` (message.rs:74-92)
-/// — the sentinel string `"self"` must map to `SenderId::Owner`.
+/// The owner's `senderId` is the accountId (draft-atwood-jmap-chat-00
+/// §Message `senderId`: "The accountId for owner-composed messages").
 ///
 /// Mirrors the canonical extension-client shape
 /// `crate-jmap-calendars-client/tests/calendar_smoke_tests.rs::calendar_get_smoke`.
@@ -126,7 +126,7 @@ async fn message_get_decodes_populated_message() {
                 {
                     "id": "msg-1",
                     "senderMsgId": "client-msg-1",
-                    "senderId": "self",
+                    "senderId": TEST_ACCOUNT_ID,
                     "chatId": "chat-1",
                     "body": "Hello, world!",
                     "bodyType": "text/plain",
@@ -149,7 +149,7 @@ async fn message_get_decodes_populated_message() {
                     "reactions": {
                         "self-r1": {
                             "emoji": "👍",
-                            "senderId": "self",
+                            "senderId": TEST_ACCOUNT_ID,
                             "sentAt": "2026-01-20T14:30:00Z"
                         }
                     },
@@ -187,11 +187,7 @@ async fn message_get_decodes_populated_message() {
         "client-msg-1",
         "senderMsgId mismatch"
     );
-    assert!(
-        matches!(msg.sender_id, jmap_chat_types::SenderId::Owner),
-        "senderId 'self' must deserialise to SenderId::Owner, got {:?}",
-        msg.sender_id
-    );
+    assert_eq!(msg.sender_id.as_ref(), TEST_ACCOUNT_ID, "senderId mismatch");
     assert_eq!(msg.chat_id.as_ref(), "chat-1", "chatId mismatch");
     assert_eq!(msg.body, "Hello, world!", "body mismatch");
     assert_eq!(msg.body_type, "text/plain", "bodyType mismatch");
@@ -249,9 +245,10 @@ async fn message_get_decodes_populated_message() {
         .get("self-r1")
         .expect("reactions['self-r1'] must be present");
     assert_eq!(reaction.emoji, "👍", "reaction emoji mismatch");
-    assert!(
-        matches!(reaction.sender_id, jmap_chat_types::SenderId::Owner),
-        "reaction.senderId 'self' must deserialise to SenderId::Owner"
+    assert_eq!(
+        reaction.sender_id.as_ref(),
+        TEST_ACCOUNT_ID,
+        "reaction senderId mismatch"
     );
 
     assert_eq!(

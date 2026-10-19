@@ -28,11 +28,11 @@
 //! ```rust
 //! use jmap_chat_types::Message;
 //! use jmap_types::{Id, UTCDate};
-//! use jmap_chat_types::{SenderId, DeliveryState};
+//! use jmap_chat_types::DeliveryState;
 //!
 //! let mut msg = Message::new(
 //!     Id::from("msg-1"), Id::from("msg-1"),
-//!     SenderId::Owner, Id::from("chat-1"),
+//!     Id::from("account-1"), Id::from("chat-1"),
 //!     "hello", "text/plain",
 //!     UTCDate::from("2026-01-01T00:00:00Z"),
 //!     UTCDate::from("2026-01-01T00:00:01Z"),
@@ -142,7 +142,7 @@ pub use ephemeral::{
 };
 pub use message::{
     Attachment, BodyType, BroadcastMention, DeliveryReceipt, DeliveryState, Mention, Message,
-    MessageAction, MessageRevision, Reaction, ReadDisposition, SenderId, BROADCAST_MENTION_SCOPES,
+    MessageAction, MessageRevision, Reaction, ReadDisposition, BROADCAST_MENTION_SCOPES,
 };
 pub use position::ReadPosition;
 pub use presence::{Presence, PresenceStatus};

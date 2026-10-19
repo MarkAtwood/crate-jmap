@@ -114,7 +114,7 @@ In scope in this crate (each has at least one round-trip preservation test):
 
 Out of scope (explicitly excluded by the workspace policy):
 
-- String enums (`ChatKind`, `Presence`, `DeliveryState`, `SenderId`,
+- String enums (`ChatKind`, `Presence`, `DeliveryState`,
   `ReadDisposition`, etc.) — result enums tracked via separate
   `Other(String)` propagation; control enums get neither.
 - `Clearable<T>` — internal three-state helper, not a wire object.

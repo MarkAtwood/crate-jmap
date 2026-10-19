@@ -25,7 +25,7 @@
 
 use jmap_chat_types::{
     Attachment, BroadcastMention, Chat, DeliveryState, Mention, Message, MessageAction,
-    ReadPosition, SenderId, Space, BROADCAST_MENTION_SCOPES,
+    ReadPosition, Space, BROADCAST_MENTION_SCOPES,
 };
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;
@@ -876,7 +876,7 @@ pub async fn handle_message_set<B: ChatBackend>(
             let mut msg = Message::new(
                 Id::from("placeholder"),
                 Id::from(create_id.as_str()),
-                SenderId::Owner,
+                account_id.clone(),
                 chat_id,
                 body,
                 body_type,
@@ -1022,10 +1022,10 @@ pub async fn handle_message_set<B: ChatBackend>(
             }
 
             // draft-atwood-jmap-chat-00 §Deleting a Message: servers MUST
-            // reject `deletedForAll: true` when `senderId` is not "self".
-            // §Editing a Message: an edit of `body`, `bodyType`, `mentions`
-            // or `broadcastMentions` is only permitted where `senderId` is
-            // "self" and `deletedAt` is absent; any other edit is
+            // reject `deletedForAll: true` when `senderId` is not the
+            // accountId. §Editing a Message: an edit of `body`, `bodyType`,
+            // `mentions` or `broadcastMentions` is only permitted where
+            // `senderId` is the accountId and `deletedAt` is absent; any other edit is
             // `forbidden`. A missing target falls through to the normal
             // `notFound` from `update_object`.
             let deletes_for_all =
@@ -1045,12 +1045,12 @@ pub async fn handle_message_set<B: ChatBackend>(
                 {
                     Ok((found, _not_found)) => {
                         let description = found.first().and_then(|m| {
-                            if deletes_for_all && m.sender_id != SenderId::Owner {
-                                Some("deletedForAll is only permitted on messages whose senderId is \"self\"")
+                            if deletes_for_all && m.sender_id != account_id {
+                                Some("deletedForAll is only permitted on messages whose senderId is the accountId")
                             } else if edits
-                                && (m.sender_id != SenderId::Owner || m.deleted_at.is_some())
+                                && (m.sender_id != account_id || m.deleted_at.is_some())
                             {
-                                Some("edits are only permitted on messages whose senderId is \"self\" and deletedAt is absent")
+                                Some("edits are only permitted on messages whose senderId is the accountId and deletedAt is absent")
                             } else {
                                 None
                             }
@@ -1128,9 +1128,9 @@ pub async fn handle_message_set<B: ChatBackend>(
             // 2. Rejects non-null non-object values as `invalidPatch`.
             // 3. Pre-fetches the Message and rejects with `forbidden`
             //    if the patched key targets an existing reaction whose
-            //    `senderId` is not `"self"` — per spec, only the
+            //    `senderId` is not the accountId — per spec, only the
             //    original sender may modify their own reactions.
-            // 4. Server-overrides `senderId` to `"self"` on every add
+            // 4. Server-overrides `senderId` to the accountId on every add
             //    (spec MUST; defense-in-depth).
             // 5. Server-injects `sentAt` to the current time on adds
             //    that lack it, so the resulting `Reaction` round-trips
@@ -1229,7 +1229,7 @@ pub async fn handle_message_set<B: ChatBackend>(
                         if let Some(msg) = found.first() {
                             for (_, suffix) in &decoded {
                                 if let Some(existing) = msg.reactions.get(suffix) {
-                                    if existing.sender_id != SenderId::Owner {
+                                    if existing.sender_id != account_id {
                                         bad.push(suffix.clone());
                                     }
                                 }
@@ -1264,9 +1264,9 @@ pub async fn handle_message_set<B: ChatBackend>(
                     for (raw_key, _) in &decoded {
                         if let Some(Value::Object(map)) = obj.get_mut(raw_key) {
                             // Spec MUST: server overrides senderId to
-                            // "self" on every add, regardless of what
-                            // the client supplied.
-                            map.insert("senderId".to_owned(), json!("self"));
+                            // the accountId on every add, regardless of
+                            // what the client supplied.
+                            map.insert("senderId".to_owned(), json!(account_id));
                             map.entry("sentAt").or_insert_with(|| json!(now_str));
                         }
                     }

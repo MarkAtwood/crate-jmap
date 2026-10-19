@@ -16,7 +16,7 @@ use jmap_chat_client::{
     SessionClient, SetResponse, SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddRoleInput,
     SpaceBanCreateInput, SpaceCreateInput, SpaceJoinInput, SpacePatch, UpdateMemberRoleInput,
 };
-use jmap_chat_types::{Attachment, BodyType, ChatKind, Mention, MessageAction, SenderId};
+use jmap_chat_types::{Attachment, BodyType, ChatKind, Mention, MessageAction};
 use jmap_testjig::{spawn_in_process, TestjigConfig, TestjigHandle};
 use jmap_types::{Id, UTCDate};
 
@@ -398,7 +398,10 @@ async fn message_create_query_get_round_trip() {
     assert_eq!(m1.body, "first");
     assert_eq!(m1.body_type, "text/plain");
     assert_eq!(m1.chat_id, chat_id);
-    assert_eq!(m1.sender_id, SenderId::Owner);
+    assert_eq!(
+        m1.sender_id.as_ref(),
+        sc.chat_account_id().expect("chat account")
+    );
     let m3 = by_id(&third);
     assert_eq!(m3.reply_to.as_ref(), Some(&first));
     assert_eq!(m3.sender_expires_at.as_ref(), Some(&expires));
@@ -637,7 +640,7 @@ async fn message_query_descending_returns_newest_first() {
 
 /// Oracle: draft-atwood-jmap-chat-00 §Adding and Removing Reactions — add
 /// patches `"reactions/<senderReactionId>": {"emoji", "sentAt"}` and "The
-/// server MUST set `senderId` to `"self"`"; remove patches the key to
+/// server MUST set `senderId` to the accountId"; remove patches the key to
 /// `null` and "The server MUST remove the entry".
 #[tokio::test]
 async fn reactions_add_then_remove() {
@@ -673,7 +676,10 @@ async fn reactions_add_then_remove() {
         .get(reaction_id)
         .expect("added reaction must be stored under its senderReactionId");
     assert_eq!(reaction.emoji, "\u{1F44D}");
-    assert_eq!(reaction.sender_id, SenderId::Owner);
+    assert_eq!(
+        reaction.sender_id.as_ref(),
+        sc.chat_account_id().expect("chat account")
+    );
 
     let remove = [ReactionChange::Remove {
         sender_reaction_id: reaction_id,
@@ -699,12 +705,12 @@ async fn reactions_add_then_remove() {
 
 /// Oracle: draft-atwood-jmap-chat-00 §Editing a Message — "`update` with
 /// changed `body`, `bodyType`, `mentions`, and/or `broadcastMentions`, on a
-/// message where `senderId` is `"self"` and `deletedAt` is absent. The
+/// message where `senderId` is the accountId and `deletedAt` is absent. The
 /// server MUST reject an edit of any other message with a `forbidden`
 /// SetError."
 ///
 /// Only the deleted-message half is exercised: the jig's single caller
-/// cannot author a Message whose `senderId` is not `"self"`.
+/// cannot author a Message whose `senderId` is not the accountId.
 #[tokio::test]
 async fn message_edit_after_delete_is_forbidden() {
     let (_jig, client, session) = connect().await;
