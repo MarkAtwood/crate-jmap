@@ -36,6 +36,7 @@ use crate::helpers::{
     finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
     SetAccumulators,
 };
+use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
@@ -258,6 +259,19 @@ pub async fn handle_invite_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
+            // Optional properties: a wrongly-typed value is invalidProperties
+            // (RFC 8620 §5.3), not a silent absence.
+            if let Some(err) = mistyped_create_props(
+                obj_val,
+                &[
+                    ("defaultChannelId", PropType::Str),
+                    ("expiresAt", PropType::Str),
+                    ("maxUses", PropType::UnsignedInt),
+                ],
+            ) {
+                not_created.insert(create_id.clone(), err);
+                continue;
+            }
             // spaceId is required on create.
             let space_id = match obj_val.get("spaceId").and_then(|v| v.as_str()) {
                 // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
@@ -349,7 +363,7 @@ pub async fn handle_invite_set<B: ChatBackend>(
             // the accountId (draft-atwood-jmap-chat-00 §Terminology,
             // §SpaceInvite.createdBy).
             let invite = SpaceInvite::new(
-                Id::from("placeholder"),
+                Id::from(PLACEHOLDER_ID),
                 code,
                 space_id,
                 account_id.clone(),

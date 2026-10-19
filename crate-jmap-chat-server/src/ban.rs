@@ -34,6 +34,7 @@ use crate::helpers::{
     finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
     SetAccumulators,
 };
+use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
@@ -187,6 +188,15 @@ pub async fn handle_ban_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
+            // Optional properties: a wrongly-typed value is invalidProperties
+            // (RFC 8620 §5.3), not a silent absence.
+            if let Some(err) = mistyped_create_props(
+                obj_val,
+                &[("reason", PropType::Str), ("expiresAt", PropType::Str)],
+            ) {
+                not_created.insert(create_id.clone(), err);
+                continue;
+            }
             let Some(space_id_str) = obj_val.get("spaceId").and_then(|v| v.as_str()) else {
                 not_created.insert(
                     create_id.clone(),
@@ -219,7 +229,7 @@ pub async fn handle_ban_set<B: ChatBackend>(
             let created_at = UTCDate::from(now_str.as_ref());
 
             let mut ban = SpaceBan::new(
-                Id::from("placeholder"),
+                Id::from(PLACEHOLDER_ID),
                 space_id,
                 user_id,
                 banned_by,

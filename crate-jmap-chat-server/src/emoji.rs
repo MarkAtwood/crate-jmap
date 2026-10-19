@@ -36,6 +36,7 @@ use crate::helpers::{
     finalize_set_response, not_found_json, now_utc_string, optional_arg, reject_unsupported_query,
     serialize_value, set_error_value, SetAccumulators,
 };
+use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
 use jmap_server::{query_anchor_args, server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
@@ -381,6 +382,12 @@ pub async fn handle_emoji_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
+            // Optional properties: a wrongly-typed value is invalidProperties
+            // (RFC 8620 §5.3), not a silent absence.
+            if let Some(err) = mistyped_create_props(obj_val, &[("spaceId", PropType::Str)]) {
+                not_created.insert(create_id.clone(), err);
+                continue;
+            }
             // Validate name: required, non-empty, matches /^[a-z0-9_-]+$/
             let name = match obj_val.get("name").and_then(|v| v.as_str()) {
                 Some(s) if !s.is_empty() => s.to_owned(),
@@ -456,7 +463,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             // createdBy is the owner, referenced by the accountId
             // (draft-atwood-jmap-chat-00 §Terminology).
             let mut emoji = CustomEmoji::new(
-                Id::from("placeholder"),
+                Id::from(PLACEHOLDER_ID),
                 name,
                 blob_id,
                 account_id.clone(),
