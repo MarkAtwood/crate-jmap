@@ -298,19 +298,13 @@ pub struct Attachment {
 pub struct Mention {
     /// The mentioned [`ChatContact`]'s `id` (draft-atwood-jmap-chat-00 §4.4).
     ///
-    /// Any opaque URI form: `user@host` (federated), a W3C DID-Core
-    /// URI (`did:web:...`, `did:key:...`), a local-account id, or
-    /// any future form. The textual representation in the message
-    /// body (e.g. `@user@host`, `@did:web:...`, or `@display-name`)
-    /// is composer-defined and is NOT recoverable from this field
-    /// alone — locating and rendering the displayed text is
-    /// presentation, left to the composer and renderer. Servers and clients MUST
-    /// treat the value as opaque.
-    ///
-    /// See [`ChatContact`] (`id` field) for the full URI-latitude
-    /// note, including the list of accepted forms AND the
-    /// Id-layer constraints (max 255 bytes, SAFE-CHAR character
-    /// set) that apply when constructing via `Id::new_validated`.
+    /// A server-assigned Id local to this server, not the user's
+    /// authentication-layer identity (that is
+    /// [`ChatContact::identity`](crate::ChatContact::identity)). The
+    /// textual representation in the message body (e.g. `@user@host`
+    /// or `@display-name`) is composer-defined and is NOT recoverable
+    /// from this field alone — locating and rendering the displayed
+    /// text is presentation, left to the composer and renderer.
     ///
     /// [`ChatContact`]: crate::ChatContact
     pub id: Id,

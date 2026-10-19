@@ -77,51 +77,25 @@ pub struct Endpoint {
 pub struct ChatContact {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.8).
     ///
-    /// # Wire form
-    ///
-    /// Per draft-atwood-jmap-chat-00 commits `48b6a31` (DID URIs
-    /// acknowledged) and `5bfb16d` (federated / DID-URI textual forms
-    /// for user mentions): this id is any opaque URI form, including
-    /// but not limited to:
-    ///
-    /// - `user@host` — federated identity, the historical default
-    /// - W3C DID-Core URIs — `did:web:alice.example`,
-    ///   `did:key:z6MkhaXgBZ...`, and other DID methods
-    /// - Local-account ids (single-tenant deployments)
-    /// - Any other future URI form
-    ///
-    /// Servers and clients MUST treat the value as opaque: do not
-    /// parse, validate, or normalize. Two `ChatContact.id` values are
-    /// "the same contact" iff their wire strings are byte-equal.
-    ///
-    /// # Id-layer constraints
-    ///
-    /// "Opaque" is a draft-level statement about semantic
-    /// interpretation, not about the wire-string character set.
-    /// The underlying [`Id`] type from `jmap-types` carries the
-    /// RFC 8620 §1.2 constraints when constructed via
-    /// `Id::new_validated`:
-    ///
-    /// - At most 255 bytes.
-    /// - SAFE-CHAR only: bytes `0x21` and `0x23..=0x7E` (visible
-    ///   ASCII, excluding `"`).
-    ///
-    /// In practice, "any opaque URI form" therefore reduces to
-    /// "any printable-ASCII URI form that fits in 255 bytes and
-    /// does not contain `\"`". The common forms (`user@host`,
-    /// `did:web:alice.example`, short `did:key:...` values, ULID
-    /// local-account ids) fit comfortably. Long `did:key` values
-    /// with extended multibase encodings can approach or exceed
-    /// the 255-byte limit; deployments that adopt such forms MUST
-    /// verify they fit before issuing them.
-    ///
-    /// `Id::from` (the infallible conversion) does NOT enforce
-    /// these constraints. Code that constructs a `ChatContact`
-    /// from a peer-supplied identity string SHOULD use
-    /// `Id::new_validated` and surface the `ValidationError` to
-    /// the auth layer rather than relying on `Id::from` to
-    /// silently accept non-conforming wire forms.
+    /// The server-assigned RFC 8620 §1.2 Id of this ChatContact. It is
+    /// local to this server: another server holds a different `id` for
+    /// the same user. Every client-facing reference to a user (a
+    /// Message `senderId`, a Mention `id`, a ChatMember `id`) carries
+    /// this value. The user's authentication-layer identity is in
+    /// [`identity`](Self::identity), not here.
     pub id: Id,
+    /// The `identity` property (draft-atwood-jmap-chat-00 §4.8).
+    ///
+    /// The identity string the authentication layer provides for this
+    /// user, for example a `user@host`-style string, a W3C DID-Core URI
+    /// (`did:web:alice.example`), or another URI. Immutable. Set by the
+    /// server when it records the contact automatically, or by the
+    /// owner in `ChatContact/set` create.
+    ///
+    /// Servers MUST treat the value as opaque and compare it octet for
+    /// octet; within a server, at most one ChatContact has a given
+    /// `identity`.
+    pub identity: String,
     /// The `login` property (draft-atwood-jmap-chat-00 §4.8).
     pub login: String,
     /// The `firstSeenAt` property (draft-atwood-jmap-chat-00 §4.8).
@@ -163,6 +137,7 @@ impl ChatContact {
     /// All optional fields default to `None`.
     pub fn new(
         id: Id,
+        identity: impl Into<String>,
         login: impl Into<String>,
         first_seen_at: UTCDate,
         last_seen_at: UTCDate,
@@ -170,6 +145,7 @@ impl ChatContact {
     ) -> Self {
         Self {
             id,
+            identity: identity.into(),
             login: login.into(),
             first_seen_at,
             last_seen_at,
@@ -194,6 +170,7 @@ mod tests {
     fn contact_deser_minimal() {
         let json = r#"{
             "id": "u1",
+            "identity": "alice@example.com",
             "login": "alice@example.com",
             "firstSeenAt": "2026-01-01T00:00:00Z",
             "lastSeenAt": "2026-04-01T00:00:00Z",
@@ -252,6 +229,7 @@ mod tests {
     fn chat_contact_preserves_vendor_extras() {
         let raw = serde_json::json!({
             "id": "u1",
+            "identity": "alice@example.com",
             "login": "alice@example.com",
             "firstSeenAt": "2026-01-01T00:00:00Z",
             "lastSeenAt": "2026-04-01T00:00:00Z",
@@ -269,15 +247,17 @@ mod tests {
         assert_eq!(back["acmeCorpFederationPeer"], "node-2");
     }
 
-    // Oracle: per draft-atwood-jmap-chat-00 commits 48b6a31 + 5bfb16d,
-    // ChatContact.id may carry any opaque URI form, including W3C
-    // DID-Core URIs. A `did:web:...` value MUST round-trip the wire
-    // string verbatim — the serializer does not URL-encode, parse, or
-    // normalize.
+    // Oracle: per draft-atwood-jmap-chat-00 at jmap-chat-spec cefc217,
+    // ChatContact.identity holds the authentication-layer identity
+    // ("a `user@host`-style string, a Decentralized Identifier URI, or
+    // another URI") and "Servers MUST treat it as opaque". A `did:web:...`
+    // value MUST round-trip the wire string verbatim beside a local Id —
+    // the serializer does not URL-encode, parse, or normalize.
     #[test]
-    fn contact_did_uri_id_round_trips_verbatim() {
+    fn contact_did_uri_identity_round_trips_verbatim() {
         let original = ChatContact {
-            id: Id::from("did:web:alice.example"),
+            id: Id::from("c1"),
+            identity: "did:web:alice.example".to_owned(),
             login: "alice@alice.example".to_owned(),
             first_seen_at: UTCDate::from("2026-01-01T00:00:00Z"),
             last_seen_at: UTCDate::from("2026-04-01T00:00:00Z"),
@@ -293,28 +273,27 @@ mod tests {
 
         let serialized = serde_json::to_value(&original).expect("serialize");
         assert_eq!(
-            serialized["id"], "did:web:alice.example",
+            serialized["identity"], "did:web:alice.example",
             "DID URI must serialize as the verbatim wire string"
         );
 
         let round: ChatContact = serde_json::from_value(serialized).expect("deserialize");
         assert_eq!(
-            round.id.as_ref(),
-            "did:web:alice.example",
+            round.identity, "did:web:alice.example",
             "DID URI must deserialize back to the same opaque string"
         );
 
         // A second non-DID form is also opaque — round-trip a federated
         // user@host form for parity.
         let federated = ChatContact {
-            id: Id::from("alice@matrix.example"),
+            identity: "alice@matrix.example".to_owned(),
             login: "alice@matrix.example".to_owned(),
             ..original
         };
         let serialized = serde_json::to_value(&federated).expect("serialize");
-        assert_eq!(serialized["id"], "alice@matrix.example");
+        assert_eq!(serialized["identity"], "alice@matrix.example");
         let round: ChatContact = serde_json::from_value(serialized).expect("deserialize");
-        assert_eq!(round.id.as_ref(), "alice@matrix.example");
+        assert_eq!(round.identity, "alice@matrix.example");
     }
 
     // Oracle: when blocked=true, the "blocked" key must appear in serialized output.
@@ -322,6 +301,7 @@ mod tests {
     fn contact_blocked_present() {
         let c = ChatContact {
             id: Id::from("u2"),
+            identity: "bob@example.com".to_owned(),
             login: "bob@example.com".to_owned(),
             first_seen_at: UTCDate::from("2026-01-01T00:00:00Z"),
             last_seen_at: UTCDate::from("2026-04-01T00:00:00Z"),

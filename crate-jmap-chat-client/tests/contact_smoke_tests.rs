@@ -92,7 +92,8 @@ async fn chat_contact_get_decodes_populated_contact() {
             "state": "cc-state-2",
             "list": [
                 {
-                    "id": "alice@example.org",
+                    "id": "c1",
+                    "identity": "alice@example.org",
                     "login": "alice",
                     "firstSeenAt": "2026-01-01T00:00:00Z",
                     "lastSeenAt": "2026-01-20T15:00:00Z",
@@ -115,7 +116,8 @@ async fn chat_contact_get_decodes_populated_contact() {
 
     assert_eq!(resp.list.len(), 1, "list must contain exactly one contact");
     let c = &resp.list[0];
-    assert_eq!(c.id.as_ref(), "alice@example.org", "id mismatch");
+    assert_eq!(c.id.as_ref(), "c1", "id mismatch");
+    assert_eq!(c.identity, "alice@example.org", "identity mismatch");
     assert_eq!(c.login, "alice", "login mismatch");
     assert!(!c.blocked, "blocked must be false");
     assert_eq!(
@@ -149,7 +151,7 @@ async fn chat_contact_changes_passthrough_and_empty_state_rejected() {
             "newState": "cc-new",
             "hasMoreChanges": false,
             "created": [],
-            "updated": ["alice@example.org"],
+            "updated": ["c1"],
             "destroyed": []
         }),
     );
@@ -193,12 +195,12 @@ async fn chat_contact_update_blocked_patch_serialises() {
         "ChatContact/set",
         "cc-1",
         "cc-2",
-        json!({ "updated": { "alice@example.org": null } }),
+        json!({ "updated": { "c1": null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let id = Id::from("alice@example.org");
+    let id = Id::from("c1");
     let mut patch = jmap_chat_client::methods::ChatContactPatch::default();
     patch.blocked = Some(true);
     let _ = sc
@@ -208,7 +210,7 @@ async fn chat_contact_update_blocked_patch_serialises() {
 
     let args = recorded_args(&server).await;
     assert_eq!(
-        args["update"]["alice@example.org"],
+        args["update"]["c1"],
         json!({ "blocked": true }),
         "patch must contain only blocked=true"
     );
@@ -227,12 +229,12 @@ async fn chat_contact_update_display_name_clear_emits_null() {
         "ChatContact/set",
         "cc-1",
         "cc-2",
-        json!({ "updated": { "alice@example.org": null } }),
+        json!({ "updated": { "c1": null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let id = Id::from("alice@example.org");
+    let id = Id::from("c1");
     let mut patch = jmap_chat_client::methods::ChatContactPatch::default();
     patch.display_name = jmap_chat_client::methods::Patch::Clear;
     let _ = sc
@@ -242,7 +244,7 @@ async fn chat_contact_update_display_name_clear_emits_null() {
 
     let args = recorded_args(&server).await;
     assert_eq!(
-        args["update"]["alice@example.org"],
+        args["update"]["c1"],
         json!({ "displayName": null }),
         "Patch::Clear must serialise displayName as JSON null"
     );

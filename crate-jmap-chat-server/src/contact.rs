@@ -152,7 +152,8 @@ pub async fn handle_contact_changes<B: ChatBackend>(
 ///
 /// ChatContact objects are server-managed. Clients MUST NOT create or destroy
 /// them; any attempt is rejected with `forbidden`. Only `update` is permitted,
-/// and `id`, `firstSeenAt`, `lastSeenAt` are server-set and rejected in updates.
+/// and `id`, `identity`, `firstSeenAt`, `lastSeenAt` are immutable or
+/// server-set and rejected in updates.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_set<B: ChatBackend>(
@@ -210,7 +211,7 @@ pub async fn handle_contact_set<B: ChatBackend>(
             // jmap-chat-types, add its wire name here too. Drift between
             // this list and the struct fields is a silent client-overwrite
             // bug. Tracked workspace-wide as bd:JMAP-x2gd.87.
-            const CONTACT_READONLY: &[&str] = &["id", "firstSeenAt", "lastSeenAt"];
+            const CONTACT_READONLY: &[&str] = &["id", "identity", "firstSeenAt", "lastSeenAt"];
             let bad_props: Vec<&str> = CONTACT_READONLY
                 .iter()
                 .copied()

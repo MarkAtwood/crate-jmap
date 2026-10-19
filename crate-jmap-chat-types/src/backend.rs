@@ -156,6 +156,8 @@ pub enum SpaceProperty {
 pub enum ChatContactProperty {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.8).
     Id,
+    /// The `identity` property (draft-atwood-jmap-chat-00 §4.8).
+    Identity,
     /// The `login` property (draft-atwood-jmap-chat-00 §4.8).
     Login,
     /// The `firstSeenAt` property (draft-atwood-jmap-chat-00 §4.8).
