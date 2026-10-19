@@ -54,10 +54,12 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
-    ChatLimits, EmojiSetOp, GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult,
-    QueryObject, QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
+    strip_unsupported_chat_push, validate_chat_push, AddedItem, BackendChangesError,
+    BackendQueryError, BackendSetError, ChangesResult, ChatBackend, ChatLimits, EmojiSetOp,
+    GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult,
+    SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
 };
+use jmap_chat_types::ChatPushCapability;
 use jmap_server::{
     apply_patch_object, json_merge_patch, now_utc_string, resolve_query_start, MergePatchError,
     PushSubscriptionBackend, StoredPushSubscription,
@@ -136,6 +138,10 @@ struct Inner {
     /// Last push subscription sequence number handed out. Only ever
     /// incremented, so a destroyed subscription's id is never reissued.
     push_seq: u64,
+    /// account id -> its `urn:ietf:params:jmap:chat:push` capability
+    /// object. Accounts not in the map do not advertise the capability.
+    /// Set via [`MemoryBackend::set_chat_push_capability_for_test`].
+    chat_push_caps: HashMap<Id, ChatPushCapability>,
 }
 
 impl Inner {
@@ -366,6 +372,29 @@ impl MemoryBackend {
         inner
             .owner_user_ids
             .insert(account_id.as_ref().to_owned(), owner_user_id.to_owned());
+    }
+
+    /// Test-only: set whether `account_id` advertises
+    /// `urn:ietf:params:jmap:chat:push`, and with which capability object.
+    ///
+    /// `Some(cap)` advertises it; `None` withdraws it. Push subscription
+    /// create and update validate `chatPush` against these capabilities,
+    /// and list strips entries for accounts without one
+    /// (draft-atwood-jmap-chat-push-00 §PushSubscription Extension). No
+    /// account advertises it by default. Production callers must not use
+    /// this method; the API stability disclaimer on the `memory` feature
+    /// applies doubly here.
+    #[doc(hidden)]
+    pub fn set_chat_push_capability_for_test(
+        &self,
+        account_id: &Id,
+        cap: Option<ChatPushCapability>,
+    ) {
+        let mut inner = self.inner.lock().unwrap();
+        match cap {
+            Some(cap) => inner.chat_push_caps.insert(account_id.clone(), cap),
+            None => inner.chat_push_caps.remove(account_id),
+        };
     }
 
     /// Test-only: override the [`ChatLimits`] returned by
@@ -1407,12 +1436,22 @@ impl PushSubscriptionBackend for MemoryBackend {
         _caller: &(),
     ) -> Result<Vec<StoredPushSubscription>, MemoryError> {
         let inner = self.inner.lock().unwrap();
-        Ok(inner.push_subscriptions.values().cloned().collect())
+        Ok(inner
+            .push_subscriptions
+            .values()
+            .cloned()
+            .map(|mut stored| {
+                strip_unsupported_chat_push(&mut stored.subscription.extra, &inner.chat_push_caps);
+                stored
+            })
+            .collect())
     }
 
     /// Store `new` under a fresh id with a 128-bit verification code, or
     /// return `overQuota` when [`MAX_PUSH_SUBSCRIPTIONS`] are already
     /// stored. The cap is checked under the same lock as the insert.
+    /// A `chatPush` that fails [`validate_chat_push`] is rejected and
+    /// nothing is stored.
     async fn create_push_subscription(
         &self,
         _caller: &(),
@@ -1420,6 +1459,7 @@ impl PushSubscriptionBackend for MemoryBackend {
     ) -> Result<StoredPushSubscription, BackendSetError<MemoryError>> {
         let expected_code = random_base64url_code();
         let mut inner = self.inner.lock().unwrap();
+        validate_chat_push(&new.extra, &inner.chat_push_caps).map_err(BackendSetError::SetError)?;
         if inner.push_subscriptions.len() >= MAX_PUSH_SUBSCRIPTIONS {
             return Err(BackendSetError::SetError(
                 SetError::new(SetErrorType::OverQuota).with_description(format!(
@@ -1438,12 +1478,15 @@ impl PushSubscriptionBackend for MemoryBackend {
         Ok(stored)
     }
 
+    /// Replace the stored subscription with `sub`. A `chatPush` that fails
+    /// [`validate_chat_push`] is rejected and the stored one is kept.
     async fn update_push_subscription(
         &self,
         _caller: &(),
         sub: PushSubscription,
     ) -> Result<PushSubscription, BackendSetError<MemoryError>> {
         let mut inner = self.inner.lock().unwrap();
+        validate_chat_push(&sub.extra, &inner.chat_push_caps).map_err(BackendSetError::SetError)?;
         let stored = sub
             .id
             .as_ref()
