@@ -501,7 +501,11 @@ pub(crate) mod test_support {
             )))
         }
 
-        fn supports_type<O: JmapObject>(&self) -> bool {
+        fn supports_type<O: JmapObject>(
+            &self,
+            _caller: &Self::CallerCtx,
+            _account_id: &jmap_types::Id,
+        ) -> bool {
             true
         }
 
@@ -977,7 +981,11 @@ mod tests {
                 Ok(())
             }
 
-            fn supports_type<O: JmapObject>(&self) -> bool {
+            fn supports_type<O: JmapObject>(
+                &self,
+                _caller: &Self::CallerCtx,
+                _account_id: &jmap_types::Id,
+            ) -> bool {
                 true
             }
 

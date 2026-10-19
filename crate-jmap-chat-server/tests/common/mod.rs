@@ -147,7 +147,11 @@ impl ChatBackend for FaultyBackend {
         )))
     }
 
-    fn supports_type<O: JmapObject>(&self) -> bool {
+    fn supports_type<O: JmapObject>(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+    ) -> bool {
         false
     }
 
@@ -431,8 +435,12 @@ impl ChatBackend for TrackingBackend {
         self.inner.destroy_object::<O>(caller, account_id, id).await
     }
 
-    fn supports_type<O: JmapObject>(&self) -> bool {
-        self.inner.supports_type::<O>()
+    fn supports_type<O: JmapObject>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> bool {
+        self.inner.supports_type::<O>(caller, account_id)
     }
 
     async fn join_space_with_invite(
@@ -746,8 +754,8 @@ impl ChatBackend for IdentityBackend {
         self.inner.destroy_object::<O>(&(), account_id, id).await
     }
 
-    fn supports_type<O: JmapObject>(&self) -> bool {
-        self.inner.supports_type::<O>()
+    fn supports_type<O: JmapObject>(&self, _caller: &Id, account_id: &Id) -> bool {
+        self.inner.supports_type::<O>(&(), account_id)
     }
 
     async fn join_space_with_invite(
@@ -1207,8 +1215,12 @@ impl ChatBackend for InjectableBackend {
         self.inner.destroy_object::<O>(caller, account_id, id).await
     }
 
-    fn supports_type<O: JmapObject>(&self) -> bool {
-        self.inner.supports_type::<O>()
+    fn supports_type<O: JmapObject>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> bool {
+        self.inner.supports_type::<O>(caller, account_id)
     }
 
     async fn join_space_with_invite(

@@ -160,7 +160,7 @@ pub trait TasksBackend: JmapBackend {
     /// Return false for types gated on extensions the backend does not
     /// implement (e.g. return false for a recurrence-related type if the
     /// backend does not support the recurrences extension).
-    fn supports_type<O: JmapObject>(&self) -> bool;
+    fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx, account_id: &Id) -> bool;
 }
 ```
 

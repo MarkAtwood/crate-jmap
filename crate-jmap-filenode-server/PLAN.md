@@ -206,7 +206,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// FileNodeBackend only handles FileNode, so this is primarily a hook for
     /// the session capability builder to confirm support. Backends that support
     /// all types unconditionally can return `true` always.
-    fn supports_type<O: JmapObject>(&self) -> bool;
+    fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx, account_id: &Id) -> bool;
 }
 
 /// Register all JMAP FileNode handlers with a jmap-server Dispatcher.

@@ -193,7 +193,18 @@ pub trait TasksBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
 
     /// Returns true if this account supports the given JMAP object type.
-    fn supports_type<O: JmapObject>(&self) -> bool;
+    ///
+    /// # Per-account semantics
+    ///
+    /// Capabilities are per account (RFC 8620 §1.6.2, §2
+    /// `accountCapabilities`), so the answer may vary with `caller` and
+    /// `account_id`. Backends that support every type in this trait for
+    /// every account can ignore both arguments and return `true`.
+    fn supports_type<O: JmapObject>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> bool;
 
     /// Returns true if the given task list contains at least one task.
     ///

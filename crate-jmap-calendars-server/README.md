@@ -107,7 +107,7 @@ pub trait CalendarsBackend: JmapBackend {
 
     /// Returns true if this account supports the given JMAP object type.
     /// Not called internally — used by the session capability builder.
-    fn supports_type<O: JmapObject>(&self) -> bool;
+    fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx, account_id: &Id) -> bool;
 
     // --- Calendar-specific introspection ---
 
@@ -346,7 +346,8 @@ pub use jmap_calendars_types::{
 ```
 
 Which URIs to advertise depends on which capabilities your backend supports.
-Use `CalendarsBackend::supports_type::<O>()` to check at session-build time.
+Use `CalendarsBackend::supports_type::<O>(caller, account_id)` to check each
+account at session-build time.
 
 ## Crate family
 

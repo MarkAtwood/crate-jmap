@@ -1219,7 +1219,11 @@ impl CalendarsBackend for MemoryBackend {
         }
     }
 
-    fn supports_type<O: JmapObject>(&self) -> bool {
+    fn supports_type<O: JmapObject>(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+    ) -> bool {
         matches!(
             O::TYPE_NAME,
             "Calendar" | "CalendarEvent" | "CalendarEventNotification" | "ParticipantIdentity"

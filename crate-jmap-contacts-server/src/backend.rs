@@ -203,11 +203,17 @@ pub trait ContactsBackend: JmapBackend {
     /// A backend impl shared across both extension families should answer
     /// truthfully per-type, not paper over the difference.
     ///
-    /// # Default
+    /// # Per-account semantics
     ///
-    /// Backends that support every type in this trait unconditionally can
-    /// return `true` always.
-    fn supports_type<O: JmapObject>(&self) -> bool;
+    /// Capabilities are per account (RFC 8620 §1.6.2, §2
+    /// `accountCapabilities`), so the answer may vary with `caller` and
+    /// `account_id`. Backends that support every type in this trait for
+    /// every account can ignore both arguments and return `true`.
+    fn supports_type<O: JmapObject>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> bool;
 
     /// Copy a ContactCard from one account to another.
     ///

@@ -97,7 +97,7 @@ pub trait SharingBackend: JmapBackend {
     ///
     /// Not called internally — used by the session capability builder.
     /// Backends that support all types unconditionally can return true always.
-    fn supports_type<O: JmapObject>(&self) -> bool;
+    fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx, account_id: &Id) -> bool;
 }
 ```
 

@@ -104,7 +104,7 @@ pub trait ChatBackend: JmapBackend {
     /// Returns true if this account supports the given JMAP object type.
     /// Called by the session/capability builder — NOT called internally by handlers.
     /// Backends that support all types unconditionally can return `true` always.
-    fn supports_type<O: JmapObject>(&self) -> bool;
+    fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx, account_id: &Id) -> bool;
 
     /// Generate a cryptographically random invite code.
     /// MUST use a CSPRNG. Do NOT use timestamps or sequential counters.
