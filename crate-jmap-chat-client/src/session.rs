@@ -13,7 +13,9 @@
 //! (the canonical home for chat wire-format types); this module re-exports
 //! them for ergonomic use from the trait signatures below.
 
-pub use jmap_chat_types::{ChatCapability, ChatFilenodeCapability, ChatPushCapability};
+pub use jmap_chat_types::{
+    ChatCapability, ChatCapabilityRole, ChatFilenodeCapability, ChatPushCapability,
+};
 
 // ---------------------------------------------------------------------------
 // ChatSessionExt
