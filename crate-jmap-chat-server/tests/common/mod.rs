@@ -30,7 +30,7 @@ use jmap_chat_server::{
     QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject, SlowModeError,
     SpacePatchOp,
 };
-use jmap_types::{Id, State, UTCDate};
+use jmap_types::{Id, PatchObject, State, UTCDate};
 
 // ---------------------------------------------------------------------------
 // FaultyBackend — always returns errors, for negative-path testing
@@ -159,6 +159,18 @@ impl ChatBackend for FaultyBackend {
         _joined_at: &UTCDate,
     ) -> Result<Result<(), InviteJoinRefusal>, Self::Error> {
         Err(MemoryError::new("storage unavailable"))
+    }
+
+    async fn read_and_burn_message(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        _message_id: &Id,
+        _patch: PatchObject,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        Err(BackendSetError::Other(MemoryError::new(
+            "storage unavailable",
+        )))
     }
 
     fn generate_invite_code(&self) -> String {
@@ -546,6 +558,18 @@ impl ChatBackend for TrackingBackend {
             .expire_message(caller, account_id, message_id)
             .await
     }
+
+    async fn read_and_burn_message(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        message_id: &Id,
+        patch: PatchObject,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        self.inner
+            .read_and_burn_message(caller, account_id, message_id, patch)
+            .await
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -872,6 +896,18 @@ impl ChatBackend for IdentityBackend {
     ) -> Result<(), Self::Error> {
         self.inner.expire_message(&(), account_id, message_id).await
     }
+
+    async fn read_and_burn_message(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        message_id: &Id,
+        patch: PatchObject,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        self.inner
+            .read_and_burn_message(&(), account_id, message_id, patch)
+            .await
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -912,8 +948,8 @@ pub const INJECTABLE_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3
 ///   [`ChatBackend::create_object`] call for type `O`.
 /// - `(O::TYPE_NAME, "destroy")` — fails the next
 ///   [`ChatBackend::destroy_object`] call for type `O`.
-/// - `("Message", "expire")` — fails the next
-///   [`ChatBackend::expire_message`] call.
+/// - `("Message", "read_and_burn")` — fails the next
+///   [`ChatBackend::read_and_burn_message`] call.
 /// - [`InjectableBackend::queue_chat_race_phantom`] — after the next
 ///   [`ChatBackend::create_object`] call for type `Chat` returns
 ///   successfully, insert a phantom `Direct` Chat into the inner
@@ -1225,13 +1261,25 @@ impl ChatBackend for InjectableBackend {
         account_id: &Id,
         message_id: &Id,
     ) -> Result<(), Self::Error> {
-        if self.take_fault("Message", "expire") {
-            return Err(MemoryError::new(format!(
-                "injected expire error {INJECTABLE_BACKEND_CANARY}"
-            )));
-        }
         self.inner
             .expire_message(caller, account_id, message_id)
+            .await
+    }
+
+    async fn read_and_burn_message(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        message_id: &Id,
+        patch: PatchObject,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        if self.take_fault("Message", "read_and_burn") {
+            return Err(BackendSetError::Other(MemoryError::new(format!(
+                "injected read_and_burn error {INJECTABLE_BACKEND_CANARY}"
+            ))));
+        }
+        self.inner
+            .read_and_burn_message(caller, account_id, message_id, patch)
             .await
     }
 }

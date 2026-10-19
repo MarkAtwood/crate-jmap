@@ -878,64 +878,7 @@ impl ChatBackend for MemoryBackend {
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
-
-        let existing = inner
-            .objects_mut(O::TYPE_NAME, account_id.as_ref())
-            .get(id)
-            .cloned();
-
-        let mut current = match existing {
-            Some(v) => v,
-            None => {
-                return Err(BackendSetError::SetError(SetError::new(
-                    SetErrorType::NotFound,
-                )))
-            }
-        };
-
-        // JMAP patch (RFC 8620 §5.3): keys are JSON Pointer paths, values
-        // replace the pointed-to member wholesale. `apply_patch_object` is
-        // all-or-nothing, and `current` is a clone of the stored value, so an
-        // invalidPatch leaves storage unchanged. Its nesting DoS cap
-        // (bd:JMAP-wlip.1, path segments + value depth) also surfaces here
-        // as invalidPatch.
-        let patch_val = serde_json::to_value(&patch).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!("serialize patch: {e}")))
-        })?;
-        if let (serde_json::Value::Object(base), serde_json::Value::Object(patch_map)) =
-            (&mut current, &patch_val)
-        {
-            apply_patch_object(base, patch_map).map_err(|e| {
-                BackendSetError::SetError(
-                    SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-                )
-            })?;
-        }
-
-        // Re-validate the patched copy as `O` before storing
-        // (bd:JMAP-yk3i): a `null` or wrong-typed value on a required
-        // property would otherwise be stored and fail every later `/get`.
-        // The offending property is named only when the patch touches a
-        // single top-level property; otherwise the description carries it.
-        if let Err(e) = O::deserialize(&current) {
-            let mut props: Vec<String> = patch_val
-                .as_object()
-                .into_iter()
-                .flat_map(|m| m.keys())
-                .map(|k| {
-                    let top = k.split('/').next().unwrap_or(k);
-                    top.replace("~1", "/").replace("~0", "~")
-                })
-                .collect();
-            props.sort();
-            props.dedup();
-            let mut err = SetError::new(SetErrorType::InvalidProperties)
-                .with_description(format!("patched {} is invalid: {e}", O::TYPE_NAME));
-            if props.len() == 1 {
-                err = err.with_properties(props);
-            }
-            return Err(BackendSetError::SetError(err));
-        }
+        let current = patched_copy::<O>(&mut inner, account_id.as_ref(), id, &patch)?;
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
@@ -1586,6 +1529,34 @@ impl ChatBackend for MemoryBackend {
         }
         Ok(())
     }
+
+    /// Reference implementation of [`ChatBackend::read_and_burn_message`].
+    ///
+    /// Validates the patch on a clone and hard-deletes the row under one
+    /// hold of the backend lock, recording the id as `destroyed`. The
+    /// patched copy is never stored: the row is removed in the same
+    /// critical section, so only the deletion is observable. An invalid
+    /// patch returns before any write.
+    async fn read_and_burn_message(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        message_id: &Id,
+        patch: jmap_types::PatchObject,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        let mut inner = self.inner.lock().unwrap();
+        let acct = account_id.as_ref();
+        patched_copy::<jmap_chat_types::Message>(&mut inner, acct, message_id, &patch)?;
+        hard_delete_message(&mut inner, acct, message_id);
+        let new_state = inner.bump_state("Message", acct);
+        inner.change_log_mut("Message", acct).push(ChangeEntry {
+            new_state,
+            created: vec![],
+            updated: vec![],
+            destroyed: vec![message_id.clone()],
+        });
+        Ok(())
+    }
 }
 
 /// Reference RFC 8620 §7.2 push subscription storage.
@@ -1708,6 +1679,74 @@ fn base64url_unpadded(bytes: &[u8]) -> String {
         }
     }
     out
+}
+
+/// Stored `O` `id` with `patch` applied, validated but not stored.
+///
+/// `notFound` if `id` is absent; `invalidPatch` / `invalidProperties`
+/// if the patch does not apply or the result is not a valid `O`. Works
+/// on a clone, so an error leaves storage unchanged.
+#[allow(clippy::result_large_err)]
+fn patched_copy<O: SetObject>(
+    inner: &mut Inner,
+    account_id: &str,
+    id: &Id,
+    patch: &O::Patch,
+) -> Result<serde_json::Value, BackendSetError<MemoryError>> {
+    let existing = inner.objects_mut(O::TYPE_NAME, account_id).get(id).cloned();
+
+    let mut current = match existing {
+        Some(v) => v,
+        None => {
+            return Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::NotFound,
+            )))
+        }
+    };
+
+    // JMAP patch (RFC 8620 §5.3): keys are JSON Pointer paths, values
+    // replace the pointed-to member wholesale. `apply_patch_object` is
+    // all-or-nothing, and `current` is a clone of the stored value, so an
+    // invalidPatch leaves storage unchanged. Its nesting DoS cap
+    // (bd:JMAP-wlip.1, path segments + value depth) also surfaces here
+    // as invalidPatch.
+    let patch_val = serde_json::to_value(patch)
+        .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize patch: {e}"))))?;
+    if let (serde_json::Value::Object(base), serde_json::Value::Object(patch_map)) =
+        (&mut current, &patch_val)
+    {
+        apply_patch_object(base, patch_map).map_err(|e| {
+            BackendSetError::SetError(
+                SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+            )
+        })?;
+    }
+
+    // Re-validate the patched copy as `O` before storing
+    // (bd:JMAP-yk3i): a `null` or wrong-typed value on a required
+    // property would otherwise be stored and fail every later `/get`.
+    // The offending property is named only when the patch touches a
+    // single top-level property; otherwise the description carries it.
+    if let Err(e) = O::deserialize(&current) {
+        let mut props: Vec<String> = patch_val
+            .as_object()
+            .into_iter()
+            .flat_map(|m| m.keys())
+            .map(|k| {
+                let top = k.split('/').next().unwrap_or(k);
+                top.replace("~1", "/").replace("~0", "~")
+            })
+            .collect();
+        props.sort();
+        props.dedup();
+        let mut err = SetError::new(SetErrorType::InvalidProperties)
+            .with_description(format!("patched {} is invalid: {e}", O::TYPE_NAME));
+        if props.len() == 1 {
+            err = err.with_properties(props);
+        }
+        return Err(BackendSetError::SetError(err));
+    }
+    Ok(current)
 }
 
 /// Remove Message `id` and unpin it from its Chat under the same lock.
