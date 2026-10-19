@@ -437,6 +437,14 @@ pub trait ChatBackend: JmapBackend {
     ///   duplicate as `BackendSetError::SetError(SetError::new(
     ///   SetErrorType::AlreadyExists).with_existing_id(canonical))`.
     ///   See draft-atwood-jmap-chat-00 §ReadPosition.
+    /// - **`ChatContact`** — at most one record per
+    ///   `(account_id, identity)`, compared octet for octet.
+    ///   [`crate::contact::handle_contact_set`] does not pre-check: the
+    ///   backend MUST reject a duplicate atomically with the create as
+    ///   `BackendSetError::SetError(SetError::new(
+    ///   SetErrorType::AlreadyExists).with_existing_id(existing))`, where
+    ///   `existing` is the id of the ChatContact that holds the
+    ///   `identity`. See draft-atwood-jmap-chat-00 §ChatContact/set.
     /// - **`Chat`** with `kind == Direct` — at most one direct chat
     ///   per `(account_id, contact_id)`. The handler at
     ///   [`crate::chat::handle_chat_set`] uses optimistic
@@ -1153,6 +1161,29 @@ pub trait ChatBackend: JmapBackend {
         _contact_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
         async { Ok(false) }
+    }
+
+    /// The owner's identity for `account_id`: the value of the
+    /// `ownerUserId` Session field (draft-atwood-jmap-chat-00 §Session
+    /// Object Extensions).
+    ///
+    /// [`crate::contact::handle_contact_set`] rejects a `ChatContact/set`
+    /// create whose `identity` equals this value, octet for octet, with
+    /// an `invalidProperties` SetError naming `identity`
+    /// (draft-atwood-jmap-chat-00 §ChatContact/set: "the owner has no
+    /// ChatContact").
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(None)`: the owner's identity is unknown and the check
+    /// is skipped. Backends that serve `ownerUserId` MUST override this
+    /// to return the same value.
+    fn owner_user_id(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Option<String>, Self::Error>> + Send {
+        async { Ok(None) }
     }
 
     /// Authorization gate consulted by `handle_emoji_set` before every

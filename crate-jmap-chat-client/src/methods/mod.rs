@@ -1162,6 +1162,9 @@ pub struct ChatContactQueryInput {
     pub filter_blocked: Option<bool>,
     /// Filter to contacts with this exact presence state.
     pub filter_presence: Option<crate::types::ContactPresenceFilter>,
+    /// Filter to the contact whose `identity` equals this value octet
+    /// for octet.
+    pub filter_identity: Option<String>,
     /// Zero-based starting offset within the query result.
     pub position: Option<u64>,
     /// Maximum number of ids to return.
