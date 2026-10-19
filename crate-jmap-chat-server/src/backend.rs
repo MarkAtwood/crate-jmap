@@ -764,7 +764,7 @@ pub trait ChatBackend: JmapBackend {
     /// |---|---|---|
     /// | Any op, caller lacks the spec-mandated permission | `Forbidden` | the permission identifier as a substring (`"manage_space"`, `"manage_channels"`, `"manage_members"`, `"manage_roles"`, or a deployment-specific permission name) |
     /// | `AddRole` / `UpdateRole` at or above caller's highest role `position` | `Forbidden` | `"hierarchy"` or `"position"` |
-    /// | Any op or combination of ops whose post-patch projection leaves the Space with zero `manage_members`-holding members (when [`Self::protect_last_admin`] returns `true`) | `Forbidden` | `"last-admin"` or `"manage_members"` |
+    /// | Any op or combination of ops whose post-patch projection leaves the Space with zero `manage_members`-holding members (when [`Self::protect_last_admin`] returns `true`), other than self-removal | `InvalidProperties` (`properties: ["removeMembers"]`) | `"last-admin"` or `"manage_members"` |
     /// | `AddMember` with `userId` already a member | `InvalidProperties` (`properties: ["userId"]`) | implementation-defined; the reference impl names the duplicate userId |
     /// | `AddMember` with a `roleId` that does not name a role on this Space | `InvalidProperties` (`properties: ["roleIds"]`) | implementation-defined; the reference impl names the unknown roleId |
     /// | `RemoveRole` / `RemoveChannel` / `RemoveCategory` with an id that does not exist on this Space | `NotFound` | implementation-defined; the reference impl names the missing id |
@@ -950,7 +950,11 @@ pub trait ChatBackend: JmapBackend {
     /// (member, role, permission) graph, not on any single op variant.
     /// A backend that returns `true` from this method MUST reject every
     /// patch whose post-application projection has zero members holding
-    /// `manage_members` or `manage_space`, including (non-exhaustively):
+    /// `manage_members` or `manage_space`, including (non-exhaustively)
+    /// the cases below. Self-removal (a `removeMembers` holding only the
+    /// caller's own id) is exempt: draft §Space/set says
+    /// "Last-administrator protection does not apply to self-removal."
+    ///
     ///
     /// - `RemoveMember` that removes the last admin member.
     /// - `UpdateMember` that strips a role granting `manage_members` or
