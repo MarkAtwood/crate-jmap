@@ -629,3 +629,37 @@ async fn space_join_rejects_banned_caller() {
         other => panic!("expected forbidden method error, got {other:?}"),
     }
 }
+
+/// Oracle: draft-atwood-jmap-chat-00 §Space/join — "If the Space does not
+/// exist or has `isPublic: false`, the server MUST return a `notPermitted`
+/// method error."
+#[tokio::test]
+async fn space_join_unknown_or_private_space_is_not_permitted() {
+    let (_jig, client, session) = connect().await;
+    let sc = client.with_chat_session(session);
+
+    let resp = sc
+        .space_create(&SpaceCreateInput::new("Private").with_client_id("s0"))
+        .await
+        .expect("Space/set create");
+    let private_id = created_id(&resp, "s0");
+    let mut patch = SpacePatch::default();
+    patch.is_public = Some(false);
+    let resp = sc
+        .space_update(&private_id, &patch)
+        .await
+        .expect("Space/set update");
+    assert!(
+        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
+        "{resp:?}"
+    );
+
+    for space_id in [private_id, Id::from("nosuchspace")] {
+        match sc.space_join(&SpaceJoinInput::SpaceId(&space_id)).await {
+            Err(ClientError::MethodError { error_type, .. }) => {
+                assert_eq!(error_type, "notPermitted", "{space_id}")
+            }
+            other => panic!("expected notPermitted method error, got {other:?}"),
+        }
+    }
+}
