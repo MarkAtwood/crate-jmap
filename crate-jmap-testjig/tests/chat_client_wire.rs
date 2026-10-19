@@ -242,6 +242,60 @@ async fn chat_update_member_patch_keys() {
     );
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 §Chat/set `removeMembers` — "If the
+/// owner is the last admin and other members remain, leaving closes the
+/// group: the server MUST set `closedAt` ({{chat}}) in the same
+/// operation"; §Chat `closedAt` — "After it is set, the server MUST reject
+/// with a `forbidden` SetError every `Message/set` create in this Chat
+/// ... and members MAY still destroy the Chat via `Chat/set` to remove it
+/// from their view."
+#[tokio::test]
+async fn last_admin_leave_closes_group() {
+    let (_jig, client, session) = connect().await;
+    let sc = client.with_chat_session(session);
+    let group_id = create_group(&sc, "g1", "Team").await;
+    let got = sc
+        .chat_get(Some(std::slice::from_ref(&group_id)), None)
+        .await
+        .expect("Chat/get");
+    assert!(got.list[0].closed_at.is_none());
+
+    // The jig's single caller is the creator and the only admin.
+    let me = [got.account_id.clone()];
+    let mut patch = ChatPatch::default();
+    patch.remove_members = Some(&me);
+    let resp = sc.chat_update(&group_id, &patch).await.expect("leave");
+    assert!(
+        resp.not_updated.as_ref().is_none_or(|m| m.is_empty()),
+        "leave rejected: {resp:?}"
+    );
+    let got = sc
+        .chat_get(Some(std::slice::from_ref(&group_id)), None)
+        .await
+        .expect("Chat/get");
+    assert!(got.list[0].closed_at.is_some(), "{:?}", got.list[0]);
+
+    let sent_at = UTCDate::from(SENT_AT);
+    let input =
+        MessageCreateInput::new(&group_id, "hi", BodyType::Plain, &sent_at).with_client_id("m");
+    let resp = sc.message_create(&input).await.expect("Message/set create");
+    let err = resp
+        .not_created
+        .as_ref()
+        .and_then(|m| m.get("m"))
+        .expect("create in a closed group must be rejected");
+    assert_eq!(err.error_type, "forbidden");
+
+    let resp = sc
+        .chat_destroy(std::slice::from_ref(&group_id))
+        .await
+        .expect("Chat/set destroy");
+    assert_eq!(
+        resp.destroyed.as_deref(),
+        Some(std::slice::from_ref(&group_id))
+    );
+}
+
 /// Oracle: draft-atwood-jmap-chat-00 §Message/set — create takes `chatId`,
 /// `body`, `bodyType`, `sentAt` and optionally `replyTo`, `senderExpiresAt`,
 /// `burnOnRead`; "The server sets `id`, `senderMsgId`, `senderId`,
