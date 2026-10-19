@@ -1230,8 +1230,8 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// arguments are passed even though the default impl ignores them
     /// so production backends can vary without an API break.
     ///
-    /// Returning `0` makes every `/set` call fail with `limit
-    /// maxObjectsInSet` (defensive read-only mode). Returning
+    /// Returning `0` makes every non-empty `/set` call fail with
+    /// `requestTooLarge` (defensive read-only mode). Returning
     /// `u64::MAX` effectively disables the cap (NOT recommended — the
     /// cap is a DoS defence and disabling it forfeits that defence).
     ///

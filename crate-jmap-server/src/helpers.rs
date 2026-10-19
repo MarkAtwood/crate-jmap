@@ -840,10 +840,12 @@ pub fn resolve_query_start(
 /// handler (bd:JMAP-ayoz.41.1).
 ///
 /// Counts entries in the wire `create` (object), `update` (object), and
-/// `destroy` (array) arguments. Returns
-/// [`JmapError::limit("maxObjectsInSet")`][JmapError::limit] — which maps
-/// to HTTP 400 + wire `type: "limit"` via [`crate::response::error_status`]
-/// — when the sum exceeds `max`.
+/// `destroy` (array) arguments. Returns the method-level error
+/// [`JmapError::request_too_large`] (wire `type: "requestTooLarge"`,
+/// `description: "maxObjectsInSet"`) when the sum exceeds `max`. Per
+/// RFC 8620 §5.3 it is returned instead of the `Foo/set` response, so
+/// the dispatcher emits an `error` invocation and later method calls
+/// in the same request still run (bd:JMAP-yt1w.30).
 ///
 /// Call at the top of every `handle_*_set` after the `account_exists`
 /// gate and before any per-entry processing. A request carrying
@@ -891,9 +893,8 @@ pub fn resolve_query_start(
 ///
 /// # Errors
 ///
-/// Returns `JmapError::limit("maxObjectsInSet")` when the sum exceeds
-/// `max`. The HTTP layer maps this to a 400 response with the limit
-/// name in the RFC 7807 `"limit"` field.
+/// Returns `JmapError::request_too_large()` with description
+/// `"maxObjectsInSet"` when the sum exceeds `max` (RFC 8620 §5.3).
 pub fn enforce_max_objects_in_set(args: &Map<String, Value>, max: u64) -> Result<(), JmapError> {
     let create_count = args
         .get("create")
@@ -915,7 +916,9 @@ pub fn enforce_max_objects_in_set(args: &Map<String, Value>, max: u64) -> Result
         .saturating_add(update_count)
         .saturating_add(destroy_count);
     if count > max {
-        return Err(JmapError::limit("maxObjectsInSet"));
+        let mut err = JmapError::request_too_large();
+        err.description = Some("maxObjectsInSet".into());
+        return Err(err);
     }
     Ok(())
 }
@@ -1617,10 +1620,12 @@ mod tests {
         enforce_max_objects_in_set(&args, 15).expect("exact-boundary count must be allowed");
     }
 
-    /// Oracle (RFC 8620 §5.3 + §3.6.1): one entry over the cap MUST
-    /// return JmapError of type "limit" with description "maxObjectsInSet".
-    /// The wire shape is verified by hand-building the expected
-    /// JmapError independently of the helper.
+    /// Oracle (RFC 8620 §5.3, bd:JMAP-yt1w.30): one entry over the cap
+    /// MUST return the method error "requestTooLarge" — "The total number
+    /// of objects to create, update, or destroy exceeds the maximum number
+    /// the server is willing to process in a single method call." — with
+    /// description "maxObjectsInSet". The wire shape is verified by
+    /// hand-building the expected JmapError independently of the helper.
     #[test]
     fn enforce_max_objects_in_set_over_limit_returns_limit_error() {
         // 5 + 5 + 6 = 16 entries against max=15 must fail.
@@ -1646,16 +1651,45 @@ mod tests {
             .expect_err("16-entry args against max=15 must fail");
         // Independent oracle — hand-built JmapError, not derived from
         // the function under test.
-        let expected = jmap_types::JmapError::limit("maxObjectsInSet");
+        let expected = jmap_types::JmapError::request_too_large();
         assert_eq!(
             err.error_type.as_str(),
             expected.error_type.as_str(),
-            "type must be \"limit\""
+            "type must be \"requestTooLarge\""
         );
         assert_eq!(
             err.description.as_deref(),
             Some("maxObjectsInSet"),
             "description must name the exceeded cap"
+        );
+    }
+
+    /// Oracle (bd:JMAP-yt1w.30): RFC 8620 §5.3 (rfc8620.txt L2166-2170):
+    /// "The following additional errors may be returned instead of the
+    /// "Foo/set" response: "requestTooLarge": The total number of objects
+    /// to create, update, or destroy exceeds the maximum number the server
+    /// is willing to process in a single method call." Exceeding
+    /// maxObjectsInSet is therefore the method-level error
+    /// `requestTooLarge`, not the request-level `limit` error.
+    #[test]
+    fn enforce_max_objects_in_set_over_limit_returns_request_too_large() {
+        let mut create = serde_json::Map::new();
+        for i in 0..3 {
+            create.insert(format!("c{i}"), json!({}));
+        }
+        let args = json!({
+            "create": create,
+            "destroy": ["d0"],
+        })
+        .as_object()
+        .unwrap()
+        .clone();
+        let err =
+            enforce_max_objects_in_set(&args, 3).expect_err("4-entry args against max=3 must fail");
+        assert_eq!(
+            err.error_type.as_str(),
+            "requestTooLarge",
+            "RFC 8620 §5.3: over-cap /set must yield method error requestTooLarge"
         );
     }
 
@@ -1711,7 +1745,7 @@ mod tests {
         .clone();
         let err =
             enforce_max_objects_in_set(&args, 5).expect_err("sum-of-all-three must trip the cap");
-        assert_eq!(err.error_type.as_str(), "limit");
+        assert_eq!(err.error_type.as_str(), "requestTooLarge");
         assert_eq!(err.description.as_deref(), Some("maxObjectsInSet"));
     }
 
