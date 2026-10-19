@@ -457,6 +457,7 @@ const NON_MEMBER_PREVIEWABLE_FIELDS: &[&str] = &[
     "createdAt",
     "isPublic",
     "isPubliclyPreviewable",
+    "closedAt",
 ];
 
 /// Server-set or directly-overwritable Space fields that a `Space/set`
@@ -1072,6 +1073,9 @@ pub async fn handle_space_set<B: ChatBackend>(
     // once per request (rather than once per target) is correct because
     // the limits are scoped to the account, not the Space.
     let space_limits = backend.limits(caller, &account_id);
+    let caller_identity: Id = B::principal_id(caller)
+        .cloned()
+        .unwrap_or_else(|| account_id.clone());
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
@@ -1159,6 +1163,37 @@ pub async fn handle_space_set<B: ChatBackend>(
                     json!({ "type": "invalidPatch", "description": "patch contains no valid fields" }),
                 );
                 continue;
+            }
+
+            // draft-atwood-jmap-chat-00 §Space `closedAt`: "The server
+            // MUST also reject ... every `Space/set` update to the Space
+            // with a `forbidden` SetError, except a member removing
+            // themselves via `removeMembers`."
+            let self_removal = clean_patch.is_empty()
+                && matches!(ops.as_slice(), [SpacePatchOp::RemoveMember(m)] if *m == caller_identity);
+            if !self_removal {
+                match backend
+                    .get_objects::<Space>(
+                        caller,
+                        &account_id,
+                        Some(std::slice::from_ref(&id)),
+                        None,
+                    )
+                    .await
+                {
+                    Ok((spaces, _)) if spaces.first().is_some_and(|s| s.closed_at.is_some()) => {
+                        not_updated.insert(
+                            id_str,
+                            json!({ "type": "forbidden", "description": "the Space is closed" }),
+                        );
+                        continue;
+                    }
+                    Ok(_) => {}
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                }
             }
 
             // Reject SpaceRole.position == 0 per draft-atwood-jmap-chat-00
@@ -1460,124 +1495,130 @@ pub async fn handle_space_join<B: ChatBackend>(
     // Validate the invite or space and collect the space_id, current members, and
     // (for the invite path) the pending invite-uses increment deferred until after
     // the already_member check.  Each branch produces
-    // (space_id: Id, current_members: Vec<Value>, invite_update: Option<(Id, u64)>).
-    let (space_id, current_members, invite_update): (Id, Vec<Value>, Option<(Id, u64)>) =
-        match (invite_code, space_id_str) {
-            (Some(_), Some(_)) | (None, None) => {
-                return Err(JmapError::invalid_arguments(
-                    "exactly one of inviteCode or spaceId must be provided",
-                ));
-            }
-            (Some(code), None) => {
-                // NOTE: The MemoryBackend stores objects per-account, so invite code lookup
-                // works only when the caller's account created the invite. A production backend
-                // must maintain a global invite code index. This is a known architectural
-                // limitation of the test backend.
+    // (space_id: Id, current_members: Vec<Value>, invite_update: Option<(Id, u64)>,
+    // closed: bool).
+    let (space_id, current_members, invite_update, closed): (
+        Id,
+        Vec<Value>,
+        Option<(Id, u64)>,
+        bool,
+    ) = match (invite_code, space_id_str) {
+        (Some(_), Some(_)) | (None, None) => {
+            return Err(JmapError::invalid_arguments(
+                "exactly one of inviteCode or spaceId must be provided",
+            ));
+        }
+        (Some(code), None) => {
+            // NOTE: The MemoryBackend stores objects per-account, so invite code lookup
+            // works only when the caller's account created the invite. A production backend
+            // must maintain a global invite code index. This is a known architectural
+            // limitation of the test backend.
 
-                // Invite code path: scan all invites for matching code.
-                let (invites, _) = backend
-                    .get_objects::<SpaceInvite>(caller, &account_id, None, None)
-                    .await
-                    .map_err(|e| server_fail_from_backend(&e))?;
+            // Invite code path: scan all invites for matching code.
+            let (invites, _) = backend
+                .get_objects::<SpaceInvite>(caller, &account_id, None, None)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?;
 
-                // Constant-time invite-code compare (bd:JMAP-sc1b.89).
-                //
-                // `SpaceInvite.code` is an unguessable CSPRNG-derived credential
-                // (see `ChatBackend::generate_invite_code` in `backend.rs`). A
-                // plain `String == String` short-circuits at the first mismatched
-                // byte, exposing a byte-by-byte timing oracle to any caller that
-                // can issue `Space/join` requests. `ConstantTimeEq::ct_eq`
-                // compares whole equal-length byte slices in constant time.
-                //
-                // Length-discrimination note: `ct_eq` returns `Choice(0)` cheaply
-                // when lengths differ, so an attacker can learn whether their
-                // supplied code matches the stored length. The canonical
-                // generator emits fixed-length (32 hex chars) codes, so the
-                // length is effectively public — only the content needs
-                // constant-time protection.
-                let invite = invites
-                    .into_iter()
-                    .find(|inv| inv.code.as_bytes().ct_eq(code.as_bytes()).into())
-                    .ok_or_else(|| JmapError::invalid_arguments("invite code not found"))?;
+            // Constant-time invite-code compare (bd:JMAP-sc1b.89).
+            //
+            // `SpaceInvite.code` is an unguessable CSPRNG-derived credential
+            // (see `ChatBackend::generate_invite_code` in `backend.rs`). A
+            // plain `String == String` short-circuits at the first mismatched
+            // byte, exposing a byte-by-byte timing oracle to any caller that
+            // can issue `Space/join` requests. `ConstantTimeEq::ct_eq`
+            // compares whole equal-length byte slices in constant time.
+            //
+            // Length-discrimination note: `ct_eq` returns `Choice(0)` cheaply
+            // when lengths differ, so an attacker can learn whether their
+            // supplied code matches the stored length. The canonical
+            // generator emits fixed-length (32 hex chars) codes, so the
+            // length is effectively public — only the content needs
+            // constant-time protection.
+            let invite = invites
+                .into_iter()
+                .find(|inv| inv.code.as_bytes().ct_eq(code.as_bytes()).into())
+                .ok_or_else(|| JmapError::invalid_arguments("invite code not found"))?;
 
-                // Check expiry using second-precision prefix (see iso8601_before).
-                // Pure lexicographic comparison on the full string is incorrect for
-                // fractional-second timestamps ('.' < 'Z' in ASCII).
-                if let Some(expires_at) = &invite.expires_at {
-                    let now = now_utc_string();
-                    if !iso8601_before(&now, expires_at) {
-                        return Err(JmapError::invalid_arguments("invite has expired"));
-                    }
+            // Check expiry using second-precision prefix (see iso8601_before).
+            // Pure lexicographic comparison on the full string is incorrect for
+            // fractional-second timestamps ('.' < 'Z' in ASCII).
+            if let Some(expires_at) = &invite.expires_at {
+                let now = now_utc_string();
+                if !iso8601_before(&now, expires_at) {
+                    return Err(JmapError::invalid_arguments("invite has expired"));
                 }
+            }
 
-                // Check maxUses: if set, uses must be strictly less.
-                if let Some(max) = invite.max_uses {
-                    if invite.uses >= max {
-                        return Err(JmapError::invalid_arguments(
-                            "invite has reached its maximum number of uses",
-                        ));
-                    }
+            // Check maxUses: if set, uses must be strictly less.
+            if let Some(max) = invite.max_uses {
+                if invite.uses >= max {
+                    return Err(JmapError::invalid_arguments(
+                        "invite has reached its maximum number of uses",
+                    ));
                 }
-
-                let invite_id = invite.id.clone();
-                let new_uses = invite.uses.saturating_add(1);
-                let space_id = invite.space_id.clone();
-
-                // Do NOT increment uses yet — defer until after the already_member check
-                // so that a failed rejoin attempt does not silently exhaust invite uses.
-
-                // Fetch the space to get the current members list.
-                let (spaces, _) = backend
-                    .get_objects::<Space>(
-                        caller,
-                        &account_id,
-                        Some(std::slice::from_ref(&space_id)),
-                        None,
-                    )
-                    .await
-                    .map_err(|e| server_fail_from_backend(&e))?;
-                let members: Vec<Value> = spaces
-                    .into_iter()
-                    .next()
-                    .map(|s| {
-                        s.members
-                            .into_iter()
-                            .map(serde_json::to_value)
-                            .collect::<Result<Vec<_>, _>>()
-                    })
-                    .transpose()
-                    .map_err(|e| server_fail_from_backend(&e))?
-                    .unwrap_or_default();
-
-                (space_id, members, Some((invite_id, new_uses)))
             }
-            (None, Some(sid)) => {
-                // Public space path: fetch the space by id and verify is_public.
-                // draft-atwood-jmap-chat-00 §Space/join: "If the Space does not exist or has
-                // `isPublic: false`, the server MUST return a `notPermitted` method error."
-                let space_id_typed = Id::from(sid.as_str());
-                let (spaces, _) = backend
-                    .get_objects::<Space>(caller, &account_id, Some(&[space_id_typed]), None)
-                    .await
-                    .map_err(|e| server_fail_from_backend(&e))?;
 
-                let space = spaces
-                    .into_iter()
-                    .next()
-                    .filter(|s| s.is_public)
-                    .ok_or_else(|| JmapError::custom("notPermitted"))?;
+            let invite_id = invite.id.clone();
+            let new_uses = invite.uses.saturating_add(1);
+            let space_id = invite.space_id.clone();
 
-                let space_id = space.id.clone();
-                let members: Vec<Value> = space
-                    .members
-                    .into_iter()
-                    .map(serde_json::to_value)
-                    .collect::<Result<Vec<_>, _>>()
-                    .map_err(|e| server_fail_from_backend(&e))?;
+            // Do NOT increment uses yet — defer until after the already_member check
+            // so that a failed rejoin attempt does not silently exhaust invite uses.
 
-                (space_id, members, None)
-            }
-        };
+            // Fetch the space to get the current members list.
+            let (spaces, _) = backend
+                .get_objects::<Space>(
+                    caller,
+                    &account_id,
+                    Some(std::slice::from_ref(&space_id)),
+                    None,
+                )
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?;
+            let space = spaces.into_iter().next();
+            let closed = space.as_ref().is_some_and(|s| s.closed_at.is_some());
+            let members: Vec<Value> = space
+                .map(|s| {
+                    s.members
+                        .into_iter()
+                        .map(serde_json::to_value)
+                        .collect::<Result<Vec<_>, _>>()
+                })
+                .transpose()
+                .map_err(|e| server_fail_from_backend(&e))?
+                .unwrap_or_default();
+
+            (space_id, members, Some((invite_id, new_uses)), closed)
+        }
+        (None, Some(sid)) => {
+            // Public space path: fetch the space by id and verify is_public.
+            // draft-atwood-jmap-chat-00 §Space/join: "If the Space does not exist or has
+            // `isPublic: false`, the server MUST return a `notPermitted` method error."
+            let space_id_typed = Id::from(sid.as_str());
+            let (spaces, _) = backend
+                .get_objects::<Space>(caller, &account_id, Some(&[space_id_typed]), None)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?;
+
+            let space = spaces
+                .into_iter()
+                .next()
+                .filter(|s| s.is_public)
+                .ok_or_else(|| JmapError::custom("notPermitted"))?;
+
+            let space_id = space.id.clone();
+            let closed = space.closed_at.is_some();
+            let members: Vec<Value> = space
+                .members
+                .into_iter()
+                .map(serde_json::to_value)
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| server_fail_from_backend(&e))?;
+
+            (space_id, members, None, closed)
+        }
+    };
 
     // draft-atwood-jmap-chat-00 §Space/join: "The server MUST verify that no
     // active SpaceBan exists for the requesting account's owner in the target
@@ -1596,6 +1637,15 @@ pub async fn handle_space_join<B: ChatBackend>(
                 .as_ref()
                 .is_none_or(|e| iso8601_before(&now, e))
     }) {
+        return Err(JmapError::forbidden());
+    }
+
+    // draft-atwood-jmap-chat-00 §Space/join: "If the target Space has
+    // `closedAt` set ({{space}}), the server MUST reject the request with
+    // a `forbidden` method error, whether the caller supplied
+    // `inviteCode` or `spaceId`." Evaluated with the ban check, after
+    // Space resolution.
+    if closed {
         return Err(JmapError::forbidden());
     }
 

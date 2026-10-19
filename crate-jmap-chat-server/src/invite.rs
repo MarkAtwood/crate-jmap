@@ -24,7 +24,7 @@
 //! rejection) surface in the `notCreated` / `notUpdated` / `notDestroyed`
 //! maps within `Ok((Value, ...))`, not as `Err`.
 
-use jmap_chat_types::SpaceInvite;
+use jmap_chat_types::{Space, SpaceInvite};
 use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
@@ -216,6 +216,32 @@ pub async fn handle_invite_set<B: ChatBackend>(
                     continue;
                 }
             };
+
+            // draft-atwood-jmap-chat-00 §Space `closedAt`: "The server
+            // MUST also reject ... `SpaceInvite/set` create for the Space
+            // with a `forbidden` SetError".
+            match backend
+                .get_objects::<Space>(
+                    caller,
+                    &account_id,
+                    Some(std::slice::from_ref(&space_id)),
+                    None,
+                )
+                .await
+            {
+                Ok((spaces, _)) if spaces.first().is_some_and(|s| s.closed_at.is_some()) => {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({ "type": "forbidden", "description": "the Space is closed" }),
+                    );
+                    continue;
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
+                    continue;
+                }
+            }
 
             let default_channel_id: Option<Id> = obj_val
                 .get("defaultChannelId")

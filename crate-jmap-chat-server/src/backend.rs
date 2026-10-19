@@ -756,6 +756,12 @@ pub trait ChatBackend: JmapBackend {
     /// correct: subsequent mutations to `members` would let
     /// `memberCount` drift silently.
     ///
+    /// `Space.closedAt` is server-set the same way: when the caller
+    /// removes themselves as the last member holding `manage_space`
+    /// and other members remain, the backend MUST set `closedAt` in
+    /// the same mutation (draft §Space/set `removeMembers`). The
+    /// handler rejects every other update to a closed Space.
+    ///
     /// # Per-op error semantics
     ///
     /// Backend rejections that originate from a single op carry both
