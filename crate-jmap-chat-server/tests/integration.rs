@@ -696,6 +696,77 @@ async fn chat_typing_returns_success_when_contact_blocked() {
     );
 }
 
+/// Seed a group chat `id` whose only member is `member_id`.
+fn seed_group_chat(backend: &MemoryBackend, id: &str, member_id: &str) {
+    backend.insert_object_for_test(
+        "Chat",
+        ACCOUNT_ID,
+        id,
+        json!({
+            "id": id,
+            "kind": "group",
+            "name": "Team",
+            "members": [
+                { "id": member_id, "role": "admin", "joinedAt": "2024-01-01T00:00:00Z" }
+            ],
+            "createdAt": "2024-01-01T00:00:00Z",
+            "unreadCount": 0,
+            "pinnedMessageIds": [],
+            "muted": false,
+            "receiveTypingIndicators": true
+        }),
+    );
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Chat/typing `chatId` — "The server
+/// MUST return an `invalidArguments` method error if `chatId` does not
+/// exist or the account is not a participant in that Chat, and MUST NOT
+/// distinguish the two cases."
+#[tokio::test]
+async fn chat_typing_unknown_or_non_participant_chat_is_invalid_arguments() {
+    use jmap_chat_server::handle_chat_typing;
+
+    let backend = MemoryBackend::new();
+    seed_group_chat(&backend, "g1", "someone-else");
+
+    let mut errors = Vec::new();
+    for chat_id in ["nosuchchat", "g1"] {
+        let err = handle_chat_typing(
+            &backend,
+            &(),
+            json!({ "accountId": ACCOUNT_ID, "chatId": chat_id, "typing": true }),
+        )
+        .await
+        .expect_err(chat_id);
+        assert_eq!(err.error_type, "invalidArguments", "{chat_id}");
+        errors.push(err);
+    }
+    assert_eq!(
+        errors[0], errors[1],
+        "the two cases must be indistinguishable"
+    );
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Chat/typing — "Signals to the server
+/// that the authenticated user has started or stopped typing in a specific
+/// Chat."; only a non-participant is rejected, so a group member succeeds.
+#[tokio::test]
+async fn chat_typing_group_member_succeeds() {
+    use jmap_chat_server::handle_chat_typing;
+
+    let backend = MemoryBackend::new();
+    seed_group_chat(&backend, "g1", ACCOUNT_ID);
+
+    let (resp, _) = handle_chat_typing(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "chatId": "g1", "typing": false }),
+    )
+    .await
+    .expect("member may signal typing");
+    assert_eq!(resp["accountId"], ACCOUNT_ID);
+}
+
 /// Oracle: `MemoryBackend::is_contact_blocked` reads
 /// `ChatContact.blocked` from the in-memory store. This is the kit's
 /// reference impl exercised directly, mirroring the way a consumer's
@@ -808,6 +879,9 @@ async fn chat_typing_skips_is_contact_blocked_on_group_chat() {
     use jmap_chat_server::handle_chat_typing;
 
     let backend = TrackingBackend::new();
+    // The caller is a member: draft-atwood-jmap-chat-00 §Chat/typing — "The
+    // server MUST return an `invalidArguments` method error if `chatId` does
+    // not exist or the account is not a participant in that Chat".
     backend.inner().insert_object_for_test(
         "Chat",
         ACCOUNT_ID,
@@ -815,6 +889,9 @@ async fn chat_typing_skips_is_contact_blocked_on_group_chat() {
         json!({
             "id": "c1",
             "kind": "group",
+            "members": [
+                { "id": ACCOUNT_ID, "role": "admin", "joinedAt": "2024-01-01T00:00:00Z" }
+            ],
             "createdAt": "2024-01-01T00:00:00Z",
             "unreadCount": 0,
             "pinnedMessageIds": [],
@@ -841,8 +918,10 @@ async fn chat_typing_skips_is_contact_blocked_on_group_chat() {
 /// Oracle: `handle_chat_typing` does not consult
 /// `is_contact_blocked` when the supplied `chatId` does not resolve
 /// to any stored Chat. A missing target is not a consultation
-/// opportunity — the kit returns its standard success response
-/// without invoking the predicate.
+/// opportunity — the kit returns `invalidArguments` without invoking
+/// the predicate (draft-atwood-jmap-chat-00 §Chat/typing: "The server
+/// MUST return an `invalidArguments` method error if `chatId` does not
+/// exist").
 #[tokio::test]
 async fn chat_typing_skips_is_contact_blocked_when_chat_not_found() {
     use jmap_chat_server::handle_chat_typing;
@@ -850,15 +929,15 @@ async fn chat_typing_skips_is_contact_blocked_when_chat_not_found() {
     let backend = TrackingBackend::new();
     // No Chat seeded.
 
-    let (resp, _) = handle_chat_typing(
+    let err = handle_chat_typing(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "chatId": "ghost", "typing": true }),
     )
     .await
-    .expect("handle_chat_typing");
+    .expect_err("unknown chatId");
 
-    assert_eq!(resp["accountId"], ACCOUNT_ID);
+    assert_eq!(err.error_type, "invalidArguments");
     assert_eq!(
         backend.is_contact_blocked_call_count(),
         0,

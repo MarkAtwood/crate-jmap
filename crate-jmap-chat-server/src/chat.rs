@@ -955,8 +955,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
 /// This method is ephemeral — it signals the user is typing in a chat.
 /// No state is persisted. In a full implementation, the server would
 /// fan out a typing event to chat participants; this handler validates
-/// and returns. The sender identity is always derived server-side from
-/// `accountId` — clients MUST NOT supply a `senderId` field.
+/// and returns. An unknown `chatId` and a Chat the account does not
+/// participate in both yield the same `invalidArguments` error. The
+/// sender identity is always derived server-side from `accountId` —
+/// clients MUST NOT supply a `senderId` field.
 ///
 /// # Blocked-sender suppression
 ///
@@ -1000,22 +1002,13 @@ pub async fn handle_chat_typing<B: ChatBackend>(
         Some(_) => return Err(JmapError::invalid_arguments("typing must be a boolean")),
     };
 
-    // Blocked-sender suppression integration point (draft-atwood-
-    // jmap-chat-00 commit `d68b4e3`). For direct chats, consult the
-    // predicate so a production-grade backend override can observe /
-    // record the consultation. The kit does not gate fan-out on the
-    // result because the kit has no fan-out path; this site exists
-    // as the documented hook for consumer transport layers.
-    //
-    // Pre-fetch the chat; if the id is unknown (not found) or fetch
-    // fails, skip the predicate — handle_chat_typing's success
-    // response is the same in either case, and a non-existent target
-    // should not consume a blocked-check decision. Production
-    // backends that need stricter behaviour (e.g. reject typing for
-    // unknown chats) should validate participation inside their
-    // own logic; the kit deliberately keeps the typing path
-    // permissive.
-    if let Ok((found, _not_found)) = backend
+    // draft-atwood-jmap-chat-00 §Chat/typing `chatId`: "The server MUST
+    // return an `invalidArguments` method error if `chatId` does not
+    // exist or the account is not a participant in that Chat, and MUST
+    // NOT distinguish the two cases." A group chat's participants are its
+    // `members`; caller identity falls back to `account_id` in
+    // single-user posture, as in Chat/set member patches.
+    let (found, _not_found) = backend
         .get_objects::<Chat>(
             caller,
             &account_id,
@@ -1023,21 +1016,35 @@ pub async fn handle_chat_typing<B: ChatBackend>(
             None,
         )
         .await
-    {
-        if let Some(chat) = found.first() {
-            if let Some(contact_id) = chat.contact_id.as_ref() {
-                // Direct chat — there is exactly one recipient.
-                let _blocked = backend
-                    .is_contact_blocked(caller, &account_id, contact_id)
-                    .await
-                    .unwrap_or(false);
-                // Result intentionally observed but not gated on
-                // here — see the doc-comment on this function.
-                // A consumer transport layer reads
-                // `is_contact_blocked` itself and suppresses
-                // accordingly.
-            }
-        }
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let caller_id = B::principal_id(caller).unwrap_or(&account_id);
+    let chat = found
+        .into_iter()
+        .next()
+        .filter(|c| {
+            c.kind != ChatKind::Group || c.members.iter().flatten().any(|m| m.id == *caller_id)
+        })
+        .ok_or_else(|| {
+            JmapError::invalid_arguments("chatId is not a Chat the account participates in")
+        })?;
+
+    // Blocked-sender suppression integration point (draft-atwood-
+    // jmap-chat-00 commit `d68b4e3`). For direct chats, consult the
+    // predicate so a production-grade backend override can observe /
+    // record the consultation. The kit does not gate fan-out on the
+    // result because the kit has no fan-out path; this site exists
+    // as the documented hook for consumer transport layers.
+    if let Some(contact_id) = chat.contact_id.as_ref() {
+        // Direct chat — there is exactly one recipient.
+        let _blocked = backend
+            .is_contact_blocked(caller, &account_id, contact_id)
+            .await
+            .unwrap_or(false);
+        // Result intentionally observed but not gated on
+        // here — see the doc-comment on this function.
+        // A consumer transport layer reads
+        // `is_contact_blocked` itself and suppresses
+        // accordingly.
     }
 
     Ok((
