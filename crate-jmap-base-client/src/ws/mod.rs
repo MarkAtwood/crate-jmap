@@ -13,6 +13,7 @@ use std::time::Duration;
 use futures::SinkExt as _;
 use futures::StreamExt as _;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest as _;
+use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::tungstenite::Message;
 
@@ -371,6 +372,10 @@ impl WsReceiver {
     /// Receive the next parsed frame from the server.
     ///
     /// Returns `None` when the server has cleanly closed the connection.
+    /// A Close frame with status code 1008 (Policy Violation) instead
+    /// returns `Some(Err(ClientError::WsClosed { code: 1008, .. }))`: per
+    /// draft-atwood-jmap-chat-wss-00 a server uses it when credentials
+    /// expire, so refresh them before reconnecting.
     /// Returns `Some(Err(...))` on parse failure, transport error, RFC 8887
     /// §4.1 violation (Binary frame), or starvation cap (more than 64
     /// consecutive Ping/Pong/Frame messages — see the private
@@ -458,7 +463,20 @@ impl WsReceiver {
                     };
                     return Some(parse_ws_frame(&text));
                 }
-                MessageDisposition::Close => return None,
+                MessageDisposition::Close => {
+                    // draft-atwood-jmap-chat-wss-00 §Authentication and
+                    // Identity: 1008 signals credential expiry, which the
+                    // caller must tell apart from a clean close.
+                    return match msg {
+                        Message::Close(Some(f)) if f.code == CloseCode::Policy => {
+                            Some(Err(crate::error::ClientError::WsClosed {
+                                code: u16::from(f.code),
+                                reason: f.reason.to_string(),
+                            }))
+                        }
+                        _ => None,
+                    };
+                }
                 MessageDisposition::Binary => {
                     // RFC 8887 §4.1: JMAP only uses text frames. Surface the
                     // violation; underlying stream is still healthy so the

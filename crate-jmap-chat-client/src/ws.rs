@@ -102,7 +102,10 @@ pub trait ChatWsExt: sealed::Sealed {
     ///
     /// Returns `None` when the server has cleanly closed the connection.
     /// Returns `Some(Err(...))` on transport failure; do not call again after
-    /// a transport error.
+    /// a transport error. A server close with code 1008 returns
+    /// [`ClientError::WsClosed`]: credentials expired
+    /// (draft-atwood-jmap-chat-wss-00 §Authentication and Identity), so
+    /// refresh them before reconnecting.
     fn next_chat_frame(
         &mut self,
     ) -> impl std::future::Future<Output = Option<Result<ChatWsFrame, ClientError>>> + Send;

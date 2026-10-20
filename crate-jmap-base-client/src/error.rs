@@ -746,6 +746,24 @@ pub enum ClientError {
     #[error("WebSocket error: {0}")]
     WebSocket(WebSocketError),
 
+    /// The server closed the WebSocket with a Close frame whose status code
+    /// asks the client to act, rather than ending the stream cleanly.
+    ///
+    /// Produced by [`WsSession::next_frame`](crate::WsSession::next_frame)
+    /// for status code 1008 (Policy Violation, RFC 6455 §7.4.1). A JMAP Chat
+    /// server closes with 1008 when the connection's credentials expire
+    /// (draft-atwood-jmap-chat-wss-00 §Authentication and Identity), so the
+    /// caller should refresh credentials before reconnecting. Any other
+    /// Close frame still ends the stream with `None`. The connection is
+    /// closed: do not call `next_frame` again.
+    #[error("WebSocket closed by server: code {code}: {reason}")]
+    WsClosed {
+        /// The Close frame's status code (RFC 6455 §7.4), e.g. `1008`.
+        code: u16,
+        /// The Close frame's reason text; empty when the server sent none.
+        reason: String,
+    },
+
     /// The server returned a response that violates the JMAP protocol (outside
     /// the Session fetch path). Examples: wrong `Content-Type` on an SSE
     /// connection, unexpected response shape on a non-session endpoint.
@@ -920,6 +938,7 @@ mod tests {
             ClientError::SseFrameTooLarge { .. } => {}
             ClientError::ResponseTooLarge { .. } => {}
             ClientError::WebSocket(_) => {}
+            ClientError::WsClosed { .. } => {}
             ClientError::UnexpectedResponse(_) => {}
             ClientError::RateLimited { .. } => {}
         }
