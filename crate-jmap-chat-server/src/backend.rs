@@ -2050,6 +2050,102 @@ pub trait ChatBackend: JmapBackend {
         async { Ok(Ok(())) }
     }
 
+    /// Per-Chat restriction gate consulted by `handle_message_set` before
+    /// each Message create, with the stored target Chat.
+    ///
+    /// For extensions that bind a Chat to something outside JMAP Chat and
+    /// so restrict it, e.g. draft-atwood-jmap-chat-mimi-00 §message/mls:
+    /// "The server MUST reject a `Message/set` create in a Chat with a
+    /// `roomId` with a `forbidden` SetError." Extension properties of the
+    /// Chat are in [`Chat::extra`](jmap_chat_types::Chat::extra).
+    /// [`Self::may_send_message`] is the sender's membership and
+    /// permission gate; this one sees the Chat itself.
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per create entry whose `chatId` resolves, AFTER wire-format
+    /// validation and BEFORE the closed-Chat check and
+    /// [`Self::may_send_message`]. The return mapping is the same as
+    /// [`Self::may_set_custom_emoji`].
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(()))`: every create is permitted (fail-open, like
+    /// the hooks above).
+    fn may_create_message(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat: &jmap_chat_types::Chat,
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async { Ok(Ok(())) }
+    }
+
+    /// Per-Chat restriction gate consulted by `handle_message_set` before
+    /// each Message update, with the stored Message, its stored Chat and
+    /// the client's patch keys.
+    ///
+    /// For extension-bound Chats, e.g. draft-atwood-jmap-chat-mimi-00
+    /// §message/mls: "The server MUST reject a `Message/set` update that
+    /// changes `body`, `bodyType`, or `reactions` of a Message in a Chat
+    /// with a `roomId` with an `invalidProperties` SetError naming the
+    /// changed properties."
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per update entry whose Message and Chat resolve, AFTER the
+    /// patch keys and `bodyType` are validated and BEFORE the sender,
+    /// edit-limit and reaction checks and `update_object`. `patch_keys`
+    /// are the keys exactly as the client sent them, so a reaction change
+    /// appears as `reactions/<senderReactionId>`. The return mapping is
+    /// the same as [`Self::may_set_custom_emoji`].
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(()))`: every update is permitted (fail-open, like
+    /// the hooks above).
+    fn may_update_message(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat: &jmap_chat_types::Chat,
+        _message: &jmap_chat_types::Message,
+        _patch_keys: &[&str],
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async { Ok(Ok(())) }
+    }
+
+    /// Per-Chat restriction gate consulted by `handle_chat_set` before
+    /// each Chat update, with the stored Chat and the client's patch keys.
+    ///
+    /// For extension-bound Chats, e.g. draft-atwood-jmap-chat-mimi-00
+    /// §Chat.roomId: "The server MUST reject, with `forbidden`, a
+    /// `Chat/set` update on such a Chat that sets `name`, `description`,
+    /// or `avatarBlobId` or that uses the `addMembers`, `removeMembers`,
+    /// or `updateMemberRoles` patch key".
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per update entry whose Chat resolves, AFTER the patch keys
+    /// are validated and BEFORE the closed-group, admin, member-patch and
+    /// `pinnedMessageIds` checks and `update_object`. `patch_keys` are
+    /// the keys exactly as the client sent them. The return mapping is
+    /// the same as [`Self::may_set_custom_emoji`].
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(()))`: every update is permitted (fail-open, like
+    /// the hooks above).
+    fn may_update_chat(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat: &jmap_chat_types::Chat,
+        _patch_keys: &[&str],
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async { Ok(Ok(())) }
+    }
+
     /// Blob lookup consulted by `handle_message_set` for each Attachment
     /// of a Message create.
     ///

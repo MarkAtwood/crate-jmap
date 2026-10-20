@@ -14,6 +14,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: `ChatBackend::may_create_message`,
+  `may_update_message` and `may_update_chat` (default: permit) let an
+  extension restrict Chats it binds, given the stored Chat (with its
+  extension properties in `Chat::extra`) and the client's patch keys.
+  `Message/set` consults them before any other per-Chat check on a create
+  or update, and `Chat/set` before the closed-group and admin checks. A
+  MIMI backend uses them for draft-atwood-jmap-chat-mimi-00 §Chat.roomId
+  and §message/mls: `forbidden` for a create, or a metadata or member
+  update, in a room Chat, and `invalidProperties` naming `body`,
+  `bodyType` or `reactions` for an update that changes them.
 - **jmap-chat-server**: `ChatBackend::on_outbound_event` (default: no-op)
   reports an `OutboundEvent` when the owner's action must reach other
   participants' servers: `Retract` for a `deletedForAll` update, before it

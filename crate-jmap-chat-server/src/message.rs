@@ -1130,6 +1130,20 @@ pub async fn handle_message_set<B: ChatBackend>(
                 }
             };
 
+            if let Some(chat) = &chat {
+                match backend.may_create_message(caller, &account_id, chat).await {
+                    Ok(Ok(())) => {}
+                    Ok(Err(set_err)) => {
+                        not_created.insert(create_id.clone(), set_error_value(&set_err));
+                        continue;
+                    }
+                    Err(e) => {
+                        not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                }
+            }
+
             // draft-atwood-jmap-chat-00 §Chat `closedAt`: "After it is
             // set, the server MUST reject with a `forbidden` SetError
             // every `Message/set` create in this Chat".
@@ -1502,6 +1516,57 @@ pub async fn handle_message_set<B: ChatBackend>(
                     json!({ "type": "invalidProperties", "properties": ["bodyType"] }),
                 );
                 continue;
+            }
+
+            // Per-Chat restrictions of extension-bound Chats; see
+            // `ChatBackend::may_update_message`. A Message or Chat that
+            // does not resolve is left for update_object to surface.
+            let stored = match backend
+                .get_objects::<Message>(caller, &account_id, Some(std::slice::from_ref(&id)), None)
+                .await
+            {
+                Ok((found, _)) => found.into_iter().next(),
+                Err(e) => {
+                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                    continue;
+                }
+            };
+            if let Some(msg) = stored {
+                let chat = match backend
+                    .get_objects::<Chat>(
+                        caller,
+                        &account_id,
+                        Some(std::slice::from_ref(&msg.chat_id)),
+                        None,
+                    )
+                    .await
+                {
+                    Ok((found, _)) => found.into_iter().next(),
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                };
+                if let Some(chat) = chat {
+                    let patch_keys: Vec<&str> = patch_val
+                        .as_object()
+                        .map(|obj| obj.keys().map(String::as_str).collect())
+                        .unwrap_or_default();
+                    match backend
+                        .may_update_message(caller, &account_id, &chat, &msg, &patch_keys)
+                        .await
+                    {
+                        Ok(Ok(())) => {}
+                        Ok(Err(set_err)) => {
+                            not_updated.insert(id_str, set_error_value(&set_err));
+                            continue;
+                        }
+                        Err(e) => {
+                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                            continue;
+                        }
+                    }
+                }
             }
 
             // draft-atwood-jmap-chat-00 §Deleting a Message: servers MUST
