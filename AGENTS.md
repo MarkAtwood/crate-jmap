@@ -87,7 +87,7 @@ crates, never in a support crate.
 | `crate-jmap-metadata-server/` | `jmap-metadata-server` | draft-ietf-jmap-metadata-02 server helpers — depth/namespace validation, `metadata*` filter predicates, `/changes` classification. No handlers, no backend trait |
 | `crate-jmap-metadata-client/` | `jmap-metadata-client` | draft-ietf-jmap-metadata-02 client helpers — property constants, `metadata*` filter-condition builders, `/changes` helpers. No method bindings |
 | `crate-jmap-cid-types/` | `jmap-cid-types` | draft-atwood-jmap-cid-00 data types — `CidCapability` (`urn:ietf:params:jmap:cid`) and `Sha256` typed wire shape. Blob/FileNode integrity, no async |
-| `crate-jmap-did-types/` | `jmap-did-types` | draft-atwood-jmap-did-00 data types — `DidCapability` and `DidAccountCapability` (`urn:ietf:params:jmap:did`), `KeyCustody`, `Did` (DID Core §3.1 newtype, `did:web` domain). No async, no I/O |
+| `crate-jmap-did-types/` | `jmap-did-types` | draft-atwood-jmap-did-00 data types — `DidCapability` and `DidAccountCapability` (`urn:ietf:params:jmap:did`), `KeyCustody`, `Did` (DID Core §3.1 newtype, `did:web` domain and document URL), `DidKey` (did:key decode and document), `verify_plc_audit_log` (did:plc audit-log verification). No async, no I/O |
 | `crate-jmap-chat-mimi-types/` | `jmap-chat-mimi-types` | draft-atwood-jmap-chat-mimi-00 data types — `MimiCapability` (`urn:ietf:params:jmap:chat:mimi`), `KeyPackage` object and `/get`/`/set` shapes, `KeyMaterial/fetch` arguments, `Room/create`/`/update`/`/send`/`/unbind` arguments and `chat_room_id`, `GroupInfo/fetch` arguments, MIMI/MLS body-type constants, `Base64Url` byte-string wire shape. No async, no I/O, no MLS dependency |
 
 ## Dependency Tree
@@ -135,8 +135,11 @@ jmap-cid-types         — draft-atwood-jmap-cid-00 data types: CidCapability
 jmap-did-types         — draft-atwood-jmap-did-00 data types: DidCapability and
                          DidAccountCapability (urn:ietf:params:jmap:did),
                          KeyCustody, Did (DID Core §3.1 newtype with did:web
-                         domain). No async, no I/O. Depends on jmap-types
-                         (impl_string_enum!), serde and serde_json.
+                         domain and document URL), DidKey (did:key decode and
+                         DID document), verify_plc_audit_log (did:plc audit
+                         log verification over supplied bytes). No async, no
+                         I/O. Depends on jmap-types (impl_string_enum!),
+                         serde, serde_json, base64, sha2, k256 and p256.
 
 jmap-chat-mimi-types   — draft-atwood-jmap-chat-mimi-00 data types: MimiCapability
                          (urn:ietf:params:jmap:chat:mimi), body-type constants,
