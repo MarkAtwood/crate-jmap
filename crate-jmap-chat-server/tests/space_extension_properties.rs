@@ -184,6 +184,34 @@ async fn listed_core_property_is_not_stored_on_create() {
     assert_eq!(space["calendarId"], "cal-1", "{space}");
 }
 
+/// The update half of the rule above: draft-atwood-jmap-chat-00 L820
+/// makes Space `closedAt` "server-set", so a client patch carrying it is
+/// `invalidProperties` (RFC 8620 §5.3: "It contains properties that are
+/// invalid according to the type specification of this record type")
+/// even when the backend lists it, and the Space stays open.
+#[tokio::test]
+async fn listed_core_property_is_invalid_on_update() {
+    let backend = backend_with(&["closedAt", "calendarId"]);
+    let id = create_space(&backend, json!({})).await;
+
+    let resp = space_set(
+        &backend,
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": { &id: { "closedAt": "2026-01-01T00:00:00Z", "calendarId": "cal-1" } }
+        }),
+    )
+    .await;
+    assert_eq!(
+        resp["notUpdated"][&id],
+        json!({ "type": "invalidProperties", "properties": ["closedAt"] }),
+        "{resp}"
+    );
+    let space = get_space(&backend, &id).await;
+    assert!(space.get("closedAt").is_none(), "{space}");
+    assert!(space.get("calendarId").is_none(), "{space}");
+}
+
 /// calendars-00 L300 with RFC 8620 §5.3 `forbidden`: a member whose roles
 /// grant only `"view"` cannot bind the Space's Calendar, and the stored
 /// Space is unchanged.

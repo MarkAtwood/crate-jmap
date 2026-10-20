@@ -457,6 +457,10 @@ wire behaviour that a conforming peer can observe.
 - **jmap-chat-server**: `Space/set` create no longer copies a key listed by
   `ChatBackend::space_extension_properties` into `Space::extra` when it is a
   core Space property or a structural patch key, as that method documents.
+- **jmap-chat-server**: `Space/set` update rejects a listed `closedAt` with
+  `invalidProperties` instead of passing it to
+  `ChatBackend::apply_space_metadata_patch`; `closedAt` is server-set
+  (draft-atwood-jmap-chat-00 §Space).
 - **jmap-chat-server**: `Chat/set` and `Message/set` updates read the stored
   Chat, or the stored Message and its Chat, once per target and reuse it for
   every check, instead of re-reading it per check.
