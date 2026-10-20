@@ -14,6 +14,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `reject_did_bearing_properties`, which rejects a
+  `/set` create object or update PatchObject that includes a DID-bearing
+  property with an `invalidProperties` SetError listing the property
+  (draft-atwood-jmap-did-00 §The `did` Property: server-set, immutable).
 - **jmap-did-types** (new crate): the `urn:ietf:params:jmap:did`
   capability of draft-atwood-jmap-did-00 §Capability: `JMAP_DID_URI`,
   the session-level `DidCapability` (`supportedMethods`,
