@@ -592,6 +592,24 @@ impl Session {
     pub fn supports_cid(&self) -> bool {
         self.capabilities.contains_key("urn:ietf:params:jmap:cid")
     }
+
+    /// Returns the parsed session-level [`DidCapability`] for the JMAP
+    /// Decentralized Identifiers extension, if advertised
+    /// (draft-atwood-jmap-did-00 §Session-Level Capability Object).
+    ///
+    /// - `Ok(None)` — server does not advertise `urn:ietf:params:jmap:did`.
+    /// - `Ok(Some(_))` — the capability is advertised and well-formed.
+    /// - `Err(ClientError::Parse)` — the capability is advertised but its
+    ///   value is malformed, including an empty `supportedMethods`
+    ///   ("Servers MUST support at least one method").
+    ///
+    /// The per-account DID binding is
+    /// [`AccountInfo::did_capability`].
+    ///
+    /// [`DidCapability`]: jmap_did_types::DidCapability
+    pub fn did_capability(&self) -> Result<Option<jmap_did_types::DidCapability>, ClientError> {
+        self.extension_capability(jmap_did_types::JMAP_DID_URI)
+    }
 }
 
 /// Manual `Debug` impl that redacts privacy-sensitive fields (bd:JMAP-sc1b.99).
@@ -709,6 +727,25 @@ impl AccountInfo {
         T::deserialize(raw)
             .map(Some)
             .map_err(ClientError::from_parse)
+    }
+
+    /// Returns this account's parsed [`DidAccountCapability`] — the DID
+    /// the server binds to the account — if advertised
+    /// (draft-atwood-jmap-did-00 §Account-Level Capability Object).
+    ///
+    /// - `Ok(None)` — this account does not advertise
+    ///   `urn:ietf:params:jmap:did`.
+    /// - `Ok(Some(_))` — the capability is advertised and well-formed.
+    /// - `Err(ClientError::Parse)` — the capability is advertised but its
+    ///   value is malformed (for example, `did` is missing).
+    ///
+    /// The server-wide counterpart is [`Session::did_capability`].
+    ///
+    /// [`DidAccountCapability`]: jmap_did_types::DidAccountCapability
+    pub fn did_capability(
+        &self,
+    ) -> Result<Option<jmap_did_types::DidAccountCapability>, ClientError> {
+        self.account_extension_capability(jmap_did_types::JMAP_DID_URI)
     }
 }
 
