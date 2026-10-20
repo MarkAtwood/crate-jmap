@@ -27,6 +27,12 @@ wire behaviour that a conforming peer can observe.
   `jmap_types::SetResponse<KeyPackageCreated>`. `KeyPackage` implements
   `JmapObject`, `GetObject` and `SetObject`. The crate now depends on
   `jmap-types`.
+- **jmap-chat-mimi-types**: `KeyMaterialFetchRequest` and
+  `KeyMaterialFetchResponse` for `KeyMaterial/fetch`, with
+  `ClientKeyMaterial` entries and the `KeyMaterialUserCode` and
+  `KeyMaterialClientCode` status enums named as in
+  draft-ietf-mimi-protocol-06 §5.2. Unknown code names round-trip as
+  `Other`.
 - **jmap-chat-client**: `TypingIndicators` and `TYPING_DECAY` track typing
   indicators per `(chatId, senderId)` and hide one after 10 s without a
   typing event, per draft-atwood-jmap-chat-00 §Chat/typing: "if no typing
