@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-scene-server**: new crate, the Chat binding for
+  `jmap-scene-server`. `should_deliver_scene` decides delivery of a Scene
+  ephemeral event over the union of the `ChatStreamEnable` `"scene"` path
+  and the `SceneStreamEnable` subscription, once per event and connection
+  (draft-atwood-jmap-scene-wss-00 §Interoperability with JMAP Chat
+  WebSocket).
 - **jmap-scene-vtc-server**: new crate, the VTC binding for
   `jmap-scene-server` (draft-atwood-jmap-scene-00 with
   draft-atwood-jmap-vtc-00). `clear_active_call_id`, called from
