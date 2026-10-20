@@ -14,7 +14,9 @@ draft-atwood-jmap-chat-filenode-00 that apply when one server offers
 | `check_space_quota` | chat-filenode §Account-Level Capability Object `maxSpaceStorageBytes`: a create that would take the Space file tree over the limit is `overQuota` |
 | `create_space_file_tree` | chat-filenode §Account-Level Capability Object `autoCreateFileTree`: insert the root when a Space is created |
 | `resolve_filenode_attachment` | chat-filenode §filenodeId: an Attachment linked by `filenodeId` must name a file in the channel's Space file tree (`invalidProperties` naming `filenodeId`), the sender needs read access (`forbidden`), and absent `blobId`, `filename`, `contentType`, `size` and `sha256` are filled from the FileNode |
+| `destroy_space_file_tree` | chat-filenode §Space Deletion: destroy a destroyed Space's file tree root and every node within it, with no grace period |
 | `RootCheckError` | A Chat or FileNode storage failure during a check |
+| `TreeDestroyError` | A FileNode storage failure while destroying a Space file tree |
 
 ## What it's for
 
@@ -27,6 +29,7 @@ calls these functions from its trait methods:
 | The same, when advertising `maxSpaceStorageBytes` | `check_space_quota` |
 | `ChatBackend::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | `create_space_file_tree` |
 | `ChatBackend::filenode_attachment` | `resolve_filenode_attachment` |
+| `ChatBackend::on_space_destroyed` | `destroy_space_file_tree` |
 
 ## How to use
 
@@ -69,6 +72,11 @@ do not apply to file tree access.
 - `resolve_filenode_attachment` rejects a supplied `blobId`, `size` or
   `sha256` that differs from the FileNode's, and keeps a supplied
   `filename` or `contentType`.
+- `destroy_space_file_tree` offers no grace period (the draft's MAY):
+  the tree goes with the Space. Each node is destroyed through
+  `FileNodeBackend::destroy_object`, descendants first, so
+  `FileNode/changes` and push see the change. It is not atomic; on an
+  error, call it again to destroy the rest.
 - The requesting user is the owner of `account_id`, and the Space and the
   FileNode live in that same account.
 

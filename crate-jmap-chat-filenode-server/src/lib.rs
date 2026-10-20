@@ -15,6 +15,7 @@
 //! | The same, when advertising `maxSpaceStorageBytes` | [`check_space_quota`] |
 //! | `ChatBackend::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | [`create_space_file_tree`] |
 //! | `ChatBackend::filenode_attachment` | [`resolve_filenode_attachment`] |
+//! | `ChatBackend::on_space_destroyed` | [`destroy_space_file_tree`] |
 //!
 //! Each function takes the backends it reads, with their own caller
 //! contexts and error types.
@@ -283,6 +284,96 @@ pub async fn create_space_file_tree<F: FileNodeBackend>(
     files
         .create_object(caller, account_id, "spaceFileTree", root)
         .await
+}
+
+/// A storage failure while destroying a Space file tree.
+#[derive(Debug)]
+pub enum TreeDestroyError<E> {
+    /// Finding the root or its descendants failed.
+    Query(BackendQueryError<E>),
+    /// Destroying a FileNode failed.
+    Destroy(BackendSetError<E>),
+}
+
+impl<E> fmt::Display for TreeDestroyError<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Query(_) => "reading the Space file tree failed",
+            Self::Destroy(_) => "destroying a Space file tree node failed",
+        })
+    }
+}
+
+impl<E: std::error::Error + 'static> std::error::Error for TreeDestroyError<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Query(e) => Some(e),
+            Self::Destroy(e) => Some(e),
+        }
+    }
+}
+
+/// Destroy the file tree of a destroyed Space, per
+/// draft-atwood-jmap-chat-filenode-00 §Space Deletion: "When a Space is
+/// destroyed via `Space/set` destroy, the server SHOULD also destroy the
+/// associated file tree and all FileNodes within it." Call it from
+/// `ChatBackend::on_space_destroyed`.
+///
+/// No grace period is offered (the draft's "MAY instead retain"), so the
+/// tree goes with the Space and no former member can reach it afterwards.
+/// The root is found with the `role` and `spaceId` `FileNode/query`
+/// filter; each descendant is destroyed before the root, as `FileNode/set`
+/// does for `onDestroyRemoveChildren`. Every node goes through
+/// [`FileNodeBackend::destroy_object`], whose contract advances the
+/// FileNode state, so `FileNode/changes` lists the destroyed ids and the
+/// push channel can emit the `FileNode` state change the draft asks for
+/// "at the moment the file tree is destroyed". A Space without a file
+/// tree destroys nothing.
+///
+/// `caller` is a server context, as no client destroys these nodes, and
+/// `account_id` is the Space's account. The destroy is not atomic: on an
+/// error the nodes destroyed so far stay destroyed, and calling it again
+/// destroys the rest.
+///
+/// Returns the destroyed ids, descendants before their root.
+///
+/// # Errors
+///
+/// Returns [`TreeDestroyError::Query`] if finding the nodes fails, and
+/// [`TreeDestroyError::Destroy`] for the first destroy that fails.
+// Carries `FileNodeBackend::destroy_object`'s error, as for
+// `create_space_file_tree`.
+#[allow(clippy::result_large_err)]
+pub async fn destroy_space_file_tree<F: FileNodeBackend>(
+    files: &F,
+    caller: &F::CallerCtx,
+    account_id: &Id,
+    space_id: &Id,
+) -> Result<Vec<Id>, TreeDestroyError<F::Error>> {
+    let mut filter = FileNodeFilterCondition::default();
+    filter.role = Some(NodeRole::ChatSpace.to_wire_str().to_owned());
+    filter.space_id = Some(space_id.clone());
+    let roots = files
+        .query_objects::<FileNode>(caller, account_id, Some(&filter), None, None, 0, None, 0)
+        .await
+        .map_err(TreeDestroyError::Query)?
+        .ids;
+
+    let mut destroyed = Vec::new();
+    for root_id in roots {
+        let descendants = files
+            .get_descendant_ids(caller, account_id, &root_id)
+            .await
+            .map_err(|e| TreeDestroyError::Query(BackendQueryError::Other(e)))?;
+        for id in descendants.into_iter().chain([root_id]) {
+            files
+                .destroy_object::<FileNode>(caller, account_id, &id)
+                .await
+                .map_err(TreeDestroyError::Destroy)?;
+            destroyed.push(id);
+        }
+    }
+    Ok(destroyed)
 }
 
 /// Resolve draft-atwood-jmap-chat-filenode-00 §filenodeId for an
