@@ -782,7 +782,7 @@ pub enum ClientError {
     /// [`JmapClient::upload_blob`](crate::JmapClient::upload_blob) and
     /// [`JmapClient::download_blob`](crate::JmapClient::download_blob)
     /// (and the `_session` wrappers that delegate to them). Extension crates
-    /// also produce it, e.g. for a `rateLimited` SetError. A 429 on the
+    /// also produce it, e.g. for a `rateLimit` SetError. A 429 on the
     /// event-source connection still surfaces as [`ClientError::Http`] so
     /// [`JmapClient::subscribe_events_reconnecting`](crate::JmapClient::subscribe_events_reconnecting)
     /// can keep retrying it.
