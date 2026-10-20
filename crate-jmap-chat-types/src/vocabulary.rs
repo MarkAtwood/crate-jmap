@@ -73,6 +73,17 @@ pub const SPEC_CHANNEL_PERMISSION_TARGET_TYPES: &[&str] = &["role", "member"];
 /// ignored; only recognized values take effect.
 pub const SPEC_EPHEMERAL_DATA_TYPES: &[&str] = &["typing", "presence"];
 
+/// Companion-registered values for `ChatStreamEnable.data_types`, per
+/// draft-atwood-jmap-chat-wss-00 §Enabling Ephemeral Push: `"vtc"` for
+/// in-call events (draft-atwood-jmap-vtc-wss-00) and `"scene"` for spatial
+/// events (draft-atwood-jmap-scene-wss-00).
+///
+/// Kept apart from [`SPEC_EPHEMERAL_DATA_TYPES`]: these do not count as
+/// recognized for the "none of `typing` or `presence`" rejection rule, and
+/// a server that lacks the companion WebSocket capability MUST silently
+/// ignore them.
+pub const COMPANION_EPHEMERAL_DATA_TYPES: &[&str] = &["vtc", "scene"];
+
 /// Endpoint / MessageAction `type` for a video/voice teleconference
 /// (draft-atwood-jmap-chat-00 §Endpoint).
 pub const CHAT_CAP_VTC: &str = "urn:jmap:chat:cap:vtc";
