@@ -96,6 +96,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: `Message/set` update now applies the checks that
+  create already did (draft-atwood-jmap-chat-00 §Account-Level Capability
+  Object, §Fields Inside the Ciphertext): an edited `body` over
+  `maxBodyBytes` is a `tooLarge` SetError, and an edit leaving the Message
+  with an encrypted `bodyType` and any of `mentions`, `broadcastMentions`,
+  `attachments`, `actions`, `replyTo`, `threadRootId`, `topicId` or
+  `subject` non-empty (stored or patched) is an `invalidProperties`
+  SetError listing each such field.
 - **jmap-tasks-server**: `TaskList/set` with `onDestroyRemoveTasks: true`
   now destroys the Tasks in each destroyed TaskList before the list
   (draft-ietf-jmap-tasks-06 §3.4); it used to destroy only the list and

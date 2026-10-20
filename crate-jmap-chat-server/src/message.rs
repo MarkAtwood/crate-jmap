@@ -556,6 +556,43 @@ fn body_type_field_conflicts(obj: &Value, body_type: &str) -> Vec<&'static str> 
         .collect()
 }
 
+/// Check a `Message/set` edit `patch` of the stored `msg` against
+/// `maxBodyBytes` and the encrypted-`bodyType` empty-field rule, which
+/// apply to updates as well as creates.
+///
+/// draft-atwood-jmap-chat-00 §Account-Level Capability Object
+/// `maxBodyBytes`: "in `Message/set` the rejection is a `tooLarge`
+/// SetError." §Fields Inside the Ciphertext: "Servers MUST reject a
+/// `Message/set` create or update that has an encrypted `bodyType` and any
+/// of these fields non-empty". The field rule runs on the Message as it
+/// would be after the patch, so a `bodyType`-only patch to an encrypted
+/// type is rejected when the stored Message keeps such a field.
+///
+/// Returns the SetError, or `None` when the edit passes.
+fn edit_limit_error(msg: &Message, patch: &Value, limits: &ChatLimits) -> Option<Value> {
+    if let Some(body) = patch.get("body").and_then(Value::as_str) {
+        if u64::try_from(body.len()).map_or(true, |n| n > limits.max_body_bytes) {
+            return Some(json!({
+                "type": "tooLarge",
+                "description": format!("body exceeds maxBodyBytes ({})", limits.max_body_bytes),
+            }));
+        }
+    }
+    let mut merged = serde_json::to_value(msg).ok()?;
+    if let (Some(dst), Some(src)) = (merged.as_object_mut(), patch.as_object()) {
+        dst.extend(src.iter().map(|(k, v)| (k.clone(), v.clone())));
+    }
+    let body_type = merged.get("bodyType").and_then(Value::as_str)?.to_owned();
+    let conflicts = body_type_field_conflicts(&merged, &body_type);
+    (!conflicts.is_empty()).then(|| {
+        json!({
+            "type": "invalidProperties",
+            "properties": conflicts,
+            "description": format!("must be empty or absent when bodyType is {body_type}"),
+        })
+    })
+}
+
 /// Implementation-defined maximum byte length of `subject`
 /// (draft-atwood-jmap-chat-00 §Input Validation).
 const MAX_SUBJECT_BYTES: usize = 1024;
@@ -1393,6 +1430,13 @@ pub async fn handle_message_set<B: ChatBackend>(
                                 id_str,
                                 json!({ "type": "forbidden", "description": description }),
                             );
+                            continue;
+                        }
+                        if let Some(err) = found
+                            .first()
+                            .and_then(|m| edit_limit_error(m, &patch_val, &limits))
+                        {
+                            not_updated.insert(id_str, err);
                             continue;
                         }
                     }
