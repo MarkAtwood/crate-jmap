@@ -239,6 +239,14 @@ new `ChatBackend` and `CalendarsBackend` behaviour, serde defaults in the
 `*-types` crates), so the shared line is now `0.2.x` and the workspace
 dependency requirements are `"0.2"`.
 
+The 2026-10-19 wave moved every publishable crate to `0.3.0`. Changes since
+`0.2.0` break the 0.2 API (`JmapBackend::query_objects` anchor arguments
+and `BackendQueryError`, new required `PushSubscriptionBackend` and
+`ChatBackend` methods, per-account `supports_type`, `SenderId` removal and
+other `jmap-chat-types` field changes), so the shared line is now `0.3.x`
+and the workspace dependency requirements are `"0.3"`. `CHANGELOG.md` lists
+every break.
+
 ## Tracking
 
 This file was first written for issue **JMAP-sc1b.23** (P3 publish-readiness
