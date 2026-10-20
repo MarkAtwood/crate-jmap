@@ -96,7 +96,8 @@ crates, never in a support crate.
 | `crate-jmap-chat-federation-types/` | `jmap-chat-federation-types` | draft-atwood-jmap-chat-federation-00 data types — `contact_server_url` and `contact_direct_address` read the `ChatContact.serverUrl` and `.directAddress` extension fields from `ChatContact.extra`. No async, no I/O |
 | `crate-jmap-vtc-types/` | `jmap-vtc-types` | draft-atwood-jmap-vtc-00 data types — `VtcCapability` (`urn:ietf:params:jmap:vtc`) with `VtcGateway`/`VtcDialInEntry`, `VtcMediaState`, `VtcCallPolicy`, the `VtcCall`, `VtcParticipant`, `VtcRecording` and `VtcLivestream` objects, `VtcCallPush` (full and content-free), `VtcEvent` over the eight ephemeral events, the draft-atwood-jmap-vtc-wss-00 stream control frames (`JMAP_VTC_WEBSOCKET_URI`, `VtcStreamMessage` over `VtcStreamEnable`/`VtcStreamDisable`, `VTC_EVENT_TYPES`), the `query` filter/comparator types and `JmapObject` impls for `VtcCall`/`VtcParticipant`. No async, no I/O, depends on `jmap-types` only |
 | `crate-jmap-vtc-server/` | `jmap-vtc-server` | draft-atwood-jmap-vtc-00 `VTCCall/*`, `VTCRecording/*` and `VTCLivestream/*` method handlers — `VtcBackend` (capability object, companion-capability probe, caller userId, atomic `create_call` with ring participants, atomic `create_object`, required `deliver_recording_state_event`, fail-open `is_moderator` and `is_user_blocked`), create gates, §State Machine, ending a call, call-level moderator actions, moderator-only recording/livestream `/set` with their state machines, E2EE `forbidden`, `streamKey` redaction, `/query` default sorts and the `query` match/compare functions, the draft-atwood-jmap-vtc-wss-00 `VTCStreamEnable` subscription state and `should_deliver` delivery-time check (`ephemeral`), `memory` reference backend. Depends on RFC 8620 only; the Chat binding lives in a binding crate |
-| `crate-jmap-scene-types/` | `jmap-scene-types` | draft-atwood-jmap-scene-00 data types — `SceneCapability` (`urn:ietf:params:jmap:scene`), the `Position`/`Orientation`/`Scale` coordinate formats with `IDENTITY_ORIENTATION`/`IDENTITY_SCALE`, `SceneBounds`, `GeoAnchor`, `ViewHint`, `AccessPolicy`, `PhysicsMode`, the `SceneAsset`, `SceneRegion`, `SceneObject` and `SceneAvatar` objects, and the `query` filter/comparator types including the `WithinRadius`/`WithinBounds` spatial filters. No async, no I/O, depends on `jmap-types` only |
+| `crate-jmap-scene-types/` | `jmap-scene-types` | draft-atwood-jmap-scene-00 data types — `SceneCapability` (`urn:ietf:params:jmap:scene`), the `Position`/`Orientation`/`Scale` coordinate formats with `IDENTITY_ORIENTATION`/`IDENTITY_SCALE`, `SceneBounds`, `GeoAnchor`, `ViewHint`, `AccessPolicy`, `PhysicsMode`, the `SceneAsset`, `SceneRegion`, `SceneObject` and `SceneAvatar` objects, and the `query` filter/comparator types including the `WithinRadius`/`WithinBounds` spatial filters; the `JmapObject` impl for `SceneAsset`. No async, no I/O, depends on `jmap-types` only |
+| `crate-jmap-scene-server/` | `jmap-scene-server` | draft-atwood-jmap-scene-00 `SceneAsset/*` method handlers — `SceneBackend` (capability object, required `blob_size`, atomic `create_object` with the account storage quota and admin-only rule, fail-open `may_modify_asset`), `/set` SetError conditions, `GLTF_BINARY` as the mandatory-to-implement format, `overQuota` above `maxAssetSizeBytes`, `/query` default sort and the `query` match/compare functions, `memory` reference backend. Depends on RFC 8620 only |
 
 ## Dependency Tree
 
@@ -194,6 +195,8 @@ jmap-scene-types       — draft-atwood-jmap-scene-00 data types: SceneCapabilit
                          SceneBounds, GeoAnchor, SceneAsset, SceneRegion,
                          SceneObject, SceneAvatar, query filters.
                          No async, no I/O. Depends on jmap-types only.
+    └── jmap-scene-server  — SceneAsset handlers, SceneBackend trait.
+                             Depends on jmap-server; no chat or VTC dependency.
 ```
 
 Type crates (`*-types`) have no async deps. Server crates may depend on tokio/http.
@@ -220,7 +223,7 @@ follow-up sweep bead before merging).
 | Foundation types | `jmap-types` | (none — sole foundation) |
 | Extension types | `jmap-mail-types` | `jmap-chat-types`, `jmap-calendars-types`, `jmap-tasks-types`, `jmap-contacts-types`, `jmap-filenode-types`, `jmap-sharing-types`, `jmap-metadata-types` |
 | Foundation server | `jmap-server` | (none — sole foundation) |
-| Extension server | `jmap-mail-server` | `jmap-chat-server`, `jmap-calendars-server`, `jmap-tasks-server`, `jmap-contacts-server`, `jmap-filenode-server`, `jmap-metadata-server`, `jmap-sharing-server`, `jmap-vtc-server` |
+| Extension server | `jmap-mail-server` | `jmap-chat-server`, `jmap-calendars-server`, `jmap-tasks-server`, `jmap-contacts-server`, `jmap-filenode-server`, `jmap-metadata-server`, `jmap-sharing-server`, `jmap-vtc-server`, `jmap-scene-server` |
 | Foundation client | `jmap-base-client` | (none — sole foundation) |
 | Extension client | `jmap-mail-client` | `jmap-chat-client`, `jmap-calendars-client`, `jmap-tasks-client`, `jmap-contacts-client`, `jmap-filenode-client`, `jmap-metadata-client`, `jmap-sharing-client` |
 

@@ -22,6 +22,16 @@ wire behaviour that a conforming peer can observe.
   `SceneObject` (`PhysicsMode`) and `SceneAvatar` data types, and the
   `query` filters and comparators of all four, including the
   `WithinRadius` and `WithinBounds` spatial filters.
+- **jmap-scene-types**: `JmapObject`, `GetObject`, `SetObject` and
+  `QueryObject` impls for `SceneAsset`.
+- **jmap-scene-server**: new crate for draft-atwood-jmap-scene-00 —
+  `SceneAsset/get`, `/changes`, `/set`, `/query` and `/queryChanges`
+  handlers with `register_scene_handlers`, the `SceneBackend` trait
+  (`scene_capability`, `blob_size`, `create_object`, `update_object`,
+  `destroy_object`, fail-open `may_modify_asset`), `GLTF_BINARY` accepted
+  as the mandatory-to-implement format, `notFound` for a missing blob,
+  `overQuota` above `maxAssetSizeBytes`, the `query::asset_matches` and
+  `query::compare_assets` functions, and a `memory` reference backend.
 - **jmap-vtc-types**: draft-atwood-jmap-vtc-wss-00 stream control
   frames — `JMAP_VTC_WEBSOCKET_URI`
   (`urn:ietf:params:jmap:vtc:websocket`), `VtcStreamEnable` (`callIds`

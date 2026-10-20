@@ -33,6 +33,7 @@
 
 pub mod asset;
 pub mod avatar;
+mod backend;
 pub mod capability;
 pub mod coordinates;
 pub mod object;
