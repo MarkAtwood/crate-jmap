@@ -95,4 +95,7 @@ pub use request::{
     WebSocketCapability,
 };
 pub use sse::{parse_sse_block, SseEvent, SseFrame};
-pub use ws::{connect_ws, WsFrame, WsReceiver, WsRequestError, WsSender, WsSession};
+pub use ws::{
+    connect_ws, connect_ws_allow_plaintext, WsFrame, WsReceiver, WsRequestError, WsSender,
+    WsSession,
+};

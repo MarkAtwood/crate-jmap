@@ -593,7 +593,8 @@ correctly: the incomplete head bytes are retained between chunks. Each
 double-newline-delimited SSE block is parsed into an `SseFrame`. Buffer growth
 is capped at `max_sse_frame` (default: 1 MiB) per frame.
 
-**WebSocket** — `connect_ws` validates the URL scheme (`ws://` or `wss://`),
+**WebSocket** — `connect_ws` accepts only `wss://` URLs (plaintext `ws://`
+needs the explicit opt-in `connect_ws_allow_plaintext`),
 applies a 10-second connect timeout, and returns a `WsSession`. Outgoing
 requests are wrapped in a `WsRequestFrame` that injects `"@type": "Request"`
 (RFC 8887 §4.3.2) in a single serialization pass. Incoming text frames are

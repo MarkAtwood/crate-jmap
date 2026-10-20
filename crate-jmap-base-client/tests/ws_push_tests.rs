@@ -4,7 +4,8 @@
 use std::time::Duration;
 
 use futures::StreamExt as _;
-use jmap_base_client::{ws::connect_ws, ClientError};
+use jmap_base_client::ws::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
+use jmap_base_client::ClientError;
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::Message;
 
@@ -49,7 +50,9 @@ async fn push_enable_and_disable_wire_format() {
         got
     });
 
-    let mut session = connect_ws(&url, None).await.expect("connect");
+    let mut session = connect_ws_allow_plaintext(&url, None, DEFAULT_WS_MAX_MESSAGE_BYTES)
+        .await
+        .expect("connect");
     session
         .send_push_enable(Some(&["Mailbox", "Email"]), Some("aaa"))
         .await
@@ -99,7 +102,9 @@ async fn keepalive_pings_idle_connection_and_tolerates_pongs() {
         pings
     });
 
-    let mut session = connect_ws(&url, None).await.expect("connect");
+    let mut session = connect_ws_allow_plaintext(&url, None, DEFAULT_WS_MAX_MESSAGE_BYTES)
+        .await
+        .expect("connect");
     session
         .enable_keepalive(Duration::from_millis(5), Duration::from_secs(2))
         .expect("valid keepalive");
@@ -129,7 +134,9 @@ async fn keepalive_reports_dead_peer() {
         drop(ws);
     });
 
-    let mut session = connect_ws(&url, None).await.expect("connect");
+    let mut session = connect_ws_allow_plaintext(&url, None, DEFAULT_WS_MAX_MESSAGE_BYTES)
+        .await
+        .expect("connect");
     session
         .enable_keepalive(Duration::from_millis(20), Duration::from_millis(50))
         .expect("valid keepalive");
@@ -164,7 +171,9 @@ async fn keepalive_reports_dead_peer_while_sender_blocked() {
         drop(ws);
     });
 
-    let mut session = connect_ws(&url, None).await.expect("connect");
+    let mut session = connect_ws_allow_plaintext(&url, None, DEFAULT_WS_MAX_MESSAGE_BYTES)
+        .await
+        .expect("connect");
     session
         .enable_keepalive(Duration::from_millis(20), Duration::from_millis(200))
         .expect("valid keepalive");
@@ -209,7 +218,9 @@ async fn keepalive_reports_dead_peer_while_sender_blocked() {
 async fn enable_keepalive_rejects_zero_durations() {
     let (listener, url) = listen().await;
     let server = tokio::spawn(accept(listener));
-    let mut session = connect_ws(&url, None).await.expect("connect");
+    let mut session = connect_ws_allow_plaintext(&url, None, DEFAULT_WS_MAX_MESSAGE_BYTES)
+        .await
+        .expect("connect");
     for (interval, timeout) in [
         (Duration::ZERO, Duration::from_secs(1)),
         (Duration::from_secs(1), Duration::ZERO),

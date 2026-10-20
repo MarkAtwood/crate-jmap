@@ -859,7 +859,8 @@ impl JmapClient {
     /// downstream code that inspects [`ClientError`] should still avoid
     /// printing or storing the `auth_header` itself.
     ///
-    /// Returns [`ClientError::InvalidArgument`] for non-`ws://`/`wss://` URLs.
+    /// Returns [`ClientError::InvalidArgument`] for any URL that is not
+    /// `wss://` (plaintext `ws://` is rejected).
     /// See [`crate::ws::connect_ws_with_limit`] for full error semantics.
     pub async fn connect_ws_session(
         &self,
