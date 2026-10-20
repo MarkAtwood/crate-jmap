@@ -61,6 +61,12 @@
 //! true count, blocked users included, as the draft says deployments
 //! "SHOULD prefer".
 //!
+//! Push (draft §Push Notifications): [`SCENE_DATA_TYPES`], the four types
+//! that participate in RFC 8620 state changes, and [`push_urgency`], the
+//! §Push Urgency recommendation for a `StateChange`, including the
+//! §Interaction with Chat Push rule that an avatar enter or leave already
+//! announced by a bound Chat's push is not sent at `normal` or higher.
+//!
 //! The crate depends on RFC 8620 only; Chat and VTC bindings live in
 //! separate binding crates, which implement
 //! [`SceneBackend::has_capability`] and [`SceneBackend::region_binding`].
@@ -88,6 +94,7 @@ mod helpers;
 #[cfg(feature = "memory")]
 pub mod memory;
 pub mod object;
+pub mod push;
 pub mod query;
 pub mod region;
 
@@ -108,6 +115,7 @@ pub use object::{
     handle_scene_object_changes, handle_scene_object_get, handle_scene_object_query,
     handle_scene_object_query_changes, handle_scene_object_set,
 };
+pub use push::{push_urgency, SceneEvent, Urgency, SCENE_DATA_TYPES};
 pub use region::{
     handle_scene_region_changes, handle_scene_region_get, handle_scene_region_query,
     handle_scene_region_query_changes, handle_scene_region_set,

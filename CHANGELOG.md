@@ -14,6 +14,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-client** (new crate): `AssetFetcher` for
+  draft-atwood-jmap-scene-00 §assetUri Is Untrusted. `fetch` refuses an
+  `assetUri` whose scheme is not `https:` before connecting
+  (`AssetFetchError::NotHttps`), does not follow redirects to non-HTTPS
+  endpoints, stops at a caller-supplied byte limit and checks the body
+  against an expected `sha256` (`AssetFetchError::DigestMismatch`).
+- **jmap-scene-server**: `push` module for §Push Notifications.
+  `SCENE_DATA_TYPES` lists the four state-change types; `SceneEvent`,
+  `Urgency` and `push_urgency` give the §Push Urgency recommendation for a
+  `StateChange` (the highest of its events), with an avatar enter or leave
+  already announced by a bound Chat's push lowered to `low` (§Interaction
+  with Chat Push).
 - **jmap-scene-types**: `set_error` module for draft-atwood-jmap-scene-00
   §Content Moderation for User-Created Objects: the `CONTENT_POLICY`
   (`contentPolicy`) SetError type, the `RETRY_AFTER` property name and the
