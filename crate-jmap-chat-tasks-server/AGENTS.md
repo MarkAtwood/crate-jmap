@@ -35,4 +35,6 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p jmap-chat-tasks
 | TaskList destroy | No Tasks-side hook: the deployment calls `clear_space_task_list_id` from `TasksBackend::destroy_object::<TaskList>` |
 | Chat destroy | `clear_task_chat_ids` from `ChatBackend::on_chat_destroyed` |
 | Task destroy | Never destroys the referenced Chat (draft §Lifecycle) |
+| `chatId` write | Shape only, no existence lookup (draft §chatId MUST NOT validate); refused with `mayBackReferenceChat: false` |
+| `chatId` read | `redact_task_chat_ids` hides it per reader via `ChatBackend::may_view_chat`, fail-open by default (Mark, 2026-10-20, bd:JMAP-v9py.18.4) |
 | Tests | Each assertion quotes its draft line; the two reference `MemoryBackend`s |

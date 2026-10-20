@@ -6,7 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "Chat binding for the JMAP Tasks server (draft-atwood-jmap-chat-tasks-00): Space taskListId binding, auto-bind on create, and destroy cascades"
+description = "Chat binding for the JMAP Tasks server (draft-atwood-jmap-chat-tasks-00): Space taskListId binding, auto-bind on create, Task chatId rules, and destroy cascades"
 keywords = ["jmap", "tasks", "chat", "server"]
 categories = ["network-programming", "web-programming::http-server"]
 
