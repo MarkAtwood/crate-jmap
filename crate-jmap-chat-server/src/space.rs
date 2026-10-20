@@ -907,7 +907,9 @@ const BOOTSTRAP_ADMIN_ROLE_POSITION: u64 = 9_007_199_254_740_991;
 /// - `name` is required on create.
 /// - `id`, `createdAt`, `memberCount` are server-set and rejected in updates.
 /// - Keys listed by [`ChatBackend::space_extension_properties`] are
-///   accepted on create and update; any other unknown update key is
+///   accepted on create and update, except a core Space property or a
+///   structural patch key, which keeps its core meaning (`closedAt` in an
+///   update is `invalidProperties`); any other unknown update key is
 ///   `invalidProperties`.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
@@ -940,7 +942,21 @@ pub async fn handle_space_set<B: ChatBackend>(
     let mut destroyed_list: Vec<Value> = Vec::new();
     let mut not_destroyed = serde_json::Map::new();
     let mut mutated = false;
-    let extension_props = backend.space_extension_properties(caller, &account_id);
+    // `ChatBackend::space_extension_properties`: "A listed key that is
+    // already a core Space property or a structural patch key keeps its
+    // core meaning", so such a key is dropped here and never reaches
+    // `extra` on create or `apply_space_metadata_patch` on update.
+    let extension_props: Vec<&str> = backend
+        .space_extension_properties(caller, &account_id)
+        .iter()
+        .copied()
+        .filter(|&key| {
+            !(SPACE_READONLY.contains(&key)
+                || SPACE_METADATA_FIELDS.contains(&key)
+                || key == "closedAt"
+                || StructuralKey::from_wire(key).is_some())
+        })
+        .collect();
 
     // -----------------------------------------------------------------------
     // create
@@ -1033,17 +1049,7 @@ pub async fn handle_space_set<B: ChatBackend>(
             if let Some(desc) = obj_val.get("description").and_then(|v| v.as_str()) {
                 space.description = Some(desc.to_owned());
             }
-            // `ChatBackend::space_extension_properties`: "A listed key that
-            // is already a core Space property or a structural patch key
-            // keeps its core meaning", so it never lands in `extra`.
-            for &key in extension_props {
-                if SPACE_READONLY.contains(&key)
-                    || SPACE_METADATA_FIELDS.contains(&key)
-                    || key == "closedAt"
-                    || StructuralKey::from_wire(key).is_some()
-                {
-                    continue;
-                }
+            for &key in &extension_props {
                 match obj_val.get(key) {
                     None | Some(Value::Null) => {}
                     Some(v) => {
