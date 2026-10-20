@@ -12,6 +12,8 @@
 //! | Backend method | Call |
 //! |---|---|
 //! | `FileNodeBackend::create_object::<FileNode>`, before the insert | [`check_root_create`] |
+//! | The same, when advertising `maxSpaceStorageBytes` | [`check_space_quota`] |
+//! | `ChatBackend::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | [`create_space_file_tree`] |
 //!
 //! Each function takes the backends it reads, with their own caller
 //! contexts and error types.
@@ -25,7 +27,7 @@ use jmap_chat_server::{ChatBackend, MANAGE_SPACE};
 use jmap_chat_types::Space;
 use jmap_filenode_server::FileNodeBackend;
 use jmap_filenode_types::{FileNode, FileNodeFilterCondition, NodeRole};
-use jmap_server::{BackendQueryError, SetError, SetErrorType};
+use jmap_server::{BackendQueryError, BackendSetError, SetError, SetErrorType};
 use jmap_types::Id;
 
 /// A storage failure while checking a FileNode create.
@@ -174,6 +176,119 @@ pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
             "creating a Space file tree root requires the manage_space permission",
         ))
     })
+}
+
+/// Check draft-atwood-jmap-chat-filenode-00 `maxSpaceStorageBytes` for a
+/// `FileNode/set` create of `node`: "When a `FileNode/set` create would
+/// cause the Space file tree to exceed this limit, the server MUST return
+/// an `overQuota` SetError".
+///
+/// The limit covers the "total blob storage in bytes across all FileNodes
+/// in a single Space's file tree": the `size` of every node under the
+/// tree root plus `node.size`. Call it with `node` as the backend will
+/// store it, after setting the server-set `size` from the blob. A node
+/// whose top-level ancestor is not a Space file tree root (role
+/// `urn:jmap:chat:filenode:space`) passes unchecked, as does a top-level
+/// node.
+///
+/// Like the backend's other create pre-checks, this is not atomic with
+/// the insert: a backend with concurrent writers re-checks under the
+/// insert's lock or transaction.
+///
+/// Returns `Ok(Err(set_error))` when the create must be refused; return
+/// that SetError from `create_object` without inserting.
+///
+/// # Errors
+///
+/// Returns the storage error of the first FileNode read that fails.
+pub async fn check_space_quota<F: FileNodeBackend>(
+    files: &F,
+    caller: &F::CallerCtx,
+    account_id: &Id,
+    node: &FileNode,
+    max_space_storage_bytes: u64,
+) -> Result<Result<(), SetError>, BackendQueryError<F::Error>> {
+    let Some(parent_id) = &node.parent_id else {
+        return Ok(Ok(()));
+    };
+    let parent_ids = std::slice::from_ref(parent_id);
+    let (mut chain, _) = files
+        .get_objects::<FileNode>(caller, account_id, Some(parent_ids), None)
+        .await
+        .map_err(BackendQueryError::Other)?;
+    chain.extend(
+        files
+            .get_ancestors(caller, account_id, parent_ids)
+            .await
+            .map_err(BackendQueryError::Other)?,
+    );
+    let Some(root) = chain
+        .into_iter()
+        .find(|n| n.parent_id.is_none() && n.role == Some(NodeRole::ChatSpace))
+    else {
+        return Ok(Ok(()));
+    };
+
+    // ponytail: reads the whole tree on every create, O(tree size). Upgrade
+    // path: a per-Space usage total the backend keeps with each write.
+    let ids = files
+        .query_subtree(caller, account_id, std::slice::from_ref(&root.id), u64::MAX)
+        .await?;
+    let (tree, _) = files
+        .get_objects::<FileNode>(caller, account_id, Some(&ids), None)
+        .await
+        .map_err(BackendQueryError::Other)?;
+    let total = tree
+        .iter()
+        .chain([&root, node])
+        .fold(0u64, |sum, n| sum.saturating_add(n.size.unwrap_or(0)));
+    Ok(if total > max_space_storage_bytes {
+        Err(SetError::new(SetErrorType::OverQuota)
+            .with_description("the create would exceed maxSpaceStorageBytes for the Space"))
+    } else {
+        Ok(())
+    })
+}
+
+/// Create the file tree root for a new Space, for a server advertising
+/// draft-atwood-jmap-chat-filenode-00 `autoCreateFileTree: true`: "the
+/// server automatically creates a Space file tree root for each new Space
+/// at Space creation time and includes the new FileNode in subsequent
+/// `FileNode/changes` responses."
+///
+/// The root is a top-level `Directory` with role
+/// `urn:jmap:chat:filenode:space` and `spaceId` set to `space_id`, named
+/// `space_id` since the draft leaves the name open and at most one root
+/// exists per Space. It is inserted with [`FileNodeBackend::create_object`],
+/// whose contract records the create for `FileNode/changes`. Call it from
+/// the Space insert with the Space's account; `caller` is a server context,
+/// as no client creates this node.
+///
+/// Returns the new root's id and the stored node.
+///
+/// # Errors
+///
+/// Returns the backend's error from `create_object`.
+// Same error type as `FileNodeBackend::create_object`, which it propagates.
+#[allow(clippy::result_large_err)]
+pub async fn create_space_file_tree<F: FileNodeBackend>(
+    files: &F,
+    caller: &F::CallerCtx,
+    account_id: &Id,
+    space_id: &Id,
+) -> Result<(Id, FileNode), BackendSetError<F::Error>> {
+    let root: FileNode = serde_json::from_value(serde_json::json!({
+        "id": space_id,
+        "@type": "Directory",
+        "name": space_id,
+        "parentId": null,
+        "role": NodeRole::ChatSpace.to_wire_str(),
+        "spaceId": space_id,
+    }))
+    .expect("a Directory FileNode with every required field deserializes");
+    files
+        .create_object(caller, account_id, "spaceFileTree", root)
+        .await
 }
 
 /// A `forbidden` SetError with `description`.
