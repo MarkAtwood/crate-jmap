@@ -606,15 +606,24 @@ impl VtcBackend for MemoryBackend {
         id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
         let mut inner = self.lock();
-        inner
-            .objects_mut(O::TYPE_NAME, account_id)
-            .remove(id)
-            .ok_or_else(not_found)?;
-        inner.commit(
-            O::TYPE_NAME,
-            account_id,
-            vec![(id.clone(), Change::Destroyed)],
-        );
+        let calls = inner.objects_mut(O::TYPE_NAME, account_id);
+        let removed = calls.remove(id).ok_or_else(not_found)?;
+        let mut changes = vec![(id.clone(), Change::Destroyed)];
+        // A destroyed breakout room leaves its parent's breakoutRoomIds.
+        let parent_id = (O::TYPE_NAME == VtcCall::TYPE_NAME)
+            .then(|| VtcCall::deserialize(&removed).ok())
+            .flatten()
+            .and_then(|c| c.parent_call_id);
+        if let Some(parent_id) = parent_id {
+            if let Some(Value::Array(rooms)) = calls
+                .get_mut(&parent_id)
+                .and_then(|p| p.get_mut("breakoutRoomIds"))
+            {
+                rooms.retain(|r| r.as_str() != Some(id.as_ref()));
+                changes.push((parent_id, Change::Updated));
+            }
+        }
+        inner.commit(O::TYPE_NAME, account_id, changes);
         Ok(())
     }
 

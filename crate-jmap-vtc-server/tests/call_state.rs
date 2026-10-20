@@ -302,3 +302,57 @@ async fn breakout_rooms_track_the_parent() {
         .expect("close");
     assert_eq!(get(&backend, &parent).await["breakoutRoomIds"], json!([]));
 }
+
+/// `{"destroy": [id]}` as `caller`; returns `Ok(())` or `Err(notDestroyed
+/// entry)`.
+async fn destroy(
+    backend: &jmap_vtc_server::memory::MemoryBackend,
+    caller: &str,
+    id: &str,
+) -> Result<(), Value> {
+    let resp = set(backend, caller, json!({ "destroy": [id] })).await;
+    match resp["notDestroyed"].get(id) {
+        Some(err) => Err(err.clone()),
+        None => {
+            assert_eq!(resp["destroyed"], json!([id]), "{resp}");
+            Ok(())
+        }
+    }
+}
+
+#[tokio::test]
+async fn ring_target_cannot_destroy_the_call() {
+    let backend = backend();
+    let id = create_id(&backend, ring()).await;
+    // L1647 "A participant with `role: "participant"` MUST receive
+    // `forbidden` ... for any `VTCCall/set` operation restricted to
+    // moderators (ending a call, ...)". Destroy removes the call, so it
+    // cannot be a way around L706. Alice is a ring target with role
+    // "participant" (L294).
+    let err = destroy(&backend, ALICE, &id).await.expect_err("forbidden");
+    assert_eq!(err["type"], "forbidden", "{err}");
+    assert_eq!(get(&backend, &id).await["state"], "ringing");
+}
+
+#[tokio::test]
+async fn destroying_a_breakout_room_leaves_the_parent() {
+    let backend = backend();
+    let parent = create_id(&backend, room()).await;
+    let mut child = room();
+    child["parentCallId"] = json!(parent);
+    let child_id = create(&backend, BOB, child).await["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    // L1647: "closing breakout rooms" is moderator-only.
+    let err = destroy(&backend, EVE, &child_id)
+        .await
+        .expect_err("forbidden");
+    assert_eq!(err["type"], "forbidden", "{err}");
+
+    // L397 "`breakoutRoomIds` ... ids of child breakout-room VTCCalls": a
+    // destroyed child is no longer one.
+    destroy(&backend, BOB, &child_id).await.expect("destroy");
+    assert_eq!(get(&backend, &parent).await["breakoutRoomIds"], json!([]));
+}

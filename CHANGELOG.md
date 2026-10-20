@@ -22,6 +22,9 @@ wire behaviour that a conforming peer can observe.
   enforces the §State Machine, sets `endedAt` and `endReason` when a call
   ends, and gates ending, `lobbyEnabled`, `policy`, `e2eeEnabled` and
   breakout rooms on `VtcBackend::is_moderator` (fail-open default).
+  Destroy takes the same permission as ending the call, and the memory
+  backend drops a destroyed breakout room from its parent's
+  `breakoutRoomIds`.
   `call_already_active_on_chat` is the L573 one-active-call-per-Chat
   SetError; `query::call_matches` and `query::compare_calls` evaluate the
   `/query` filter and sort. Depends on RFC 8620 only.
