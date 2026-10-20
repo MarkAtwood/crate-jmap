@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-web-push**: new support crate for Web Push delivery of RFC 8620
+  §7.2 pushes. `encrypt` (RFC 8291 `aes128gcm`, checked against the
+  RFC 8291 Appendix A example), `Vapid` (RFC 8292 `Authorization: vapid`
+  header), and `Sender::send`, which POSTs a JSON payload with the RFC
+  8030 `TTL` / `Urgency` / `Topic` headers, retries `429` / `5xx` /
+  transport errors with backoff, and returns `Outcome::Gone` on `404` or
+  `410` so the caller can destroy the subscription. No `*-types` or
+  `*-server` crate depends on it.
 - **jmap-did-types**: `PlcState::document()` presents a verified `did:plc`
   state as its DID document (did:plc v0.3.0 §Presentation as DID Document),
   matching the document plc.directory serves at `/<did>`.

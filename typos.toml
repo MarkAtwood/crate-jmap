@@ -25,6 +25,10 @@ extend-ignore-re = [
     # §Examples (crate-jmap-chat-mimi-types/src/groupinfo.rs). Base64url,
     # not a word.
     "AAEAAQAgsJ4f",
+    # RFC 8291 §5 receiver public key and RFC 8292 §2.4 VAPID `k`
+    # (crate-jmap-web-push tests). Base64url, not words.
+    "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4",
+    "BA1Hxzyi1RUM1b5wjxsn7nGxAszw2u61m164i3MrAIxHF6YK5h4SDYic-dRuU_RCPCfA5aq9ojSwk5Y2EmClBPs",
 ]
 
 [default.extend-words]
