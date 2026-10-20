@@ -20,6 +20,15 @@ wire behaviour that a conforming peer can observe.
   reading the `calendarId` extension (`SPACE_CALENDAR_ID_PROPERTY`) from
   `Space::extra`, and the MessageAction metadata shapes
   `CalendarEventMetadata`, `AvailabilityMetadata` and `LookupWindow`.
+- **jmap-chat-calendars-server**: new crate, the Chat binding for
+  `jmap-calendars-server` (draft-atwood-jmap-chat-calendars-00).
+  `may_advertise` allows the capability only alongside
+  `urn:ietf:params:jmap:chat` and `urn:ietf:params:jmap:calendars`;
+  `space_extension_properties` registers `calendarId` only with
+  `mayBindCalendar: true`; `check_calendar_id` accepts `null` (unbind) or a
+  Calendar on the Space's own account, else `invalidProperties` naming
+  `calendarId`; `create_space_calendar` auto-binds a new Space. The bound
+  Calendar is never destroyed with its Space.
 - **jmap-chat-filenode-server**: new crate, the Chat binding for
   `jmap-filenode-server`. `check_root_create`, called before a FileNode
   insert, refuses a Space file tree root without `spaceId`

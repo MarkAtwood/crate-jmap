@@ -102,6 +102,7 @@ crates, never in a support crate.
 | `crate-jmap-scene-vtc-server/` | `jmap-scene-vtc-server` | VTC binding for `jmap-scene-server` (draft-atwood-jmap-scene-00 with draft-atwood-jmap-vtc-00) — `clear_active_call_id`, called from `VtcBackend::update_object`, clears `SceneRegion.activeCallId` with a SceneRegion `StateChange` when the referenced VTCCall ends (via `VTCCall/set` or `end_call`). Depends on `jmap-scene-server` and `jmap-vtc-types` |
 | `crate-jmap-chat-scene-server/` | `jmap-chat-scene-server` | Chat binding for `jmap-scene-server` (draft-atwood-jmap-scene-wss-00 with draft-atwood-jmap-chat-wss-00) — `should_deliver_scene`, called by the WebSocket transport before sending a Scene event: the union of the `ChatStreamEnable` `"scene"` path and `SceneStreamEnable`, one decision per event. Depends on `jmap-scene-server` only |
 | `crate-jmap-chat-filenode-server/` | `jmap-chat-filenode-server` | Chat binding for `jmap-filenode-server` (draft-atwood-jmap-chat-filenode-00) — free functions a deployment calls from its `FileNodeBackend` and `ChatBackend` impls: `check_root_create` (§Creating the File Tree Root: `spaceId` required, Space membership `forbidden`, one root per Space `alreadyExists` with `existingId`, `manage_space` with a caller-supplied `@everyone` floor), `check_space_quota` (`maxSpaceStorageBytes` `overQuota`), `create_space_file_tree` (`autoCreateFileTree`), `resolve_filenode_attachment` (§filenodeId: same-Space file, read access, server-filled Attachment fields), `destroy_space_file_tree` (§Space Deletion, no grace period). Depends on `jmap-filenode-server` and `jmap-chat-server` |
+| `crate-jmap-chat-calendars-server/` | `jmap-chat-calendars-server` | Chat binding for `jmap-calendars-server` (draft-atwood-jmap-chat-calendars-00) — free functions a deployment calls from its Session builder and `ChatBackend` impl: `may_advertise` (§Capability: only with both `chat` and `calendars` on the account), `space_extension_properties` (`calendarId` registered only with `mayBindCalendar: true`), `check_calendar_id` (§calendarId, §Federation: `null` unbinds, otherwise a Calendar on the Space's own account, `invalidProperties` naming `calendarId`), `create_space_calendar` (auto-bind on create sets `calendarId` before the insert). Never destroys the bound Calendar with its Space. Depends on `jmap-calendars-server` and `jmap-chat-types` |
 | `crate-jmap-scene-client/` | `jmap-scene-client` | draft-atwood-jmap-scene-00 client support — `AssetFetcher` (§assetUri Is Untrusted: `https:`-only `assetUri`, no redirects to non-HTTPS endpoints, caller size limit, `sha256` check); `SceneWsExt` / `parse_scene_ws_frame` for draft-atwood-jmap-scene-wss-00 ephemeral events over a `jmap-base-client` `WsSession` (send `SceneStreamEnable`/`SceneStreamDisable`/`SceneInteractionEvent`; non-Scene frames pass through as `SceneWsFrame::Other`). Depends on `jmap-base-client`, `jmap-scene-types`, `jmap-cid-types` and reqwest; no method bindings yet |
 
 ## Dependency Tree
@@ -216,6 +217,11 @@ jmap-chat-filenode-server — Chat binding for jmap-filenode-server: Space file 
                          root validation, per-Space quota, auto-created
                          roots, Attachments linked by filenodeId. Depends on jmap-filenode-server and
                          jmap-chat-server.
+
+jmap-chat-calendars-server — Chat binding for jmap-calendars-server: Space calendarId
+                         binding checks, auto-bind on create, capability
+                         co-advertisement. Depends on jmap-calendars-server and
+                         jmap-chat-types.
 ```
 
 Type crates (`*-types`) have no async deps. Server crates may depend on tokio/http.
