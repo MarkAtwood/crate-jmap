@@ -195,6 +195,12 @@ pub struct ChatLimits {
     /// them with an `invalidProperties` SetError naming `bodyType`;
     /// update does not. Defaults to empty.
     pub server_reserved_body_types: &'static [&'static str],
+    /// The account's `supportsThreads` capability value
+    /// (draft-atwood-jmap-chat-00 §Thread Model). When `true`,
+    /// `Message/get` computes `replyCount` and `unreadReplyCount`, and
+    /// `Message/query` accepts the `threadRootId` filter, which the
+    /// backend's `query_objects` must then implement. Defaults to `false`.
+    pub supports_threads: bool,
 }
 
 impl Default for ChatLimits {
@@ -234,6 +240,7 @@ impl ChatLimits {
             max_group_chat_members: 1_000,
             supported_body_types: crate::message::SUPPORTED_BODY_TYPES,
             server_reserved_body_types: &[],
+            supports_threads: false,
         }
     }
 
@@ -283,6 +290,13 @@ impl ChatLimits {
     #[must_use]
     pub const fn with_server_reserved_body_types(mut self, types: &'static [&'static str]) -> Self {
         self.server_reserved_body_types = types;
+        self
+    }
+
+    /// Builder-style setter for [`Self::supports_threads`].
+    #[must_use]
+    pub const fn with_supports_threads(mut self, supports: bool) -> Self {
+        self.supports_threads = supports;
         self
     }
 }

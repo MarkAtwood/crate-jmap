@@ -130,6 +130,14 @@ pub async fn handle_message_get<B: ChatBackend>(
         }
     }
 
+    let wants_counts = properties.as_ref().is_none_or(|p| {
+        p.iter()
+            .any(|k| k == "replyCount" || k == "unreadReplyCount")
+    });
+    if wants_counts && backend.limits(caller, &account_id).supports_threads {
+        fill_reply_counts(backend, caller, &account_id, &mut list).await?;
+    }
+
     let state = backend
         .get_state::<Message>(caller, &account_id)
         .await
@@ -156,6 +164,61 @@ pub async fn handle_message_get<B: ChatBackend>(
         "list": list_json,
         "notFound": not_found_json(&not_found),
     })))
+}
+
+/// Set the server-computed thread counts on each Message in `list`
+/// (draft-atwood-jmap-chat-00 §Message, used when `supportsThreads` is
+/// `true`).
+///
+/// `replyCount`: "Count of messages in this chat with `replyTo` equal to
+/// this message's `id`." `unreadReplyCount`, only on a thread root
+/// (`threadRootId` absent): "Count of replies to this message received
+/// after the owner's `ReadPosition.lastReadMessageId` in this Chat".
+/// Message ids are ULIDs "lexicographically ordered by time" (§Message
+/// IDs), so a reply counts as unread when its `id` sorts after
+/// `lastReadMessageId`, or always when that is absent (as for
+/// `Chat.unreadCount`).
+// ponytail: scans every Message and ReadPosition in the account per
+// call (O(messages) per Message/get); a backend with many messages
+// needs a reply-count index behind a ChatBackend hook.
+async fn fill_reply_counts<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    list: &mut [Message],
+) -> Result<(), JmapError> {
+    if list.is_empty() {
+        return Ok(());
+    }
+    let (all, _) = backend
+        .get_objects::<Message>(caller, account_id, None, None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let (positions, _) = backend
+        .get_objects::<ReadPosition>(caller, account_id, None, None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    for msg in list.iter_mut() {
+        let replies = || {
+            all.iter()
+                .filter(|r| r.chat_id == msg.chat_id && r.reply_to.as_ref() == Some(&msg.id))
+        };
+        let reply_count = replies().count() as u64;
+        msg.unread_reply_count = if msg.thread_root_id.is_none() {
+            let last_read = positions
+                .iter()
+                .find(|p| p.chat_id == msg.chat_id)
+                .and_then(|p| p.last_read_message_id.as_ref());
+            let unread = replies()
+                .filter(|r| last_read.is_none_or(|l| r.id.as_ref() > l.as_ref()))
+                .count();
+            Some(unread as u64)
+        } else {
+            None
+        };
+        msg.reply_count = Some(reply_count);
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -246,10 +309,12 @@ pub async fn handle_message_query<B: ChatBackend>(
     // search MUST return `unsupportedFilter`."; `threadRootId` — "Valid
     // only when `supportsThreads` is `true`; otherwise servers MUST
     // return `unsupportedFilter`."
-    // ponytail: no backend implements either filter, so both are refused
-    // here for every backend; a backend that adds one needs a
-    // ChatBackend capability hook to lift the refusal.
-    if top.is_some_and(|c| c.text.is_some() || c.thread_root_id.is_some()) {
+    // ponytail: no backend implements `text`, so it is refused for every
+    // backend; a backend that adds it needs a ChatBackend capability hook
+    // to lift the refusal. `threadRootId` follows
+    // `ChatLimits::supports_threads`.
+    let supports_threads = backend.limits(caller, &account_id).supports_threads;
+    if top.is_some_and(|c| c.text.is_some() || (c.thread_root_id.is_some() && !supports_threads)) {
         return Err(JmapError::unsupported_filter());
     }
 
@@ -920,10 +985,65 @@ pub async fn handle_message_set<B: ChatBackend>(
                 .and_then(|v| v.as_str())
                 .map(Id::from);
 
-            let thread_root_id: Option<Id> = obj_val
+            let supplied_root: Option<Id> = obj_val
                 .get("threadRootId")
                 .and_then(|v| v.as_str())
                 .map(Id::from);
+
+            // §Message `replyTo`: "Servers MUST validate that this ID
+            // exists in the same Chat before storing." §Thread Model:
+            // the root of a reply is the referenced message's
+            // `threadRootId`, or the referenced message itself when that
+            // is absent; a message with no `replyTo` has no root.
+            // "Servers SHOULD validate them and MAY correct
+            // `threadRootId`": a wrong value is rejected and an omitted
+            // one is filled in. §Input Validation names no other error,
+            // so both failures are `invalidProperties`.
+            let expected_root: Option<Id> = match reply_to.as_ref() {
+                None => None,
+                Some(parent_id) => {
+                    let parent = match backend
+                        .get_objects::<Message>(
+                            caller,
+                            &account_id,
+                            Some(std::slice::from_ref(parent_id)),
+                            None,
+                        )
+                        .await
+                    {
+                        Ok((found, _)) => found.into_iter().find(|m| m.chat_id == chat_id),
+                        Err(e) => {
+                            not_created
+                                .insert(create_id.clone(), server_fail_value_from_backend(&e));
+                            continue;
+                        }
+                    };
+                    let Some(parent) = parent else {
+                        not_created.insert(
+                            create_id.clone(),
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": ["replyTo"],
+                                "description": "replyTo is not a Message in this Chat",
+                            }),
+                        );
+                        continue;
+                    };
+                    Some(parent.thread_root_id.unwrap_or(parent.id))
+                }
+            };
+            if supplied_root.is_some() && supplied_root != expected_root {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({
+                        "type": "invalidProperties",
+                        "properties": ["threadRootId"],
+                        "description": "threadRootId does not match the thread of replyTo",
+                    }),
+                );
+                continue;
+            }
+            let thread_root_id = expected_root;
 
             // senderExpiresAt is a UTCDate per RFC 8620 §1.4 (20-char
             // YYYY-MM-DDTHH:MM:SSZ). Validate the wire shape via

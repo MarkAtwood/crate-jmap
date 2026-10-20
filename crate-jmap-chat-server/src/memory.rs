@@ -4091,6 +4091,7 @@ fn compare_by_sort(
 ///
 /// Supported filter keys:
 /// - `chatId`: exact match against the message's `chatId` field
+/// - `threadRootId`: exact match against the message's `threadRootId`
 /// - `hasMention`: when `true`, the message must contain a mention of
 ///   the owner — either a `mentions` entry whose `id` is `account_id` or in
 ///   `broadcastMentions` (at least one entry whose scope resolves to
@@ -4106,6 +4107,14 @@ fn message_matches_filter(
     if let Some(expected_chat) = filter.get("chatId").and_then(|v| v.as_str()) {
         let actual_chat = obj.get("chatId").and_then(|v| v.as_str()).unwrap_or("");
         if actual_chat != expected_chat {
+            return false;
+        }
+    }
+
+    // draft-atwood-jmap-chat-00 §Thread Model: "A thread is the set of
+    // Messages sharing a common `threadRootId`."
+    if let Some(root) = filter.get("threadRootId").and_then(|v| v.as_str()) {
+        if obj.get("threadRootId").and_then(|v| v.as_str()) != Some(root) {
             return false;
         }
     }
