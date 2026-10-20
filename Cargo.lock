@@ -965,6 +965,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -1007,6 +1008,7 @@ dependencies = [
  "serde_json",
  "subtle",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -1049,6 +1051,7 @@ dependencies = [
  "jmap-types",
  "serde_json",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -1220,6 +1223,7 @@ dependencies = [
  "jmap-types",
  "serde_json",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -1255,6 +1259,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "uuid",
 ]
 
 [[package]]

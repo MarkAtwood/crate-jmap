@@ -354,8 +354,8 @@ Backends that don't need an auth identity use `type CallerCtx = ();` and a
   number of RFC 9610 edge cases are simplified. Intended for integration
   tests, smoke tests, examples, and as source-readable study material for
   downstream contributors writing a real (database-backed) backend. See the
-  module docs in `src/memory.rs` for the explicit non-production caveats
-  and the `realistic-demo-ids` feature flag for id-shape choice.
+  module docs in `src/memory.rs` for the explicit non-production caveats.
+  Server-assigned ids are uuid v4, as in `jmap-mail-server`.
 
 ## Crate family
 

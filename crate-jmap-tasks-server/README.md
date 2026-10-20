@@ -236,12 +236,8 @@ until the family is published to crates.io.
 
 - `memory` — enables the reference in-memory `MemoryBackend` (gated behind
   `#[cfg(feature = "memory")]` in `src/memory.rs`). Off by default; enable
-  only for tests and demonstrations. Not production-grade — see the
-  cargo-cult warning on `MemoryBackend::demo_next_id`.
-- `realistic-demo-ids` — when combined with `memory`, switches
-  `demo_next_id` from the deterministic `<type><n:016x>` form to a
-  process-start-nanos + atomic-counter form matching the canonical
-  `jmap-mail-server` shape at `email.rs:1748`. Still not production.
+  only for tests and demonstrations. Not production-grade. Server-assigned
+  ids are uuid v4, as in `jmap-mail-server`.
 
 ## Gotchas
 

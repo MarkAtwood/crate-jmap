@@ -131,6 +131,12 @@ wire behaviour that a conforming peer can observe.
   (draft-ietf-jmap-calendars-26 §2.2) and every blob as `notParsable`
   (§5.13). Implement both; a backend without the feature says so in its
   own override, as `MemoryBackend` does.
+- **jmap-calendars-server, jmap-chat-server, jmap-contacts-server,
+  jmap-sharing-server, jmap-tasks-server**: the `realistic-demo-ids`
+  cargo feature is removed. `MemoryBackend` mints every server-assigned id
+  as a uuid v4, as `jmap-mail-server` does, instead of the
+  `"<type><n:016x>"` counter form. Drop the feature from `Cargo.toml` and
+  read ids from `/set` `created` responses instead of predicting them.
 
 ### Breaking: wire behaviour
 

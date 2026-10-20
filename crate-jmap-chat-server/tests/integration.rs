@@ -2426,11 +2426,11 @@ async fn message_set_burn_on_read_expire_failure_redacts_backend_display() {
 ///   1. The `InjectableBackend::create_object::<Chat>` override
 ///      delegates to the inner create normally.
 ///   2. After the inner create returns Ok, the override seeds a
-///      phantom `Direct` Chat with a lex-smaller id (`"aaaa"`) and
+///      phantom `Direct` Chat with a lex-smaller id (`"0"`) and
 ///      the same `contactId` into the inner backend, via
 ///      `insert_object_for_test`.
 ///   3. The handler's post-create race-detection re-fetch
-///      (chat.rs:390) sees both chats, picks `"aaaa"` as canonical,
+///      (chat.rs:390) sees both chats, picks `"0"` as canonical,
 ///      and tries to destroy our newly-created (lex-larger) chat.
 ///   4. The destroy is also fault-injected, returning a
 ///      `MemoryError` whose Display contains
@@ -2449,7 +2449,7 @@ async fn chat_set_duplicate_direct_cleanup_destroy_failure_redacts_backend_displ
     // invoking the handler. The phantom fires after the inner
     // create_object returns Ok; the destroy fault then fires when the
     // handler tries to clean up its own copy.
-    backend.queue_chat_race_phantom(ACCOUNT_ID, "aaaa", "contact-1");
+    backend.queue_chat_race_phantom(ACCOUNT_ID, "0", "contact-1");
     backend.inject("Chat", "destroy");
 
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
