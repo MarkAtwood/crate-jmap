@@ -141,6 +141,12 @@ pub enum Rejection {
     /// is bogus.
     #[error("DNSSEC answer is bogus")]
     DnssecBogus,
+    /// §Replay: "A receiving server whose nonce cache is lost, for
+    /// example on restart, SHOULD reject requests whose `created`
+    /// precedes the restart, since it can no longer detect their
+    /// replay."
+    #[error("created precedes the replay store's memory")]
+    PrecedesRestart,
 }
 
 /// Signs a request to a peer (§Request Signing).
@@ -283,6 +289,9 @@ pub struct Accepted {
     /// Keep the (`peer_domain`, `nonce`) record at least until this time:
     /// 60 seconds after the signature's `expires` (check 5).
     pub forget_after: SystemTime,
+    /// The signature's `created`, for the §Replay restart rule
+    /// ([`Rejection::PrecedesRestart`]).
+    pub created: SystemTime,
 }
 
 impl<'a> SignedRequest<'a> {
@@ -423,6 +432,7 @@ impl<'a> SignedRequest<'a> {
             nonce: self.nonce.clone(),
             forget_after: UNIX_EPOCH
                 + Duration::from_secs(u64::try_from(forget_after).unwrap_or(0)),
+            created: UNIX_EPOCH + Duration::from_secs(u64::try_from(self.created).unwrap_or(0)),
         })
     }
 }

@@ -34,6 +34,17 @@ pub trait ReplayStore: Send + Sync {
         forget_after: SystemTime,
         now: SystemTime,
     ) -> impl Future<Output = Result<bool, ReplayStoreError>> + Send;
+
+    /// The time from which this store holds every pair accepted, or
+    /// `None` if it has never lost one.
+    ///
+    /// §Replay: "A receiving server whose nonce cache is lost, for
+    /// example on restart, SHOULD reject requests whose `created`
+    /// precedes the restart, since it can no longer detect their
+    /// replay." [`authenticate`](crate::authenticate) rejects a request
+    /// whose `created` is before this time. A store that survives
+    /// restarts returns `None`, or the time it last lost its contents.
+    fn remembers_since(&self) -> Option<SystemTime>;
 }
 
 /// A [`ReplayStore`] failure: the pair's state is unknown, so the request
@@ -56,6 +67,7 @@ const MIN_SWEEP: usize = 1024;
 #[derive(Debug)]
 pub struct MemoryReplayStore {
     inner: Mutex<Inner>,
+    since: SystemTime,
 }
 
 #[derive(Debug)]
@@ -71,13 +83,22 @@ impl Default for MemoryReplayStore {
 }
 
 impl MemoryReplayStore {
-    /// An empty store.
+    /// An empty store that remembers pairs from now on: call it at
+    /// startup, so requests created before the restart are rejected
+    /// ([`ReplayStore::remembers_since`]).
     pub fn new() -> Self {
+        Self::started_at(SystemTime::now())
+    }
+
+    /// An empty store that remembers pairs from `since`, for a caller
+    /// with its own clock.
+    pub fn started_at(since: SystemTime) -> Self {
         Self {
             inner: Mutex::new(Inner {
                 seen: HashMap::new(),
                 sweep_at: MIN_SWEEP,
             }),
+            since,
         }
     }
 }
@@ -103,5 +124,9 @@ impl ReplayStore for MemoryReplayStore {
             inner.sweep_at = (inner.seen.len() * 2).max(MIN_SWEEP);
         }
         Ok(true)
+    }
+
+    fn remembers_since(&self) -> Option<SystemTime> {
+        Some(self.since)
     }
 }

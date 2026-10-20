@@ -387,14 +387,18 @@ wire behaviour that a conforming peer can observe.
   `HttpsFetcher` is HTTPS-only with `https`-only redirects and a caller
   address policy for §Blob Fetch and SSRF; `HickoryLookup` validates DNSSEC
   in-process; `MemoryReplayStore` implements check 5; `authenticate` runs
-  the whole receive path.
+  the whole receive path. Per §Replay, `ReplayStore::remembers_since`
+  reports when a store's memory starts (`MemoryReplayStore::new` at
+  startup, or `started_at` with an injected clock), and `authenticate`
+  rejects a request whose `created` precedes it with
+  `Rejection::PrecedesRestart`.
 - **jmap-peer-auth**: new I/O-free crate for draft-atwood-jmap-chat-federation-00
   §Peer Authentication Model. `sign` produces the RFC 9421
   `Signature-Input` / `Signature` (Ed25519, `tag="jmap-chat-peer"`) and RFC
   9530 `Content-Digest` values; `SignedRequest::parse` and `verify` run
   verification checks 1 to 6 with the clock, the peer's usable keys and a
   replay lookup passed in, returning the authenticated peer domain and the
-  nonce record to keep. `PeerSigningKey` reads and writes `peerSigningKeys`
+  nonce record to keep and the signature's `created`. `PeerSigningKey` reads and writes `peerSigningKeys`
   JWKs (RFC 7638 `kid`), `usable_keys` applies the DNSSEC precedence rule,
   and `bind_identity` applies §Identity Binding. Checked against RFC 9421
   Appendix B.2.6, RFC 8037 Appendix A.3 and RFC 9530 Appendix D.
