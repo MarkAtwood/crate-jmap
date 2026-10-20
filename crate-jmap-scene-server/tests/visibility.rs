@@ -11,9 +11,9 @@ mod common;
 use common::*;
 use jmap_scene_server::memory::MemoryBackend;
 use jmap_scene_server::{
-    handle_scene_avatar_get, handle_scene_avatar_query, handle_scene_object_get,
-    handle_scene_object_query, handle_scene_object_set, handle_scene_region_get,
-    handle_scene_region_query,
+    handle_scene_avatar_get, handle_scene_avatar_query, handle_scene_avatar_set,
+    handle_scene_object_get, handle_scene_object_query, handle_scene_object_set,
+    handle_scene_region_get, handle_scene_region_query, handle_scene_region_set,
 };
 use serde_json::{json, Value};
 
@@ -280,6 +280,86 @@ async fn set_on_a_hidden_object_is_not_found_never_forbidden() {
     assert_eq!(
         destroy["notDestroyed"][SECRET]["type"], "notFound",
         "{destroy}"
+    );
+}
+
+/// SceneRegion/set Update Errors L1231: "The region exists but the caller
+/// lacks access | Per the access-control enumeration rule, the server
+/// returns `notFound` rather than `forbidden` to prevent probing." Destroy
+/// Errors L1245: "Same enumeration-safe rule as update." L1224 "Only the
+/// owner or an admin may modify region properties" and L1239 "Only the
+/// region owner may destroy a region" still give `forbidden` on the
+/// [`PUBLIC`] region [`BOB`] may access but does not own.
+#[tokio::test]
+async fn region_set_without_access_is_not_found_never_forbidden() {
+    let backend = scene();
+    let update = call!(
+        handle_scene_region_set,
+        &backend,
+        BOB,
+        json!({ "update": {
+            INVITE: { "name": "Probe" },
+            PUBLIC: { "name": "Probe" },
+            MISSING: { "name": "Probe" }
+        } })
+    );
+    assert_eq!(update["notUpdated"][INVITE]["type"], "notFound", "{update}");
+    assert_eq!(
+        update["notUpdated"][MISSING]["type"], "notFound",
+        "{update}"
+    );
+    assert_eq!(
+        update["notUpdated"][PUBLIC]["type"], "forbidden",
+        "{update}"
+    );
+    let destroy = call!(
+        handle_scene_region_set,
+        &backend,
+        BOB,
+        json!({ "destroy": [INVITE, PUBLIC, MISSING] })
+    );
+    assert_eq!(
+        destroy["notDestroyed"][INVITE]["type"], "notFound",
+        "{destroy}"
+    );
+    assert_eq!(
+        destroy["notDestroyed"][MISSING]["type"], "notFound",
+        "{destroy}"
+    );
+    assert_eq!(
+        destroy["notDestroyed"][PUBLIC]["type"], "forbidden",
+        "{destroy}"
+    );
+}
+
+/// SceneAvatar/set Update Errors L2222: "The avatar id does not exist or
+/// caller lacks access to the containing region | Same enumeration-safe
+/// rule." L2216 "Users MUST NOT update other users' avatars" still gives
+/// `forbidden` for [`ALICE_AV`] in the [`PUBLIC`] region.
+#[tokio::test]
+async fn avatar_update_without_region_access_is_not_found() {
+    let backend = scene();
+    let update = call!(
+        handle_scene_avatar_set,
+        &backend,
+        BOB,
+        json!({ "update": {
+            INVITE_AV: { "displayName": "Probe" },
+            ALICE_AV: { "displayName": "Probe" },
+            MISSING: { "displayName": "Probe" }
+        } })
+    );
+    assert_eq!(
+        update["notUpdated"][INVITE_AV]["type"], "notFound",
+        "{update}"
+    );
+    assert_eq!(
+        update["notUpdated"][MISSING]["type"], "notFound",
+        "{update}"
+    );
+    assert_eq!(
+        update["notUpdated"][ALICE_AV]["type"], "forbidden",
+        "{update}"
     );
 }
 

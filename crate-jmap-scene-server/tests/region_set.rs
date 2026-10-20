@@ -445,8 +445,11 @@ async fn non_owner_update_is_forbidden_admin_allowed() {
     // L1069 "The server MUST return `forbidden` when the caller is not the
     // region owner and does not have deployment-defined administrative
     // privileges."
+    // The region is `"invite"`; L1231 makes a caller without access
+    // `notFound`, so BOB is granted access to reach the `forbidden` row.
     let backend = backend();
     let id = create(&backend, design_review_room()).await;
+    backend.grant_region_access(&id, BOB);
     let resp = update(&backend, BOB, &id, spec_patch()).await;
     assert_eq!(resp["notUpdated"][&id]["type"], "forbidden");
     let resp = update(&backend, ADMIN, &id, spec_patch()).await;
@@ -618,8 +621,11 @@ async fn destroy_removes_contained_objects_and_avatars() {
 async fn destroy_by_non_owner_is_forbidden_even_for_admin() {
     // L1117 "The server MUST return `forbidden` when the caller is not the
     // region owner"; L1239 "Only the region owner may destroy a region."
+    // The region is `"invite"`; L1245 makes a caller without access
+    // `notFound`, so BOB is granted access to reach the `forbidden` row.
     let backend = backend();
     let id = create(&backend, design_review_room()).await;
+    backend.grant_region_access(&id, BOB);
     for caller in [BOB, ADMIN] {
         let resp = set(&backend, caller, json!({ "destroy": [id] })).await;
         assert_eq!(resp["notDestroyed"][&id]["type"], "forbidden");
