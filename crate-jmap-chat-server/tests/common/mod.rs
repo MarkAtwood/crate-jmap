@@ -249,10 +249,8 @@ pub struct TrackingBackend {
     chat_view_deny: bool,
     /// Counter incremented every time
     /// [`ChatBackend::is_contact_blocked`] is invoked. Lets a test
-    /// verify the handler reached the consultation point without
-    /// relying on a side effect of the consultation itself (the
-    /// kit's wire response is unchanged regardless of the predicate
-    /// result, see `handle_chat_typing` doc-comment).
+    /// verify whether a handler consulted the predicate, which has no
+    /// effect on the handler's wire response.
     is_contact_blocked_calls: Arc<AtomicU64>,
     /// When `true`, the per-Chat restriction hooks apply the
     /// draft-atwood-jmap-chat-mimi-00 rules to every Chat whose extension

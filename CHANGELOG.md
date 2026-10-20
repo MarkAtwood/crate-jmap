@@ -129,6 +129,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-server**: `ChatBackend::is_contact_blocked` is
+  now documented as a plain lookup: whether `contact_id` has
+  `blocked: true` on `account_id`'s own contact list, with `account_id`
+  the recipient and `contact_id` the sender's ChatContact id in that list
+  (draft-atwood-jmap-chat-00 §Blocked Contacts, §ChatContact `id`). It no
+  longer claims `caller` identifies the sender. `handle_chat_typing` no
+  longer calls it: it passed the sender's `accountId` and the direct
+  Chat's `contactId`, which asks whether the sender blocked the recipient.
+  The transport that fans typing events out calls it per recipient.
 - **BREAKING** **jmap-chat-server**: a `/query` without `sort` now uses
   the draft-atwood-jmap-chat-00 default order: `Chat/query` by
   `lastMessageAt` descending (chats without messages last),

@@ -1383,18 +1383,11 @@ pub async fn handle_chat_set<B: ChatBackend>(
 ///
 /// [`ChatContact`]: jmap_chat_types::ChatContact
 ///
-/// The kit consults [`ChatBackend::is_contact_blocked`] on the
-/// direct-chat path for observability, but does NOT itself perform
-/// transport-layer fan-out — push delivery (SSE / WS) is the
-/// consumer's responsibility. The consumer's typing-event publisher
-/// MUST consult this predicate per recipient before fanning out the
-/// event. The kit's handler returns the same success response in
-/// either case (echo `accountId`); the wire shape does not depend on
-/// the predicate's result.
-///
-/// Group / channel chats (n recipients) are skipped on the kit side:
-/// the handler has no way to enumerate fan-out recipients. That work
-/// belongs entirely to the consumer's transport layer.
+/// This handler does not call [`ChatBackend::is_contact_blocked`]: that
+/// check reads the recipient's contact list, and the request names only
+/// the sender's `accountId`. The transport that fans the event out knows
+/// each recipient's account and MUST call the predicate per recipient.
+/// The wire response (echo `accountId`) is the same either way.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_chat_typing<B: ChatBackend>(
@@ -1430,7 +1423,7 @@ pub async fn handle_chat_typing<B: ChatBackend>(
         )
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
-    let chat = found
+    found
         .into_iter()
         .next()
         .filter(|c| {
@@ -1439,25 +1432,6 @@ pub async fn handle_chat_typing<B: ChatBackend>(
         .ok_or_else(|| {
             JmapError::invalid_arguments("chatId is not a Chat the account participates in")
         })?;
-
-    // Blocked-sender suppression integration point (draft-atwood-
-    // jmap-chat-00 commit `d68b4e3`). For direct chats, consult the
-    // predicate so a production-grade backend override can observe /
-    // record the consultation. The kit does not gate fan-out on the
-    // result because the kit has no fan-out path; this site exists
-    // as the documented hook for consumer transport layers.
-    if let Some(contact_id) = chat.contact_id.as_ref() {
-        // Direct chat — there is exactly one recipient.
-        let _blocked = backend
-            .is_contact_blocked(caller, &account_id, contact_id)
-            .await
-            .unwrap_or(false);
-        // Result intentionally observed but not gated on
-        // here — see the doc-comment on this function.
-        // A consumer transport layer reads
-        // `is_contact_blocked` itself and suppresses
-        // accordingly.
-    }
 
     Ok(HandlerOutput::new(json!({
         "accountId": account_id.as_ref(),
