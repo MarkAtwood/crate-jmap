@@ -21,7 +21,9 @@ wire behaviour that a conforming peer can observe.
   crate). `SceneRegion/get`, `SceneObject/get` and `SceneAvatar/get`
   report a record the caller may not see in `notFound`, in request order
   like a missing id; `SceneObject/set` refuses an update or destroy of a
-  hidden object with `notFound`, never `forbidden`. `query_objects` and
+  hidden object with `notFound`, never `forbidden`, as do
+  `SceneRegion/set` update and destroy and `SceneAvatar/set` update in a
+  region without access. `query_objects` and
   `query_changes` must omit the same records; `MemoryBackend` does, and
   gains `hide_object` and `block`. `activeAvatarCount` stays the true
   count.

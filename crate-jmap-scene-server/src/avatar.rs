@@ -127,7 +127,9 @@ fn prepare_query(mut args: Value) -> Result<Value, JmapError> {
 /// and [`SceneBackend::may_enter_region`], fills the server-set properties
 /// and hands the avatar to [`SceneBackend::create_object`]. The `created`
 /// entry is the stored avatar, as in the draft's example response. Update
-/// is limited to the caller's own avatar, except that
+/// of an avatar in a region the caller has no access to
+/// ([`SceneBackend::may_access_region`]) is `notFound`; otherwise it is
+/// limited to the caller's own avatar, except that
 /// [`SceneBackend::may_eject_avatar`] lets a region owner or administrator
 /// set `leftAt` on another's. Destroy is always `forbidden`.
 pub async fn handle_scene_avatar_set<B: SceneBackend>(
@@ -391,6 +393,13 @@ async fn update_avatar<B: SceneBackend>(
     let avatar: SceneAvatar = fetch_one(backend, caller, account_id, id)
         .await?
         .ok_or_else(not_found)?;
+    if !backend
+        .may_access_region(caller, account_id, &avatar.region_id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?
+    {
+        return Err(not_found());
+    }
 
     let top = |k: &str| k.split('/').next().unwrap_or(k).to_owned();
     let patched: Vec<String> = patch.as_map().keys().map(|k| top(k)).collect();

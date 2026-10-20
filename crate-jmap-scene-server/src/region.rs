@@ -146,8 +146,10 @@ fn check_access_policy_filter(filter: &Value) -> Result<(), JmapError> {
 /// bindings ([`SceneBackend::has_capability`],
 /// [`SceneBackend::region_binding`]) and hands it to
 /// [`SceneBackend::create_object`], which applies `maxRegionsPerAccount`.
-/// Update requires [`SceneBackend::may_update_region`] and validates the
-/// patched region as a create; destroy requires
+/// Update and destroy of a region the caller has no access to
+/// ([`SceneBackend::may_access_region`]) are `notFound`, never
+/// `forbidden`. Update requires [`SceneBackend::may_update_region`] and
+/// validates the patched region as a create; destroy requires
 /// [`SceneBackend::may_destroy_region`], and the backend removes the
 /// contained objects and avatars.
 pub async fn handle_scene_region_set<B: SceneBackend>(
@@ -482,9 +484,7 @@ async fn update_region<B: SceneBackend>(
     let mut patch: PatchObject = serde_json::from_value(patch).map_err(|e| {
         set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
     })?;
-    let region: SceneRegion = fetch_one(backend, caller, account_id, id)
-        .await?
-        .ok_or_else(not_found)?;
+    let region = fetch_accessible(backend, caller, account_id, id).await?;
     if !backend
         .may_update_region(caller, account_id, &region)
         .await
@@ -531,6 +531,31 @@ async fn update_region<B: SceneBackend>(
     }
 }
 
+/// The region `id` that update or destroy acts on: `notFound` when "The
+/// region id does not exist or the caller lacks access"
+/// ([`SceneBackend::may_access_region`]), "the server returns `notFound`
+/// rather than `forbidden` to prevent probing" (§Update Errors, §Destroy
+/// Errors).
+async fn fetch_accessible<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+) -> Result<SceneRegion, Value> {
+    let region: SceneRegion = fetch_one(backend, caller, account_id, id)
+        .await?
+        .ok_or_else(not_found)?;
+    if backend
+        .may_access_region(caller, account_id, &region.id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?
+    {
+        Ok(region)
+    } else {
+        Err(not_found())
+    }
+}
+
 /// One §Destroying a Region: "The server MUST return `forbidden` when the
 /// caller is not the region owner."
 async fn destroy_region<B: SceneBackend>(
@@ -539,9 +564,7 @@ async fn destroy_region<B: SceneBackend>(
     account_id: &Id,
     id: &Id,
 ) -> Result<(), Value> {
-    let region: SceneRegion = fetch_one(backend, caller, account_id, id)
-        .await?
-        .ok_or_else(not_found)?;
+    let region = fetch_accessible(backend, caller, account_id, id).await?;
     if !backend
         .may_destroy_region(caller, account_id, &region)
         .await

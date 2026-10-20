@@ -412,8 +412,9 @@ pub trait SceneBackend: JmapBackend {
     /// region, object or avatar in a region without access as `notFound`:
     /// "Regardless of `accessPolicy`, the server MUST return `notFound`
     /// (not `forbidden`) ... This prevents access-policy enumeration."
-    /// `SceneObject/set` reports an update or destroy of such an object as
-    /// `notFound` too, never `forbidden`. A region that no longer exists
+    /// `SceneRegion/set`, `SceneObject/set` and `SceneAvatar/set` report an
+    /// update or destroy of such a record as `notFound` too, never
+    /// `forbidden`. A region that no longer exists
     /// may be treated either way.
     ///
     /// The handlers cannot filter a `/query` page they did not cut, so
