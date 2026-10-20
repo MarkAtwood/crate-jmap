@@ -1163,6 +1163,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 Ok(()) => {
                     mutated = true;
                     destroyed_list.push(Value::String(id_str.to_owned()));
+                    backend.on_chat_destroyed(caller, &account_id, &id).await;
                 }
                 Err(BackendSetError::SetError(set_err)) => {
                     not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));

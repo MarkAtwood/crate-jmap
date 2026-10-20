@@ -14,6 +14,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: `ChatBackend::on_chat_destroyed`,
+  `on_space_destroyed` and `on_space_ban_created` (default: no-op) are
+  called after a Chat is destroyed (by `Chat/set`, `removeChannels`, or a
+  Space destroy cascading to its channels), a Space is destroyed, or a
+  SpaceBan is created. Companion extensions use them to clear `chatId`,
+  `spaceId` and `channelId` references (draft-atwood-jmap-chat-tasks-00
+  §Lifecycle, draft-atwood-jmap-vtc-00 §VTCCall), destroy a Space's file
+  tree (draft-atwood-jmap-chat-filenode-00 §Space Deletion), and end a
+  banned user's call participation (draft-atwood-jmap-vtc-00 §Access
+  Control). `Space/set` destroy now reads the Space's channel Chats first
+  and reports `serverFail` for that id if the read fails.
 - **jmap-chat-server**: `ChatLimits::encrypted_body_types` (default
   `ENCRYPTED_BODY_TYPES`, now public: `"application/mls-ciphertext"`) and
   `with_encrypted_body_types` set which `bodyType` values the

@@ -752,6 +752,96 @@ pub trait ChatBackend: JmapBackend {
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
 
+    /// Called after a Chat is destroyed, so a companion extension can
+    /// update the records that reference it. Examples:
+    /// draft-atwood-jmap-chat-tasks-00 §Lifecycle ("the affected Tasks'
+    /// `chatId` fields MUST be cleared") and draft-atwood-jmap-vtc-00
+    /// §VTCCall ("the server MUST clear the corresponding field to
+    /// `null` on all VTCCalls that reference it").
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once for each Chat that a request destroys, after the destroy
+    /// succeeds:
+    ///
+    /// - a `Chat/set` destroy;
+    /// - each channel in a successful `Space/set` `removeChannels` patch;
+    /// - each channel Chat whose `spaceId` is a Space that `Space/set`
+    ///   destroys (draft-atwood-jmap-chat-00 §Destroying a Space:
+    ///   "Cascades to all channel Chats"). These calls come before
+    ///   [`Self::on_space_destroyed`] for that Space.
+    ///
+    /// It is not called when the handler deletes a duplicate direct Chat
+    /// it created in the same request, because no response ever named
+    /// that id.
+    ///
+    /// The destroy is already committed, so the hook cannot fail the
+    /// request. A backend handles its own errors here. A change it makes
+    /// to another record type MUST advance that type's state, as in
+    /// [`Self::destroy_object`] ("Cascades").
+    ///
+    /// # Default implementation
+    ///
+    /// Does nothing. A backend that implements an extension which
+    /// references Chats overrides it.
+    fn on_chat_destroyed(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        chat_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        let _ = (caller, account_id, chat_id);
+        async {}
+    }
+
+    /// Called after a `Space/set` destroy succeeds, so a companion
+    /// extension can update the records that reference the Space.
+    /// Examples: draft-atwood-jmap-vtc-00 §VTCCall (clear `spaceId` on
+    /// VTCCalls) and draft-atwood-jmap-chat-filenode-00 §Space Deletion
+    /// ("the server SHOULD also destroy the associated file tree").
+    ///
+    /// The handler calls it once per destroyed Space, after
+    /// [`Self::on_chat_destroyed`] for each of its channel Chats. The
+    /// error and state rules of [`Self::on_chat_destroyed`] apply.
+    ///
+    /// # Default implementation
+    ///
+    /// Does nothing. A backend that implements an extension which
+    /// references Spaces overrides it.
+    fn on_space_destroyed(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        space_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        let _ = (caller, account_id, space_id);
+        async {}
+    }
+
+    /// Called after a `SpaceBan/set` create succeeds, with the stored
+    /// ban, so a companion extension can apply the ban to its own
+    /// records. Example: draft-atwood-jmap-vtc-00 §Access Control "Space
+    /// ban enforcement" (the server "MUST set `leftAt` on that
+    /// VTCParticipant record"; "The ban takes effect immediately on
+    /// active calls").
+    ///
+    /// The handler calls it once per created ban. The error and state
+    /// rules of [`Self::on_chat_destroyed`] apply.
+    ///
+    /// # Default implementation
+    ///
+    /// Does nothing. A backend that implements an extension which must
+    /// enforce Space bans overrides it.
+    fn on_space_ban_created(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        ban: &jmap_chat_types::SpaceBan,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        let _ = (caller, account_id, ban);
+        async {}
+    }
+
     /// Returns true if this backend implements the given JMAP object type.
     ///
     /// # Contract

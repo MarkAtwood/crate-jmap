@@ -268,6 +268,9 @@ pub async fn handle_ban_set<B: ChatBackend>(
             {
                 Ok((_server_id, created_obj)) => {
                     mutated = true;
+                    backend
+                        .on_space_ban_created(caller, &account_id, &created_obj)
+                        .await;
                     created.insert(
                         create_id.clone(),
                         serde_json::to_value(&created_obj)

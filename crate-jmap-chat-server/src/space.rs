@@ -1340,6 +1340,13 @@ pub async fn handle_space_set<B: ChatBackend>(
             // one of `updated` / `notUpdated`, and a partial half-applied
             // outcome would be misleading.
             if !ops.is_empty() {
+                let removed_channels: Vec<Id> = ops
+                    .iter()
+                    .filter_map(|op| match op {
+                        SpacePatchOp::RemoveChannel(chat_id) => Some(chat_id.clone()),
+                        _ => None,
+                    })
+                    .collect();
                 match backend
                     .apply_space_patch(caller, &account_id, &id, ops)
                     .await
@@ -1350,6 +1357,11 @@ pub async fn handle_space_set<B: ChatBackend>(
                         {
                             not_updated.insert(id_str, set_error_value(first_err));
                             continue;
+                        }
+                        for chat_id in &removed_channels {
+                            backend
+                                .on_chat_destroyed(caller, &account_id, chat_id)
+                                .await;
                         }
                     }
                     Err(BackendSetError::SetError(set_err)) => {
@@ -1470,6 +1482,20 @@ pub async fn handle_space_set<B: ChatBackend>(
             };
             let id = Id::from(id_str);
 
+            // The backend cascades the destroy to the Space's channel
+            // Chats (§Destroying a Space), so read their ids first for
+            // `ChatBackend::on_chat_destroyed`.
+            // ponytail: a channel added by a concurrent request between
+            // this read and the destroy gets no callback. The upgrade
+            // path is a destroy method that returns the cascaded ids.
+            let channel_ids = match space_channel_ids(backend, caller, &account_id, &id).await {
+                Ok(ids) => ids,
+                Err(e) => {
+                    not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
+                    continue;
+                }
+            };
+
             match backend
                 .destroy_object::<Space>(caller, &account_id, &id)
                 .await
@@ -1477,6 +1503,12 @@ pub async fn handle_space_set<B: ChatBackend>(
                 Ok(()) => {
                     mutated = true;
                     destroyed_list.push(Value::String(id_str.to_owned()));
+                    for chat_id in &channel_ids {
+                        backend
+                            .on_chat_destroyed(caller, &account_id, chat_id)
+                            .await;
+                    }
+                    backend.on_space_destroyed(caller, &account_id, &id).await;
                 }
                 Err(BackendSetError::SetError(set_err)) => {
                     not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
@@ -1856,18 +1888,27 @@ async fn create_channel_read_positions<B: ChatBackend>(
     account_id: &Id,
     space_id: &Id,
 ) {
-    let Ok((chats, _)) = backend
-        .get_objects::<Chat>(caller, account_id, None, None)
-        .await
-    else {
+    let Ok(channel_ids) = space_channel_ids(backend, caller, account_id, space_id).await else {
         return;
     };
-    let channel_ids: Vec<Id> = chats
+    crate::message::ensure_read_positions(backend, caller, account_id, channel_ids).await;
+}
+
+/// Ids of every channel Chat whose `spaceId` is `space_id`.
+async fn space_channel_ids<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    space_id: &Id,
+) -> Result<Vec<Id>, B::Error> {
+    let (chats, _) = backend
+        .get_objects::<Chat>(caller, account_id, None, None)
+        .await?;
+    Ok(chats
         .into_iter()
         .filter(|c| c.kind == ChatKind::Channel && c.space_id.as_ref() == Some(space_id))
         .map(|c| c.id)
-        .collect();
-    crate::message::ensure_read_positions(backend, caller, account_id, channel_ids).await;
+        .collect())
 }
 
 #[cfg(test)]

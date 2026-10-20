@@ -136,6 +136,22 @@ struct Inner {
     /// default. Set via
     /// [`MemoryBackend::set_space_extension_properties_for_test`].
     space_extension_properties: &'static [&'static str],
+    /// Every lifecycle callback received, in call order. Drained via
+    /// [`MemoryBackend::take_lifecycle_events_for_test`].
+    lifecycle_events: Vec<LifecycleEvent>,
+}
+
+/// One lifecycle callback received by the [`MemoryBackend`], as
+/// returned by [`MemoryBackend::take_lifecycle_events_for_test`].
+#[doc(hidden)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum LifecycleEvent {
+    /// [`ChatBackend::on_chat_destroyed`] with this Chat id.
+    ChatDestroyed(Id),
+    /// [`ChatBackend::on_space_destroyed`] with this Space id.
+    SpaceDestroyed(Id),
+    /// [`ChatBackend::on_space_ban_created`] with this ban.
+    SpaceBanCreated(jmap_chat_types::SpaceBan),
 }
 
 impl Inner {
@@ -267,6 +283,19 @@ impl MemoryBackend {
     pub fn set_protect_last_admin_for_test(&self, value: bool) {
         let mut inner = self.inner.lock().unwrap();
         inner.protect_last_admin = value;
+    }
+
+    fn record_lifecycle_event(&self, event: LifecycleEvent) {
+        self.inner.lock().unwrap().lifecycle_events.push(event);
+    }
+
+    /// Test-only: drain the lifecycle callbacks received so far
+    /// ([`ChatBackend::on_chat_destroyed`],
+    /// [`ChatBackend::on_space_destroyed`],
+    /// [`ChatBackend::on_space_ban_created`]), oldest first.
+    #[doc(hidden)]
+    pub fn take_lifecycle_events_for_test(&self) -> Vec<LifecycleEvent> {
+        std::mem::take(&mut self.inner.lock().unwrap().lifecycle_events)
     }
 
     /// Test-only: set the list returned by
@@ -1099,6 +1128,42 @@ impl ChatBackend for MemoryBackend {
     fn protect_last_admin(&self, _caller: &(), _account_id: &Id) -> bool {
         let inner = self.inner.lock().unwrap();
         inner.protect_last_admin
+    }
+
+    /// Records the call for
+    /// [`MemoryBackend::take_lifecycle_events_for_test`].
+    fn on_chat_destroyed(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        chat_id: &Id,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        self.record_lifecycle_event(LifecycleEvent::ChatDestroyed(chat_id.clone()));
+        async {}
+    }
+
+    /// Records the call for
+    /// [`MemoryBackend::take_lifecycle_events_for_test`].
+    fn on_space_destroyed(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        space_id: &Id,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        self.record_lifecycle_event(LifecycleEvent::SpaceDestroyed(space_id.clone()));
+        async {}
+    }
+
+    /// Records the call for
+    /// [`MemoryBackend::take_lifecycle_events_for_test`].
+    fn on_space_ban_created(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        ban: &jmap_chat_types::SpaceBan,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        self.record_lifecycle_event(LifecycleEvent::SpaceBanCreated(ban.clone()));
+        async {}
     }
 
     /// Reference implementation of
