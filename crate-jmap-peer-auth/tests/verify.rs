@@ -268,6 +268,10 @@ fn check2_keyid_must_parse() {
         "alice.example#",
         "#kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
         "alice example#kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
+        // An IPv4 literal is not a peer domain (§Terminology).
+        "192.0.2.1#kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
+        "127.0.0.1#kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
+        "10.0.0.1#kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
     ] {
         let inner = params(POST_COVERED, CREATED, CREATED + 300, TAIL).replace(KEYID, keyid);
         assert_eq!(
