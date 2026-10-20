@@ -981,6 +981,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **BREAKING** **jmap-chat-server**: a `Message/set` create throttled by
+  `ChatBackend::slow_mode_check` is rejected in `notCreated` with the RFC
+  8620 §5.3 `rateLimit` SetError (`SetErrorType::RateLimit`), not the
+  custom `rateLimited` (draft-atwood-jmap-chat-00 §Chat `slowModeSeconds`:
+  "with a `rateLimit` SetError ({{RFC8620, Section 5.3}}) on the offending
+  `Message/set` create"; `rateLimited` is the method-level error of the
+  Peer/* methods). The `serverRetryAfter` extra field is unchanged.
 - **BREAKING** **jmap-filenode-server**: `FileNode/set` rejects an update
   that sets `role` to `chatspace` on a node that is not a Space file tree
   root, with `invalidProperties` naming `role`, as it already did for an

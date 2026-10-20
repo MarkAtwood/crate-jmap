@@ -2814,14 +2814,15 @@ async fn message_set_create_no_slow_mode_on_memory_backend() {
 
 /// Oracle: when `ChatBackend::slow_mode_check` returns
 /// `Err(SlowModeError)`, the `Message/set` create handler MUST reject the
-/// create with a `rateLimited` SetError carrying `serverRetryAfter` set to
-/// the backend-supplied UTCDate, per draft-atwood-jmap-chat-00 §Chat
-/// `slowModeSeconds` + commit `de60acb`. The wire field name
-/// `serverRetryAfter` is the workspace convention read by
-/// `jmap_chat_client::server_retry_after`.
-///
-/// The error type wire string is exactly `"rateLimited"` (past tense, with
-/// `d`) — NOT `"rateLimit"` from `jmap_server::SetErrorType::RateLimit`.
+/// create with a `rateLimit` SetError carrying `serverRetryAfter` set to
+/// the backend-supplied UTCDate. draft-atwood-jmap-chat-00 (6bcd9d8) L617:
+/// "the server MUST reject messages from non-exempt members sent within
+/// this many seconds of their previous message in this channel, with a
+/// `rateLimit` SetError ({{RFC8620, Section 5.3}}) on the offending
+/// `Message/set` create." Compliance test 4.10: "Verify the second is
+/// rejected with a `rateLimit` SetError (RFC 8620 Section 5.3) in
+/// `notCreated`, not the method-level `rateLimited`." The wire field name
+/// `serverRetryAfter` is a workspace extension field.
 #[tokio::test]
 async fn message_set_create_slow_mode_rejects_with_retry_after() {
     // Backend-supplied retry-after — hardcoded to a far-future UTCDate
@@ -2859,8 +2860,8 @@ async fn message_set_create_slow_mode_rejects_with_retry_after() {
         "m0 must appear in notCreated (got {resp})"
     );
     assert_eq!(
-        not_created_m0["type"], "rateLimited",
-        "SetError.type must be exactly \"rateLimited\" (spec wire string, not the workspace \"rateLimit\" variant)"
+        not_created_m0["type"], "rateLimit",
+        "SetError.type must be the RFC 8620 \"rateLimit\", not the method-level \"rateLimited\""
     );
     assert_eq!(
         not_created_m0["serverRetryAfter"],
@@ -2904,7 +2905,7 @@ async fn message_set_create_tracking_backend_default_allows() {
 
 /// Oracle: slow-mode check happens AFTER wire validation. A malformed
 /// create that fails validation (e.g., missing `chatId`) MUST surface
-/// `invalidProperties`, NOT `rateLimited` — even if the configured
+/// `invalidProperties`, NOT `rateLimit` — even if the configured
 /// backend would have throttled. Validation rejections never consume a
 /// rate-tracker slot.
 #[tokio::test]
