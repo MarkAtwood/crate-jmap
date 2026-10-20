@@ -12,6 +12,19 @@
 //! transport asks [`should_deliver_typing`] whether that owner may receive
 //! it. Before sending a `ChatPresenceEvent`, it asks [`project_presence`]
 //! for the frame that owner may see, if any.
+//!
+//! # Rate limits are the deployment's job
+//!
+//! This crate does not rate-limit ephemeral events, and neither predicate
+//! counts or times anything. The draft gives the outbound limits as SHOULD
+//! rules, and the transport or deployment applies them:
+//!
+//! - Typing: "no more than one `ChatTypingEvent` per sender per chat per 3
+//!   seconds SHOULD be delivered; events above this rate MAY be silently
+//!   dropped" (draft-atwood-jmap-chat-wss-00 §ChatTypingEvent).
+//! - Presence: "no more than one `ChatPresenceEvent` per contact per 30
+//!   seconds SHOULD be delivered; events above this rate MAY be silently
+//!   dropped" (draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent).
 
 use jmap_chat_types::{
     Chat, ChatKind, ChatPresenceEvent, ChatStreamEnable, ChatTypingEvent, Presence,
