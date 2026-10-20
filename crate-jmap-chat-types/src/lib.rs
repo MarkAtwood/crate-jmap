@@ -133,9 +133,9 @@ pub use backend::{
     SpaceProperty,
 };
 pub use capability::{
-    ChatCapability, ChatCapabilityRole, ChatFilenodeCapability, ChatPushCapability,
-    CHAT_FILENODE_SPACE_ROLE, JMAP_CHAT_FILENODE_URI, JMAP_CHAT_PUSH_URI, JMAP_CHAT_URI,
-    JMAP_CHAT_WEBSOCKET_URI,
+    may_advertise_chat_did, ChatCapability, ChatCapabilityRole, ChatFilenodeCapability,
+    ChatPushCapability, CHAT_FILENODE_SPACE_ROLE, JMAP_CHAT_DID_URI, JMAP_CHAT_FILENODE_URI,
+    JMAP_CHAT_PUSH_URI, JMAP_CHAT_URI, JMAP_CHAT_WEBSOCKET_URI, MANDATORY_DID_METHODS,
 };
 pub use chat::{ChannelPermission, Chat, ChatKind, ChatMember, ChatMemberRole};
 pub use clearable::Clearable;

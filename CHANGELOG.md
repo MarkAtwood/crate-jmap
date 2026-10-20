@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-types**: `JMAP_CHAT_DID_URI` (`urn:ietf:params:jmap:chat:did`
+  marker capability, value `{}`), `MANDATORY_DID_METHODS` (`web`, `key`,
+  `plc`) and `may_advertise_chat_did`, which is `true` only when
+  `urn:ietf:params:jmap:did` is advertised and its `supportedMethods` lists
+  all three mandatory methods (draft-atwood-jmap-chat-did-00 §Relationship
+  to JMAP DID, §Capability, §Mandatory DID Methods).
 - **jmap-did-resolver** (new support crate): `Resolver` resolves
   `did:key` (derived locally), `did:web` (HTTPS GET of the did:web
   document URL, `id` must equal the DID) and `did:plc` (PLC directory
