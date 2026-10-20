@@ -54,8 +54,9 @@ fn expect_invalid_urgency<T: std::fmt::Debug>(
 
 /// draft-atwood-jmap-chat-push-00 §"ChatPushConfig" (push:124): "If the
 /// client supplies a value not in `supportedUrgencyValues`, the server MUST
-/// return an `invalidArguments` SetError on `PushSubscription/set` and MUST
-/// NOT store the configuration." Error code per plan decision D4.
+/// return an `invalidProperties` SetError on `PushSubscription/set` whose
+/// `properties` names the offending path (e.g., `chatPush/<id>/urgency`)
+/// and MUST NOT store the configuration."
 #[tokio::test]
 async fn create_with_unsupported_urgency_stores_nothing() {
     let backend = backend();

@@ -5,9 +5,10 @@
 //! "When a `Message/set` create or update fails one of these checks and
 //! this document names no other error for that check, the server MUST
 //! reject the entry with an `invalidProperties` SetError ([RFC8620] §5.3)
-//! whose `properties` names the offending property." The draft names
-//! `invalidArguments` only for an unrecognized `scope` value
-//! (§BroadcastMention), so a missing `scope` takes the default. The draft
+//! whose `properties` names the offending property." A missing `scope`
+//! takes that default; an unrecognized one gets the same SetError by
+//! §BroadcastMention: "in `Message/set` the rejection is an
+//! `invalidProperties` SetError naming `broadcastMentions`." The draft
 //! at jmap-chat-spec 0983787 removed the `offset + length` bounds check:
 //! "Like Mention, a BroadcastMention carries no position in `body`."
 

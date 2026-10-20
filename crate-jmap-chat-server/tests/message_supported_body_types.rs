@@ -69,10 +69,12 @@ async fn configured_listed_body_type_is_accepted_on_create() {
 /// server-created Messages."
 ///
 /// The SetError type is left to the reserving companion specification
-/// (draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout requires
-/// `invalidArguments` for its type), so this test uses a placeholder type
-/// and asserts only that the create is rejected while a non-reserved listed
-/// type in the same request is accepted.
+/// (draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout: "the server
+/// MUST reject a `Message/set` create with this body type with an
+/// `invalidProperties` SetError naming `bodyType`"); the server applies that
+/// SetError to every reserved type, so this test uses a placeholder type
+/// and checks it while a non-reserved listed type in the same request is
+/// accepted.
 #[tokio::test]
 async fn reserved_body_type_is_listed_but_rejected_on_create() {
     const RESERVED_TYPE: &str = "application/x-example-server-only";
@@ -94,8 +96,17 @@ async fn reserved_body_type_is_listed_but_rejected_on_create() {
     )
     .await;
     assert!(
-        resp["notCreated"]["reserved"]["type"].is_string() && resp["created"]["reserved"].is_null(),
+        resp["created"]["reserved"].is_null(),
         "reserved bodyType must be rejected on create: {resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["reserved"]["type"], "invalidProperties",
+        "{resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["reserved"]["properties"],
+        json!(["bodyType"]),
+        "{resp}"
     );
     assert!(
         resp["created"]["plain"]["id"].is_string(),

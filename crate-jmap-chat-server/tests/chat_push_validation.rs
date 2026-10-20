@@ -89,12 +89,10 @@ fn chat_push_for_account_without_capability_is_rejected() {
 /// draft-atwood-jmap-chat-push-00 §"ChatPushConfig" (push:124), on
 /// `urgency`: "MUST be one of the values in `supportedUrgencyValues`. ...
 /// If the client supplies a value not in `supportedUrgencyValues`, the
-/// server MUST return an `invalidArguments` SetError on
-/// `PushSubscription/set` and MUST NOT store the configuration."
-///
-/// Per plan decision D4 the SetError is `invalidProperties` naming
-/// `chatPush/<accountId>/urgency` (RFC 8620 defines `invalidArguments` only
-/// at method level, rfc8620.txt:1189). "low" is a valid RFC 8030 urgency
+/// server MUST return an `invalidProperties` SetError on
+/// `PushSubscription/set` whose `properties` names the offending path
+/// (e.g., `chatPush/<id>/urgency`) and MUST NOT store the configuration."
+/// "low" is a valid RFC 8030 urgency
 /// that this account does not support; "urgent" is not an urgency at all.
 #[test]
 fn urgency_outside_supported_values_is_rejected() {
@@ -106,8 +104,8 @@ fn urgency_outside_supported_values_is_rejected() {
 
 /// draft-atwood-jmap-chat-push-00 §"ChatPushConfig" (push:127), on
 /// `mentionUrgency`: "MUST be one of the values in
-/// `supportedUrgencyValues`. ... The same `invalidArguments` rule applies
-/// as for `urgency`." Error code per plan decision D4.
+/// `supportedUrgencyValues`. ... The same `invalidProperties` rule applies
+/// as for `urgency`, naming `chatPush/<id>/mentionUrgency`."
 #[test]
 fn mention_urgency_outside_supported_values_is_rejected() {
     for bad in ["very-low", "urgent"] {
