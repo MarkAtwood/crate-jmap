@@ -134,6 +134,22 @@ pub struct SceneInteractionEvent {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl SceneInteractionEvent {
+    /// Construct a [`SceneInteractionEvent`] from its required fields.
+    ///
+    /// `data` defaults to `None` (`null`).
+    pub fn new(region_id: Id, object_id: Id, user_id: String, action: String) -> Self {
+        Self {
+            region_id,
+            object_id,
+            user_id,
+            action,
+            data: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 /// A Scene ephemeral event frame, discriminated by its `@type`.
 ///
 /// Unrecognised `@type` values deserialize to [`SceneEvent::Unknown`],
@@ -341,5 +357,29 @@ mod tests {
             "displayName": "U"
         }))
         .is_err());
+    }
+
+    #[test]
+    fn interaction_new_builds_draft_click_example() {
+        // Oracle: draft-atwood-jmap-scene-wss-00 L1026-1037 "Alice clicks
+        // an interactable object", and L280-284 "`data` (Object|null): ...
+        // `null` when no additional data is needed."
+        let event = SceneInteractionEvent::new(
+            Id::from("01J5ABC0000000000000000001"),
+            Id::from("01J5OBJ0000000000000000001"),
+            "user:alice@example.com".to_owned(),
+            "click".to_owned(),
+        );
+        assert_eq!(
+            serde_json::to_value(SceneEvent::Interaction(event)).unwrap(),
+            json!({
+                "@type": "SceneInteractionEvent",
+                "regionId": "01J5ABC0000000000000000001",
+                "objectId": "01J5OBJ0000000000000000001",
+                "userId": "user:alice@example.com",
+                "action": "click",
+                "data": null
+            })
+        );
     }
 }

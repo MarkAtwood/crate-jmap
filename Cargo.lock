@@ -1801,14 +1801,21 @@ dependencies = [
 name = "jmap-scene-client"
 version = "0.3.0"
 dependencies = [
+ "futures",
+ "jmap-base-client",
  "jmap-cid-types",
+ "jmap-scene-types",
+ "jmap-types",
  "reqwest",
  "rustls",
  "rustls-pki-types",
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
  "thiserror",
  "tokio",
  "tokio-rustls",
+ "tokio-tungstenite",
  "url",
 ]
 

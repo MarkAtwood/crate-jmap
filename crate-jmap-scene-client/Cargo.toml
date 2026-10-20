@@ -6,19 +6,26 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "JMAP Scene client (draft-atwood-jmap-scene-00) — https-only assetUri fetch with sha256 verification"
+description = "JMAP Scene client (draft-atwood-jmap-scene-00) — https-only assetUri fetch with sha256 verification, Scene WebSocket events (draft-atwood-jmap-scene-wss-00)"
 keywords = ["jmap", "scene", "spatial", "client"]
 categories = ["network-programming", "asynchronous"]
 
 [dependencies]
+jmap-base-client = { workspace = true }
 jmap-cid-types = { workspace = true }
+jmap-scene-types = { workspace = true }
 reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
 sha2 = "0.10"
 thiserror = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
+futures = { workspace = true }
+jmap-types = { workspace = true }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 rustls-pki-types = { version = "1.9", features = ["std"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util"] }
 tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }
+tokio-tungstenite = { workspace = true }

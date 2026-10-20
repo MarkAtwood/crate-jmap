@@ -14,6 +14,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-client**: `ws` module for draft-atwood-jmap-scene-wss-00.
+  `SceneWsExt` on `jmap_base_client::WsSession` adds `next_scene_frame`,
+  `send_scene_stream_enable`, `send_scene_stream_disable` and
+  `send_scene_interaction`. `parse_scene_ws_frame` types the
+  `SceneAvatarEvent`, `SceneObjectEvent` and `SceneInteractionEvent`
+  frames and passes every other frame through unchanged as
+  `SceneWsFrame::Other`, including `RequestError`, interleaved VTC/Chat
+  events and Scene events that fail to parse.
+- **jmap-scene-types**: `SceneInteractionEvent::new` from the required
+  fields, so a client can build the frame it submits.
 - **jmap-scene-server**: `should_deliver`, the delivery-time check of
   draft-atwood-jmap-scene-wss-00 for one Scene event on one connection —
   `eventTypes` and `regionIds` filters, region access and an active avatar
