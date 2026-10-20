@@ -62,6 +62,23 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-server**: a `/query` without `sort` now uses
+  the draft-atwood-jmap-chat-00 default order: `Chat/query` by
+  `lastMessageAt` descending (chats without messages last),
+  `Message/query` by `receivedAt` ascending with `chatId` and descending
+  without it, and `Space/query` and `CustomEmoji/query` by `name`
+  ascending. The handlers pass this sort to `query_objects`, which
+  previously received `None`.
+- **BREAKING** **jmap-chat-server**: `MemoryBackend` `Space/query` lists
+  only Spaces the caller is a member of, plus, for an `isPublic: true`
+  condition, non-member Spaces with `isPublic` and
+  `isPubliclyPreviewable` both `true` (§Space/query). The `isPublic`
+  condition now filters results.
+- **BREAKING** **jmap-chat-server**: CustomEmoji `name` is unique per
+  scope (`spaceId`, or server-global when absent; §CustomEmoji). This is a
+  new `ChatBackend::create_object` uniqueness contract: a duplicate create
+  is `alreadyExists` with `existingId`, and a rename onto a held name is
+  `invalidProperties` naming `name`. `MemoryBackend` enforces it.
 - **BREAKING** **jmap-chat-server**: `Message/set` create rejects a
   `body` longer than the account's `ChatLimits::max_body_bytes` (it was
   a fixed 100,000), more than `max_attachments_per_message` attachments,

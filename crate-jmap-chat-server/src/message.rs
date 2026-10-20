@@ -38,9 +38,9 @@ use std::collections::{HashMap, HashSet};
 use subtle::ConstantTimeEq;
 
 use crate::helpers::{
-    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
-    finalize_set_response, iso8601_before, not_found_json, now_utc_string, optional_arg,
-    reject_unsupported_sort, serialize_value, set_error_value, SetAccumulators,
+    default_sort, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+    filter_properties, finalize_set_response, iso8601_before, not_found_json, now_utc_string,
+    optional_arg, reject_unsupported_sort, serialize_value, set_error_value, SetAccumulators,
 };
 use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
 use jmap_server::{
@@ -320,6 +320,13 @@ pub async fn handle_message_query<B: ChatBackend>(
         return Err(JmapError::unsupported_filter());
     }
 
+    // §Message/query: "Default sort: `receivedAt` ascending when `chatId`
+    // is present; `receivedAt` descending when `chatId` is absent."
+    let in_one_chat = top.is_some_and(|c| c.chat_id.is_some());
+    default_sort(
+        &mut args,
+        json!([{ "property": "receivedAt", "isAscending": in_one_chat }]),
+    );
     let sort: Option<Vec<MessageComparator>> = optional_arg(&mut args, "sort", || {
         JmapError::invalid_arguments("sort must be an array")
     })?;

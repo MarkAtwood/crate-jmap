@@ -572,6 +572,15 @@ pub trait ChatBackend: JmapBackend {
     ///   SetErrorType::AlreadyExists).with_existing_id(existing))`, where
     ///   `existing` is the id of the ChatContact that holds the
     ///   `identity`. See draft-atwood-jmap-chat-00 §ChatContact/set.
+    /// - **`CustomEmoji`** — at most one emoji per `(account_id,
+    ///   spaceId, name)`, an absent `spaceId` being the server-global
+    ///   scope. [`crate::emoji::handle_emoji_set`] does not pre-check:
+    ///   the backend MUST reject a duplicate create as
+    ///   `BackendSetError::SetError(SetError::new(
+    ///   SetErrorType::AlreadyExists).with_existing_id(existing))` and,
+    ///   in `update_object`, a rename onto a held name as an
+    ///   `invalidProperties` SetError naming `name`. See
+    ///   draft-atwood-jmap-chat-00 §CustomEmoji `name`.
     /// - **`Chat`** with `kind == Direct` — at most one direct chat
     ///   per `(account_id, contact_id)`. The handler at
     ///   [`crate::chat::handle_chat_set`] uses optimistic

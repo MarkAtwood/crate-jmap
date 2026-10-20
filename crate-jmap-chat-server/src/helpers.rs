@@ -73,6 +73,23 @@ pub(crate) fn mistyped_create_props(obj: &Value, props: &[(&str, PropType)]) -> 
     (!bad.is_empty()).then(|| json!({ "type": "invalidProperties", "properties": bad }))
 }
 
+/// Use `default` as the `/query` `sort` when the request gives none
+/// (absent, `null` or `[]`).
+///
+/// RFC 8620 §5.5 leaves the order of an unsorted query to the server;
+/// draft-atwood-jmap-chat-00 fixes a "Default sort" for each chat
+/// `/query`, so the handler supplies it and every backend sees it.
+pub(crate) fn default_sort(args: &mut Map<String, Value>, default: Value) {
+    let unsorted = match args.get("sort") {
+        None | Some(Value::Null) => true,
+        Some(Value::Array(a)) => a.is_empty(),
+        Some(_) => false,
+    };
+    if unsorted {
+        args.insert("sort".to_owned(), default);
+    }
+}
+
 /// Reject a `/query` `sort` property this server does not define: RFC 8620
 /// §5.5 `unsupportedSort`.
 ///

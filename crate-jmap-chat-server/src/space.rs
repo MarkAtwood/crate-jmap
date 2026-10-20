@@ -44,9 +44,9 @@ use crate::backend::{
     SpacePatchOp,
 };
 use crate::helpers::{
-    count_add_ops, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, iso8601_before, not_found_json, now_utc_string, optional_arg,
-    reject_unsupported_sort, serialize_value, set_error_value, SetAccumulators,
+    count_add_ops, default_sort, enforce_max_objects_in_get, enforce_max_objects_in_set,
+    extract_account_id, finalize_set_response, iso8601_before, not_found_json, now_utc_string,
+    optional_arg, reject_unsupported_sort, serialize_value, set_error_value, SetAccumulators,
 };
 use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
 use jmap_server::{
@@ -665,6 +665,8 @@ pub async fn handle_space_query<B: ChatBackend>(
 
     let (anchor, anchor_offset) = query_anchor_args(&args)?;
 
+    // §Space/query: "Default sort: `name` ascending."
+    default_sort(&mut args, json!([{ "property": "name" }]));
     reject_unsupported_sort::<SpaceComparator>(args.get("sort"))?;
     let filter: Option<SpaceFilter> =
         optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
