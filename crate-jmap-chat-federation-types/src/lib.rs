@@ -22,9 +22,20 @@
 //!   `ChatContact.serverUrl` and `ChatContact.directAddress` extension
 //!   fields, read from `ChatContact.extra` (draft §ChatContact Type
 //!   Extensions for Federation).
+//! - [`peer`] — request and response arguments of the eight `Peer/*`
+//!   methods (draft §Server-to-Server Methods). User references are
+//!   identity strings (draft §User References in Peer Methods).
 
 #![forbid(unsafe_code)]
 
 pub mod contact;
+pub mod peer;
 
 pub use contact::{contact_direct_address, contact_server_url};
+pub use peer::{
+    GroupUpdateAction, PeerAck, PeerAttachment, PeerChatMember, PeerDeliverArgs,
+    PeerDeliverResponse, PeerEdit, PeerGroupUpdateArgs, PeerMention, PeerMessage, PeerPresenceArgs,
+    PeerReactionUpdate, PeerReceiptArgs, PeerRetractArgs, PeerRetractResponse, PeerRoleUpdate,
+    PeerSubscribePresenceArgs, PeerSubscribePresenceResponse, PeerTypingArgs,
+    PeerUnsubscribePresenceArgs, ReactionAction,
+};

@@ -1537,6 +1537,8 @@ name = "jmap-chat-federation-types"
 version = "0.3.0"
 dependencies = [
  "jmap-chat-types",
+ "jmap-types",
+ "serde",
  "serde_json",
 ]
 

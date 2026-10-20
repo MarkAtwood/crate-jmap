@@ -11,7 +11,7 @@ keywords = ["jmap", "chat", "federation", "types"]
 categories = ["encoding", "network-programming"]
 
 [dependencies]
-serde_json = { workspace = true }
-
-[dev-dependencies]
 jmap-chat-types = { workspace = true }
+jmap-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

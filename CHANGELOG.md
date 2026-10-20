@@ -14,6 +14,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-federation-types**: `peer` module with the request and
+  response arguments of the draft-atwood-jmap-chat-federation-00 `Peer/*`
+  methods: `PeerDeliverArgs` (`PeerMessage`, `PeerEdit`,
+  `PeerReactionUpdate`, `ReactionAction`, `PeerAttachment` with
+  `fetchUrl`, `PeerMention`), `PeerDeliverResponse`, `PeerReceiptArgs`,
+  `PeerTypingArgs`, `PeerRetractArgs`, `PeerRetractResponse`,
+  `PeerGroupUpdateArgs` (`GroupUpdateAction`, `PeerChatMember`,
+  `PeerRoleUpdate`), `PeerSubscribePresenceArgs`,
+  `PeerSubscribePresenceResponse`, `PeerUnsubscribePresenceArgs`,
+  `PeerPresenceArgs` and the `accountId`-only `PeerAck`. User-reference
+  fields are identity strings (§User References in Peer Methods).
 - **jmap-chat-mimi-types**: `convert` module with the converting-party
   rules of draft-atwood-jmap-chat-mimi-00: `sender_msg_id` (ULID from the
   hub acceptance time and octets 1-10 of the MIMI message ID), `RefKey`
