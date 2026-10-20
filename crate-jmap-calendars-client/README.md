@@ -83,7 +83,7 @@ from the bound session.
 | `calendar_event_get` | `(ids: Option<&[Id]>, properties: Option<&[&str]>, params: Option<CalendarEventGetParams>)` | `GetResponse<CalendarEvent>` |
 | `calendar_event_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
 | `calendar_event_set` | `(create, update, destroy: Option<&[Id]>)` | `SetResponse<CalendarEvent>` |
-| `calendar_event_copy` | `(from_account_id: &Id, create: BTreeMap<String, CalendarEvent>)` | `SetResponse<CalendarEvent>` |
+| `calendar_event_copy` | `(params: CalendarEventCopyParams, create: BTreeMap<String, CalendarEvent>)` | `SetResponse<CalendarEvent>` |
 | `calendar_event_query` | `(filter, sort, position: Option<u64>, limit: Option<u64>, expand_recurrences: Option<bool>)` | `QueryResponse` |
 | `calendar_event_query_changes` | `(since_query_state: &State, max_changes: Option<u64>)` | `QueryChangesResponse` |
 | `calendar_event_parse` | `(blob_ids: &[Id], properties: Option<&[&str]>)` | `CalendarEventParseResponse` |

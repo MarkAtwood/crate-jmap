@@ -167,9 +167,11 @@ impl super::SessionClient {
 
     /// Copy ContactCards from another account (RFC 8620 §5.4 /copy).
     ///
-    /// `from_account_id` is the source account. `create` is a map of
-    /// caller-supplied creation keys to copy descriptors. The server assigns
-    /// new IDs in the destination account.
+    /// `params` carries `fromAccountId`, the optional `ifFromInState` /
+    /// `ifInState` state guards, the optional destroy-after-copy flags,
+    /// and vendor extras (RFC 8620 §5.4).
+    /// `create` is a map of caller-supplied creation keys to copy
+    /// descriptors. The server assigns new IDs in the destination account.
     ///
     /// # Errors
     ///
@@ -185,15 +187,39 @@ impl super::SessionClient {
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn contact_card_copy(
         &self,
-        from_account_id: &Id,
+        params: super::ContactCardCopyParams,
         create: serde_json::Value,
     ) -> Result<SetResponse<jmap_contacts_types::ContactCard>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let args = serde_json::json!({
-            "fromAccountId": from_account_id,
+        let mut args = serde_json::json!({
+            "fromAccountId": params.from_account_id,
             "accountId": account_id,
             "create": create,
         });
+        if let Some(v) = params.if_from_in_state {
+            args["ifFromInState"] = v.into_inner().into();
+        }
+        if let Some(v) = params.if_in_state {
+            args["ifInState"] = v.into_inner().into();
+        }
+        if let Some(v) = params.on_success_destroy_original {
+            args["onSuccessDestroyOriginal"] = v.into();
+        }
+        if let Some(v) = params.destroy_from_if_in_state {
+            args["destroyFromIfInState"] = v.into_inner().into();
+        }
+        // Route caller-supplied vendor extras onto the wire (workspace
+        // extras-preservation policy). Use `entry().or_insert()` so a
+        // caller who put a typed wire key into `params.extra` cannot
+        // silently clobber the typed value — typed wins on collision.
+        if !params.extra.is_empty() {
+            let args_obj = args
+                .as_object_mut()
+                .expect("contact_card_copy: args is constructed as Object");
+            for (k, v) in params.extra {
+                args_obj.entry(k).or_insert(v);
+            }
+        }
         let req = super::build_request("ContactCard/copy", args, super::USING_CONTACTS);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)

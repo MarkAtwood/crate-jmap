@@ -61,6 +61,45 @@ pub struct AddressBookSetParams {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+/// Arguments for `ContactCard/copy` (RFC 8620 §5.4).
+///
+/// Mirrors the canonical `EmailCopyParams` shape in `jmap-mail-client`
+/// (workspace canonical extension-client template).
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ContactCardCopyParams {
+    /// The account to copy from (RFC 8620 §5.4).
+    pub from_account_id: jmap_types::Id,
+    /// State guard for the source account: the server aborts with
+    /// `stateMismatch` unless the source state matches (RFC 8620 §5.4).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub if_from_in_state: Option<jmap_types::State>,
+    /// State guard for the destination account: the server aborts with
+    /// `stateMismatch` unless the destination state matches (RFC 8620 §5.4).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub if_in_state: Option<jmap_types::State>,
+    /// If `true`, destroy originals after successful copy (RFC 8620 §5.4).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_success_destroy_original: Option<bool>,
+    /// If-in-state guard for the source account destroy step (RFC 8620 §5.4).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub destroy_from_if_in_state: Option<jmap_types::State>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    ///
+    /// **Constraint**: keys in `extra` MUST NOT collide with the
+    /// typed-field wire names above (the camelCase spelling — e.g.
+    /// `"accountId"`, `"ids"`, `"properties"`, `"blobIds"`,
+    /// `"fromAccountId"`, etc.). On collision the typed-field value
+    /// wins on the wire and the `extra` value is silently dropped at
+    /// serialization. Place vendor extensions under vendor-prefixed
+    /// keys (e.g. `"acmeCorpFoo"`) to avoid the collision class.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
