@@ -160,7 +160,10 @@ pub async fn handle_contact_changes<B: ChatBackend>(
 /// (`null` counts as absent), or carries any other property is rejected
 /// with `invalidProperties` naming each offending property. A create whose `identity` equals
 /// [`ChatBackend::owner_user_id`] is rejected with `invalidProperties`
-/// naming `identity`. A create whose `identity` another ChatContact
+/// naming `identity`. A create whose `identity` is a DID other than its
+/// `did` (byte-exact comparison) is rejected with `invalidProperties`
+/// naming `identity` and `did`, per draft-atwood-jmap-chat-did-00
+/// §Optional `did` field. A create whose `identity` another ChatContact
 /// already holds is rejected by the backend with `alreadyExists` and
 /// `existingId` (see the `ChatContact` uniqueness contract on
 /// [`ChatBackend::create_object`]).
@@ -260,6 +263,25 @@ pub async fn handle_contact_set<B: ChatBackend>(
                 not_created.insert(
                     create_id.clone(),
                     json!({ "type": "invalidProperties", "properties": ["identity"] }),
+                );
+                continue;
+            }
+
+            // draft-atwood-jmap-chat-did-00 §Optional `did` field: "If
+            // `did` is present AND `identity` parses as a DID URI, the two
+            // MUST refer to the same DID. A server detecting a mismatch
+            // ... MUST treat the ChatContact record as invalid".
+            if did
+                .as_ref()
+                .is_some_and(|d| Did::parse(identity).is_ok_and(|i| i != *d))
+            {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({
+                        "type": "invalidProperties",
+                        "properties": ["identity", "did"],
+                        "description": "identity and did refer to different DIDs"
+                    }),
                 );
                 continue;
             }
