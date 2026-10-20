@@ -30,7 +30,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, EmojiSetOp};
 use crate::helpers::{
-    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
+    default_sort, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, not_found_json, now_utc_string, optional_arg, reject_unsupported_sort,
     serialize_value, set_error_value, SetAccumulators,
 };
@@ -188,6 +188,8 @@ pub async fn handle_emoji_query<B: ChatBackend>(
 
     let (anchor, anchor_offset) = query_anchor_args(&args)?;
 
+    // §CustomEmoji/query: "Default sort: `name` ascending."
+    default_sort(&mut args, json!([{ "property": "name" }]));
     reject_unsupported_sort::<CustomEmojiComparator>(args.get("sort"))?;
     let filter: Option<CustomEmojiFilter> =
         optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;

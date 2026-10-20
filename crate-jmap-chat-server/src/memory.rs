@@ -654,6 +654,43 @@ impl JmapBackend for MemoryBackend {
                     }
                 }
 
+                // draft-atwood-jmap-chat-00 §Space/query: "When the request
+                // includes an `isPublic: true` filter condition, the server
+                // MUST include in the result `ids` array the identifiers of
+                // Spaces for which the caller is not a member but which have
+                // both `isPublic: true` and `isPubliclyPreviewable: true`."
+                // Any other non-member Space is left out, as Space/get treats
+                // a non-previewable one as not found.
+                // ponytail: only a top-level `isPublic` condition is read; a
+                // FilterOperator lists member Spaces only, unfiltered
+                // (bd:JMAP-vwr2 owns the remaining filter clauses).
+                if O::TYPE_NAME == "Space" {
+                    let want_public = filter_val
+                        .as_ref()
+                        .and_then(|fv| fv.get("isPublic"))
+                        .and_then(serde_json::Value::as_bool);
+                    keys.retain(|id| {
+                        let space = &m[id];
+                        let flag = |k: &str| {
+                            space.get(k).and_then(serde_json::Value::as_bool) == Some(true)
+                        };
+                        let is_member = space
+                            .get("members")
+                            .and_then(|v| v.as_array())
+                            .is_some_and(|ms| {
+                                ms.iter().any(|mm| {
+                                    mm.get("id").and_then(|v| v.as_str())
+                                        == Some(account_id.as_ref())
+                                })
+                            });
+                        let visible = is_member
+                            || (want_public == Some(true)
+                                && flag("isPublic")
+                                && flag("isPubliclyPreviewable"));
+                        visible && want_public.is_none_or(|want| flag("isPublic") == want)
+                    });
+                }
+
                 keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
                 // RFC 8620 §5.5 `sort`; the stable sort keeps id order
                 // for ties.
@@ -778,6 +815,17 @@ impl ChatBackend for MemoryBackend {
             }
         }
 
+        // `CustomEmoji` uniqueness contract on `create_object`.
+        if O::TYPE_NAME == "CustomEmoji" {
+            let val = serde_json::to_value(&obj)
+                .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
+            if let Some(existing) = emoji_name_holder(&inner, account_id, &val, None) {
+                return Err(BackendSetError::SetError(
+                    SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing),
+                ));
+            }
+        }
+
         // ponytail: uuid v4 like canonical jmap-mail-server. The draft wants
         // ULIDs (time-ordered, so `unreadCount` and ordered retrieval can
         // compare ids); uuid v4 is not ordered. A production backend mints ULIDs.
@@ -817,6 +865,15 @@ impl ChatBackend for MemoryBackend {
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
         let current = patched_copy::<O>(&mut inner, account_id.as_ref(), id, &patch)?;
+
+        // `CustomEmoji` uniqueness contract on `update_object`.
+        if O::TYPE_NAME == "CustomEmoji"
+            && emoji_name_holder(&inner, account_id, &current, Some(id)).is_some()
+        {
+            return Err(BackendSetError::SetError(
+                SetError::new(SetErrorType::InvalidProperties).with_properties(["name"]),
+            ));
+        }
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
@@ -4081,6 +4138,28 @@ fn broadcast_mention_matches_owner(bm: &serde_json::Value) -> bool {
         Some("admins") => true,
         _ => false, // unknown scope: conservative no-match
     }
+}
+
+/// The id of a stored CustomEmoji other than `except` with the same
+/// `name` and scope as `emoji`.
+///
+/// draft-atwood-jmap-chat-00 §CustomEmoji `name`: "MUST be unique within
+/// its scope (Space or server-global)." The scope is `spaceId`; an absent
+/// or null `spaceId` is the server-global scope.
+fn emoji_name_holder(
+    inner: &Inner,
+    account_id: &Id,
+    emoji: &serde_json::Value,
+    except: Option<&Id>,
+) -> Option<Id> {
+    let scope = |e: &serde_json::Value| e.get("spaceId").filter(|v| !v.is_null()).cloned();
+    inner
+        .objects_ref("CustomEmoji", account_id.as_ref())?
+        .iter()
+        .find(|(id, e)| {
+            Some(*id) != except && e.get("name") == emoji.get("name") && scope(e) == scope(emoji)
+        })
+        .map(|(id, _)| id.clone())
 }
 
 /// Order two stored objects by RFC 8620 §5.5 `sort` comparators
