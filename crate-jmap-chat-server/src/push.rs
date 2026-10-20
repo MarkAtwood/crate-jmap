@@ -198,7 +198,10 @@ pub fn chat_state_change_for(
 /// included only when the owner satisfies the deployment-defined
 /// "administrative authority" predicate at delivery time." Both predicates
 /// are deployment-defined, so the caller evaluates them.
+///
+/// Build it with [`OwnerFlags::new`]; more flags may be added.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
 pub struct OwnerFlags {
     /// The owner satisfies the deployment's "active" predicate.
     pub active: bool,
@@ -206,8 +209,19 @@ pub struct OwnerFlags {
     pub admin: bool,
 }
 
+impl OwnerFlags {
+    /// The owner's flags from the two deployment-defined predicates.
+    pub const fn new(active: bool, admin: bool) -> Self {
+        Self { active, admin }
+    }
+}
+
 /// The stored records one `ChatMessageEntry` is built from.
+///
+/// Build it with [`PushItem::new`] and set the optional fields after; more
+/// fields may be added.
 #[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
 pub struct PushItem<'a> {
     /// The new inbound message.
     pub message: &'a Message,
@@ -224,8 +238,22 @@ pub struct PushItem<'a> {
     pub space: Option<&'a Space>,
 }
 
+impl<'a> PushItem<'a> {
+    /// The required records, with `sender_member` and `space` unset.
+    pub const fn new(message: &'a Message, chat: &'a Chat, sender: &'a ChatContact) -> Self {
+        Self {
+            message,
+            chat,
+            sender,
+            sender_member: None,
+            space: None,
+        }
+    }
+}
+
 /// A built `ChatMessagePush` and the Web Push urgency to deliver it with.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct BuiltPush {
     /// The payload to deliver to the push endpoint.
     pub payload: ChatMessagePush,
