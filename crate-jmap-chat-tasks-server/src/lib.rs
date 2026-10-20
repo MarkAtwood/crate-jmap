@@ -34,9 +34,9 @@ use serde_json::Value;
 /// `capability`: `taskListId` when `mayBindTaskList` is `true`, none
 /// otherwise.
 ///
-/// With `mayBindTaskList: false` ("Deployments that prohibit
-/// Space-TaskList binding ... MUST set this to `false`") no Space is
-/// bound: the `Space/set` handler does not store `taskListId` on create
+/// With `mayBindTaskList: false` (draft L103: "`true` if accounts on this
+/// server may associate a TaskList with a Space, `false` otherwise") no
+/// Space is bound: the `Space/set` handler does not store `taskListId` on create
 /// and rejects it in an update patch as `invalidProperties`. With `true`,
 /// the handler stores it on create and routes a `taskListId` patch through
 /// `apply_space_metadata_patch`, whose `manage_space` gate gives
