@@ -1,0 +1,23 @@
+[package]
+name = "jmap-chat-calendars-server"
+version = "0.3.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Chat binding for the JMAP Calendars server (draft-atwood-jmap-chat-calendars-00): Space calendarId binding, auto-bind on create, capability co-advertisement"
+keywords = ["jmap", "calendars", "chat", "server"]
+categories = ["network-programming", "web-programming::http-server"]
+
+[dependencies]
+jmap-types = { workspace = true }
+jmap-chat-types = { workspace = true }
+jmap-calendars-types = { workspace = true }
+jmap-calendars-server = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+jmap-chat-server = { workspace = true, features = ["memory"] }
+jmap-calendars-server = { workspace = true, features = ["memory"] }

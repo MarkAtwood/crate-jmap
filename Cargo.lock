@@ -1502,6 +1502,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-chat-calendars-server"
+version = "0.3.0"
+dependencies = [
+ "jmap-calendars-server",
+ "jmap-calendars-types",
+ "jmap-chat-server",
+ "jmap-chat-types",
+ "jmap-types",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "jmap-chat-client"
 version = "0.3.0"
 dependencies = [
