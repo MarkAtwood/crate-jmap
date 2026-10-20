@@ -164,9 +164,9 @@ impl SessionClient {
         from_account_id: &Id,
         create: HashMap<String, CalendarEvent>,
     ) -> Result<SetResponse<CalendarEvent>, ClientError>;
-    pub async fn calendar_event_query(
+    pub async fn calendar_event_query<C: Serialize>(
         &self,
-        filter: Option<&CalendarEventFilter>,  // jmap_types::query::Filter (AND/OR/NOT)
+        filter: Option<&Filter<C>>,  // jmap_types::query::Filter (AND/OR/NOT); C = CalendarEventFilterCondition or WithMetadata<..>
         sort: Option<&[CalendarEventComparator]>,
         position: Option<u64>,
         limit: Option<u64>,

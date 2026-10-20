@@ -11,7 +11,7 @@
 
 use jmap_metadata_types::{
     is_registered_namespace, is_valid_namespace, is_vendor_namespace, DataTypeMetadataInfo,
-    MetadataTextMatch, JMAP_METADATA_URI,
+    MetadataTextMatch, WithMetadata, JMAP_METADATA_URI,
 };
 
 // ---------------------------------------------------------------------------
@@ -183,4 +183,58 @@ fn valid_namespace_rejects_invalid() {
     assert!(!is_valid_namespace(""));
     assert!(!is_valid_namespace("has space"));
     assert!(!is_valid_namespace(".leading"));
+}
+
+// ---------------------------------------------------------------------------
+// WithMetadata (§3.5)
+// ---------------------------------------------------------------------------
+
+/// Stand-in for a per-type `FilterCondition` (`inMailbox` is the RFC 8621
+/// §4.4.1 Email condition used in the §6.7 example).
+#[derive(Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EmailCondStub {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    in_mailbox: Option<String>,
+}
+
+#[test]
+fn with_metadata_draft_02_section_3_5_all_fields() {
+    // Oracle: the six field names and value types listed in §3.5 ("The
+    // extended FilterCondition fields are: metadataExists: String,
+    // privateMetadataExists: String, metadataTextContains:
+    // MetadataTextMatch, ..."), written by hand next to a base condition
+    // key in the same object.
+    let mut cond = WithMetadata::<EmailCondStub>::default();
+    cond.base.in_mailbox = Some("MB-inbox".into());
+    cond.metadata_exists = Some("photography".into());
+    cond.private_metadata_exists = Some("acme.example.com/memo".into());
+    cond.metadata_text_contains = Some(MetadataTextMatch::new("photography/album", "sun"));
+    cond.private_metadata_text_contains =
+        Some(MetadataTextMatch::new("acme.example.com/memo", "follow up"));
+    cond.metadata_text_equals = Some(MetadataTextMatch::new("photography/album", "Sunset"));
+    cond.private_metadata_text_equals = Some(MetadataTextMatch::new("acme.example.com/tag", "x"));
+    let expected = serde_json::json!({
+        "inMailbox": "MB-inbox",
+        "metadataExists": "photography",
+        "privateMetadataExists": "acme.example.com/memo",
+        "metadataTextContains": {"path": "photography/album", "value": "sun"},
+        "privateMetadataTextContains": {"path": "acme.example.com/memo", "value": "follow up"},
+        "metadataTextEquals": {"path": "photography/album", "value": "Sunset"},
+        "privateMetadataTextEquals": {"path": "acme.example.com/tag", "value": "x"}
+    });
+    assert_eq!(serde_json::to_value(&cond).unwrap(), expected);
+}
+
+#[test]
+fn with_metadata_unset_fields_are_omitted() {
+    // Oracle: §3.5 calls every added field "optional"; a condition with
+    // only `metadataExists` set sends only that key (RFC 8620 §5.5: a
+    // FilterCondition property that is absent places no constraint).
+    let mut cond = WithMetadata::<EmailCondStub>::default();
+    cond.metadata_exists = Some("photography".into());
+    assert_eq!(
+        serde_json::to_value(&cond).unwrap(),
+        serde_json::json!({"metadataExists": "photography"})
+    );
 }

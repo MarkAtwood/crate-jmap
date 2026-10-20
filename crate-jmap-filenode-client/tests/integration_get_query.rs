@@ -8,7 +8,8 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use jmap_filenode_types::{NodeRole, NodeType};
+use jmap_filenode_types::{FileNodeFilter, FileNodeFilterCondition, NodeRole, NodeType};
+use jmap_types::query::Filter;
 use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::matchers::{method, path};
@@ -320,14 +321,10 @@ async fn filenode_query_with_depth_and_filter() {
         .await;
 
     let sc = helpers::make_client(&server);
+    let mut cond = FileNodeFilterCondition::default();
+    cond.parent_id = Some(Id::from("dir1"));
     let resp = sc
-        .filenode_query(
-            Some(json!({ "parentId": "dir1" })),
-            None,
-            None,
-            None,
-            Some(2u64),
-        )
+        .filenode_query(Some(&Filter::Condition(cond)), None, None, None, Some(2u64))
         .await
         .expect("filenode_query_with_depth_and_filter: must succeed");
 
@@ -390,7 +387,14 @@ async fn filenode_query_changes_returns_added_and_removed() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .filenode_query_changes(&State::from("qs1"), None, None, None, None, None)
+        .filenode_query_changes(
+            &State::from("qs1"),
+            None,
+            None::<&FileNodeFilter>,
+            None,
+            None,
+            None,
+        )
         .await
         .expect("filenode_query_changes_returns_added_and_removed: must succeed");
 
@@ -439,10 +443,13 @@ async fn filenode_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs1");
     let up_to = Id::from("fn-100");
+    let mut cond = FileNodeFilterCondition::default();
+    cond.parent_id = Some(Id::from("parent-1"));
+    cond.node_type = Some("File".into());
     sc.filenode_query_changes(
         &since,
         None,
-        Some(json!({ "parentId": "parent-1", "nodeType": "File" })),
+        Some(&Filter::Condition(cond)),
         Some(json!([{ "property": "name", "isAscending": true }])),
         Some(&up_to),
         Some(true),
@@ -516,7 +523,7 @@ async fn filenode_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = helpers::make_client(&server);
     let since = State::from("qs1");
-    sc.filenode_query_changes(&since, None, None, None, None, None)
+    sc.filenode_query_changes(&since, None, None::<&FileNodeFilter>, None, None, None)
         .await
         .expect("filenode_query_changes_all_none_omits_optional_wire_keys: must succeed");
 

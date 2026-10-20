@@ -23,6 +23,8 @@ use helpers::{
     set_response, CHAT_STATE_NEW, CHAT_STATE_OLD, TEST_ACCOUNT_ID,
 };
 use jmap_chat_types::query;
+use jmap_metadata_types::WithMetadata;
+use jmap_types::query::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::MockServer;
@@ -455,7 +457,7 @@ async fn chat_query_changes_since_query_state_passthrough() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
     let _ = sc
-        .chat_query_changes(&since, None, None, None, None, None)
+        .chat_query_changes(&since, None, None::<&query::ChatFilter>, None, None, None)
         .await
         .expect("chat_query_changes: must succeed");
 
@@ -964,7 +966,7 @@ async fn chat_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
-    sc.chat_query_changes(&since, None, None, None, None, None)
+    sc.chat_query_changes(&since, None, None::<&query::ChatFilter>, None, None, None)
         .await
         .expect("chat_query_changes_all_none_omits_optional_wire_keys: must succeed");
 
@@ -979,5 +981,63 @@ async fn chat_query_changes_all_none_omits_optional_wire_keys() {
     assert!(
         args.get("maxChanges").is_none(),
         "maxChanges must be omitted"
+    );
+}
+
+/// `Chat/queryChanges` carries a compound filter whose leaf adds a
+/// draft-ietf-jmap-metadata-02 §3.5 condition.
+///
+/// Oracle: draft-atwood-jmap-chat-00 §Chat/query — "Filter properties:
+/// `kind` (String), `muted` (Boolean)"; draft-ietf-jmap-metadata-02 §3.5 —
+/// `privateMetadataExists: String` extends the type's FilterCondition;
+/// RFC 8620 §5.5 — FilterOperator `operator` / `conditions`. The expected
+/// JSON is hand-written from those definitions.
+#[tokio::test]
+async fn chat_query_changes_sends_metadata_condition_in_and() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "Chat/queryChanges",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "oldQueryState": "qs-old",
+            "newQueryState": "qs-new",
+            "total": null,
+            "removed": [],
+            "added": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let mut muted = WithMetadata::<query::ChatFilterCondition>::default();
+    muted.base.muted = Some(true);
+    let mut pinned = WithMetadata::<query::ChatFilterCondition>::default();
+    pinned.private_metadata_exists = Some("acme.example.com/pinned".to_owned());
+    let filter = Filter::Operator(FilterOperator::new(
+        Operator::And,
+        vec![Filter::Condition(muted), Filter::Condition(pinned)],
+    ));
+
+    let sc = helpers::make_client(&server);
+    sc.chat_query_changes(
+        &State::from("qs-old"),
+        None,
+        Some(&filter),
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("chat_query_changes: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["filter"],
+        json!({
+            "operator": "AND",
+            "conditions": [
+                { "muted": true },
+                { "privateMetadataExists": "acme.example.com/pinned" }
+            ]
+        })
     );
 }

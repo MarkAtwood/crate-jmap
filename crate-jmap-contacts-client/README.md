@@ -20,7 +20,8 @@ sub-types re-exported under the `jscontact` module alias).
 ```rust,no_run
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
 use jmap_contacts_client::{JmapContactsExt, AddressBookSetParams};
-use jmap_contacts_types::ContactCard;
+use jmap_contacts_types::{ContactCard, ContactCardFilterCondition};
+use jmap_types::query::Filter;
 use jmap_types::{Id, State};
 use serde_json::json;
 
@@ -83,9 +84,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // 7. Query contact cards in a specific address book.
-    let filter = json!({ "inAddressBook": "ab-id-here" });
+    let mut in_book = ContactCardFilterCondition::default();
+    in_book.in_address_book = Some(Id::from("ab-id-here"));
+    let filter = Filter::Condition(in_book);
     let query = contacts
-        .contact_card_query(Some(filter), None, None, None)
+        .contact_card_query(Some(&filter), None, None, None)
         .await?;
     println!("found {} card(s)", query.ids.len());
 

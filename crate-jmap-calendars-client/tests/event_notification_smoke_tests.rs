@@ -13,7 +13,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use jmap_calendars_types::NotificationFilterCondition;
+use jmap_calendars_types::{NotificationFilter, NotificationFilterCondition};
 use jmap_types::query::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State, UTCDate};
 use serde_json::json;
@@ -356,7 +356,14 @@ async fn calendar_event_notification_query_changes_basic_shape() {
     let sc = helpers::make_client(&server);
     let since = State::from("nqs1");
     let _ = sc
-        .calendar_event_notification_query_changes(&since, None, None, None, None, None)
+        .calendar_event_notification_query_changes(
+            &since,
+            None,
+            None::<&NotificationFilter>,
+            None,
+            None,
+            None,
+        )
         .await
         .expect("calendar_event_notification_query_changes: must succeed");
 
@@ -488,12 +495,19 @@ async fn calendar_event_notification_query_changes_all_none_omits_optional_wire_
 
     let sc = helpers::make_client(&server);
     let since = State::from("nqs1");
-    sc.calendar_event_notification_query_changes(&since, None, None, None, None, None)
-        .await
-        .expect(
-            "calendar_event_notification_query_changes_all_none_omits_optional_wire_keys: \
+    sc.calendar_event_notification_query_changes(
+        &since,
+        None,
+        None::<&NotificationFilter>,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect(
+        "calendar_event_notification_query_changes_all_none_omits_optional_wire_keys: \
              must succeed",
-        );
+    );
 
     let reqs = server
         .received_requests()

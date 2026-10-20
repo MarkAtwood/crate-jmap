@@ -15,6 +15,9 @@
 mod helpers;
 
 use jmap_mail_client::MailboxSetParams;
+use jmap_mail_types::mailbox::MailboxFilterCondition;
+use jmap_mail_types::query::MailboxFilter;
+use jmap_types::query::{Filter, FilterOperator, Operator};
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -185,11 +188,19 @@ async fn mailbox_query_filter_passthrough() {
             { "isSubscribed": true }
         ]
     });
+    let mut role = MailboxFilterCondition::default();
+    role.role = Some("inbox".into());
+    let mut subscribed = MailboxFilterCondition::default();
+    subscribed.is_subscribed = Some(true);
+    let typed = Filter::Operator(FilterOperator::new(
+        Operator::And,
+        vec![Filter::Condition(role), Filter::Condition(subscribed)],
+    ));
     let sort = json!([
         { "property": "name", "isAscending": true }
     ]);
     let _ = sc
-        .mailbox_query(Some(filter.clone()), Some(sort.clone()), Some(0), Some(50))
+        .mailbox_query(Some(&typed), Some(sort.clone()), Some(0), Some(50))
         .await
         .expect("mailbox_query: must succeed");
 
@@ -204,7 +215,7 @@ async fn mailbox_query_filter_passthrough() {
     assert_eq!(args["accountId"], json!("A13824"), "accountId mismatch");
     assert_eq!(
         args["filter"], filter,
-        "filter must be passed through verbatim"
+        "typed AND filter must serialize to the RFC 8620 §5.5 FilterOperator shape"
     );
     assert_eq!(args["sort"], sort, "sort must be passed through verbatim");
     assert_eq!(args["position"], json!(0), "position mismatch");
@@ -238,7 +249,7 @@ async fn mailbox_query_no_args_omits_optional_keys() {
 
     let sc = helpers::make_client(&server);
     let _ = sc
-        .mailbox_query(None, None, None, None)
+        .mailbox_query(None::<&MailboxFilter>, None, None, None)
         .await
         .expect("mailbox_query: must succeed");
 
@@ -290,10 +301,12 @@ async fn mailbox_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = jmap_types::State::from("qs1");
     let up_to = jmap_types::Id::from("MB-100");
+    let mut role = MailboxFilterCondition::default();
+    role.role = Some("inbox".into());
     sc.mailbox_query_changes(
         &since,
         None,
-        Some(json!({ "role": "inbox" })),
+        Some(&Filter::Condition(role)),
         Some(json!([{ "property": "name", "isAscending": true }])),
         Some(&up_to),
         Some(true),
@@ -362,7 +375,7 @@ async fn mailbox_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = helpers::make_client(&server);
     let since = jmap_types::State::from("qs1");
-    sc.mailbox_query_changes(&since, None, None, None, None, None)
+    sc.mailbox_query_changes(&since, None, None::<&MailboxFilter>, None, None, None)
         .await
         .expect("mailbox_query_changes_all_none_omits_optional_wire_keys: must succeed");
 

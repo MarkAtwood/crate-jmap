@@ -17,7 +17,10 @@ mod helpers;
 use std::collections::BTreeMap;
 
 use jmap_calendars_client::methods::CalendarEventGetParams;
-use jmap_calendars_types::{CalendarEventComparator, CalendarEventFilterCondition};
+use jmap_calendars_types::{
+    CalendarEventComparator, CalendarEventFilter, CalendarEventFilterCondition,
+};
+use jmap_metadata_types::{MetadataTextMatch, WithMetadata};
 use jmap_types::query::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State};
 
@@ -331,7 +334,7 @@ async fn calendar_event_query_no_args_omits_optional_keys() {
 
     let sc = helpers::make_client(&server);
     let _ = sc
-        .calendar_event_query(None, None, None, None, None)
+        .calendar_event_query(None::<&CalendarEventFilter>, None, None, None, None)
         .await
         .expect("calendar_event_query: must succeed");
 
@@ -385,7 +388,14 @@ async fn calendar_event_query_changes_since_state_passthrough() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs5");
     let resp = sc
-        .calendar_event_query_changes(&since, Some(25), None, None, None, None)
+        .calendar_event_query_changes(
+            &since,
+            Some(25),
+            None::<&CalendarEventFilter>,
+            None,
+            None,
+            None,
+        )
         .await
         .expect("calendar_event_query_changes: must succeed");
     assert_eq!(resp.old_query_state, "qs5", "oldQueryState mismatch");
@@ -628,7 +638,7 @@ async fn calendar_event_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = helpers::make_client(&server);
     let since = State::from("qs5");
-    sc.calendar_event_query_changes(&since, None, None, None, None, None)
+    sc.calendar_event_query_changes(&since, None, None::<&CalendarEventFilter>, None, None, None)
         .await
         .expect("calendar_event_query_changes_all_none_omits_optional_wire_keys: must succeed");
 
@@ -885,5 +895,63 @@ async fn calendar_event_copy_omits_unset_copy_args() {
     assert_eq!(
         calendar_event_copy_sent_args(params).await,
         json!({ "accountId": "A13824", "fromAccountId": "src" })
+    );
+}
+
+/// `CalendarEvent/query` carries draft-ietf-jmap-metadata-02 §3.5
+/// conditions in a `WithMetadata<CalendarEventFilterCondition>` leaf.
+///
+/// Oracle: §3.5 — "the FilterCondition object for Foo/query is extended
+/// with" `metadataExists: String` and `metadataTextEquals:
+/// MetadataTextMatch` (`path`, `value`), composed "through the usual
+/// AND/OR/NOT operators"; draft-ietf-jmap-calendars-26 §5.11 —
+/// `inCalendar` is a CalendarEvent FilterCondition property. The expected
+/// JSON is hand-written from those definitions.
+#[tokio::test]
+async fn calendar_event_query_metadata_condition_wire_shape() {
+    let mut leaf = WithMetadata::<CalendarEventFilterCondition>::default();
+    leaf.base.in_calendar = Some(Id::from("cal-1"));
+    leaf.metadata_exists = Some("acme.example.com".to_owned());
+    let mut tagged = WithMetadata::<CalendarEventFilterCondition>::default();
+    tagged.metadata_text_equals = Some(MetadataTextMatch::new("acme.example.com/tag", "offsite"));
+    let filter = Filter::Operator(FilterOperator::new(
+        Operator::Or,
+        vec![Filter::Condition(leaf), Filter::Condition(tagged)],
+    ));
+
+    let sent = sent_event_filter(
+        "CalendarEvent/query",
+        json!({
+            "accountId": "A13824",
+            "queryState": "qs1",
+            "canCalculateChanges": true,
+            "position": 0,
+            "ids": [],
+            "total": null,
+            "limit": null
+        }),
+        async |sc| {
+            sc.calendar_event_query(Some(&filter), None, None, None, None)
+                .await
+                .expect("calendar_event_query: must succeed");
+        },
+    )
+    .await;
+
+    assert_eq!(
+        sent,
+        json!({
+            "operator": "OR",
+            "conditions": [
+                { "inCalendar": "cal-1", "metadataExists": "acme.example.com" },
+                {
+                    "metadataTextEquals": {
+                        "path": "acme.example.com/tag",
+                        "value": "offsite"
+                    }
+                }
+            ]
+        }),
+        "metadata-02 §3.5 condition wire shape mismatch"
     );
 }

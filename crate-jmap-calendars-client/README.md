@@ -84,8 +84,8 @@ from the bound session.
 | `calendar_event_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
 | `calendar_event_set` | `(create, update, destroy: Option<&[Id]>)` | `SetResponse<CalendarEvent>` |
 | `calendar_event_copy` | `(params: CalendarEventCopyParams, create: BTreeMap<String, CalendarEvent>)` | `SetResponse<CalendarEvent>` |
-| `calendar_event_query` | `(filter, sort, position: Option<u64>, limit: Option<u64>, expand_recurrences: Option<bool>)` | `QueryResponse` |
-| `calendar_event_query_changes` | `(since_query_state: &State, max_changes: Option<u64>)` | `QueryChangesResponse` |
+| `calendar_event_query` | `(filter: Option<&Filter<C>>, sort: Option<&[CalendarEventComparator]>, position: Option<u64>, limit: Option<u64>, expand_recurrences: Option<bool>)` | `QueryResponse` |
+| `calendar_event_query_changes` | `(since_query_state: &State, max_changes: Option<u64>, filter: Option<&Filter<C>>, sort: Option<&[CalendarEventComparator]>, up_to_id: Option<&Id>, calculate_total: Option<bool>)` | `QueryChangesResponse` |
 | `calendar_event_parse` | `(blob_ids: &[Id], properties: Option<&[&str]>)` | `CalendarEventParseResponse` |
 
 ### CalendarEventNotification
@@ -95,8 +95,8 @@ from the bound session.
 | `calendar_event_notification_get` | `(ids: Option<&[Id]>, properties: Option<&[&str]>)` | `GetResponse<CalendarEventNotification>` |
 | `calendar_event_notification_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
 | `calendar_event_notification_set` | `(destroy: Option<&[Id]>)` | `SetResponse` |
-| `calendar_event_notification_query` | `(filter, sort, position: Option<u64>, limit: Option<u64>)` | `QueryResponse` |
-| `calendar_event_notification_query_changes` | `(since_query_state: &State, max_changes: Option<u64>)` | `QueryChangesResponse` |
+| `calendar_event_notification_query` | `(filter: Option<&Filter<C>>, sort: Option<&[serde_json::Value]>, position: Option<u64>, limit: Option<u64>)` | `QueryResponse` |
+| `calendar_event_notification_query_changes` | `(since_query_state: &State, max_changes: Option<u64>, filter: Option<&Filter<C>>, sort: Option<&[serde_json::Value]>, up_to_id: Option<&Id>, calculate_total: Option<bool>)` | `QueryChangesResponse` |
 
 ### ParticipantIdentity
 
@@ -116,8 +116,12 @@ from the bound session.
 and `jmap_types::UTCDate`. `UTCDate` enforces RFC 8620 §1.4 format
 validation at construction time via `UTCDate::new_validated`.
 
-`filter` and `sort` parameters use typed conditions/comparators where defined,
-falling back to `Option<serde_json::Value>` for spec extensions not yet bound.
+`filter` is a `jmap_types::query::Filter<C>` (RFC 8620 §5.5 `AND` / `OR` /
+`NOT` over conditions of type `C: Serialize`). `C` is normally the crate's
+`*FilterCondition`; use `jmap_metadata_types::WithMetadata<C>` to add
+draft-ietf-jmap-metadata-02 §3.5 conditions. When passing `None`, name the
+type (`None::<&CalendarEventFilter>`). `sort` uses typed comparators where
+defined, falling back to `serde_json::Value` for spec extensions not yet bound.
 `create` parameters are typed as `Option<BTreeMap<String, T>>` for the relevant
 JMAP object `T`. `update` parameters are typed as
 `Option<BTreeMap<Id, jmap_types::PatchObject>>` (RFC 8620 §5.3) — wire format is

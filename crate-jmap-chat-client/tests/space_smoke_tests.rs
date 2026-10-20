@@ -411,7 +411,14 @@ async fn space_query_changes_since_state_passthrough() {
     let sc = helpers::make_client(&server);
     let since = State::from("sqc-old");
     let _ = sc
-        .space_query_changes(&since, Some(50), None, None, None, None)
+        .space_query_changes(
+            &since,
+            Some(50),
+            None::<&query::SpaceFilter>,
+            None,
+            None,
+            None,
+        )
         .await
         .expect("space_query_changes: must succeed");
 
@@ -780,7 +787,7 @@ async fn space_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
-    sc.space_query_changes(&since, None, None, None, None, None)
+    sc.space_query_changes(&since, None, None::<&query::SpaceFilter>, None, None, None)
         .await
         .expect("space_query_changes_all_none_omits_optional_wire_keys: must succeed");
 

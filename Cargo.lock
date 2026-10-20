@@ -947,6 +947,7 @@ version = "0.3.0"
 dependencies = [
  "jmap-base-client",
  "jmap-calendars-types",
+ "jmap-metadata-types",
  "jmap-types",
  "serde",
  "serde_json",
@@ -986,6 +987,7 @@ dependencies = [
  "futures",
  "jmap-base-client",
  "jmap-chat-types",
+ "jmap-metadata-types",
  "jmap-types",
  "serde",
  "serde_json",
@@ -1121,6 +1123,7 @@ version = "0.3.0"
 dependencies = [
  "jmap-base-client",
  "jmap-mail-types",
+ "jmap-metadata-types",
  "jmap-types",
  "serde",
  "serde_json",
@@ -1208,6 +1211,7 @@ dependencies = [
  "jmap-base-client",
  "jmap-sharing-types",
  "jmap-types",
+ "serde",
  "serde_json",
  "tokio",
  "wiremock",

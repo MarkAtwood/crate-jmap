@@ -116,15 +116,40 @@ wire behaviour that a conforming peer can observe.
   `jmap_mail_types::MAILBOX_FILTER_CONDITION_KEYS` and the
   `jmap_chat_types::query::*_FILTER_CONDITION_KEYS` constants are removed;
   the typed decode now does their job.
-- **jmap-calendars-client**: `calendar_event_query`,
-  `calendar_event_query_changes`, `calendar_event_notification_query` and
-  `calendar_event_notification_query_changes` take `filter` as the typed
-  `CalendarEventFilter` / `NotificationFilter` (`jmap_types::query::Filter`),
-  so callers can send RFC 8620 §5.5 `AND` / `OR` / `NOT` operators. Wrap a
-  bare condition in `Filter::Condition`. The `*_query_changes` methods no
-  longer take `serde_json::Value`: `calendar_event_query_changes` sort is
-  `&[CalendarEventComparator]`, and `calendar_event_notification_query_changes`
-  sort is `&[serde_json::Value]`, matching their `/query` methods.
+- **jmap-mail-client, jmap-calendars-client, jmap-tasks-client,
+  jmap-contacts-client, jmap-filenode-client, jmap-sharing-client,
+  jmap-chat-client**: every `*_query` and `*_query_changes` method that
+  takes a `filter` now takes `Option<&jmap_types::query::Filter<C>>`,
+  generic over `C: Serialize`, so callers can send RFC 8620 §5.5
+  `AND` / `OR` / `NOT` operators. `C` is normally the crate's
+  `*FilterCondition`; `jmap_metadata_types::WithMetadata<C>` adds the
+  draft-ietf-jmap-metadata-02 §3.5 conditions. Wrap a bare condition in
+  `Filter::Condition`; a `None` filter needs its type named
+  (`None::<&EmailFilter>`). `search_snippet_get` takes `&Filter<C>`. The
+  chat client's `*_query` methods (which take `*QueryInput`) are unchanged.
+  Methods affected: mail `email_query`, `email_query_changes`,
+  `mailbox_query`, `mailbox_query_changes`, `email_submission_query`,
+  `email_submission_query_changes`, `search_snippet_get`; calendars
+  `calendar_event_query`, `calendar_event_query_changes`,
+  `calendar_event_notification_query`,
+  `calendar_event_notification_query_changes`; tasks `task_query`,
+  `task_query_changes`, `task_notification_query`,
+  `task_notification_query_changes`; contacts `contact_card_query`,
+  `contact_card_query_changes`; filenode `filenode_query`,
+  `filenode_query_changes`; sharing `principal_query`,
+  `principal_query_changes`, `share_notification_query`,
+  `share_notification_query_changes`; chat `chat_query_changes`,
+  `message_query_changes`, `space_query_changes`,
+  `chat_contact_query_changes`, `custom_emoji_query_changes`.
+- **jmap-mail-client, jmap-calendars-client, jmap-tasks-client,
+  jmap-contacts-client**: `sort` is a typed comparator slice where the
+  types crate defines one: `&[EmailComparator]` (Email query and
+  queryChanges), `&[CalendarEventComparator]`, `&[TaskComparator]`,
+  `&[TaskNotificationComparator]`, `&[ContactCardComparator]`.
+  `calendar_event_notification_query_changes` sort is
+  `&[serde_json::Value]`, matching its `/query`. Mailbox, EmailSubmission,
+  FileNode, Principal and ShareNotification sort stays
+  `Option<serde_json::Value>`.
 - **jmap-calendars-server**: `CalendarsBackend::get_availability` and
   `CalendarsBackend::parse_calendar_event_blobs` no longer have default
   implementations. The old defaults reported every principal as free
@@ -246,6 +271,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-metadata-types**: `WithMetadata<C>`, a Serialize-only wrapper that
+  flattens a per-type `FilterCondition` and adds the six
+  draft-ietf-jmap-metadata-02 §3.5 condition fields, for use as the leaf of
+  a client `Filter`. `MetadataTextMatch::new`.
 - **jmap-server**: `filter_arg`, which decodes a hand-written handler's
   `filter` argument and maps failures to `unsupportedFilter` or
   `invalidArguments` (RFC 8620 §5.5).

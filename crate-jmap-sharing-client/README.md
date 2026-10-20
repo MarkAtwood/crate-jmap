@@ -19,6 +19,8 @@ shape. Depends on `jmap-base-client` for transport and session, and on
 ```rust,no_run
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
 use jmap_sharing_client::JmapSharingExt;
+use jmap_sharing_types::PrincipalFilterCondition;
+use jmap_types::query::Filter;
 use jmap_types::Id;
 
 #[tokio::main]
@@ -40,8 +42,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // 5. Query principals by name.
-    let filter = serde_json::json!({ "name": "Alice" });
-    let query = sharing.principal_query(Some(filter), None, None, None).await?;
+    let mut by_name = PrincipalFilterCondition::default();
+    by_name.name = Some("Alice".into());
+    let filter = Filter::Condition(by_name);
+    let query = sharing.principal_query(Some(&filter), None, None, None).await?;
     println!("found {} principal(s)", query.ids.len());
 
     // 6. Fetch share notifications.

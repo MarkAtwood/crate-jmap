@@ -4,7 +4,9 @@
 //! the client would be rejected by the server with `forbidden`, but we
 //! expose a typed API that only allows destroy to avoid client-side confusion.
 
-use jmap_types::{Id, State};
+use jmap_tasks_types::TaskNotificationComparator;
+use jmap_types::{query::Filter, Id, State};
+use serde::Serialize;
 
 use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
 
@@ -129,8 +131,19 @@ impl super::SessionClient {
     /// Query TaskNotification IDs with optional filter and sort
     /// (draft-tasks-06 §5.5).
     ///
+    /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
+    /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    /// [`TaskNotificationFilterCondition`](jmap_tasks_types::notification::TaskNotificationFilterCondition); use
+    /// `jmap_metadata_types::WithMetadata<TaskNotificationFilterCondition>` to add the
+    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// Pass `None` to omit it; name the type when you do (`None::<&TaskNotificationFilter>`).
+    ///
     /// # Errors
     ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if serializing `filter` fails (a caller-supplied condition type
+    ///   `C` whose `Serialize` impl errors).
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:tasks`.
@@ -141,10 +154,10 @@ impl super::SessionClient {
     ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
     ///   `tooManyChanges`) that surface as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn task_notification_query(
+    pub async fn task_notification_query<C: Serialize>(
         &self,
-        filter: Option<serde_json::Value>,
-        sort: Option<serde_json::Value>,
+        filter: Option<&Filter<C>>,
+        sort: Option<&[TaskNotificationComparator]>,
         position: Option<u64>,
         limit: Option<u64>,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
@@ -153,10 +166,18 @@ impl super::SessionClient {
             "accountId": account_id,
         });
         if let Some(f) = filter {
-            args["filter"] = f;
+            args["filter"] = serde_json::to_value(f).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "task_notification_query: serializing filter failed: {e}"
+                ))
+            })?;
         }
         if let Some(s) = sort {
-            args["sort"] = s;
+            args["sort"] = serde_json::to_value(s).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "task_notification_query: serializing sort failed: {e}"
+                ))
+            })?;
         }
         if let Some(p) = position {
             args["position"] = p.into();
@@ -180,8 +201,19 @@ impl super::SessionClient {
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
     ///
+    /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
+    /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    /// [`TaskNotificationFilterCondition`](jmap_tasks_types::notification::TaskNotificationFilterCondition); use
+    /// `jmap_metadata_types::WithMetadata<TaskNotificationFilterCondition>` to add the
+    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// Pass `None` to omit it; name the type when you do (`None::<&TaskNotificationFilter>`).
+    ///
     /// # Errors
     ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if serializing `filter` fails (a caller-supplied condition type
+    ///   `C` whose `Serialize` impl errors).
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `since_query_state` is the empty string (defence-in-depth
     ///   empty-state guard; see [`Self::task_notification_changes`]).
@@ -195,12 +227,12 @@ impl super::SessionClient {
     ///   when the server cannot honour the request given the supplied
     ///   filter / sort); it surfaces as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn task_notification_query_changes(
+    pub async fn task_notification_query_changes<C: Serialize>(
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
-        filter: Option<serde_json::Value>,
-        sort: Option<serde_json::Value>,
+        filter: Option<&Filter<C>>,
+        sort: Option<&[TaskNotificationComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
@@ -216,10 +248,18 @@ impl super::SessionClient {
             "sinceQueryState": since_query_state,
         });
         if let Some(f) = filter {
-            args["filter"] = f;
+            args["filter"] = serde_json::to_value(f).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "task_notification_query_changes: serializing filter failed: {e}"
+                ))
+            })?;
         }
         if let Some(s) = sort {
-            args["sort"] = s;
+            args["sort"] = serde_json::to_value(s).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "task_notification_query_changes: serializing sort failed: {e}"
+                ))
+            })?;
         }
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();

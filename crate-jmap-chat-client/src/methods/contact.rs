@@ -2,7 +2,8 @@
 //!
 //! Spec: JMAP Chat draft §5 (ChatContact/get, /changes, /set, /query, /queryChanges).
 
-use jmap_types::{Id, PatchObject, State};
+use jmap_types::{query::Filter, Id, PatchObject, State};
+use serde::Serialize;
 
 use super::{
     ChangesResponse, ChatContactPatch, ChatContactQueryInput, GetResponse, QueryChangesResponse,
@@ -253,8 +254,19 @@ impl super::SessionClient {
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
     ///
+    /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
+    /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    /// [`ChatContactFilterCondition`](jmap_chat_types::query::ChatContactFilterCondition); use
+    /// `jmap_metadata_types::WithMetadata<ChatContactFilterCondition>` to add the
+    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// Pass `None` to omit it; name the type when you do (`None::<&ChatContactFilter>`).
+    ///
     /// # Errors
     ///
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing `filter` fails (a caller-supplied condition type `C`
+    ///   whose `Serialize` impl errors).
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `since_query_state` is the empty string (defence-in-depth
     ///   empty-state guard; see [`Self::chat_contact_changes`]).
@@ -268,11 +280,11 @@ impl super::SessionClient {
     ///   the server cannot honour the request given the supplied
     ///   filter / sort); it surfaces as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn chat_contact_query_changes(
+    pub async fn chat_contact_query_changes<C: Serialize>(
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
-        filter: Option<&jmap_chat_types::query::ChatContactFilter>,
+        filter: Option<&Filter<C>>,
         sort: Option<&[jmap_chat_types::query::ChatContactComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,

@@ -4,8 +4,8 @@
 //! The server must reject create and update operations with `forbidden`.
 //! This method accepts only `destroy` to prevent constructing invalid requests.
 
-use jmap_calendars_types::NotificationFilter;
-use jmap_types::{Id, State};
+use jmap_types::{query::Filter, Id, State};
+use serde::Serialize;
 
 use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
 
@@ -179,9 +179,12 @@ impl super::SessionClient {
     /// Query `CalendarEventNotification` IDs with optional filter and sort
     /// (draft-ietf-jmap-calendars-26 §7.4).
     ///
-    /// - `filter`: typed [`NotificationFilter`] — a bare condition
-    ///   (`Filter::Condition`) or an RFC 8620 §5.5 `FilterOperator`
-    ///   combining sub-filters with `AND` / `OR` / `NOT`.
+    /// - `filter`: an RFC 8620 §5.5 `Filter` — a bare condition
+    ///   (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    ///   with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    ///   [`NotificationFilterCondition`](jmap_calendars_types::NotificationFilterCondition).
+    ///   Pass `None` to omit it; name the type when you do
+    ///   (`None::<&NotificationFilter>`).
     /// - `sort`: comparator slice. `CalendarEventNotification`'s Comparator
     ///   type in `jmap-calendars-types` is `serde_json::Value` because the
     ///   spec's sort properties for notifications are minimal (just
@@ -193,10 +196,9 @@ impl super::SessionClient {
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:calendars`.
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if `filter` is `Some` and serializing it fails (pathological
-    ///   conditions only — `NotificationFilter` is a typed
-    ///   wire shape, so serde failure indicates allocation pressure
-    ///   rather than malformed input).
+    ///   if `filter` is `Some` and serializing it fails (a
+    ///   caller-supplied condition type `C` whose `Serialize` impl
+    ///   errors).
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on
@@ -205,9 +207,9 @@ impl super::SessionClient {
     ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
     ///   `tooManyChanges`) that surface as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn calendar_event_notification_query(
+    pub async fn calendar_event_notification_query<C: Serialize>(
         &self,
-        filter: Option<&NotificationFilter>,
+        filter: Option<&Filter<C>>,
         sort: Option<&[serde_json::Value]>,
         position: Option<u64>,
         limit: Option<u64>,
@@ -273,11 +275,11 @@ impl super::SessionClient {
     ///   cannot honour the request given the supplied filter / sort);
     ///   it surfaces as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn calendar_event_notification_query_changes(
+    pub async fn calendar_event_notification_query_changes<C: Serialize>(
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
-        filter: Option<&NotificationFilter>,
+        filter: Option<&Filter<C>>,
         sort: Option<&[serde_json::Value]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
