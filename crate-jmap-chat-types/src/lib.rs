@@ -111,6 +111,7 @@ pub mod clearable;
 pub mod contact;
 pub mod emoji;
 pub mod ephemeral;
+pub mod jmap_uri;
 pub mod message;
 pub mod position;
 pub mod presence;
@@ -142,6 +143,7 @@ pub use emoji::CustomEmoji;
 pub use ephemeral::{
     ChatPresenceEvent, ChatStreamDisable, ChatStreamEnable, ChatTypingEvent, EphemeralMessage,
 };
+pub use jmap_uri::{JmapUri, JmapUriError};
 pub use message::{
     Attachment, BodyType, BroadcastMention, DeliveryReceipt, DeliveryState, Mention, Message,
     MessageAction, MessageRevision, Reaction, ReadDisposition, BROADCAST_MENTION_SCOPES,

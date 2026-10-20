@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-types**: `JmapUri` parses and builds the private-use
+  `jmap:<type>:<accountId>:<objectId>` URI
+  (draft-atwood-jmap-chat-calendars-00 §MessageAction format), including the
+  four-part `jmap:task:<accountId>:<taskListId>:<taskId>` form
+  (draft-atwood-jmap-chat-tasks-00 §MessageAction format), validating every
+  id segment per RFC 8620 §1.2. `vocabulary::CHAT_CAP_VTC`,
+  `CHAT_CAP_CALENDAR_EVENT`, `CHAT_CAP_AVAILABILITY` and `CHAT_CAP_TASK`
+  name the `urn:jmap:chat:cap:*` Endpoint / MessageAction types.
 - **jmap-chat-server**: `ChatBackend::may_create_message`,
   `may_update_message` and `may_update_chat` (default: permit) let an
   extension restrict Chats it binds, given the stored Chat (with its
