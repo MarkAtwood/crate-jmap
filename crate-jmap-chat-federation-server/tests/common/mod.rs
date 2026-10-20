@@ -18,7 +18,7 @@ use jmap_chat_server::memory::{MemoryBackend, MemoryError};
 use jmap_chat_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
     ChatLimits, GetObject, InviteJoinRefusal, JmapBackend, JmapObject, OpResult,
-    QueryChangesResult, QueryObject, QueryResult, SetObject, SpacePatchOp,
+    QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject, SpacePatchOp,
 };
 use jmap_chat_types::{
     Chat, ChatContact, ChatPresenceEvent, ChatTypingEvent, Message, Space, SpaceMetadataPatch,
@@ -69,6 +69,9 @@ pub struct Fed {
     pub subscriptions: Mutex<HashMap<String, u64>>,
     /// Events passed to `forward_presence`, in order.
     pub presences: Mutex<Vec<ChatPresenceEvent>>,
+    /// The most ChatContacts the account may hold; a create beyond it
+    /// fails with `rateLimit`. `None` is no limit.
+    pub contact_cap: Option<usize>,
 }
 
 impl Fed {
@@ -95,6 +98,7 @@ impl Fed {
             typed: Mutex::new(Vec::new()),
             subscriptions: Mutex::new(HashMap::new()),
             presences: Mutex::new(Vec::new()),
+            contact_cap: None,
         };
         fed.seed("ChatContact", contact(BOB_ID, BOB, false));
         fed
@@ -398,6 +402,13 @@ impl ChatBackend for Fed {
         create_id: &str,
         obj: O,
     ) -> Result<(Id, O), BackendSetError<MemoryError>> {
+        if let (Some(cap), true) = (self.contact_cap, O::TYPE_NAME == ChatContact::TYPE_NAME) {
+            if self.contacts().await.len() >= cap {
+                return Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::RateLimit,
+                )));
+            }
+        }
         self.chat
             .create_object(caller, account_id, create_id, obj)
             .await

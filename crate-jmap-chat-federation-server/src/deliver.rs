@@ -297,7 +297,8 @@ pub(crate) async fn is_participant<B: ChatBackend>(
 ///   References in Peer Methods. Placeholder ChatContacts are created
 ///   only once the request is accepted. A backend that limits them
 ///   rejects the create with `rateLimit`, which becomes `rateLimited`
-///   (§Placeholder ChatContact Creation).
+///   (§Placeholder ChatContact Creation); the placeholders the request
+///   already created are destroyed first.
 /// - A `senderMsgId` already stored in the Chat answers with the stored
 ///   Message and stores nothing ("the receiver MAY silently discard the
 ///   duplicate").
@@ -768,13 +769,35 @@ impl<'a, B: FederationBackend> Commit<'a, B> {
             self.now.clone(),
             false,
         );
-        let (id, _) = self
+        let created = self
             .backend
             .create_object::<ChatContact>(self.caller, self.account_id, identity, placeholder)
-            .await
-            .map_err(set_failure)?;
-        self.created.insert(identity.to_owned(), id.clone());
-        Ok(id)
+            .await;
+        match created {
+            Ok((id, _)) => {
+                self.created.insert(identity.to_owned(), id.clone());
+                Ok(id)
+            }
+            Err(e) => {
+                self.discard_placeholders().await?;
+                Err(set_failure(e))
+            }
+        }
+    }
+
+    /// Destroy the placeholders this request created. A placeholder
+    /// limit "rejects, with `rateLimited`, any request that would exceed
+    /// it, and that request creates no placeholders" (§Placeholder
+    /// ChatContact Creation); placeholders are the first writes of a
+    /// request, so nothing else is undone.
+    async fn discard_placeholders(&mut self) -> Result<(), JmapError> {
+        for (_, id) in self.created.drain() {
+            self.backend
+                .destroy_object::<ChatContact>(self.caller, self.account_id, &id)
+                .await
+                .map_err(|_| JmapError::server_fail("could not discard a placeholder"))?;
+        }
+        Ok(())
     }
 
     /// Map each Mention `id` from an identity string to a local id.
