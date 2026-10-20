@@ -17,6 +17,11 @@ wire behaviour that a conforming peer can observe.
 - **jmap-base-client**: `connect_ws_allow_plaintext(url, auth_header,
   max_message_bytes)`, the explicit opt-in that also accepts plaintext
   `ws://` for local test rigs and examples.
+- **jmap-chat-server**: `fit_chat_message_push(push, max_bytes)` fits a
+  `ChatMessagePush` to a platform payload limit, dropping fields and then
+  trailing entries in the order of jmap-chat-push-platform-guide §Payload
+  truncation, and returns `None` when the caller must fall back to a plain
+  `StateChange`.
 
 - **jmap-chat-types**: `ChatContact.did` (`Option<jmap_did_types::Did>`),
   the optional DID bound to a ChatContact for the pseudonymous case
