@@ -20,6 +20,12 @@ wire behaviour that a conforming peer can observe.
   and `eventTypes`, each defaulting to `null`), `VtcStreamDisable`, the
   `@type`-dispatched `VtcStreamMessage` with a verbatim `Unknown` arm, and
   the `VTC_EVENT_TYPES` vocabulary of recognized `eventTypes` values.
+- **jmap-vtc-server**: `ephemeral` module with
+  `VtcEphemeralSubscription`, the per-connection `VTCStreamEnable` state of
+  draft-atwood-jmap-vtc-wss-00 — whole-frame replace semantics, `callIds`
+  as a `CallScope`, unrecognized `eventTypes` dropped, and
+  `invalidArguments` without a state change when no recognized
+  `eventTypes` value remains.
 - **jmap-vtc-server**: new crate with the draft-atwood-jmap-vtc-00
   `VTCCall/get`, `/changes`, `/set`, `/query` and `/queryChanges`
   handlers, the `VtcBackend` trait and a `memory` reference backend.
