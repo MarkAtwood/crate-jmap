@@ -83,10 +83,12 @@ pub fn task_chat_id(
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TaskMetadata {
-    /// `status` (String): the Task's current status, e.g. `"needs-action"`,
-    /// `"in-process"`, `"completed"` or `"cancelled"`.
+    /// `progress` (String): the Task's current `progress` value (RFC 8984
+    /// §5.2.5), e.g. `"needs-action"`, `"in-process"`, `"completed"` or
+    /// `"cancelled"`, or its `workflowStatus` (JMAP Tasks §4) when
+    /// `progress` is not set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub status: Option<String>,
+    pub progress: Option<String>,
     /// `due` (UTCDate): the Task's due date.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub due: Option<UTCDate>,

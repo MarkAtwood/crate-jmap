@@ -821,6 +821,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-types**: `TaskMetadata.status` is renamed to
+  `progress` and serializes as the `progress` key
+  (draft-atwood-jmap-chat-tasks-00 §MessageAction format, which replaced
+  `status`). The key carries the Task's `progress` value, or its
+  `workflowStatus` when `progress` is not set. A `status` key now lands
+  in `extra`.
 - **BREAKING** **jmap-chat-types**: `CHAT_CAP_VTC`,
   `CHAT_CAP_CALENDAR_EVENT`, `CHAT_CAP_AVAILABILITY` and `CHAT_CAP_TASK`
   are now `urn:ietf:params:jmap:chat:cap:{vtc,calendar-event,availability,task}`
