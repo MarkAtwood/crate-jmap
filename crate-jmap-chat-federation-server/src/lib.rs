@@ -25,6 +25,21 @@
 //! Every handler checks the caller-identity field against the
 //! authenticated peer first, and rejects before its first write.
 //!
+//! ## Sending
+//!
+//! A backend's `ChatBackend::on_outbound_event` turns each
+//! `jmap_chat_server::OutboundEvent` into `Peer/*` calls. For a new
+//! Message, [`outbound_reference`] gives the `senderMsgId` to send for its
+//! `replyTo` and `threadRootId` (§Outbound Message Preparation). For a
+//! retraction, `Peer/retract` goes to each of [`other_participants`]
+//! (§Peer/retract "Sender Behavior"). For a group change,
+//! [`peer_group_update_args`] builds the `Peer/groupUpdate` arguments,
+//! mapping local ids to identity strings through [`SenderIdentities`].
+//! [`is_transient`] classifies a failed call for retry ([`DeliveryFailure`],
+//! §Retry and Backoff), and [`aggregate_delivery_state`] combines the
+//! recipients' states into the Message's `deliveryState` (§Delivery State
+//! Transitions).
+//!
 //! ## Peer-role access control
 //!
 //! The `urn:ietf:params:jmap:chat` account capability carries a `role` of
@@ -67,12 +82,17 @@
 
 mod deliver;
 mod group_update;
+mod outbound;
 mod receipt;
 mod retract;
 mod typing;
 
 pub use deliver::{handle_peer_deliver, AuthenticatedPeer, FederationBackend, FetchedBlob};
 pub use group_update::handle_peer_group_update;
+pub use outbound::{
+    aggregate_delivery_state, is_transient, other_participants, outbound_reference,
+    peer_group_update_args, DeliveryFailure, OutboundError, SenderIdentities,
+};
 pub use receipt::handle_peer_receipt;
 pub use retract::handle_peer_retract;
 pub use typing::handle_peer_typing;
