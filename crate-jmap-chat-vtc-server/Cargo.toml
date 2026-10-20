@@ -1,0 +1,25 @@
+[package]
+name = "jmap-chat-vtc-server"
+version = "0.3.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Chat binding for the JMAP VTC server (draft-atwood-jmap-vtc-00 with draft-atwood-jmap-chat-00): Chat.activeCallId, chatId membership, start_call, Space cascades and contact blocks"
+keywords = ["jmap", "vtc", "chat", "server"]
+categories = ["network-programming", "web-programming::http-server"]
+
+[dependencies]
+jmap-types = { workspace = true }
+jmap-chat-types = { workspace = true }
+jmap-chat-server = { workspace = true }
+jmap-vtc-types = { workspace = true }
+jmap-vtc-server = { workspace = true }
+jmap-server = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+jmap-chat-server = { workspace = true, features = ["memory"] }
+jmap-vtc-server = { workspace = true, features = ["memory"] }
