@@ -90,6 +90,7 @@ crates, never in a support crate.
 | `crate-jmap-did-types/` | `jmap-did-types` | draft-atwood-jmap-did-00 data types — `DidCapability` and `DidAccountCapability` (`urn:ietf:params:jmap:did`), `KeyCustody`, `Did` (DID Core §3.1 newtype, `did:web` domain and document URL), `DidKey` (did:key decode and document), `verify_plc_audit_log` (did:plc audit-log verification). No async, no I/O |
 | `crate-jmap-did-resolver/` | `jmap-did-resolver` | Support crate: did:key, did:web and did:plc resolution I/O over the `jmap-did-types` helpers — `Resolver` (TTL cache, `refresh` on signature failure per draft-atwood-jmap-chat-did-00 §Caching), `Fetch` trait, reqwest `HttpFetcher`. No `*-types` or `*-server` crate depends on it |
 | `crate-jmap-chat-mimi-types/` | `jmap-chat-mimi-types` | draft-atwood-jmap-chat-mimi-00 data types — `MimiCapability` (`urn:ietf:params:jmap:chat:mimi`), `KeyPackage` object and `/get`/`/set` shapes, `KeyMaterial/fetch` arguments, `Room/create`/`/update`/`/send`/`/unbind` arguments and `chat_room_id`, `GroupInfo/fetch` arguments, MIMI/MLS body-type constants, `Base64Url` byte-string wire shape. No async, no I/O, no MLS dependency |
+| `crate-jmap-chat-federation-types/` | `jmap-chat-federation-types` | draft-atwood-jmap-chat-federation-00 data types — `contact_server_url` and `contact_direct_address` read the `ChatContact.serverUrl` and `.directAddress` extension fields from `ChatContact.extra`. No async, no I/O |
 
 ## Dependency Tree
 
@@ -149,6 +150,11 @@ jmap-did-types         — draft-atwood-jmap-did-00 data types: DidCapability an
 jmap-chat-mimi-types   — draft-atwood-jmap-chat-mimi-00 data types: MimiCapability
                          (urn:ietf:params:jmap:chat:mimi), body-type constants,
                          Base64Url. No async, no I/O. Depends on serde and
+                         serde_json only.
+
+jmap-chat-federation-types — draft-atwood-jmap-chat-federation-00 data types:
+                         ChatContact.serverUrl and .directAddress readers over
+                         ChatContact.extra. No async, no I/O. Depends on
                          serde_json only.
 ```
 
