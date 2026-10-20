@@ -10,6 +10,18 @@ convention that a minor bump may break the API.
 Entries marked **BREAKING** need source changes in downstream code, or change
 wire behaviour that a conforming peer can observe.
 
+## [Unreleased]
+
+### Fixed
+
+- **jmap-tasks-server**: `TaskList/set` with `onDestroyRemoveTasks: true`
+  now destroys the Tasks in each destroyed TaskList before the list
+  (draft-ietf-jmap-tasks-06 §3.4); it used to destroy only the list and
+  leave its Tasks behind with no `Task/changes` entry. If a Task destroy
+  fails, the list is reported in `notDestroyed` and stays in place. The
+  reference `MemoryBackend` now honors a `Task/query` filter of just
+  `taskListId`, which the cascade uses; other filters still fail loud.
+
 ## [0.3.0] - 2026-10-20
 
 The JMAP Chat crates (`jmap-chat-types`, `jmap-chat-server`,

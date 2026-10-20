@@ -2,8 +2,9 @@
 //!
 //! TaskList/set has a special `onDestroyRemoveTasks` argument: if false
 //! (default) and the list contains tasks, the destroy is rejected with
-//! `taskListHasTask`. If true, the backend destroys the tasks along with
-//! the list.
+//! `taskListHasTask`. If true, the handler destroys every Task in the list
+//! through `destroy_object::<Task>` and then destroys the list; the backend
+//! has no `onDestroyRemoveTasks` concept.
 //!
 //! # Wire-shape contract
 //!
@@ -25,7 +26,7 @@
 //! failures inside `/set` surface in the `notCreated` / `notUpdated` /
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
-use jmap_tasks_types::TaskList;
+use jmap_tasks_types::{Task, TaskFilterCondition, TaskList};
 use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Value};
 
@@ -298,6 +299,18 @@ pub async fn handle_task_list_set<B: TasksBackend>(
                 }
             }
 
+            // draft-tasks-06 §3.4: "If true, any Tasks that were in the
+            // TaskList will be removed from it, and they will be destroyed."
+            // A failed cascade leaves the list in place rather than
+            // orphaning the Tasks that remain.
+            if on_destroy_remove_tasks {
+                if let Err(value) = destroy_task_list_tasks(backend, caller, &account_id, &id).await
+                {
+                    not_destroyed.insert(id_str, value);
+                    continue;
+                }
+            }
+
             match backend
                 .destroy_object::<TaskList>(caller, &account_id, &id)
                 .await
@@ -335,6 +348,60 @@ pub async fn handle_task_list_set<B: TasksBackend>(
         },
     )
     .await
+}
+
+/// Destroy every Task whose `taskListId` is `task_list_id`
+/// (draft-tasks-06 §3.4 `onDestroyRemoveTasks: true`).
+///
+/// A Task belongs to exactly one TaskList, so each one is destroyed
+/// outright; there is no membership to patch out as in the Calendar and
+/// Mailbox cascades.
+///
+/// # Errors
+///
+/// Returns the redacted wire-format SetError [`Value`] for the TaskList's
+/// `notDestroyed` entry on the first failed query, fetch or destroy. A
+/// typed [`BackendSetError::SetError`] keeps its JMAP type; every other
+/// failure becomes `serverFail`.
+async fn destroy_task_list_tasks<B: TasksBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    task_list_id: &Id,
+) -> Result<(), Value> {
+    let mut filter = TaskFilterCondition::default();
+    filter.task_list_id = Some(task_list_id.clone());
+    let ids = backend
+        .query_objects::<Task>(caller, account_id, Some(&filter), None, None, 0, None, 0)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?
+        .ids;
+    if ids.is_empty() {
+        return Ok(());
+    }
+
+    // Re-check membership on the fetched Tasks so a backend whose filter
+    // over-matches cannot destroy Tasks belonging to another list.
+    let (tasks, _not_found): (Vec<Task>, _) = backend
+        .get_objects::<Task>(caller, account_id, Some(&ids), None)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?;
+    for task in tasks {
+        if task.task_list_id.as_ref() != Some(task_list_id) {
+            continue;
+        }
+        let Some(task_id) = task.id.as_ref() else {
+            return Err(server_fail_value_from_backend(&"missing task id"));
+        };
+        backend
+            .destroy_object::<Task>(caller, account_id, task_id)
+            .await
+            .map_err(|e| match e {
+                BackendSetError::SetError(set_err) => set_error_value(&set_err),
+                other => server_fail_value_from_backend(&other),
+            })?;
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
