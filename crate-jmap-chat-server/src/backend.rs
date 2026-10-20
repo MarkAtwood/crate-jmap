@@ -2028,16 +2028,12 @@ pub trait ChatBackend: JmapBackend {
     /// Hard-delete a message ("expire" it) due to a per-message expiry
     /// event.
     ///
-    /// Called by the kit from two places:
-    ///
-    /// 1. The `Message/set` update handler when a patch sets `readAt` on
-    ///    a message whose pre-patch `burnOnRead` is `true`
-    ///    (draft-atwood-jmap-chat-00 §Message `burnOnRead`).
-    /// 2. A deployment-provided scheduler when a message's
-    ///    `senderExpiresAt` fires (draft-atwood-jmap-chat-00 §Message
-    ///    `senderExpiresAt`). The kit does NOT run a scheduler;
-    ///    consumers wire one in and call this method directly when a
-    ///    timer fires.
+    /// Called by [`crate::expiry::sweep_expired`] for each message whose
+    /// `senderExpiresAt`, Chat `messageExpirySeconds` or
+    /// `expiresAfterReadSeconds` deadline has passed
+    /// (draft-atwood-jmap-chat-00 §Message, §Chat). The kit does NOT run a
+    /// scheduler; consumers call the sweep, or this method directly, when
+    /// a timer fires.
     ///
     /// # Contract
     ///
