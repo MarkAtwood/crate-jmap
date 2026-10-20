@@ -43,7 +43,7 @@ use serde_json::{json, Value};
 
 const ACCOUNT: &str = "A1";
 const SPACE: &str = "S1";
-const ROLE: &str = "urn:jmap:chat:filenode:space";
+const ROLE: &str = "chatspace";
 /// SHA-256("abc"), FIPS 180-2 Appendix B.1 / RFC 6234 §8.5 TEST1.
 const SHA256_ABC: &str = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
 

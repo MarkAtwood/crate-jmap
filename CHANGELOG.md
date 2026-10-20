@@ -214,7 +214,7 @@ wire behaviour that a conforming peer can observe.
 - **jmap-filenode-types**, **jmap-filenode-server**: typed
   `FileNode.space_id` (`spaceId` on the wire, omitted when `None`).
   `FileNode/set` and `FileNode/copy` reject a create that carries `spaceId`
-  on a node whose `role` is not `urn:jmap:chat:filenode:space`, and an update
+  on a node whose `role` is not `chatspace`, and an update
   that changes `spaceId` or moves a node that has one off that role, with
   `invalidProperties` (draft-atwood-jmap-chat-filenode-00 §The `spaceId`
   Extension Property: "immutable ... Absent on all FileNode objects that are
@@ -823,10 +823,17 @@ wire behaviour that a conforming peer can observe.
   the federation server maps `assigneeIds` only for
   `urn:ietf:params:jmap:chat:cap:task` actions.
 - **BREAKING** **jmap-filenode-types**: new `NodeRole::ChatSpace` variant
-  for the role `urn:jmap:chat:filenode:space` (draft-atwood-jmap-chat-filenode-00
+  for the role `chatspace` (draft-atwood-jmap-chat-filenode-00
   §JMAP FileNode Roles Registry). That string used to parse as
-  `NodeRole::Other("urn:jmap:chat:filenode:space")`, and `spaceId`, which used
+  `NodeRole::Other("chatspace")`, and `spaceId`, which used
   to land in `FileNode.extra`, now goes in `FileNode.space_id`.
+- **BREAKING** **jmap-filenode-types**, **jmap-chat-types**: the Space file
+  tree root role on the wire is `chatspace` (`NodeRole::ChatSpace`,
+  `CHAT_FILENODE_SPACE_ROLE`), replacing `urn:jmap:chat:filenode:space`
+  (draft-atwood-jmap-chat-filenode-00 §Space File Tree: "identified by the
+  well-known `role` value `"chatspace"`"). Clean break with no alias: a
+  node stored with the old string parses as `NodeRole::Other` and is no
+  longer a Space root.
 - **BREAKING** **jmap-chat-client**: `chat_query`, `message_query`,
   `space_query`, `chat_contact_query`, `custom_emoji_query`,
   `Batch::chat_query_get` and `Batch::message_query_get` take positional
@@ -974,6 +981,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **BREAKING** **jmap-filenode-server**: `FileNode/set` rejects an update
+  that sets `role` to `chatspace` on a node that is not a Space file tree
+  root, with `invalidProperties` naming `role`, as it already did for an
+  update moving a root off that role (draft-atwood-jmap-chat-filenode-00
+  §Creating the File Tree Root: "A server MUST reject a `FileNode/set`
+  update that changes `role` to or from `"chatspace"`").
 - **BREAKING** **jmap-chat-server**: `Message`, `Space`, `ChatContact` and
   `CustomEmoji` `/queryChanges` now pass the request's `filter` and `sort`
   to the backend, and every chat `/queryChanges` applies the draft's

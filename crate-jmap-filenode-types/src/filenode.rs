@@ -72,7 +72,7 @@ pub enum NodeRole {
     Pictures,
     /// Video files.
     Videos,
-    /// `"urn:jmap:chat:filenode:space"`: root of a JMAP Chat Space's file
+    /// `"chatspace"`: root of a JMAP Chat Space's file
     /// tree, identified by [`FileNode::space_id`]
     /// (draft-atwood-jmap-chat-filenode-00 §JMAP FileNode Roles Registry).
     ChatSpace,
@@ -90,7 +90,7 @@ impl_string_enum!(NodeRole, "a JMAP FileNode role string",
     "music"     => Music,
     "pictures"  => Pictures,
     "videos"    => Videos,
-    "urn:jmap:chat:filenode:space" => ChatSpace,
+    "chatspace" => ChatSpace,
 );
 
 impl NodeRole {
@@ -106,7 +106,7 @@ impl NodeRole {
             Self::Music => "music",
             Self::Pictures => "pictures",
             Self::Videos => "videos",
-            Self::ChatSpace => "urn:jmap:chat:filenode:space",
+            Self::ChatSpace => "chatspace",
             Self::Other(s) => s.as_str(),
         }
     }

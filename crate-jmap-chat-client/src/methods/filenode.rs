@@ -13,7 +13,7 @@ impl super::SessionClient {
     /// Find the root FileNode of `space_id`'s file tree.
     ///
     /// Sends `FileNode/query` filtered on
-    /// `role: "urn:jmap:chat:filenode:space"` and `spaceId: <space_id>`
+    /// `role: "chatspace"` and `spaceId: <space_id>`
     /// against the primary JMAP Chat account. Returns `Ok(None)` when the
     /// Space has no file tree yet; the caller MAY then create one via
     /// `FileNode/set` (which requires `"manage_space"` permission).

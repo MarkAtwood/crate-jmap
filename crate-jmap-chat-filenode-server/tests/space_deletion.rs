@@ -11,10 +11,9 @@
 //!   period, so the tree is destroyed with the Space.
 //! - filenode L203: "Servers SHOULD emit a `FileNode` state change event
 //!   at the moment the file tree is destroyed".
-//! - filenode L115: "A Space's file tree is rooted at a single FileNode
-//!   identified by the well-known `role` value
-//!   `"urn:jmap:chat:filenode:space"` and the `spaceId` extension
-//!   property".
+//! - filenode L126 (at 6bcd9d8): "A Space's file tree is rooted at a
+//!   single FileNode identified by the well-known `role` value
+//!   `"chatspace"` and the `spaceId` extension property".
 //! - RFC 8620 §5.1 `notFound`: "the list of ids passed to the method for
 //!   records that do not exist"; §5.2 `destroyed`: "an array of ids for
 //!   records that have been destroyed since the old state".
@@ -31,7 +30,7 @@ use jmap_types::Id;
 use serde_json::{json, Value};
 
 const ACCOUNT: &str = "A1";
-const ROLE: &str = "urn:jmap:chat:filenode:space";
+const ROLE: &str = "chatspace";
 
 fn node(v: Value) -> FileNode {
     serde_json::from_value(v).expect("FileNode fixture")

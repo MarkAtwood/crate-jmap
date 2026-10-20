@@ -928,16 +928,19 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                         );
                         continue;
                     }
-                    if node.space_id.is_some()
-                        && role_patch
-                            .is_some_and(|r| r.as_str() != Some(NodeRole::ChatSpace.to_wire_str()))
-                    {
+                    // draft-atwood-jmap-chat-filenode-00 §Creating the File
+                    // Tree Root: "A server MUST reject a `FileNode/set`
+                    // update that changes `role` to or from `\"chatspace\"`".
+                    let chat_space = Some(NodeRole::ChatSpace.to_wire_str());
+                    if role_patch.is_some_and(|r| {
+                        (r.as_str() == chat_space) != (node.role == Some(NodeRole::ChatSpace))
+                    }) {
                         not_updated.insert(
                             id_str,
                             json!({
                                 "type": "invalidProperties",
                                 "properties": ["role"],
-                                "description": "a node with spaceId must keep role urn:jmap:chat:filenode:space",
+                                "description": "role chatspace can be set only at create",
                             }),
                         );
                         continue;
@@ -2177,7 +2180,7 @@ fn create_type_error(node: &FileNode) -> Option<Value> {
             // draft-atwood-jmap-chat-filenode-00 §The `spaceId` Extension
             // Property: `spaceId` is "Absent on all FileNode objects that
             // are not Space file tree roots" (role
-            // `urn:jmap:chat:filenode:space`).
+            // `chatspace`).
             if node.space_id.is_some() && node.role != Some(NodeRole::ChatSpace) {
                 return Some(json!({
                     "type": "invalidProperties",

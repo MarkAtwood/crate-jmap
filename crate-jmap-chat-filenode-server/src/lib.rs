@@ -67,7 +67,7 @@ where
 /// Check draft-atwood-jmap-chat-filenode-00 §Creating the File Tree Root
 /// for a `FileNode/set` create of `node`.
 ///
-/// A node whose `role` is not `urn:jmap:chat:filenode:space` passes
+/// A node whose `role` is not `chatspace` passes
 /// unchecked, so this is safe to call before every FileNode insert. For a
 /// Space file tree root, in this order:
 ///
@@ -183,7 +183,7 @@ pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
 /// tree root plus `node.size`. Call it with `node` as the backend will
 /// store it, after setting the server-set `size` from the blob. A node
 /// whose top-level ancestor is not a Space file tree root (role
-/// `urn:jmap:chat:filenode:space`) passes unchecked, as does a top-level
+/// `chatspace`) passes unchecked, as does a top-level
 /// node.
 ///
 /// Like the backend's other create pre-checks, this is not atomic with
@@ -252,7 +252,7 @@ pub async fn check_space_quota<F: FileNodeBackend>(
 /// `FileNode/changes` responses."
 ///
 /// The root is a top-level `Directory` with role
-/// `urn:jmap:chat:filenode:space` and `spaceId` set to `space_id`, named
+/// `chatspace` and `spaceId` set to `space_id`, named
 /// `space_id` since the draft leaves the name open and at most one root
 /// exists per Space. It is inserted with [`FileNodeBackend::create_object`],
 /// whose contract records the create for `FileNode/changes`. Call it from
@@ -388,7 +388,7 @@ pub async fn destroy_space_file_tree<F: FileNodeBackend>(
 ///   belongs to the same Space. If validation fails, the server MUST
 ///   return a SetError of type `invalidProperties` naming `filenodeId`."
 ///   The node must have an ancestor that is the Space file tree root
-///   (role `urn:jmap:chat:filenode:space`, `spaceId` the Chat's
+///   (role `chatspace`, `spaceId` the Chat's
 ///   `spaceId`); §Attachment filenodeId Validation: "Servers SHOULD NOT
 ///   permit a `filenodeId` referencing a FileNode from a different Space
 ///   or from outside any Space file tree". A message to a Chat that is

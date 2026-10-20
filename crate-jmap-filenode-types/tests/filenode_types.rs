@@ -1106,29 +1106,26 @@ fn share_with_serializes_in_sorted_key_order() {
 }
 
 // ---------------------------------------------------------------------------
-// draft-atwood-jmap-chat-filenode-00 extension (jmap-chat-spec HEAD)
-//   L250-253: register Role `urn:jmap:chat:filenode:space` in the "JMAP
+// draft-atwood-jmap-chat-filenode-00 extension (jmap-chat-spec 6bcd9d8)
+//   L267-268: register Role `chatspace` in the "JMAP
 //             FileNode Roles" registry.
-//   L121-122: "`spaceId` (String, immutable): The `id` of the JMAP Chat Space
+//   L132-133: "`spaceId` (String, immutable): The `id` of the JMAP Chat Space
 //             this FileNode is associated with. ... Absent on all FileNode
 //             objects that are not Space file tree roots."
 // ---------------------------------------------------------------------------
 
 #[test]
 fn node_role_chat_space_parses_and_roundtrips() {
-    let role: NodeRole = serde_json::from_str("\"urn:jmap:chat:filenode:space\"").unwrap();
+    let role: NodeRole = serde_json::from_str("\"chatspace\"").unwrap();
     assert_eq!(role, NodeRole::ChatSpace);
-    assert_eq!(
-        serde_json::to_string(&role).unwrap(),
-        "\"urn:jmap:chat:filenode:space\""
-    );
+    assert_eq!(serde_json::to_string(&role).unwrap(), "\"chatspace\"");
 }
 
 #[test]
 fn filenode_space_id_roundtrips_on_space_root() {
     let wire = serde_json::json!({
         "id": "n1", "parentId": null, "@type": "Directory", "name": "space",
-        "shareWith": null, "role": "urn:jmap:chat:filenode:space", "spaceId": "S1"
+        "shareWith": null, "role": "chatspace", "spaceId": "S1"
     });
     let node: FileNode = serde_json::from_value(wire).unwrap();
     assert_eq!(node.space_id, Some(id("S1")));
