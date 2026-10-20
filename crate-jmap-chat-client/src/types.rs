@@ -4,53 +4,6 @@
 //! the wire-format types defined in `jmap-chat-types`.
 
 use jmap_types::impl_string_enum;
-use serde::Serialize;
-
-// ---------------------------------------------------------------------------
-// ContactPresenceFilter
-// ---------------------------------------------------------------------------
-
-/// Presence filter for `ChatContact/query` operations.
-///
-/// Mirrors [`jmap_chat_types::Presence`] but omits `Other`, which has no
-/// defined filter semantics and must never be sent to the server.
-///
-/// Use [`TryFrom<jmap_chat_types::Presence>`] to convert a deserialized
-/// presence value into a filter value (fails if `Other`).
-#[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ContactPresenceFilter {
-    /// Filter to contacts currently online.
-    Online,
-    /// Filter to contacts marked away.
-    Away,
-    /// Filter to contacts marked busy.
-    Busy,
-    /// Filter to contacts marked invisible.
-    Invisible,
-    /// Filter to contacts currently offline.
-    Offline,
-}
-
-impl TryFrom<jmap_chat_types::Presence> for ContactPresenceFilter {
-    /// Conversion fails when `p` is [`jmap_chat_types::Presence::Other`].
-    /// The failed value is returned in the `Err` so callers can recover
-    /// the original wire string (typically for logging or selective
-    /// fallback) rather than dropping it to a unit error.
-    type Error = jmap_chat_types::Presence;
-
-    fn try_from(p: jmap_chat_types::Presence) -> Result<Self, Self::Error> {
-        match p {
-            jmap_chat_types::Presence::Online => Ok(ContactPresenceFilter::Online),
-            jmap_chat_types::Presence::Away => Ok(ContactPresenceFilter::Away),
-            jmap_chat_types::Presence::Busy => Ok(ContactPresenceFilter::Busy),
-            jmap_chat_types::Presence::Invisible => Ok(ContactPresenceFilter::Invisible),
-            jmap_chat_types::Presence::Offline => Ok(ContactPresenceFilter::Offline),
-            other => Err(other),
-        }
-    }
-}
 
 // ---------------------------------------------------------------------------
 // QuotaScope
