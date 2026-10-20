@@ -27,7 +27,7 @@ use std::collections::{HashMap, HashSet};
 
 use jmap_chat_types::query::ChatComparator;
 use jmap_chat_types::vocabulary::SPEC_CHAT_MEMBER_ROLES;
-use jmap_chat_types::{Chat, ChatKind, ChatMember, Message, ReadPosition};
+use jmap_chat_types::{Chat, ChatKind, ChatMember, ChatMemberRole, Message, ReadPosition};
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -80,14 +80,14 @@ fn is_chat_admin(chat: &Chat, account_id: &Id) -> bool {
     chat.members
         .iter()
         .flatten()
-        .any(|m| m.id == *account_id && m.role == "admin")
+        .any(|m| m.id == *account_id && m.role == ChatMemberRole::Admin)
 }
 
 /// One `addMembers` or `updateMemberRoles` entry.
 #[derive(Deserialize)]
 struct MemberRoleEntry {
     id: Id,
-    role: Option<String>,
+    role: Option<ChatMemberRole>,
 }
 
 /// Apply the member patch keys in `patch` to `chat.members` on behalf of
@@ -129,7 +129,7 @@ fn apply_member_patch_keys(
             .transpose()
             .map_err(|_| SetError::new(SetErrorType::InvalidProperties).with_properties([key]))
     }
-    let valid_role = |role: &str| SPEC_CHAT_MEMBER_ROLES.contains(&role);
+    let valid_role = |role: &ChatMemberRole| SPEC_CHAT_MEMBER_ROLES.contains(&role.as_str());
     let invalid = |key: &str| SetError::new(SetErrorType::InvalidProperties).with_properties([key]);
     let forbidden = |desc: &str| SetError::new(SetErrorType::Forbidden).with_description(desc);
 
@@ -139,14 +139,14 @@ fn apply_member_patch_keys(
     if add
         .iter()
         .flatten()
-        .any(|e| e.role.as_deref().is_some_and(|r| !valid_role(r)))
+        .any(|e| e.role.as_ref().is_some_and(|r| !valid_role(r)))
     {
         return Err(invalid("addMembers"));
     }
     if update
         .iter()
         .flatten()
-        .any(|e| !e.role.as_deref().is_some_and(valid_role))
+        .any(|e| !e.role.as_ref().is_some_and(valid_role))
     {
         return Err(invalid("updateMemberRoles"));
     }
@@ -167,7 +167,7 @@ fn apply_member_patch_keys(
         let now = UTCDate::from(now_utc_string().as_ref());
         for entry in add {
             if members.iter().all(|m| m.id != entry.id) {
-                let role = entry.role.clone().unwrap_or_else(|| "member".to_owned());
+                let role = entry.role.clone().unwrap_or(ChatMemberRole::Member);
                 let mut m = ChatMember::new(entry.id.clone(), role, now.clone());
                 m.invited_by = Some(owner_id.clone());
                 members.push(m);
@@ -189,14 +189,14 @@ fn apply_member_patch_keys(
                 .ok_or_else(|| invalid("updateMemberRoles"))?;
             member.role = entry.role.clone().expect("role checked above");
         }
-        if !members.is_empty() && members.iter().all(|m| m.role != "admin") {
+        if !members.is_empty() && members.iter().all(|m| m.role != ChatMemberRole::Admin) {
             return Err(forbidden("the last admin may not demote themselves"));
         }
     }
     let closes = is_admin
         && members.iter().all(|m| m.id != *owner_id)
         && !members.is_empty()
-        && members.iter().all(|m| m.role != "admin");
+        && members.iter().all(|m| m.role != ChatMemberRole::Admin);
     Ok((members, closes))
 }
 
@@ -766,12 +766,12 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 let creator: Id = account_id.clone();
                 let mut members = vec![ChatMember::new(
                     creator.clone(),
-                    "admin".to_owned(),
+                    ChatMemberRole::Admin,
                     now.clone(),
                 )];
                 for id in ids {
                     if members.iter().all(|m| m.id != id) {
-                        let mut m = ChatMember::new(id, "member".to_owned(), now.clone());
+                        let mut m = ChatMember::new(id, ChatMemberRole::Member, now.clone());
                         m.invited_by = Some(creator.clone());
                         members.push(m);
                     }
