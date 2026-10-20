@@ -43,6 +43,12 @@ wire behaviour that a conforming peer can observe.
   (`invalidProperties` naming `attachments`), and fills the absent fields
   from the FileNode (draft-atwood-jmap-chat-filenode-00 §filenodeId,
   §Attachment filenodeId Validation).
+- **jmap-chat-filenode-server**: `destroy_space_file_tree`, called from
+  `ChatBackend::on_space_destroyed`, destroys the Space's file tree root and
+  every FileNode within it, descendants first, through
+  `FileNodeBackend::destroy_object`, so `FileNode/changes` reports them.
+  No grace period is offered (draft-atwood-jmap-chat-filenode-00 §Space
+  Deletion).
 - **jmap-filenode-types**, **jmap-filenode-server**:
   `FileNodeFilterCondition.space_id` (`spaceId` on the wire), matched by the
   in-memory backend against the node's `spaceId` property, so

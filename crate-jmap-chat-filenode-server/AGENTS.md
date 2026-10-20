@@ -31,4 +31,5 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p jmap-chat-filen
 | Shape | Free functions taking the backends they read |
 | Base crates | `jmap-filenode-server` and `jmap-chat-server` stay independent of each other |
 | `@everyone` permissions | Caller-supplied: the draft puts them on no wire object |
+| Space deletion grace period | None (Mark, 2026-10-20, bd:JMAP-v9py.16.7): the file tree is destroyed with the Space |
 | Tests | Each assertion quotes its draft line; the two reference `MemoryBackend`s |
