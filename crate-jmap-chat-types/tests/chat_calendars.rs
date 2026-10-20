@@ -135,7 +135,7 @@ fn calendar_event_metadata_round_trips_draft_keys() {
     // `startsAt` (UTCDate), `endsAt` (UTCDate), `location` (String),
     // `participantCount` (UnsignedInt).
     let action = json!({
-        "type": "urn:jmap:chat:cap:calendar-event",
+        "type": "urn:ietf:params:jmap:chat:cap:calendar-event",
         "uri": "jmap:calendarevent:A1:E42",
         "label": "Sprint review",
         "metadata": {
@@ -193,12 +193,12 @@ fn calendar_event_participant_count_is_unsigned() {
 
 #[test]
 fn availability_metadata_round_trips_lookup_window() {
-    // L240-252: for `urn:jmap:chat:cap:availability`, `uri` is
+    // L250-262: for `urn:ietf:params:jmap:chat:cap:availability`, `uri` is
     // `jmap:principal:<accountId>:<principalId>`, and `metadata` "MAY
     // include `lookupWindow` (Object, with `startsAt` and `endsAt`
     // fields)".
     let action = json!({
-        "type": "urn:jmap:chat:cap:availability",
+        "type": "urn:ietf:params:jmap:chat:cap:availability",
         "uri": "jmap:principal:A1:P7",
         "label": "Alice",
         "metadata": {

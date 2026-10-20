@@ -70,7 +70,7 @@ async fn configured_type_rejects_fields_like_mls_ciphertext_on_create() {
     let cases = [
         (json!({ "mentions": [{ "id": "u1" }] }), json!(["mentions"])),
         (
-            json!({ "actions": [{ "type": "urn:jmap:chat:cap:vtc", "uri": "https://example.com/r" }] }),
+            json!({ "actions": [{ "type": "urn:ietf:params:jmap:chat:cap:vtc", "uri": "https://example.com/r" }] }),
             json!(["actions"]),
         ),
         (json!({ "replyTo": "m9" }), json!(["replyTo"])),

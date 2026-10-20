@@ -117,7 +117,7 @@ impl<'a> SenderIdentities<'a> {
     }
 
     /// `actions` as sent in a `Peer/deliver` message: each `assigneeIds`
-    /// entry of a `urn:jmap:chat:cap:task` action becomes the identity
+    /// entry of a `urn:ietf:params:jmap:chat:cap:task` action becomes the identity
     /// string of the local user it names (draft-atwood-jmap-chat-tasks-00
     /// §Federation: "the sending server maps each local id to the user's
     /// identity"). Every other action, key and value is unchanged.
@@ -156,7 +156,7 @@ impl<'a> SenderIdentities<'a> {
     }
 }
 
-/// The `assigneeIds` array of a `urn:jmap:chat:cap:task` MessageAction's
+/// The `assigneeIds` array of a `urn:ietf:params:jmap:chat:cap:task` MessageAction's
 /// `metadata`, the user-reference field inside MessageAction metadata
 /// that draft-atwood-jmap-chat-federation-00 §User References in Peer
 /// Methods names. `None` for another action type, or when the key is

@@ -438,7 +438,7 @@ async fn message_create_keeps_optional_properties() {
     ]))
     .expect("Mention");
     let actions: Vec<MessageAction> = serde_json::from_value(serde_json::json!([
-        { "type": "urn:jmap:chat:cap:vtc", "uri": "https://example.com/room" }
+        { "type": "urn:ietf:params:jmap:chat:cap:vtc", "uri": "https://example.com/room" }
     ]))
     .expect("MessageAction");
     let sent_at = UTCDate::from(SENT_AT);

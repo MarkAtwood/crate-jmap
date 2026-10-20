@@ -297,7 +297,7 @@ pub(crate) async fn is_participant<B: ChatBackend>(
 ///   `invalidArguments`, so running it last changes no response, and a
 ///   rejected request fetches nothing.
 /// - Identities in `senderUserId`, `mentions` and the `assigneeIds` of a
-///   `urn:jmap:chat:cap:task` action resolve per §User References in Peer
+///   `urn:ietf:params:jmap:chat:cap:task` action resolve per §User References in Peer
 ///   Methods. Placeholder ChatContacts are created
 ///   only once the request is accepted. A backend that limits them
 ///   rejects the create with `rateLimit`, which becomes `rateLimited`
@@ -818,7 +818,7 @@ impl<'a, B: FederationBackend> Commit<'a, B> {
         Ok(out)
     }
 
-    /// Map each `assigneeIds` entry of a `urn:jmap:chat:cap:task` action
+    /// Map each `assigneeIds` entry of a `urn:ietf:params:jmap:chat:cap:task` action
     /// from an identity string to a local id (draft-atwood-jmap-chat-tasks-00
     /// §Federation: "the receiving server maps each identity to its local
     /// id"). Every other action, key and value is stored as received.
@@ -945,7 +945,7 @@ fn check_mention_ids(mentions: Option<&[PeerMention]>) -> Result<(), JmapError> 
     Ok(())
 }
 
-/// Each `assigneeIds` entry of a `urn:jmap:chat:cap:task` action is a
+/// Each `assigneeIds` entry of a `urn:ietf:params:jmap:chat:cap:task` action is a
 /// user reference (draft-atwood-jmap-chat-tasks-00 §Federation) and, like
 /// a Mention `id`, must be an identity string a placeholder can carry.
 fn check_task_assignees(actions: Option<&[MessageAction]>) -> Result<(), JmapError> {

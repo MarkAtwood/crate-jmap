@@ -210,8 +210,8 @@ fn anonymous_session_refuses_private_key_member() {
 #[test]
 fn owner_endpoints_become_contact_endpoints() {
     let advertised = json!([
-        { "type": "urn:jmap:chat:cap:vtc", "uri": "https://meet.b.example/bob", "label": "Personal Jitsi" },
-        { "type": "urn:jmap:chat:cap:payment", "uri": "lightning:lnurl1bob", "metadata": { "network": "lightning" } },
+        { "type": "urn:ietf:params:jmap:chat:cap:vtc", "uri": "https://meet.b.example/bob", "label": "Personal Jitsi" },
+        { "type": "urn:ietf:params:jmap:chat:cap:payment", "uri": "lightning:lnurl1bob", "metadata": { "network": "lightning" } },
     ]);
     let session = json!({ "ownerUserId": "bob@b.example", "ownerEndpoints": advertised.clone() });
     let endpoints = owner_endpoints(session.as_object().unwrap()).expect("advertised");
@@ -236,7 +236,7 @@ fn owner_endpoints_become_contact_endpoints() {
 #[test]
 fn absent_owner_endpoints_is_none() {
     assert_eq!(owner_endpoints(&Map::new()), None);
-    let not_array = json!({ "ownerEndpoints": { "type": "urn:jmap:chat:cap:vtc" } });
+    let not_array = json!({ "ownerEndpoints": { "type": "urn:ietf:params:jmap:chat:cap:vtc" } });
     assert_eq!(owner_endpoints(not_array.as_object().unwrap()), None);
     let empty = json!({ "ownerEndpoints": [] });
     assert_eq!(
@@ -252,7 +252,7 @@ fn absent_owner_endpoints_is_none() {
 #[test]
 fn malformed_entries_skipped_unknown_types_kept() {
     let session = json!({ "ownerEndpoints": [
-        { "type": "urn:jmap:chat:cap:vtc" },
+        { "type": "urn:ietf:params:jmap:chat:cap:vtc" },
         { "uri": "https://x.example/" },
         "https://y.example/",
         { "type": "urn:example:future", "uri": "https://z.example/" },

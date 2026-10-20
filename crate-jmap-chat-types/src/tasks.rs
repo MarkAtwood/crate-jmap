@@ -88,7 +88,7 @@ impl JmapUri {
     }
 }
 
-/// `metadata` of a `urn:jmap:chat:cap:task` MessageAction
+/// `metadata` of a `urn:ietf:params:jmap:chat:cap:task` MessageAction
 /// (draft-atwood-jmap-chat-tasks-00 §MessageAction format).
 ///
 /// Every key is optional: the metadata "MAY include" them. Other keys land

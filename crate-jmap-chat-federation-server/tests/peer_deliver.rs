@@ -603,7 +603,7 @@ async fn task_action_assignee_ids_map_to_local_ids() {
     let mut m = message("M1");
     m["actions"] = json!([
         {
-            "type": "urn:jmap:chat:cap:task",
+            "type": "urn:ietf:params:jmap:chat:cap:task",
             "uri": "https://tracker.example/T-1",
             "metadata": {"assigneeIds": [OWNER, BOB, CAROL], "priority": 1},
         },
@@ -644,7 +644,7 @@ async fn task_action_assignee_ids_must_be_identity_strings() {
         let fed = Fed::new();
         let mut m = message("M1");
         m["actions"] = json!([{
-            "type": "urn:jmap:chat:cap:task",
+            "type": "urn:ietf:params:jmap:chat:cap:task",
             "uri": "https://tracker.example/T-1",
             "metadata": {"assigneeIds": ids},
         }]);

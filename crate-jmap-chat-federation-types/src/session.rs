@@ -101,7 +101,7 @@ impl FederationSession {
 ///
 /// ```
 /// let session = serde_json::json!({
-///     "ownerEndpoints": [{ "type": "urn:jmap:chat:cap:vtc", "uri": "https://meet.b.example/bob" }]
+///     "ownerEndpoints": [{ "type": "urn:ietf:params:jmap:chat:cap:vtc", "uri": "https://meet.b.example/bob" }]
 /// });
 /// let endpoints = jmap_chat_federation_types::owner_endpoints(session.as_object().unwrap());
 /// assert_eq!(endpoints.unwrap()[0].uri, "https://meet.b.example/bob");

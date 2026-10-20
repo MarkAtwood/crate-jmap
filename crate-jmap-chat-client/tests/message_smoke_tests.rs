@@ -1471,7 +1471,7 @@ async fn message_create_serializes_all_optional_properties() {
     let mention_json = json!({"id": "c1"});
     let broadcast_json = json!({"scope": "here"});
     let action_json = json!({
-        "type": "urn:jmap:chat:cap:vtc",
+        "type": "urn:ietf:params:jmap:chat:cap:vtc",
         "uri": "https://meet.example.com/room-1",
         "label": "Join call",
         "expiresAt": "2024-06-15T10:00:00Z",

@@ -744,7 +744,7 @@ mod tests {
             "ownerUserId": "alice@alice.example",
             "ownerLogin": "alice",
             "ownerEndpoints": [{
-                "type": "urn:jmap:chat:cap:vtc",
+                "type": "urn:ietf:params:jmap:chat:cap:vtc",
                 "uri": "https://meet.alice.example/room",
                 "label": "Personal Jitsi"
             }],
@@ -761,7 +761,10 @@ mod tests {
             .expect("valid ownerEndpoints must parse")
             .expect("ownerEndpoints is present");
         assert_eq!(endpoints.len(), 1);
-        assert_eq!(endpoints[0].endpoint_type, "urn:jmap:chat:cap:vtc");
+        assert_eq!(
+            endpoints[0].endpoint_type,
+            "urn:ietf:params:jmap:chat:cap:vtc"
+        );
         assert_eq!(endpoints[0].uri, "https://meet.alice.example/room");
         assert_eq!(endpoints[0].label.as_deref(), Some("Personal Jitsi"));
     }
@@ -801,8 +804,8 @@ mod tests {
     #[test]
     fn owner_endpoints_malformed_is_parse_error() {
         for bad in [
-            json!("urn:jmap:chat:cap:vtc"),
-            json!([{"type": "urn:jmap:chat:cap:vtc"}]),
+            json!("urn:ietf:params:jmap:chat:cap:vtc"),
+            json!([{"type": "urn:ietf:params:jmap:chat:cap:vtc"}]),
         ] {
             let session = session_with_extras(json!({ "ownerEndpoints": bad }));
             assert!(
@@ -825,7 +828,7 @@ mod tests {
         let session = session_with_extras(json!({
             "ownerEndpoints": [
                 {"type": "https://vendor.example/cap/hologram", "uri": "holo:alice"},
-                {"type": "urn:jmap:chat:cap:payment", "uri": "lightning:alice@alice.example"}
+                {"type": "urn:ietf:params:jmap:chat:cap:payment", "uri": "lightning:alice@alice.example"}
             ]
         }));
         let endpoints = session
@@ -837,7 +840,7 @@ mod tests {
             types,
             [
                 "https://vendor.example/cap/hologram",
-                "urn:jmap:chat:cap:payment"
+                "urn:ietf:params:jmap:chat:cap:payment"
             ]
         );
     }
