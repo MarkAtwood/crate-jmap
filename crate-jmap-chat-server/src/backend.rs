@@ -201,6 +201,22 @@ pub struct ChatLimits {
     /// `Message/query` accepts the `threadRootId` filter, which the
     /// backend's `query_objects` must then implement. Defaults to `false`.
     pub supports_threads: bool,
+    /// The account's `maxBodyBytes` capability value
+    /// (draft-atwood-jmap-chat-00 §Account-Level Capability Object):
+    /// "Maximum UTF-8 byte length of a Message `body`." `Message/set`
+    /// create rejects a longer `body` with a `tooLarge` SetError.
+    /// Defaults to 100,000.
+    pub max_body_bytes: u64,
+    /// The account's `maxAttachmentBytes` capability value: "Maximum size
+    /// in bytes of a single attachment blob." `Message/set` create
+    /// rejects an Attachment whose `size` exceeds it with a `tooLarge`
+    /// SetError, before consulting [`ChatBackend::attachment_blob`].
+    /// Defaults to 50,000,000.
+    pub max_attachment_bytes: u64,
+    /// The account's `maxAttachmentsPerMessage` capability value:
+    /// "Maximum number of attachments per message." `Message/set` create
+    /// rejects more with a `tooLarge` SetError. Defaults to 16.
+    pub max_attachments_per_message: u32,
 }
 
 impl Default for ChatLimits {
@@ -241,6 +257,9 @@ impl ChatLimits {
             supported_body_types: crate::message::SUPPORTED_BODY_TYPES,
             server_reserved_body_types: &[],
             supports_threads: false,
+            max_body_bytes: 100_000,
+            max_attachment_bytes: 50_000_000,
+            max_attachments_per_message: 16,
         }
     }
 
@@ -298,6 +317,56 @@ impl ChatLimits {
     pub const fn with_supports_threads(mut self, supports: bool) -> Self {
         self.supports_threads = supports;
         self
+    }
+
+    /// Builder-style setter for [`Self::max_body_bytes`].
+    #[must_use]
+    pub const fn with_max_body_bytes(mut self, max: u64) -> Self {
+        self.max_body_bytes = max;
+        self
+    }
+
+    /// Builder-style setter for [`Self::max_attachment_bytes`].
+    #[must_use]
+    pub const fn with_max_attachment_bytes(mut self, max: u64) -> Self {
+        self.max_attachment_bytes = max;
+        self
+    }
+
+    /// Builder-style setter for [`Self::max_attachments_per_message`].
+    #[must_use]
+    pub const fn with_max_attachments_per_message(mut self, max: u32) -> Self {
+        self.max_attachments_per_message = max;
+        self
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Attachment blob verification
+// ---------------------------------------------------------------------------
+
+/// The stored blob behind an Attachment `blobId`, as reported by
+/// [`ChatBackend::attachment_blob`].
+///
+/// `handle_message_set` compares these against the Attachment's `size`
+/// and `sha256` (draft-atwood-jmap-chat-00 §Attachment, `size`: "Servers
+/// MUST verify against actual content"; `sha256`: "Servers SHOULD
+/// verify").
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AttachmentBlob {
+    /// Byte count of the stored blob.
+    pub size: u64,
+    /// SHA-256 digest of the stored blob's bytes.
+    pub sha256: [u8; 32],
+}
+
+impl AttachmentBlob {
+    /// Construct an [`AttachmentBlob`] from the stored blob's byte count
+    /// and SHA-256 digest.
+    #[must_use]
+    pub const fn new(size: u64, sha256: [u8; 32]) -> Self {
+        Self { size, sha256 }
     }
 }
 
@@ -1788,6 +1857,50 @@ pub trait ChatBackend: JmapBackend {
         _chat_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
         async { Ok(Ok(())) }
+    }
+
+    /// Blob lookup consulted by `handle_message_set` for each Attachment
+    /// of a Message create.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §Attachment, `size`: "Servers MUST
+    /// verify against actual content", and `sha256`: "Servers SHOULD
+    /// verify". The handler compares the returned [`AttachmentBlob`]
+    /// against the Attachment and rejects a mismatch with an
+    /// `invalidProperties` SetError naming `attachments` (§Input
+    /// Validation). The `sha256` comparison is constant-time
+    /// (`subtle::ConstantTimeEq`), so implementations return the digest
+    /// rather than comparing it themselves.
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per Attachment, AFTER the `maxAttachmentsPerMessage` and
+    /// `maxAttachmentBytes` checks (§Denial of Service: "Enforce
+    /// `maxBodyBytes` and `maxAttachmentBytes` at parse time, before any
+    /// fetch or storage") and BEFORE `create_object`.
+    ///
+    /// # Return mapping
+    ///
+    /// - `Ok(Ok(Some(blob)))`: compare the Attachment against `blob`.
+    /// - `Ok(Ok(None))`: the backend does not verify this blob; accept.
+    /// - `Ok(Err(set_error))`: reject the create with `set_error`, e.g.
+    ///   `invalidProperties` naming `attachments` for an unknown `blobId`
+    ///   (RFC 8620 §5.3 defines `blobNotFound` only for upload paths).
+    /// - `Err(e)`: `serverFail`.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(None))`: no blob store, nothing verified, matching
+    /// the fail-open hooks above. Backends with a blob store SHOULD
+    /// override this method.
+    fn attachment_blob(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _blob_id: &jmap_types::Id,
+    ) -> impl std::future::Future<
+        Output = Result<Result<Option<AttachmentBlob>, SetError>, Self::Error>,
+    > + Send {
+        async { Ok(Ok(None)) }
     }
 
     /// Visibility gate consulted by `handle_message_get` and
