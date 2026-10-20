@@ -33,6 +33,11 @@ wire behaviour that a conforming peer can observe.
   `KeyMaterialClientCode` status enums named as in
   draft-ietf-mimi-protocol-06 §5.2. Unknown code names round-trip as
   `Other`.
+- **jmap-chat-mimi-types**: request and response types for `Room/create`,
+  `Room/update`, `Room/send` and `Room/unbind` (draft §Rooms), with the
+  `UpdateResponseCode` and `SubmitResponseCode` enums named as in
+  draft-ietf-mimi-protocol-06 §5.3 and §5.4, and `chat_room_id`, which reads
+  the `Chat.roomId` extension field from `Chat.extra`.
 - **jmap-chat-client**: `TypingIndicators` and `TYPING_DECAY` track typing
   indicators per `(chatId, senderId)` and hide one after 10 s without a
   typing event, per draft-atwood-jmap-chat-00 §Chat/typing: "if no typing
