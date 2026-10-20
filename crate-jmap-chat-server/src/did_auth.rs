@@ -16,8 +16,16 @@
 //! RFC 7638 thumbprint of one of those keys.
 //!
 //! This crate does no I/O. The caller resolves the DID and passes the
-//! resolved DID Document, or `None` when resolution failed and no usable
-//! cached document is held.
+//! resolved DID Document as a [`DidDocument`], or `None` when resolution
+//! failed and no usable cached document is held.
+//!
+//! §Caching: "A server MUST refresh its cached DID Document for a given
+//! DID before next use if a signature verification against that cached
+//! document fails." A [`DidDocument::Cached`] document whose keys do not
+//! verify the signature yields [`DidAuthRejection::RefreshRequired`]:
+//! the caller refreshes the document (for example with
+//! `jmap_did_resolver::Resolver::refresh`) and verifies once more with
+//! [`DidDocument::Refreshed`].
 
 use std::fmt;
 use std::time::SystemTime;
@@ -28,6 +36,18 @@ use jmap_did_types::{Did, DidKey, KeyType};
 use jmap_peer_auth::ed25519_dalek::VerifyingKey;
 use jmap_peer_auth::{Accepted, PeerDomain, PeerSigningKey, Rejection, SignedRequest};
 use serde_json::Value;
+
+/// A resolved DID Document and whether it may come from a cache.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DidDocument<'a> {
+    /// A document that may be cached, such as one from
+    /// `jmap_did_resolver::Resolver::resolve`.
+    Cached(&'a Value),
+    /// A document resolved again after a [`DidAuthRejection::RefreshRequired`],
+    /// or one that is never cached, such as a document derived from a
+    /// `did:key`.
+    Refreshed(&'a Value),
+}
 
 /// Why a request is not authenticated for a DID.
 ///
@@ -51,6 +71,12 @@ pub enum DidAuthRejection {
     /// The signature failed a check against the DID's `authentication`
     /// keys. [`Rejection::UnknownKey`] means the `kid` names none of them.
     Signature(Rejection),
+    /// A [`DidDocument::Cached`] document's keys did not verify the
+    /// signature: the `kid` names none of them
+    /// ([`Rejection::UnknownKey`]) or the signature does not verify under
+    /// the key ([`Rejection::BadSignature`]). Refresh the document and
+    /// verify once more with [`DidDocument::Refreshed`] before rejecting.
+    RefreshRequired(Rejection),
 }
 
 impl fmt::Display for DidAuthRejection {
@@ -59,6 +85,9 @@ impl fmt::Display for DidAuthRejection {
             Self::Unresolved => f.write_str("DID could not be resolved"),
             Self::DocumentIdMismatch => f.write_str("DID document id does not match the DID"),
             Self::Signature(_) => f.write_str("DID-bound signature did not verify"),
+            Self::RefreshRequired(_) => {
+                f.write_str("DID-bound signature did not verify against a cached DID document")
+            }
         }
     }
 }
@@ -66,7 +95,7 @@ impl fmt::Display for DidAuthRejection {
 impl std::error::Error for DidAuthRejection {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::Signature(rejection) => Some(rejection),
+            Self::Signature(rejection) | Self::RefreshRequired(rejection) => Some(rejection),
             Self::Unresolved | Self::DocumentIdMismatch => None,
         }
     }
@@ -77,7 +106,8 @@ impl std::error::Error for DidAuthRejection {
 /// §Signature requirement steps 2 to 5).
 ///
 /// `document` is the resolved DID Document of `did`, or `None` when
-/// resolution failed and no usable cached document is held. `now` and
+/// resolution failed and no usable cached document is held. Pass a
+/// document that may be cached as [`DidDocument::Cached`]. `now` and
 /// `seen` are as for [`SignedRequest::verify`]. A caller that also
 /// verifies `signed` against the peer domain's keys calls `seen` from
 /// both before it records the nonce.
@@ -98,22 +128,33 @@ impl std::error::Error for DidAuthRejection {
 /// [`DidAuthRejection::Unresolved`] when `document` is `None`,
 /// [`DidAuthRejection::DocumentIdMismatch`] when its `id` is not `did`,
 /// and [`DidAuthRejection::Signature`] for the first signature check that
-/// fails.
+/// fails, except that a [`DidDocument::Cached`] document failing
+/// [`Rejection::UnknownKey`] or [`Rejection::BadSignature`] gives
+/// [`DidAuthRejection::RefreshRequired`]. The other checks do not depend
+/// on the document, so a refresh cannot change their outcome.
 pub fn verify_did_signature(
     signed: &SignedRequest<'_>,
     did: &Did,
-    document: Option<&Value>,
+    document: Option<DidDocument<'_>>,
     now: SystemTime,
     seen: impl FnOnce(&PeerDomain, &str) -> bool,
 ) -> Result<Accepted, DidAuthRejection> {
-    let document = document.ok_or(DidAuthRejection::Unresolved)?;
+    let (document, cached) = match document.ok_or(DidAuthRejection::Unresolved)? {
+        DidDocument::Cached(document) => (document, true),
+        DidDocument::Refreshed(document) => (document, false),
+    };
     if document.get("id").and_then(Value::as_str) != Some(did.as_str()) {
         return Err(DidAuthRejection::DocumentIdMismatch);
     }
     let keys = authentication_keys(did, document);
     signed
         .verify(&keys, now, seen)
-        .map_err(DidAuthRejection::Signature)
+        .map_err(|rejection| match rejection {
+            Rejection::UnknownKey | Rejection::BadSignature if cached => {
+                DidAuthRejection::RefreshRequired(rejection)
+            }
+            rejection => DidAuthRejection::Signature(rejection),
+        })
 }
 
 /// The Ed25519 keys of the document's `authentication` relationship.

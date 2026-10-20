@@ -21,7 +21,13 @@ wire behaviour that a conforming peer can observe.
   `authentication` relationship (embedded, absolute or `#fragment`
   references; `publicKeyJwk` or Ed25519 `publicKeyMultibase`). No
   document, a document whose `id` is not the DID, or a failed check is a
-  `DidAuthRejection`. The crate now depends on `jmap-peer-auth`.
+  `DidAuthRejection`. The crate now depends on `jmap-peer-auth`. The
+  caller passes the document as `DidDocument::Cached` or
+  `DidDocument::Refreshed`; when a cached document's keys do not verify
+  the signature it returns `DidAuthRejection::RefreshRequired`, so the
+  caller refreshes and retries once (§Caching: "A server MUST refresh its
+  cached DID Document ... if a signature verification against that cached
+  document fails").
 - **jmap-chat-federation-server**: `assigneeIds` in the metadata of a
   `urn:jmap:chat:cap:task` MessageAction is mapped as a user reference
   (draft-atwood-jmap-chat-tasks-00 §Federation). `Peer/deliver` resolves
