@@ -29,6 +29,11 @@
 //!
 //! The bytes are untrusted: §Asset Parsing requires clients to "parse
 //! assets in a sandboxed context".
+//!
+//! [`SceneWsExt`] adds draft-atwood-jmap-scene-wss-00 ephemeral Scene
+//! events to a `jmap_base_client::WsSession`: send `SceneStreamEnable`,
+//! `SceneStreamDisable` and `SceneInteractionEvent` frames, and receive
+//! [`SceneWsFrame`]s, with every non-Scene frame passed through unchanged.
 
 #![forbid(unsafe_code)]
 
@@ -37,6 +42,10 @@ use reqwest::redirect;
 use sha2::Digest;
 
 pub use reqwest;
+
+pub mod ws;
+
+pub use ws::{parse_scene_ws_frame, SceneWsExt, SceneWsFrame};
 
 /// The most redirects [`AssetFetcher`] follows (reqwest's default).
 pub const MAX_REDIRECTS: usize = 10;

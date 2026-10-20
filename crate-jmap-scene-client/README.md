@@ -33,4 +33,35 @@ let glb = fetcher
 Pass a `reqwest::ClientBuilder` to `AssetFetcher::with_builder` to set a
 timeout, root certificates or a proxy.
 
+## Scene WebSocket events
+
+`SceneWsExt` adds [draft-atwood-jmap-scene-wss-00] ephemeral Scene events
+to a `jmap_base_client::WsSession`. `send_scene_stream_enable` and
+`send_scene_stream_disable` start, replace and cancel the subscription;
+`send_scene_interaction` submits a `SceneInteractionEvent`.
+`next_scene_frame` yields `SceneAvatarEvent`, `SceneObjectEvent` and
+`SceneInteractionEvent` frames typed. Every other frame (`StateChange`,
+`Response`, a `RequestError` rejecting a `SceneStreamEnable`, VTC or Chat
+events, unrecognized `@type`s, and Scene events that do not parse) arrives
+unchanged as `SceneWsFrame::Other`.
+
+```rust,no_run
+use jmap_base_client::WsSession;
+use jmap_scene_client::{SceneWsExt, SceneWsFrame};
+use jmap_scene_types::SceneStreamEnable;
+
+# async fn run(mut ws: WsSession) -> Result<(), jmap_base_client::ClientError> {
+let mut enable = SceneStreamEnable::default();
+enable.region_ids = Some(vec!["01J5ABC0000000000000000001".into()]);
+ws.send_scene_stream_enable(&enable).await?;
+while let Some(frame) = ws.next_scene_frame().await {
+    match frame? {
+        SceneWsFrame::Avatar(e) => println!("{} {:?}", e.display_name, e.event),
+        _ => {}
+    }
+}
+# Ok(()) }
+```
+
 [draft-atwood-jmap-scene-00]: https://github.com/MarkAtwood/jmap-chat-spec
+[draft-atwood-jmap-scene-wss-00]: https://github.com/MarkAtwood/jmap-chat-spec
