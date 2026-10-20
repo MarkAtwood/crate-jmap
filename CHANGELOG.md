@@ -21,6 +21,12 @@ wire behaviour that a conforming peer can observe.
   unpadded base64url wire shape of every byte-string property ("Servers MUST
   NOT re-encode these octets"). An empty `cipherSuites` fails to
   deserialize, because the draft says it "MUST NOT be empty".
+- **jmap-chat-mimi-types**: the `KeyPackage` object (§KeyPackage Object
+  Fields) with `KeyPackageCreate` for `KeyPackage/set` creates and
+  `KeyPackageCreated` for the `created` entries of its response, used as
+  `jmap_types::SetResponse<KeyPackageCreated>`. `KeyPackage` implements
+  `JmapObject`, `GetObject` and `SetObject`. The crate now depends on
+  `jmap-types`.
 - **jmap-chat-client**: `TypingIndicators` and `TYPING_DECAY` track typing
   indicators per `(chatId, senderId)` and hide one after 10 s without a
   typing event, per draft-atwood-jmap-chat-00 §Chat/typing: "if no typing

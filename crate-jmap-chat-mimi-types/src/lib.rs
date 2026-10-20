@@ -24,6 +24,9 @@
 //! - [`MimiCapability`] — the account-level capability object.
 //! - [`MIMI_FANOUT_BODY_TYPE`], [`MLS_MESSAGE_BODY_TYPE`] — the
 //!   `bodyType` values of draft §MLS Messages.
+//! - [`KeyPackage`], [`KeyPackageCreate`], [`KeyPackageCreated`],
+//!   [`KeyPackageProperty`] — the KeyPackage object and the `KeyPackage/get`
+//!   and `KeyPackage/set` argument shapes (draft §KeyPackages).
 //! - [`Base64Url`] / [`Base64UrlError`] — the unpadded base64url wire
 //!   shape of every byte-string property (draft §Conventions).
 
@@ -31,8 +34,10 @@
 
 pub mod base64url;
 pub mod capability;
+pub mod keypackage;
 
 pub use base64url::{Base64Url, Base64UrlError};
 pub use capability::{
     MimiCapability, JMAP_CHAT_MIMI_URI, MIMI_FANOUT_BODY_TYPE, MLS_MESSAGE_BODY_TYPE,
 };
+pub use keypackage::{KeyPackage, KeyPackageCreate, KeyPackageCreated, KeyPackageProperty};

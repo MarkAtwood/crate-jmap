@@ -12,6 +12,7 @@ JMAP Chat server as its MIMI provider. Types only: no I/O, no MLS parsing.
 | `MimiCapability` | §Account-Level Capability Object |
 | `MIMI_FANOUT_BODY_TYPE` (`application/mimi-fanout`) | §application/mimi-fanout |
 | `MLS_MESSAGE_BODY_TYPE` (`message/mls`) | §message/mls, RFC 9420 §17.10 |
+| `KeyPackage`, `KeyPackageCreate`, `KeyPackageCreated`, `KeyPackageProperty` | §KeyPackages |
 | `Base64Url`, `Base64UrlError` | §Conventions and Definitions, RFC 4648 §5 |
 
 The session-level capability value is `{}` and has no type.
@@ -20,7 +21,9 @@ The session-level capability value is `{}` and has no type.
 
 It gives the MIMI provider server (mimid and the planned
 `jmap-chat-mimi-server`) and its clients one definition of the extension's
-wire types. It sits beside `jmap-chat-types` and does not depend on it.
+wire types. It sits beside `jmap-chat-types` and does not depend on it;
+it reuses `jmap-types` for `Id` and the RFC 8620 `/get` and `/set`
+response shapes.
 
 ## How to use
 
@@ -56,6 +59,10 @@ assert_eq!(cap.max_key_packages, 100);
   stack.
 - `Base64Url` allocates the whole input before it validates it. Bound body
   sizes at the transport layer.
+
+- `KeyPackage/set` responses are `jmap_types::SetResponse<KeyPackageCreated>`,
+  not `SetResponse<KeyPackage>`: a `created` entry holds only `id`,
+  `keyPackageRef` and, if the create omitted it, `lastResort`.
 
 ## References
 
