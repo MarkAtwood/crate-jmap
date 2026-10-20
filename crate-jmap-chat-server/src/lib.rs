@@ -61,6 +61,7 @@ pub mod ban;
 pub mod chat;
 pub mod contact;
 pub mod emoji;
+pub mod ephemeral;
 pub mod expiry;
 mod helpers;
 pub mod invite;
@@ -98,6 +99,7 @@ pub use emoji::{
     handle_emoji_changes, handle_emoji_get, handle_emoji_query, handle_emoji_query_changes,
     handle_emoji_set,
 };
+pub use ephemeral::{EphemeralSubscription, IdScope};
 pub use expiry::sweep_expired;
 pub use invite::{handle_invite_changes, handle_invite_get, handle_invite_set};
 pub use message::{
