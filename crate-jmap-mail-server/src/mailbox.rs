@@ -1062,23 +1062,14 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     let destroy_results = backend
                         .batch_destroy_emails(caller, &account_id, &ids_to_destroy)
                         .await;
-                    for (email_id, err) in destroy_results {
-                        match err {
-                            None => {}
-                            // Semantic error (e.g. already deleted by a concurrent request).
-                            // Best-effort cascade: the email is gone or unreachable, so
-                            // proceed with mailbox destruction rather than aborting.
-                            Some(BackendSetError::SetError(_)) => {}
-                            Some(BackendSetError::Other(e)) => {
-                                // bd:JMAP-wlip.2 — strip backend Display
-                                // text from wire-bound description.
-                                return Err(server_fail_from_backend(&e));
-                            }
-                            Some(_) => {
-                                return Err(JmapError::server_fail(format!(
-                                    "batch_destroy_emails {email_id}: unhandled backend error variant"
-                                )));
-                            }
+                    for (_, err) in destroy_results {
+                        // A per-object SetError (e.g. already deleted by a
+                        // concurrent request) is ignored: best-effort cascade,
+                        // the email is gone or unreachable, so proceed with
+                        // mailbox destruction. A storage error aborts with a
+                        // redacted serverFail (bd:JMAP-wlip.2).
+                        if let Some(e) = err {
+                            e.into_set_error_or_method_error()?;
                         }
                     }
                 }
@@ -1099,16 +1090,12 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             .await
                         {
                             Ok(_) => {}
-                            // Semantic error (e.g. email deleted concurrently). Best-effort:
-                            // proceed with mailbox destruction.
-                            Err(BackendSetError::SetError(_)) => {}
-                            Err(BackendSetError::Other(e)) => {
-                                return Err(server_fail_from_backend(&e));
-                            }
-                            Err(_) => {
-                                return Err(JmapError::server_fail(
-                                    "unhandled backend error variant",
-                                ));
+                            // A per-object SetError (e.g. email deleted concurrently)
+                            // is ignored: best-effort, proceed with mailbox
+                            // destruction. A storage error aborts with a redacted
+                            // serverFail.
+                            Err(e) => {
+                                e.into_set_error_or_method_error()?;
                             }
                         }
                     }

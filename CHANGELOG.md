@@ -179,6 +179,9 @@ wire behaviour that a conforming peer can observe.
   `resolve_query_start`, `enforce_max_objects_in_get` and the provided method
   `JmapBackend::max_objects_in_get` (default 500). A downstream type that
   already has a method with that name may hit method-resolution ambiguity.
+- **jmap-server**: `BackendSetError::into_set_error_or_method_error`, which
+  returns the per-object `SetError` or a `serverFail` that never carries the
+  backend error's `Display` text.
 - **jmap-chat-server**: chatPush support from draft-atwood-jmap-chat-push-00:
   `push::validate_chat_push`, `strip_unsupported_chat_push`,
   `chat_state_change_for`, `build_chat_message_push` and `should_push`, plus
