@@ -30,6 +30,13 @@
 //! - [`KeyMaterialFetchRequest`], [`KeyMaterialFetchResponse`],
 //!   [`ClientKeyMaterial`], [`KeyMaterialUserCode`], [`KeyMaterialClientCode`]
 //!   — the `KeyMaterial/fetch` arguments (draft §KeyMaterial/fetch).
+//! - [`chat_room_id`] — the `Chat.roomId` extension field, read from
+//!   `Chat.extra` (draft §Chat.roomId).
+//! - [`RoomCreateRequest`], [`RoomCreateResponse`], [`RoomUpdateRequest`],
+//!   [`RoomUpdateResponse`], [`UpdateResponseCode`], [`RoomSendRequest`],
+//!   [`RoomSendResponse`], [`SubmitResponseCode`], [`RoomUnbindRequest`],
+//!   [`RoomUnbindResponse`] — the `Room/create`, `Room/update`, `Room/send`
+//!   and `Room/unbind` arguments (draft §Rooms).
 //! - [`Base64Url`] / [`Base64UrlError`] — the unpadded base64url wire
 //!   shape of every byte-string property (draft §Conventions).
 
@@ -39,6 +46,7 @@ pub mod base64url;
 pub mod capability;
 pub mod keymaterial;
 pub mod keypackage;
+pub mod room;
 
 pub use base64url::{Base64Url, Base64UrlError};
 pub use capability::{
@@ -49,3 +57,8 @@ pub use keymaterial::{
     KeyMaterialUserCode,
 };
 pub use keypackage::{KeyPackage, KeyPackageCreate, KeyPackageCreated, KeyPackageProperty};
+pub use room::{
+    chat_room_id, RoomCreateRequest, RoomCreateResponse, RoomSendRequest, RoomSendResponse,
+    RoomUnbindRequest, RoomUnbindResponse, RoomUpdateRequest, RoomUpdateResponse,
+    SubmitResponseCode, UpdateResponseCode,
+};

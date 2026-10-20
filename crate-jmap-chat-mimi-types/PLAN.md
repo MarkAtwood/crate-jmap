@@ -10,7 +10,7 @@ Types only: no server logic, no I/O, no MLS or TLS-codec dependency.
 | JMAP-fvnd.1 | Crate scaffold, `JMAP_CHAT_MIMI_URI`, `MimiCapability`, body-type constants, `Base64Url` | landed |
 | JMAP-fvnd.2 | KeyPackage object, KeyPackage/get and /set | landed |
 | JMAP-fvnd.3 | KeyMaterial/fetch request and response | landed |
-| JMAP-fvnd.4 | Room/create, Room/update, Room/send, Room/unbind | planned |
+| JMAP-fvnd.4 | Room/create, Room/update, Room/send, Room/unbind, `chat_room_id` | landed |
 | JMAP-fvnd.5 | GroupInfo/fetch request and response | planned |
 
 ## Decisions
@@ -30,4 +30,9 @@ Types only: no server logic, no I/O, no MLS or TLS-codec dependency.
   `keyPackage`-iff-`success` rule is documented, not enforced: a status-tagged
   enum would drop unknown codes.
 - No dependency on `jmap-chat-types`: string constants carry the body
-  types, and consumers map them to `BodyType::Other`.
+  types, and consumers map them to `BodyType::Other`. `chat_room_id` takes
+  `&Chat.extra` rather than `&Chat` for the same reason; `jmap-chat-types`
+  is a dev-dependency only, to test against a real `Chat`.
+- `Room/update` and `Room/send` fields the draft marks "When
+  `responseCode` is ..." are `Option`, documented not enforced, as for
+  `keyPackage`.

@@ -14,6 +14,11 @@ JMAP Chat server as its MIMI provider. Types only: no I/O, no MLS parsing.
 | `MLS_MESSAGE_BODY_TYPE` (`message/mls`) | §message/mls, RFC 9420 §17.10 |
 | `KeyPackage`, `KeyPackageCreate`, `KeyPackageCreated`, `KeyPackageProperty` | §KeyPackages |
 | `KeyMaterialFetchRequest`, `KeyMaterialFetchResponse`, `ClientKeyMaterial`, `KeyMaterialUserCode`, `KeyMaterialClientCode` | §KeyMaterial/fetch, draft-ietf-mimi-protocol-06 §5.2 |
+| `chat_room_id` | §Chat.roomId |
+| `RoomCreateRequest`, `RoomCreateResponse` | §Room/create |
+| `RoomUpdateRequest`, `RoomUpdateResponse`, `UpdateResponseCode` | §Room/update, draft-ietf-mimi-protocol-06 §5.3 |
+| `RoomSendRequest`, `RoomSendResponse`, `SubmitResponseCode` | §Room/send, draft-ietf-mimi-protocol-06 §5.4 |
+| `RoomUnbindRequest`, `RoomUnbindResponse` | §Room/unbind |
 | `Base64Url`, `Base64UrlError` | §Conventions and Definitions, RFC 4648 §5 |
 
 The session-level capability value is `{}` and has no type.
