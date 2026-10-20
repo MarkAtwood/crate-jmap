@@ -69,9 +69,7 @@ assert_eq!(
   `*_query` / `*_query_changes` methods take a generic
   `jmap_types::query::Filter<C>`, so a typed tree uses
   `jmap_metadata_types::WithMetadata<C>` leaves and an untyped one is
-  passed as `Filter::Condition(value)`. The chat client's `*_query`
-  methods build their filter from `*QueryInput` fields and cannot carry
-  metadata conditions; its `*_query_changes` methods can.
+  passed as `Filter::Condition(value)`.
 
 ## Migration from 0.1 (draft-01)
 

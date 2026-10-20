@@ -324,6 +324,23 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-client**: `chat_query`, `message_query`,
+  `space_query`, `chat_contact_query`, `custom_emoji_query`,
+  `Batch::chat_query_get` and `Batch::message_query_get` take positional
+  `(filter: Option<&Filter<C>>, sort: Option<&[XxxComparator]>,
+  position, limit)` like the other extension clients' `*_query` methods,
+  so they can send RFC 8620 §5.5 `AND`/`OR`/`NOT` trees and
+  draft-ietf-jmap-metadata-02 §3.5 `WithMetadata` conditions, the same
+  filter `*_query_changes` accepts (RFC 8620 §5.6). `chat_query` and
+  `message_query` (and their batch adders) also take trailing `anchor`,
+  `anchor_offset` and `calculate_total`. `ChatQueryInput`,
+  `MessageQueryInput` (with its deprecated `after` / `before` fields),
+  `SpaceQueryInput`, `ChatContactQueryInput`, `CustomEmojiQueryInput` and
+  `ContactSortProperty` are removed; build filters from the
+  `jmap_chat_types::query` condition and comparator types.
+  `message_query` still rejects `filter: None` client-side and still
+  sends `receivedAt` descending when `sort` is `None`.
+
 - **BREAKING** **jmap-base-client**: `connect_ws`, `connect_ws_with_limit`
   and `JmapClient::connect_ws_session` now accept only `wss://` URLs and
   return `ClientError::InvalidArgument` for `ws://` (jmap-chat-wss-guide:

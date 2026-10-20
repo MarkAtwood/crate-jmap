@@ -12,8 +12,8 @@ use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 use super::{
-    AddMemberInput, ChangesResponse, ChatCreateInput, ChatPatch, ChatQueryInput, GetResponse,
-    QueryChangesResponse, QueryResponse, SetResponse, TypingResponse, UpdateMemberRoleInput,
+    AddMemberInput, ChangesResponse, ChatCreateInput, ChatPatch, GetResponse, QueryChangesResponse,
+    QueryResponse, SetResponse, TypingResponse, UpdateMemberRoleInput,
 };
 
 impl super::SessionClient {
@@ -70,16 +70,26 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Query Chat IDs with optional filter (RFC 8620 §5.5 / JMAP Chat §Chat/query).
+    /// Query Chat IDs (RFC 8620 §5.5 / JMAP Chat §Chat/query).
     ///
-    /// Only keys that are `Some` in `input` are included in the filter object;
-    /// an empty filter object is sent as JSON `null`.
+    /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
+    /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    /// [`ChatFilterCondition`](jmap_chat_types::query::ChatFilterCondition); use
+    /// `jmap_metadata_types::WithMetadata<ChatFilterCondition>` to add the
+    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// Pass `None` to send `"filter": null`; name the type when you do
+    /// (`None::<&ChatFilter>`).
+    ///
+    /// `anchor`, `anchor_offset` and `calculate_total` are the RFC 8620
+    /// §5.5 arguments of the same names; when `anchor` is set the server
+    /// ignores `position`. `None` omits each from the request.
     ///
     /// # Errors
     ///
     /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
-    ///   serializing the typed `filter_kind` enum fails (pathological
-    ///   conditions only).
+    ///   serializing `filter` or `sort` fails (a caller-supplied condition
+    ///   type `C` whose `Serialize` impl errors).
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
@@ -90,12 +100,28 @@ impl super::SessionClient {
     ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
     ///   `tooManyChanges`) that surface as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn chat_query(
+    #[allow(clippy::too_many_arguments)] // RFC 8620 §5.5 /query args
+    pub async fn chat_query<C: Serialize>(
         &self,
-        input: &ChatQueryInput,
+        filter: Option<&Filter<C>>,
+        sort: Option<&[jmap_chat_types::query::ChatComparator]>,
+        position: Option<u64>,
+        limit: Option<u64>,
+        anchor: Option<&Id>,
+        anchor_offset: Option<i64>,
+        calculate_total: Option<bool>,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let args = chat_query_args(account_id, input)?;
+        let args = chat_query_args(
+            account_id,
+            filter,
+            sort,
+            position,
+            limit,
+            anchor,
+            anchor_offset,
+            calculate_total,
+        )?;
         let req = super::build_request("Chat/query", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -528,41 +554,38 @@ impl super::SessionClient {
 
 /// Build `Chat/query` arguments for `account_id` (shared with
 /// [`super::batch::Batch::chat_query_get`]).
-pub(super) fn chat_query_args(
+#[allow(clippy::too_many_arguments)] // RFC 8620 §5.5 /query args
+pub(super) fn chat_query_args<C: Serialize>(
     account_id: &str,
-    input: &ChatQueryInput,
+    filter: Option<&Filter<C>>,
+    sort: Option<&[jmap_chat_types::query::ChatComparator]>,
+    position: Option<u64>,
+    limit: Option<u64>,
+    anchor: Option<&Id>,
+    anchor_offset: Option<i64>,
+    calculate_total: Option<bool>,
 ) -> Result<serde_json::Value, jmap_base_client::ClientError> {
-    let mut filter = serde_json::Map::new();
-    if let Some(k) = &input.filter_kind {
-        let kind_str =
-            serde_json::to_value(k).map_err(jmap_base_client::ClientError::from_parse)?;
-        filter.insert("kind".into(), kind_str);
-    }
-    if let Some(m) = input.filter_muted {
-        filter.insert("muted".into(), m.into());
-    }
-    let filter_val = if filter.is_empty() {
-        serde_json::Value::Null
-    } else {
-        serde_json::Value::Object(filter)
-    };
     let mut args = serde_json::json!({
         "accountId": account_id,
-        "filter": filter_val,
+        "filter": serde_json::to_value(filter).map_err(jmap_base_client::ClientError::from_parse)?,
     });
-    if let Some(p) = input.position {
+    if let Some(s) = sort {
+        args["sort"] =
+            serde_json::to_value(s).map_err(jmap_base_client::ClientError::from_parse)?;
+    }
+    if let Some(p) = position {
         args["position"] = p.into();
     }
-    if let Some(a) = &input.anchor {
+    if let Some(a) = anchor {
         args["anchor"] = a.as_ref().into();
     }
-    if let Some(o) = input.anchor_offset {
+    if let Some(o) = anchor_offset {
         args["anchorOffset"] = o.into();
     }
-    if let Some(l) = input.limit {
+    if let Some(l) = limit {
         args["limit"] = l.into();
     }
-    if let Some(c) = input.calculate_total {
+    if let Some(c) = calculate_total {
         args["calculateTotal"] = c.into();
     }
     Ok(args)

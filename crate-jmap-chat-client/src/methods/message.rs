@@ -15,8 +15,8 @@ use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 use super::{
-    ChangesResponse, GetResponse, MessageCreateInput, MessagePatch, MessageQueryInput,
-    QueryChangesResponse, QueryResponse, ReactionChange, SetResponse,
+    ChangesResponse, GetResponse, MessageCreateInput, MessagePatch, QueryChangesResponse,
+    QueryResponse, ReactionChange, SetResponse,
 };
 
 /// Reject a `sender_reaction_id` that is empty or contains RFC 6901
@@ -97,22 +97,32 @@ impl super::SessionClient {
 
     /// Query Message IDs within a Chat (RFC 8620 §5.5 / JMAP Chat §Message/query).
     ///
-    /// Per spec, either `chat_id` or `has_mention: Some(true)` must be provided.
-    /// Servers MUST return `unsupportedFilter` if neither condition holds.
+    /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
+    /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    /// [`MessageFilterCondition`](jmap_chat_types::query::MessageFilterCondition); use
+    /// `jmap_metadata_types::WithMetadata<MessageFilterCondition>` to add the
+    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions. Per spec
+    /// the filter must include a `chatId` condition unless it includes
+    /// `hasMention: true`; servers return `unsupportedFilter` otherwise.
     ///
-    /// Results are sorted by `receivedAt`; the spec forbids ordering by
-    /// `sentAt`. Sort direction is controlled by `input.sort_ascending`
-    /// (default `false` = newest first). With `position:0, limit:N` and
-    /// `sort_ascending:false`, the server returns the N most recent message
-    /// IDs. Callers displaying messages chronologically should set
-    /// `sort_ascending:true` or reverse after fetching.
+    /// `sort: None` sends `receivedAt` descending, so `position:0,
+    /// limit:N` returns the N most recent messages; the spec forbids
+    /// ordering by `sentAt`. Callers displaying messages chronologically
+    /// pass an ascending `receivedAt` comparator or reverse after fetching.
+    ///
+    /// `anchor`, `anchor_offset` and `calculate_total` are the RFC 8620
+    /// §5.5 arguments of the same names; when `anchor` is set the server
+    /// ignores `position`. `None` omits each from the request.
     ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if neither `input.chat_id` nor `input.has_mention == Some(true)`
-    ///   is provided (spec requires at least one to scope the query), or
-    ///   if the deprecated non-spec `after` / `before` fields are set.
+    ///   if `filter` is `None`: an unfiltered query has neither `chatId`
+    ///   nor `hasMention: true`, so the server must reject it.
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing `filter` or `sort` fails (a caller-supplied condition
+    ///   type `C` whose `Serialize` impl errors).
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
@@ -123,13 +133,28 @@ impl super::SessionClient {
     ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
     ///   `tooManyChanges`) that surface as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn message_query(
+    #[allow(clippy::too_many_arguments)] // RFC 8620 §5.5 /query args
+    pub async fn message_query<C: Serialize>(
         &self,
-        input: &MessageQueryInput<'_>,
+        filter: Option<&Filter<C>>,
+        sort: Option<&[jmap_chat_types::query::MessageComparator]>,
+        position: Option<u64>,
+        limit: Option<u64>,
+        anchor: Option<&Id>,
+        anchor_offset: Option<i64>,
+        calculate_total: Option<bool>,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
-        check_message_query(input)?;
         let (api_url, account_id) = self.session_parts()?;
-        let args = message_query_args(account_id, input);
+        let args = message_query_args(
+            account_id,
+            filter,
+            sort,
+            position,
+            limit,
+            anchor,
+            anchor_offset,
+            calculate_total,
+        )?;
         let req = super::build_request("Message/query", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -543,74 +568,49 @@ impl super::SessionClient {
     }
 }
 
-/// Reject `Message/query` inputs the spec or this crate never sends
-/// (shared with [`super::batch::Batch::message_query_get`]).
-pub(super) fn check_message_query(
-    input: &MessageQueryInput<'_>,
-) -> Result<(), jmap_base_client::ClientError> {
-    if input.chat_id.is_none() && input.has_mention != Some(true) {
-        return Err(jmap_base_client::ClientError::InvalidArgument(
-            "message_query: chat_id or has_mention=true must be provided".into(),
-        ));
-    }
-    #[allow(deprecated)]
-    if input.after.is_some() || input.before.is_some() {
-        return Err(jmap_base_client::ClientError::InvalidArgument(
-            "message_query: after/before are not Message/query filters".into(),
-        ));
-    }
-    Ok(())
-}
-
-/// Build `Message/query` arguments for `account_id`; call
-/// [`check_message_query`] first.
-pub(super) fn message_query_args(
+/// Build `Message/query` arguments for `account_id` (shared with
+/// [`super::batch::Batch::message_query_get`]); see
+/// [`super::SessionClient::message_query`] for the `None` defaults and
+/// errors.
+#[allow(clippy::too_many_arguments)] // RFC 8620 §5.5 /query args
+pub(super) fn message_query_args<C: Serialize>(
     account_id: &str,
-    input: &MessageQueryInput<'_>,
-) -> serde_json::Value {
-    let mut filter = serde_json::Map::new();
-    if let Some(id) = input.chat_id {
-        filter.insert("chatId".into(), id.as_ref().into());
-    }
-    if let Some(m) = input.has_mention {
-        filter.insert("hasMention".into(), m.into());
-    }
-    if let Some(a) = input.has_attachment {
-        filter.insert("hasAttachment".into(), a.into());
-    }
-    if let Some(t) = input.text {
-        filter.insert("text".into(), t.into());
-    }
-    if let Some(tid) = input.thread_root_id {
-        filter.insert("threadRootId".into(), tid.as_ref().into());
-    }
-    if let Some(t) = input.topic_id {
-        filter.insert("topicId".into(), t.into());
-    }
-    let filter_val = if filter.is_empty() {
-        serde_json::Value::Null
-    } else {
-        serde_json::Value::Object(filter)
+    filter: Option<&Filter<C>>,
+    sort: Option<&[jmap_chat_types::query::MessageComparator]>,
+    position: Option<u64>,
+    limit: Option<u64>,
+    anchor: Option<&Id>,
+    anchor_offset: Option<i64>,
+    calculate_total: Option<bool>,
+) -> Result<serde_json::Value, jmap_base_client::ClientError> {
+    let Some(filter) = filter else {
+        return Err(jmap_base_client::ClientError::InvalidArgument(
+            "message_query: a filter scoped by chat_id or has_mention=true must be provided".into(),
+        ));
+    };
+    let sort = match sort {
+        Some(s) => serde_json::to_value(s).map_err(jmap_base_client::ClientError::from_parse)?,
+        None => serde_json::json!([{"property": "receivedAt", "isAscending": false}]),
     };
     let mut args = serde_json::json!({
         "accountId": account_id,
-        "filter": filter_val,
-        "sort": [{"property": "receivedAt", "isAscending": input.sort_ascending}],
+        "filter": serde_json::to_value(filter).map_err(jmap_base_client::ClientError::from_parse)?,
+        "sort": sort,
     });
-    if let Some(p) = input.position {
+    if let Some(p) = position {
         args["position"] = p.into();
     }
-    if let Some(a) = input.anchor {
+    if let Some(a) = anchor {
         args["anchor"] = a.as_ref().into();
     }
-    if let Some(o) = input.anchor_offset {
+    if let Some(o) = anchor_offset {
         args["anchorOffset"] = o.into();
     }
-    if let Some(l) = input.limit {
+    if let Some(l) = limit {
         args["limit"] = l.into();
     }
-    if let Some(c) = input.calculate_total {
+    if let Some(c) = calculate_total {
         args["calculateTotal"] = c.into();
     }
-    args
+    Ok(args)
 }

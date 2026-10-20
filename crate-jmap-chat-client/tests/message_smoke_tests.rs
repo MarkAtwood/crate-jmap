@@ -17,6 +17,7 @@ use helpers::{
     MESSAGE_STATE_NEW, MESSAGE_STATE_OLD, TEST_ACCOUNT_ID,
 };
 use jmap_chat_types::query;
+use jmap_types::query::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State, UTCDate};
 use serde_json::json;
 use wiremock::MockServer;
@@ -264,16 +265,24 @@ async fn message_get_decodes_populated_message() {
     );
 }
 
-/// `Message/query` must require either `chat_id` or `has_mention=true`
-/// (message.rs:67-71) — both omitted should short-circuit before send.
+/// `Message/query` must require either `chat_id` or `has_mention=true`;
+/// with no filter at all both are omitted, so it short-circuits before
+/// send.
 #[tokio::test]
 async fn message_query_requires_chat_id_or_has_mention() {
     let server = MockServer::start().await;
     let sc = helpers::make_client(&server);
 
-    let input = jmap_chat_client::methods::MessageQueryInput::default();
     let err = sc
-        .message_query(&input)
+        .message_query(
+            None::<&query::MessageFilter>,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
         .await
         .expect_err("message_query must reject empty filter");
     match err {
@@ -293,8 +302,8 @@ async fn message_query_requires_chat_id_or_has_mention() {
 }
 
 /// `Message/query` with `chat_id` set must serialize a filter object
-/// containing `chatId` and emit the default descending sort by `receivedAt`
-/// (message.rs:73-104).
+/// containing `chatId` and, with `sort: None`, emit the default
+/// descending sort by `receivedAt`.
 #[tokio::test]
 async fn message_query_chat_id_and_default_sort() {
     let server = MockServer::start().await;
@@ -311,11 +320,8 @@ async fn message_query_chat_id_and_default_sort() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
-    let mut input = jmap_chat_client::methods::MessageQueryInput::default();
-    input.chat_id = Some(&chat_id);
     let _ = sc
-        .message_query(&input)
+        .message_query(Some(&chat_filter()), None, None, None, None, None, None)
         .await
         .expect("message_query: must succeed");
 
@@ -335,8 +341,8 @@ async fn message_query_chat_id_and_default_sort() {
     );
 }
 
-/// `Message/query` with `sort_ascending=true` must flip the `isAscending`
-/// field to `true` (message.rs:103, MessageQueryInput.sort_ascending).
+/// `Message/query` with an ascending `receivedAt` comparator must send
+/// `isAscending: true` (RFC 8620 §5.5 Comparator).
 #[tokio::test]
 async fn message_query_sort_ascending() {
     let server = MockServer::start().await;
@@ -353,12 +359,19 @@ async fn message_query_sort_ascending() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
-    let mut input = jmap_chat_client::methods::MessageQueryInput::default();
-    input.chat_id = Some(&chat_id);
-    input.sort_ascending = true;
+    let sort = [query::MessageComparator::new(
+        query::MessageComparatorProperty::ReceivedAt,
+    )];
     let _ = sc
-        .message_query(&input)
+        .message_query(
+            Some(&chat_filter()),
+            Some(&sort),
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
         .await
         .expect("message_query: must succeed");
 
@@ -390,12 +403,19 @@ async fn message_query_topic_id_filter_serializes() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
-    let mut input = jmap_chat_client::methods::MessageQueryInput::default();
-    input.chat_id = Some(&chat_id);
-    input.topic_id = Some("topic-1");
+    let mut cond = query::MessageFilterCondition::default();
+    cond.chat_id = Some(Id::from("chat-1"));
+    cond.topic_id = Some("topic-1".to_owned());
     let _ = sc
-        .message_query(&input)
+        .message_query(
+            Some(&Filter::Condition(cond)),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
         .await
         .expect("message_query: must succeed");
 
@@ -405,45 +425,6 @@ async fn message_query_topic_id_filter_serializes() {
         json!({ "chatId": "chat-1", "topicId": "topic-1" }),
         "filter must carry topicId verbatim"
     );
-}
-
-/// The spec's Message/query filter property list is `chatId`, `text`,
-/// `threadRootId`, `topicId`, `hasAttachment` and `hasMention`; it has no
-/// `after` or `before`. RFC 8620 §5.5: a filter the server does not
-/// support yields `unsupportedFilter`, so the client must refuse the
-/// deprecated fields instead of sending them or silently widening the
-/// result set.
-#[tokio::test]
-#[allow(deprecated)]
-async fn message_query_after_before_rejected_before_send() {
-    let server = MockServer::start().await;
-    let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
-    let when = UTCDate::from("2024-06-15T09:00:00Z");
-
-    for set_after in [true, false] {
-        let mut input = jmap_chat_client::methods::MessageQueryInput::default();
-        input.chat_id = Some(&chat_id);
-        if set_after {
-            input.after = Some(&when);
-        } else {
-            input.before = Some(&when);
-        }
-        let err = sc
-            .message_query(&input)
-            .await
-            .expect_err("message_query must reject after/before");
-        assert!(
-            matches!(err, jmap_base_client::ClientError::InvalidArgument(_)),
-            "expected InvalidArgument, got {err:?}"
-        );
-    }
-
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("recorded_requests must succeed");
-    assert!(reqs.is_empty(), "no HTTP request must be sent");
 }
 
 /// RFC 8620 §5.5 /query arguments:
@@ -469,15 +450,17 @@ async fn message_query_anchor_offset_calculate_total_serialize() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
     let anchor = Id::from("msg-7");
-    let mut input = jmap_chat_client::methods::MessageQueryInput::default();
-    input.chat_id = Some(&chat_id);
-    input.anchor = Some(&anchor);
-    input.anchor_offset = Some(-5);
-    input.calculate_total = Some(true);
     let _ = sc
-        .message_query(&input)
+        .message_query(
+            Some(&chat_filter()),
+            None,
+            None,
+            None,
+            Some(&anchor),
+            Some(-5),
+            Some(true),
+        )
         .await
         .expect("message_query: must succeed");
 
@@ -493,6 +476,67 @@ async fn message_query_anchor_offset_calculate_total_serialize() {
         json!(true),
         "calculateTotal must thread through"
     );
+}
+
+/// `Message/query` carries a compound filter with a `NOT` operator.
+///
+/// Oracle: RFC 8620 §5.5 — a FilterOperator has `operator` ("AND" |
+/// "OR" | "NOT"; "NOT: None of the conditions must match") and
+/// `conditions`; draft-atwood-jmap-chat-00 §Message/query — "All requests
+/// MUST include a `chatId` filter" and the `hasAttachment` (Boolean)
+/// filter property. The expected JSON is hand-written from those
+/// definitions.
+#[tokio::test]
+async fn message_query_sends_not_operator() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "Message/query",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "queryState": "mq-1",
+            "canCalculateChanges": true,
+            "position": 0,
+            "ids": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let mut with_attachment = query::MessageFilterCondition::default();
+    with_attachment.has_attachment = Some(true);
+    let filter = Filter::Operator(FilterOperator::new(
+        Operator::And,
+        vec![
+            chat_filter(),
+            Filter::Operator(FilterOperator::new(
+                Operator::Not,
+                vec![Filter::Condition(with_attachment)],
+            )),
+        ],
+    ));
+
+    let sc = helpers::make_client(&server);
+    sc.message_query(Some(&filter), None, None, None, None, None, None)
+        .await
+        .expect("message_query: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["filter"],
+        json!({
+            "operator": "AND",
+            "conditions": [
+                { "chatId": "chat-1" },
+                { "operator": "NOT", "conditions": [{ "hasAttachment": true }] }
+            ]
+        })
+    );
+}
+
+/// A `Message/query` filter with only `chatId: "chat-1"`.
+fn chat_filter() -> query::MessageFilter {
+    let mut cond = query::MessageFilterCondition::default();
+    cond.chat_id = Some(Id::from("chat-1"));
+    Filter::Condition(cond)
 }
 
 /// `Message/changes` must thread `since_state` to `sinceState` and emit

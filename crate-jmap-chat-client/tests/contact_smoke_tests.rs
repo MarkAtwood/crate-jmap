@@ -274,13 +274,19 @@ async fn chat_contact_query_filter_presence_sort_serialise() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let mut input = jmap_chat_client::methods::ChatContactQueryInput::default();
-    input.filter_blocked = Some(false);
-    input.filter_presence = Some(jmap_chat_client::types::ContactPresenceFilter::Online);
-    input.sort_property = Some(jmap_chat_client::methods::ContactSortProperty::LastSeenAt);
-    input.sort_ascending = Some(true);
+    let mut cond = query::ChatContactFilterCondition::default();
+    cond.blocked = Some(false);
+    cond.presence = Some(jmap_chat_types::Presence::Online);
+    let sort = [query::ChatContactComparator::new(
+        query::ChatContactComparatorProperty::LastSeenAt,
+    )];
     let _ = sc
-        .chat_contact_query(&input)
+        .chat_contact_query(
+            Some(&jmap_types::query::Filter::Condition(cond)),
+            Some(&sort),
+            None,
+            None,
+        )
         .await
         .expect("chat_contact_query: must succeed");
 
@@ -509,7 +515,7 @@ async fn chat_contact_create_sends_only_identity() {
     assert_eq!(obj, &json!({ "identity": "alice@example.com" }));
 }
 
-/// `ChatContactQueryInput::filter_identity` must serialise as the
+/// `ChatContactFilterCondition::identity` must serialise as the
 /// `identity` filter key. Oracle: draft-atwood-jmap-chat-00 (cefc217)
 /// §ChatContact/query: "Filter properties: `blocked` (Boolean),
 /// `presence` (String), `identity` (String; ...)".
@@ -529,10 +535,15 @@ async fn chat_contact_query_filter_identity_serialise() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let mut input = jmap_chat_client::methods::ChatContactQueryInput::default();
-    input.filter_identity = Some("alice@example.com".to_owned());
+    let mut cond = query::ChatContactFilterCondition::default();
+    cond.identity = Some("alice@example.com".to_owned());
     let _ = sc
-        .chat_contact_query(&input)
+        .chat_contact_query(
+            Some(&jmap_types::query::Filter::Condition(cond)),
+            None,
+            None,
+            None,
+        )
         .await
         .expect("chat_contact_query: must succeed");
 

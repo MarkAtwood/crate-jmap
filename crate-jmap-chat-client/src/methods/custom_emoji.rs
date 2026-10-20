@@ -7,8 +7,8 @@ use jmap_types::{query::Filter, Id, PatchObject, State};
 use serde::Serialize;
 
 use super::{
-    ChangesResponse, CustomEmojiCreateInput, CustomEmojiPatch, CustomEmojiQueryInput, GetResponse,
-    QueryChangesResponse, QueryResponse, SetResponse,
+    ChangesResponse, CustomEmojiCreateInput, CustomEmojiPatch, GetResponse, QueryChangesResponse,
+    QueryResponse, SetResponse,
 };
 
 impl super::SessionClient {
@@ -226,33 +226,52 @@ impl super::SessionClient {
 
     /// Query CustomEmoji IDs (RFC 8620 §5.5 / JMAP Chat §4.16 CustomEmoji/query).
     ///
+    /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
+    /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    /// [`CustomEmojiFilterCondition`](jmap_chat_types::query::CustomEmojiFilterCondition); use
+    /// `jmap_metadata_types::WithMetadata<CustomEmojiFilterCondition>` to add the
+    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// Pass `None` to omit it; name the type when you do (`None::<&CustomEmojiFilter>`).
+    ///
     /// # Errors
     ///
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing `filter` or `sort` fails (a caller-supplied condition
+    ///   type `C` whose `Serialize` impl errors).
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
-    ///   the matching error list on [`Self::custom_emoji_get`]. RFC
-    ///   8620 §5.5 defines additional /query method-level errors
+    ///   the matching error list on [`Self::custom_emoji_get`]. RFC 8620 §5.5
+    ///   defines additional /query method-level errors
     ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
     ///   `tooManyChanges`) that surface as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn custom_emoji_query(
+    pub async fn custom_emoji_query<C: Serialize>(
         &self,
-        input: &CustomEmojiQueryInput<'_>,
+        filter: Option<&Filter<C>>,
+        sort: Option<&[jmap_chat_types::query::CustomEmojiComparator]>,
+        position: Option<u64>,
+        limit: Option<u64>,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
         });
-        if let Some(sid) = input.filter_space_id {
-            args["filter"] = serde_json::json!({ "spaceId": sid });
+        if let Some(f) = filter {
+            args["filter"] =
+                serde_json::to_value(f).map_err(jmap_base_client::ClientError::from_parse)?;
         }
-        if let Some(p) = input.position {
+        if let Some(s) = sort {
+            args["sort"] =
+                serde_json::to_value(s).map_err(jmap_base_client::ClientError::from_parse)?;
+        }
+        if let Some(p) = position {
             args["position"] = p.into();
         }
-        if let Some(l) = input.limit {
+        if let Some(l) = limit {
             args["limit"] = l.into();
         }
         let req = super::build_request("CustomEmoji/query", args, super::USING_CHAT);

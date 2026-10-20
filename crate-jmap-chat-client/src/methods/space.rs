@@ -14,9 +14,8 @@ use serde::Serialize;
 use super::{
     ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse,
     SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddMemberInput, SpaceAddRoleInput,
-    SpaceCreateInput, SpaceJoinInput, SpaceJoinResponse, SpacePatch, SpaceQueryInput,
-    SpaceUpdateCategoryInput, SpaceUpdateChannelInput, SpaceUpdateMemberInput,
-    SpaceUpdateRoleInput,
+    SpaceCreateInput, SpaceJoinInput, SpaceJoinResponse, SpacePatch, SpaceUpdateCategoryInput,
+    SpaceUpdateChannelInput, SpaceUpdateMemberInput, SpaceUpdateRoleInput,
 };
 
 impl super::SessionClient {
@@ -147,13 +146,21 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Query Space IDs with optional filter (RFC 8620 §5.5 / JMAP Chat §Space/query).
+    /// Query Space IDs (RFC 8620 §5.5 / JMAP Chat §Space/query).
     ///
-    /// Only keys that are `Some` in `input` are included in the filter object;
-    /// an empty filter is sent as JSON `null`.
+    /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
+    /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    /// [`SpaceFilterCondition`](jmap_chat_types::query::SpaceFilterCondition); use
+    /// `jmap_metadata_types::WithMetadata<SpaceFilterCondition>` to add the
+    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// Pass `None` to send `"filter": null`; name the type when you do (`None::<&SpaceFilter>`).
     ///
     /// # Errors
     ///
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing `filter` or `sort` fails (a caller-supplied condition
+    ///   type `C` whose `Serialize` impl errors).
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:chat`.
@@ -164,31 +171,26 @@ impl super::SessionClient {
     ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
     ///   `tooManyChanges`) that surface as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn space_query(
+    pub async fn space_query<C: Serialize>(
         &self,
-        input: &SpaceQueryInput<'_>,
+        filter: Option<&Filter<C>>,
+        sort: Option<&[jmap_chat_types::query::SpaceComparator]>,
+        position: Option<u64>,
+        limit: Option<u64>,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let mut filter = serde_json::Map::new();
-        if let Some(n) = input.filter_name {
-            filter.insert("name".into(), n.into());
-        }
-        if let Some(p) = input.filter_is_public {
-            filter.insert("isPublic".into(), p.into());
-        }
-        let filter_val = if filter.is_empty() {
-            serde_json::Value::Null
-        } else {
-            serde_json::Value::Object(filter)
-        };
         let mut args = serde_json::json!({
             "accountId": account_id,
-            "filter": filter_val,
+            "filter": serde_json::to_value(filter).map_err(jmap_base_client::ClientError::from_parse)?,
         });
-        if let Some(p) = input.position {
+        if let Some(s) = sort {
+            args["sort"] =
+                serde_json::to_value(s).map_err(jmap_base_client::ClientError::from_parse)?;
+        }
+        if let Some(p) = position {
             args["position"] = p.into();
         }
-        if let Some(l) = input.limit {
+        if let Some(l) = limit {
             args["limit"] = l.into();
         }
         let req = super::build_request("Space/query", args, super::USING_CHAT);
