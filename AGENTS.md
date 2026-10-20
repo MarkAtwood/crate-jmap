@@ -322,6 +322,17 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   current serde-flatten behavior so a future serde change does not
   silently alter the contract).
 
+  **Public dependency — serde_json ^1 (decided 2026-10-19).** The `pub
+  extra: serde_json::Map<String, serde_json::Value>` field, together with
+  `jmap-types::Invocation` (`(String, serde_json::Value, String)`) and the
+  Sloppy-Value fields above, makes `serde_json` 1.x part of the public
+  API of every `jmap-*` crate. A `serde_json` major-version bump would
+  therefore force a coordinated major bump across the whole family. The
+  workspace accepts this tradeoff deliberately, for consistency with the
+  Sloppy-Value pattern and zero-cost passthrough of vendor dicts; do not
+  introduce an `Extras` newtype or accessor layer to "insulate" callers
+  without explicit user approval.
+
   Result-enum forward-compat shape:
 
   ```rust
