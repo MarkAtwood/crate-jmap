@@ -60,6 +60,7 @@ pub mod backend;
 pub mod ban;
 pub mod chat;
 pub mod contact;
+pub mod did_auth;
 pub mod emoji;
 pub mod ephemeral;
 pub mod expiry;
@@ -95,6 +96,7 @@ pub use contact::{
     handle_contact_changes, handle_contact_get, handle_contact_query, handle_contact_query_changes,
     handle_contact_set,
 };
+pub use did_auth::{verify_did_signature, DidAuthRejection};
 pub use emoji::{
     handle_emoji_changes, handle_emoji_get, handle_emoji_query, handle_emoji_query_changes,
     handle_emoji_set,

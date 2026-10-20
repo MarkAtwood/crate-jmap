@@ -27,6 +27,11 @@ jmap-types = { workspace = true }
 jmap-chat-types = { workspace = true }
 # `Did` parses ChatContact/set `did` (draft-atwood-jmap-chat-did-00).
 jmap-did-types = { workspace = true }
+# DID-keyed peer auth (draft-atwood-jmap-chat-did-00 §Federation
+# Authentication) reuses the RFC 9421 verification of the I/O-free
+# peer-auth crate; base64 decodes `publicKeyJwk` `x`.
+jmap-peer-auth = { workspace = true }
+base64 = "0.22"
 jmap-server = { workspace = true }
 # `serde::de::DeserializeOwned` trait bound on Space/set patch-entry parsers;
 # matches sibling jmap-mail-server / jmap-server dep set.
@@ -43,6 +48,7 @@ getrandom = { workspace = true, optional = true }
 uuid = { version = "1", default-features = false, features = ["v4", "std"], optional = true }
 
 [dev-dependencies]
+http = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 # Tests use the public MemoryBackend reference impl from `src/memory.rs`.
 # Self-dep with the `memory` feature ensures integration tests get the

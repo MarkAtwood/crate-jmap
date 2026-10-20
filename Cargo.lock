@@ -1598,10 +1598,13 @@ dependencies = [
 name = "jmap-chat-server"
 version = "0.3.0"
 dependencies = [
+ "base64",
  "getrandom 0.3.4",
+ "http",
  "jmap-chat-server",
  "jmap-chat-types",
  "jmap-did-types",
+ "jmap-peer-auth",
  "jmap-server",
  "jmap-types",
  "serde",

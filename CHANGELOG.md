@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: `verify_did_signature`, DID-keyed peer
+  authentication (draft-atwood-jmap-chat-did-00 §Federation
+  Authentication). It verifies the request's `jmap-chat-peer` RFC 9421
+  signature against the Ed25519 keys of the resolved DID Document's
+  `authentication` relationship (embedded, absolute or `#fragment`
+  references; `publicKeyJwk` or Ed25519 `publicKeyMultibase`). No
+  document, a document whose `id` is not the DID, or a failed check is a
+  `DidAuthRejection`. The crate now depends on `jmap-peer-auth`.
 - **jmap-chat-federation-server**: `assigneeIds` in the metadata of a
   `urn:jmap:chat:cap:task` MessageAction is mapped as a user reference
   (draft-atwood-jmap-chat-tasks-00 §Federation). `Peer/deliver` resolves
