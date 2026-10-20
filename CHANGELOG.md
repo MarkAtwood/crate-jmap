@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-types**: `Mention::new(id)` and `BroadcastMention::new(scope)`
+  constructors.
+- **jmap-chat-client**: `mentions_from_spans` and
+  `broadcast_mentions_from_spans` derive a composed Message's `mentions` and
+  `broadcastMentions` from its rich-body `"mention"` and `"broadcast"` spans,
+  one entry per distinct user or scope, per draft-atwood-jmap-chat-00 §Rich
+  Body Format: "A client composing a rich body MUST list each user it marks
+  with a `"mention"` span in `mentions`".
 - **jmap-chat-types**: `RichBody`, `Span` and `SpanType` model the parsed
   `body` of an `"application/jmap-chat-rich"` Message
   (draft-atwood-jmap-chat-00 §Rich Body Format). An unrecognized span type

@@ -1,8 +1,68 @@
-//! Display-formatting helpers for JMAP Chat clients.
+//! Display-formatting and composing helpers for JMAP Chat clients.
 
 use chrono::{DateTime, Datelike, Timelike, Utc};
 
-use jmap_types::UTCDate;
+use jmap_chat_types::{BroadcastMention, Mention, RichBody, SpanType};
+use jmap_types::{Id, UTCDate};
+
+/// The `mentions` a client composing `body` must send: one [`Mention`] per
+/// distinct `userId` of a `"mention"` span, in first-seen order
+/// (draft-atwood-jmap-chat-00 §Rich Body Format: "A client composing a rich
+/// body MUST list each user it marks with a `"mention"` span in
+/// `mentions`").
+///
+/// A `"mention"` span without a `userId` marks no user and is skipped.
+///
+/// ```rust
+/// use jmap_chat_client::mentions_from_spans;
+/// use jmap_chat_types::RichBody;
+///
+/// let body: RichBody = serde_json::from_str(
+///     r#"{"spans":[{"type":"mention","text":"@alice","userId":"contact-alice"}]}"#,
+/// )
+/// .expect("valid rich body");
+/// assert_eq!(mentions_from_spans(&body)[0].id.as_ref(), "contact-alice");
+/// ```
+pub fn mentions_from_spans(body: &RichBody) -> Vec<Mention> {
+    // ponytail: linear dedup scan, O(n^2) in mention spans; a message has few.
+    let mut out: Vec<Mention> = Vec::new();
+    for user_id in body
+        .spans
+        .iter()
+        .filter(|s| s.kind == SpanType::Mention)
+        .filter_map(|s| s.user_id.as_deref())
+    {
+        if !out.iter().any(|m| m.id.as_ref() == user_id) {
+            out.push(Mention::new(Id::from(user_id)));
+        }
+    }
+    out
+}
+
+/// The `broadcastMentions` a client composing `body` must send: one
+/// [`BroadcastMention`] per distinct `scope` of a `"broadcast"` span, in
+/// first-seen order (draft-atwood-jmap-chat-00 §Rich Body Format: "A client
+/// composing a rich body MUST list ... each scope it marks with a
+/// `"broadcast"` span in `broadcastMentions`").
+///
+/// A `"broadcast"` span without a `scope` marks no scope and is skipped. A
+/// scope outside [`BROADCAST_MENTION_SCOPES`](jmap_chat_types::BROADCAST_MENTION_SCOPES)
+/// is passed through unchanged; servers reject it.
+pub fn broadcast_mentions_from_spans(body: &RichBody) -> Vec<BroadcastMention> {
+    // ponytail: linear dedup scan; at most a handful of distinct scopes.
+    let mut out: Vec<BroadcastMention> = Vec::new();
+    for scope in body
+        .spans
+        .iter()
+        .filter(|s| s.kind == SpanType::Broadcast)
+        .filter_map(|s| s.scope.as_deref())
+    {
+        if !out.iter().any(|b| b.scope == scope) {
+            out.push(BroadcastMention::new(scope));
+        }
+    }
+    out
+}
 
 /// Format a receipt timestamp without exposing sub-minute precision.
 ///

@@ -299,6 +299,27 @@ pub struct BroadcastMention {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl Mention {
+    /// Construct a [`Mention`] of the user whose ChatContact `id` (or
+    /// accountId, for the owner) is `id`.
+    pub fn new(id: Id) -> Self {
+        Self {
+            id,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
+impl BroadcastMention {
+    /// Construct a [`BroadcastMention`] of `scope`.
+    pub fn new(scope: impl Into<String>) -> Self {
+        Self {
+            scope: scope.into(),
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 /// The set of spec-defined broadcast-mention scope values
 /// (draft-atwood-jmap-chat-00 §4.4.1).
 ///
