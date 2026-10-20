@@ -104,10 +104,7 @@ impl Sha256 {
     pub fn to_cidv1_bytes(&self) -> [u8; CIDV1_LEN] {
         let mut out = [0u8; CIDV1_LEN];
         out[..PREFIX.len()].copy_from_slice(&PREFIX);
-        let hex = self.as_str().as_bytes();
-        for (i, byte) in out[PREFIX.len()..].iter_mut().enumerate() {
-            *byte = (nibble(hex[2 * i]) << 4) | nibble(hex[2 * i + 1]);
-        }
+        out[PREFIX.len()..].copy_from_slice(&self.to_bytes());
         out
     }
 
@@ -186,14 +183,5 @@ impl Sha256 {
             return Err(CidV1Error::NonCanonicalBase32);
         }
         Self::from_cidv1_bytes(&bytes)
-    }
-}
-
-/// Value of one lowercase hex digit. Only called on [`Sha256`]'s
-/// validated `[0-9a-f]` text.
-fn nibble(c: u8) -> u8 {
-    match c {
-        b'0'..=b'9' => c - b'0',
-        _ => c - b'a' + 10,
     }
 }

@@ -48,6 +48,12 @@
 //!   `sha2-256` multihash) mapping from the draft's informative
 //!   §Mapping to CIDv1 appendix. [`CidV1Error`] reports a rejected
 //!   reverse conversion.
+//! - [`Sha256::to_base64`] and [`Sha256::from_base64`] — the padded
+//!   base64 form used by the RFC 9404 `digest:sha-256` property, so a
+//!   client can "convert encodings before comparing" (draft
+//!   §Relationship to JMAP Blob Management Extensions).
+//!   [`Sha256Base64Error`] reports a rejected parse.
+//!   [`Sha256::to_bytes`] returns the 32 raw digest bytes.
 //! - [`JMAP_CID_URI`] — the `urn:ietf:params:jmap:cid` capability
 //!   URI constant (draft §3).
 //! - [`CidCapability`] — the value object of the
@@ -72,10 +78,12 @@
 
 #![forbid(unsafe_code)]
 
+pub mod blobext;
 pub mod capability;
 pub mod cidv1;
 pub mod digest;
 
+pub use blobext::Sha256Base64Error;
 pub use capability::{CidCapability, JMAP_CID_URI};
 pub use cidv1::CidV1Error;
 pub use digest::{Sha256, Sha256DigestError};

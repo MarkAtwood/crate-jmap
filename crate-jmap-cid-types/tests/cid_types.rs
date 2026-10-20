@@ -186,3 +186,84 @@ fn from_cidv1_rejects_impossible_base32_lengths() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Base64 conversion for RFC 9404 `digest:sha-256`
+//
+// draft-atwood-jmap-cid-00 L181-188: the `sha256` field "uses lowercase hex
+// encoding rather than base64. Clients MAY use both mechanisms to
+// cross-validate results, provided they convert encodings before comparing".
+// RFC 9404 §4.1: `digest:<algorithm>` is "The base64 encoding of the digest".
+//
+// Oracle: base64 strings copied verbatim from the RFC examples; each hex
+// form was computed independently with `openssl dgst -sha256` over the
+// example content and cross-checked with `base64 -d | xxd -p`.
+// ---------------------------------------------------------------------------
+
+use jmap_cid_types::Sha256Base64Error;
+
+/// RFC 9404 §4.1 example, R2 response: `"data:asText": "quick bro"`,
+/// `"digest:sha-256": "gdg9INW7lwHK6OQ9u0dwDz2ZY/gubi0En0xlFpKt0OA="`.
+const RFC9404_B64: &str = "gdg9INW7lwHK6OQ9u0dwDz2ZY/gubi0En0xlFpKt0OA=";
+/// `printf 'quick bro' | openssl dgst -sha256`.
+const RFC9404_HEX: &str = "81d83d20d5bb9701cae8e43dbb47700f3d9963f82e6e2d049f4c651692add0e0";
+/// RFC 9530 Appendix B.1, Figure 12: `{"hello": "world"}` followed by an LF,
+/// `sha-256=:RK/0qy18MlBSVnWgjwz6lZEWjP/lF5HF9bvEF8FabDg=:`.
+const RFC9530_B64: &str = "RK/0qy18MlBSVnWgjwz6lZEWjP/lF5HF9bvEF8FabDg=";
+/// `printf '{"hello": "world"}\n' | openssl dgst -sha256`.
+const RFC9530_HEX: &str = "44aff4ab2d7c3250525675a08f0cfa9591168cffe51791c5f5bbc417c15a6c38";
+/// RFC 9530 Appendix B.2, Figure 14: "computed on empty content",
+/// `sha-256=:47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=:`.
+const EMPTY_B64: &str = "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=";
+
+#[test]
+fn to_base64_matches_rfc_vectors() {
+    assert_eq!(sha(RFC9404_HEX).to_base64(), RFC9404_B64);
+    assert_eq!(sha(RFC9530_HEX).to_base64(), RFC9530_B64);
+    assert_eq!(sha(EMPTY_SHA256).to_base64(), EMPTY_B64);
+}
+
+#[test]
+fn from_base64_matches_rfc_vectors() {
+    assert_eq!(Sha256::from_base64(RFC9404_B64).unwrap(), RFC9404_HEX);
+    assert_eq!(Sha256::from_base64(RFC9530_B64).unwrap(), RFC9530_HEX);
+    assert_eq!(Sha256::from_base64(EMPTY_B64).unwrap(), EMPTY_SHA256);
+}
+
+#[test]
+fn to_bytes_is_hex_decoded_digest() {
+    // L362: "The 32 bytes obtained by decoding the 64 hex digits of
+    // `sha256`", hand-transcribed in EMPTY_CID_BYTES after the 4-byte prefix.
+    assert_eq!(sha(EMPTY_SHA256).to_bytes()[..], EMPTY_CID_BYTES[4..]);
+}
+
+#[test]
+fn from_base64_rejects_sha1_length_digest() {
+    // RFC 9404 §4.1 example R1: `"digest:sha": "wIVPufsDxBzOOALLDSIFKebu+U4="`
+    // is a 20-byte SHA-1 digest, not a SHA-256 one.
+    assert!(matches!(
+        Sha256::from_base64("wIVPufsDxBzOOALLDSIFKebu+U4="),
+        Err(Sha256Base64Error::WrongLength { got: 20, .. })
+    ));
+}
+
+#[test]
+fn from_base64_rejects_non_canonical_forms() {
+    // RFC 4648 §3.2: padding is required unless the referring spec says
+    // otherwise, and RFC 9404 does not; §5 `-_` is a different alphabet;
+    // §3.5: pad bits must be zero, so "0OB=" (low bits 01) is non-canonical
+    // where the RFC 9404 vector ends "0OA=".
+    for bad in [
+        RFC9404_B64.trim_end_matches('='),
+        "gdg9INW7lwHK6OQ9u0dwDz2ZY_gubi0En0xlFpKt0OA=",
+        "gdg9INW7lwHK6OQ9u0dwDz2ZY/gubi0En0xlFpKt0OB=",
+        "gdg9INW7lwHK6OQ9u0dwDz2Z Y/gubi0En0xlFpKt0OA=",
+        "",
+    ] {
+        assert!(Sha256::from_base64(bad).is_err(), "{bad:?}");
+    }
+    assert!(matches!(
+        Sha256::from_base64("gdg9INW7lwHK6OQ9u0dwDz2ZY_gubi0En0xlFpKt0OA="),
+        Err(Sha256Base64Error::InvalidBase64 { .. })
+    ));
+}
