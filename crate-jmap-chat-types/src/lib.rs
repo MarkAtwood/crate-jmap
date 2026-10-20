@@ -117,6 +117,7 @@ pub mod position;
 pub mod presence;
 pub mod push;
 pub mod query;
+pub mod rich;
 pub mod space;
 pub mod space_set;
 pub mod vocabulary;
@@ -152,6 +153,7 @@ pub use message::{
 pub use position::ReadPosition;
 pub use presence::{Presence, PresenceStatus};
 pub use push::{ChatMessageEntry, ChatMessagePush, ChatPushConfig, UrgencyLevel};
+pub use rich::{RichBody, Span, SpanType};
 pub use space::{Category, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
 pub use space_set::{
     CategoryPatch, ChannelCreate, ChannelPatch, MemberCreate, MemberPatch, RolePatch,

@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-types**: `RichBody`, `Span` and `SpanType` model the parsed
+  `body` of an `"application/jmap-chat-rich"` Message
+  (draft-atwood-jmap-chat-00 §Rich Body Format). An unrecognized span type
+  parses as `SpanType::Other` and round-trips with its fields unchanged, per
+  "Servers MUST NOT reject messages solely because they contain unrecognized
+  span types".
 - **jmap-chat-types**: `vocabulary::COMPANION_EPHEMERAL_DATA_TYPES` lists the
   companion-registered `ChatStreamEnable` `dataTypes` values `"vtc"`
   (draft-atwood-jmap-vtc-wss-00) and `"scene"`
