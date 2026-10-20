@@ -1,5 +1,6 @@
 //! `replyTo` / `threadRootId` validation and thread counts
-//! (bd:JMAP-y3f2.3).
+//! (bd:JMAP-y3f2.3), and their `Message/changes` reporting
+//! (bd:JMAP-y3f2.15).
 //!
 //! Oracles, quoted from draft-atwood-jmap-chat-00.md at jmap-chat-spec
 //! 91672c9:
@@ -35,7 +36,8 @@ mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{
-    handle_chat_set, handle_message_get, handle_message_query, handle_message_set, ChatLimits,
+    handle_chat_set, handle_message_changes, handle_message_get, handle_message_query,
+    handle_message_set, handle_position_set, ChatLimits,
 };
 use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
@@ -339,4 +341,96 @@ async fn thread_root_id_filter_with_supports_threads() {
         .collect();
     ids.sort_unstable();
     assert_eq!(ids, [A, B, C], "{resp}");
+}
+
+// ---------------------------------------------------------------------------
+// Count changes advance Message state (bd:JMAP-y3f2.15)
+//
+// RFC 8620 §5.1: "If the data changes, this string MUST change." §5.2
+// `updated`: "An array of Ids for records that have been updated since
+// the old state." `replyCount` and `unreadReplyCount` are Message data
+// (L638-642), so a write that changes them must list the Message.
+// ---------------------------------------------------------------------------
+
+async fn message_state(backend: &MemoryBackend) -> String {
+    let HandlerOutput { primary: resp, .. } =
+        handle_message_get(backend, &(), json!({ "accountId": ACCOUNT_ID, "ids": [] }))
+            .await
+            .expect("Message/get");
+    resp["state"].as_str().expect("state").to_owned()
+}
+
+async fn message_changes(backend: &MemoryBackend, since: &str) -> Value {
+    let HandlerOutput { primary: resp, .. } = handle_message_changes(
+        backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "sinceState": since }),
+    )
+    .await
+    .expect("Message/changes");
+    resp
+}
+
+/// Creating a reply to A raises A's `replyCount` from 1 to 2 (L638-639),
+/// so `Message/changes` lists A as updated and the reply as created.
+#[tokio::test]
+async fn reply_create_lists_parent_updated() {
+    let backend = MemoryBackend::new();
+    let (chat, _) = fixture(&backend).await;
+    threads_on(&backend);
+    let since = message_state(&backend).await;
+    let resp = create(&backend, reply(&chat, A, None)).await;
+    let new_id = resp["created"]["m"]["id"].clone();
+    let changes = message_changes(&backend, &since).await;
+    assert_eq!(changes["created"], json!([new_id]), "{changes}");
+    assert_eq!(changes["updated"], json!([A]), "{changes}");
+}
+
+/// Destroying B, the only reply to A, lowers A's `replyCount` from 1 to
+/// 0, so `Message/changes` lists A as updated and B as destroyed.
+#[tokio::test]
+async fn reply_destroy_lists_parent_updated() {
+    let backend = MemoryBackend::new();
+    let _ = fixture(&backend).await;
+    threads_on(&backend);
+    let since = message_state(&backend).await;
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "destroy": [B] }),
+    )
+    .await
+    .expect("Message/set");
+    assert_eq!(resp["destroyed"], json!([B]), "{resp}");
+    let changes = message_changes(&backend, &since).await;
+    assert_eq!(changes["destroyed"], json!([B]), "{changes}");
+    assert_eq!(changes["updated"], json!([A]), "{changes}");
+}
+
+/// Moving `lastReadMessageId` from A to C (L641-642, ids ordered per
+/// L591) marks reply C to ROOT read, so ROOT's `unreadReplyCount` drops
+/// from 1 to 0 and ROOT is listed as updated. B also crosses the read
+/// mark, but its parent A has a `threadRootId`, carries no
+/// `unreadReplyCount`, and is not listed.
+#[tokio::test]
+async fn read_position_update_lists_thread_root_updated() {
+    let backend = MemoryBackend::new();
+    let _ = fixture(&backend).await;
+    threads_on(&backend);
+    let since = message_state(&backend).await;
+    let HandlerOutput { primary: resp, .. } = handle_position_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": { "rp1": { "lastReadMessageId": C } },
+        }),
+    )
+    .await
+    .expect("ReadPosition/set");
+    assert!(resp["updated"].get("rp1").is_some(), "{resp}");
+    let changes = message_changes(&backend, &since).await;
+    assert_eq!(changes["updated"], json!([ROOT]), "{changes}");
+    assert_eq!(changes["created"], json!([]), "{changes}");
+    assert_eq!(changes["destroyed"], json!([]), "{changes}");
 }

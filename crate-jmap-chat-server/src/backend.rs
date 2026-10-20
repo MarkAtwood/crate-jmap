@@ -643,6 +643,22 @@ pub trait ChatBackend: JmapBackend {
     /// record the id as created, updated or destroyed so
     /// [`get_changes`](JmapBackend::get_changes) reports it.
     ///
+    /// When [`ChatLimits::supports_threads`] is `true`, `Message/get`
+    /// returns the server-computed `replyCount` and `unreadReplyCount`
+    /// (draft-atwood-jmap-chat-00 §Message), so a write that changes them
+    /// changes those Messages. The backend MUST then also record as
+    /// updated in `Message` state:
+    ///
+    /// - on a Message create or destroy (including
+    ///   [`expire_message`](Self::expire_message) and
+    ///   [`read_and_burn_message`](Self::read_and_burn_message)), the
+    ///   still-stored Message its `replyTo` names, whose `replyCount`
+    ///   changed;
+    /// - on a ReadPosition update that changes `lastReadMessageId`, each
+    ///   thread root (no `threadRootId`) in that Chat with a direct reply
+    ///   whose id moved across `lastReadMessageId`, whose
+    ///   `unreadReplyCount` changed.
+    ///
     /// The write, the state advance and the change record MUST be atomic
     /// with respect to other callers: the reference `MemoryBackend` does
     /// all three under one mutex acquisition, and a database backend uses

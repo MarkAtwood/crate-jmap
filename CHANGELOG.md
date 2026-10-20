@@ -276,6 +276,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **BREAKING** **jmap-chat-server**: with `supportsThreads` on, a Message
+  create or destroy now records the `replyTo` parent as an updated Message,
+  and a ReadPosition update that moves `lastReadMessageId` records each
+  affected thread root, so `Message/changes` reports `replyCount` and
+  `unreadReplyCount` changes (draft-atwood-jmap-chat-00 §Message, RFC 8620
+  §5.1: "If the data changes, this string MUST change"). `ChatBackend`
+  implementors MUST do the same; see "State and change log" on
+  `ChatBackend::create_object`. `MemoryBackend` does.
 - **jmap-chat-server**: `Message/set` update now applies the checks that
   create already did (draft-atwood-jmap-chat-00 §Account-Level Capability
   Object, §Fields Inside the Ciphertext): an edited `body` over
