@@ -12,7 +12,10 @@
 //!
 //! [`ChatBackend::apply_space_patch`]: crate::backend::ChatBackend::apply_space_patch
 
+use std::collections::HashSet;
+
 use crate::backend::SpacePatchOp;
+use jmap_chat_types::ChannelPermission;
 
 /// Permission string: top-level Space metadata mutations.
 ///
@@ -60,6 +63,65 @@ pub const BAN: &str = "ban";
 /// with a non-empty `broadcastMentions` array requires the
 /// `"mention_broadcast"` Space permission."
 pub const MENTION_BROADCAST: &str = "mention_broadcast";
+
+/// Permission string: see a channel and its messages.
+///
+/// Per draft-atwood-jmap-chat-00 §Message/query: "For channel Chats, the
+/// server MUST verify the caller holds the `"view"` permission before
+/// returning messages in `Message/get` or `Message/query` responses".
+pub const VIEW: &str = "view";
+
+/// Permission string: send a Message in a channel Chat.
+///
+/// Per draft-atwood-jmap-chat-00 §Message/set: "For channel Chats, the
+/// server MUST verify the sender holds the `"send"` permission (resolved
+/// per {{space-permissions}}) before accepting the message".
+pub const SEND: &str = "send";
+
+/// Resolve a member's effective permissions in one channel Chat, per
+/// draft-atwood-jmap-chat-00 §Space Permission Resolution.
+///
+/// `space_permissions` is step 1, the union of `permissions` across every
+/// SpaceRole the member holds, including the implicit `@everyone` role.
+/// `role_ids` are the SpaceRole ids the member holds, `member_id` is its
+/// SpaceMember `id`, and `overrides` is the channel's
+/// `permissionOverrides`. Steps 2 to 5 then apply, in order: `deny` of
+/// role-targeted records matching `role_ids`, their `allow`, `deny` of
+/// the record targeting `member_id`, and its `allow`.
+///
+/// Within one step every entry has the same effect (remove or add), so
+/// the draft's "ascending position order" for role-targeted records
+/// cannot change the result and is not consulted.
+///
+/// Records whose `targetType` is neither `"role"` nor `"member"` match
+/// nothing.
+pub fn resolve_channel_permissions(
+    space_permissions: HashSet<String>,
+    member_id: &str,
+    role_ids: &HashSet<&str>,
+    overrides: &[ChannelPermission],
+) -> HashSet<String> {
+    let role_records: Vec<&ChannelPermission> = overrides
+        .iter()
+        .filter(|o| o.target_type == "role" && role_ids.contains(o.target_id.as_ref()))
+        .collect();
+    let member_records: Vec<&ChannelPermission> = overrides
+        .iter()
+        .filter(|o| o.target_type == "member" && o.target_id.as_ref() == member_id)
+        .collect();
+    let mut perms = space_permissions;
+    for records in [role_records, member_records] {
+        for o in &records {
+            for p in &o.deny {
+                perms.remove(p);
+            }
+        }
+        for o in &records {
+            perms.extend(o.allow.iter().cloned());
+        }
+    }
+    perms
+}
 
 /// Result of [`required_permissions_for_op`] — typed alternative to
 /// a sentinel-string return value.
@@ -455,5 +517,100 @@ mod tests {
         assert_ne!(a, u);
         assert_ne!(b, u);
         assert_eq!(u, RequiredPermissions::UnknownOp);
+    }
+
+    // Oracle for `resolve_channel_permissions`: draft-atwood-jmap-chat-00
+    // §Space Permission Resolution (jmap-chat-spec 91672c9, L1619-1631),
+    // quoted per test. Overrides are hand-written JSON shaped after
+    // §ChannelPermission: "`targetId` (String): A SpaceRole id or a
+    // SpaceMember `id`. `targetType` (String): `"role"` or `"member"`."
+
+    use serde_json::json;
+
+    fn overrides(v: serde_json::Value) -> Vec<ChannelPermission> {
+        serde_json::from_value(v).expect("hand-written ChannelPermission[]")
+    }
+
+    fn set(items: &[&str]) -> HashSet<String> {
+        items.iter().map(|s| (*s).to_owned()).collect()
+    }
+
+    fn resolve(base: &[&str], roles: &[&str], o: serde_json::Value) -> HashSet<String> {
+        let role_ids: HashSet<&str> = roles.iter().copied().collect();
+        resolve_channel_permissions(set(base), "m1", &role_ids, &overrides(o))
+    }
+
+    // Step 1: "Compute the union of `permissions` across all SpaceRoles
+    // held by the member, including the implicit `@everyone` role." With
+    // no overrides the Space-level union is the result.
+    #[test]
+    fn step1_no_overrides_keeps_space_union() {
+        assert_eq!(
+            resolve(&["view", "send"], &["r1"], json!([])),
+            set(&["view", "send"])
+        );
+    }
+
+    // Step 2: "Apply `deny` entries from any ChannelPermission records
+    // matching the member's roles (`targetType: "role"`)". A record for a
+    // role the member does not hold does not apply.
+    #[test]
+    fn step2_role_deny_removes_permission() {
+        let o = json!([
+            { "targetId": "r1", "targetType": "role", "allow": [], "deny": ["send"] },
+            { "targetId": "r9", "targetType": "role", "allow": [], "deny": ["view"] }
+        ]);
+        assert_eq!(resolve(&["view", "send"], &["r1"], o), set(&["view"]));
+    }
+
+    // Step 3: "Apply `allow` entries from the same role-targeted records"
+    // — after step 2, so one role's allow beats another role's deny.
+    #[test]
+    fn step3_role_allow_overrides_role_deny() {
+        let o = json!([
+            { "targetId": "r1", "targetType": "role", "allow": [], "deny": ["send"] },
+            { "targetId": "r2", "targetType": "role", "allow": ["send"], "deny": [] }
+        ]);
+        assert_eq!(
+            resolve(&["view", "send"], &["r1", "r2"], o),
+            set(&["view", "send"])
+        );
+    }
+
+    // Step 4: "Apply `deny` entries from any ChannelPermission record
+    // matching the member directly (`targetType: "member"`)" — after step
+    // 3, so a member deny beats a role allow.
+    #[test]
+    fn step4_member_deny_overrides_role_allow() {
+        let o = json!([
+            { "targetId": "r1", "targetType": "role", "allow": ["send"], "deny": [] },
+            { "targetId": "m1", "targetType": "member", "allow": [], "deny": ["send"] }
+        ]);
+        assert_eq!(resolve(&["view"], &["r1"], o), set(&["view"]));
+    }
+
+    // Step 5: "Apply `allow` entries from the same member-targeted
+    // record." — last, so a member allow beats a role deny of the same
+    // permission, and a record for another member does not apply.
+    #[test]
+    fn step5_member_allow_overrides_role_deny() {
+        let o = json!([
+            { "targetId": "r1", "targetType": "role", "allow": [], "deny": ["send", "view"] },
+            { "targetId": "m1", "targetType": "member", "allow": ["send"], "deny": [] },
+            { "targetId": "m2", "targetType": "member", "allow": ["view"], "deny": [] }
+        ]);
+        assert_eq!(resolve(&["view", "send"], &["r1"], o), set(&["send"]));
+    }
+
+    // A role-targeted record never matches a member id and vice versa:
+    // §ChannelPermission `targetType` distinguishes "a SpaceRole id or a
+    // SpaceMember `id`".
+    #[test]
+    fn target_type_selects_the_id_space() {
+        let o = json!([
+            { "targetId": "m1", "targetType": "role", "allow": ["pin"], "deny": [] },
+            { "targetId": "r1", "targetType": "member", "allow": ["ban"], "deny": [] }
+        ]);
+        assert_eq!(resolve(&["view"], &["r1"], o), set(&["view"]));
     }
 }

@@ -605,6 +605,16 @@ impl JmapBackend for MemoryBackend {
                             message_matches_filter(obj, fv, account_id)
                         });
                     }
+                    // draft-atwood-jmap-chat-00 §Message/query: "messages
+                    // in channels the caller cannot view MUST be omitted".
+                    keys.retain(|id| {
+                        m.get(id)
+                            .and_then(|obj| obj.get("chatId"))
+                            .and_then(|v| v.as_str())
+                            .is_none_or(|cid| {
+                                owner_may_view_chat(&inner, account_id, &Id::from(cid))
+                            })
+                    });
                 }
 
                 // draft-atwood-jmap-chat-00 §ChatContact/query `identity`:
@@ -1165,6 +1175,73 @@ impl ChatBackend for MemoryBackend {
                 ))
             },
         )
+    }
+
+    /// Reference implementation of [`ChatBackend::may_send_message`].
+    ///
+    /// Implements draft-atwood-jmap-chat-00 §Message/set: in a group Chat
+    /// the owner's ChatMember entry (id = accountId) must exist; in a
+    /// channel the owner must be a member of the containing Space and hold
+    /// `"send"` after §Space Permission Resolution. A channel whose Space
+    /// does not exist has no members, so the create is forbidden. Direct
+    /// chats are not restricted. A Chat that does not exist is permitted
+    /// so `create_object` surfaces the normal error.
+    async fn may_send_message(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        chat_id: &Id,
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        use crate::permissions::SEND;
+
+        let inner = self.inner.lock().unwrap();
+        let Some(chat) = inner
+            .objects_ref("Chat", account_id.as_ref())
+            .and_then(|m| m.get(chat_id))
+        else {
+            return Ok(Ok(()));
+        };
+        let denied = match chat.get("kind").and_then(|v| v.as_str()) {
+            Some("group") => {
+                let is_member =
+                    chat.get("members")
+                        .and_then(|v| v.as_array())
+                        .is_some_and(|members| {
+                            members.iter().any(|m| {
+                                m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref())
+                            })
+                        });
+                (!is_member).then_some("sender is not a member of this Chat")
+            }
+            Some("channel") => match owner_channel_permissions(&inner, account_id, chat) {
+                None => Some("sender is not a member of the containing Space"),
+                Some(perms) if !perms.contains(SEND) => {
+                    Some("sender lacks required permission `send` in this channel")
+                }
+                Some(_) => None,
+            },
+            _ => None,
+        };
+        Ok(match denied {
+            Some(desc) => Err(SetError::new(SetErrorType::Forbidden).with_description(desc)),
+            None => Ok(()),
+        })
+    }
+
+    /// Reference implementation of [`ChatBackend::may_view_chat`].
+    ///
+    /// Implements draft-atwood-jmap-chat-00 §Message/query: a channel's
+    /// messages are visible only when the owner holds `"view"` there
+    /// after §Space Permission Resolution. Other Chats, and Chats that
+    /// do not exist, are visible. `query_objects` applies the same rule.
+    async fn may_view_chat(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        chat_id: &Id,
+    ) -> Result<bool, Self::Error> {
+        let inner = self.inner.lock().unwrap();
+        Ok(owner_may_view_chat(&inner, account_id, chat_id))
     }
 
     /// Reference implementation of [`ChatBackend::may_set_pinned_messages`].
@@ -3819,6 +3896,56 @@ fn member_effective_permissions(
         }
     }
     Some(perms)
+}
+
+/// The owner's permissions in channel Chat `chat`, resolved per
+/// draft-atwood-jmap-chat-00 §Space Permission Resolution against the
+/// owner's Space member entry (id = accountId, draft §Terminology).
+///
+/// Returns `None` when the containing Space does not exist, the owner is
+/// not one of its members, or the stored `permissionOverrides` does not
+/// parse; the caller then denies (fail closed).
+fn owner_channel_permissions(
+    inner: &Inner,
+    account_id: &Id,
+    chat: &serde_json::Value,
+) -> Option<HashSet<String>> {
+    use crate::permissions::resolve_channel_permissions;
+    use jmap_chat_types::ChannelPermission;
+
+    let space_id = chat.get("spaceId").and_then(|v| v.as_str())?;
+    let space = inner
+        .objects_ref("Space", account_id.as_ref())?
+        .get(&Id::from(space_id))?;
+    let base = caller_effective_permissions(space, account_id)?;
+    let overrides: Vec<ChannelPermission> = match chat.get("permissionOverrides") {
+        None | Some(serde_json::Value::Null) => Vec::new(),
+        Some(v) => serde_json::from_value(v.clone()).ok()?,
+    };
+    let role_ids = member_role_ids(space, account_id.as_ref());
+    Some(resolve_channel_permissions(
+        base,
+        account_id.as_ref(),
+        &role_ids,
+        &overrides,
+    ))
+}
+
+/// Whether the owner may see the messages of Chat `chat_id`
+/// (draft-atwood-jmap-chat-00 §Message/query `"view"` gate). Only
+/// channel Chats are gated; an unknown Chat is visible.
+fn owner_may_view_chat(inner: &Inner, account_id: &Id, chat_id: &Id) -> bool {
+    let Some(chat) = inner
+        .objects_ref("Chat", account_id.as_ref())
+        .and_then(|m| m.get(chat_id))
+    else {
+        return true;
+    };
+    if chat.get("kind").and_then(|v| v.as_str()) != Some("channel") {
+        return true;
+    }
+    owner_channel_permissions(inner, account_id, chat)
+        .is_some_and(|perms| perms.contains(crate::permissions::VIEW))
 }
 
 /// Resolve the caller's highest role `position` within `space_val`.

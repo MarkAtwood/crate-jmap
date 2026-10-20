@@ -19,6 +19,11 @@ use serde_json::{json, Value};
 
 const OTHER_SPACE_ID: &str = "space2";
 
+/// Seed a Space whose only member is the owner (member entry id =
+/// accountId, draft §Terminology), holding a role with `"view"`, so its
+/// channel messages are visible: §Message/query "For channel Chats, the
+/// server MUST verify the caller holds the `"view"` permission before
+/// returning messages in `Message/get`".
 fn seed_space(backend: &MemoryBackend, id: &str) {
     backend.insert_object_for_test(
         "Space",
@@ -28,13 +33,13 @@ fn seed_space(backend: &MemoryBackend, id: &str) {
             "id": id,
             "name": "Test",
             "createdAt": "2026-01-01T00:00:00Z",
-            "memberCount": 0,
+            "memberCount": 1,
             "categories": [],
             "uncategorizedChannelIds": [],
             "isPublic": false,
             "isPubliclyPreviewable": false,
-            "roles": [],
-            "members": []
+            "roles": [{ "id": "r-view", "name": "Viewer", "permissions": ["view"], "position": 1 }],
+            "members": [{ "id": ACCOUNT_ID, "roleIds": ["r-view"], "joinedAt": "2026-01-01T00:00:00Z" }]
         }),
     );
 }

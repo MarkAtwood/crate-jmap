@@ -102,8 +102,8 @@ pub use message::{
     handle_message_set,
 };
 pub use permissions::{
-    required_permissions_for_op, RequiredPermissions, BAN, MANAGE_CHANNELS, MANAGE_MEMBERS,
-    MANAGE_ROLES, MANAGE_SPACE, PIN,
+    required_permissions_for_op, resolve_channel_permissions, RequiredPermissions, BAN,
+    MANAGE_CHANNELS, MANAGE_MEMBERS, MANAGE_ROLES, MANAGE_SPACE, PIN, SEND, VIEW,
 };
 pub use position::{handle_position_changes, handle_position_get, handle_position_set};
 pub use presence::{handle_presence_changes, handle_presence_get, handle_presence_set};

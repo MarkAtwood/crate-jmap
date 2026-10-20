@@ -12,6 +12,31 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+### Added
+
+- **jmap-chat-server**: `resolve_channel_permissions` implements the
+  five-step channel permission resolution of draft-atwood-jmap-chat-00
+  §Space Permission Resolution (role deny, role allow, member deny,
+  member allow over the Space-level union). New `VIEW` and `SEND`
+  permission constants. New `ChatBackend::may_send_message` and
+  `ChatBackend::may_view_chat` hooks, which are fail-open by default:
+  `Message/set` create consults `may_send_message`; `Message/get` and
+  `chatId`-scoped `Message/query` consult `may_view_chat`. A backend that
+  answers `Message/query` without `chatId` must omit unviewable channel
+  messages in `query_objects` itself.
+
+### Changed
+
+- **BREAKING** **jmap-chat-server**: the reference `MemoryBackend` now
+  enforces draft-atwood-jmap-chat-00 §Message/set and §Message/query. A
+  Message create is `forbidden` when the owner is not a member of the
+  group Chat or of the channel's Space, or lacks the resolved `"send"`
+  permission in the channel. Messages in channels where the owner lacks
+  the resolved `"view"` permission are left out of `Message/get` (a
+  requested id goes to `notFound`) and `Message/query`. The `@everyone`
+  floor stays empty, so a member who holds no roles can neither send nor
+  view in channels unless a member-targeted override allows it.
+
 ### Fixed
 
 - **jmap-tasks-server**: `TaskList/set` with `onDestroyRemoveTasks: true`

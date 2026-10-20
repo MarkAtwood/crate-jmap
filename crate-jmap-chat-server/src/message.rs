@@ -33,7 +33,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
@@ -83,10 +83,36 @@ pub async fn handle_message_get<B: ChatBackend>(
     };
 
     let ids_slice = ids.as_deref();
-    let (mut list, not_found) = backend
+    let (fetched, mut not_found) = backend
         .get_objects::<Message>(caller, &account_id, ids_slice, properties.as_deref())
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
+
+    // draft-atwood-jmap-chat-00 §Message/query: "messages in channels the
+    // caller cannot view MUST be omitted" from `Message/get`. A hidden
+    // message is reported like a missing one: a requested id goes to
+    // notFound, and a full fetch drops it (RFC 8620 §5.1 notFound lists
+    // only requested ids).
+    let mut viewable: HashMap<Id, bool> = HashMap::new();
+    let mut list = Vec::with_capacity(fetched.len());
+    for msg in fetched {
+        let visible = match viewable.get(&msg.chat_id) {
+            Some(&v) => v,
+            None => {
+                let v = backend
+                    .may_view_chat(caller, &account_id, &msg.chat_id)
+                    .await
+                    .map_err(|e| server_fail_from_backend(&e))?;
+                viewable.insert(msg.chat_id.clone(), v);
+                v
+            }
+        };
+        if visible {
+            list.push(msg);
+        } else if ids_slice.is_some() {
+            not_found.push(msg.id);
+        }
+    }
 
     // Edit-history retention gate (draft-atwood-jmap-chat-00 commit
     // `0783fc4` + §Message editHistory). When the backend does not
@@ -231,6 +257,18 @@ pub async fn handle_message_query<B: ChatBackend>(
         JmapError::invalid_arguments("sort must be an array")
     })?;
 
+    // draft-atwood-jmap-chat-00 §Message/query: "messages in channels the
+    // caller cannot view MUST be omitted". A query scoped to one Chat the
+    // caller cannot view matches nothing; a query without `chatId` relies
+    // on the backend (see `ChatBackend::may_view_chat`).
+    let hidden = match top.and_then(|c| c.chat_id.as_ref()) {
+        Some(chat_id) => !backend
+            .may_view_chat(caller, &account_id, chat_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?,
+        None => false,
+    };
+
     let result = backend
         .query_objects::<Message>(
             caller,
@@ -244,16 +282,21 @@ pub async fn handle_message_query<B: ChatBackend>(
         )
         .await
         .map_err(JmapError::from)?;
+    let (ids, position, total) = if hidden {
+        (Vec::new(), 0, Some(0))
+    } else {
+        (result.ids, result.position, result.total)
+    };
 
     let mut resp = json!({
         "accountId": account_id.as_ref(),
         "queryState": result.query_state.as_ref(),
         "canCalculateChanges": result.can_calculate_changes,
-        "position": result.position,
-        "ids": result.ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+        "position": position,
+        "ids": ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
     });
     if calculate_total {
-        if let Some(t) = result.total {
+        if let Some(t) = total {
             resp["total"] = json!(t);
         }
     }
@@ -825,6 +868,24 @@ pub async fn handle_message_set<B: ChatBackend>(
                         not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
                         continue;
                     }
+                }
+            }
+
+            // draft-atwood-jmap-chat-00 §Message/set: the sender MUST be a
+            // current member of the target Chat and, in a channel, hold
+            // `"send"`; otherwise `forbidden`.
+            match backend
+                .may_send_message(caller, &account_id, &chat_id)
+                .await
+            {
+                Ok(Ok(())) => {}
+                Ok(Err(set_err)) => {
+                    not_created.insert(create_id.clone(), set_error_value(&set_err));
+                    continue;
+                }
+                Err(e) => {
+                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
+                    continue;
                 }
             }
 
@@ -1727,8 +1788,10 @@ mod tests {
     }
 
     /// Helper: seed a Space whose owner member (the accountId, per
-    /// §SpaceMember `id`) holds `manage_channels`, then create a channel
-    /// Chat inside it, and return the channel's server-assigned id.
+    /// §SpaceMember `id`) holds `manage_channels` and `send` (§Message/set:
+    /// "For channel Chats, the server MUST verify the sender holds the
+    /// `"send"` permission"), then create a channel Chat inside it, and
+    /// return the channel's server-assigned id.
     async fn make_channel_chat(backend: &MemoryBackend) -> String {
         let space_id = "s0";
         backend.insert_object_for_test(
@@ -1744,7 +1807,7 @@ mod tests {
                 "uncategorizedChannelIds": [],
                 "isPublic": false,
                 "isPubliclyPreviewable": false,
-                "roles": [{ "id": "r-owner", "name": "Owner", "permissions": ["manage_channels", "mention_broadcast"], "position": 10 }],
+                "roles": [{ "id": "r-owner", "name": "Owner", "permissions": ["manage_channels", "mention_broadcast", "send"], "position": 10 }],
                 "members": [{ "id": ACCOUNT_ID, "roleIds": ["r-owner"], "joinedAt": "2026-01-01T00:00:00Z" }],
             }),
         );
