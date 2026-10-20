@@ -3,8 +3,8 @@
 //! Oracle: draft-atwood-jmap-chat-tasks-00.md at jmap-chat-spec be46208
 //! ("tasks Lnnn") and RFC 8620:
 //!
-//! - tasks L103: "Deployments that prohibit Space-TaskList binding ...
-//!   MUST set this to `false`."
+//! - tasks L103: "`true` if accounts on this server may associate a
+//!   TaskList with a Space, `false` otherwise."
 //! - tasks L114-115: "`taskListId` (String, optional): A JMAP Tasks
 //!   `TaskList.id` ... bound to this Space. ... When absent, this Space
 //!   has no bound TaskList."
