@@ -126,6 +126,23 @@ async fn attachment_count_over_limit_is_too_large() {
     assert_too_large(&create(&backend, &chat_id, "hi", three).await);
 }
 
+/// L241 types `maxAttachmentsPerMessage` as `UnsignedInt`, which RFC 8620
+/// §1.3 defines as "an Int where the value MUST be in the range
+/// 0 <= value <= 2^53-1". A cap of 2^32 is valid and does not reject a
+/// message with three attachments.
+#[tokio::test]
+async fn attachment_count_limit_accepts_unsigned_int_above_u32() {
+    let backend = MemoryBackend::new();
+    backend.set_limits_for_test(Some(
+        ChatLimits::default().with_max_attachments_per_message(4_294_967_296),
+    ));
+    let chat_id = create_group(&backend).await;
+    let a = attachment("b1", 3, SHA256_ABC);
+
+    let three = json!({ "attachments": [a, a, a] });
+    assert_created(&create(&backend, &chat_id, "hi", three).await);
+}
+
 /// L238-239 `maxAttachmentBytes`: "Maximum size in bytes of a single
 /// attachment blob."
 #[tokio::test]

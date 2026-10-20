@@ -226,7 +226,7 @@ pub struct ChatLimits {
     /// The account's `maxAttachmentsPerMessage` capability value:
     /// "Maximum number of attachments per message." `Message/set` create
     /// rejects more with a `tooLarge` SetError. Defaults to 16.
-    pub max_attachments_per_message: u32,
+    pub max_attachments_per_message: u64,
 }
 
 impl Default for ChatLimits {
@@ -353,7 +353,7 @@ impl ChatLimits {
 
     /// Builder-style setter for [`Self::max_attachments_per_message`].
     #[must_use]
-    pub const fn with_max_attachments_per_message(mut self, max: u32) -> Self {
+    pub const fn with_max_attachments_per_message(mut self, max: u64) -> Self {
         self.max_attachments_per_message = max;
         self
     }
