@@ -3,9 +3,11 @@
 //!
 //! draft-atwood-jmap-chat-00 requires the server to notify other
 //! participants' servers when the owner sends a Message, retracts or edits
-//! one, adds or removes a reaction, or changes a group Chat. The wire
-//! methods (`Peer/deliver` `message`, `edit` and `reactionUpdate`,
-//! `Peer/retract`, `Peer/groupUpdate`) are defined by
+//! one, adds or removes a reaction, reads a received Message, types, or
+//! changes a group Chat or their presence. The wire methods (`Peer/deliver`
+//! `message`, `edit` and `reactionUpdate`, `Peer/retract`,
+//! `Peer/groupUpdate`, `Peer/receipt`, `Peer/typing`, `Peer/presence`) are
+//! defined by
 //! draft-atwood-jmap-chat-federation-00 and implemented outside this
 //! crate. These events carry local ids (ChatContact ids, Message ids);
 //! the federation layer maps them to identity strings and sends them.
@@ -15,10 +17,11 @@
 //! must be told. Everything else (`body`, `name`, the full member list)
 //! is read from the stored Message or Chat.
 
-use jmap_chat_types::{ChatMember, Reaction};
-use jmap_types::Id;
+use jmap_chat_types::{ChatMember, Reaction, ReadDisposition};
+use jmap_types::{Id, UTCDate};
 
-/// One outbound event the `Message/set` or `Chat/set` handler reports.
+/// One outbound event the `Message/set`, `Chat/set`, `Chat/typing` or
+/// `PresenceStatus/set` handler reports.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum OutboundEvent {
@@ -93,6 +96,49 @@ pub enum OutboundEvent {
         /// [`GroupUpdateAction`] variant). Never contains the accountId.
         recipients: Vec<Id>,
     },
+    /// The owner set a non-null `readAt` on a Message another participant
+    /// sent. draft-atwood-jmap-chat-federation-00 §Peer/receipt: `readAt`
+    /// "SHOULD be present when the recipient's owner has read the
+    /// message". Reported after the update is written, and only when the
+    /// owner's effective receipt-sharing preference is `true`: "If the
+    /// effective preference is `false`, the server MUST NOT invoke
+    /// `Peer/receipt`" (§Peer/receipt "Sender Behavior"). The read fields
+    /// are carried here because a `burnOnRead` Message is gone once read.
+    Receipt {
+        /// The Chat that holds the Message.
+        chat_id: Id,
+        /// The Message's local id. Under `burnOnRead` the Message has been
+        /// hard-deleted by the time the event is reported.
+        message_id: Id,
+        /// The Message's `senderMsgId` (`Peer/receipt` `senderMsgId`).
+        sender_msg_id: Id,
+        /// `Peer/receipt` `readAt`.
+        read_at: UTCDate,
+        /// `Peer/receipt` `readDisposition`, as stored: `"displayed"` when
+        /// the patch set `readAt` without it.
+        read_disposition: Option<ReadDisposition>,
+    },
+    /// The owner called `Chat/typing`. draft-atwood-jmap-chat-00
+    /// §Chat/typing: the server SHOULD deliver a `typing` push event to
+    /// each local participant other than the owner and, "For federated
+    /// Chats, the server SHOULD invoke `Peer/typing`" on each remote
+    /// participant's home server. Reported after the request is validated;
+    /// the event is never stored. The per-recipient checks belong to the
+    /// receiving side (see [`should_deliver_typing`](crate::should_deliver_typing)).
+    Typing {
+        /// The Chat (`Peer/typing` `chatId`).
+        chat_id: Id,
+        /// `Peer/typing` `typing`.
+        typing: bool,
+    },
+    /// The owner changed `presence`, `statusText` or `statusEmoji`.
+    /// draft-atwood-jmap-chat-federation-00 §Peer/subscribePresence: the
+    /// server "MAY push subsequent `Peer/presence` calls to the subscriber
+    /// whenever the owner's presence, `statusText`, or `statusEmoji`
+    /// changes". Reported after a `PresenceStatus/set` update that names
+    /// any of the three is written; the payload is read from the stored
+    /// PresenceStatus, and the subscribers are the backend's.
+    Presence,
 }
 
 /// The `action` of a [`OutboundEvent::ReactionUpdate`]

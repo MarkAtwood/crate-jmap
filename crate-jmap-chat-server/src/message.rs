@@ -26,7 +26,7 @@
 use jmap_chat_types::query::{Filter, MessageComparator, MessageFilter};
 use jmap_chat_types::{
     Attachment, BroadcastMention, Chat, DeliveryState, Mention, Message, MessageAction,
-    ReadPosition, Space, BROADCAST_MENTION_SCOPES,
+    PresenceStatus, ReadPosition, Space, BROADCAST_MENTION_SCOPES,
 };
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;
@@ -928,6 +928,44 @@ pub async fn store_server_message<B: ChatBackend>(
     ensure_read_positions(backend, caller, account_id, vec![stored.chat_id.clone()]).await;
     record_unread_count_changes(backend, caller, account_id, vec![stored.chat_id]).await;
     Ok(StoreOutcome::Stored(id))
+}
+
+/// The owner's effective receipt-sharing preference for `chat_id`.
+///
+/// draft-atwood-jmap-chat-federation-00 §Peer/receipt "Sender Behavior":
+/// "if `Chat.receiptSharing` is present for the relevant Chat, that value
+/// is used; otherwise the account-level `PresenceStatus.receiptSharing`
+/// applies". A missing PresenceStatus takes the draft-atwood-jmap-chat-00
+/// default, `true`. A failed lookup yields `false`: the read has already
+/// been written, and a receipt not shown to be permitted is not sent.
+async fn shares_receipts<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    chat_id: &Id,
+) -> bool {
+    let chat_override = match backend
+        .get_objects::<Chat>(
+            caller,
+            account_id,
+            Some(std::slice::from_ref(chat_id)),
+            None,
+        )
+        .await
+    {
+        Ok((found, _not_found)) => found.first().and_then(|c| c.receipt_sharing),
+        Err(_) => return false,
+    };
+    if let Some(shares) = chat_override {
+        return shares;
+    }
+    match backend
+        .get_objects::<PresenceStatus>(caller, account_id, None, None)
+        .await
+    {
+        Ok((found, _not_found)) => found.first().is_none_or(|p| p.receipt_sharing),
+        Err(_) => false,
+    }
 }
 
 /// Handle a `Message/set` method call (draft-atwood-jmap-chat-00 §Message).
@@ -1869,7 +1907,7 @@ pub async fn handle_message_set<B: ChatBackend>(
             // decide whether it is burn-on-read. We deliberately consult
             // the pre-patch state: a recipient setting readAt for the
             // first time should fire the burn.
-            let pre_patch_burn_on_read = if patch_sets_read_at {
+            let pre_patch_read: Option<Message> = if patch_sets_read_at {
                 match backend
                     .get_objects::<Message>(
                         caller,
@@ -1879,17 +1917,17 @@ pub async fn handle_message_set<B: ChatBackend>(
                     )
                     .await
                 {
-                    Ok((found, _not_found)) => {
-                        found.first().and_then(|m| m.burn_on_read) == Some(true)
-                    }
+                    Ok((found, _not_found)) => found.into_iter().next(),
                     Err(e) => {
                         not_updated.insert(id_str, server_fail_value_from_backend(&e));
                         continue;
                     }
                 }
             } else {
-                false
+                None
             };
+            let pre_patch_burn_on_read =
+                pre_patch_read.as_ref().and_then(|m| m.burn_on_read) == Some(true);
 
             // BroadcastMention validation and permission check on edit
             // (§4.4.1 / §4.16). The post-patch broadcastMentions fall back
@@ -1991,6 +2029,25 @@ pub async fn handle_message_set<B: ChatBackend>(
                 }
             }
 
+            // draft-atwood-jmap-chat-federation-00 §Peer/receipt: the
+            // owner read a Message another participant sent. The read
+            // fields come from the patch, since a burned Message is gone.
+            let receipt = pre_patch_read
+                .filter(|m| m.sender_id != account_id)
+                .and_then(|m| {
+                    let read_at =
+                        serde_json::from_value::<UTCDate>(augmented.get("readAt")?.clone()).ok()?;
+                    let read_disposition = augmented
+                        .get("readDisposition")
+                        .and_then(|v| serde_json::from_value(v.clone()).ok());
+                    Some(OutboundEvent::Receipt {
+                        chat_id: m.chat_id,
+                        message_id: m.id,
+                        sender_msg_id: m.sender_msg_id,
+                        read_at,
+                        read_disposition,
+                    })
+                });
             // Convert the augmented wire-format Value into a typed
             // PatchObject (RFC 8620 §5.3). Non-object values yield
             // invalidPatch.
@@ -2065,6 +2122,14 @@ pub async fn handle_message_set<B: ChatBackend>(
             // deletes or burns the Message leaves nothing to deliver.
             if !deletes && !burns {
                 for event in &reaction_events {
+                    backend.on_outbound_event(caller, &account_id, event).await;
+                }
+            }
+            // §Peer/receipt "Sender Behavior": "If the effective preference
+            // is `false`, the server MUST NOT invoke `Peer/receipt`". A
+            // burned Message was still read, so its receipt is reported.
+            if let Some(event @ OutboundEvent::Receipt { chat_id, .. }) = &receipt {
+                if shares_receipts(backend, caller, &account_id, chat_id).await {
                     backend.on_outbound_event(caller, &account_id, event).await;
                 }
             }

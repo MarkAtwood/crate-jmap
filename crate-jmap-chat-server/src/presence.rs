@@ -36,6 +36,7 @@ use crate::helpers::{
     finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
     SetAccumulators,
 };
+use crate::outbound::OutboundEvent;
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 // ---------------------------------------------------------------------------
@@ -220,6 +221,13 @@ pub async fn handle_presence_set<B: ChatBackend>(
                 continue;
             }
 
+            // draft-atwood-jmap-chat-federation-00 §Peer/subscribePresence:
+            // `Peer/presence` follows a change to "the owner's presence,
+            // `statusText`, or `statusEmoji`".
+            let presence_changed = ["presence", "statusText", "statusEmoji"]
+                .iter()
+                .any(|&field| patch_val.get(field).is_some());
+
             // Inject server-set updatedAt before forwarding to backend. The
             // augmentation runs on the wire-format Value; conversion to
             // PatchObject (RFC 8620 §5.3) happens after, at the call boundary.
@@ -240,10 +248,15 @@ pub async fn handle_presence_set<B: ChatBackend>(
                 }
             };
 
-            match backend
+            let outcome = backend
                 .update_object::<PresenceStatus>(caller, &account_id, &id, patch)
-                .await
-            {
+                .await;
+            if presence_changed && outcome.is_ok() {
+                backend
+                    .on_outbound_event(caller, &account_id, &OutboundEvent::Presence)
+                    .await;
+            }
+            match outcome {
                 Ok(Some(obj)) => {
                     mutated = true;
                     updated.insert(

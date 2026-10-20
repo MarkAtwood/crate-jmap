@@ -72,6 +72,17 @@ wire behaviour that a conforming peer can observe.
   or `ReactionAction::Remove` carrying the removed reaction, after the
   update is written (§Adding and Removing Reactions). A federation backend
   turns them into `Peer/deliver` `message` and `reactionUpdate`.
+- **jmap-chat-server**: `on_outbound_event` also reports `Receipt` after the
+  owner sets a non-null `readAt` on a received Message, carrying `readAt` and
+  `readDisposition`, and suppressed when the effective `receiptSharing`
+  (`Chat.receiptSharing`, else `PresenceStatus.receiptSharing`) is `false`
+  (draft-atwood-jmap-chat-federation-00 §Peer/receipt "Sender Behavior");
+  `Typing` after each validated `Chat/typing` (draft-atwood-jmap-chat-00
+  §Chat/typing); and `Presence` after a `PresenceStatus/set` update naming
+  `presence`, `statusText` or `statusEmoji`
+  (draft-atwood-jmap-chat-federation-00 §Peer/subscribePresence). A backend
+  turns them into `Peer/receipt`, local `typing` push and `Peer/typing`, and
+  `Peer/presence`.
 - **jmap-chat-server**: `ChatBackend::on_chat_destroyed`,
   `on_space_destroyed` and `on_space_ban_created` (default: no-op) are
   called after a Chat is destroyed (by `Chat/set`, `removeChannels`, or a
