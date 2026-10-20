@@ -484,8 +484,9 @@ pub trait ChatBackend: JmapBackend {
     ///   `(account_id, chat_id)`. Clients cannot create one
     ///   (`ReadPosition/set` create is `forbidden`); the server creates
     ///   it on first message delivery in
-    ///   [`crate::message::handle_message_set`], which pre-checks via a
-    ///   sequential scan, but two concurrent `Message/set` requests for
+    ///   [`crate::message::handle_message_set`] and on
+    ///   [`crate::space::handle_space_join`], which pre-check via a
+    ///   sequential scan, but two concurrent requests for
     ///   the same `chatId` can both pass the pre-check and then both
     ///   reach `create_object`. The
     ///   backend MUST enforce a unique constraint on
@@ -637,6 +638,11 @@ pub trait ChatBackend: JmapBackend {
     /// (draft-atwood-jmap-chat-00 §Destroying a Space: "Cascades to all
     /// channel Chats and their Messages. Hard-deletes all records; no
     /// tombstones are retained."). Those are Chat and Message destroys.
+    ///
+    /// Every Chat destroy, including those cascades, MUST also destroy
+    /// the Chat's ReadPosition (draft-atwood-jmap-chat-00 §ReadPosition:
+    /// the server "destroys it when the Chat is destroyed"). That is a
+    /// ReadPosition destroy.
     ///
     /// If the backend itself changes another record because of the
     /// destroy, it MUST advance that record type's state and record the
@@ -966,9 +972,11 @@ pub trait ChatBackend: JmapBackend {
     /// * `RemoveChannel` — MUST destroy the channel-kind `Chat` record
     ///   and every `Message` whose `chatId` matches the removed
     ///   channel (draft §Space/set line 1117: "Cascades to all
-    ///   Messages in those channels."). The `Chat` and `Message` type
-    ///   state tokens MUST both bump so `Chat/changes` and
-    ///   `Message/changes` subscribers see the destruction.
+    ///   Messages in those channels."), and the channel's
+    ///   `ReadPosition` (draft §ReadPosition: the server "destroys it
+    ///   when the Chat is destroyed"). The `Chat`, `Message` and
+    ///   `ReadPosition` type state tokens MUST bump so their `/changes`
+    ///   subscribers see the destruction.
     ///
     /// * `RemoveCategory` — MUST clear `Chat.categoryId` on every
     ///   channel-kind `Chat` whose `categoryId` named the removed

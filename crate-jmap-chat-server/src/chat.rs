@@ -27,7 +27,7 @@ use std::collections::{HashMap, HashSet};
 
 use jmap_chat_types::query::ChatComparator;
 use jmap_chat_types::vocabulary::SPEC_CHAT_MEMBER_ROLES;
-use jmap_chat_types::{Chat, ChatKind, ChatMember};
+use jmap_chat_types::{Chat, ChatKind, ChatMember, Message, ReadPosition};
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -209,6 +209,13 @@ fn apply_member_patch_keys(
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
+/// `unreadCount` is computed on every call (§Chat): "Count of Messages in
+/// this Chat whose `id` ULID is lexicographically greater than
+/// `ReadPosition.lastReadMessageId`. Derived server-side from the owner's
+/// ReadPosition record. If `lastReadMessageId` is absent, all messages
+/// are counted as unread." A Chat with no ReadPosition counts every
+/// Message.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 // NOTE: properties forwarded via handle_get
 pub async fn handle_chat_get<B: ChatBackend>(
@@ -216,7 +223,59 @@ pub async fn handle_chat_get<B: ChatBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_get::<Chat, B>(backend, caller, args).await
+    let mut out = jmap_server::handlers::handle_get::<Chat, B>(backend, caller, args).await?;
+    fill_unread_counts(backend, caller, &mut out.primary).await?;
+    Ok(out)
+}
+
+/// Overwrite `unreadCount` on each Chat in a `Chat/get` response `list`
+/// that carries the property (it is absent when `properties` leaves it
+/// out).
+// ponytail: scans every Message and ReadPosition in the account per call
+// (O(messages) per Chat/get); a backend with many messages needs an
+// unread-count index behind a ChatBackend hook.
+async fn fill_unread_counts<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    response: &mut Value,
+) -> Result<(), JmapError> {
+    let account_id = Id::from(response["accountId"].as_str().unwrap_or_default());
+    let Some(list) = response["list"].as_array_mut() else {
+        return Ok(());
+    };
+    if !list.iter().any(|c| c.get("unreadCount").is_some()) {
+        return Ok(());
+    }
+    let (messages, _) = backend
+        .get_objects::<Message>(caller, &account_id, None, None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let (positions, _) = backend
+        .get_objects::<ReadPosition>(caller, &account_id, None, None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    for chat in list.iter_mut() {
+        let Some(chat) = chat.as_object_mut() else {
+            continue;
+        };
+        if !chat.contains_key("unreadCount") {
+            continue;
+        }
+        let Some(chat_id) = chat.get("id").and_then(Value::as_str) else {
+            continue;
+        };
+        let last_read = positions
+            .iter()
+            .find(|p| p.chat_id.as_ref() == chat_id)
+            .and_then(|p| p.last_read_message_id.as_ref());
+        let unread = messages
+            .iter()
+            .filter(|m| m.chat_id.as_ref() == chat_id)
+            .filter(|m| last_read.is_none_or(|l| m.id.as_ref() > l.as_ref()))
+            .count();
+        chat.insert("unreadCount".to_owned(), Value::from(unread as u64));
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------

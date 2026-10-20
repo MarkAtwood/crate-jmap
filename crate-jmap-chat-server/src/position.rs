@@ -4,7 +4,9 @@
 //! most one ReadPosition per (account, chat) pair. The records are managed
 //! by the server: `ReadPosition/set` supports only `update`; `create` and
 //! `destroy` return `forbidden`. The record itself is created on first
-//! message delivery by [`crate::message::handle_message_set`].
+//! message delivery by [`crate::message::handle_message_set`] or, for
+//! channel Chats, on [`crate::space::handle_space_join`], and is destroyed
+//! with its Chat by the backend.
 //!
 //! # Wire-shape contract
 //!
@@ -34,7 +36,8 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, not_found_json, serialize_value, set_error_value, SetAccumulators,
+    finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
+    SetAccumulators,
 };
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
@@ -152,7 +155,9 @@ pub async fn handle_position_changes<B: ChatBackend>(
 ///
 /// Validation enforced here (not in the backend):
 /// - `create` and `destroy` are rejected with `forbidden`.
-/// - `id` and `chatId` are server-set/immutable and rejected in updates.
+/// - `id`, `chatId` and `lastReadAt` are server-set/immutable and
+///   rejected in updates.
+/// - Every successful update sets `lastReadAt` to the current time.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_position_set<B: ChatBackend>(
@@ -205,8 +210,9 @@ pub async fn handle_position_set<B: ChatBackend>(
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
-            // id and chatId are immutable after creation.
-            const POSITION_READONLY: &[&str] = &["id", "chatId"];
+            // id and chatId are immutable; lastReadAt is server-set
+            // (§ReadPosition: "`lastReadAt` (UTCDate, server-set)").
+            const POSITION_READONLY: &[&str] = &["id", "chatId", "lastReadAt"];
             let bad_props: Vec<&str> = POSITION_READONLY
                 .iter()
                 .copied()
@@ -219,11 +225,24 @@ pub async fn handle_position_set<B: ChatBackend>(
                 );
                 continue;
             }
+            // `lastReadMessageId` (String, optional). Checked here because
+            // the server-added `lastReadAt` below stops the backend's
+            // re-validation from naming the one offending property.
+            if patch_val
+                .get("lastReadMessageId")
+                .is_some_and(|v| !v.is_string() && !v.is_null())
+            {
+                not_updated.insert(
+                    id_str,
+                    json!({ "type": "invalidProperties", "properties": ["lastReadMessageId"] }),
+                );
+                continue;
+            }
 
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
             // values produce an `invalidPatch` SetError.
-            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
                     not_updated.insert(
@@ -233,6 +252,15 @@ pub async fn handle_position_set<B: ChatBackend>(
                     continue;
                 }
             };
+            // §ReadPosition/set: "The server sets `lastReadAt` to the
+            // current time and recomputes `Chat.unreadCount` for the
+            // affected Chat." The count is derived on every `Chat/get`
+            // (`crate::chat::handle_chat_get`), so only lastReadAt is
+            // written here.
+            patch.as_map_mut().insert(
+                "lastReadAt".to_owned(),
+                Value::String(now_utc_string().into_inner()),
+            );
             match backend
                 .update_object::<ReadPosition>(caller, &account_id, &id, patch)
                 .await

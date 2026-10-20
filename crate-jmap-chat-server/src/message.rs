@@ -652,7 +652,9 @@ fn valid_media_type(s: &str) -> bool {
 /// Create the owner's ReadPosition for each Chat in `chat_ids` that has
 /// none yet. draft-atwood-jmap-chat-00 §ReadPosition: "For direct and
 /// group Chats, a ReadPosition is created when the first message is
-/// delivered."
+/// delivered. For channel Chats, a ReadPosition is created when the
+/// owner joins the containing Space." Called by `Message/set` and by
+/// `Space/join` ([`crate::space::handle_space_join`]).
 ///
 /// Best effort: the Messages are already stored, so a backend failure
 /// here must not become a method-level error (RFC 8620 §3.6.2: "the
@@ -662,11 +664,11 @@ fn valid_media_type(s: &str) -> bool {
 /// concurrent delivery created it first (see the ReadPosition uniqueness
 /// contract on `ChatBackend::create_object`).
 ///
-/// ponytail: does not look up the Chat's kind, so it also fills in a
-/// missing channel position (the draft creates those on Space join).
-/// One full ReadPosition scan per `Message/set` call that created a
+/// ponytail: does not look up the Chat's kind, so `Message/set` also
+/// fills in a missing channel position (for example a channel added
+/// after the owner joined). One full ReadPosition scan per `Message/set` call that created a
 /// message; a backend with a `(account, chatId)` index can replace it.
-async fn ensure_read_positions<B: ChatBackend>(
+pub(crate) async fn ensure_read_positions<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     account_id: &Id,
