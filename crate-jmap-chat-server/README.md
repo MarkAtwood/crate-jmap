@@ -1,5 +1,9 @@
 # jmap-chat-server
 
+> **Pre-stable (0.3.x).** The JMAP Chat crates (`jmap-chat-types`, `jmap-chat-server`,
+> `jmap-chat-client`) do not yet have a stable API. Expect breaking changes,
+> especially new required `ChatBackend` methods, until the 0.4 API freeze.
+
 ## What it is
 
 JMAP Chat extension method handlers and the `ChatBackend` trait
