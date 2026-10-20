@@ -32,4 +32,7 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p jmap-chat-tasks
 | `mayBindTaskList: false` | `taskListId` is not registered as a Space extension property, so no runtime gate |
 | `manage_space` gate | `apply_space_metadata_patch`'s, not this crate's |
 | Space destroy | Never destroys the bound TaskList (draft §Binding and unbinding SHOULD NOT) |
+| TaskList destroy | No Tasks-side hook: the deployment calls `clear_space_task_list_id` from `TasksBackend::destroy_object::<TaskList>` |
+| Chat destroy | `clear_task_chat_ids` from `ChatBackend::on_chat_destroyed` |
+| Task destroy | Never destroys the referenced Chat (draft §Lifecycle) |
 | Tests | Each assertion quotes its draft line; the two reference `MemoryBackend`s |
