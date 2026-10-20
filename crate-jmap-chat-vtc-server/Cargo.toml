@@ -6,6 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish = false
 description = "Chat binding for the JMAP VTC server (draft-atwood-jmap-vtc-00 with draft-atwood-jmap-chat-00): Chat.activeCallId, chatId membership, start_call, Space cascades and contact blocks"
 keywords = ["jmap", "vtc", "chat", "server"]
 categories = ["network-programming", "web-programming::http-server"]

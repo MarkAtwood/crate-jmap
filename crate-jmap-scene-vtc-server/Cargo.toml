@@ -6,6 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish = false
 description = "VTC binding for the JMAP Scene server (draft-atwood-jmap-scene-00 with draft-atwood-jmap-vtc-00): SceneRegion.activeCallId cleared when its VTCCall ends"
 keywords = ["jmap", "scene", "vtc", "server"]
 categories = ["network-programming", "web-programming::http-server"]

@@ -1,5 +1,9 @@
 # jmap-scene-types
 
+> **Draft, not published.** Tracks a draft spec that is still changing
+> (jmap-chat-spec 63e9d08 revised it); `publish = false` until the crate
+> matches it (JMAP-0x0q, JMAP-38uq.14).
+
 Wire-format types for draft-atwood-jmap-scene-00, the
 `urn:ietf:params:jmap:scene` capability that models spatial state (regions,
 the objects in them and the users present) over JMAP, and for

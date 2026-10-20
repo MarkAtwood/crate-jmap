@@ -1,5 +1,9 @@
 # jmap-vtc-types
 
+> **Draft, not published.** Tracks a draft spec that is still changing
+> (jmap-chat-spec 63e9d08 revised it); `publish = false` until the crate
+> matches it (JMAP-0x0q, JMAP-38uq.14).
+
 Wire-format types for draft-atwood-jmap-vtc-00, the `urn:ietf:params:jmap:vtc`
 capability that manages voice and video call state over JMAP. Types only:
 no method handlers, no I/O, no media.
