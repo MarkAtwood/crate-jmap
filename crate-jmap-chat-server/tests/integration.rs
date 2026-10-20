@@ -7314,6 +7314,79 @@ async fn space_join_via_invite_code_success() {
     assert_eq!(members[0]["id"], ACCOUNT_ID);
 }
 
+/// Oracle: an invite code created in another account does not resolve.
+///
+/// Decided wording for draft-atwood-jmap-chat-00 §Space/join (tracked as
+/// jmap-chat-spec-vvqn): "inviteCode resolves only within the request's
+/// accountId, which names the account hosting the Space; invite links
+/// therefore carry accountId and code." Combined with the existing
+/// §Space/join text "If the `inviteCode` does not correspond to any
+/// SpaceInvite record, the server MUST return an `invalidArguments`
+/// method error.", redeeming account a1's code with accountId a2 is
+/// `invalidArguments`, and the invite's `uses` stays 0.
+#[tokio::test]
+async fn space_join_invite_code_from_other_account_not_found() {
+    use jmap_chat_server::handle_invite_get;
+
+    let backend = MemoryBackend::new();
+
+    let (space_resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": { "s0": { "name": "Hosted in a1" } }
+        }),
+    )
+    .await
+    .expect("create Space");
+    let space_id = space_resp["created"]["s0"]["id"]
+        .as_str()
+        .expect("space id")
+        .to_owned();
+
+    let (create_resp, _) = handle_invite_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": { "i0": { "spaceId": space_id } }
+        }),
+    )
+    .await
+    .expect("create SpaceInvite");
+    let invite_id = create_resp["created"]["i0"]["id"]
+        .as_str()
+        .expect("invite id")
+        .to_owned();
+    let code = create_resp["created"]["i0"]["code"]
+        .as_str()
+        .expect("code")
+        .to_owned();
+
+    let err = handle_space_join(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a2",
+            "inviteCode": code
+        }),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(err.error_type.as_str(), "invalidArguments");
+    assert_eq!(err.description.as_deref(), Some("invite code not found"));
+
+    let (invite_list, _) = handle_invite_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [invite_id] }),
+    )
+    .await
+    .expect("handle_invite_get");
+    assert_eq!(invite_list["list"][0]["uses"], 0, "uses must not change");
+}
+
 /// Oracle: Space/join via an invite with uses >= maxUses returns invalidArguments.
 /// An invite with maxUses=1 and uses=1 is pre-exhausted; joining must fail.
 #[tokio::test]

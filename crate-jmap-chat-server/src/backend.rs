@@ -784,6 +784,13 @@ pub trait ChatBackend: JmapBackend {
     /// that guarantee: a failed second write leaves a member admitted
     /// without a use counted, and concurrent joins both pass `maxUses`.
     ///
+    /// # Account scope
+    ///
+    /// `account_id` is the request's `accountId`, which names the
+    /// account hosting the Space; the handler resolves the invite code
+    /// only within that account, and `invite_id` and its Space live
+    /// there. Implementations need no server-wide invite-code index.
+    ///
     /// # When the handler calls this
     ///
     /// Once, after the invite resolved by code and is unexpired, and
