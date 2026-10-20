@@ -921,7 +921,7 @@ async fn space_add_roles_round_trips_each_color_representation() {
     let space_id = created_id(&resp, "s0");
 
     let hex = serde_json::json!("#5865f2");
-    let tokens = serde_json::json!({ "$type": "color", "$value": "oklch(0.6 0.15 270)" });
+    let tokens = serde_json::json!({ "$type": "color", "$value": {"colorSpace": "srgb", "components": [0.345, 0.396, 0.949], "hex": "#5865f2"} });
     let cam16 = serde_json::json!([62.5, -12.25, 30.75]);
     let roles = [
         SpaceAddRoleInput::new("Hex", &[], 3).with_color(hex.clone()),

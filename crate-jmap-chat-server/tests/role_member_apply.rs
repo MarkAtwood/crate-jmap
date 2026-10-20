@@ -1012,7 +1012,7 @@ async fn update_role_color_preserves_all_three_representations() {
     );
 
     for color in [
-        json!({"$type": "color", "$value": "oklch(0.7 0.15 250)"}),
+        json!({"$type": "color", "$value": {"colorSpace": "srgb", "components": [0.345, 0.396, 0.949], "hex": "#5865f2"}}),
         json!([62.5, 12.0, -30.25]),
         json!("#5865f2"),
     ] {

@@ -830,7 +830,7 @@ async fn space_update_roles_accept_all_color_representations() {
     let sc = helpers::make_client(&server);
     let space_id = Id::from("space-1");
     let perms = ["send_messages"];
-    let token = json!({ "$type": "color", "$value": "oklch(0.7 0.15 250)" });
+    let token = json!({ "$type": "color", "$value": {"colorSpace": "srgb", "components": [0.345, 0.396, 0.949], "hex": "#5865f2"} });
     let add_roles = [
         jmap_chat_client::methods::SpaceAddRoleInput::new("Hex", &perms, 1).with_color("#5865f2"),
         jmap_chat_client::methods::SpaceAddRoleInput::new("Token", &perms, 2)
@@ -863,7 +863,7 @@ async fn space_update_roles_accept_all_color_representations() {
         json!([
             { "name": "Hex", "permissions": ["send_messages"], "position": 1, "color": "#5865f2" },
             { "name": "Token", "permissions": ["send_messages"], "position": 2,
-              "color": { "$type": "color", "$value": "oklch(0.7 0.15 250)" } },
+              "color": { "$type": "color", "$value": {"colorSpace": "srgb", "components": [0.345, 0.396, 0.949], "hex": "#5865f2"} } },
             { "name": "Cam16", "permissions": ["send_messages"], "position": 3,
               "color": [62.5, 12.0, -30.25] },
             { "name": "None", "permissions": ["send_messages"], "position": 4, "color": null }
@@ -873,7 +873,7 @@ async fn space_update_roles_accept_all_color_representations() {
     assert_eq!(
         patch_obj["updateRoles"],
         json!([
-            { "id": "role-a", "color": { "$type": "color", "$value": "oklch(0.7 0.15 250)" } },
+            { "id": "role-a", "color": { "$type": "color", "$value": {"colorSpace": "srgb", "components": [0.345, 0.396, 0.949], "hex": "#5865f2"} } },
             { "id": "role-b", "color": null }
         ]),
         "updateRoles must carry the object color verbatim and Patch::Clear as null"

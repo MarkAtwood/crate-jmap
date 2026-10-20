@@ -1338,8 +1338,10 @@ pub struct SpaceAddRoleInput<'a> {
     /// Position in the role hierarchy. Lower values sort first.
     pub position: u64,
     /// Optional role color, sent verbatim. Per draft-atwood-jmap-chat-00
-    /// §Color Representation this is a W3C Design Tokens color object
-    /// (`{"$type": "color", "$value": "..."}`), a CAM16 coordinate array
+    /// §Color Representation this is a W3C Design Tokens color token whose
+    /// `$value` is a color object, not a CSS color string (`{"$type":
+    /// "color", "$value": {"colorSpace": "srgb", "components": [0.345,
+    /// 0.396, 0.949], "hex": "#5865f2"}}`), a CAM16 coordinate array
     /// (`[J, a, b]` or `[J, M, h]`), an sRGB hex string (`"#5865f2"`), or
     /// `null` (no color). Pass `None` to omit.
     pub color: Option<serde_json::Value>,
