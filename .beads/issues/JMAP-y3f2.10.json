@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-y3f2.10",
+  "title": "Refresh stale draft line refs in jmap-chat-server",
+  "description": "permissions.rs (table 1093..1129), memory.rs (1114-1117 removeChannels, hierarchy_error '1096, 1102'), backend.rs L934/L953, tests/integration.rs L5106 cite draft-atwood-jmap-chat-00 §Space/set line numbers from an older draft; at jmap-chat-spec 91672c9 updateMembers is L1277, addRoles L1260, updateRoles L1266, hierarchy L1631. Found during JMAP-y3f2.8 (which fixed only the updateMembers refs).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T03:23:06.081653876Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:02:56.228127355Z",
+  "closed_at": "2026-10-20T07:02:56.228127355Z",
+  "close_reason": "Landed in 44026b06 docs(chat-server): refresh draft line refs (batch 5, adversarially verified, CI green at 44026b06)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y3f2.10",
+      "depends_on_id": "JMAP-y3f2",
+      "type": "parent-child",
+      "created_at": "2026-10-20T03:23:06.212431416Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-sj4m",
+  "title": "mail-server: Email/copy accepts non-RFC onSuccessUpdateOriginal",
+  "description": "crate-jmap-mail-server/src/email.rs handle_email_copy accepts onSuccessUpdateOriginal and its doc comment says 'RFC 8621 §4.7 adds onSuccessUpdateOriginal to the standard request'. RFC 8621 §4.7 (rfc8621.txt ~2950) defines Email/copy as the standard RFC 8620 §5.4 /copy with no such argument. Decide: remove the argument (breaking), or document it as a vendor extension and correct the doc comment. Found during JMAP-2svx.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T23:04:11.028635984Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T23:04:11.028635984Z"
+}

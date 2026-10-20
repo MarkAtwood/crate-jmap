@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-8mem.5",
+  "title": "vtc-server: access control and E2EE rules",
+  "description": "notFound for chat-bound and standalone calls (vtc L1582-1597); speakerTimeMs (L1570-1572); key-holding participants (L1555-1562).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests quote L1582-1597 enumeration-safe notFound and L1555-1572.",
+  "notes": "Mark 2026-10-20: VTC specs have known bugs; no further VTC crate work until the spec is fixed.\nMark 2026-10-20: Scene/VTC specs fixed (jmap-chat-spec 63e9d08); work resumed. Re-check scope against new spec before implementing.\nSpec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[vtc] Reject e2eeEnabled true-to-false downgrade\nSpec (3cbb0c4): draft-atwood-jmap-vtc-00.md L450: \"a moderator MAY change it from `false` to `true` via update ... The server SHOULD reject an update from `true` to `false` with `invalidProperties` naming `e2eeEnabled`, so that participants never have to detect a downgrade.\"\nCode: crate-jmap-vtc-server/src/call.rs:466-556; crate-jmap-vtc-server/src/call.rs:72\nNow: update_call only gates e2eeEnabled on moderator status. A moderator can patch it from true to false.\nChange: In update_call, when the call's e2ee_enabled is true and the patch sets e2eeEnabled to false, return invalid(\u0026[\"e2eeEnabled\"], ...).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:51.755800617Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:38.039768096Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-8mem.5",
+      "depends_on_id": "JMAP-8mem",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:51.890124732Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

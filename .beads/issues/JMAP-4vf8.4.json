@@ -1,0 +1,30 @@
+{
+  "id": "JMAP-4vf8.4",
+  "title": "FileNode Serialize masks other-type props that storage and filters still see",
+  "description": "crate-jmap-filenode-types/src/filenode.rs:819-891 (impl Serialize for FileNode) is the only place draft-ietf-jmap-filenode-16 §3.1 ('properties defined for one @type MUST NOT appear on another') is enforced. The struct still represents a Directory with media_type/size/blob_id/executable Some, or a File with role Some, and the serializer silently drops those fields. Validation in crate-jmap-filenode-server/src/filenode.rs:671-698 checks only blobId and target on create (create side is already tracked as JMAP-mrod.7). Grepping the update path found no per-@type check for mediaType/executable/role/size, so a patch can probably store them. Not exercised by a test, so this is unverified. Consequence: typed consumers read the hidden values. memory.rs node_matches_filter matches mediaType/mediaTypeMatch (memory.rs:1068), role/hasAnyRole, blobId and minSize/maxSize against the stored fields. So FileNode/query can return a node whose FileNode/get output lacks the property that matched. Engineering basis: make the invariant hold at the data layer, by rejecting on create and update or normalizing the fields to None before storage, and keep Serialize as a wire-format concern rather than a hidden validator. The hand-rolled Serialize is still justified: an internally tagged enum (serde tag=\"@type\") cannot express partial objects with @type absent or an Other variant without its own custom impl. Relates to JMAP-mrod.7 (create) and JMAP-4vf8.1 (Wire mirror).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T04:19:49.784668744Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T04:38:25.722289231Z",
+  "started_at": "2026-10-18T04:26:57.970414627Z",
+  "closed_at": "2026-10-18T04:38:25.722289231Z",
+  "close_reason": "fixed in working tree (uncommitted), verified by adversarial reviewer + cargo test",
+  "labels": [
+    "review",
+    "rust-idiom"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-4vf8.4",
+      "depends_on_id": "JMAP-4vf8",
+      "type": "parent-child",
+      "created_at": "2026-10-18T04:19:50.36953097Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

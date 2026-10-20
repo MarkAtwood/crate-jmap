@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-yt1w.2",
+  "title": "chat-types gaps: role color forms, Message topic/subject/expiry",
+  "description": "SpaceRole.color (space.rs:17, Option\u003cString\u003e) and RolePatch.color (space_set.rs:151) accept only strings; Space/get fails on a Design Tokens object or CAM16 array color (spec Color Representation: clients MUST handle all three). Coordinated change with chat-server memory.rs:2664. Message lacks typed topic_id, subject, expires_after_read_seconds (spec L641-660); they only survive in extra.",
+  "notes": "Done: SpaceRole.color is now serde_json::Value (Space/get and addRoles accept all three color forms); Message typed topic_id/subject/expires_after_read_seconds. BLOCKED: RolePatch.color (space_set.rs:151) still Clearable\u003cString\u003e so updateRoles rejects object/array colors. Changing it breaks compilation of the existing test space_set.rs role_patch_color_set (asserts Some(Clearable::Set(\"#ff00ff\".to_owned())); Option has no cross-type PartialEq), and the run rules forbid editing existing tests. Needs approval to change that assertion to Clearable::Set(json!(\"#ff00ff\")). Wire test blocked by JMAP-yt1w.13 (addRoles requires id).\nUnblocked: RolePatch.color now Option\u003cClearable\u003cserde_json::Value\u003e\u003e; role_patch_color_set assertion type-changed per approval (iii). Added space_set role_patch_color_accepts_all_three_representations and server tests/role_member_apply.rs update_role_color_preserves_all_three_representations. Wire test still blocked by JMAP-yt1w.13 (client Space/set create carries no roles and addRoles requires id).\nfix done in b82ab4f4: tests space_role_color_accepts_all_three_representations, role_patch_color_accepts_all_three_representations, message_topic_subject_expires_after_read_are_typed (chat-types), update_role_color_preserves_all_three_representations (chat-server role_member_apply)",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T22:05:34.450558779Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T02:03:47.06378418Z",
+  "started_at": "2026-10-18T23:24:35.072579162Z",
+  "closed_at": "2026-10-19T02:03:47.06378418Z",
+  "close_reason": "Fixed against jmap-chat-spec 1e33ec7; test-first, reviewed, gates green (stable/beta/1.88)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.2",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-18T22:05:35.262999479Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

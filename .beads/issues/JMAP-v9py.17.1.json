@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-v9py.17.1",
+  "title": "chat-calendars-types: capability, calendarId accessor, metadata shapes",
+  "description": "Capability URI and three account booleans (draft-atwood-jmap-chat-calendars-00 L87-104); typed calendarId accessor; metadata shapes for calendar-event and availability (L161-169, L236-252).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests round-trip the draft examples in L87-104/L161-169/L236-252.",
+  "notes": "DECIDED by Mark 2026-10-20: also advertise supportsAvailabilityLookup (from 17.3; no gate).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:05.525315307Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:49.164355006Z",
+  "closed_at": "2026-10-20T20:37:49.164355006Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.17.1",
+      "depends_on_id": "JMAP-v9py.17",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:05.640336548Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

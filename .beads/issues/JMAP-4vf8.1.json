@@ -1,0 +1,30 @@
+{
+  "id": "JMAP-4vf8.1",
+  "title": "FileNode Serialize Wire mirror silently drops newly added fields",
+  "description": "crate-jmap-filenode-types/src/filenode.rs:282-354. The hand-written Serialize builds Wire from self.field accesses. FileNode is #[non_exhaustive] and will gain fields (e.g. JMAP-0x31 spaceId); a new field not added to Wire still compiles and silently vanishes from the wire. Rewrite: start serialize() with an exhaustive destructure, let FileNode { id, parent_id, node_type, blob_id, target, size, name, media_type, created, modified, accessed, changed, executable, is_subscribed, my_rights, share_with, role, extra } = self; (no ..), then build Wire from the bindings. Adding a field then fails to compile until Wire handles it. Zero runtime cost, same line count.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T04:19:16.642081414Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T04:38:25.090731235Z",
+  "started_at": "2026-10-18T04:23:26.005345887Z",
+  "closed_at": "2026-10-18T04:38:25.090731235Z",
+  "close_reason": "fixed in working tree (uncommitted), verified by adversarial reviewer + cargo test",
+  "labels": [
+    "review",
+    "elegance"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-4vf8.1",
+      "depends_on_id": "JMAP-4vf8",
+      "type": "parent-child",
+      "created_at": "2026-10-18T04:19:16.785221299Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

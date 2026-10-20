@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-yt1w.24",
+  "title": "Domain /query handlers: no test for backend method-error pass-through",
+  "description": "JMAP-yt1w.21 switched the /query handlers that call query_objects directly (chat Message/Space/ChatContact/CustomEmoji, mail Email/Mailbox/EmailSubmission, FileNode depth\u003e0 query_subtree, CalendarEvent/query via QueryCalendarEventsError::Method) to pass BackendQueryError::Method through via From\u003cBackendQueryError\u003cE\u003e\u003e for JmapError. Only jmap-server handle_query has regression tests (handlers::tests::handle_query_passes_*). Add per-domain tests, at least chat Message/query returning unsupportedFilter (draft-atwood-jmap-chat-00, mimid use case), quoting RFC 8620 §5.5.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T04:08:16.858229094Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T04:08:16.858229094Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.24",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-19T04:08:16.97038394Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

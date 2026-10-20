@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-4dmj",
+  "title": "Message/set update: enforce encrypted/rich bodyType empty-field rules",
+  "description": "draft-atwood-jmap-chat-00 (1e33ec7) line 1727: 'Servers MUST reject a Message/set create or update, or a Peer/deliver payload, that has an encrypted bodyType and any of these fields non-empty, with invalidArguments.' and line 1447 (rich body: mentions MUST be empty). JMAP-yt1w.1 enforces both on create only (body_type_field_conflict in crate-jmap-chat-server/src/message.rs). The update path accepts a bodyType patch to application/mls-ciphertext while the stored message keeps mentions/attachments/replyTo/threadRootId/topicId/subject, and accepts a mentions patch on a rich body. Peer/deliver is not covered either.",
+  "notes": "Folded into JMAP-y3f2 (Chat core server conformance (draft-atwood-jmap-chat-00)) by the 2026-10-19 spec gap audit.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T00:22:26.32888917Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T00:45:40.360477221Z"
+}

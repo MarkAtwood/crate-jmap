@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-v9py.16.5",
+  "title": "chat-filenode: maxSpaceStorageBytes overQuota and autoCreateFileTree",
+  "description": "Return overQuota at maxSpaceStorageBytes (filenode L108); create the tree on Space create when autoCreateFileTree is set (L111).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests quote L108/L111.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:56.899446264Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:47.84750784Z",
+  "closed_at": "2026-10-20T20:37:47.84750784Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.16.5",
+      "depends_on_id": "JMAP-v9py.16",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:57.020470315Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

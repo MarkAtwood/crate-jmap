@@ -1,0 +1,23 @@
+{
+  "id": "JMAP-yt1w.20",
+  "title": "MemoryBackend hasMention matches any non-empty mentions",
+  "description": "crate-jmap-chat-server/src/memory.rs (~line 3690, filter hasMention) treats any non-empty `mentions` array as mentioning the owner. Draft §Message/query: hasMention matches when \"the owner's ChatContact.id appears in `mentions`, OR `broadcastMentions` contains a scope whose resolved recipient set includes the owner.\" A message mentioning only another user ({\"id\":\"u1\"}) wrongly matches hasMention:true. Fix: compare each Mention.id against the owner ChatContact.id. Found during JMAP-yt1w.17 test review.",
+  "notes": "Also in the same filter (memory.rs broadcast_mention_matches_owner, ~line 3518): scope \"admins\" resolves to true unconditionally ('single-user = always admin'). Draft §Message/query hasMention matches when 'broadcastMentions contains a scope whose resolved recipient set includes the owner'; since JMAP-yt1w.33 the owner is an admin only if its Space member entry (accountId) holds admin permissions, so 'admins' should resolve against that entry. Found while fixing JMAP-yt1w.33.\nFolded into JMAP-y3f2 (Chat core server conformance (draft-atwood-jmap-chat-00)) by the 2026-10-19 spec gap audit.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T03:41:48.663969733Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T00:45:40.214050964Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.20",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-19T03:41:48.770861466Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

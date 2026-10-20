@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-8mem.1",
+  "title": "vtc-types: capability, embedded types, data types, push and events",
+  "description": "Capability and account object (vtc L140-187); Gateway, DialInEntry, MediaState, CallPolicy (L193-269); the four data types (L271-517); VTCCallPush full and content-free (L1238-1313); the eight event types (L1333-1537).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests round-trip every JSON example in L140-1537 verbatim.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:50.454552804Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:37.343370379Z",
+  "closed_at": "2026-10-20T20:37:37.343370379Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-8mem.1",
+      "depends_on_id": "JMAP-8mem",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:50.589497888Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

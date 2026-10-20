@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-ji1v",
+  "title": "TaskList/set onDestroyRemoveTasks=true orphans the list's Tasks",
+  "description": "handle_task_list_set (crate-jmap-tasks-server/src/task_list.rs ~281-310) with onDestroyRemoveTasks=true skips the task_list_has_tasks check and calls only destroy_object::\u003cTaskList\u003e. The module doc (task_list.rs:3-6) says 'If true, the backend destroys the tasks along with the list', but TasksBackend::destroy_object takes no flag and MemoryBackend::destroy_object (src/memory.rs) removes only the TaskList record. Result: Tasks whose taskListId names the destroyed list survive, with no Task state bump or destroyed entry in Task/changes. draft-tasks onDestroyRemoveTasks: if true, tasks in the list are destroyed with it. Siblings drive this cascade in the handler: calendars Calendar/set onDestroyRemoveEvents (calendar.rs ~320) and contacts AddressBook/set onDestroyRemoveContents (cascade_address_book_contents). Fix: mirror that handler-driven cascade (destroy Tasks in the list via destroy_object::\u003cTask\u003e, then the list), fix the module doc, and add a test whose oracle is the draft text. Found during JMAP-x2gd.86 doc sweep.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T23:51:35.213171293Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:02:50.222073236Z",
+  "closed_at": "2026-10-20T07:02:50.222073236Z",
+  "close_reason": "Landed in d7fae941 fix(tasks-server): cascade onDestroyRemoveTasks (batch 5, adversarially verified, CI green at 44026b06)"
+}

@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-17T16:24:08Z",
   "compaction_level": 0,
-  "content_hash": "dbed13f941cf3c1722bd23a629d7abb0b01c97c0c317b1f7c42ecec2d933c6ea",
   "created_at": "2026-05-15T05:33:16Z",
   "created_by": "Mark Atwood",
   "description": "README.md lines 99-108 show a struct literal: `let req = JmapRequest { using: ..., method_calls: ..., created_ids: None };`. JmapRequest is #[non_exhaustive] AND the recently-added `extra` field (commit bae3a90) is private-construction-required from outside the crate. Trigger: any external user copy-pasting the README example into their code. Bad behavior: compile error \"cannot construct \\`JmapRequest\\` with struct literal syntax due to inaccessible fields\". Fix: rewrite the example to use `JmapRequest::new(using_vec, method_calls_vec, None)`. Note: the in-crate doctest at lib.rs line 16 passes because it only DESERIALIZES; the README example tries to CONSTRUCT, which is the external-caller path.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-6xs8.1",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "bug",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 0,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "README.md JmapRequest example fails to compile outside crate",
   "updated_at": "2026-05-17T16:24:08Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-6xs8",
       "id": "e799a29c-e3b3-5512-93bb-40294ce86a6b",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

@@ -1,0 +1,1 @@
+{"id":"01a15680-f70d-79e1-a4c5-5d3ccec86880","issue_id":"JMAP-w844","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed on main as a0981268 (feat(chat-types): type ChatCapability.role). Adversarial review passed at the lane commit. Integration CI all green at 9e113188 (stable+beta 3448 passed).","created_at":"2026-10-19T23:30:54.861648241Z"}

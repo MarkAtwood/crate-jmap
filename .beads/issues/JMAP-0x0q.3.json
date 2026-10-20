@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.3",
+  "title": "Detect slow mode via rateLimit SetError in chat client",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[chat-core] Detect slow mode via rateLimit SetError in chat client\nSpec (57243ea): draft-atwood-jmap-chat-00.md L612: \"Clients MAY simply attempt the send and react to `rateLimit`; this is functionally equivalent and avoids the client needing to know its own exempt status.\"\nCode: crate-jmap-chat-client/src/methods/message.rs:311 (err.error_type == \"rateLimited\"); crate-jmap-chat-client/src/methods/message.rs:12,210-237,316,322 (docs and error strings); crate-jmap-chat-client/src/methods/mod.rs:1759,1763 (server_retry_after docs); crate-jmap-chat-client/tests/message_smoke_tests.rs:626-667 (mock returns \"rateLimited\")\nNow: message_create maps only notCreated type \"rateLimited\" to ClientError::RateLimited. Against a conformant server, a slow-mode rejection comes back as Ok(set_resp) with not_created type \"rateLimit\". A rateLimit without serverRetryAfter (RFC 8620 has no such field) would also need handling.\nChange: Match \"rateLimit\". serverRetryAfter is not part of RFC 8620 rateLimit, so its absence should not be UnexpectedResponse: fall back to Ok(None)/default backoff or surface RateLimited without a deadline. Update the smoke-test mock to the new spec wire string.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:25.429122803Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:25.429122803Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.3",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:25.551319123Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

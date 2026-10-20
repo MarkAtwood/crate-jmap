@@ -1,0 +1,1 @@
+{"id":"01a15680-fb2f-7a20-986d-7b7941277309","issue_id":"JMAP-x2gd.14","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed on main as ef7fbaa8 (fix(chat-server): allowlist Message/set updates). Adversarial review passed at the lane commit. Integration CI all green at 9e113188 (stable+beta 3448 passed).","created_at":"2026-10-19T23:30:55.919664388Z"}

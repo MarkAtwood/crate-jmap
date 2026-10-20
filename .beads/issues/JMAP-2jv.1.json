@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-01T15:14:54Z",
   "compaction_level": 0,
-  "content_hash": "268ebef87f080b1351eb6b2965cc0b4ab7529c01780ce4f9eaac26141c33272a",
   "created_at": "2026-05-01T15:13:05Z",
   "created_by": "Mark Atwood",
-  "description": "email.rs:266, mailbox.rs:286, submission.rs:198 \u2014 ok_or_else(|| JmapError::anchor_not_found()) should be ok_or_else(JmapError::anchor_not_found)",
-  "ephemeral": 0,
+  "description": "email.rs:266, mailbox.rs:286, submission.rs:198 — ok_or_else(|| JmapError::anchor_not_found()) should be ok_or_else(JmapError::anchor_not_found)",
+  "ephemeral": false,
   "id": "JMAP-2jv.1",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "chore",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "fix: redundant closures (3 instances)",
   "updated_at": "2026-05-01T15:14:54Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-2jv",
       "id": "d900fc37-d67d-5970-aa37-2c81e309db96",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

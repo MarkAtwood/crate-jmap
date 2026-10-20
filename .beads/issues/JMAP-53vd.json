@@ -1,0 +1,16 @@
+{
+  "id": "JMAP-53vd",
+  "title": "chat-server: public helper to store server-originated Messages",
+  "description": "Extensions (MIMI fanout per draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout; also federation inbound delivery) must store Messages the server creates: server-reserved bodyType, server-chosen senderId/senderMsgId/sentAt. Today the only path is ChatBackend::create_object::\u003cMessage\u003e directly (backend.rs:504), which skips (1) dedup by senderMsgId within the Chat (mimi draft: 'MUST NOT store a FanoutMessage whose senderMsgId it has already stored in the Chat'), and (2) ReadPosition creation on a Chat's first message (ensure_read_positions, message.rs:574, private). Add one public fn (e.g. store_server_message(backend, caller, account_id, Message) -\u003e Result\u003cStoredOutcome\u003e) that does both and returns Stored(id) or Duplicate(existing id). Byte-identical-body dedup and hub ChatContact policy stay in the extension. ChatContact get-or-create needs no work: create_object::\u003cChatContact\u003e returns alreadyExists with existing_id on an identity clash (backend.rs:478-485).",
+  "acceptance_criteria": "Public helper; tests: stores a reserved-bodyType Message, second call with same senderMsgId in same Chat returns Duplicate and writes nothing, same senderMsgId in another Chat stores, first message creates ReadPositions like Message/set does.",
+  "notes": "Folded into JMAP-5mz6 (Chat extension seams in chat-server/chat-types) by the 2026-10-19 spec gap audit.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T20:55:08.973444077Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:02:52.800758853Z",
+  "closed_at": "2026-10-20T07:02:52.800758853Z",
+  "close_reason": "Landed in 1e16c07b feat(chat-server): store server-created Messages (batch 5, adversarially verified, CI green at 44026b06)"
+}

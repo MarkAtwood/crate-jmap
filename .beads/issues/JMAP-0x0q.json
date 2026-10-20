@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-0x0q",
+  "title": "Sync crates to jmap-chat-spec 63e9d08",
+  "description": "Spec revision 2026-10-20 (33 commits 0cd3af0..63e9d08). Impacts mapped and adversarially verified by workflow wf_dc0f2945-d30; details in child beads.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:24.688684563Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:24.688684563Z"
+}

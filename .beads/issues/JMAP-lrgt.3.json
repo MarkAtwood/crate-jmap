@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-lrgt.3",
+  "title": "chat crates: non_exhaustive and docs pass before 0.4 freeze",
+  "description": "API hygiene found in the 2026-10-20 freeze review. (1) Public types with pub fields/variants and no #[non_exhaustive]: crate-jmap-chat-server/src/push.rs OwnerFlags (L202), PushItem (L211), BuiltPush (L229); crate-jmap-chat-server/src/message.rs StoreOutcome (L864). BuiltPush and StoreOutcome are outputs and can take #[non_exhaustive] directly. OwnerFlags and PushItem are caller-constructed inputs, so adding #[non_exhaustive] needs a constructor (or an explicit decision to keep them frozen as-is, recorded in their docs). Adding a field or variant to any of them after 0.4 is breaking. (2) RUSTDOCFLAGS='-W missing_docs' cargo doc -p jmap-chat-types reports 8 undocumented variant fields in crate-jmap-chat-types/src/space_set.rs SpacePatchOp (UpdateMember, UpdateChannel, UpdateCategory and siblings, around L444-471). The -D warnings rustdoc gate passes today; chat-server and chat-client have 0 missing_docs. Private-field structs (JmapUri, EphemeralSubscription, CallHandle) are fine.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T07:01:57.239294572Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:16.086745666Z",
+  "closed_at": "2026-10-20T10:19:16.086745666Z",
+  "close_reason": "Landed in 582e75a2 fix(chat)!: non_exhaustive push and store types (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-lrgt.3",
+      "depends_on_id": "JMAP-lrgt",
+      "type": "parent-child",
+      "created_at": "2026-10-20T07:01:57.355135466Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

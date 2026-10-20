@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-01T11:58:40Z",
   "compaction_level": 0,
-  "content_hash": "8d60571eef3a77b20053ccd9f1ef833b83be6cf493bc9f833caf09abfe6890b9",
   "created_at": "2026-05-01T11:48:41Z",
   "created_by": "Mark Atwood",
-  "description": "RFC 8620 \u00a75.2 says 'If supplied, the value MUST be a positive integer greater than 0'. The handlers in email.rs:118, mailbox.rs:93, thread.rs:83, submission.rs:104, identity.rs:81 parse maxChanges via v.as_u64() which accepts 0 as a valid u64, then pass it to get_changes. The MemoryBackend treats max_changes=Some(0) as a limit of 0 entries (per the limit.saturating_add(1) sentinel pattern), so the backend returns has_more=true and no changes \u2014 silently wrong behavior for a client that sends maxChanges:0 by mistake. Should return invalidArguments instead. Trigger: POST {method:\"Email/changes\", args:{accountId:\"x\", sinceState:\"0\", maxChanges:0}} \u2192 currently returns hasMoreChanges:true, created:[], not an error.",
-  "ephemeral": 0,
+  "description": "RFC 8620 §5.2 says 'If supplied, the value MUST be a positive integer greater than 0'. The handlers in email.rs:118, mailbox.rs:93, thread.rs:83, submission.rs:104, identity.rs:81 parse maxChanges via v.as_u64() which accepts 0 as a valid u64, then pass it to get_changes. The MemoryBackend treats max_changes=Some(0) as a limit of 0 entries (per the limit.saturating_add(1) sentinel pattern), so the backend returns has_more=true and no changes — silently wrong behavior for a client that sends maxChanges:0 by mistake. Should return invalidArguments instead. Trigger: POST {method:\"Email/changes\", args:{accountId:\"x\", sinceState:\"0\", maxChanges:0}} → currently returns hasMoreChanges:true, created:[], not an error.",
+  "ephemeral": false,
   "id": "JMAP-767.4",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "bug",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 0,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "maxChanges=0 is silently accepted; RFC requires rejection",
   "updated_at": "2026-05-01T11:58:40Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-767",
       "id": "e188ebc6-375c-567c-a667-b254a475a1fe",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

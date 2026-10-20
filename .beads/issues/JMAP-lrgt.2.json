@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-lrgt.2",
+  "title": "Decide ChatMember.role typing before 0.4 freeze",
+  "description": "Breaking-if-deferred naming/type inconsistency. jmap-chat-types ChatMember.role is a bare String (crate-jmap-chat-types/src/chat.rs L44), while jmap-chat-client defines and exports its own typed ChatMemberRole {Admin, Member, Other(String)} (crate-jmap-chat-client/src/types.rs L166, re-exported from lib.rs L50). The wire vocabulary type lives in the client, not the types crate the server shares, so server and client disagree on how a role is modeled. Retyping ChatMember.role after the freeze is a breaking change. Decide: move ChatMemberRole into chat-types and type ChatMember.role with it (client re-exports), or keep String and drop or relocate the client enum. Land before 0.4.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T07:01:56.980810811Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:15.814828074Z",
+  "closed_at": "2026-10-20T10:19:15.814828074Z",
+  "close_reason": "Landed in fba3c514 feat(chat-types)!: own ChatMemberRole enum (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-lrgt.2",
+      "depends_on_id": "JMAP-lrgt",
+      "type": "parent-child",
+      "created_at": "2026-10-20T07:01:57.088875963Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

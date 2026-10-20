@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-5mz6",
+  "title": "Chat extension seams in chat-server/chat-types",
+  "description": "Layer: Chat base (extension points). Extends crate-jmap-chat-server and crate-jmap-chat-types. Depends on: nothing (Tier 0). Prerequisite for VTC base, Chat federation (JMAP-v9py.15), MIMI server, chat-calendars (JMAP-v9py.17), chat-tasks (JMAP-v9py.18). Folded-in: JMAP-dfo4 (per-Chat restriction hooks for MIMI room Chats; mimi L251, L424-426), JMAP-53vd (public helper storing server-created Messages with senderMsgId dedup). Specs: draft-atwood-jmap-chat-00, -federation-00, -mimi-00, -calendars-00, -tasks-00, -vtc-00, -filenode-00. Source: 2026-10-19 spec gap audit (gap-synthesis E-epics + critic corrections). Line numbers are against jmap-chat-spec drafts as of 2026-10-19 and may drift.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:40.706818362Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T00:45:40.706818362Z"
+}

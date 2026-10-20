@@ -1,0 +1,2 @@
+{"id":"01a156c5-646d-7ece-a138-393233faea51","issue_id":"JMAP-y3f2.7","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:39.309971339Z"}
+{"id":"01a1581e-be64-7bf5-99f2-a15036dc82ab","issue_id":"JMAP-y3f2.7","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in abc3c5d8 fix(chat-server): query defaults, emoji names (batch 5, adversarially verified, CI green at 44026b06)","created_at":"2026-10-20T07:02:52.260784385Z"}

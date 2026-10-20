@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.17",
+  "title": "Add SceneObject/interact method types and handler",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[scene] Add SceneObject/interact method types and handler\nSpec (61f2d14): draft-atwood-jmap-scene-00.md L1978ff: \"`SceneObject/interact` submits one or more interactions ... It works over HTTP and, as a `Request`, over the JMAP WebSocket\"; args `accountId`, `interactions` (Id[SceneInteraction]: regionId, objectId, action, data); response `accountId`, `accepted` (Id[]|null), `notAccepted` (Id[SetError]|null); SetErrors notFound / forbidden (no active avatar or interactable:false) / rateLimit / invalidProperties.\nCode: crate-jmap-scene-server/src/lib.rs:186-189; crate-jmap-scene-server/src/ephemeral.rs:252-268; crate-jmap-scene-types/src/event.rs:114\nNow: No SceneObject/interact anywhere: no SceneInteraction or args/response types in scene-types, no handler, and nothing registered in register (lib.rs only has SceneObject/get|changes|set|query). Interactions exist only as the WebSocket frame, checked by validate_interaction.\nChange: Add SceneInteraction and the SceneObjectInteract args/response types to scene-types. Add handle_scene_object_interact to scene-server, reusing the validate_interaction checks: region access gives notFound, the visibility contract gives notFound, no active avatar or interactable:false gives forbidden, a malformed entry gives invalidProperties, and an optional rateLimit. Register \"SceneObject/interact\". Give the transport a hook to emit a SceneInteractionEvent for each accepted id.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:30.017625061Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:30.017625061Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.17",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:30.130647514Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

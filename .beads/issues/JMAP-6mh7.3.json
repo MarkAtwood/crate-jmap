@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-6mh7.3",
+  "title": "vtc-server: VTC ephemeral delivery predicates",
+  "description": "Per-user vs per-call scope (L252-260), authorization re-checked per delivery (L542-559); blocked suppression where RecordingState still goes to everyone and GatewaySignal to moderators only (L290-328); no active-speaker events on E2EE calls (L589-594) in draft-atwood-jmap-vtc-wss-00.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests quote each rule.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:09.14381525Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:38.899982892Z",
+  "closed_at": "2026-10-20T20:37:38.899982892Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-6mh7.3",
+      "depends_on_id": "JMAP-6mh7",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:09.251488616Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+{"id":"01a156c5-89ee-74a9-8f38-6d32c05eb202","issue_id":"JMAP-6itf.2","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:48.910310982Z"}
+{"id":"01a158d2-a347-7748-9208-3cb92fc8bd5f","issue_id":"JMAP-6itf.2","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in 21769569 feat(did-types): add Did newtype and web_domain (batch 6, adversarially verified, CI green at a586c251)","created_at":"2026-10-20T10:19:21.799477749Z"}

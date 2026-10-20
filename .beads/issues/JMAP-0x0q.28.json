@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.28",
+  "title": "Add id to SceneStreamEnable for RequestError requestId",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[scene] Add id to SceneStreamEnable for RequestError requestId\nSpec (81de006): draft-atwood-jmap-scene-wss-00.md L450-452: \"**`id`** (String, optional): A client-specified identifier for this message. A `RequestError` caused by this message carries this value as its `requestId` ({{RFC8887}} Section 4.3.4).\"\nCode: crate-jmap-scene-types/src/stream.rs:33-48; crate-jmap-scene-server/src/ephemeral.rs:108-136; crate-jmap-scene-client/src/ws.rs:87-90\nNow: SceneStreamEnable has no typed id; an `id` lands in `extra`. replace_with returns a bare JmapError with nothing for the transport to echo as requestId.\nChange: Add `#[serde(default, skip_serializing_if = \"Option::is_none\")] id: Option\u003cString\u003e` to SceneStreamEnable. Document (or return) it so the transport sets requestId on the invalidArguments RequestError.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:33.194839032Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:33.194839032Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.28",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:33.301849516Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

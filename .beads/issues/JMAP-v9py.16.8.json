@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-v9py.16.8",
+  "title": "Decide chat-filenode crate placement",
+  "description": "Decision bead: JMAP-v9py.16 planned separate jmap-chat-filenode-* crates but the code landed in chat-* crates. Decide and update the epic.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Decision recorded; epic text updated.",
+  "notes": "DECIDED by Mark 2026-10-20: binding crate. New crate-jmap-chat-filenode-server (depends on jmap-chat-server + jmap-filenode-server) holds the cross-layer server rules (Space-role -\u003e FilesRights authorizer, root validation, quota/auto-create, tree destroy with grace, attachment-by-filenodeId checks). Fields on chat objects stay in jmap-chat-types (Attachment.filenodeId etc., already landed); client methods stay in jmap-chat-client. Generic hooks needed in filenode-server/chat-server (authorizer hook, cascade callbacks) stay in those crates. Same pattern applies to chat-calendars (v9py.17) and chat-tasks (v9py.18): binding *-server crates, chat-object fields in chat-types.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:57.80749372Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:03:50.534351761Z",
+  "closed_at": "2026-10-20T07:03:50.534351761Z",
+  "close_reason": "Decided by Mark 2026-10-20; decision recorded in notes",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.16.8",
+      "depends_on_id": "JMAP-v9py.16",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:57.944386499Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

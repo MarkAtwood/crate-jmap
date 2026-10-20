@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-8mem.8",
+  "title": "vtc-client: method bindings",
+  "description": "vtc-client bindings for all VTC methods in draft-atwood-jmap-vtc-00.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests serialize requests and compare to the draft's request examples.",
+  "notes": "Docs for this crate were removed from commit 0fdc8eb1 (JMAP-38uq.4 review: crate not yet in repo). Re-add with this bead:\n\nAGENTS.md crate-map row:\n| `crate-jmap-vtc-client/` | `jmap-vtc-client` | draft-atwood-jmap-vtc-00 client method bindings — `JmapVtcExt::with_vtc_session` and `SessionClient` `/get`, `/changes`, `/set`, `/query`, `/queryChanges` for `VTCCall`, `VTCParticipant`, `VTCRecording` and `VTCLivestream`, typed with the `jmap-vtc-types` objects, filters and comparators. Depends on `jmap-base-client` and `jmap-vtc-types` |\n\nAGENTS.md dependency tree:\n    ├── jmap-vtc-server    — VTCCall, VTCRecording, VTCLivestream handlers, VtcBackend trait.\n    │                        Depends on jmap-server; no chat dependency.\n    └── jmap-vtc-client    — VTC method bindings over jmap-base-client.\n\nAGENTS.md Extension client row: append `jmap-vtc-client`\n\nCHANGELOG.md [Unreleased] Added:\n- **jmap-vtc-client**: new crate binding every draft-atwood-jmap-vtc-00\n  method — `/get`, `/changes`, `/set`, `/query` and `/queryChanges` for\n  `VTCCall`, `VTCParticipant`, `VTCRecording` and `VTCLivestream` — on\n  `SessionClient` via `JmapVtcExt::with_vtc_session`. `/get` decodes the\n  `jmap-vtc-types` objects; `/query` and `/queryChanges` take the\n  `jmap-vtc-types` filters and comparators; `/set` returns the untyped\n  `SetResponse` because RFC 8620 §5.3 `created` entries carry only\n  server-set properties.\nMark 2026-10-20: VTC specs have known bugs; no further VTC crate work until the spec is fixed.\nMark 2026-10-20: Scene/VTC specs fixed (jmap-chat-spec 63e9d08); work resumed. Re-check scope against new spec before implementing.\nSpec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[vtc] Let vtc-client address the call's hosting account\nSpec (3cbb0c4): draft-atwood-jmap-vtc-00.md L1647: \"The `accountId` of every method call on a VTC data type ... that concerns a call is the id of that call's hosting account. A participant who answers, mutes, or leaves therefore sends `VTCParticipant/set` to the hosting account, not to their personal account. A user's calls can be spread across several hosting accounts; a client that lists them queries each account the user can access.\"\nCode: crate-jmap-vtc-client/src/methods/mod.rs:150-170; crate-jmap-vtc-client/src/methods/vtc_participant.rs:31-93; crate-jmap-vtc-client/src/methods/vtc_call.rs; crate-jmap-vtc-client/src/methods/vtc_recording.rs; crate-jmap-vtc-client/src/methods/vtc_livestream.rs\nNow: Every method gets its accountId from session_parts(), which always returns the primary urn:ietf:params:jmap:vtc account. A client cannot answer, leave or mute in a call hosted in another user's (shared) account.\nChange: Take an explicit account_id on each method, or add *_in(account_id, ...) variants. Keep the primary account as the convenience default.\nUncommitted batch-7 work parked on local branch wip/vtc-client (c4f114e8); written against spec 85162c4. 8mem.3 part is partial and never compiled.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:52.68291011Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:35:20.91000289Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-8mem.8",
+      "depends_on_id": "JMAP-8mem",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:52.801724954Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

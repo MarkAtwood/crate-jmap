@@ -3,22 +3,20 @@
   "close_reason": "added MailBackend::max_collapse_threads_emails() with default 65536; handler uses it instead of hardcoded const",
   "closed_at": "2026-05-02T20:07:06Z",
   "compaction_level": 0,
-  "content_hash": "67bebb4126b1f925f93028787a3c8dc65a3cc4a2bbe0d83d2e5f88a4429ff6a8",
   "created_at": "2026-05-02T19:38:28Z",
   "created_by": "Mark Atwood",
   "description": "COLLAPSE_THREADS_MAX_EMAILS=65536 is a private const with no per-backend override. Production backends cannot lower it. Tracked from JMAP-1vdc.2 review finding.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-yecd.5",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 3,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "COLLAPSE_THREADS_MAX_EMAILS: make overridable per backend/account",
   "updated_at": "2026-05-02T20:07:06Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-yecd",
       "id": "9d234836-5d2b-5de5-aaa1-4002fc62a441",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

@@ -1,0 +1,2 @@
+{"id":"01a155f1-d60f-7a75-8b7a-d27e7dbb5e1b","issue_id":"JMAP-fvnd.2","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-19T20:54:34.767686297Z"}
+{"id":"01a158d2-9858-7286-873f-0ffc64d3896c","issue_id":"JMAP-fvnd.2","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in 24795c56 feat(chat-mimi-types): KeyPackage object, /set (batch 6, adversarially verified, CI green at a586c251)","created_at":"2026-10-20T10:19:19.000166142Z"}

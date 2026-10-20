@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-6k5d.8",
+  "title": "mimi-client: Room/* bindings, last-client unbind, GroupInfo check",
+  "description": "Room/* bindings, Room/unbind after the last client is removed (L255), GroupInfo signature check (L414) in draft-atwood-jmap-chat-mimi-00.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests: GroupInfo signature verified against RFC 9420 test vectors.",
+  "notes": "MSRV decided on JMAP-6k5d.2: workspace -\u003e 1.91.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:05.232620472Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:44:28.181255065Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-6k5d.8",
+      "depends_on_id": "JMAP-6k5d",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:05.371655462Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

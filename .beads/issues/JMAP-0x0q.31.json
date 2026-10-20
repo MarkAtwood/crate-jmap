@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.31",
+  "title": "Create ring initiator joined, with activeParticipantCount 1",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[vtc] Create ring initiator joined, with activeParticipantCount 1\nSpec (3cbb0c4): draft-atwood-jmap-vtc-00.md L626: \"The server creates a VTCParticipant record for each target (with `joinedAt: null` and `callResponse: \\\"pending\\\"`) and one for the initiator (with `joinedAt` set to the creation time, since the initiator is in the call from the start)\"; example L663 `\"activeParticipantCount\": 1`.\nCode: crate-jmap-vtc-server/src/call.rs:403; crate-jmap-vtc-server/src/memory.rs:242-262; crate-jmap-vtc-server/src/memory.rs:535-546; crate-jmap-vtc-server/src/backend.rs:106-110\nNow: call.rs:403 always sets activeParticipantCount 0. memory.rs ring_participant gives the initiator `joinedAt: null`. The backend contract does not say the initiator is joined.\nChange: For ring calls, set the initiator's joinedAt to createdAt and activeParticipantCount to 1. This can happen either in the handler, or in the backend contract with memory.rs following it. Update the backend.rs create_call doc to state the rule.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:35.999517514Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:35.999517514Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.31",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:36.126966734Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"id":"01a15681-0c8f-7ad4-b8a6-8c40b04e99fc","issue_id":"JMAP-ua37.5","event_type":"closed","actor":"agent","old_value":"","new_value":"Already done: testjig builds against metadata-02 (http.rs:486, sse.rs:591 note per-type metadata; no MemoryBackend/register_metadata_handlers refs). Workspace tests green 2026-10-19 at 9e113188.","created_at":"2026-10-19T23:31:00.367710296Z"}

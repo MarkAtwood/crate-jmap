@@ -1,0 +1,7 @@
+{
+  "id": "1792292510305683671-1",
+  "issue_id": "JMAP-510h",
+  "author": "agent",
+  "text": "Released stale in_progress claim (last activity 2026-06-26). Note: FileNode -16 upgrade (379d0c4b) removed server-side @type inference, deliberately reversing the JMAP-510h.25 test expectation. JMAP-510h.55 (copy onExists=replace) is the same class as JMAP-mrod.5 (set create).",
+  "created_at": "2026-10-18T03:01:50.305683671Z"
+}

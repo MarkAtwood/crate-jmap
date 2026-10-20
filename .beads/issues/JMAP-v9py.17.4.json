@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-v9py.17.4",
+  "title": "chat-calendars-client: RSVP helper for participationStatus patch",
+  "description": "Client RSVP helper building `participants/{key}/participationStatus` (draft-atwood-jmap-chat-calendars-00 L185-192).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Test: patch path and value equal the L185-192 example; RFC 8984 participationStatus values.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:06.356910699Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:50.027036776Z",
+  "closed_at": "2026-10-20T20:37:50.027036776Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.17.4",
+      "depends_on_id": "JMAP-v9py.17",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:06.465079796Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

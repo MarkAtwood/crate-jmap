@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-cklk",
+  "title": "vtc-00 spec: Id charset, push example, lobbyState presence",
+  "description": "Found implementing JMAP-8mem.1 (draft-atwood-jmap-vtc-00 at jmap-chat-spec 3227c0f). (1) L277 says the server SHOULD use the userId as VTCParticipant id, and the examples use ids like \"user:alice@example.com\" (L841) and \"gw-pstn-14155559876\"; ':' '@' '.' are outside the RFC 8620 §1.2 Id charset (A-Za-z0-9 - _). jmap-types Id does not validate, so the types carry them, but a validating peer would reject them. (2) The full VTCCallPush example (L1279-1291) omits channelId although L1273 does not mark it optional. (3) L315 says lobbyState is 'Present only when the call has lobbyEnabled: true' but the L851 example (no lobby) carries lobbyState: null; jmap-vtc-types serializes null. (4) The VTCCall/get example (L529) omits accountId (L345, not optional); jmap-vtc-types made VtcCall.account_id optional to round-trip it. Fix belongs in the jmap-chat-spec draft; crate follow-up only if the draft changes.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T12:49:54.729507261Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T12:49:54.729507261Z"
+}

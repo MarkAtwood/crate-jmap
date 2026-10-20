@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-v9py.15.7",
+  "title": "federation: optional presence methods, SSRF predicate, endpoints",
+  "description": "Optional presence methods and inbound ChatContact presence updates (chat-00 L443-453; draft-atwood-jmap-chat-federation-00 L669-764); SSRF predicate (L825-827); ChatContact.endpoints from ownerEndpoints (chat-00 L456).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests quote L825-827 (private/loopback addresses rejected) and the presence rules.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:01.296092874Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:57.409022911Z",
+  "closed_at": "2026-10-20T20:37:57.409022911Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.15.7",
+      "depends_on_id": "JMAP-v9py.15",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:01.403682897Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

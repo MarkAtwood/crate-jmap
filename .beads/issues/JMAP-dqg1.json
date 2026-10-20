@@ -1,0 +1,20 @@
+{
+  "id": "JMAP-dqg1",
+  "title": "/get omits properties the spec requires to be present",
+  "description": "Optional/skip_serializing fields omitted where spec wants a value: CalendarEvent isDraft/useDefaultAlerts/isOrigin/calendarIds (calendars-33 ~1482 MUST be included), FileNode executable/isSubscribed, chat slowModeSeconds/permissionOverrides, Email keywords {}. Happens on create too. Found in JMAP-sofk audit.",
+  "notes": "Partial: fixed CalendarEvent isDraft/useDefaultAlerts, File mediaType/executable, channel slowModeSeconds/permissionOverrides, Mailbox.role. Blocked by existing tests pinning omission (need user decision): Email.keywords (email_minimal_roundtrip), FileNode.isSubscribed (filenode_nullable_fields_serialize_as_null_not_absent, spec_3_1_5_example_round_trips), Identity replyTo/bcc (identity_null_optional_fields_omitted_in_serialization, identity_minimal_roundtrip), Mailbox.parentId (mailbox_inbox_roundtrip). CalendarEvent isOrigin/calendarIds split to server bead.\n\nRemaining four now fixed per user decision: Email.keywords, FileNode.isSubscribed, Identity replyTo/bcc, Mailbox.parentId always serialize with spec defaults; six tests updated to expect defaults. Server part split to JMAP-9iio.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T06:07:44.214447292Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T20:30:41.956150155Z",
+  "started_at": "2026-10-18T16:32:20.183663236Z",
+  "closed_at": "2026-10-18T16:59:58.647601847Z",
+  "close_reason": "Closed",
+  "labels": [
+    "review"
+  ]
+}

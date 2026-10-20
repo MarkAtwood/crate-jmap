@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-yt1w.26",
+  "title": "CalendarEvent/query ignores anchor and anchorOffset",
+  "description": "RFC 8620 §5.5: anchor (Id|null) / anchorOffset (Int) select the page relative to the anchor; anchor absent from results MUST be anchorNotFound. crate-jmap-calendars-server/src/event.rs handle_calendar_event_query never parses anchor/anchorOffset, and CalendarBackend::query_calendar_events (backend.rs ~530) has no anchor parameters, so its default impl forwards query_objects(..., None, 0). Found while fixing JMAP-yt1w.22 (generic handle_query + all query_objects impls now honour anchor). Fix needs a breaking CalendarBackend::query_calendar_events signature change (add anchor, anchor_offset; parse with jmap_server::query_anchor_args; MemoryBackend/default impl forward to query_objects). Regression tests quote RFC 8620 §5.5.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T04:22:28.485053665Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T04:22:28.485053665Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.26",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-19T04:22:28.612132074Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

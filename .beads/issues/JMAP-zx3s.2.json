@@ -3,22 +3,20 @@
   "close_reason": "Removed stale EmailSubmissionState reference from crate-jmap-mail-types/PLAN.md:155 'Out of scope' list. Verified by grep that no such type exists in the crate; the remaining list (MailboxRole, Delivered, Displayed, UndoStatus, ActionMode, SendingMode, DispositionType) covers every actual string enum.",
   "closed_at": "2026-05-17T15:06:15Z",
   "compaction_level": 0,
-  "content_hash": "fac8dc9c21357fed0d7072b2f7ca5ee06373a085b57ddf76fc508d5e494cd9ba",
   "created_at": "2026-05-15T04:46:27Z",
   "created_by": "Mark Atwood",
-  "description": "crate-jmap-mail-types/PLAN.md:154-156 (in the 'Out of scope' list under 'Extras-preservation policy'):\n\n```\n- String enums (`MailboxRole`, `Delivered`, `Displayed`, `UndoStatus`,\n  `ActionMode`, `SendingMode`, `DispositionType`,\n  `EmailSubmissionState`) \u2014 these are result/control enums; ...\n```\n\n`EmailSubmissionState` does not exist in this crate. `grep -rn 'EmailSubmissionState' crate-jmap-mail-types/` returns only the PLAN.md mention.\n\nLikely typo or stale reference. Real string-enum types in submission.rs are `Delivered`, `Displayed`, `UndoStatus`. There is no per-submission state enum; the spec uses `undoStatus` as the lifecycle indicator.\n\nFix: delete `EmailSubmissionState` from the list. The list is already complete after removal.",
-  "ephemeral": 0,
+  "description": "crate-jmap-mail-types/PLAN.md:154-156 (in the 'Out of scope' list under 'Extras-preservation policy'):\n\n```\n- String enums (`MailboxRole`, `Delivered`, `Displayed`, `UndoStatus`,\n  `ActionMode`, `SendingMode`, `DispositionType`,\n  `EmailSubmissionState`) — these are result/control enums; ...\n```\n\n`EmailSubmissionState` does not exist in this crate. `grep -rn 'EmailSubmissionState' crate-jmap-mail-types/` returns only the PLAN.md mention.\n\nLikely typo or stale reference. Real string-enum types in submission.rs are `Delivered`, `Displayed`, `UndoStatus`. There is no per-submission state enum; the spec uses `undoStatus` as the lifecycle indicator.\n\nFix: delete `EmailSubmissionState` from the list. The list is already complete after removal.",
+  "ephemeral": false,
   "id": "JMAP-zx3s.2",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "bug",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 3,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "PLAN.md references non-existent `EmailSubmissionState` type",
   "updated_at": "2026-05-17T15:06:15Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-zx3s",
       "id": "2ab8e274-e3d3-54b6-a690-94f24d0a8bdd",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

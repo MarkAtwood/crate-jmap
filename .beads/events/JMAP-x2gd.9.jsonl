@@ -1,0 +1,1 @@
+{"id":"01a15680-fc74-7377-b709-fe7fc2ce8943","issue_id":"JMAP-x2gd.9","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed on main as 8504fa21 (fix(chat-server): scope invite and ban reads). Adversarial review passed at the lane commit. Integration CI all green at 9e113188 (stable+beta 3448 passed).","created_at":"2026-10-19T23:30:56.244227643Z"}

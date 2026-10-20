@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-04T23:58:57Z",
   "compaction_level": 0,
-  "content_hash": "8bc33832ae7e3cb00c7db4d7e2cd79d24a0d47735b9953d81b888adf4be2b252",
   "created_at": "2026-05-04T23:55:54Z",
   "created_by": "Mark Atwood",
   "description": "USING_QUOTAS uses 'urn:ietf:params:jmap:quotas' but the RFC/draft uses 'urn:ietf:params:jmap:quota' (no trailing s). Every Quota/get call fails with unknownCapability. Fix: change to quota without s.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-vuqs.1",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "bug",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 0,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "quota: wrong capability URI 'quotas' should be 'quota'",
   "updated_at": "2026-05-04T23:58:57Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-vuqs",
       "id": "00a8ddf0-9b16-5db7-b03b-e0327333f307",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

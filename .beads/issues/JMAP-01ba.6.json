@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-01ba.6",
+  "title": "cid-types: optional hex/base64 conversion for RFC 9404",
+  "description": "Optional: hex/base64 conversion for RFC 9404 digest representation (draft-atwood-jmap-cid-00 L181-188).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests use RFC 9404/RFC 9530 example digests as the oracle.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:48.033444326Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:21.296955529Z",
+  "closed_at": "2026-10-20T10:19:21.296955529Z",
+  "close_reason": "Landed in 1594f379 feat(cid-types): base64 form for RFC 9404 digest (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-01ba.6",
+      "depends_on_id": "JMAP-01ba",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:48.18126664Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

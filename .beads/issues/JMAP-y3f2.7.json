@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-y3f2.7",
+  "title": "chat-server: query default sorts, Space isPublic, CustomEmoji name uniqueness",
+  "description": "Default sorts: Chat by lastMessageAt desc (draft-atwood-jmap-chat-00.md L1055), Message by receivedAt (L1211), Space and CustomEmoji by name. Space/query isPublic includes non-member Spaces (L1305-1310). CustomEmoji name uniqueness (L829-849). Memory-backend filters are JMAP-vwr2 and hasMention is JMAP-yt1w.20 (not repeated).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests: unsorted queries return the default order stated at L1055/L1211; isPublic=true returns a public Space the caller is not in; duplicate CustomEmoji name rejected per L829-849.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:39.30592219Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:02:52.25449541Z",
+  "closed_at": "2026-10-20T07:02:52.25449541Z",
+  "close_reason": "Landed in abc3c5d8 fix(chat-server): query defaults, emoji names (batch 5, adversarially verified, CI green at 44026b06)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y3f2.7",
+      "depends_on_id": "JMAP-y3f2",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:39.420876982Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

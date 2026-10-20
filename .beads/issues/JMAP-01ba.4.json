@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-01ba.4",
+  "title": "cid-types: CIDv1 conversion helpers",
+  "description": "Add CIDv1 conversion helpers (draft-atwood-jmap-cid-00 L351-368).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests use the draft vectors at L373 and L381 verbatim as the oracle.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:47.357041122Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:20.777054454Z",
+  "closed_at": "2026-10-20T10:19:20.777054454Z",
+  "close_reason": "Landed in 6ee3b62a feat(cid-types): CIDv1 conversion helpers (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-01ba.4",
+      "depends_on_id": "JMAP-01ba",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:47.519484504Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

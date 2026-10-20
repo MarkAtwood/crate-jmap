@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-yt1w.37",
+  "title": "chat-server AGENTS.md: identity text stale after JMAP-yt1w.33",
+  "description": "crate-jmap-chat-server/AGENTS.md still says backends whose principal_id returns None 'CANNOT correctly implement chat role-hierarchy' (Permission enforcement section, ~lines 114-118) and that IdentityBackend exists so apply_space_patch's identity-sensitive enforcement helpers are exercised (wrapper table, ~line 86). Since JMAP-yt1w.33 the chat permission and role-hierarchy gates resolve against the owner's member entry (accountId) whether or not principal_id returns Some, and IdentityBackend forwards apply_space_patch unchanged. Only the workspace AGENTS.md edit was approved for JMAP-yt1w.33; this crate file needs Mark's approval to edit.",
+  "notes": "Mark approved 2026-10-19: update crate-jmap-chat-server/AGENTS.md to match the JMAP-yt1w.33 decision (gates always enforced against the accountId member entry; no single-user skip). Do after the .33/.34 commits land.\nDone in 6d835af6.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T17:02:49.122934277Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T17:22:12.845744738Z",
+  "closed_at": "2026-10-19T17:22:12.845744738Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.37",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-19T17:02:49.233635052Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

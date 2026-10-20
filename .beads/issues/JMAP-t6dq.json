@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-t6dq",
+  "title": "chat-server test fails under realistic-demo-ids",
+  "description": "chat_set_duplicate_direct_cleanup_destroy_failure_redacts_backend_display (crate-jmap-chat-server/tests/integration.rs:2442) seeds a phantom Direct chat with id \"aaaa\" and expects it to be lex-smaller than the newly created id. With --features realistic-demo-ids (included by --all-features) MemoryBackend mints bare hex ids from epoch nanos (e.g. 18e0190191f2eb33), which sort before \"aaaa\", so the handler keeps its own copy and never takes the cleanup-destroy path; notCreated[c0] is null. Reproduced on unmodified HEAD 466caf36: cargo test -p jmap-chat-server --features realistic-demo-ids --test integration chat_set_duplicate_direct_cleanup_destroy_failure. Default features pass (ids are chat000...). Fix: pick a phantom id that sorts first under both id schemes (e.g. \"0\").",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T01:39:07.852353428Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T01:39:07.852353428Z"
+}

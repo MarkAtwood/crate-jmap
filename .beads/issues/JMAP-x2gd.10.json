@@ -1,31 +1,26 @@
 {
-  "compaction_level": 0,
-  "content_hash": "3e58406fbe311e6846ddbc12f2308f8ae50e41ef7260b59dce423b9b97c1b32d",
+  "id": "JMAP-x2gd.10",
+  "title": "Space/join MemoryBackend invite lookup is account-scoped; spec semantics are global",
+  "description": "Site: crate-jmap-chat-server/src/space.rs:1284-1314 (handle_space_join invite-code path).\n\nIn-code acknowledgement (lines 1285-1288): 'NOTE: The MemoryBackend stores objects per-account, so invite code lookup works only when the caller's account created the invite. A production backend must maintain a global invite code index. This is a known architectural limitation of the test backend.'\n\nBut the limitation isn't only in MemoryBackend — it's in the handler's API. The handler calls:\n    backend.get_objects::\u003cSpaceInvite\u003e(caller, \u0026account_id, None, None)\n\n…and account_id is the redeemer's account. Spec semantics: an invite code is a globally-redeemable handle; any user with the code joins any Space whose invite carries that code, regardless of which JMAP account created the invite.\n\nA production backend that maintains a global invite index can't even *receive* the relevant context here: the trait signature passes account_id, and the handler iterates the result of an account-scoped get_objects.\n\nThis is a JmapBackend/ChatBackend trait shape issue, not just a memory.rs limitation: ChatBackend has no method that means 'redeem this invite code from the global index'. Fix sketch:\n1. New ChatBackend method: redeem_invite_code(\u0026self, caller, code) -\u003e Result\u003c(account_id, space_id, invite_id), BackendSetError\u003e. The backend resolves which account+space owns the code.\n2. handle_space_join's invite branch calls redeem_invite_code; the returned account_id is what the membership write uses (and that may not equal the caller's-supplied accountId).\n3. Drop the account_id input from the invite branch path — or treat it as a hint that's ignored.\n\nWithout this, the only deployments that work correctly are single-account (every user has their own account that contains everything they care about); multi-tenant or multi-Space-per-account deployments cannot redeem invites that crossed account boundaries.\n\nNote: tests currently mask this because the integration tests create invites and redeem them within the same account. The bug would surface immediately in any deployment with cross-account invite sharing.",
+  "notes": "DECISION NEEDED (triage 2026-10-19 at 9fdbbbcf): Question for Mark: which account is an inviteCode resolved in, and does the ChatBackend trait need to change to support that?\n\nOptions:\n(A) Codes resolve server-wide (the bead's reading). Add a defaulted ChatBackend method, `resolve_invite_code(caller, account_id, code) -\u003e Result\u003cOption\u003c(Id /*hosting account*/, SpaceInvite)\u003e, Error\u003e`. The default keeps today's account-scoped constant-time scan, so the change isn't breaking. A production backend overrides it with a global index. handle_space_join then uses the returned hosting account for the Space fetch, the ban check, and join_space_with_invite. The response's accountId would echo the request. One part stays unsolved: the member entry written into the hosting account would be the joiner's accountId, but §SpaceMember.id requires the joiner's ChatContact.id there. That is the open principal_id family, so this fix depends on it.\n(B) Constraint instead of mechanism. Rule that accountId names the account that hosts the Space (RFC 8620 lets a user reach shared accounts), and codes resolve only there. Delete the NOTE, state the rule in the handle_space_join and join_space_with_invite docs, and close the bead as by design. This is size S and not breaking. The cost: someone holding only a code also has to know the hosting accountId.\n(C) Clarify the draft first. Add one sentence to draft-atwood-jmap-chat-00 §Space/join saying whether inviteCode resolution is limited to the request's accountId or covers the whole server. Then implement A or B to match.\n\nMy recommendation is C then B. The spec is your own draft, and B removes the whole cross-account category with no new trait surface. Choose A only if cross-account deployments are a goal, and do it together with the principal_id/ChatContact-mapping decision, because without that it writes the wrong member id. For a test oracle, quote the clarified §Space/join sentence. For A, add a two-account MemoryBackend test: create the invite in account X, redeem with account Y, and expect a member added to X's Space with uses = 1.\nDECIDED by Mark 2026-10-19: C then B. (1) jmap-chat-spec: add one sentence to draft-atwood-jmap-chat-00 §Space/join: inviteCode resolves only within the request's accountId, which names the account hosting the Space; invite links therefore carry accountId and code. (2) crate-jmap: delete the 'global invite code index' NOTE in handle_space_join, state the rule in handle_space_join and ChatBackend::join_space_with_invite docs, add a test quoting the new sentence (code from another account -\u003e invalidArguments 'invite code not found'). Non-breaking.\nFolded into JMAP-y3f2 (Chat core server conformance (draft-atwood-jmap-chat-00)) by the 2026-10-19 spec gap audit. Mark's 2026-10-19 decision (C then B) stands; spec sentence filed as jmap-chat-spec-vvqn.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-14T03:13:50Z",
   "created_by": "Mark Atwood",
-  "description": "Site: crate-jmap-chat-server/src/space.rs:1284-1314 (handle_space_join invite-code path).\n\nIn-code acknowledgement (lines 1285-1288): 'NOTE: The MemoryBackend stores objects per-account, so invite code lookup works only when the caller's account created the invite. A production backend must maintain a global invite code index. This is a known architectural limitation of the test backend.'\n\nBut the limitation isn't only in MemoryBackend \u2014 it's in the handler's API. The handler calls:\n    backend.get_objects::<SpaceInvite>(caller, &account_id, None, None)\n\n\u2026and account_id is the redeemer's account. Spec semantics: an invite code is a globally-redeemable handle; any user with the code joins any Space whose invite carries that code, regardless of which JMAP account created the invite.\n\nA production backend that maintains a global invite index can't even *receive* the relevant context here: the trait signature passes account_id, and the handler iterates the result of an account-scoped get_objects.\n\nThis is a JmapBackend/ChatBackend trait shape issue, not just a memory.rs limitation: ChatBackend has no method that means 'redeem this invite code from the global index'. Fix sketch:\n1. New ChatBackend method: redeem_invite_code(&self, caller, code) -> Result<(account_id, space_id, invite_id), BackendSetError>. The backend resolves which account+space owns the code.\n2. handle_space_join's invite branch calls redeem_invite_code; the returned account_id is what the membership write uses (and that may not equal the caller's-supplied accountId).\n3. Drop the account_id input from the invite branch path \u2014 or treat it as a hint that's ignored.\n\nWithout this, the only deployments that work correctly are single-account (every user has their own account that contains everything they care about); multi-tenant or multi-Space-per-account deployments cannot redeem invites that crossed account boundaries.\n\nNote: tests currently mask this because the integration tests create invites and redeem them within the same account. The bug would surface immediately in any deployment with cross-account invite sharing.",
-  "ephemeral": 0,
-  "id": "JMAP-x2gd.10",
-  "is_blocked": 0,
-  "is_template": 0,
-  "issue_type": "bug",
+  "updated_at": "2026-10-20T02:59:02.390453553Z",
+  "closed_at": "2026-10-20T02:59:02.390453553Z",
+  "close_reason": "Landed as f610f571 (inviteCode scoped to request accountId; cross-account test); spec sentence in jmap-chat-spec 91672c9. Review passed. CI green at 8e240e18 (stable+beta 3502 passed).",
   "metadata": {},
-  "no_history": 0,
-  "owner": "mark@reviewcommit.com",
-  "pinned": 0,
-  "priority": 1,
-  "status": "open",
-  "timeout_ns": 0,
-  "title": "Space/join MemoryBackend invite lookup is account-scoped; spec semantics are global",
-  "updated_at": "2026-05-14T03:13:50Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-13T20:13:49Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-x2gd",
-      "id": "87eab5c6-c436-5d2e-b13b-b8e3cf0f5231",
-      "metadata": {},
-      "type": "parent-child"
+      "metadata": "{}"
     }
   ]
 }

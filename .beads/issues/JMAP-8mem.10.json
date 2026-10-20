@@ -1,0 +1,31 @@
+{
+  "id": "JMAP-8mem.10",
+  "title": "chat-vtc-server: SpaceBan ejection (eject_banned_user)",
+  "description": "Split from JMAP-8mem.6. vtc L1587 (draft-atwood-jmap-vtc-00 at jmap-chat-spec 0cd3af0): 'When a user is banned from a Space (via SpaceBan creation) and has an active VTCParticipant record in a call bound to that Space (via spaceId), the server MUST set leftAt on that VTCParticipant record and emit a VTCParticipantEvent with event \"left\".' Add to crate-jmap-chat-vtc-server: pub async fn eject_banned_user\u003cV: VtcBackend\u003e(vtc, caller, account_id, space_id, user_id: \u0026str) -\u003e Result\u003cVec\u003cVtcParticipantEvent\u003e, BackendSetError\u003cV::Error\u003e\u003e: calls with spaceId == space_id and state != ended; participants in them with userId == user_id, joinedAt set, leftAt null; patch leftAt = now via VtcBackend::update_object::\u003cVtcParticipant\u003e; return one 'left' event each (deliver is the caller's job). The consumer's ChatBackend::on_space_ban_created calls contact_identity(ban.userId) (already landed) then this. Blocked because VtcParticipant has no SetObject impl at HEAD (only JmapObject); the impl was uncommitted work in the tree on 2026-10-20. Test: seed active, ringing (joinedAt null) and other-Space participants for the banned identity plus another user; assert only the active in-Space record gets leftAt and exactly one hand-written 'left' event. Update README/AGENTS.md crate map/CHANGELOG.",
+  "notes": "Mark 2026-10-20: VTC specs have known bugs; no further VTC crate work until the spec is fixed.\nMark 2026-10-20: Scene/VTC specs fixed (jmap-chat-spec 63e9d08); work resumed. Re-check scope against new spec before implementing.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T16:42:05.819656135Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T19:55:33.563410681Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-8mem.10",
+      "depends_on_id": "JMAP-8mem",
+      "type": "parent-child",
+      "created_at": "2026-10-20T16:42:05.92663908Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-8mem.10",
+      "depends_on_id": "JMAP-8mem.3",
+      "type": "blocks",
+      "created_at": "2026-10-20T16:42:06.268121018Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

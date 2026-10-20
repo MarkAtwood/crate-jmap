@@ -1,0 +1,2 @@
+{"id":"01a155f1-d509-78b7-a517-eeaa080fd15f","issue_id":"JMAP-fvnd.1","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-19T20:54:34.505572349Z"}
+{"id":"01a158d2-9753-772a-80c6-0b209a15e789","issue_id":"JMAP-fvnd.1","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in dc0842fc feat(chat-mimi-types): scaffold crate, capability (batch 6, adversarially verified, CI green at a586c251)","created_at":"2026-10-20T10:19:18.739470295Z"}

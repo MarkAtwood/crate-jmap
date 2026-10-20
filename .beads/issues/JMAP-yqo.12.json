@@ -1,24 +1,22 @@
 {
-  "close_reason": "Already minimized: function only fetches the query-result slice (not all emails) with Id+ThreadId property hint. A further win requires a new get_thread_ids backend method \u2014 deferred.",
+  "close_reason": "Already minimized: function only fetches the query-result slice (not all emails) with Id+ThreadId property hint. A further win requires a new get_thread_ids backend method — deferred.",
   "closed_at": "2026-05-02T03:22:53Z",
   "compaction_level": 0,
-  "content_hash": "2306d7444c65a79522cc02506c56040c92122839a2a445fc1dc7a64f75d09b74",
   "created_at": "2026-05-02T02:55:32Z",
   "created_by": "Mark Atwood",
   "description": "collapse_by_thread (email.rs:1635) fetches up to COLLAPSE_THREADS_MAX_EMAILS (65536) email objects from the backend to get their threadIds. For backends with column stores this is partially mitigated by the property hint, but for any backend where get_objects returns full objects (e.g. all SQL column backends), this is 65k full row fetches to extract one field each. Expected impact at scale: a collapseThreads query on an account with 65k emails incurs ~65k backend read calls before a single ID is returned to the client.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-yqo.12",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
-  "title": "collapse_by_thread: O(n) full email fetch per query \u2014 dominates cost for large result sets",
+  "title": "collapse_by_thread: O(n) full email fetch per query — dominates cost for large result sets",
   "updated_at": "2026-05-02T03:22:53Z",
   "dependencies": [
     {
@@ -26,8 +24,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-yqo",
       "id": "bbe3995e-f6ee-5f6c-94a2-711097882f01",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

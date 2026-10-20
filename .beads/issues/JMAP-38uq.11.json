@@ -1,0 +1,23 @@
+{
+  "id": "JMAP-38uq.11",
+  "title": "scene-server: normalize SceneRegion spawnOrientation (L144)",
+  "description": "draft-atwood-jmap-scene-00 L144: 'If the server does not reject the value, it MUST normalize the quaternion to unit length before storage.' SceneRegion/set accepts spawnOrientation within 1e-6 (crate-jmap-scene-server/src/region.rs via helpers::unit_quaternion) but stores it unnormalized. SceneObject (JMAP-38uq.4) uses a 1e-3 tolerance, because the draft's own object examples are three-decimal (L1461, L1488), and normalizes, echoing on update. Decide whether to align the region epsilon with 1e-3 and normalize spawnOrientation the same way. Found while implementing JMAP-38uq.4.",
+  "notes": "Mark 2026-10-20: Scene specs have known bugs; no further Scene crate work until the spec is fixed.\nMark 2026-10-20: Scene/VTC specs fixed (jmap-chat-spec 63e9d08); work resumed. Re-check scope against new spec before implementing.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T15:26:14.127442289Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T19:55:34.344400878Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-38uq.11",
+      "depends_on_id": "JMAP-38uq",
+      "type": "parent-child",
+      "created_at": "2026-10-20T15:26:14.24089848Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

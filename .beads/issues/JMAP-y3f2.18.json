@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-y3f2.18",
+  "title": "chat-server: expiry sweep skips Chat unreadCount change",
+  "description": "sweep_expired (src/expiry.rs) hard-deletes Messages via ChatBackend::expire_message but never calls chat::record_unread_count_changes, unlike Message/set destroy and read-and-burn. Chat.unreadCount (draft-atwood-jmap-chat-00 L547-548) drops for the expired Message's Chat, yet Chat state does not advance (RFC 8620 §5.1). Found while implementing JMAP-y3f2.15 (whose Message replyCount change is recorded inside the backend and so covers expiry).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T07:38:39.44100273Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:30.934554988Z",
+  "closed_at": "2026-10-20T20:37:30.934554988Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y3f2.18",
+      "depends_on_id": "JMAP-y3f2",
+      "type": "parent-child",
+      "created_at": "2026-10-20T07:38:39.56672556Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-01ba",
+  "title": "CID FileNode extension and CIDv1 (draft-atwood-jmap-cid-00)",
+  "description": "Layer: Horizontal. Extends crate-jmap-filenode-types, -server, -client and crate-jmap-cid-types. Depends on: nothing (Tier 0). Spec: draft-atwood-jmap-cid-00 L112, L181-188, L206-239, L351-381. Folded-in: JMAP-tzvc (chat Attachment.sha256 is an untyped String, message.rs:149; should extension-types depend on cid-types). Critic: crate-jmap-filenode-types/src has no sha256 today; testjig does not advertise jmap:cid. Source: 2026-10-19 spec gap audit (gap-synthesis E-epics + critic corrections). Line numbers are against jmap-chat-spec drafts as of 2026-10-19 and may drift.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:46.244971456Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T00:45:46.244971456Z"
+}

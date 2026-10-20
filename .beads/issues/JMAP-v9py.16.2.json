@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-v9py.16.2",
+  "title": "filenode: typed immutable spaceId extension on root nodes",
+  "description": "Typed spaceId extension, immutable, allowed only on root nodes (draft-atwood-jmap-chat-filenode-00 L119-122). Residual of JMAP-0x31 (role constant already used in chat-client methods/filenode.rs; spaceId absent from filenode-types).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests quote L119-122: spaceId on non-root rejected; update of spaceId rejected.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:56.00969581Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:46.938262834Z",
+  "closed_at": "2026-10-20T20:37:46.938262834Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.16.2",
+      "depends_on_id": "JMAP-v9py.16",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:56.139888723Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

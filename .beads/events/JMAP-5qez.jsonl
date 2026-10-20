@@ -1,0 +1,1 @@
+{"id":"01a15680-f895-7696-b311-92b53e215c0d","issue_id":"JMAP-5qez","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed on main as dff3a0c8 (feat(chat-client): add Session owner_* accessors). Adversarial review passed at the lane commit. Integration CI all green at 9e113188 (stable+beta 3448 passed).","created_at":"2026-10-19T23:30:55.253432395Z"}

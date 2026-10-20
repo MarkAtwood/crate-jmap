@@ -1,0 +1,30 @@
+{
+  "id": "JMAP-6k5d",
+  "title": "MIMI server (draft-atwood-jmap-chat-mimi-00)",
+  "description": "Layer: Chat/MLS. Creates crate-jmap-chat-mimi-server and -client on top of crate-jmap-chat-mimi-types (JMAP-fvnd). Depends on: JMAP-fvnd, the Chat extension seams epic (JMAP-dfo4, JMAP-53vd, configurable encrypted types), and an MLS/TLS-codec parsing dependency (none in the workspace today). Spec: draft-atwood-jmap-chat-mimi-00 L116-592. Folded-in: none new. Source: 2026-10-19 spec gap audit (gap-synthesis E-epics + critic corrections). Line numbers are against jmap-chat-spec drafts as of 2026-10-19 and may drift.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:02.876677391Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T00:46:02.876677391Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-6k5d",
+      "depends_on_id": "JMAP-5mz6",
+      "type": "blocks",
+      "created_at": "2026-10-20T00:46:15.023689875Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-6k5d",
+      "depends_on_id": "JMAP-fvnd",
+      "type": "blocks",
+      "created_at": "2026-10-20T00:46:15.428163762Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

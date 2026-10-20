@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.33",
+  "title": "Separate hosting account from recipient account in should_deliver",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[vtc] Separate hosting account from recipient account in should_deliver\nSpec (3cbb0c4): draft-atwood-jmap-vtc-wss-00.md L297-299: the event accountId is \"the id of the call's hosting account ... This is usually not the recipient's personal account.\" Blocking (L340-352) is checked against \"the recipient's contact list\".\nCode: crate-jmap-vtc-server/src/ephemeral.rs:183-268; crate-jmap-chat-vtc-server/src/lib.rs:266-292; crate-jmap-chat-vtc-server/src/lib.rs:321-337\nNow: should_deliver uses one account_id for fetch_call and the participant lookup (the hosting account) and for is_user_blocked. is_blocked_by_contact reads the ChatContacts of that account, so with hosting accounts it consults the call owner's block list, not the recipient's.\nChange: Give should_deliver (and should_deliver_vtc) the hosting account (from event.accountId) and the recipient's account separately. Use the recipient's account for is_user_blocked.\nVerifier correction: Either give should_deliver/should_deliver_vtc separate hosting and recipient account ids, or document that VtcBackend::is_user_blocked must resolve the recipient's own contact list from `caller` and not from `account_id`, and change chat-vtc is_blocked_by_contact to match.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:37.263037541Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:37.263037541Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.33",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:37.388821325Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,24 +1,22 @@
 {
   "assignee": "Mark Atwood",
-  "close_reason": "Implemented in commit 8d8b6c5. Added MetadataSetParams, MetadataGetParams, MetadataQueryParams, MetadataQueryChangesParams \u2014 each empty-but-for-the-extra-flatten field (since draft-01 defines no method-level extras for these four). Re-exported from lib.rs. Threaded through each method builder as 'params: Option<...>' final positional. Vendor extras propagate via merge_extras helper using Map::entry.or_insert (typed fields win on collision).",
+  "close_reason": "Implemented in commit 8d8b6c5. Added MetadataSetParams, MetadataGetParams, MetadataQueryParams, MetadataQueryChangesParams — each empty-but-for-the-extra-flatten field (since draft-01 defines no method-level extras for these four). Re-exported from lib.rs. Threaded through each method builder as 'params: Option<...>' final positional. Vendor extras propagate via merge_extras helper using Map::entry.or_insert (typed fields win on collision).",
   "closed_at": "2026-05-15T02:31:49Z",
   "compaction_level": 0,
-  "content_hash": "b8bf2237ed03c1269914651d31a7ef15f23da65ce4afd4b47be5bf650b802ceb",
   "created_at": "2026-05-15T02:03:47Z",
   "created_by": "Mark Atwood",
-  "description": "Cookie-cutter gap vs canonical mail-client. mail-client/src/methods/mod.rs defines MailboxSetParams, EmailCopyParams, EmailSubmissionSetParams, EmailGetParams, EmailParseParams \u2014 each Serialize struct carries an 'extra' flatten field for vendor method-level args. metadata-client only defines MetadataChangesParams (for /changes). The other four method builders (metadata_set, metadata_get, metadata_query, metadata_query_changes) have no equivalent struct, so a vendor that wants to send e.g. acmeCorpAuditFlag: true as a method-level arg on Metadata/set must bypass this crate entirely (build a JmapRequest by hand). The workspace extras-preservation policy explicitly classes 'method-argument structs in *-client crates' as in scope. PLAN.md \u00a7New-type rule even acknowledges this hypothetically. Trigger: vendor extension that decorates standard JMAP methods. Fix: introduce MetadataSetParams, MetadataGetParams, MetadataQueryParams, MetadataQueryChangesParams \u2014 each carrying only the extras flatten initially (since draft-01 defines no method-level extras for those four), and accept Option<\u2026Params> as a final arg on each builder, mirroring MailboxSetParams. Lower-bound work, but the API shape decision should fossilise before downstream consumers start calling these builders.",
-  "ephemeral": 0,
+  "description": "Cookie-cutter gap vs canonical mail-client. mail-client/src/methods/mod.rs defines MailboxSetParams, EmailCopyParams, EmailSubmissionSetParams, EmailGetParams, EmailParseParams — each Serialize struct carries an 'extra' flatten field for vendor method-level args. metadata-client only defines MetadataChangesParams (for /changes). The other four method builders (metadata_set, metadata_get, metadata_query, metadata_query_changes) have no equivalent struct, so a vendor that wants to send e.g. acmeCorpAuditFlag: true as a method-level arg on Metadata/set must bypass this crate entirely (build a JmapRequest by hand). The workspace extras-preservation policy explicitly classes 'method-argument structs in *-client crates' as in scope. PLAN.md §New-type rule even acknowledges this hypothetically. Trigger: vendor extension that decorates standard JMAP methods. Fix: introduce MetadataSetParams, MetadataGetParams, MetadataQueryParams, MetadataQueryChangesParams — each carrying only the extras flatten initially (since draft-01 defines no method-level extras for those four), and accept Option<…Params> as a final arg on each builder, mirroring MailboxSetParams. Lower-bound work, but the API shape decision should fossilise before downstream consumers start calling these builders.",
+  "ephemeral": false,
   "id": "JMAP-wzq9.2",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 1,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "metadata_set: no MetadataSetParams escape hatch for vendor method-level extras",
   "updated_at": "2026-05-15T02:31:49Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-wzq9",
       "id": "9222b7aa-c9ed-503b-bbb9-5fdb703ace6f",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

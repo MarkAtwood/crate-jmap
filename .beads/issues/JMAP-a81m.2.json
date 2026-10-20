@@ -2,22 +2,20 @@
   "close_reason": "Opinion (per SEC7): stable fixture comments; drift risk is low and inherent to any comment",
   "closed_at": "2026-05-02T21:44:27Z",
   "compaction_level": 0,
-  "content_hash": "301d0b85f2a114e91c97bc5a14c3bb262f6faa55355375e8b6bc1ca0caf0994c",
   "created_at": "2026-05-02T21:40:06Z",
   "created_by": "Mark Atwood",
-  "description": "The 16 per-fixture purpose comments added in f11d14b embed concrete facts (body sizes, keyword sets, mailbox placements). When a fixture is changed to serve a new test scenario, every claim in its comment must also be updated manually \u2014 the compiler gives no signal of drift. This creates an ongoing maintenance obligation: any future fixture edit has a parallel 'update the comment' step that is easy to forget.",
-  "ephemeral": 0,
+  "description": "The 16 per-fixture purpose comments added in f11d14b embed concrete facts (body sizes, keyword sets, mailbox placements). When a fixture is changed to serve a new test scenario, every claim in its comment must also be updated manually — the compiler gives no signal of drift. This creates an ongoing maintenance obligation: any future fixture edit has a parallel 'update the comment' step that is easy to forget.",
+  "ephemeral": false,
   "id": "JMAP-a81m.2",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 1,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "seed.rs: fixture comments create stale-drift obligation",
   "updated_at": "2026-05-02T21:44:27Z",
   "dependencies": [
@@ -26,8 +24,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-a81m",
       "id": "41e1e65c-326f-560e-a761-28d050499640",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

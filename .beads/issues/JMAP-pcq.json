@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-01T23:35:19Z",
   "compaction_level": 0,
-  "content_hash": "b74a43d996b26b7e9232c0353d84d4161fdf66b9a54e090569a584182f77e2d7",
   "created_at": "2026-05-01T23:01:04Z",
   "created_by": "Mark Atwood",
-  "description": "Spec \u00a7ChatContact Methods: 'Owner clients may not create or destroy ChatContacts directly.' The current handler allows both. Every create and destroy request MUST return SetError forbidden.",
-  "ephemeral": 0,
+  "description": "Spec §ChatContact Methods: 'Owner clients may not create or destroy ChatContacts directly.' The current handler allows both. Every create and destroy request MUST return SetError forbidden.",
+  "ephemeral": false,
   "id": "JMAP-pcq",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "bug",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 1,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "Fix ChatContact/set: forbid create and destroy",
   "updated_at": "2026-05-01T23:35:19Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-x09",
       "id": "62b1c44a-2a0f-5de5-9ba1-bd752087c1da",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

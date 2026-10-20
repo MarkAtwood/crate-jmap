@@ -1,0 +1,2 @@
+{"id":"01a156c5-cbff-73b2-a851-6391c949bf0d","issue_id":"JMAP-v9py.17.2","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:46:05.823243271Z"}
+{"id":"01a15b08-dbad-7e78-8033-b7550b5d01d9","issue_id":"JMAP-v9py.17.2","event_type":"closed","actor":"agent","old_value":"","new_value":"Committed and adversarially verified (batch 7); CI at 84a9b7bc","created_at":"2026-10-20T20:37:49.613949788Z"}

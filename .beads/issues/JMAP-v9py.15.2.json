@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-v9py.15.2",
+  "title": "federation: peer-domain normalisation, restart replay, compliance §7 checks",
+  "description": "Peer-domain normalisation (draft-atwood-jmap-chat-federation-00 L159-168) and the restart replay rule (L817). Confirm compliance-tests §7.10 (peer rate limiter), §7.14 (Content-Digest), §7.15/§7.19 (unknown kid refetch, DNSSEC re-query) are in JMAP-kz4f/JMAP-atfj scope or cover them here. RFC 9421 itself is kz4f/atfj.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests quote L159-168 normalisation examples and L817; RFC 9530 Content-Digest vectors for §7.14.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:59.197505232Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:53.662359628Z",
+  "closed_at": "2026-10-20T20:37:53.662359628Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.15.2",
+      "depends_on_id": "JMAP-v9py.15",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:59.3384268Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.12",
+  "title": "Reject client-supplied did in ChatContact/set create",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[did-cid] Reject client-supplied did in ChatContact/set create\nSpec (48e3fa1): draft-atwood-jmap-chat-did-00.md L201 (HEAD): \"`did` (String, optional): A DID-referencing property ({{JMAP-DID}}): a DID URI ({{DID-CORE}}) bound to this ChatContact for cryptographic purposes. It is server-set (`ChatContact/set` create accepts only `identity`); how the server learns the value is deployment-defined.\"\nCode: crate-jmap-chat-server/src/contact.rs:154-166; crate-jmap-chat-server/src/contact.rs:206-210; crate-jmap-chat-server/src/contact.rs:233; crate-jmap-chat-server/src/contact.rs:238-249; crate-jmap-chat-server/src/contact.rs:270-288; crate-jmap-chat-server/src/contact.rs:298; crate-jmap-chat-types/src/contact.rs:134-144; crate-jmap-chat-server/tests/contact_create_did.rs:59; crate-jmap-chat-server/tests/contact_create_did.rs:86; crate-jmap-chat-server/tests/contact_create_did.rs:107; crate-jmap-chat-server/tests/contact_did_consistency.rs:62; crate-jmap-chat-server/tests/contact_did_consistency.rs:76; crate-jmap-chat-server/tests/contact_did_consistency.rs:90-91\nNow: handle_contact_set create allowlists both `identity` and `did` (`.filter(|\u0026k| k != \"identity\" \u0026\u0026 k != \"did\")`, L233). It parses a client `did`, runs the identity/did consistency check on the client value, and stores it (`contact.did = did`, L298). The tests contact_create_did.rs and contact_did_consistency.rs assert that a create carrying `did` succeeds.\nChange: Make create accept only `identity`, so a create carrying `did` fails with invalidProperties naming `did`. Move the identity/did consistency check (L203, now SHOULD) to wherever the backend sets `did` server-side. Rewrite the two test files against the new L201 text (they encode the superseded rule; this is a spec change, not test weakening). Update the ChatContact.did rustdoc to say it is server-set and DID-referencing. The update path is already fine: the CONTACT_UPDATE_ALLOWED allowlist at L366 rejects `did`.\nVerifier correction: As stated. Also update the stale MUST quote in the contact.rs:270-274 comment (the mismatch handling is now SHOULD treat as invalid / SHOULD NOT use). Also update the contact_did_consistency.rs:9 quote 'Implementations MUST enforce the consistency rule', which the diff removed from the security section.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:28.593529788Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:28.593529788Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.12",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:28.722126844Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

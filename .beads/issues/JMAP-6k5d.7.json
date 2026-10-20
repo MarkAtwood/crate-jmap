@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-6k5d.7",
+  "title": "mimi: conversion module (references, aliases, reactions, statuses)",
+  "description": "Conversion module (draft-atwood-jmap-chat-mimi-00 L116-140, L590-592): references, alias store, topicId, media reactions, statuses, collision rule.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests quote each mapping rule in L116-140/L590-592.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:04.91401793Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:52.278403254Z",
+  "closed_at": "2026-10-20T20:37:52.278403254Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-6k5d.7",
+      "depends_on_id": "JMAP-6k5d",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:05.041467776Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

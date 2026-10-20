@@ -1,0 +1,1 @@
+{"id":"01a1573f-90e0-7780-9561-18eaac6c16ee","issue_id":"JMAP-h7jp","event_type":"closed","actor":"agent","old_value":"","new_value":"Moot: the id counters it concerned were removed in 2a8bf0aa (JMAP-3t94.5). CI green at 8e240e18 (stable+beta 3502 passed).","created_at":"2026-10-20T02:59:06.080492574Z"}

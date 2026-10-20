@@ -3,22 +3,20 @@
   "close_reason": "all steps complete",
   "closed_at": "2026-05-05T15:47:36Z",
   "compaction_level": 0,
-  "content_hash": "6b0956e8e5759d8b84463ac8532764d8a4b7020d571513593ff00f1900fd86d7",
   "created_at": "2026-05-05T00:47:24Z",
   "created_by": "Mark Atwood",
   "description": "Implement draft-ietf-jmap-calendars-26 method handlers. Defines CalendarsBackend trait. Registers 18 methods across Calendar, CalendarEvent, CalendarEventNotification, ParticipantIdentity. Notable complexity: per-user calendar properties (isVisible, isSubscribed, shareWith), two-level recurrenceOverrides patch semantics, expandRecurrences in query, onDestroyRemoveEvents cascade, CalendarEvent/parse (feature-gated). Entry point: register_calendars_handlers. Spec: draft-ietf-jmap-calendars-26 + RFC 8984. Pattern: jmap-mail-server. Blocked by: jmap-calendars-types epic.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-qksw",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "epic",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 1,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "jmap-calendars-server: JMAP Calendars method handlers",
   "updated_at": "2026-06-26T19:57:32Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-z2cy",
       "id": "2ecbb2c7-d3fd-515d-95de-68e503327827",
-      "metadata": {},
+      "metadata": "{}",
       "type": "blocks"
     }
-  ]
+  ],
+  "timeout": 0
 }

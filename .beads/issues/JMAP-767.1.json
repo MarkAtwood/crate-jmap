@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-01T11:58:39Z",
   "compaction_level": 0,
-  "content_hash": "d2638affcb3a30039544cdb683766b98fd145cc6584dbdf763730d6beb7d6024",
   "created_at": "2026-05-01T11:48:09Z",
   "created_by": "Mark Atwood",
-  "description": "highlight() (tests/common/mod.rs:1091) slices haystack with needle.len() (byte count from the original needle) but the match index comes from the lowercased haystack. If needle contains non-ASCII letters whose lowercase form has a different byte length (e.g. '\u0130' \u2192 'i\u0307'), or if the haystack contains multi-byte chars at the match boundary, then `&haystack[abs..abs + needle.len()]` can split a UTF-8 code-point and panic with 'byte index is not a char boundary'. Trigger: call highlight() with any haystack/needle pair where the Unicode-lowercased needle differs in byte length from the original needle.",
-  "ephemeral": 0,
+  "description": "highlight() (tests/common/mod.rs:1091) slices haystack with needle.len() (byte count from the original needle) but the match index comes from the lowercased haystack. If needle contains non-ASCII letters whose lowercase form has a different byte length (e.g. 'İ' → 'i̇'), or if the haystack contains multi-byte chars at the match boundary, then `&haystack[abs..abs + needle.len()]` can split a UTF-8 code-point and panic with 'byte index is not a char boundary'. Trigger: call highlight() with any haystack/needle pair where the Unicode-lowercased needle differs in byte length from the original needle.",
+  "ephemeral": false,
   "id": "JMAP-767.1",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "bug",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 0,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "highlight() panics on multi-byte UTF-8 in needle",
   "updated_at": "2026-05-01T11:58:39Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-767",
       "id": "33eb79ee-ef2f-5e56-847e-814d54372c84",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

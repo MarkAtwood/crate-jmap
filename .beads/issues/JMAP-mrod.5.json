@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-mrod.5",
+  "title": "FileNode create validation runs after onExists:replace",
+  "description": "crate-jmap-filenode-server/src/filenode.rs: on FileNode/set create, some validation errors are raised after onExists: replace has already destroyed the conflicting node, so an invalid create can delete an existing node and then fail. Validate fully before acting on onExists. Found during JMAP-mrod.2.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T02:49:30.924444576Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T05:14:48.632570741Z",
+  "started_at": "2026-10-18T05:05:06.492782793Z",
+  "closed_at": "2026-10-18T05:14:48.632570741Z",
+  "close_reason": "fixed in working tree, verified",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-mrod.5",
+      "depends_on_id": "JMAP-mrod",
+      "type": "parent-child",
+      "created_at": "2026-10-18T02:49:31.121081403Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

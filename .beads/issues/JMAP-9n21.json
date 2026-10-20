@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-9n21",
+  "title": "mail MemoryBackend create_object overwrites singleton instead of returning existing",
+  "description": "MailBackend::create_object doc (crate-jmap-mail-server/src/backend.rs, '# Singleton types') says: 'if an object already exists for the given key, the implementation MUST return the existing object rather than creating a duplicate. The vacation.rs handler relies on this guarantee to avoid a TOCTOU race between concurrent upsert requests.' MemoryBackend::create_object (src/memory/mod.rs ~1129) keeps a non-placeholder id (e.g. 'singleton') and inserts unconditionally, which overwrites an existing VacationResponse. Interleaving: request A create+update(isEnabled=true); request B, having seen no singleton, create (overwrites A's record with the default) + update. A's fields are lost. Fix: on a non-placeholder id that already exists, return the stored object without inserting or bumping state; test with a hand-written oracle (pre-seeded singleton survives a second create). Found during JMAP-x2gd.86 doc sweep.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T23:51:35.274773883Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T23:51:35.274773883Z"
+}

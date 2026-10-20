@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-atfj",
+  "title": "Support crate: federation peer-auth I/O (key fetch, DNSSEC, cache, replay store)",
+  "description": "Per JMAP-vjm0 (amended 2026-10-19) and AGENTS.md §Support crates. The I/O half of draft-atwood-jmap-chat-federation-00 §Peer Authentication Model (jmap-chat-spec 03985ef L206-230); the pure half is JMAP-kz4f. Scope: unsigned HTTPS GET of https://\u003cpeer-domain\u003e/.well-known/jmap with certificate validation against the peer domain and https-only redirects (subject to the draft's SSRF section: consumer-supplied policy hook); key cache bounded by HTTP freshness and max 1 hour; forced refetch on unknown kid, at most once per 60s per peer domain (also re-query _jmap-peer TXT bypassing DNS cache); DNSSEC-validated TXT lookup producing JMAP-kz4f's validation-result enum (trusted-resolver requirement documented); replay store remembering (peer domain, nonce) until expires+60s, in-memory default with a trait for shared stores. Check crates.io for maintained DNSSEC-validating resolvers (e.g. hickory-resolver with dnssec) and HTTP clients already in the dependency tree. Not a dependency of any *-types or *-server crate.",
+  "acceptance_criteria": "Cache/refetch/rate-limit timing tested with an injected clock; DNSSEC result mapping tested per enum case with a stub resolver; replay store tests for duplicate rejection and expiry; HTTPS fetch tested against a local TLS stub including redirect-to-http rejection.",
+  "notes": "Folded into JMAP-v9py.15 (Layer E: Implement draft-atwood-jmap-chat-federation-00) by the 2026-10-19 spec gap audit.\nDECIDED by Mark 2026-10-20: separate support crate; depends on crate-jmap-peer-auth (JMAP-kz4f).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T21:15:58.868381151Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:36.982465277Z",
+  "closed_at": "2026-10-20T20:37:36.982465277Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-atfj",
+      "depends_on_id": "JMAP-kz4f",
+      "type": "blocks",
+      "created_at": "2026-10-19T21:16:03.20214163Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

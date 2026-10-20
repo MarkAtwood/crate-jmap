@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-v9py.15.4",
+  "title": "federation-server: Peer/deliver 14-step validation",
+  "description": "Peer/deliver: the 14-step validation for message, edit and reactionUpdate (draft-atwood-jmap-chat-federation-00 L400-425), the response, canonicalChatId race handling (L429-439, L839-843).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. One test per validation step quoting L400-425; race handling per L429-439.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:00.426173675Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:54.579540472Z",
+  "closed_at": "2026-10-20T20:37:54.579540472Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.15.4",
+      "depends_on_id": "JMAP-v9py.15",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:00.566555931Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

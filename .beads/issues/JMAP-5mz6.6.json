@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-5mz6.6",
+  "title": "chat-types: jmap: URI parser/builder and urn:jmap:chat:cap constants",
+  "description": "Add a `jmap:\u003ctype\u003e:\u003caccountId\u003e:\u003cobjectId\u003e` URI parser and builder (draft-atwood-jmap-chat-calendars-00 L150-156; draft-atwood-jmap-chat-tasks-00 L183-188) and named constants for urn:jmap:chat:cap:* types calendar-event, availability, task, vtc.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests use the example URIs quoted from calendars L150-156 and tasks L183-188; malformed inputs rejected.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:42.147079024Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:02:54.319319Z",
+  "closed_at": "2026-10-20T07:02:54.319319Z",
+  "close_reason": "Landed in 58cd7c9b feat(chat-types): jmap: URI type and cap constants (batch 5, adversarially verified, CI green at 44026b06)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-5mz6.6",
+      "depends_on_id": "JMAP-5mz6",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:42.242158132Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

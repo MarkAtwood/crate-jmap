@@ -3,23 +3,21 @@
   "close_reason": "handle_task_copy signature widened to accept call_id: &str (matches canonical jmap-mail-server handle_email_copy and jmap-calendars-server handle_calendar_event_copy). onSuccessDestroyOriginal + destroyFromIfInState wired through the per-create loop's copied_source_ids tracker; after the loop, the implicit Task/set response is built and pushed to extra Invocation vec with the triggering callId. stateMismatch on destroyFromIfInState yields an error-shaped synthesized response. Three new tests cover normal emission, stateMismatch path, and absent-flag suppression. Workspace tests 2189 passing.",
   "closed_at": "2026-05-14T18:44:20Z",
   "compaction_level": 0,
-  "content_hash": "cb620746f5c714dc7cf65acd5e93bce6a64b9c3c656aeb8a8e4f7e96ba05cab1",
   "created_at": "2026-05-14T18:35:37Z",
   "created_by": "Mark Atwood",
-  "description": "RFC 8620 \u00a75.4: when onSuccessDestroyOriginal is true the server MUST make a single implicit Task/set call against fromAccountId after emitting the Task/copy response. destroyFromIfInState is passed through as ifInState on that implicit call. The canonical sibling jmap-mail-server at email.rs:2432-2487 builds the implicit Email/set response and returns it via the extra Vec<Invocation> return-channel. tasks-server handle_task_copy returns vec![] for extra invocations regardless. Fix: after the per-create loop, parse onSuccessDestroyOriginal and destroyFromIfInState; if true and copied_source_ids non-empty, fetch from-account old state, optionally check destroyFromIfInState, call destroy_object::<Task> for each copied source id, build a Task/set response value with destroyed/notDestroyed/oldState/newState/accountId, push it to extras as (\"Task/set\", value, call_id). Add integration test asserting the synthesized Task/set response appears in methodResponses.",
-  "ephemeral": 0,
+  "description": "RFC 8620 §5.4: when onSuccessDestroyOriginal is true the server MUST make a single implicit Task/set call against fromAccountId after emitting the Task/copy response. destroyFromIfInState is passed through as ifInState on that implicit call. The canonical sibling jmap-mail-server at email.rs:2432-2487 builds the implicit Email/set response and returns it via the extra Vec<Invocation> return-channel. tasks-server handle_task_copy returns vec![] for extra invocations regardless. Fix: after the per-create loop, parse onSuccessDestroyOriginal and destroyFromIfInState; if true and copied_source_ids non-empty, fetch from-account old state, optionally check destroyFromIfInState, call destroy_object::<Task> for each copied source id, build a Task/set response value with destroyed/notDestroyed/oldState/newState/accountId, push it to extras as (\"Task/set\", value, call_id). Add integration test asserting the synthesized Task/set response appears in methodResponses.",
+  "ephemeral": false,
   "id": "JMAP-h47t.3.4",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "bug",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 0,
   "status": "closed",
-  "timeout_ns": 0,
-  "title": "tasks-server: Task/copy \u2014 onSuccessDestroyOriginal implicit Task/set call (RFC 8620 \u00a75.4)",
+  "title": "tasks-server: Task/copy — onSuccessDestroyOriginal implicit Task/set call (RFC 8620 §5.4)",
   "updated_at": "2026-05-14T18:44:20Z",
   "dependencies": [
     {
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-h47t.3",
       "id": "b8566535-9081-55f7-8a94-db039dde4532",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

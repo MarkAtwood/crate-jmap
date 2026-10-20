@@ -1,0 +1,35 @@
+{
+  "id": "JMAP-nbk3.7",
+  "title": "N7 chat-server: should_push",
+  "description": "kinds AND chatIds, owner-sent, membership, mute/muteUntil with broadcast bypass, is_contact_blocked, capability-less config = absent; D6 snapshot rule documented on should_push. See JMAP-nbk3 design field (approved plan) for scope, acceptance and quoted RFC/draft lines.",
+  "notes": "Regression test written: crate-jmap-chat-server/tests/chat_push_should_push.rs (16 tests). Fails at HEAD only on unresolved import should_push. Signature assumed: should_push(b, caller, account_id, cfg, caps: \u0026HashMap\u003cId, ChatPushCapability\u003e, msg, owner) -\u003e Result\u003cbool, B::Error\u003e; caps added vs plan sketch because 'capability-less config = absent' needs it (mirrors validate_chat_push/chat_state_change_for). Membership: group Chat.members must contain accountId; absent Chat = not member. muteUntil: future = active, past = expired (muted:false in both). push:213 untested per D6. Owner-sent check must precede any sender ChatContact lookup (owner has no ChatContact).\nImplemented should_push in crate-jmap-chat-server/src/push.rs (exported from lib.rs); shared is_plaintext helper now used by builder and should_push. Membership: group = Chat.members has accountId; channel = Space.members has accountId (draft-00: channel membership determined by containing Space); direct/other = account holds the Chat. muteUntil: active iff now \u003c muteUntil; unparseable muteUntil or pre-1970 clock = active (fail closed). D6 rule documented on should_push. Gates: fmt, clippy --workspace --tests, test -p jmap-chat-server, test -p jmap-testjig, doc -D warnings all pass. Channel-membership branch has no test (regression suite covers group only).\nDone in 735b6dc5: tests inbound_message_in_matching_chat_is_pushed, chat_in_chat_ids_but_kind_not_in_kinds_is_not_pushed, chat_ids_and_kinds_both_required_to_match, kind_not_in_kinds_is_not_pushed, message_sent_by_owner_is_not_pushed, owner_no_longer_group_member_is_not_pushed, chat_gone_from_account_is_not_pushed, muted_chat_is_not_pushed, active_mute_until_is_not_pushed, expired_mute_until_is_pushed, broadcast_mention_targeting_owner_bypasses_mute, broadcast_mention_not_targeting_owner_does_not_bypass_mute, direct_mention_does_not_bypass_mute, encrypted_message_never_bypasses_mute, blocked_sender_is_not_pushed, config_for_account_without_capability_is_not_pushed; changed existing tests: none",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T18:25:25.012449191Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T19:40:17.900518187Z",
+  "started_at": "2026-10-19T19:31:18.802018036Z",
+  "closed_at": "2026-10-19T19:40:17.900518187Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-nbk3.7",
+      "depends_on_id": "JMAP-nbk3",
+      "type": "parent-child",
+      "created_at": "2026-10-19T18:25:25.122862525Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-nbk3.7",
+      "depends_on_id": "JMAP-nbk3.6",
+      "type": "blocks",
+      "created_at": "2026-10-19T18:25:27.598141656Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

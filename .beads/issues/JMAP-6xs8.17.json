@@ -1,31 +1,26 @@
 {
-  "compaction_level": 0,
-  "content_hash": "d589d3ab452f62007a6f431aab6985e3b254395effc239c1a647758f98d71e2e",
+  "id": "JMAP-6xs8.17",
+  "title": "Invocation 3-tuple type alias locks API shape and pins to serde_json major version",
+  "description": "crate-jmap-types/src/wire.rs:10 declares `pub type Invocation = (String, serde_json::Value, String)`.\n\nOnce shipped at 0.1.1, this 3-tuple shape is locked into the public API\nfor the entire `jmap-*` family. Two concrete cost paths for callers:\n\n1. **Positional access locks the contract.** Every consumer (kith, stoa,\n   the 7+ extension crates, third-party JMAP clients) writes\n   `inv.0`, `inv.1`, `inv.2` to pull out method name, arguments, and\n   call id. There is no rustdoc-hover assistance: the field positions\n   are documented in prose on the alias but not on the values. Once\n   downstream code ships, the maintainer cannot replace `Invocation`\n   with a struct with named fields without a major-version break.\n\n2. **`serde_json::Value` in the middle slot pins the crate's public API\n   to serde_json's major version forever.** If serde_json 2.x ever ships\n   with a renamed/reshaped `Value`, `Invocation` breaks transitively for\n   every consumer. The contract committed in 0.1.1 is implicitly:\n   \\\"`jmap-types` ^0.1 requires serde_json ^1\\\". A reasonable mitigation\n   would be a newtype like `pub struct Invocation { name, args, call_id }`\n   where `args` is `serde_json::Value` for now but could be wrapped or\n   typed in a future minor without changing the outer shape.\n\nA caller depending on this API in production accepts: (a) `inv.N`\npositional access for the lifetime of `jmap-types ^0.1`; (b) recompile\nwhen serde_json's major version moves; (c) no rustdoc-hover help on what\nposition 1 vs 2 means.\n\nFix candidates (any of which is a breaking change requiring a major\nbump and so is the wrong way around — file now while still 0.x):\n- Convert to `pub struct Invocation { pub name: String, pub args:\n  serde_json::Value, pub call_id: String }` with `#[serde(into = \"...\"`\n  / `from = \"...\"` to keep the 3-element-array wire form.\n- Or accept the lock and add `Invocation::name()`, `args()`,\n  `call_id()` accessor methods so callers can opt out of positional\n  access (and `inv.0`-using callers stay buildable forever).",
+  "notes": "DECISION NEEDED (triage 2026-10-19 at 9fdbbbcf): Question for Mark: should Invocation stay a public 3-tuple alias with serde_json::Value in the middle, permanently, or become a named struct before the next 0.x release?\n\nOptions:\n(A) Accept the lock. Keep the alias. Add an AGENTS.md paragraph saying that `(String, serde_json::Value, String)` is a deliberate commitment for jmap-types 0.x/1.x: it pins consumers to serde_json 1.x and to .0=method, .1=args, .2=call_id (RFC 8620 §3.2). Close JMAP-wlip.30 as a duplicate under the same decision. Size S, not breaking.\n(B) Convert to `#[non_exhaustive]`-free `pub struct Invocation { pub name: String, pub arguments: serde_json::Value, pub call_id: String }` with a hand-written Serialize/Deserialize that keeps the 3-element JSON array wire form. Add `From\u003c(String, Value, String)\u003e` and `Into` the tuple to ease migration. Migrate all ~290 sites in 18 crates. Wire tests use RFC 8620 §3.3.1/§3.4.1 example request/response JSON as the oracle. Bump jmap-types to 0.3. Close JMAP-wlip.30 and settle JMAP-jfia.19 in the same pass. Size L, breaking.\n(C) Do B, and also make args opaque (a newtype over Value) to remove the serde_json major pin. Rejected: JMAP-6xs8.18 (`extra: serde_json::Map`) and AGENTS.md's sloppy-Value policy already tie the public API to serde_json in many places, so decoupling Invocation alone buys nothing.\n\nRecommendation: (B) without (C), done now while the crate is 0.2. The serde_json pin is already a workspace-wide fact, so accept it explicitly in AGENTS.md either way. The positional-tuple problem is the one that is cheap to fix now and expensive after 1.0. If Mark does not want a 290-site migration, choose (A) and record it as a bd decision so JMAP-wlip.30 and JMAP-jfia.19 can be closed against it.\nDECIDED by Mark 2026-10-19: option B without C. Invocation becomes pub struct { name: String, arguments: serde_json::Value, call_id: String } with hand-written Serialize/Deserialize keeping the RFC 8620 3-element array wire form, plus From/Into (String, Value, String). Migrate all sites; ships in 0.3.0 (breaking). Oracle: RFC 8620 §3.3.1/§3.4.1 example JSON. Close JMAP-wlip.30 under this decision.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-15T05:43:05Z",
   "created_by": "Mark Atwood",
-  "description": "crate-jmap-types/src/wire.rs:10 declares `pub type Invocation = (String, serde_json::Value, String)`.\n\nOnce shipped at 0.1.1, this 3-tuple shape is locked into the public API\nfor the entire `jmap-*` family. Two concrete cost paths for callers:\n\n1. **Positional access locks the contract.** Every consumer (kith, stoa,\n   the 7+ extension crates, third-party JMAP clients) writes\n   `inv.0`, `inv.1`, `inv.2` to pull out method name, arguments, and\n   call id. There is no rustdoc-hover assistance: the field positions\n   are documented in prose on the alias but not on the values. Once\n   downstream code ships, the maintainer cannot replace `Invocation`\n   with a struct with named fields without a major-version break.\n\n2. **`serde_json::Value` in the middle slot pins the crate's public API\n   to serde_json's major version forever.** If serde_json 2.x ever ships\n   with a renamed/reshaped `Value`, `Invocation` breaks transitively for\n   every consumer. The contract committed in 0.1.1 is implicitly:\n   \\\"`jmap-types` ^0.1 requires serde_json ^1\\\". A reasonable mitigation\n   would be a newtype like `pub struct Invocation { name, args, call_id }`\n   where `args` is `serde_json::Value` for now but could be wrapped or\n   typed in a future minor without changing the outer shape.\n\nA caller depending on this API in production accepts: (a) `inv.N`\npositional access for the lifetime of `jmap-types ^0.1`; (b) recompile\nwhen serde_json's major version moves; (c) no rustdoc-hover help on what\nposition 1 vs 2 means.\n\nFix candidates (any of which is a breaking change requiring a major\nbump and so is the wrong way around \u2014 file now while still 0.x):\n- Convert to `pub struct Invocation { pub name: String, pub args:\n  serde_json::Value, pub call_id: String }` with `#[serde(into = \"...\"`\n  / `from = \"...\"` to keep the 3-element-array wire form.\n- Or accept the lock and add `Invocation::name()`, `args()`,\n  `call_id()` accessor methods so callers can opt out of positional\n  access (and `inv.0`-using callers stay buildable forever).",
-  "ephemeral": 0,
-  "id": "JMAP-6xs8.17",
-  "is_blocked": 0,
-  "is_template": 0,
-  "issue_type": "task",
+  "updated_at": "2026-10-20T02:59:02.62809895Z",
+  "closed_at": "2026-10-20T02:59:02.62809895Z",
+  "close_reason": "Landed as df8926be (Invocation named struct, RFC 8620 array wire form kept). Review passed. CI green at 8e240e18 (stable+beta 3502 passed).",
   "metadata": {},
-  "no_history": 0,
-  "owner": "mark@reviewcommit.com",
-  "pinned": 0,
-  "priority": 1,
-  "status": "open",
-  "timeout_ns": 0,
-  "title": "Invocation 3-tuple type alias locks API shape and pins to serde_json major version",
-  "updated_at": "2026-05-17T16:30:25Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-14T22:43:04Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-6xs8",
-      "id": "6231d8e9-c6b2-5ee4-b188-1255a679048f",
-      "metadata": {},
-      "type": "parent-child"
+      "metadata": "{}"
     }
   ]
 }

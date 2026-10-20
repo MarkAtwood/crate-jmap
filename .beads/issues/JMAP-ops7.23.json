@@ -1,31 +1,25 @@
 {
-  "compaction_level": 0,
-  "content_hash": "bff80d4b16fb20982ff35a5eb6e0cff486e295b838f7706ddbb1bceba17afb44",
+  "id": "JMAP-ops7.23",
+  "title": "tasks-server: TasksBackend::update_task_per_user default silently violates draft-tasks-06 §4.5.1 in multi-user deployments",
+  "description": "**Divergence**: TasksBackend::update_task_per_user (crate-jmap-tasks-server/src/backend.rs:236) provides a default impl that delegates to update_object, which silently bumps the shared `updated` timestamp. draft-tasks-06 §4.5.1 MANDATES that a patch limited to per-user properties MUST NOT touch the shared `updated` timestamp.\n\n**Caller-observable effect**: a multi-user backend that ships TasksBackend with this default in place will, on any per-user-only patch by user A, invalidate the shared Task/changes state for users B/C/D. The rustdoc only says \"SHOULD override\" — a SHOULD against a spec-stated MUST. Single-user deployments are unaffected; this only burns in multi-user.\n\n**Sibling positions**:\n- jmap-mail-server (canonical extension-server): every spec-mandated mutation is REQUIRED (no default). `blob_exists` doc-comment at crate-jmap-mail-server/src/backend.rs:194-198 is the explicit workspace policy statement on why spec-mandated methods get no default.\n- jmap-chat-server: all spec-mandated mutations (apply_space_patch, apply_space_metadata_patch, generate_invite_code) are REQUIRED; defaults exist ONLY for deployment-policy hooks (slow-mode, custom-emoji authorization, contact-block lookups).\n- jmap-calendars-server: SAME ANTI-PATTERN as tasks (see bd:JMAP-ic0j.26).\n- jmap-metadata-server: partial-compliance default (filter args silently dropped, handler post-filters created/updated but not destroyed) — see sibling bead being filed.\n\n**Recommendation**: drop the default; require backends to provide an impl, exactly like mail-server's pattern for `import_email` / `parse_email` / etc. The kit cannot uphold the §4.5.1 invariant on the backend's behalf without storage-layer access.\n\n**Cross-references**: bd:JMAP-ic0j.26 (calendars-server analogue, OPEN). This bead is the tasks-server instance of the same workspace anti-pattern.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-17T23:32:09Z",
   "created_by": "Mark Atwood",
-  "description": "**Divergence**: TasksBackend::update_task_per_user (crate-jmap-tasks-server/src/backend.rs:236) provides a default impl that delegates to update_object, which silently bumps the shared `updated` timestamp. draft-tasks-06 \u00a74.5.1 MANDATES that a patch limited to per-user properties MUST NOT touch the shared `updated` timestamp.\n\n**Caller-observable effect**: a multi-user backend that ships TasksBackend with this default in place will, on any per-user-only patch by user A, invalidate the shared Task/changes state for users B/C/D. The rustdoc only says \"SHOULD override\" \u2014 a SHOULD against a spec-stated MUST. Single-user deployments are unaffected; this only burns in multi-user.\n\n**Sibling positions**:\n- jmap-mail-server (canonical extension-server): every spec-mandated mutation is REQUIRED (no default). `blob_exists` doc-comment at crate-jmap-mail-server/src/backend.rs:194-198 is the explicit workspace policy statement on why spec-mandated methods get no default.\n- jmap-chat-server: all spec-mandated mutations (apply_space_patch, apply_space_metadata_patch, generate_invite_code) are REQUIRED; defaults exist ONLY for deployment-policy hooks (slow-mode, custom-emoji authorization, contact-block lookups).\n- jmap-calendars-server: SAME ANTI-PATTERN as tasks (see bd:JMAP-ic0j.26).\n- jmap-metadata-server: partial-compliance default (filter args silently dropped, handler post-filters created/updated but not destroyed) \u2014 see sibling bead being filed.\n\n**Recommendation**: drop the default; require backends to provide an impl, exactly like mail-server's pattern for `import_email` / `parse_email` / etc. The kit cannot uphold the \u00a74.5.1 invariant on the backend's behalf without storage-layer access.\n\n**Cross-references**: bd:JMAP-ic0j.26 (calendars-server analogue, OPEN). This bead is the tasks-server instance of the same workspace anti-pattern.",
-  "ephemeral": 0,
-  "id": "JMAP-ops7.23",
-  "is_blocked": 0,
-  "is_template": 0,
-  "issue_type": "task",
+  "updated_at": "2026-10-19T21:42:22.670352037Z",
+  "closed_at": "2026-10-19T21:42:22.670352037Z",
+  "close_reason": "Triage 2026-10-19 at 9fdbbbcf, DUPLICATE (3-skeptic check 3/3 upheld): The defect is still present at HEAD 9fdbbbcf. In crate-jmap-tasks-server/src/backend.rs:254-264, `TasksBackend::update_task_per_user` still has a default body, `self.update_object::\u003cjmap_tasks_types::Task\u003e(caller, account_id, id, patch)`. Its rustdoc at backend.rs:238-242 still says only that multi-user backends \"SHOULD override\", even though draft-tasks-06 section 4.5.1 says the shared `updated` timestamp MUST NOT change. The routing code at task.rs:353 calls it, and MockBackend overrides it at lib.rs:508. memory.rs does not override it (it only mentions it in a doc comment at memory.rs:21), so the reference MemoryBackend uses the default.\n\nAn earlier bead covers exactly this: JMAP-h47t.15 (OPEN, created 2026-05-14, three days before this one). Its title is \"TasksBackend::update_task_per_user default delegates to update_object — multi-user backends that forget to override silently viola",
   "metadata": {},
-  "no_history": 0,
-  "owner": "mark@reviewcommit.com",
-  "pinned": 0,
-  "priority": 1,
-  "status": "open",
-  "timeout_ns": 0,
-  "title": "tasks-server: TasksBackend::update_task_per_user default silently violates draft-tasks-06 \u00a74.5.1 in multi-user deployments",
-  "updated_at": "2026-05-17T23:32:09Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-17T16:32:08Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-ops7",
-      "id": "7176bd78-5dc3-5fe0-80aa-8e1292bdcb08",
-      "metadata": {},
-      "type": "parent-child"
+      "metadata": "{}"
     }
   ]
 }

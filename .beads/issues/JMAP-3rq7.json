@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-3rq7",
+  "title": "Decide @everyone channel-override targetId and MemoryBackend @everyone floor",
+  "description": "draft-atwood-jmap-chat-00 L700/L728: @everyone is implicit, has no SpaceRole id and is not in Space.roles, so no ChannelPermission (targetType role, L772) can target it; §Space Permission Resolution step 2 (L1622) still applies role-targeted records 'matching the member's roles'. The @everyone permission floor has no wire field either. JMAP-y3f2.1 landed the resolver with the reference MemoryBackend floor empty (status quo, test member_with_only_everyone_role_lacks_permissions) and @everyone overrides unaddressable, so a role-less member can neither view nor send in channels. Options: (A) targetId = Space id addresses @everyone (Discord convention), floor configurable on MemoryBackend defaulting to view+send; (B) reserved literal targetId '@everyone'; (C) keep as is and add a spec sentence. Needs a jmap-chat-spec sentence whichever is chosen. Recommendation: A.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T04:17:41.576012801Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T04:17:41.576012801Z"
+}

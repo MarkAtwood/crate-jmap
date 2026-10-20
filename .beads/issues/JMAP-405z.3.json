@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-405z.3",
+  "title": "chat-server: ChatContact create by identity",
+  "description": "ChatContact/set create accepts only identity; server assigns id; existing identity -\u003e alreadyExists with existingId (RFC 8620 5.3); identity == ownerUserId -\u003e invalidProperties [identity]. ChatContact/query gains exact identity filter. MemoryBackend + ChatBackend trait + chat-client bindings.",
+  "notes": "Implemented (uncommitted): handle_contact_set create by identity (invalidProperties for missing/blank identity or extra props; owner identity via new ChatBackend::owner_user_id hook, default Ok(None)); identity uniqueness enforced by backend create_object (AlreadyExists+existingId), documented in create_object uniqueness contract; MemoryBackend identity query filter + set_owner_user_id_for_test; client chat_contact_create + ChatContactQueryInput.filter_identity. Changed integration.rs contact_set_create_forbidden -\u003e contact_set_create_without_identity_invalid_properties (draft contradicts forbidden).\nDone in 2fea4cc5: tests contact_create_by_identity_assigns_id, contact_create_existing_identity_already_exists, contact_create_without_identity_invalid_properties, contact_create_other_properties_invalid_properties, contact_query_identity_filter_matches_octet_for_octet, contact_create_owner_identity_invalid_properties; changed existing tests: contact_set_create_forbidden (renamed contact_set_create_without_identity_invalid_properties)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T04:37:04.619987945Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T05:15:03.361461384Z",
+  "started_at": "2026-10-19T04:58:46.80268547Z",
+  "closed_at": "2026-10-19T05:15:03.361461384Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-405z.3",
+      "depends_on_id": "JMAP-405z",
+      "type": "parent-child",
+      "created_at": "2026-10-19T04:37:04.731783545Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

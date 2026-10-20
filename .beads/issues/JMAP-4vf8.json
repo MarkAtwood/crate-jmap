@@ -1,0 +1,19 @@
+{
+  "id": "JMAP-4vf8",
+  "title": "Review: crate-jmap 2026-10-17 (today's commits dfbc7383..7ceef63a)",
+  "notes": "Confidence: .8 verified against draft-atwood-jmap-chat-00 §deletedAt (l.688) and 'Deleting a Message' (l.1158-1161) — mrod.4 fix only covered deletedForAll. .9 verified (same section, MUST reject non-self). .5 high (crates.io 0.1.2 exists). .10, .4 medium: read by agents, not reproduced by test. .1 is a robustness suggestion; .2/.3 polish. .11 closed as dup of .5. No opinion-only findings filed.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T04:18:11.466237363Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T05:15:39.037825902Z",
+  "started_at": "2026-10-18T04:18:11.611463531Z",
+  "closed_at": "2026-10-18T05:15:39.037825902Z",
+  "close_reason": "all children closed; fixes pushed through c5981683",
+  "labels": [
+    "review"
+  ]
+}

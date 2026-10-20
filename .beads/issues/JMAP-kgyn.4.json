@@ -3,22 +3,20 @@
   "close_reason": "Added SEED CONTRACT comment documenting the trash-role assumption",
   "closed_at": "2026-05-02T22:04:06Z",
   "compaction_level": 0,
-  "content_hash": "ecc2cb439581aa180a15d2bd7539ee3150c627a08befaf7a6fef4133354faa38",
   "created_at": "2026-05-02T21:57:18Z",
   "created_by": "Mark Atwood",
   "description": "conformance_mailbox_query_filter_role assumes exactly one role-bearing mailbox (inbox) in seed data. If setup_seed_data is ever extended to add more role-bearing mailboxes (e.g. Trash, Sent) to support other conformance tests, this test's assertion ids.len()==1 will break without any change to the code under test. The test comment says 'seed data has exactly one role-bearing mailbox' but that is an implicit contract on seed.rs, not enforced anywhere. Should assert the inbox ID is present, not assert that count is exactly 1, OR the seed contract should be explicitly frozen with a named constant.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-kgyn.4",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 1,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "role-filter test depends on undocumented seed contract that only inbox has a role",
   "updated_at": "2026-05-02T22:04:06Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-kgyn",
       "id": "56c5f805-2b4e-5f95-b8c9-b964800712b6",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

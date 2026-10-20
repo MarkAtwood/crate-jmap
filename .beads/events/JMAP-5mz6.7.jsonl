@@ -1,0 +1,2 @@
+{"id":"01a157e3-4f22-7e12-8e93-b4534d083dd0","issue_id":"JMAP-5mz6.7","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T05:57:57.154923008Z"}
+{"id":"01a158d2-8df5-7b7e-9b35-ae5dbd7bd157","issue_id":"JMAP-5mz6.7","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in 74ae18a2 feat(chat-server): outbound new-message, reactions (batch 6, adversarially verified, CI green at a586c251)","created_at":"2026-10-20T10:19:16.341753693Z"}

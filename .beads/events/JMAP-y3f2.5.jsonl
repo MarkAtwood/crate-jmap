@@ -1,0 +1,2 @@
+{"id":"01a156c5-6262-7e45-a6b3-3dd6121cfa73","issue_id":"JMAP-y3f2.5","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:38.786936356Z"}
+{"id":"01a1581e-bb29-7a23-bd08-533564bf66ee","issue_id":"JMAP-y3f2.5","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in e409ff97 feat(chat-server): enforce attachment limits (batch 5, adversarially verified, CI green at 44026b06)","created_at":"2026-10-20T07:02:51.433665241Z"}

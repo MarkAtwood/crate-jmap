@@ -1,0 +1,2 @@
+{"id":"01a156c5-6f87-733e-92d5-424dc331f9a2","issue_id":"JMAP-5mz6.6","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:42.151213115Z"}
+{"id":"01a1581e-c675-7245-930c-19af0203628b","issue_id":"JMAP-5mz6.6","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in 58cd7c9b feat(chat-types): jmap: URI type and cap constants (batch 5, adversarially verified, CI green at 44026b06)","created_at":"2026-10-20T07:02:54.325149645Z"}

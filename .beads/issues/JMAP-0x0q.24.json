@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.24",
+  "title": "Record server time for leftAt; eject patches only leftAt",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[scene] Record server time for leftAt; eject patches only leftAt\nSpec (61f2d14): draft-atwood-jmap-scene-00.md L637: \"a client update that sets `leftAt` to a non-null value signals the intent to leave, and the server stores its own current time instead of the supplied value\". L2576: \"Region owners and administrators MAY eject avatars by setting `leftAt` ...; the server records its own current time as `leftAt`. An eject update patches only `leftAt`.\"\nCode: crate-jmap-scene-server/src/avatar.rs:42-46; crate-jmap-scene-server/src/avatar.rs:442; crate-jmap-scene-server/src/avatar.rs:476-505\nNow: The client-supplied leftAt is applied verbatim through apply_patch_object and update_object. EJECT_PROPERTIES = [\"leftAt\", \"worldState\"] lets an eject also patch worldState (from the removed ejectReason example).\nChange: When leftAt is set to non-null, replace the patch value with now_utc_string() and echo it in `updated` (RFC 8620 5.3: a server-changed value). Change EJECT_PROPERTIES to [\"leftAt\"] only.\nVerifier correction: As proposed. Also update crate-jmap-scene-server/tests/avatar_set.rs:580-594, which asserts that an eject with worldState.ejectReason succeeds. That test's oracle is the removed Step 4 example, so changing it is an oracle update. Fix the backend.rs:413 and avatar.rs:44-46 docs as well.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:32.02450091Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:32.02450091Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.24",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:32.145521017Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

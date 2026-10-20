@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-x3lu",
+  "title": "Audit compliance-tests and guide docs for MUSTs not covered by crates/beads",
+  "description": "Audit jmap-chat-spec/jmap-chat-compliance-tests.md and the *-guide.md files (critic said 26; ls jmap-chat-spec/*guide*.md finds 27) for MUSTs not covered by crates or beads. Guides by MUST count: jmap-push-platform-guide.md 52 (likely JMAP-gxxm), jmap-chat-wss-guide.md 36, jmap-scene-wss-guide.md 36, jmap-chat-implementer-guide.md 27 (L466 CustomEmoji overQuota, L543 delivery-time predicate), jmap-vtc-ring-push-guide.md 20, jmap-scene-implementer-guide.md 20, jmap-vtc-implementer-guide.md 17, jmap-chat-push-platform-guide.md 17, jmap-vtc-recording-guide.md 15. Unmapped by any epic: jmap-unified-client-architecture.md, jmap-vtc-chat-delegation-guide.md, jmap-vtc-gateway-guide.md, jmap-vtc-e2ee-guide.md, jmap-vtc-filenode-guide.md, jmap-scene-vtc-integration-guide.md. Compliance items: §14.14 Content-Disposition injection via filename (message.rs L524 rejects only '/', '\\\\' and NUL; CR, LF and '\"' unchecked); §14.13 constant-time sha256 comparison; §13.11 slow mode must use receivedAt (message.rs L948 slow_mode_check, timestamp unverified); §9.2 SpaceBan expiry auto-restore (space.rs L1657 lazy expires_at check); §9.1 burnOnRead (backend.rs L802-825, likely implemented); §7.10 peer rate limiter, §7.14 Content-Digest, §7.15/§7.19 unknown-kid refetch and DNSSEC re-query (confirm kz4f/atfj scope). Do NOT file §14.x items from another implementation (LIKE wildcards, scrypt, bare except, migrations): not applicable to a Rust kit with a memory backend. The 40+ remaining compliance checks were not run by the audit. Source: 2026-10-19 spec gap audit (gap-synthesis E-epics + critic corrections). Line numbers are against jmap-chat-spec drafts as of 2026-10-19 and may drift.",
+  "acceptance_criteria": "Every MUST in the listed docs is mapped to an existing bead, a new bead, or recorded as out of scope with reason; new beads quote the MUST text as oracle.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:12.401656994Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T00:46:12.401656994Z"
+}

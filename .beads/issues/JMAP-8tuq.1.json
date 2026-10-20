@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-8tuq.1",
+  "title": "chat-types: JMAP_CHAT_DID_URI marker capability and advertising rule",
+  "description": "Marker capability; advertise only when jmap:did is also advertised and did:web, did:key, did:plc all resolve (draft-atwood-jmap-chat-did-00 L96-140).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests quote L96-140.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:11.244714121Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:31.743570892Z",
+  "closed_at": "2026-10-20T20:37:31.743570892Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-8tuq.1",
+      "depends_on_id": "JMAP-8tuq",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:11.345267519Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

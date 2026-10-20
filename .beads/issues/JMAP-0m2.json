@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-01T23:37:58Z",
   "compaction_level": 0,
-  "content_hash": "1e532910c0476dc30bae3e3a157cff1a9729afdcef9cd5050bafc621b2f1d539",
   "created_at": "2026-05-01T23:01:21Z",
   "created_by": "Mark Atwood",
-  "description": "Spec \u00a7ChatContact Methods lists both query and queryChanges as required. Neither is implemented or registered. Spec defines filter properties (blocked: Boolean, presence: String) and sort properties (lastSeenAt, login, lastActiveAt \u2014 absent values sort last).",
-  "ephemeral": 0,
+  "description": "Spec §ChatContact Methods lists both query and queryChanges as required. Neither is implemented or registered. Spec defines filter properties (blocked: Boolean, presence: String) and sort properties (lastSeenAt, login, lastActiveAt — absent values sort last).",
+  "ephemeral": false,
   "id": "JMAP-0m2",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "feature",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 1,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "Implement ChatContact/query and ChatContact/queryChanges",
   "updated_at": "2026-05-01T23:37:58Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-x09",
       "id": "34f87985-5f71-5e21-92be-1487ec954f61",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

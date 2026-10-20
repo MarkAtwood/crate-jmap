@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-5mz6.8",
+  "title": "chat-server: Message/set create in unknown Chat succeeds",
+  "description": "handle_message_set skips may_create_message when the Chat lookup finds nothing ('A Chat not found is left for create_object'), and MemoryBackend::create_object does not check chatId, so a create with chatId of a Chat that does not exist is stored and returned in created. draft-atwood-jmap-chat-00 L1126: 'The server MUST verify the sender is a current member of the target Chat ... Non-members MUST receive a SetError of type forbidden.' Found while writing JMAP-5mz6.7 tests (create with chatId 'nope' was created). Fix: reject in the handler when the Chat is not found (forbidden or invalidProperties chatId; pick per spec).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T07:24:55.021799151Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:34.608415012Z",
+  "closed_at": "2026-10-20T20:37:34.608415012Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-5mz6.8",
+      "depends_on_id": "JMAP-5mz6",
+      "type": "parent-child",
+      "created_at": "2026-10-20T07:24:55.133697902Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

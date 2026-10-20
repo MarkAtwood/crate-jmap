@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-06-13T21:25:47Z",
   "compaction_level": 0,
-  "content_hash": "a352d1228da980c17398505aba0e4fbbe9172b85b3788b7c745ad3e153124680",
   "created_at": "2026-06-13T21:12:51Z",
   "created_by": "Mark Atwood",
   "description": "In crate-jmap-chat-client, add broadcast_mentions field to MessagePatch (src/methods/mod.rs) mirroring the existing mentions passthrough pattern. Type: Option<Vec<jmap_chat_types::BroadcastMention>>. When Some, emits broadcastMentions on the wire in Message/set update. Add smoke test in tests/message_smoke_tests.rs covering wire serialization.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-6kxh.5",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@wolfssl.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 0,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "Add broadcast_mentions to chat-client MessagePatch",
   "updated_at": "2026-06-13T21:25:47Z",
   "dependencies": [
@@ -27,7 +25,7 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-6kxh",
       "id": "0f1df9d5-6037-5a56-acc6-732f0fc37cbd",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     },
     {
@@ -35,8 +33,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-6kxh.1",
       "id": "946c279a-f0bd-5c76-a1b4-de122749a6f1",
-      "metadata": {},
+      "metadata": "{}",
       "type": "blocks"
     }
-  ]
+  ],
+  "timeout": 0
 }

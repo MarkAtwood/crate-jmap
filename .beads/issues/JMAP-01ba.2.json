@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-01ba.2",
+  "title": "filenode-server: blob-digest hook; fill sha256 when CID advertised",
+  "description": "Add a FileNodeBackend blob-digest hook; FileNode/set create and update fill sha256 when jmap:cid is advertised (draft-atwood-jmap-cid-00 L222-224).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Test: create with a known blob yields the SHA-256 from a published vector (e.g. FIPS 180-4 'abc'); no CID capability -\u003e no sha256.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:46.747156659Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:20.28670636Z",
+  "closed_at": "2026-10-20T10:19:20.28670636Z",
+  "close_reason": "Landed in 68d389d1 fix(filenode-server): address review of JMAP-01ba.2 (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-01ba.2",
+      "depends_on_id": "JMAP-01ba",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:46.866855198Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

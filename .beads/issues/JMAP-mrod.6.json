@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-mrod.6",
+  "title": "FileNode/set update must reject @type change",
+  "description": "draft-ietf-jmap-filenode-16 §3.1.1: @type is immutable. Server docs say updates changing it are rejected but crate-jmap-filenode-server does not enforce it. Found during JMAP-mrod.2.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T02:49:31.3932507Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T05:14:50.067541873Z",
+  "started_at": "2026-10-18T05:05:06.18342946Z",
+  "closed_at": "2026-10-18T05:14:50.067541873Z",
+  "close_reason": "already fixed by 500b76f0 (JMAP-4vf8.16), test filenode_set_update_rejects_type_change",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-mrod.6",
+      "depends_on_id": "JMAP-mrod",
+      "type": "parent-child",
+      "created_at": "2026-10-18T02:49:31.592709012Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

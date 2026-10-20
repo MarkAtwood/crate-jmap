@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-01ba.7",
+  "title": "filenode-server: emit sha256:null for dirs when jmap:cid advertised",
+  "description": "draft-atwood-jmap-cid-00 L206-213: when jmap:cid and FileNode are both advertised, FileNode objects \"MUST include\" sha256, which \"MUST be null for directory FileNodes\". FileNode.sha256 is Option\u003cSha256\u003e (JMAP-01ba.1) and is omitted when None, so the types crate cannot tell absent from null. The server must insert \"sha256\": null into /get output for Directory/SymLink (and legacy-file) nodes when jmap:cid is advertised. Surfaced by JMAP-01ba.1.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T08:51:14.696883617Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T08:51:14.696883617Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-01ba.7",
+      "depends_on_id": "JMAP-01ba",
+      "type": "parent-child",
+      "created_at": "2026-10-20T08:51:14.824071451Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-v8y0",
+  "title": "integration test chat_set_duplicate_direct_cleanup_destroy_failure is clock-dependent",
+  "description": "crate-jmap-chat-server/tests/integration.rs:2087 seeds a race phantom with id \"aaaa\" and expects the newly created Chat to be lex-larger so the handler destroys it. Server ids are now time-derived hex (e.g. 18dfc7d3a4fc14ee), which sort before \"aaaa\", so no cleanup destroy runs and notCreated[c0] is absent. Fails on clean HEAD 6c1a857a (found while working JMAP-yt1w.7). Fix the test premise (pick a phantom id guaranteed lex-smaller, e.g. \"0\"), not the assertion.",
+  "notes": "2026-10-18 (JMAP-yt1w.13 run): also fails deterministically in isolation at HEAD abf6969a with 'cargo test -p jmap-chat-server --all-features --test integration chat_set_duplicate_direct_cleanup_destroy_failure' (realistic-demo-ids on): Chat/set create lands in created instead of notCreated serverFail.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T00:48:31.43411085Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T03:05:14.739469557Z"
+}

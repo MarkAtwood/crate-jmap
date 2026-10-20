@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-8mem.2",
+  "title": "vtc-server: VTCCall handlers (create, state machine, end, query)",
+  "description": "Ring, room and scheduled create with capability gates (vtc L575-685); state machines (L426-455); ending a call (L687-706); at most one active call per Chat (L573); moderator call-level actions (L708-719); query (L721-763).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests per state-machine transition in L426-455; second active call in a Chat rejected (L573).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:50.769245797Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:37.572796296Z",
+  "closed_at": "2026-10-20T20:37:37.572796296Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-8mem.2",
+      "depends_on_id": "JMAP-8mem",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:50.909857707Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

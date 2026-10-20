@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-zmqp",
+  "title": "chat-server: Space/set create silently drops unknown properties",
+  "description": "handle_space_set create copies only registered space_extension_properties into Space::extra and ignores every other unknown key (crate-jmap-chat-server/src/space.rs ~L1052), while the update path rejects an unknown key as invalidProperties naming it (tests/space_extension_properties.rs unregistered_property_is_invalid_properties). RFC 8620 §5.3 invalidProperties: 'The record given is invalid in some way'. Observed while testing jmap-chat-calendars-server with mayBindCalendar:false: a create carrying calendarId succeeds with calendarId dropped instead of being refused. Decide whether create should reject unknown keys like update.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T17:47:54.11192791Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T17:47:54.11192791Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-zmqp",
+      "depends_on_id": "JMAP-v9py.17.2",
+      "type": "discovered-from",
+      "created_at": "2026-10-20T17:47:54.237630333Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

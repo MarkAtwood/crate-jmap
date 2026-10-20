@@ -3,22 +3,20 @@
   "close_reason": "Closed",
   "closed_at": "2026-05-01T16:57:15Z",
   "compaction_level": 0,
-  "content_hash": "e8b39623e18d40f2d6f918ae7eb03b217cb49a349b431fc975fa29c356b91636",
   "created_at": "2026-05-01T16:29:39Z",
   "created_by": "Mark Atwood",
-  "description": "MailBackend::update_object is documented to return Some(O) when the backend wants to report server-set properties after a patch. Every handler discards the return value with Ok(_) or Ok(Some(_)). A backend implementor who returns Some(O) to signal server-modified fields will be surprised to find the response is unchanged \u2014 their updated object is silently dropped. This is a silent API contract violation. Either: (a) document clearly in every handler that the return value is ignored, or (b) use the returned object to populate the 'updated' response map when Some.",
-  "ephemeral": 0,
+  "description": "MailBackend::update_object is documented to return Some(O) when the backend wants to report server-set properties after a patch. Every handler discards the return value with Ok(_) or Ok(Some(_)). A backend implementor who returns Some(O) to signal server-modified fields will be surprised to find the response is unchanged — their updated object is silently dropped. This is a silent API contract violation. Either: (a) document clearly in every handler that the return value is ignored, or (b) use the returned object to populate the 'updated' response map when Some.",
+  "ephemeral": false,
   "id": "JMAP-wdy.5",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "update_object Option<O> return value silently discarded in all handlers",
   "updated_at": "2026-05-01T16:57:15Z",
   "dependencies": [
@@ -27,8 +25,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-wdy",
       "id": "31e1dd24-31d7-567c-a593-4629cf5decf2",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

@@ -1,0 +1,30 @@
+{
+  "id": "JMAP-cyub.4",
+  "title": "Differential tests: jmap-testjig vs Stalwart",
+  "description": "Send identical requests to jmap-testjig (memory servers) and Stalwart; normalize ids/states/timestamps and diff. Start with Core, Mailbox, Email.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T20:10:19.044476812Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T20:10:19.044476812Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-cyub.4",
+      "depends_on_id": "JMAP-cyub",
+      "type": "parent-child",
+      "created_at": "2026-10-18T20:10:19.14901176Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cyub.4",
+      "depends_on_id": "JMAP-cyub.2",
+      "type": "blocks",
+      "created_at": "2026-10-18T20:10:20.59831102Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

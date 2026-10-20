@@ -1,0 +1,2 @@
+{"id":"01a14ce2-2cbf-7867-8f21-96bda0b50ff7","issue_id":"JMAP-a250","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-18T02:40:53.439551109Z"}
+{"id":"01a14d6f-1bc0-7a22-8e7d-16fd4d79efbe","issue_id":"JMAP-a250","event_type":"closed","actor":"agent","old_value":"","new_value":"fixed in working tree, verified","created_at":"2026-10-18T05:14:49.66466527Z"}

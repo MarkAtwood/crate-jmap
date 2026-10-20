@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-yt1w.6",
+  "title": "Category channelIds not reconciled on Space/set",
+  "description": "draft-atwood-jmap-chat-00 Category: 'The server MUST keep them consistent: a Space/set operation that changes one MUST update the others in the same operation.' memory.rs:1789-1805 (addCategories with channelIds) and :1922-1977 (updateCategories channelIds) move a channel into category B and out of uncategorizedChannelIds but leave it in its old category A's channelIds. updateChannels categoryId (:2410-2460) and removeCategories already reconcile. Found by the 1e33ec7 audit (wf_af4656ea-dbb, both refuters upheld). Fix with a failing test quoting the draft; extend chat_client_wire.rs where the client exercises it.",
+  "notes": "fix done in cf81ea76: tests space_set_category_add_moves_channel_out_of_previous_category, space_set_category_update_moves_channel_out_of_previous_category (integration.rs)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T22:58:39.461530132Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T02:03:47.517966545Z",
+  "started_at": "2026-10-19T01:30:40.961500717Z",
+  "closed_at": "2026-10-19T02:03:47.517966545Z",
+  "close_reason": "Fixed against jmap-chat-spec 1e33ec7; test-first, reviewed, gates green (stable/beta/1.88)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.6",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-18T22:58:39.598347622Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

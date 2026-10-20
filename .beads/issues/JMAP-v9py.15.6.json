@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-v9py.15.6",
+  "title": "federation: outbound translation, retract/groupUpdate, deliveryState",
+  "description": "replyTo/threadRootId translation (draft-atwood-jmap-chat-federation-00 L392-396); Peer/retract on deletedForAll (L585) and groupUpdate on member changes; deliveryState aggregation, blocked on spec bug jmap-chat-spec-1y1p (three-way conflict L780/L788/L793); retry error classifier (L774-776).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests quote the resolved deliveryState rule and L392-396/L585/L774-776.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:46:01.043723255Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:55.948625577Z",
+  "closed_at": "2026-10-20T20:37:55.948625577Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.15.6",
+      "depends_on_id": "JMAP-v9py.15",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:46:01.144319485Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

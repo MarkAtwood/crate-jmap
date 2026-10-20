@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.26",
+  "title": "Let admins destroy regions",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[scene] Let admins destroy regions\nSpec (61f2d14): draft-atwood-jmap-scene-00.md L1193: \"The server SHOULD return `forbidden` when the caller is not the region owner and does not have deployment-defined administrative privileges.\"\nCode: crate-jmap-scene-server/src/memory.rs:985-993; crate-jmap-scene-server/src/region.rs:559-574\nNow: MemoryBackend::may_destroy_region allows only the owner, not admins. The handler doc and the error say 'only the region owner may destroy'.\nChange: Allow admins in may_destroy_region (as may_update_region already does), and update the doc and description strings.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:32.608454643Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:32.608454643Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.26",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:32.711743322Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

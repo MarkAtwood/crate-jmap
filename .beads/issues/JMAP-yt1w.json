@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-yt1w",
+  "title": "Follow-ups from the 2026-10-18 client-library wave",
+  "description": "jmap-chat-client/base-client gaps for kaiwa were implemented (kaiwa-g2v5.14) with a new real-server wire test in crate-jmap-testjig. The test and the spec-gap pass found server divergences and type gaps, listed in the children.",
+  "notes": "STATE 2026-10-19: done this session: .13-.17, .21, .22, .29 (moved to 405z), .30-.38, plus JMAP-405z (.1-.5, .32-.34, .37). Pushed to origin through 2641a8fc. Open: release .3; .4 federation parts (blocked chinwag-nuqe.7); P2 bugs .19 .20 .23 .26; P3 .18 .24 .25 .27 .28 .39 .40 .41. JMAP-405z.6 blocked on chinwag-nuqe.7 (peer-auth spec now in jmap-chat-spec 03985ef; nuqe.7 still waits on chinwag-nuqe.5).\nSESSION END 2026-10-19 (provider login change): all work committed and pushed (crate-jmap origin/main 7d531680; jmap-chat-spec origin/main 03985ef). Nothing running. Resume with: bd show JMAP-yt1w.3 (0.3.0 release: pick P2 riders .19 .20 .23 .26, fix description drift, bump per RELEASING.md); then open P2/P3 bugs under JMAP-yt1w and JMAP-nbk3.8; spec follow-ups in jmap-chat-spec (3pp3 59gn 7crj r9fy P2). Federation (JMAP-405z.6, yt1w.4 remainder) blocked on chinwag-nuqe.7 \u003c- nuqe.5. Process lessons: bd memories workflow.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T22:05:28.536085077Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T19:49:11.511407502Z"
+}

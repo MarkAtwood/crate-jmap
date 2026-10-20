@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.36",
+  "title": "Return invalidProperties for chatId non-member on create",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[vtc] Return invalidProperties for chatId non-member on create\nSpec (3cbb0c4): draft-atwood-jmap-vtc-00.md L619: \"When `chatId` does not resolve to a Chat object, the server MUST return `invalidProperties` naming `chatId`. The server SHOULD return the same error when the caller is not a member of that Chat, so that the response does not reveal that the Chat exists.\"\nCode: crate-jmap-chat-vtc-server/src/lib.rs:92-94; crate-jmap-chat-vtc-server/src/lib.rs:44-55\nNow: check_call_create returns forbidden(\"the caller is not a member of the Chat\") for a non-member. The doc comment quotes the removed MUST-forbidden text.\nChange: Return SetError invalidProperties with properties [\"chatId\"] and the same description as the not-found case. Update the doc quotes; start_call staying forbidden is still correct.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:38.766888251Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:38.766888251Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.36",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:38.89325136Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

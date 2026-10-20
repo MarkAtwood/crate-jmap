@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-yt1w.14",
+  "title": "Space/set addCategories rejects entries without id",
+  "description": "draft-atwood-jmap-chat-00 (1e33ec7) Space/set addCategories: 'Each entry: `name` (String), optional `position` (UnsignedInt) and `channelIds` (String[]). Server assigns ULIDs.' The server parses each entry as Category and returns invalidProperties 'addCategories[0]: failed to parse entry: missing field `id`'. jmap-chat-client SpaceAddCategoryInput (draft-conformant) sends no id, so client addCategories never works against the reference server. Found while writing the wire test for JMAP-yt1w.6. Once this is fixed, extend crate-jmap-testjig/tests/chat_client_wire.rs with an addCategories-moves-channel test.",
+  "notes": "Done in 3f21654b: tests space_set_category_add_without_id_is_accepted, space_add_categories_moves_channel_into_new_category; changed existing tests: none",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T01:34:42.574316261Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T03:28:20.077389754Z",
+  "started_at": "2026-10-19T03:18:00.489876007Z",
+  "closed_at": "2026-10-19T03:28:20.077389754Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.14",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-19T01:34:42.681132351Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

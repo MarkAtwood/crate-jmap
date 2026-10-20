@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-pnci",
+  "title": "chat-server: Message/set senderMsgId should equal id",
+  "description": "handle_message_set builds Message::new(PLACEHOLDER_ID, Id::from(create_id), ...) so an owner-composed Message stores the client creation id as senderMsgId, and MemoryBackend::create_object rewrites only id. draft-atwood-jmap-chat-00 L603: senderMsgId 'Equals id for messages composed by the owner.' Effect: reused creation ids (m1) collide in find_message_by_sender_msg_id / store_server_message dedup (JMAP-53vd) and the federation replyTo translation (fed L394). Found while doing JMAP-53vd; out of scope there.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T05:34:32.976410573Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T05:34:32.976410573Z"
+}

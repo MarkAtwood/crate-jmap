@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-a4gi",
+  "title": "chat-client *_query cannot send compound or metadata-02 filters",
+  "description": "Found during JMAP-1j9k.2. Every extension client /query and /queryChanges now takes Option\u003c\u0026jmap_types::query::Filter\u003cC\u003e\u003e (C: Serialize), and the chat *_query_changes methods do too. The chat *_query methods (chat_query, message_query, space_query, chat_contact_query, custom_emoji_query, plus Batch::chat_query_get / message_query_get) still build the filter by hand from *QueryInput fields (filter_kind, filter_muted, chat_id, ...), so callers cannot send RFC 8620 §5.5 AND/OR/NOT or draft-ietf-jmap-metadata-02 §3.5 conditions, and /query cannot be sent the same filter that /queryChanges accepts (RFC 8620 §5.6). Fixing it changes the *QueryInput layout or moves chat to the positional shape, which is the open question in JMAP-ops7.20. Once ops7.20 is decided: give chat *_query a filter: Option\u003c\u0026Filter\u003cC\u003e\u003e (positional, or a field on the input struct) and add wire tests for a NOT operator and a WithMetadata leaf.",
+  "notes": "DECIDED by Mark 2026-10-20: Unblocked by ops7.20 decision (positional). Part of the 0.4 freeze.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T03:15:45.00826881Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:38:21.318759689Z",
+  "closed_at": "2026-10-20T20:38:21.318759689Z",
+  "close_reason": "Landed in 14c2765c with ops7.20",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-a4gi",
+      "depends_on_id": "JMAP-1j9k.2",
+      "type": "discovered-from",
+      "created_at": "2026-10-20T03:15:45.135292581Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-a4gi",
+      "depends_on_id": "JMAP-ops7.20",
+      "type": "blocks",
+      "created_at": "2026-10-20T03:15:45.236704686Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

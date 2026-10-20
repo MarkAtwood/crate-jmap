@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-v9py.15.1",
+  "title": "federation-types: Session peer fields and anonymous well-known builder",
+  "description": "Typed Session fields peerSigningKeys, ownerUserId, ownerDirectAddress, and an anonymous well-known Session builder (draft-atwood-jmap-chat-federation-00 L166, L281-298). Peer/* request/response types are JMAP-owsj; ChatContact.serverUrl/directAddress JMAP-qeqc; Attachment.fetchUrl JMAP-g501.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests round-trip the Session examples quoted from L166/L281-298.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:58.877895336Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:53.223443029Z",
+  "closed_at": "2026-10-20T20:37:53.223443029Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.15.1",
+      "depends_on_id": "JMAP-v9py.15",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:59.008060705Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

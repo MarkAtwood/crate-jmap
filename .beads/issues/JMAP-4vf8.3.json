@@ -1,0 +1,30 @@
+{
+  "id": "JMAP-4vf8.3",
+  "title": "filenode-types README says two renamed fields, lists one",
+  "description": "crate-jmap-filenode-types/README.md:110-111. Reads 'Two fields require explicit #[serde(rename)] annotation because its wire name is not a valid Rust identifier:' and lists only node_type. The -16 upgrade removed the media_type rename. Change to 'One field requires an explicit #[serde(rename)] because its wire name is not a valid Rust identifier:'.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T04:19:17.212646315Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T04:38:25.516299908Z",
+  "started_at": "2026-10-18T04:23:26.170212922Z",
+  "closed_at": "2026-10-18T04:38:25.516299908Z",
+  "close_reason": "fixed in working tree (uncommitted), verified by adversarial reviewer + cargo test",
+  "labels": [
+    "review",
+    "readability"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-4vf8.3",
+      "depends_on_id": "JMAP-4vf8",
+      "type": "parent-child",
+      "created_at": "2026-10-18T04:19:17.377519559Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-e5kx",
+  "title": "chat-server: OutboundEvent::Retract quotes removed draft text",
+  "description": "crate-jmap-chat-server/src/outbound.rs (OutboundEvent::Retract doc) and src/backend.rs (on_outbound_event doc) quote draft-atwood-jmap-chat-federation-00 §Peer/retract Sender Behavior as '... before marking the local record'. At jmap-chat-spec HEAD 85162c4 L584 the sentence ends 'to the server of every other participant in the Chat.' with no ordering requirement. Decide whether the handler should still report Retract before the write (current behaviour) and update the quoted text. Found while implementing JMAP-v9py.15.6.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T19:43:12.959309648Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T19:43:12.959309648Z"
+}

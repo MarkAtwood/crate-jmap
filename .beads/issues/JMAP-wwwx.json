@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-wwwx",
+  "title": "chat-server: Space/set destroy lacks manage_space gate",
+  "description": "draft-atwood-jmap-chat-00 §Destroying a Space: \"The caller MUST hold \"manage_space\" ... Servers MUST return a forbidden SetError when the caller does not satisfy the deployment's destroy-authorization rules.\" handle_space_set's destroy loop (crate-jmap-chat-server/src/space.rs ~L1441-1480) calls destroy_object::\u003cSpace\u003e with no permission check, and MemoryBackend::destroy_object does none either, so any caller can destroy a Space (and, since a598b13e, all its channel Chats and Messages). Found while working JMAP-x2gd.59.",
+  "notes": "Folded into JMAP-y3f2 (Chat core server conformance (draft-atwood-jmap-chat-00)) by the 2026-10-19 spec gap audit.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:02:27.426846087Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T00:45:39.816413172Z"
+}

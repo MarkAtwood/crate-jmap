@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-405z",
+  "title": "Implement spec identity model and body-type rules",
+  "description": "crate-jmap follow-up to jmap-chat-spec-ka7b (+ mmcb, wq4x), decided by Mark 2026-10-18; spec edits are uncommitted in jmap-chat-spec pending Mark's commit. Start only after that commit exists; tests quote the committed text. All children are breaking for 0.3.0 (record on JMAP-yt1w.3 with --append-notes).",
+  "notes": "Unblocked: spec committed and pushed as jmap-chat-spec cefc217 (2026-10-18). Implement against cefc217.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T04:37:03.915990322Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T04:47:59.230402094Z"
+}

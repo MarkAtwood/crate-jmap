@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-01ba.5",
+  "title": "testjig: advertise jmap:cid",
+  "description": "Advertise the jmap:cid capability in crate-jmap-testjig (draft-atwood-jmap-cid-00 L112).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Test: testjig Session includes the capability URI quoted from L112.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:47.704138568Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:19:21.023038714Z",
+  "closed_at": "2026-10-20T10:19:21.023038714Z",
+  "close_reason": "Landed in 855f2e09 feat(testjig): advertise jmap:cid capability (batch 6, adversarially verified, CI green at a586c251)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-01ba.5",
+      "depends_on_id": "JMAP-01ba",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:47.830139755Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

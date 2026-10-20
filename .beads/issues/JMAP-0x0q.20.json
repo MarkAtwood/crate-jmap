@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.20",
+  "title": "Add ownerId and invitedUserIds to SceneRegion",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[scene] Add ownerId and invitedUserIds to SceneRegion\nSpec (61f2d14): draft-atwood-jmap-scene-00.md L320: \"`ownerId` (String, immutable, server-set): The userId of the user who created this region.\" L449-450: \"`invitedUserIds` (String[]): The userIds admitted to the region when `accessPolicy` is `\\\"invite\\\"`. Default: `[]`. ... The server returns the list only to callers who may update the region; for every other caller, the server returns `[]`.\" L1048: \"The server sets `id`, `accountId`, `ownerId` (to the caller's userId), ...\" L2547: \"A user has access to a region when its `accessPolicy` admits the user, when the user is the region owner, ... or when the user has an active SceneAvatar in it.\"\nCode: crate-jmap-scene-types/src/region.rs:108-153; crate-jmap-scene-server/src/region.rs:34-40; crate-jmap-scene-server/src/region.rs:263-290; crate-jmap-scene-server/src/region.rs:453-471; crate-jmap-scene-server/src/region.rs:60-66; crate-jmap-scene-server/src/memory.rs:280-298; crate-jmap-scene-server/src/memory.rs:378-385; crate-jmap-scene-server/src/memory.rs:1017-1035\nNow: SceneRegion has no owner_id or invited_user_ids. Ownership and invitations live in MemoryBackend side tables (owners, grants via grant_region_access). Region create neither sets nor echoes ownerId, and SERVER_SET does not list it. /get does not redact invitedUserIds. may_access/may_enter ignore the 'active SceneAvatar' and invitedUserIds rules.\nChange: Add `owner_id: String` and `invited_user_ids: Vec\u003cString\u003e` (serde default []) to SceneRegion. Add ownerId to SERVER_SET, set it from caller_user_id on create, and echo it in `created`. Validate invitedUserIds as String[] (invalidProperties). Have SceneRegion/get return [] to callers who may not update the region. The memory backend should derive owner and invite checks from the record and treat an active avatar as granting access.\nVerifier correction: As proposed, but the grants side table may stay as an extra admission mechanism, which the spec now explicitly allows ('Servers MAY admit users to an \"invite\" region by other mechanisms'). Only invitedUserIds has to be honored and redacted.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:30.89613741Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:30.89613741Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.20",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:31.022354793Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

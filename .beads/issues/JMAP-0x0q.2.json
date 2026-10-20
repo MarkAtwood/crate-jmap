@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.2",
+  "title": "Emit RFC 8620 rateLimit SetError for slow mode in Message/set",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[chat-core] Emit RFC 8620 rateLimit SetError for slow mode in Message/set\nSpec (57243ea): draft-atwood-jmap-chat-00.md L612: \"the server MUST reject messages from non-exempt members sent within this many seconds of their previous message in this channel, with a `rateLimit` SetError ({{RFC8620, Section 5.3}}) on the offending `Message/set` create.\" L1944-1955 rateLimited registration: \"A method-level error ... Returned by the Peer/* methods of {{JMAP-CHAT-FED}}. ... (Per-object rate limits on `/set`, including channel slow mode, use the `rateLimit` SetError of {{RFC8620, Section 5.3}}.)\" Compliance L265 (4.10): \"Verify the second is rejected with a `rateLimit` SetError (RFC 8620 Section 5.3) in `notCreated`, not the method-level `rateLimited`.\"\nCode: crate-jmap-chat-server/src/message.rs:1455; crate-jmap-chat-server/src/message.rs:1433-1448 (comment); crate-jmap-chat-server/src/message.rs:22 (module doc); crate-jmap-chat-server/src/backend.rs:437,2341,2349 (SlowModeError / slow_mode_check docs); crate-jmap-chat-server/tests/integration.rs:2817-2863 (asserts \"rateLimited\" and explicitly rejects \"rateLimit\")\nNow: Slow-mode throttle inserts SetError::new(SetErrorType::custom(\"rateLimited\")) into notCreated, so compliance test 4.10 fails.\nChange: Use SetErrorType::RateLimit (already defined in crate-jmap-server/src/backend.rs:363, wire \"rateLimit\"); serverRetryAfter extra can stay. Update the docs. The integration.rs:2862-2863 assertion encodes the old spec and must be updated to the new spec text (the oracle changed).\nVerifier correction: Same as proposed. The registration citation is draft L2013-2026.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:25.143663195Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:25.143663195Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.2",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:25.26451759Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

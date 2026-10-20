@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-6itf.7",
+  "title": "Support crate crate-jmap-did-resolver: did:web/did:plc fetch and cache",
+  "description": "Per decision on JMAP-6itf.6. HTTPS fetch for did:web (draft-atwood-jmap-did-00 L145, DID-Core §7 resolution) and did:plc directory lookup + op-log verification via did-types helpers; cache with refresh-on-signature-failure hook for chat-did (draft-atwood-jmap-chat-did-00 L205/L248). didDocumentUri fallback rule (did-00 L145). Check crates.io first. Not a dependency of any *-types/*-server crate.",
+  "acceptance_criteria": "Tests against a local HTTPS stub; did:key and PLC vectors from published specs; cache refresh tested with injected clock.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T01:03:35.375822778Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:31.437496631Z",
+  "closed_at": "2026-10-20T20:37:31.437496631Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-6itf.7",
+      "depends_on_id": "JMAP-6itf",
+      "type": "parent-child",
+      "created_at": "2026-10-20T01:03:35.645987155Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

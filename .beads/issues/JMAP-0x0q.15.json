@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.15",
+  "title": "Make fit_chat_message_push trim only bodySnippet then fall back",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[chat-ext] Make fit_chat_message_push trim only bodySnippet then fall back\nSpec (57243ea): draft-atwood-jmap-chat-push-00.md:233 \"Servers keep each `ChatMessagePush` within the push platform's payload size limit, which is implementation-defined. If a single `ChatMessageEntry` does not fit, the server SHOULD shorten or omit that entry's `bodySnippet`; if the entry still does not fit, the server delivers a `StateChange` for the `Message` data type in place of a `ChatMessagePush` for that message.\"; :231 \"if more matching messages are pending than the limit allows, the server MUST deliver additional `ChatMessagePush` payloads to cover the remainder.\" (guide §Payload truncation, whose drop order the code follows, was deleted in 3bdc220)\nCode: crate-jmap-chat-server/src/push.rs:383-424 (fit_chat_message_push); crate-jmap-chat-server/src/push.rs:8-11 (module doc); crate-jmap-chat-server/tests/chat_push_fit.rs\nNow: Follows the deleted guide order. It drops bodySnippet, then spaceId, sentAt, spaceName, chatName and senderDisplayName from every entry, then pops whole entries off `messages` until the payload fits. That can deliver an entry the subscriber's `properties` asked for but with fields like sentAt removed, and can silently lose messages, which the 'additional payloads' MUST forbids. The docs cite the removed guide text, including its 'MUST fall back' wording.\nChange: Per entry: shorten or omit only bodySnippet. If the entry still does not fit, return the StateChange fallback for that message. Never strip other fields, and never drop entries from a batch (split it into more payloads instead, or keep the single-entry-per-payload rule). Re-cite the draft at :233 and update chat_push_fit.rs to the new oracle. The open bead's acceptance criteria encode the old guide rule and need revising.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:29.467193435Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:29.467193435Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.15",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:29.584833781Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

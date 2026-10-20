@@ -1,0 +1,2 @@
+{"id":"01a15693-e439-7f39-aa83-c53661e53082","issue_id":"JMAP-ji1v","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-19T23:51:35.225998462Z"}
+{"id":"01a1581e-b676-70dc-a0aa-40d57e11cf89","issue_id":"JMAP-ji1v","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in d7fae941 fix(tasks-server): cascade onDestroyRemoveTasks (batch 5, adversarially verified, CI green at 44026b06)","created_at":"2026-10-20T07:02:50.230057312Z"}

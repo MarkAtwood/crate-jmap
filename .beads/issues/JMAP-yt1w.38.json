@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-yt1w.38",
+  "title": "SearchSnippet/get does not cap emailIds (requestTooLarge)",
+  "description": "crate-jmap-mail-server/src/snippet.rs handle_search_snippet_get accepts any number of emailIds. RFC 8621 §5.1 SearchSnippet/get lists requestTooLarge for 'The number of emailIds requested by the client exceeds the maximum number the server is willing to process in a single method call.' JMAP-yt1w.31 added enforce_max_objects_in_get (counts RFC 8620 'ids' only) and wired it into every /get that takes ids; SearchSnippet/get takes emailIds so it was left out. Decide which cap applies (maxObjectsInGet or a separate one) and enforce it.",
+  "notes": "Fixed in snippet.rs: emailIds count checked against JmapBackend::max_objects_in_get before parsing; over cap -\u003e requestTooLarge (description maxObjectsInGet) per RFC 8621 §5.1. Regression tests in tests/search_snippet_request_too_large.rs pass. Uncommitted.\nDone in 2641a8fc: tests search_snippet_get_over_cap_returns_request_too_large, search_snippet_get_at_cap_is_processed; changed existing tests: none",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T17:37:34.507727441Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T18:08:49.101016842Z",
+  "started_at": "2026-10-19T18:05:37.46743758Z",
+  "closed_at": "2026-10-19T18:08:49.101016842Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.38",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-19T17:37:34.630537435Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-lu95.5",
+  "title": "metadata-04: add maySetMetadata to rights types",
+  "description": "draft-ietf-jmap-metadata-04 adds a new maySetMetadata right to the rights objects of Mailbox, Calendar, AddressBook and FileNode.\n\n-04 §4.1: \"For every data type that has a myRights property (for example Mailbox [RFC8621], Calendar [I-D.ietf-jmap-calendars], AddressBook [RFC9610] and FileNode [I-D.ietf-jmap-filenode]) and that is a listed data type or contains objects of a listed data type, the rights object gains the following property: *maySetMetadata*: Boolean The user may modify the shared metadata of this object, and of the objects it contains that have no rights object of their own. For Mailbox, this corresponds to the IMAP ACL \"n\" right [RFC5257]. The right is returned in myRights and can be granted through shareWith ([RFC9670]) like any other right of that type.\"\n-04 §4: \"A write to metadata without maySetMetadata MUST be rejected with a \"forbidden\" SetError.\" \"A write to an object the user cannot read MUST be rejected with a \"notFound\" SetError\"\n(-02 mapped write access onto mayWrite/mayRead and returned \"forbidden\" for unreadable objects.)\n\nAffected (all four are #[non_exhaustive] with an `extra` catch-all, so today the field decodes into extra and is preserved):\n- crate-jmap-mail-types/src/mailbox.rs:89 MailboxRights\n- crate-jmap-calendars-types/src/calendar.rs:47 CalendarRights\n- crate-jmap-contacts-types/src/addressbook.rs:41 AddressBookRights\n- crate-jmap-filenode-types/src/filenode.rs:117 FilesRights\n\nAdd a typed `may_set_metadata` field. The right appears only when the metadata capability lists the type (or a type it contains), so it must be optional on decode: either Option\u003cbool\u003e or #[serde(default)] with skip-on-serialize. Pick one, apply it to all four, and keep round-trip extras tests passing.\nBecause the structs are #[non_exhaustive], this is not a semver break. Code that reads extra[\"maySetMetadata\"] would stop seeing it there; grep found no such code.\nAlso check that any shareWith / per-principal rights types in the same crates gain the field (-04: \"can be granted through shareWith\").\nOracle for tests: the -04 §4.1 text above (wire name \"maySetMetadata\").\n",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T15:49:42.152434761Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T15:49:42.152434761Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-lu95.5",
+      "depends_on_id": "JMAP-lu95",
+      "type": "parent-child",
+      "created_at": "2026-10-20T15:49:42.273304996Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

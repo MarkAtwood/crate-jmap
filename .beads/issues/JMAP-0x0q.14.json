@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.14",
+  "title": "Refresh stale normative quotes in DID/resolver docs",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[did-cid] Refresh stale normative quotes in DID/resolver docs\nSpec (13ff882): draft-atwood-jmap-did-00.md L195: \"clients and peers SHOULD NOT infer `\\\"user\\\"` from `null`\"; draft-atwood-jmap-chat-did-00.md L247: \"...and the server holds no usable cached DID Document for that DID, the server SHOULD treat the DID as unverified and SHOULD reject any authentication attempt that depends on it. Servers SHOULD NOT silently downgrade ... including by the refresh requirement above. Otherwise, servers MAY continue serving cached entries...\"; L289: \"Resolution per {{methods}} includes the operation-log integrity check defined by {{DID-PLC}}\"; the security bullet \"Treat any signature failure as a refresh trigger\" was removed.\nCode: crate-jmap-did-types/src/capability.rs:116-117; crate-jmap-did-types/src/plc.rs:3; crate-jmap-did-resolver/src/lib.rs:20-21; crate-jmap-did-resolver/src/lib.rs:32-35; crate-jmap-did-resolver/src/lib.rs:171-173; crate-jmap-did-types/tests/did_types.rs:113; crate-jmap-did-resolver/tests/resolver.rs:179; crate-jmap-did-resolver/tests/resolver.rs:219; crate-jmap-did-resolver/tests/resolver.rs:247; crate-jmap-did-resolver/tests/resolver.rs:332; crate-jmap-did-resolver/tests/resolver.rs:351\nNow: Doc comments and test oracle comments quote text that was reworded or removed: the keyCustody 'MUST NOT infer'; 'Implementations MUST verify operation-log integrity'; 'MUST treat the DID as unverified and MUST reject'; 'Servers MUST NOT ... proceed with stale cached state'; 'L248: Treat any signature failure as a refresh trigger'. Behaviour still conforms, because the resolver's stricter never-serve-stale policy is permitted by the new MAY.\nChange: Update the quoted text and line citations to HEAD. resolver.rs:332 should cite only L243 (the MUST refresh survives), because the L248 bullet is gone. No behaviour change.\nVerifier correction: As stated. Also cover the CID quote listed under missed (crate-jmap-filenode-client/tests/integration_download.rs:11,155).\n\nAlso (verifier-found):\n- Stale CID quote in filenode-client tests | cid diff: removed 'Clients MUST check the FileNode type to distinguish these cases' (HEAD: 'The FileNode type distinguishes these cases.') | crate-jmap-filenode-client/tests/integration_download.rs:11 and :155 | Update the oracle quote to the HEAD wording; behaviour unchanged (P3; the analyst checked only download.rs:21)\n- Delegation example in reject_did_bearing_properties test contradicts new DID-referencing definition | did HEAD: 'a delegation record might carry `delegatorDid` (DID-bearing) and `delegateeDid` (DID-referencing)'; removed 'A consuming specification MAY define multiple DID-bearing properties on a single data type' | crate-jmap-server/src/helpers.rs:1107-1113 | Replace the L198 oracle and stop treating delegateeDid as DID-bearing (fold into the update-semantics impact)\n- Stale MUST quotes for the ChatContact consistency rule | chat-did: mismatch 'MUST treat ... as invalid' became SHOULD; 'Implementations MUST enforce the consistency rule' was removed from Security Considerations | crate-jmap-chat-server/src/contact.rs:270-274, crate-jmap-chat-server/tests/contact_did_consistency.rs:9 | Update the quotes while doing the ChatContact create rework",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:29.163896561Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:29.163896561Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.14",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:29.282039123Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

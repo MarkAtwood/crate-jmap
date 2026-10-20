@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-y3f2.20",
+  "title": "Space/set update forwards listed core key closedAt",
+  "description": "space.rs ~L1153: Space/set update buckets a key into clean_patch when it is in SPACE_METADATA_FIELDS or listed by ChatBackend::space_extension_properties. A backend listing 'closedAt' (a server-set core Space property, draft-atwood-jmap-chat-00 L820) lets a client patch closedAt through apply_space_metadata_patch, contrary to the space_extension_properties doc ('A listed key that is already a core Space property ... keeps its core meaning'). JMAP-y3f2.16 fixed only the create path. Fix: apply the same core/structural-key exclusion on update (closedAt -\u003e invalidProperties).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T07:57:41.283864074Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:31.176882263Z",
+  "closed_at": "2026-10-20T20:37:31.176882263Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y3f2.20",
+      "depends_on_id": "JMAP-y3f2",
+      "type": "parent-child",
+      "created_at": "2026-10-20T07:57:41.410328387Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+{"id":"01a158c3-5b13-774b-81a2-fcfc289cd982","issue_id":"JMAP-6itf.8","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T10:02:40.275478587Z"}
+{"id":"01a15b08-a4db-7ab0-8e77-9826d74ae578","issue_id":"JMAP-6itf.8","event_type":"closed","actor":"agent","old_value":"","new_value":"Committed and adversarially verified (batch 7); CI at 84a9b7bc","created_at":"2026-10-20T20:37:35.579702014Z"}

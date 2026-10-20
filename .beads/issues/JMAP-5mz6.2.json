@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-5mz6.2",
+  "title": "chat-server: Message lookup by (chatId, senderMsgId)",
+  "description": "Add a lookup by (chatId, senderMsgId) (draft-atwood-jmap-chat-federation-00 L341) alongside the server-created Message store helper in JMAP-53vd.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Test: duplicate senderMsgId in the same Chat resolves to the existing Message; same senderMsgId in another Chat does not (fed L341).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:41.130813775Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:02:53.055443635Z",
+  "closed_at": "2026-10-20T07:02:53.055443635Z",
+  "close_reason": "Landed in already fixed by 1e16c07b (JMAP-53vd) (batch 5, adversarially verified, CI green at 44026b06)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-5mz6.2",
+      "depends_on_id": "JMAP-5mz6",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:41.223800221Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

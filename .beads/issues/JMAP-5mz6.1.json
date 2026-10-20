@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-5mz6.1",
+  "title": "chat-server: Space property extension hook (calendarId, taskListId)",
+  "description": "Today any Space key outside SPACE_METADATA_FIELDS is rejected (crate-jmap-chat-server/src/space.rs:502-508, 1192-1214), which blocks calendarId (draft-atwood-jmap-chat-calendars-00) and taskListId (draft-atwood-jmap-chat-tasks-00). Add a hook letting an extension own extra Space properties.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Test: a registered extension property round-trips on Space/set and Space/get; an unregistered key still returns invalidProperties.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:40.879187022Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:02:52.524351491Z",
+  "closed_at": "2026-10-20T07:02:52.524351491Z",
+  "close_reason": "Landed in e832f958 feat(chat-server): Space extension properties (batch 5, adversarially verified, CI green at 44026b06)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-5mz6.1",
+      "depends_on_id": "JMAP-5mz6",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:40.987230003Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

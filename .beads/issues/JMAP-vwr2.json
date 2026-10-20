@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-vwr2",
+  "title": "chat-server: queryChanges drops filter/sort; MemoryBackend ignores most spec filter clauses",
+  "description": "Found while fixing JMAP-ops7.7. (1) handle_{message,space,contact,emoji}_query_changes pass filter=None, sort=None to query_changes and never read/validate the request filter/sort (RFC 8620 §5.6 requires the same filter/sort as the /query). (2) chat MemoryBackend::query_objects only applies Message chatId/hasMention and ChatContact identity; Chat kind/muted, Space name/isPublic, ChatContact blocked/presence, CustomEmoji spaceId, Message topicId/hasAttachment are accepted but ignored, and query_changes ignores filter/sort entirely. Spec: draft-atwood-jmap-chat-00 §*/query filter properties. Fix: validate via helpers::reject_unsupported_query in queryChanges handlers and forward typed filter/sort; implement or refuse (unsupportedFilter) each clause in MemoryBackend.",
+  "notes": "Folded into JMAP-y3f2 (Chat core server conformance (draft-atwood-jmap-chat-00)) by the 2026-10-19 spec gap audit.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T22:19:12.809407313Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T00:45:39.941554484Z"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-hz4q",
+  "title": "chinwag: simple, usable JMAP Chat server",
+  "description": "A small production-usable JMAP Chat server binary, package name 'chinwag' (free on crates.io as of 2026-10-18), built on the crate-jmap library kit: jmap-server dispatcher + jmap-chat-server handlers, with real persistence, auth and TLS. Starts single-server; federation per draft-atwood-jmap-chat-federation comes later.\nWhy not kithd: kith is tied to Tailscale by design (identity = WhoIs, tailnet bind mandatory, anti-spoof = whois == senderUserId); its kith-core IdentityProvider/FederationTransport traits are a useful precedent, but it speaks an early draft via its own kith-jmap and has only Peer/deliver + Peer/receipt. Why not jmap-testjig: in-memory, no auth, explicitly not for production; reuse its HTTP/SSE/WS wiring as the starting point.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T20:18:35.435069701Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T20:32:42.155740173Z",
+  "closed_at": "2026-10-18T20:32:42.155740173Z",
+  "close_reason": "Moved to ~/PROJECT/chinwag as chinwag-nuqe"
+}

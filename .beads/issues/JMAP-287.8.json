@@ -2,22 +2,20 @@
   "close_reason": "positive observation or resolved, no action needed",
   "closed_at": "2026-05-02T07:05:18Z",
   "compaction_level": 0,
-  "content_hash": "6136ade3f38a6197b59357ee4acd0800fa6aab66e16713a0a5cd49fcc96eb797",
   "created_at": "2026-05-02T05:38:07Z",
   "created_by": "Mark Atwood",
   "description": "parse.rs json_pointer_ext wildcard branch: result is Vec::new() but arr.len() is known. Use Vec::with_capacity(arr.len()) to avoid reallocations when mapping over large arrays.",
-  "ephemeral": 0,
+  "ephemeral": false,
   "id": "JMAP-287.8",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "chore",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 3,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "json_pointer_ext wildcard branch: Vec::new() without capacity",
   "updated_at": "2026-05-02T07:05:18Z",
   "dependencies": [
@@ -26,8 +24,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-287",
       "id": "ffe36f38-8e98-5850-826c-eab558a55028",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

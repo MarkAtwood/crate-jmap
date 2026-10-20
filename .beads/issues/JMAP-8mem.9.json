@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-8mem.9",
+  "title": "vtc-server: call-end cascades (breakout children, active recordings)",
+  "description": "Oracle 1: jmap-vtc-implementer-guide.md L902-904: \"When a parent call ends, all child breakout-room VTCCalls MUST also be ended (transitioning them to `\\\"ended\\\"` and setting `endedAt`).\" (guide notes the draft does not state this; draft-atwood-jmap-vtc-00.md L393-397, L712-716 define parentCallId/breakoutRoomIds only). Oracle 2: jmap-vtc-recording-guide.md L322-325: \"When a VTCCall transitions to `\\\"ended\\\"`, the server MUST stop all active recordings for that call. Any VTCRecording in `\\\"recording\\\"` or `\\\"paused\\\"` state is transitioned to `\\\"stopped\\\"`, with `stoppedAt` set and `VTCRecordingStateEvent` delivered.\" Neither cascade is named in JMAP-8mem.2 (ending a call, vtc L687-706) or JMAP-8mem.4. Source: JMAP-x3lu audit.",
+  "acceptance_criteria": "Ending a parent call ends every child in breakoutRoomIds (endedAt set) before the parent; ending any call moves its recording/paused VTCRecordings to stopped with stoppedAt and reports a VTCRecordingStateEvent; tests cover moderator end and auto-end.",
+  "notes": "Spec 63e9d08 changed this area after implementation; follow-up in JMAP-0x0q.34 (check what batch 7 landed before re-doing).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T07:11:05.015139145Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:38.102110498Z",
+  "closed_at": "2026-10-20T20:37:38.102110498Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-8mem.9",
+      "depends_on_id": "JMAP-8mem",
+      "type": "parent-child",
+      "created_at": "2026-10-20T07:11:05.59179236Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

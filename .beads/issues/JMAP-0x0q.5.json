@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.5",
+  "title": "Rename TaskMetadata.status to progress",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[chat-core] Rename TaskMetadata.status to progress\nSpec (57243ea): draft-atwood-jmap-chat-00.md L398: \"- `task`: `{\\\"title\\\": \\\"...\\\", \\\"progress\\\": \\\"...\\\"}`\"; draft-atwood-jmap-chat-tasks-00.md L200 (clarifying): \"`progress` (String) — the Task's current `progress` value ({{RFC8984, Section 5.2.5}}; e.g., `\\\"needs-action\\\"`, `\\\"in-process\\\"`, `\\\"completed\\\"`, `\\\"cancelled\\\"`), or its `workflowStatus` ... when `progress` is not set.\"\nCode: crate-jmap-chat-types/src/tasks.rs:100-105 (pub status: Option\u003cString\u003e, wire key \"status\")\nNow: TaskMetadata serializes and deserializes the key \"status\". A conformant sender's \"progress\" lands in `extra`, and our sender emits \"status\", which receivers ignore.\nChange: Rename the field to `progress` (wire \"progress\") and update its doc. Also check crate-jmap-chat-types/tests/chat_tasks.rs fixtures and chat-tasks-server for the key. The tasks draft is the primary source.\n\n[chat-ext] Rename TaskMetadata.status to progress\nSpec (57243ea): draft-atwood-jmap-chat-tasks-00.md:200 \"`progress` (String) — the Task's current `progress` value ({{RFC8984, Section 5.2.5}}; e.g., `\\\"needs-action\\\"`, `\\\"in-process\\\"`, `\\\"completed\\\"`, `\\\"cancelled\\\"`), or its `workflowStatus` ({{JMAP-TASKS, Section 4}}) when `progress` is not set.\" (replaces the old `status` key)\nCode: crate-jmap-chat-types/src/tasks.rs:101-104 (pub status: Option\u003cString\u003e, serialized as \"status\"); crate-jmap-chat-types/tests/chat_tasks.rs:171,180,214\nNow: TaskMetadata serializes and deserializes the key \"status\". A spec-conformant \"progress\" key lands in `extra`, and the code emits \"status\", which peers ignore as an unknown key.\nChange: Rename the field to `progress: Option\u003cString\u003e` (wire key \"progress\") and update the doc to say it carries progress, or workflowStatus when progress is unset. Update the test oracles to the new draft text.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:26.000902627Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:26.000902627Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.5",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:26.111704422Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

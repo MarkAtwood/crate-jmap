@@ -1,24 +1,22 @@
 {
-  "close_reason": "Expanded blob_exists doc with explicit RFC 8621 \u00a75.8 citation, explanation of the notFound/notParsable distinction, and why there is no default \u2014 making the consequence of non-implementation clear to backend authors.",
+  "close_reason": "Expanded blob_exists doc with explicit RFC 8621 §5.8 citation, explanation of the notFound/notParsable distinction, and why there is no default — making the consequence of non-implementation clear to backend authors.",
   "closed_at": "2026-05-04T16:02:57Z",
   "compaction_level": 0,
-  "content_hash": "7a68cc2c5159b254841efd8c99440752b1e51a9dc2366b4b4d910177dfd3135b",
   "created_at": "2026-05-02T00:43:25Z",
   "created_by": "Mark Atwood",
-  "description": "backend.rs lines 317-329: blob_exists default impl always returns true, routing all Email/parse failures to notParsable. The doc says 'Override for correct RFC conformance' but does not cite RFC 8621 \u00a75.8 by name, does not say which client-visible behavior breaks (clients cannot distinguish 'blob does not exist' from 'blob is not parsable'), and does not explain that the default is intentionally wrong for testing convenience. A backend author who does not read \u00a75.8 will ship a non-conformant implementation with no warning. Add a concrete explanation of the RFC requirement and the consequence of not overriding.",
-  "ephemeral": 0,
+  "description": "backend.rs lines 317-329: blob_exists default impl always returns true, routing all Email/parse failures to notParsable. The doc says 'Override for correct RFC conformance' but does not cite RFC 8621 §5.8 by name, does not say which client-visible behavior breaks (clients cannot distinguish 'blob does not exist' from 'blob is not parsable'), and does not explain that the default is intentionally wrong for testing convenience. A backend author who does not read §5.8 will ship a non-conformant implementation with no warning. Add a concrete explanation of the RFC requirement and the consequence of not overriding.",
+  "ephemeral": false,
   "id": "JMAP-e53.2",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "chore",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 4,
   "status": "closed",
-  "timeout_ns": 0,
-  "title": "blob_exists default silently breaks RFC 8621 \u00a75.8 split",
+  "title": "blob_exists default silently breaks RFC 8621 §5.8 split",
   "updated_at": "2026-05-04T16:02:57Z",
   "dependencies": [
     {
@@ -26,8 +24,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-e53",
       "id": "9af0fbcc-dbcf-5f01-a366-a55b22c3841c",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

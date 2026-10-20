@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-bghk",
+  "title": "chat-server: decide fail-open vs fail-closed default for may_set_* permission hooks",
+  "description": "ChatBackend may_set_space_ban, may_set_space_invite, may_set_pinned_messages, may_set_custom_emoji (backend.rs) default to Ok(Ok(())): a backend that forgets to override enforces no spec permission. Fail-closed defaults would force opt-in but break every existing backend at once. Decision for Mark; record outcome here.",
+  "notes": "Decision (Mark, 2026-10-19): fail open. may_set_* hook defaults stay Ok(Ok(())); production backends override. Already documented on each hook (backend.rs 'Default implementation' sections).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T20:24:18.738159605Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T20:24:55.873744304Z",
+  "closed_at": "2026-10-19T20:24:55.873744304Z",
+  "close_reason": "Decided: fail open (Mark, 2026-10-19). No code change; existing defaults and docs match."
+}

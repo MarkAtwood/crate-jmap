@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-5mz6.3",
+  "title": "chat-server: make encrypted body-type list configurable",
+  "description": "ENCRYPTED_BODY_TYPES is a private const holding only application/mls-ciphertext (crate-jmap-chat-server/src/message.rs:406-411, L411). draft-atwood-jmap-chat-mimi-00 L420 needs mimi-fanout in it. Make it configurable.",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Test: a configured extra encrypted type triggers the L1732 empty-field rule exactly like application/mls-ciphertext.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:41.39219016Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:02:53.325089995Z",
+  "closed_at": "2026-10-20T07:02:53.325089995Z",
+  "close_reason": "Landed in 3827a9e0 feat(chat-server): configurable encrypted types (batch 5, adversarially verified, CI green at 44026b06)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-5mz6.3",
+      "depends_on_id": "JMAP-5mz6",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:41.483008358Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

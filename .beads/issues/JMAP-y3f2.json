@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-y3f2",
+  "title": "Chat core server conformance (draft-atwood-jmap-chat-00)",
+  "description": "Layer: Chat base. Extends crate-jmap-chat-server (small changes to crate-jmap-chat-types). Depends on: nothing (Tier 0). Spec: draft-atwood-jmap-chat-00.md. Folded-in existing beads: JMAP-wwwx (Space destroy manage_space; note Space metadata updates are ALREADY gated at space.rs L1366 / memory.rs L1136, only destroy lacks it), JMAP-vwr2 (memory filters/queryChanges), JMAP-pbqe (target_type enum; bead text says 'role'|'user' but draft L772 says 'role'|'member'), JMAP-yt1w.18, JMAP-yt1w.20 (hasMention via broadcast scopes), JMAP-4dmj (E2EE empty-field rule on update, L1732), JMAP-x2gd.10 (DECIDED by Mark 2026-10-19: inviteCode resolves only in the request's accountId; spec sentence tracked in jmap-chat-spec-vvqn). Stale: JMAP-mzl5 (noted). Compliance §11.1 (unreadCount from ReadPosition) confirmed missing: unread_count appears nowhere in crate-jmap-chat-server/src. Source: 2026-10-19 spec gap audit (gap-synthesis E-epics + critic corrections). Line numbers are against jmap-chat-spec drafts as of 2026-10-19 and may drift.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:37.418043341Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T00:45:37.418043341Z"
+}

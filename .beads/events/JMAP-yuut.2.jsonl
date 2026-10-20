@@ -1,0 +1,2 @@
+{"id":"01a156c5-797d-7f36-abd3-5408e1ccdd08","issue_id":"JMAP-yuut.2","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:44.701998128Z"}
+{"id":"01a1581e-c943-7e0f-9bc9-d0b9b2f723e9","issue_id":"JMAP-yuut.2","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in c33f5e12 feat(chat-server): per-recipient typing predicate (batch 5, adversarially verified, CI green at 44026b06)","created_at":"2026-10-20T07:02:55.04392195Z"}

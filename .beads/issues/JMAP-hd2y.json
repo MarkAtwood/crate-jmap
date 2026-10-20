@@ -1,0 +1,19 @@
+{
+  "id": "JMAP-hd2y",
+  "title": "Chat pinnedMessageIds treated as read-only but spec lists it updatable",
+  "description": "Found in JMAP-sofk audit; check draft-atwood-jmap-chat-00 Chat properties and the chat-server Chat/set handler.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T06:07:44.329894764Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T16:56:55.816922458Z",
+  "started_at": "2026-10-18T16:32:20.831330421Z",
+  "closed_at": "2026-10-18T16:56:55.816922458Z",
+  "close_reason": "Fixed in working tree; verified, workspace 3053 passed",
+  "labels": [
+    "review"
+  ]
+}

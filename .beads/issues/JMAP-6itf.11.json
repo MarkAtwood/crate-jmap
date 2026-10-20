@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-6itf.11",
+  "title": "Decide didDocumentUri hint trust in did-resolver",
+  "description": "draft-atwood-jmap-did-00 L150: when didDocumentUri is non-null but unreachable, clients SHOULD fall back to method resolution; it is 'a convenience hint, not a binding constraint'. jmap-did-guide.md L196-199: a document fetched via the hint is 'untrusted by construction' and goes through the same verifier as the method-derived URL. did:web has no verifier beyond TLS to the controller domain, and did-00 §Binding Trust says client verification protects did:web because the document is 'hosted at a well-known URL under the DID controller's domain'. Fetching a did:web document from a server-supplied hint lets the JMAP server pick the document used to check its own binding. did:plc documents from a hint cannot be log-verified (chat-did-00 L252). JMAP-6itf.7 therefore shipped jmap-did-resolver without using the hint. Options: (A) ignore the hint for did:key/did:web/did:plc and use it only for did:webvh, where the log verifies wherever fetched (JMAP-6itf.10); (B) for did:web, use the hint only when its https origin equals the method-derived origin; (C) use the hint literally for did:web with the id check, documenting the Binding Trust loss. Recommendation: A.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T10:44:25.565536631Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:44:25.565536631Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-6itf.11",
+      "depends_on_id": "JMAP-6itf",
+      "type": "parent-child",
+      "created_at": "2026-10-20T10:44:25.678758713Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

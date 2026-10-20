@@ -1,0 +1,1 @@
+{"id":"01a15680-f9f1-70ba-baf6-fe84c229e195","issue_id":"JMAP-ops7.7","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed on main as 8baada11 (feat(chat-types)!: type chat query filters/sorts). Adversarial review passed at the lane commit. Integration CI all green at 9e113188 (stable+beta 3448 passed).","created_at":"2026-10-19T23:30:55.601048366Z"}

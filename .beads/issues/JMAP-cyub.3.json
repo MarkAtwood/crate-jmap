@@ -1,0 +1,30 @@
+{
+  "id": "JMAP-cyub.3",
+  "title": "Client tests against Stalwart",
+  "description": "Via crate-jmap clients against the Stalwart instance: session discovery + Core echo (jmap-base-client); mail client Mailbox/Email create/get/query/changes and EmailSubmission; then calendars, contacts, sharing for whatever Stalwart's session advertises.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T20:10:18.804181434Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T20:10:18.804181434Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-cyub.3",
+      "depends_on_id": "JMAP-cyub",
+      "type": "parent-child",
+      "created_at": "2026-10-18T20:10:18.910730497Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cyub.3",
+      "depends_on_id": "JMAP-cyub.2",
+      "type": "blocks",
+      "created_at": "2026-10-18T20:10:20.17443219Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

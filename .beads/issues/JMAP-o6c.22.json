@@ -2,22 +2,20 @@
   "close_reason": "Test-only code. (&'static str, String) key design works and is type-safe.",
   "closed_at": "2026-05-02T03:40:23Z",
   "compaction_level": 0,
-  "content_hash": "86d2597f86bd8ed7b05ab675b02d5a16254cf761c46d19f92916d73c37e1a87f",
   "created_at": "2026-05-02T03:26:05Z",
   "created_by": "Mark Atwood",
-  "description": "tests/common/mod.rs Inner uses HashMap<(&'static str, String), \u2026>. Using a heterogeneous pair (&'static str, String) as a composite key mixes lifetime concerns and prevents ergonomic lookup-by-borrow. A cleaner design is a two-level HashMap: HashMap<&'static str, HashMap<String, \u2026>> (type-name outer, account-id inner), which avoids constructing composite keys and makes the structure self-documenting. The current design also requires allocating a String for account_id on every read path (current_state, objects_ref) not just writes.",
-  "ephemeral": 0,
+  "description": "tests/common/mod.rs Inner uses HashMap<(&'static str, String), …>. Using a heterogeneous pair (&'static str, String) as a composite key mixes lifetime concerns and prevents ergonomic lookup-by-borrow. A cleaner design is a two-level HashMap: HashMap<&'static str, HashMap<String, …>> (type-name outer, account-id inner), which avoids constructing composite keys and makes the structure self-documenting. The current design also requires allocating a String for account_id on every read path (current_state, objects_ref) not just writes.",
+  "ephemeral": false,
   "id": "JMAP-o6c.22",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "task",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 1,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "Inner.objects HashMap key lifetime is &'static str but account_id is String",
   "updated_at": "2026-05-02T03:40:23Z",
   "dependencies": [
@@ -26,8 +24,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-o6c",
       "id": "baff788d-2e2c-5da3-8d92-17649b499c98",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

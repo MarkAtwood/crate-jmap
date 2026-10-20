@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-lulg",
+  "title": "Mobile client size audit and transport features",
+  "description": "Idea 2026-10-20. Checked: jmap-chat-client normal deps = 184 crates (cargo tree), pulling jmap-types, base-client, chat-types, cid-types, did-types; no server/support/memory crates (good). But jmap-base-client and jmap-chat-client have NO [features]: tokio-tungstenite (WebSocket), reqwest+hyper+rustls+ring are always compiled. Do: (1) cargo bloat on a minimal chat client for aarch64-linux-android / aarch64-apple-ios release, record a size baseline; (2) feature-gate base-client transports (ws, eventsource) and TLS backend choice, defaults preserving current behaviour; (3) check chat-client's did-types/cid-types deps are needed by default; (4) set a size budget and a CI check. Breaking if default features change, so decide before the client freeze (JMAP-lrgt covers chat-client).",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T15:38:17.45931985Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T15:38:17.45931985Z"
+}

@@ -1,0 +1,1 @@
+{"id":"01a15681-0a91-7246-964b-87535755120f","issue_id":"JMAP-2svx","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed on main as 49ed6968 (fix(servers): honor destroyFromIfInState on copy). Adversarial review passed at the lane commit. Integration CI all green at 9e113188 (stable+beta 3448 passed).","created_at":"2026-10-19T23:30:59.857149782Z"}

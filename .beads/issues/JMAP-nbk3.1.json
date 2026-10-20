@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-nbk3.1",
+  "title": "N1 jmap-types: push wire types, move StateChange",
+  "description": "PushSubscription, PushKeys, PushVerification, StateChange (@type serde) in jmap-types; base-client re-exports StateChange. Breaking: StateChange emits/consumes @type. See JMAP-nbk3 design field (approved plan) for scope, acceptance and quoted RFC/draft lines.",
+  "notes": "Regression tests written (attempt 1, uncommitted): crate-jmap-types/tests/push_types.rs (RFC 8620 7.1.1/7.2.3 examples, @type MUST strings, PushKeys p256dh+auth required, chatPush in extra); crate-jmap-base-client/tests/state_change_wire.rs (fails at HEAD: extra captures @type); crate-jmap-base-client/tests/state_change_reexport.rs (type identity, compile-fails at HEAD). Patch: scratchpad/JMAP-nbk3.1-test.patch\nImplemented (uncommitted): crate-jmap-types/src/push.rs adds StateChange, PushSubscription, PushKeys, PushVerification (hand-written @type serde for StateChange/PushVerification: emitted always, consumed, wrong value rejected, absent accepted like ChatMessagePush; Debug redacts url, keys.auth, verificationCode). base-client push.rs is now a re-export; sse.rs parses via serde (wrong @type now degrades to Unknown); ws parser already used serde, no double strip. StateChange unit tests moved verbatim to jmap-types. Gates: fmt, clippy -D warnings, test jmap-types/jmap-base-client/jmap-testjig, doc -D warnings all pass.\nDone in 270da180: tests state_change_rfc_example_round_trips_with_type, state_change_rejects_other_type, push_verification_rfc_example_round_trips_with_type, push_verification_rejects_other_type, push_subscription_rfc_get_examples_round_trip, push_subscription_rfc_create_example_parses, push_keys_require_p256dh_and_auth, push_subscription_preserves_chat_push_in_extra, state_change_type_is_not_an_extra_field, base_client_state_change_is_jmap_types_state_change; changed existing tests: none",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T18:25:23.422583064Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T18:36:13.501833882Z",
+  "started_at": "2026-10-19T18:26:01.619725907Z",
+  "closed_at": "2026-10-19T18:36:13.501833882Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-nbk3.1",
+      "depends_on_id": "JMAP-nbk3",
+      "type": "parent-child",
+      "created_at": "2026-10-19T18:25:23.527032429Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-0x0q.8",
+  "title": "Add required accountId to ChatTypingEvent and ChatPresenceEvent",
+  "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[wss] Add required accountId to ChatTypingEvent and ChatPresenceEvent\nSpec (): draft-atwood-jmap-chat-wss-00.md L229: \"`accountId` (String): The id of the account that contains the Chat.\" (ChatTypingEvent); L266: \"`accountId` (String): The id of the account that contains the ChatContact.\" (ChatPresenceEvent); L188: \"Chat and ChatContact ids are unique only within an account; an id listed in `chatIds` or `contactIds` matches that id in every account the authenticated user can access, and clients use the `accountId` of each event to tell the accounts apart.\"\nCode: crate-jmap-chat-types/src/ephemeral.rs:57; crate-jmap-chat-types/src/ephemeral.rs:82; crate-jmap-chat-federation-server/src/typing.rs:58; crate-jmap-chat-federation-server/src/presence.rs:254; crate-jmap-chat-server/src/ephemeral.rs:155; crate-jmap-chat-server/src/ephemeral.rs:211; crate-jmap-chat-server/tests/typing_delivery.rs:86; crate-jmap-chat-server/tests/presence_delivery.rs:54\nNow: ChatTypingEvent has only chatId/senderId/typing (+extra) and ChatPresenceEvent has only contactId/presence/lastActiveAt/statusText/statusEmoji (+extra). There is no accountId, so any accountId on the wire goes into `extra`. The federation server builds both events with serde_json::from_value(json!{...}) and no accountId, so adding a required field without updating those sites causes a runtime serverFail, not a compile error.\nChange: Add `pub account_id: Id` (serialized as `accountId`) to both structs. Populate it from the recipient account at typing.rs:58 and presence.rs:254, and update test fixtures and round-trip tests. Optionally make should_deliver_typing/project_presence reject or set an event whose account_id differs from the recipient account_id parameter.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:02:27.475241001Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:02:27.475241001Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.8",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:02:27.590056023Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

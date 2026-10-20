@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-y3f2.11",
+  "title": "chat-server: Message/set update skips maxBodyBytes and ciphertext-field checks",
+  "description": "draft-atwood-jmap-chat-00 (91672c9) L1732: 'Servers MUST reject a Message/set create or update that has an encrypted bodyType and any of these fields non-empty with an invalidProperties SetError whose properties lists each such field'. L236 maxBodyBytes applies to messages generally. message.rs applies both checks only on create (body_type_field_conflicts, body.len() \u003e 100_000); the update path (handle_message_set update loop) checks neither. Found during JMAP-y3f2.9.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T03:27:52.185254784Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T07:02:51.707882724Z",
+  "closed_at": "2026-10-20T07:02:51.707882724Z",
+  "close_reason": "Landed in 3425ee50 fix(chat-server): check edits like creates (batch 5, adversarially verified, CI green at 44026b06)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y3f2.11",
+      "depends_on_id": "JMAP-y3f2",
+      "type": "parent-child",
+      "created_at": "2026-10-20T03:27:52.3138293Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

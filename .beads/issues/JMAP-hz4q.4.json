@@ -1,0 +1,32 @@
+{
+  "id": "JMAP-hz4q.4",
+  "title": "chinwag: TLS, config and operations",
+  "description": "rustls TLS with configurable cert/key, or run behind a reverse proxy (documented). TOML config: listen address, data dir, public base URL. systemd unit, backup/restore notes, logging without secrets.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T20:18:36.499347561Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T20:32:40.82105016Z",
+  "closed_at": "2026-10-18T20:32:40.82105016Z",
+  "close_reason": "Moved to ~/PROJECT/chinwag as chinwag-nuqe.4",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-hz4q.4",
+      "depends_on_id": "JMAP-hz4q",
+      "type": "parent-child",
+      "created_at": "2026-10-18T20:18:36.618380169Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-hz4q.4",
+      "depends_on_id": "JMAP-hz4q.1",
+      "type": "blocks",
+      "created_at": "2026-10-18T20:18:38.629629575Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

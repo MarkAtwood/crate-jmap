@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-hb8j",
+  "title": "Support crate: Slack-backed ChatBackend bridge",
+  "description": "Idea from Mark 2026-10-20. Slack has no pluggable transport, so the route is a bridge: a support crate (does I/O) implementing jmap-chat-server ChatBackend on Slack Web API + Events API/Socket Mode, presenting a workspace as a Space. Mapping: workspace-\u003eSpace, channel-\u003echannel Chat, DM/group DM-\u003edirect/group Chat, thread-\u003ethreadRootId, reactions-\u003ereactions, basic formatting-\u003erich spans (ccy6). Alternative: two-way relay/puppet bridge (mautrix-slack, matterbridge style). Constraints: bot token sees only joined channels, user OAuth token sees what the user sees; browser session tokens are a ToS grey area, do not use. Rate limits (Slack changelog 2025-05-29): conversations.history/replies dropped to Tier 1 (1 req/min, limit 15) for commercially distributed non-Marketplace apps; internal customer-built apps and Marketplace apps keep Tier 3, so a self-hosted internal app for own workspaces is unaffected. Check docs.slack.dev/apis/web-api/rate-limits before designing history backfill. Workspace admin approval often needed. Huddles, canvases, workflows, Block Kit do not map. Not scheduled; no Rust Bolt SDK, call HTTP APIs directly.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T10:20:59.455645968Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T10:20:59.455645968Z"
+}

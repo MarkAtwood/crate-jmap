@@ -1,0 +1,2 @@
+{"id":"01a156c5-72b3-743a-a2a7-7ab68ce6d11e","issue_id":"JMAP-ccy6.2","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:42.963282256Z"}
+{"id":"01a158d2-9573-7380-b527-85f6fbeedcd8","issue_id":"JMAP-ccy6.2","event_type":"closed","actor":"agent","old_value":"","new_value":"Landed in e7e3c6dd feat(chat-client): derive mentions from spans (batch 6, adversarially verified, CI green at a586c251)","created_at":"2026-10-20T10:19:18.259230008Z"}

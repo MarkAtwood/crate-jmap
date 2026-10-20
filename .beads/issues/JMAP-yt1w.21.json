@@ -1,0 +1,27 @@
+{
+  "id": "JMAP-yt1w.21",
+  "title": "handle_query: backend can't return method errors",
+  "description": "Requested by mimid-13 for mimid (decision mimid-1wgh.12.33, Mark-approved 2026-10-18). crate-jmap-server/src/handlers.rs:320 maps every query_objects error through server_fail_from_backend, so a backend cannot return the RFC 8620 §5.5 /query method errors (unsupportedFilter, unsupportedSort, anchorNotFound, ...). mimid needs unsupportedFilter for Message/query without chatId (draft-atwood-jmap-chat-00 L1180). Fix: let the backend return a typed JmapError that passes through unchanged; keep the redacted serverFail for every other error (server_fail_from_backend_drops_display_text must still hold). Prefer a typed result (e.g. an enum distinguishing a method error from an internal backend error) over downcasting. Breaking for ChatBackend/JmapBackend implementors: record on JMAP-yt1w.3. Regression test quotes RFC 8620 §5.5. Do after the current JMAP-yt1w workflow run (same working tree).",
+  "notes": "Plan approved by Mark 2026-10-18: typed result distinguishing method error (passes through) vs internal error (redacted serverFail); run after the current yt1w workflow.\nRegression tests added (attempt 1) in crate-jmap-server/src/handlers.rs tests: handle_query_passes_backend_unsupported_filter_through, handle_query_passes_backend_anchor_not_found_through, handle_query_redacts_backend_internal_error. They expect crate::backend::BackendQueryError\u003cE\u003e { Method(JmapError), Other(E) } as the query_objects error type (mirrors BackendChangesError naming). At HEAD: E0432 (type missing); with type shimmed but HEAD mapping kept, the two pass-through tests fail (serverFail 'internal error' instead of unsupportedFilter/anchorNotFound).\nImplemented (uncommitted): BackendQueryError in crate-jmap-server/src/backend.rs; handle_query + domain /query handlers use JmapError::from. All gates green. Follow-ups: JMAP-yt1w.23, .24, .25. Breaking change recorded on JMAP-yt1w.3.\nDone in 77725c9db1657f9d97ae36b201712e5d4c4051ba: tests handlers::tests::handle_query_passes_backend_unsupported_filter_through, handlers::tests::handle_query_passes_backend_anchor_not_found_through, handlers::tests::handle_query_redacts_backend_internal_error; changed existing tests: tests::faulty_backend_query_objects_err_fires_immediately, tests::faulty_backend_query_objects_err_after_one_succeeds_then_fails",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-19T03:48:27.583930885Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-19T04:12:26.303257518Z",
+  "started_at": "2026-10-19T03:58:49.964694496Z",
+  "closed_at": "2026-10-19T04:12:26.303257518Z",
+  "close_reason": "Closed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.21",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-19T03:48:28.563406713Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-v9py.16.3",
+  "title": "chat-filenode: validate Space file tree root creation",
+  "description": "Space exists, caller is a member, one root per Space, manage_space held (draft-atwood-jmap-chat-filenode-00 L128-134).",
+  "acceptance_criteria": "Tests use an independent oracle: each assertion cites and quotes the governing draft sentence (file + line) or uses RFC/draft-published vectors; the code under test is never its own oracle. Tests per check in L128-134.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T00:45:56.307638878Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T20:37:47.39597387Z",
+  "closed_at": "2026-10-20T20:37:47.39597387Z",
+  "close_reason": "Committed and adversarially verified (batch 7); CI at 84a9b7bc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-v9py.16.3",
+      "depends_on_id": "JMAP-v9py.16",
+      "type": "parent-child",
+      "created_at": "2026-10-20T00:45:56.426386155Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

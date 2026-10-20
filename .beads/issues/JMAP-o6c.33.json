@@ -2,22 +2,20 @@
   "close_reason": "No regex dependency allowed per CLAUDE.md constraints; multi-replace chain is correct.",
   "closed_at": "2026-05-02T03:40:16Z",
   "compaction_level": 0,
-  "content_hash": "be1fb172451d3e6aa525106792e5fabf4f3dd367697522196c4604bc2130e9fd",
   "created_at": "2026-05-02T03:26:52Z",
   "created_by": "Mark Atwood",
-  "description": "email.rs apply_header_form AsText branch (lines ~285-290): performs four chained .replace() calls allocating a new String on each step (CRLF+SP, CRLF+TAB, LF+SP, LF+TAB), then .trim_start().to_string() for a fifth allocation. For production use this is minor but not idiomatic: a single pass with a custom iterator or a bytes-based replace would avoid the intermediate allocations. As written, a header value with N lines allocates N+1 intermediate Strings. Not blocking \u2014 the four-replace pattern is readable \u2014 but worth noting for a performance-conscious review.",
-  "ephemeral": 0,
+  "description": "email.rs apply_header_form AsText branch (lines ~285-290): performs four chained .replace() calls allocating a new String on each step (CRLF+SP, CRLF+TAB, LF+SP, LF+TAB), then .trim_start().to_string() for a fifth allocation. For production use this is minor but not idiomatic: a single pass with a custom iterator or a bytes-based replace would avoid the intermediate allocations. As written, a header value with N lines allocates N+1 intermediate Strings. Not blocking — the four-replace pattern is readable — but worth noting for a performance-conscious review.",
+  "ephemeral": false,
   "id": "JMAP-o6c.33",
-  "is_blocked": 0,
-  "is_template": 0,
+  "is_blocked": false,
+  "is_template": false,
   "issue_type": "chore",
   "metadata": {},
-  "no_history": 0,
+  "no_history": false,
   "owner": "mark@reviewcommit.com",
-  "pinned": 0,
+  "pinned": false,
   "priority": 2,
   "status": "closed",
-  "timeout_ns": 0,
   "title": "apply_header_form AsText branch: .replace().replace()... chain could use Regex or a single pass",
   "updated_at": "2026-05-02T03:40:16Z",
   "dependencies": [
@@ -26,8 +24,9 @@
       "created_by": "Mark Atwood",
       "depends_on_issue_id": "JMAP-o6c",
       "id": "ffc4604f-f1d3-5e9a-aee3-1920912ded33",
-      "metadata": {},
+      "metadata": "{}",
       "type": "parent-child"
     }
-  ]
+  ],
+  "timeout": 0
 }

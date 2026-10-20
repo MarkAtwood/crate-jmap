@@ -1,0 +1,32 @@
+{
+  "id": "JMAP-hz4q.2",
+  "title": "chinwag: SQLite ChatBackend",
+  "description": "Persistent ChatBackend over SQLite (rusqlite). Must pass the same behaviour as the reference MemoryBackend: run jmap-chat-server's existing backend-level tests against it (share the suite rather than copy it). Blob storage on disk. Schema migrations from day one.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T20:18:35.929922195Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T20:32:40.15765857Z",
+  "closed_at": "2026-10-18T20:32:40.15765857Z",
+  "close_reason": "Moved to ~/PROJECT/chinwag as chinwag-nuqe.2",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-hz4q.2",
+      "depends_on_id": "JMAP-hz4q",
+      "type": "parent-child",
+      "created_at": "2026-10-18T20:18:36.050127483Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-hz4q.2",
+      "depends_on_id": "JMAP-hz4q.1",
+      "type": "blocks",
+      "created_at": "2026-10-18T20:18:37.733330665Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}
