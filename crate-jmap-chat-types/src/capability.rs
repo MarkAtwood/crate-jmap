@@ -7,10 +7,11 @@
 //!   - draft-atwood-jmap-chat-federation-00 §Account-Level Capability
 //!     (`ChatCapability::role`)
 //!
-//! The Chat extension defines three account-level capability objects plus a
-//! marker session-level capability (`urn:ietf:params:jmap:chat:websocket`,
-//! see `draft-atwood-jmap-chat-wss-00`). The marker's value is an empty
-//! object, so only its URI constant is defined here, with no struct.
+//! The Chat extension defines three account-level capability objects plus
+//! two marker capabilities: `urn:ietf:params:jmap:chat:websocket`
+//! (`draft-atwood-jmap-chat-wss-00`) and `urn:ietf:params:jmap:chat:did`
+//! (`draft-atwood-jmap-chat-did-00`). A marker's value is an empty object,
+//! so only its URI constant is defined here, with no struct.
 
 use jmap_types::impl_string_enum;
 use serde::{Deserialize, Serialize};
@@ -31,6 +32,57 @@ pub const JMAP_CHAT_FILENODE_URI: &str = "urn:ietf:params:jmap:chat:filenode";
 /// Session-level capability URI for JMAP Chat ephemeral push over WebSocket
 /// (draft-atwood-jmap-chat-wss-00 §Capability); its value is an empty object.
 pub const JMAP_CHAT_WEBSOCKET_URI: &str = "urn:ietf:params:jmap:chat:websocket";
+
+/// Capability URI for the JMAP Chat DID binding
+/// (draft-atwood-jmap-chat-did-00 §Capability).
+///
+/// Its session-level and account-level values are both the empty object
+/// `{}`. The DID methods the server resolves are advertised in the
+/// `supportedMethods` of `urn:ietf:params:jmap:did`, not here. Use
+/// [`may_advertise_chat_did`] to decide whether to advertise it.
+pub const JMAP_CHAT_DID_URI: &str = "urn:ietf:params:jmap:chat:did";
+
+/// The DID method names a server advertising [`JMAP_CHAT_DID_URI`] must
+/// be able to resolve (draft-atwood-jmap-chat-did-00 §Mandatory DID
+/// Methods): `did:web`, `did:key` and `did:plc`.
+///
+/// Each entry is a DID Core §8 method name, the form used in the
+/// `supportedMethods` array of `urn:ietf:params:jmap:did`.
+pub const MANDATORY_DID_METHODS: [&str; 3] = ["web", "key", "plc"];
+
+/// Returns whether a server may advertise [`JMAP_CHAT_DID_URI`].
+///
+/// `did_supported_methods` is the `supportedMethods` array the server
+/// advertises under `urn:ietf:params:jmap:did`, or `None` when it does
+/// not advertise that capability. The result is `true` only when it is
+/// `Some` and lists every entry of [`MANDATORY_DID_METHODS`]:
+///
+/// - "A server advertising `urn:ietf:params:jmap:chat:did` MUST also
+///   advertise `urn:ietf:params:jmap:did`".
+/// - "A server that cannot resolve any one of these three methods MUST
+///   NOT advertise the `urn:ietf:params:jmap:chat:did` capability."
+///
+/// `supportedMethods` lists "the DID methods the server is able to
+/// resolve and verify", so the caller passes the list it actually
+/// advertises. Method names compare exactly: DID Core §3.1 allows only
+/// lowercase letters and digits in a method name.
+///
+/// # Example
+///
+/// ```
+/// use jmap_chat_types::may_advertise_chat_did;
+///
+/// assert!(may_advertise_chat_did(Some(&["key", "web", "plc", "webvh"])));
+/// assert!(!may_advertise_chat_did(Some(&["key", "web"])));
+/// assert!(!may_advertise_chat_did::<&str>(None));
+/// ```
+pub fn may_advertise_chat_did<S: AsRef<str>>(did_supported_methods: Option<&[S]>) -> bool {
+    did_supported_methods.is_some_and(|methods| {
+        MANDATORY_DID_METHODS
+            .iter()
+            .all(|m| methods.iter().any(|s| s.as_ref() == *m))
+    })
+}
 
 /// FileNode `role` value marking the root of a Space file tree
 /// (draft-atwood-jmap-chat-filenode-00 §Space File Tree).
