@@ -32,14 +32,19 @@
 //!   ([`ParticipantEventKind`]), [`VtcMediaStateEvent`],
 //!   [`VtcActiveSpeakerEvent`], [`VtcUnmuteRequestEvent`],
 //!   [`VtcRecordingStateEvent`].
+//! - [`query`] — the `VTCCall/query` filter and comparator.
+//! - `JmapObject` impls for [`VtcCall`] (`"VTCCall"`, get/set/query) and
+//!   [`VtcParticipant`] (`"VTCParticipant"`, get), for `jmap-vtc-server`.
 
 #![forbid(unsafe_code)]
 
+mod backend;
 pub mod call;
 pub mod capability;
 pub mod event;
 pub mod participant;
 pub mod push;
+pub mod query;
 pub mod recording;
 mod wire;
 
