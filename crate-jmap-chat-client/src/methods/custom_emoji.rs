@@ -3,7 +3,8 @@
 //! Spec: JMAP Chat draft §4.16 (CustomEmoji/get, /changes, /set, /query, /queryChanges)
 //! Capability: urn:ietf:params:jmap:chat
 
-use jmap_types::{Id, PatchObject, State};
+use jmap_types::{query::Filter, Id, PatchObject, State};
+use serde::Serialize;
 
 use super::{
     ChangesResponse, CustomEmojiCreateInput, CustomEmojiPatch, CustomEmojiQueryInput, GetResponse,
@@ -270,8 +271,19 @@ impl super::SessionClient {
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
     ///
+    /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
+    /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    /// [`CustomEmojiFilterCondition`](jmap_chat_types::query::CustomEmojiFilterCondition); use
+    /// `jmap_metadata_types::WithMetadata<CustomEmojiFilterCondition>` to add the
+    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// Pass `None` to omit it; name the type when you do (`None::<&CustomEmojiFilter>`).
+    ///
     /// # Errors
     ///
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing `filter` fails (a caller-supplied condition type `C`
+    ///   whose `Serialize` impl errors).
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `since_query_state` is the empty string (defence-in-depth
     ///   empty-state guard; see [`Self::custom_emoji_changes`]).
@@ -285,11 +297,11 @@ impl super::SessionClient {
     ///   the server cannot honour the request given the supplied
     ///   filter / sort); it surfaces as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn custom_emoji_query_changes(
+    pub async fn custom_emoji_query_changes<C: Serialize>(
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
-        filter: Option<&jmap_chat_types::query::CustomEmojiFilter>,
+        filter: Option<&Filter<C>>,
         sort: Option<&[jmap_chat_types::query::CustomEmojiComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,

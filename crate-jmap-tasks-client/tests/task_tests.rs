@@ -8,7 +8,10 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use jmap_types::{Id, State};
+use jmap_tasks_types::task::{TaskFilter, TaskFilterCondition};
+use jmap_tasks_types::TaskComparator;
+use jmap_types::query::Filter;
+use jmap_types::{Id, State, UTCDate};
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -375,13 +378,10 @@ async fn task_query_with_filter() {
         .await;
 
     let sc = helpers::make_client(&server);
+    let mut cond = TaskFilterCondition::default();
+    cond.after = Some(UTCDate::from("2026-01-01T00:00:00Z"));
     let resp = sc
-        .task_query(
-            Some(json!({"after": "2026-01-01T00:00:00Z"})),
-            None,
-            Some(0),
-            Some(20),
-        )
+        .task_query(Some(&Filter::Condition(cond)), None, Some(0), Some(20))
         .await
         .expect("task_query_with_filter: must succeed");
 
@@ -439,7 +439,14 @@ async fn task_query_changes_round_trip() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .task_query_changes(&State::from("qs1"), Some(5), None, None, None, None)
+        .task_query_changes(
+            &State::from("qs1"),
+            Some(5),
+            None::<&TaskFilter>,
+            None,
+            None,
+            None,
+        )
         .await
         .expect("task_query_changes_round_trip: must succeed");
 
@@ -509,11 +516,16 @@ async fn task_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs1");
     let up_to = Id::from("task-100");
+    let mut cond = TaskFilterCondition::default();
+    cond.task_list_id = Some(Id::from("tl-1"));
+    let mut cmp = TaskComparator::default();
+    cmp.property = "created".into();
+    cmp.is_ascending = false;
     sc.task_query_changes(
         &since,
         None,
-        Some(json!({ "taskListId": "tl-1" })),
-        Some(json!([{ "property": "created", "isAscending": false }])),
+        Some(&Filter::Condition(cond)),
+        Some(&[cmp]),
         Some(&up_to),
         Some(true),
     )
@@ -581,7 +593,7 @@ async fn task_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = helpers::make_client(&server);
     let since = State::from("qs1");
-    sc.task_query_changes(&since, None, None, None, None, None)
+    sc.task_query_changes(&since, None, None::<&TaskFilter>, None, None, None)
         .await
         .expect("task_query_changes_all_none_omits_optional_wire_keys: must succeed");
 

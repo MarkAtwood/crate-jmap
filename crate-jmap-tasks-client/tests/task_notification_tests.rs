@@ -9,6 +9,9 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_tasks_types::notification::{TaskNotificationFilter, TaskNotificationFilterCondition};
+use jmap_tasks_types::TaskNotificationComparator;
+use jmap_types::query::Filter;
 use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::matchers::{method, path};
@@ -331,13 +334,14 @@ async fn task_notification_query_with_filter() {
         .await;
 
     let sc = helpers::make_client(&server);
+    let mut cond = TaskNotificationFilterCondition::default();
+    cond.notification_type = Some("created".into());
+    cond.task_ids = Some(vec![Id::from("task1")]);
+    let mut cmp = TaskNotificationComparator::default();
+    cmp.property = "created".into();
+    cmp.is_ascending = true;
     let resp = sc
-        .task_notification_query(
-            Some(json!({"type": "created", "taskIds": ["task1"]})),
-            Some(json!([{"property": "created"}])),
-            None,
-            None,
-        )
+        .task_notification_query(Some(&Filter::Condition(cond)), Some(&[cmp]), None, None)
         .await
         .expect("task_notification_query_with_filter: must succeed");
 
@@ -396,9 +400,16 @@ async fn task_notification_query_changes_round_trip() {
         .await;
 
     let sc = helpers::make_client(&server);
-    sc.task_notification_query_changes(&State::from("qs1"), Some(20), None, None, None, None)
-        .await
-        .expect("task_notification_query_changes_round_trip: must succeed");
+    sc.task_notification_query_changes(
+        &State::from("qs1"),
+        Some(20),
+        None::<&TaskNotificationFilter>,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("task_notification_query_changes_round_trip: must succeed");
 
     // Wire request assertions.
     let reqs = server
@@ -454,11 +465,16 @@ async fn task_notification_query_changes_with_filter_sort_upto_calculatetotal() 
     let sc = helpers::make_client(&server);
     let since = State::from("qs1");
     let up_to = Id::from("tn-100");
+    let mut cond = TaskNotificationFilterCondition::default();
+    cond.task_ids = Some(vec![Id::from("task1")]);
+    let mut cmp = TaskNotificationComparator::default();
+    cmp.property = "created".into();
+    cmp.is_ascending = false;
     sc.task_notification_query_changes(
         &since,
         None,
-        Some(json!({ "taskIds": ["task1"] })),
-        Some(json!([{ "property": "created", "isAscending": false }])),
+        Some(&Filter::Condition(cond)),
+        Some(&[cmp]),
         Some(&up_to),
         Some(true),
     )
@@ -527,9 +543,16 @@ async fn task_notification_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = helpers::make_client(&server);
     let since = State::from("qs1");
-    sc.task_notification_query_changes(&since, None, None, None, None, None)
-        .await
-        .expect("task_notification_query_changes_all_none_omits_optional_wire_keys: must succeed");
+    sc.task_notification_query_changes(
+        &since,
+        None,
+        None::<&TaskNotificationFilter>,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("task_notification_query_changes_all_none_omits_optional_wire_keys: must succeed");
 
     let reqs = server
         .received_requests()

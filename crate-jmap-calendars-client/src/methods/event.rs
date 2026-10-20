@@ -4,8 +4,9 @@
 
 use std::collections::BTreeMap;
 
-use jmap_calendars_types::{CalendarEventComparator, CalendarEventFilter};
-use jmap_types::{Id, PatchObject, State};
+use jmap_calendars_types::CalendarEventComparator;
+use jmap_types::{query::Filter, Id, PatchObject, State};
+use serde::Serialize;
 
 use super::{
     CalendarEventGetParams, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse,
@@ -215,10 +216,14 @@ impl super::SessionClient {
     /// Query `CalendarEvent` IDs with optional filter and sort
     /// (draft-ietf-jmap-calendars-26 §5.11).
     ///
-    /// - `filter`: typed [`CalendarEventFilter`] — a bare condition
-    ///   (`Filter::Condition`) or an RFC 8620 §5.5 `FilterOperator`
-    ///   combining sub-filters with `AND` / `OR` / `NOT`. Pass `None` to
-    ///   omit the `filter` argument.
+    /// - `filter`: an RFC 8620 §5.5 `Filter` — a bare condition
+    ///   (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    ///   with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    ///   [`CalendarEventFilterCondition`](jmap_calendars_types::CalendarEventFilterCondition);
+    ///   use `jmap_metadata_types::WithMetadata<CalendarEventFilterCondition>`
+    ///   to add the draft-ietf-jmap-metadata-02 §3.5 `metadata*`
+    ///   conditions. Pass `None` to omit the `filter` argument; name the
+    ///   type when you do (`None::<&CalendarEventFilter>`).
     /// - `sort`: typed comparator slice. Pass `None` to omit the `sort`
     ///   argument.
     /// - `expand_recurrences`: if `true`, include individual recurrence
@@ -233,10 +238,9 @@ impl super::SessionClient {
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:calendars`.
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if `serde_json::to_value` fails on the typed `filter` or `sort`
-    ///   (pathological conditions only — these are typed wire shapes
-    ///   defined by the workspace, so serde failure indicates allocation
-    ///   pressure rather than malformed input).
+    ///   if `serde_json::to_value` fails on `filter` or `sort` (a
+    ///   caller-supplied condition type `C` whose `Serialize` impl
+    ///   errors).
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on [`Self::calendar_event_get`].
@@ -244,9 +248,9 @@ impl super::SessionClient {
     ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
     ///   `tooManyChanges`) that surface as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn calendar_event_query(
+    pub async fn calendar_event_query<C: Serialize>(
         &self,
-        filter: Option<&CalendarEventFilter>,
+        filter: Option<&Filter<C>>,
         sort: Option<&[CalendarEventComparator]>,
         position: Option<u64>,
         limit: Option<u64>,
@@ -302,8 +306,8 @@ impl super::SessionClient {
     ///   if `since_query_state` is the empty string (defence-in-depth
     ///   empty-state guard; see [`Self::calendar_event_changes`]).
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if `serde_json::to_value` fails on the typed `filter` or `sort`
-    ///   (pathological conditions only; see [`Self::calendar_event_query`]).
+    ///   if `serde_json::to_value` fails on `filter` or `sort` (see
+    ///   [`Self::calendar_event_query`]).
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:calendars`.
@@ -314,11 +318,11 @@ impl super::SessionClient {
     ///   when the server cannot honour the request given the supplied
     ///   filter / sort); it surfaces as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn calendar_event_query_changes(
+    pub async fn calendar_event_query_changes<C: Serialize>(
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
-        filter: Option<&CalendarEventFilter>,
+        filter: Option<&Filter<C>>,
         sort: Option<&[CalendarEventComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,

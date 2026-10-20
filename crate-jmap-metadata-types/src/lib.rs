@@ -14,7 +14,7 @@
 //! This crate provides the helper types that consumers need:
 //!
 //! - [`capability`] — [`DataTypeMetadataInfo`], [`JMAP_METADATA_URI`] (§1.2.1)
-//! - [`filter`] — [`MetadataTextMatch`] (§3.5)
+//! - [`filter`] — [`MetadataTextMatch`], [`WithMetadata`] (§3.5)
 //! - [`namespace`] — namespace identifier validation (§2.1)
 //!
 //! All public types and functions are re-exported at the crate root.
@@ -48,5 +48,5 @@ pub mod filter;
 pub mod namespace;
 
 pub use capability::{DataTypeMetadataInfo, JMAP_METADATA_URI};
-pub use filter::MetadataTextMatch;
+pub use filter::{MetadataTextMatch, WithMetadata};
 pub use namespace::{is_registered_namespace, is_valid_namespace, is_vendor_namespace};

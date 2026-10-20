@@ -10,7 +10,9 @@
 
 use std::collections::BTreeMap;
 
-use jmap_types::{Id, PatchObject, State};
+use jmap_mail_types::query::EmailComparator;
+use jmap_types::{query::Filter, Id, PatchObject, State};
+use serde::Serialize;
 
 use super::{
     ChangesResponse, EmailCopyParams, EmailGetParams, EmailImportInput, EmailImportResponse,
@@ -244,8 +246,19 @@ impl super::SessionClient {
     ///   default page size. Pass `None` to omit (server applies its
     ///   default), or `Some(n)` with `n > 0` for an explicit cap.
     ///
+    /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
+    /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    /// [`EmailFilterCondition`](jmap_mail_types::query::EmailFilterCondition); use
+    /// `jmap_metadata_types::WithMetadata<EmailFilterCondition>` to add the
+    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// Pass `None` to omit it; name the type when you do (`None::<&EmailFilter>`).
+    ///
     /// # Errors
     ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if serializing `filter` fails (a caller-supplied condition type
+    ///   `C` whose `Serialize` impl errors).
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:mail`.
@@ -257,10 +270,10 @@ impl super::SessionClient {
     ///   `tooManyChanges`); they surface here as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
     ///   with the corresponding `error_type` string.
-    pub async fn email_query(
+    pub async fn email_query<C: Serialize>(
         &self,
-        filter: Option<serde_json::Value>,
-        sort: Option<serde_json::Value>,
+        filter: Option<&Filter<C>>,
+        sort: Option<&[EmailComparator]>,
         position: Option<u64>,
         limit: Option<u64>,
         collapse_threads: Option<bool>,
@@ -270,10 +283,18 @@ impl super::SessionClient {
             "accountId": account_id,
         });
         if let Some(f) = filter {
-            args["filter"] = f;
+            args["filter"] = serde_json::to_value(f).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "email_query: serializing filter failed: {e}"
+                ))
+            })?;
         }
         if let Some(s) = sort {
-            args["sort"] = s;
+            args["sort"] = serde_json::to_value(s).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "email_query: serializing sort failed: {e}"
+                ))
+            })?;
         }
         if let Some(p) = position {
             args["position"] = p.into();
@@ -309,8 +330,19 @@ impl super::SessionClient {
     /// `max_changes` follows the same magic-value semantics as
     /// [`Self::email_changes`].
     ///
+    /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
+    /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    /// [`EmailFilterCondition`](jmap_mail_types::query::EmailFilterCondition); use
+    /// `jmap_metadata_types::WithMetadata<EmailFilterCondition>` to add the
+    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// Pass `None` to omit it; name the type when you do (`None::<&EmailFilter>`).
+    ///
     /// # Errors
     ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if serializing `filter` fails (a caller-supplied condition type
+    ///   `C` whose `Serialize` impl errors).
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `since_query_state` is the empty string (defence-in-depth
     ///   empty-state guard; see [`Self::email_changes`]).
@@ -325,13 +357,13 @@ impl super::SessionClient {
     ///   it surfaces as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     #[allow(clippy::too_many_arguments)] // RFC 8620 §5.6 + RFC 8621 §4.5 args
-    pub async fn email_query_changes(
+    pub async fn email_query_changes<C: Serialize>(
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
         collapse_threads: Option<bool>,
-        filter: Option<serde_json::Value>,
-        sort: Option<serde_json::Value>,
+        filter: Option<&Filter<C>>,
+        sort: Option<&[EmailComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
@@ -347,10 +379,18 @@ impl super::SessionClient {
             "sinceQueryState": since_query_state,
         });
         if let Some(f) = filter {
-            args["filter"] = f;
+            args["filter"] = serde_json::to_value(f).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "email_query_changes: serializing filter failed: {e}"
+                ))
+            })?;
         }
         if let Some(s) = sort {
-            args["sort"] = s;
+            args["sort"] = serde_json::to_value(s).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "email_query_changes: serializing sort failed: {e}"
+                ))
+            })?;
         }
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();

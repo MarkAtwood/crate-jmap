@@ -37,9 +37,10 @@ use serde_json::json;
 let properties = vec!["id", "name", METADATA_PROPERTY];
 assert!(properties.contains(&"metadata"));
 
-// Compose a metadata condition with the type's own conditions (§3.5),
-// then pass the tree to a `*_query` method that takes a
-// serde_json::Value filter (e.g. jmap-mail-client's `email_query`).
+// Compose a metadata condition with the type's own conditions (§3.5).
+// An extension client's `*_query` method takes it as
+// `jmap_types::query::Filter::Condition(filter)`; for a typed tree, use
+// `jmap_metadata_types::WithMetadata<C>` leaves instead.
 let filter = json!({
     "operator": "AND",
     "conditions": [
@@ -64,12 +65,13 @@ assert_eq!(
   to fall back to a client-side scan (§3.5). Check
   `DataTypeMetadataInfo` in the account capability first.
 - **Typed filters.** The extension-types `FilterCondition` structs
-  carry no metadata fields (bd JMAP-ua37.4), so metadata conditions
-  need a `*_query` method that takes a `serde_json::Value` filter. The
-  mail, contacts, tasks, filenode, and sharing clients do; the chat
-  client's `*_query` methods and the calendars client's
-  `calendar_event_query` / `calendar_event_notification_query` take
-  typed filters and cannot carry them (bd JMAP-ua37.7).
+  carry no metadata fields (bd JMAP-ua37.4). The extension clients'
+  `*_query` / `*_query_changes` methods take a generic
+  `jmap_types::query::Filter<C>`, so a typed tree uses
+  `jmap_metadata_types::WithMetadata<C>` leaves and an untyped one is
+  passed as `Filter::Condition(value)`. The chat client's `*_query`
+  methods build their filter from `*QueryInput` fields and cannot carry
+  metadata conditions; its `*_query_changes` methods can.
 
 ## Migration from 0.1 (draft-01)
 

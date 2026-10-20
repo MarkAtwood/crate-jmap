@@ -326,7 +326,14 @@ async fn custom_emoji_query_changes_passthrough_and_empty_state_rejected() {
     let sc = helpers::make_client(&server);
     let since = State::from("ceqc-old");
     let _ = sc
-        .custom_emoji_query_changes(&since, Some(5), None, None, None, None)
+        .custom_emoji_query_changes(
+            &since,
+            Some(5),
+            None::<&query::CustomEmojiFilter>,
+            None,
+            None,
+            None,
+        )
         .await
         .expect("custom_emoji_query_changes: must succeed");
 
@@ -340,7 +347,14 @@ async fn custom_emoji_query_changes_passthrough_and_empty_state_rejected() {
 
     let empty = State::from("");
     let err = sc
-        .custom_emoji_query_changes(&empty, None, None, None, None, None)
+        .custom_emoji_query_changes(
+            &empty,
+            None,
+            None::<&query::CustomEmojiFilter>,
+            None,
+            None,
+            None,
+        )
         .await
         .expect_err("must reject empty since_query_state");
     match err {
@@ -443,9 +457,16 @@ async fn custom_emoji_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
-    sc.custom_emoji_query_changes(&since, None, None, None, None, None)
-        .await
-        .expect("custom_emoji_query_changes_all_none_omits_optional_wire_keys: must succeed");
+    sc.custom_emoji_query_changes(
+        &since,
+        None,
+        None::<&query::CustomEmojiFilter>,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("custom_emoji_query_changes_all_none_omits_optional_wire_keys: must succeed");
 
     let args = recorded_args(&server).await;
     assert!(args.get("filter").is_none(), "filter must be omitted");

@@ -10,7 +10,8 @@
 
 use std::collections::BTreeMap;
 
-use jmap_types::{Id, PatchObject, State};
+use jmap_types::{query::Filter, Id, PatchObject, State};
+use serde::Serialize;
 
 use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
 
@@ -194,8 +195,19 @@ impl super::SessionClient {
     /// Pass `filter: None` and `sort: None` to return all Principals with
     /// server-default ordering. Use `position` and `limit` for pagination.
     ///
+    /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
+    /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    /// [`PrincipalFilterCondition`](jmap_sharing_types::PrincipalFilterCondition); use
+    /// `jmap_metadata_types::WithMetadata<PrincipalFilterCondition>` to add the
+    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// Pass `None` to omit it; name the type when you do (`None::<&PrincipalFilter>`).
+    ///
     /// # Errors
     ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if serializing `filter` fails (a caller-supplied condition type
+    ///   `C` whose `Serialize` impl errors).
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:principals`.
@@ -206,9 +218,9 @@ impl super::SessionClient {
     ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
     ///   `tooManyChanges`) that surface as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn principal_query(
+    pub async fn principal_query<C: Serialize>(
         &self,
-        filter: Option<serde_json::Value>,
+        filter: Option<&Filter<C>>,
         sort: Option<serde_json::Value>,
         position: Option<u64>,
         limit: Option<u64>,
@@ -218,7 +230,11 @@ impl super::SessionClient {
             "accountId": account_id,
         });
         if let Some(f) = filter {
-            args["filter"] = f;
+            args["filter"] = serde_json::to_value(f).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "principal_query: serializing filter failed: {e}"
+                ))
+            })?;
         }
         if let Some(s) = sort {
             args["sort"] = s;
@@ -248,8 +264,19 @@ impl super::SessionClient {
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
     ///
+    /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
+    /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    /// [`PrincipalFilterCondition`](jmap_sharing_types::PrincipalFilterCondition); use
+    /// `jmap_metadata_types::WithMetadata<PrincipalFilterCondition>` to add the
+    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// Pass `None` to omit it; name the type when you do (`None::<&PrincipalFilter>`).
+    ///
     /// # Errors
     ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if serializing `filter` fails (a caller-supplied condition type
+    ///   `C` whose `Serialize` impl errors).
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `since_query_state` is the empty string (defence-in-depth
     ///   empty-state guard; see [`Self::principal_changes`]).
@@ -263,11 +290,11 @@ impl super::SessionClient {
     ///   server cannot honour the request given the supplied filter /
     ///   sort); it surfaces as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn principal_query_changes(
+    pub async fn principal_query_changes<C: Serialize>(
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
-        filter: Option<serde_json::Value>,
+        filter: Option<&Filter<C>>,
         sort: Option<serde_json::Value>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
@@ -284,7 +311,11 @@ impl super::SessionClient {
             "sinceQueryState": since_query_state,
         });
         if let Some(f) = filter {
-            args["filter"] = f;
+            args["filter"] = serde_json::to_value(f).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "principal_query_changes: serializing filter failed: {e}"
+                ))
+            })?;
         }
         if let Some(s) = sort {
             args["sort"] = s;

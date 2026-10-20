@@ -11,6 +11,12 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_mail_types::query::{
+    ComparatorProperty, EmailComparator, EmailFilter, EmailFilterCondition,
+};
+use jmap_mail_types::Keyword;
+use jmap_metadata_types::{MetadataTextMatch, WithMetadata};
+use jmap_types::query::{Filter, FilterOperator, Operator};
 use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::matchers::{method, path};
@@ -51,12 +57,16 @@ async fn email_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs1");
     let up_to = Id::from("EM-100");
+    let mut cond = EmailFilterCondition::default();
+    cond.has_keyword = Some(Keyword::from("$flagged"));
+    let mut cmp = EmailComparator::new(ComparatorProperty::ReceivedAt);
+    cmp.is_ascending = false;
     sc.email_query_changes(
         &since,
         None,
         Some(true),
-        Some(json!({ "hasKeyword": "$flagged" })),
-        Some(json!([{ "property": "receivedAt", "isAscending": false }])),
+        Some(&Filter::Condition(cond)),
+        Some(&[cmp]),
         Some(&up_to),
         Some(true),
     )
@@ -130,7 +140,7 @@ async fn email_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = helpers::make_client(&server);
     let since = State::from("qs1");
-    sc.email_query_changes(&since, None, None, None, None, None, None)
+    sc.email_query_changes(&since, None, None, None::<&EmailFilter>, None, None, None)
         .await
         .expect("email_query_changes_all_none_omits_optional_wire_keys: must succeed");
 
@@ -155,5 +165,125 @@ async fn email_query_changes_all_none_omits_optional_wire_keys() {
     assert!(
         args.get("collapseThreads").is_none(),
         "collapseThreads must be omitted"
+    );
+}
+
+/// Mount a minimal `Email/query` response and return the server.
+async fn mount_email_query() -> MockServer {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Email/query",
+            {
+                "accountId": "A13824",
+                "queryState": "qs1",
+                "canCalculateChanges": true,
+                "position": 0,
+                "ids": []
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+    server
+}
+
+/// Return the `filter` argument of the first recorded request.
+async fn sent_filter(server: &MockServer) -> serde_json::Value {
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    body["methodCalls"][0][1]["filter"].clone()
+}
+
+/// A typed `NOT` operator reaches the wire as an RFC 8620 §5.5
+/// FilterOperator.
+///
+/// Oracle: RFC 8620 §5.5 — a FilterOperator has "operator: String"
+/// ("NOT": "No conditions must match") and "conditions: (FilterOperator|
+/// FilterCondition)[]"; RFC 8621 §4.4.1 names the Email conditions
+/// `hasKeyword` and `from`. Expected JSON written by hand.
+#[tokio::test]
+async fn email_query_sends_typed_not_operator() {
+    let server = mount_email_query().await;
+    let sc = helpers::make_client(&server);
+
+    let mut seen = EmailFilterCondition::default();
+    seen.has_keyword = Some(Keyword::from("$seen"));
+    let mut from = EmailFilterCondition::default();
+    from.from = Some("boss@example.com".into());
+    let filter = Filter::Operator(FilterOperator::new(
+        Operator::Not,
+        vec![Filter::Condition(seen), Filter::Condition(from)],
+    ));
+    sc.email_query(Some(&filter), None, None, None, None)
+        .await
+        .expect("email_query: must succeed");
+
+    assert_eq!(
+        sent_filter(&server).await,
+        json!({
+            "operator": "NOT",
+            "conditions": [
+                { "hasKeyword": "$seen" },
+                { "from": "boss@example.com" }
+            ]
+        })
+    );
+}
+
+/// A `WithMetadata<EmailFilterCondition>` leaf inside an `AND` reaches the
+/// wire exactly as draft-ietf-jmap-metadata-02 §6.7 shows it.
+///
+/// Oracle: the `filter` value of the §6.7 example request ("Find all Email
+/// objects in a particular Mailbox whose private vendor memo contains the
+/// text \"follow up\""), copied from the draft.
+#[tokio::test]
+async fn email_query_sends_metadata_02_section_6_7_filter() {
+    let server = mount_email_query().await;
+    let sc = helpers::make_client(&server);
+
+    let mut in_mailbox = WithMetadata::<EmailFilterCondition>::default();
+    in_mailbox.base.in_mailbox = Some(Id::from("MB-inbox"));
+    let mut exists = WithMetadata::<EmailFilterCondition>::default();
+    exists.private_metadata_exists = Some("acme.example.com/memo".into());
+    let mut contains = WithMetadata::<EmailFilterCondition>::default();
+    contains.private_metadata_text_contains =
+        Some(MetadataTextMatch::new("acme.example.com/memo", "follow up"));
+    let filter = Filter::Operator(FilterOperator::new(
+        Operator::And,
+        vec![
+            Filter::Condition(in_mailbox),
+            Filter::Condition(exists),
+            Filter::Condition(contains),
+        ],
+    ));
+    sc.email_query(Some(&filter), None, None, None, None)
+        .await
+        .expect("email_query: must succeed");
+
+    assert_eq!(
+        sent_filter(&server).await,
+        json!({
+            "operator": "AND",
+            "conditions": [
+                { "inMailbox": "MB-inbox" },
+                { "privateMetadataExists": "acme.example.com/memo" },
+                {
+                    "privateMetadataTextContains": {
+                        "path":  "acme.example.com/memo",
+                        "value": "follow up"
+                    }
+                }
+            ]
+        })
     );
 }

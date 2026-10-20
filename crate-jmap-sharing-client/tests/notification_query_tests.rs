@@ -7,6 +7,8 @@
 #[path = "common/mod.rs"]
 mod common;
 
+use jmap_sharing_types::notification::{ShareNotificationFilter, ShareNotificationFilterCondition};
+use jmap_types::query::Filter;
 use jmap_types::State;
 use serde_json::json;
 use wiremock::matchers::{method, path};
@@ -42,8 +44,10 @@ async fn share_notification_query_with_filter() {
         .await;
 
     let sc = common::make_client(&server);
+    let mut cond = ShareNotificationFilterCondition::default();
+    cond.object_type = Some("Mailbox".into());
     let resp = sc
-        .share_notification_query(Some(json!({"objectType": "Mailbox"})), None, None, None)
+        .share_notification_query(Some(&Filter::Condition(cond)), None, None, None)
         .await
         .expect("share_notification_query_with_filter: must succeed");
 
@@ -102,7 +106,14 @@ async fn share_notification_query_changes_round_trip() {
 
     let sc = common::make_client(&server);
     let resp = sc
-        .share_notification_query_changes(&State::from("nqs1"), None, None, None, None, None)
+        .share_notification_query_changes(
+            &State::from("nqs1"),
+            None,
+            None::<&ShareNotificationFilter>,
+            None,
+            None,
+            None,
+        )
         .await
         .expect("share_notification_query_changes_round_trip: must succeed");
 
@@ -158,10 +169,12 @@ async fn share_notification_query_changes_with_filter_sort_upto_calculatetotal()
     let sc = common::make_client(&server);
     let since = State::from("nqs1");
     let up_to = jmap_types::Id::from("notif-100");
+    let mut cond = ShareNotificationFilterCondition::default();
+    cond.object_type = Some("Mailbox".into());
     sc.share_notification_query_changes(
         &since,
         None,
-        Some(json!({ "objectType": "Mailbox" })),
+        Some(&Filter::Condition(cond)),
         Some(json!([{ "property": "created", "isAscending": false }])),
         Some(&up_to),
         Some(true),
@@ -231,9 +244,16 @@ async fn share_notification_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = common::make_client(&server);
     let since = State::from("nqs1");
-    sc.share_notification_query_changes(&since, None, None, None, None, None)
-        .await
-        .expect("share_notification_query_changes_all_none_omits_optional_wire_keys: must succeed");
+    sc.share_notification_query_changes(
+        &since,
+        None,
+        None::<&ShareNotificationFilter>,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("share_notification_query_changes_all_none_omits_optional_wire_keys: must succeed");
 
     let reqs = server
         .received_requests()

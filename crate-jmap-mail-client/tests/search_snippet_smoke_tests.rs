@@ -24,6 +24,8 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_mail_types::query::EmailFilterCondition;
+use jmap_types::query::Filter;
 use jmap_types::Id;
 use serde_json::json;
 use wiremock::matchers::{method, path};
@@ -57,9 +59,11 @@ async fn search_snippet_get_omits_thread_ids_wire_key() {
 
     let sc = helpers::make_client(&server);
     let filter = json!({ "text": "invoice" });
+    let mut cond = EmailFilterCondition::default();
+    cond.text = Some("invoice".into());
     let email_ids = [Id::from("M1"), Id::from("M2")];
     let _ = sc
-        .search_snippet_get(filter.clone(), Some(&email_ids))
+        .search_snippet_get(&Filter::Condition(cond), Some(&email_ids))
         .await
         .expect("search_snippet_get: must succeed");
 
@@ -110,8 +114,10 @@ async fn search_snippet_get_omits_email_ids_when_none() {
 
     let sc = helpers::make_client(&server);
     let filter = json!({ "text": "report" });
+    let mut cond = EmailFilterCondition::default();
+    cond.text = Some("report".into());
     let _ = sc
-        .search_snippet_get(filter.clone(), None)
+        .search_snippet_get(&Filter::Condition(cond), None)
         .await
         .expect("search_snippet_get: must succeed");
 

@@ -7,6 +7,8 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_contacts_types::{ContactCardComparator, ContactCardFilter, ContactCardFilterCondition};
+use jmap_types::query::Filter;
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -41,9 +43,10 @@ async fn contact_card_query_with_filter() {
         .await;
 
     let sc = helpers::make_client(&server);
-    let filter = json!({"inAddressBook": "ab1"});
+    let mut cond = ContactCardFilterCondition::default();
+    cond.in_address_book = Some(jmap_types::Id::from("ab1"));
     let resp = sc
-        .contact_card_query(Some(filter), None, None, None)
+        .contact_card_query(Some(&Filter::Condition(cond)), None, None, None)
         .await
         .expect("contact_card_query_with_filter: must succeed");
 
@@ -107,7 +110,7 @@ async fn contact_card_query_changes_round_trip() {
         .contact_card_query_changes(
             &jmap_types::State::from("qs5"),
             None,
-            None,
+            None::<&ContactCardFilter>,
             None,
             None,
             None,
@@ -174,11 +177,16 @@ async fn contact_card_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = jmap_types::State::from("qs5");
     let up_to = jmap_types::Id::from("CC-100");
+    let mut cond = ContactCardFilterCondition::default();
+    cond.in_address_book = Some(jmap_types::Id::from("ab-1"));
+    let mut cmp = ContactCardComparator::default();
+    cmp.property = "uid".into();
+    cmp.is_ascending = true;
     sc.contact_card_query_changes(
         &since,
         None,
-        Some(json!({ "inAddressBook": "ab-1" })),
-        Some(json!([{ "property": "uid", "isAscending": true }])),
+        Some(&Filter::Condition(cond)),
+        Some(&[cmp]),
         Some(&up_to),
         Some(true),
     )
@@ -246,7 +254,7 @@ async fn contact_card_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = helpers::make_client(&server);
     let since = jmap_types::State::from("qs5");
-    sc.contact_card_query_changes(&since, None, None, None, None, None)
+    sc.contact_card_query_changes(&since, None, None::<&ContactCardFilter>, None, None, None)
         .await
         .expect("contact_card_query_changes_all_none_omits_optional_wire_keys: must succeed");
 

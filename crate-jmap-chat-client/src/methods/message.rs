@@ -11,7 +11,8 @@
 //! SPECIAL: `message_create` additionally inspects `SetResponse.not_created` for
 //! `error_type == "rateLimited"` and surfaces it as `ClientError::RateLimited`.
 
-use jmap_types::{Id, PatchObject, State};
+use jmap_types::{query::Filter, Id, PatchObject, State};
+use serde::Serialize;
 
 use super::{
     ChangesResponse, GetResponse, MessageCreateInput, MessagePatch, MessageQueryInput,
@@ -472,8 +473,19 @@ impl super::SessionClient {
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
     ///
+    /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
+    /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    /// [`MessageFilterCondition`](jmap_chat_types::query::MessageFilterCondition); use
+    /// `jmap_metadata_types::WithMetadata<MessageFilterCondition>` to add the
+    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    /// Pass `None` to omit it; name the type when you do (`None::<&MessageFilter>`).
+    ///
     /// # Errors
     ///
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing `filter` fails (a caller-supplied condition type `C`
+    ///   whose `Serialize` impl errors).
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `since_query_state` is the empty string (defence-in-depth
     ///   empty-state guard; see [`Self::message_changes`]).
@@ -487,11 +499,11 @@ impl super::SessionClient {
     ///   server cannot honour the request given the supplied filter /
     ///   sort); it surfaces as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn message_query_changes(
+    pub async fn message_query_changes<C: Serialize>(
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
-        filter: Option<&jmap_chat_types::query::MessageFilter>,
+        filter: Option<&Filter<C>>,
         sort: Option<&[jmap_chat_types::query::MessageComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,

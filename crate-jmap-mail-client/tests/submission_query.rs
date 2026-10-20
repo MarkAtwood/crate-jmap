@@ -6,6 +6,9 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_mail_types::query::EmailSubmissionFilter;
+use jmap_mail_types::submission::{EmailSubmissionFilterCondition, UndoStatus};
+use jmap_types::query::Filter;
 use jmap_types::State;
 use serde_json::json;
 use wiremock::matchers::{method, path};
@@ -39,8 +42,10 @@ async fn email_submission_query_with_filter() {
         .await;
 
     let sc = helpers::make_client(&server);
+    let mut cond = EmailSubmissionFilterCondition::default();
+    cond.identity_ids = Some(vec![jmap_types::Id::from("I1")]);
     let resp = sc
-        .email_submission_query(Some(json!({"identityIds": ["I1"]})), None, None, None)
+        .email_submission_query(Some(&Filter::Condition(cond)), None, None, None)
         .await
         .expect("email_submission_query_with_filter: must succeed");
 
@@ -91,7 +96,7 @@ async fn email_submission_query_no_filter() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .email_submission_query(None, None, None, None)
+        .email_submission_query(None::<&EmailSubmissionFilter>, None, None, None)
         .await
         .expect("email_submission_query_no_filter: must succeed");
 
@@ -142,7 +147,14 @@ async fn email_submission_query_changes_round_trip() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs1");
     let resp = sc
-        .email_submission_query_changes(&since, None, None, None, None, None)
+        .email_submission_query_changes(
+            &since,
+            None,
+            None::<&EmailSubmissionFilter>,
+            None,
+            None,
+            None,
+        )
         .await
         .expect("email_submission_query_changes_round_trip: must succeed");
 
@@ -192,10 +204,12 @@ async fn email_submission_query_changes_with_filter_and_sort() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs5");
     let up_to = jmap_types::Id::from("ES-100");
+    let mut cond = EmailSubmissionFilterCondition::default();
+    cond.undo_status = Some(UndoStatus::Pending);
     sc.email_submission_query_changes(
         &since,
         None,
-        Some(json!({"undoStatus": "pending"})),
+        Some(&Filter::Condition(cond)),
         Some(json!([{"property": "sentAt", "isAscending": false}])),
         Some(&up_to),
         Some(true),
@@ -264,9 +278,16 @@ async fn email_submission_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = helpers::make_client(&server);
     let since = State::from("qs5");
-    sc.email_submission_query_changes(&since, None, None, None, None, None)
-        .await
-        .expect("must succeed");
+    sc.email_submission_query_changes(
+        &since,
+        None,
+        None::<&EmailSubmissionFilter>,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("must succeed");
 
     let reqs = server
         .received_requests()

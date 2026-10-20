@@ -13,7 +13,9 @@
 //!   5. Call `self.call_internal(api_url, &req).await?`.
 //!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
+use jmap_types::query::Filter;
 use jmap_types::Id;
+use serde::Serialize;
 
 impl super::SessionClient {
     /// Fetch SearchSnippet objects (RFC 8621 §5.1 — SearchSnippet/get).
@@ -38,8 +40,18 @@ impl super::SessionClient {
     /// consistency with every other `SessionClient` method, which all derive
     /// `accountId` from the session unconditionally).
     ///
+    /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
+    /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
+    /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
+    /// [`EmailFilterCondition`](jmap_mail_types::query::EmailFilterCondition); use
+    /// `jmap_metadata_types::WithMetadata<EmailFilterCondition>` to add the
+    /// draft-ietf-jmap-metadata-02 §3.5 `metadata*` conditions.
+    ///
     /// # Errors
     ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if serializing `filter` fails (a caller-supplied condition type
+    ///   `C` whose `Serialize` impl errors).
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:mail`.
@@ -57,12 +69,17 @@ impl super::SessionClient {
     ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
     ///   or
     ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
-    pub async fn search_snippet_get(
+    pub async fn search_snippet_get<C: Serialize>(
         &self,
-        filter: serde_json::Value,
+        filter: &Filter<C>,
         email_ids: Option<&[Id]>,
     ) -> Result<serde_json::Value, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
+        let filter = serde_json::to_value(filter).map_err(|e| {
+            jmap_base_client::ClientError::InvalidArgument(format!(
+                "search_snippet_get: serializing filter failed: {e}"
+            ))
+        })?;
         let mut args = serde_json::json!({
             "accountId": account_id,
             "filter": filter,
