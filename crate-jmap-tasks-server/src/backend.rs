@@ -327,23 +327,13 @@ pub trait TasksBackend: JmapBackend {
         task_list_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
 
-    /// Returns true if `prop` is a per-user Task property (draft-tasks-06 §4.5.1).
-    ///
-    /// Per-user properties — `keywords`, `color`, `freeBusyStatus`,
-    /// `useDefaultAlerts`, and `alerts` — belong to the authenticated user and
-    /// MUST NOT change the shared `updated` timestamp when patched.  The routing
-    /// logic in `handle_task_set` calls [`Self::update_task_per_user`] when
-    /// every non-null patch key is in this set.
-    fn is_per_user_property(prop: &str) -> bool {
-        matches!(
-            prop,
-            "keywords" | "color" | "freeBusyStatus" | "useDefaultAlerts" | "alerts"
-        )
-    }
-
     /// Apply a patch that contains only per-user Task properties
     /// (draft-tasks-06 §4.5.1 — `keywords`, `color`, `freeBusyStatus`,
     /// `useDefaultAlerts`, `alerts`).
+    ///
+    /// The handler routes here when every patch key's leading segment
+    /// satisfies [`jmap_tasks_types::is_per_user_task_property`]; that
+    /// classification is fixed by the spec and is not a backend hook.
     ///
     /// When only per-user properties are patched, the shared `updated`
     /// timestamp MUST NOT change (§4.5.1 (per-user updated paragraph)).  The default

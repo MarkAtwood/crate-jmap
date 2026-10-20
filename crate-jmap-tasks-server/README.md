@@ -95,13 +95,6 @@ pub trait TasksBackend: JmapBackend {
 
     // --- Optional overrides (have default implementations) ---
 
-    /// Returns true if `prop` is a per-user Task property (draft-tasks-06 §4.5.1).
-    ///
-    /// Per-user properties: "keywords", "color", "freeBusyStatus",
-    /// "useDefaultAlerts", "alerts". The default implementation matches exactly
-    /// these five names.
-    fn is_per_user_property(prop: &str) -> bool { /* ... */ }
-
     /// Apply a patch containing only per-user Task properties (§4.5.1).
     ///
     /// When only per-user properties are patched, the shared `updated` timestamp
@@ -182,7 +175,9 @@ the `invalidProperties` SetError. The reference `MemoryBackend` does this.
 ### Task/set — per-user property routing
 
 `keywords`, `color`, `freeBusyStatus`, `useDefaultAlerts`, and `alerts` are per-user
-properties (§4.5.1). When every non-null key in a patch is in this set, the handler routes
+properties (§4.5.1), listed in `jmap_tasks_types::PER_USER_TASK_PROPERTIES` and
+classified by `jmap_tasks_types::is_per_user_task_property` (fixed by the spec, not a
+backend hook). When every key in a patch is in this set, the handler routes
 the update to `update_task_per_user` instead of `update_object`. This allows backends to
 store per-user data separately without changing the shared `updated` timestamp.
 

@@ -332,7 +332,7 @@ pub async fn handle_task_set<B: TasksBackend>(
                 !m.is_empty()
                     && m.keys().all(|k| {
                         let head = k.split('/').next().unwrap_or(k);
-                        B::is_per_user_property(head)
+                        jmap_tasks_types::is_per_user_task_property(head)
                     })
             });
 
