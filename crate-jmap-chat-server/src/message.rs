@@ -511,12 +511,12 @@ fn validate_broadcast_mentions(broadcast_mentions: &[serde_json::Value]) -> Opti
 // Optional create properties
 // ---------------------------------------------------------------------------
 
-/// `bodyType` values that indicate an end-to-end encrypted body.
-///
-/// ponytail: the draft names only `application/mls-ciphertext`
-/// (§Message `body`); extend this list when a deployment adds another
-/// encrypted type.
-const ENCRYPTED_BODY_TYPES: &[&str] = &["application/mls-ciphertext"];
+/// Default `bodyType` values that indicate an end-to-end encrypted body:
+/// the one type draft-atwood-jmap-chat-00 §Message `body` names. A backend
+/// adds others, such as `"application/mimi-fanout"`
+/// (draft-atwood-jmap-chat-mimi-00 §MLS Messages), through
+/// [`ChatLimits::encrypted_body_types`](crate::ChatLimits::encrypted_body_types).
+pub const ENCRYPTED_BODY_TYPES: &[&str] = &["application/mls-ciphertext"];
 
 /// Default `bodyType` values this server accepts, advertised as the
 /// `supportedBodyTypes` capability (draft-atwood-jmap-chat-00
@@ -543,14 +543,18 @@ const CIPHERTEXT_ONLY_FIELDS: [&str; 8] = [
 ];
 
 /// Check the create fields that `bodyType` requires to be empty: all of
-/// [`CIPHERTEXT_ONLY_FIELDS`] for an encrypted type (§Fields Inside the
-/// Ciphertext).
+/// [`CIPHERTEXT_ONLY_FIELDS`] when `body_type` is one of the account's
+/// `encrypted` types (§Fields Inside the Ciphertext).
 ///
 /// Returns every offending field, in [`CIPHERTEXT_ONLY_FIELDS`] order, for
 /// an `invalidProperties` SetError "whose `properties` lists each such
 /// field"; empty on success.
-fn body_type_field_conflicts(obj: &Value, body_type: &str) -> Vec<&'static str> {
-    if !ENCRYPTED_BODY_TYPES.contains(&body_type) {
+fn body_type_field_conflicts(
+    obj: &Value,
+    body_type: &str,
+    encrypted: &[&str],
+) -> Vec<&'static str> {
+    if !encrypted.contains(&body_type) {
         return Vec::new();
     }
     let non_empty = |key: &str| {
@@ -590,7 +594,7 @@ fn edit_limit_error(msg: &Message, patch: &Value, limits: &ChatLimits) -> Option
         dst.extend(src.iter().map(|(k, v)| (k.clone(), v.clone())));
     }
     let body_type = merged.get("bodyType").and_then(Value::as_str)?.to_owned();
-    let conflicts = body_type_field_conflicts(&merged, &body_type);
+    let conflicts = body_type_field_conflicts(&merged, &body_type, limits.encrypted_body_types);
     (!conflicts.is_empty()).then(|| {
         json!({
             "type": "invalidProperties",
@@ -1082,7 +1086,8 @@ pub async fn handle_message_set<B: ChatBackend>(
 
             // §Fields Inside the Ciphertext: "an `invalidProperties`
             // SetError whose `properties` lists each such field".
-            let conflicts = body_type_field_conflicts(obj_val, &body_type);
+            let conflicts =
+                body_type_field_conflicts(obj_val, &body_type, limits.encrypted_body_types);
             if !conflicts.is_empty() {
                 not_created.insert(
                     create_id.clone(),

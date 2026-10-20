@@ -195,6 +195,16 @@ pub struct ChatLimits {
     /// them with an `invalidProperties` SetError naming `bodyType`;
     /// update does not. Defaults to empty.
     pub server_reserved_body_types: &'static [&'static str],
+    /// `bodyType` values that indicate an end-to-end encrypted body.
+    /// Defaults to [`crate::message::ENCRYPTED_BODY_TYPES`]. For these
+    /// types `Message/set` create and update reject a non-empty
+    /// `mentions`, `broadcastMentions`, `attachments`, `actions`,
+    /// `replyTo`, `threadRootId`, `topicId` or `subject`
+    /// (draft-atwood-jmap-chat-00 §Fields Inside the Ciphertext). A MIMI
+    /// deployment adds `"application/mimi-fanout"`, which "is an
+    /// encrypted body type for the purposes of" that draft
+    /// (draft-atwood-jmap-chat-mimi-00 §MLS Messages).
+    pub encrypted_body_types: &'static [&'static str],
     /// The account's `supportsThreads` capability value
     /// (draft-atwood-jmap-chat-00 §Thread Model). When `true`,
     /// `Message/get` computes `replyCount` and `unreadReplyCount`, and
@@ -256,6 +266,7 @@ impl ChatLimits {
             max_group_chat_members: 1_000,
             supported_body_types: crate::message::SUPPORTED_BODY_TYPES,
             server_reserved_body_types: &[],
+            encrypted_body_types: crate::message::ENCRYPTED_BODY_TYPES,
             supports_threads: false,
             max_body_bytes: 100_000,
             max_attachment_bytes: 50_000_000,
@@ -309,6 +320,13 @@ impl ChatLimits {
     #[must_use]
     pub const fn with_server_reserved_body_types(mut self, types: &'static [&'static str]) -> Self {
         self.server_reserved_body_types = types;
+        self
+    }
+
+    /// Builder-style setter for [`Self::encrypted_body_types`].
+    #[must_use]
+    pub const fn with_encrypted_body_types(mut self, types: &'static [&'static str]) -> Self {
+        self.encrypted_body_types = types;
         self
     }
 

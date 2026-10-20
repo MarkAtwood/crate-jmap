@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: `ChatLimits::encrypted_body_types` (default
+  `ENCRYPTED_BODY_TYPES`, now public: `"application/mls-ciphertext"`) and
+  `with_encrypted_body_types` set which `bodyType` values the
+  draft-atwood-jmap-chat-00 §Fields Inside the Ciphertext empty-field rule
+  covers on `Message/set` create and update. A MIMI deployment adds
+  `"application/mimi-fanout"`, which draft-atwood-jmap-chat-mimi-00
+  §MLS Messages makes an encrypted body type.
 - **jmap-chat-server**: `store_server_message` stores a Message that the
   server creates, such as a MIMI fanout Message
   (draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout) or a federation
