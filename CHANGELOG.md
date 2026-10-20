@@ -35,7 +35,10 @@ wire behaviour that a conforming peer can observe.
   Messages in the Chat whose id sorts after `lastReadMessageId`, or all of
   them when it is absent. It was previously the stored value, always `0`.
   `Space/join` creates the owner's ReadPosition for each channel of the
-  joined Space (§ReadPosition).
+  joined Space (§ReadPosition). `ReadPosition/set` updates and
+  `Message/set` creates and destroys write the recomputed count to the
+  affected Chat, so the `Chat` state advances and `Chat/changes` lists
+  that Chat (RFC 8620 §5.1).
 
 ### Changed
 

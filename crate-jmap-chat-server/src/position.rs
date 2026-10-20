@@ -34,6 +34,7 @@ use jmap_types::{Id, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
+use crate::chat::record_unread_count_changes;
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
@@ -189,6 +190,7 @@ pub async fn handle_position_set<B: ChatBackend>(
     let destroyed_list: Vec<Value> = Vec::new();
     let mut not_destroyed = serde_json::Map::new();
     let mut mutated = false;
+    let mut updated_ids: Vec<Id> = Vec::new();
 
     // -----------------------------------------------------------------------
     // create
@@ -254,9 +256,8 @@ pub async fn handle_position_set<B: ChatBackend>(
             };
             // §ReadPosition/set: "The server sets `lastReadAt` to the
             // current time and recomputes `Chat.unreadCount` for the
-            // affected Chat." The count is derived on every `Chat/get`
-            // (`crate::chat::handle_chat_get`), so only lastReadAt is
-            // written here.
+            // affected Chat." The count is written to the Chat after the
+            // update loop (`record_unread_count_changes`).
             patch.as_map_mut().insert(
                 "lastReadAt".to_owned(),
                 Value::String(now_utc_string().into_inner()),
@@ -267,6 +268,7 @@ pub async fn handle_position_set<B: ChatBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
+                    updated_ids.push(id);
                     updated.insert(
                         id_str,
                         serde_json::to_value(&obj)
@@ -275,6 +277,7 @@ pub async fn handle_position_set<B: ChatBackend>(
                 }
                 Ok(None) => {
                     mutated = true;
+                    updated_ids.push(id);
                     updated.insert(id_str, Value::Null);
                 }
                 Err(BackendSetError::SetError(set_err)) => {
@@ -293,6 +296,16 @@ pub async fn handle_position_set<B: ChatBackend>(
                     );
                 }
             }
+        }
+    }
+
+    if !updated_ids.is_empty() {
+        if let Ok((updated_positions, _)) = backend
+            .get_objects::<ReadPosition>(caller, &account_id, Some(&updated_ids), None)
+            .await
+        {
+            let chat_ids = updated_positions.into_iter().map(|p| p.chat_id).collect();
+            record_unread_count_changes(backend, caller, &account_id, chat_ids).await;
         }
     }
 

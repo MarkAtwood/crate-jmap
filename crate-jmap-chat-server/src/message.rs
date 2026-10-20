@@ -33,6 +33,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
+use crate::chat::record_unread_count_changes;
 use std::collections::{HashMap, HashSet};
 
 use crate::helpers::{
@@ -1171,7 +1172,8 @@ pub async fn handle_message_set<B: ChatBackend>(
                 }
             }
         }
-        ensure_read_positions(backend, caller, &account_id, delivered_chat_ids).await;
+        ensure_read_positions(backend, caller, &account_id, delivered_chat_ids.clone()).await;
+        record_unread_count_changes(backend, caller, &account_id, delivered_chat_ids).await;
     }
 
     // -----------------------------------------------------------------------
@@ -1711,6 +1713,19 @@ pub async fn handle_message_set<B: ChatBackend>(
                 "destroy: every element must be a string Id; got {bad}"
             )));
         }
+        // The destroyed Messages' Chats, read before the destroy, for
+        // `record_unread_count_changes` (§Chat `unreadCount`).
+        let destroy_ids: Vec<Id> = destroy_arr
+            .iter()
+            .filter_map(Value::as_str)
+            .map(Id::from)
+            .collect();
+        let chat_of: HashMap<Id, Id> = backend
+            .get_objects::<Message>(caller, &account_id, Some(&destroy_ids), None)
+            .await
+            .map(|(found, _)| found.into_iter().map(|m| (m.id, m.chat_id)).collect())
+            .unwrap_or_default();
+        let mut destroyed_chat_ids: Vec<Id> = Vec::new();
         for id_val in destroy_arr {
             let Some(id_str) = id_val.as_str() else {
                 continue; // unreachable: validated above
@@ -1723,6 +1738,7 @@ pub async fn handle_message_set<B: ChatBackend>(
             {
                 Ok(()) => {
                     mutated = true;
+                    destroyed_chat_ids.extend(chat_of.get(&id).cloned());
                     destroyed_list.push(Value::String(id_str.to_owned()));
                 }
                 Err(BackendSetError::SetError(set_err)) => {
@@ -1742,6 +1758,7 @@ pub async fn handle_message_set<B: ChatBackend>(
                 }
             }
         }
+        record_unread_count_changes(backend, caller, &account_id, destroyed_chat_ids).await;
     }
 
     finalize_set_response::<B, Message>(
