@@ -13,7 +13,8 @@ draft-atwood-jmap-chat-filenode-00 that apply when one server offers
 | `check_root_create` | chat-filenode §Creating the File Tree Root: `spaceId` required, Space exists and the caller is a member (`forbidden`), one root per Space (`alreadyExists` with `existingId`), `manage_space` required (`forbidden`, §Permission Mapping) |
 | `check_space_quota` | chat-filenode §Account-Level Capability Object `maxSpaceStorageBytes`: a create that would take the Space file tree over the limit is `overQuota` |
 | `create_space_file_tree` | chat-filenode §Account-Level Capability Object `autoCreateFileTree`: insert the root when a Space is created |
-| `RootCheckError` | A Chat or FileNode storage failure during the check |
+| `resolve_filenode_attachment` | chat-filenode §filenodeId: an Attachment linked by `filenodeId` must name a file in the channel's Space file tree (`invalidProperties` naming `filenodeId`), the sender needs read access (`forbidden`), and absent `blobId`, `filename`, `contentType`, `size` and `sha256` are filled from the FileNode |
+| `RootCheckError` | A Chat or FileNode storage failure during a check |
 
 ## What it's for
 
@@ -25,6 +26,7 @@ calls these functions from its trait methods:
 | `FileNodeBackend::create_object::<FileNode>`, before the insert | `check_root_create` |
 | The same, when advertising `maxSpaceStorageBytes` | `check_space_quota` |
 | `ChatBackend::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | `create_space_file_tree` |
+| `ChatBackend::filenode_attachment` | `resolve_filenode_attachment` |
 
 ## How to use
 
@@ -64,6 +66,9 @@ do not apply to file tree access.
   whole tree per create; a large deployment keeps a per-Space total.
 - `create_space_file_tree` names the root after the Space id; members
   with `manage_space` may rename it.
+- `resolve_filenode_attachment` rejects a supplied `blobId`, `size` or
+  `sha256` that differs from the FileNode's, and keeps a supplied
+  `filename` or `contentType`.
 - The requesting user is the owner of `account_id`, and the Space and the
   FileNode live in that same account.
 

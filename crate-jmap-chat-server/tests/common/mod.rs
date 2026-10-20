@@ -271,6 +271,11 @@ pub struct TrackingBackend {
     attachment_blob_reject: Option<SetError>,
     /// When `true`, [`ChatBackend::attachment_blob`] returns `Err`.
     attachment_blob_fail: bool,
+    /// When `Some`, [`ChatBackend::filenode_attachment`] returns
+    /// `Ok(<this>.map(Some))`; when `None`, it forwards to `inner`.
+    filenode_attachment: Option<Result<jmap_chat_types::Attachment, SetError>>,
+    /// Count of [`ChatBackend::filenode_attachment`] calls.
+    filenode_attachment_calls: Arc<AtomicU64>,
 }
 
 /// The Chat/set patch keys draft-atwood-jmap-chat-mimi-00 L251 forbids on
@@ -377,6 +382,21 @@ impl TrackingBackend {
             attachment_blob_fail: true,
             ..Self::default()
         }
+    }
+
+    /// Configure the wrapper so [`ChatBackend::filenode_attachment`]
+    /// resolves every `filenodeId` entry to `result`. The wrapped
+    /// `MemoryBackend` is otherwise functional.
+    pub fn with_filenode_attachment(result: Result<jmap_chat_types::Attachment, SetError>) -> Self {
+        Self {
+            filenode_attachment: Some(result),
+            ..Self::default()
+        }
+    }
+
+    /// Count of [`ChatBackend::filenode_attachment`] calls so far.
+    pub fn filenode_attachment_call_count(&self) -> u64 {
+        self.filenode_attachment_calls.load(Ordering::SeqCst)
     }
 
     /// Borrow the underlying `MemoryBackend` for test seeding (e.g.
@@ -782,6 +802,25 @@ impl ChatBackend for TrackingBackend {
         self.inner
             .attachment_blob(caller, account_id, blob_id)
             .await
+    }
+
+    async fn filenode_attachment(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        chat: &jmap_chat_types::Chat,
+        attachment: &jmap_chat_types::AttachmentCreate,
+    ) -> Result<Result<Option<jmap_chat_types::Attachment>, SetError>, Self::Error> {
+        self.filenode_attachment_calls
+            .fetch_add(1, Ordering::SeqCst);
+        match &self.filenode_attachment {
+            Some(result) => Ok(result.clone().map(Some)),
+            None => {
+                self.inner
+                    .filenode_attachment(caller, account_id, chat, attachment)
+                    .await
+            }
+        }
     }
 }
 
