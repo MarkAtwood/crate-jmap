@@ -2,7 +2,8 @@
 
 Wire-format types for draft-atwood-jmap-chat-mimi-00, the
 `urn:ietf:params:jmap:chat:mimi` capability with which an MLS client uses a
-JMAP Chat server as its MIMI provider. Types only: no I/O, no MLS parsing.
+JMAP Chat server as its MIMI provider, and the rules a converting party
+uses to map MIMI content onto JMAP Chat Messages. No I/O, no MLS parsing.
 
 ## What it is
 
@@ -21,6 +22,11 @@ JMAP Chat server as its MIMI provider. Types only: no I/O, no MLS parsing.
 | `RoomUnbindRequest`, `RoomUnbindResponse` | §Room/unbind |
 | `GroupInfoFetchRequest`, `GroupInfoFetchResponse`, `GroupInfoCode` | §GroupInfo/fetch, draft-ietf-mimi-protocol-06 §5.6 |
 | `Base64Url`, `Base64UrlError` | §Conventions and Definitions, RFC 4648 §5 |
+| `convert::sender_msg_id`, `convert::RefKey` | §Message Identifiers, §Edits |
+| `convert::check_ref_key`, `RefKeyCollision`, `may_record_alias` | §Security Considerations |
+| `convert::topic_id` | §Topics |
+| `convert::is_media_reaction` | §Reactions |
+| `convert::never_sets_read` | §Message Status, draft-mahy-mimi-message-status-01 |
 
 The session-level capability value is `{}` and has no type.
 
@@ -72,6 +78,13 @@ assert_eq!(cap.max_key_packages, 100);
   `keyPackageRef` and, if the create omitted it, `lastResort`.
 - `ClientKeyMaterial` does not check that `keyPackage` is present exactly
   when `clientStatus` is `success`. Check it before use.
+- `convert` stores nothing. Keep each Message's `senderMsgId` and every
+  alias `RefKey` in your own store, look the reference's
+  `RefKey::of_message_id` up in it, and call `check_ref_key` before you
+  store a new Message or alias.
+- `convert` does not parse MIMI content (CBOR) or MLS. Senders
+  (§Senders) need the MLS leaf credential and a ChatContact store, so they
+  are left to the caller.
 
 ## References
 

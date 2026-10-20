@@ -41,11 +41,17 @@
 //!   — the `GroupInfo/fetch` arguments (draft §GroupInfo/fetch).
 //! - [`Base64Url`] / [`Base64UrlError`] — the unpadded base64url wire
 //!   shape of every byte-string property (draft §Conventions).
+//! - [`convert`] — the converting-party rules: [`sender_msg_id`],
+//!   [`RefKey`], [`check_ref_key`] / [`RefKeyCollision`],
+//!   [`may_record_alias`], [`topic_id`], [`is_media_reaction`] and
+//!   [`never_sets_read`] (draft §Message Identifiers through §Message
+//!   Status, §Security Considerations).
 
 #![forbid(unsafe_code)]
 
 pub mod base64url;
 pub mod capability;
+pub mod convert;
 pub mod groupinfo;
 pub mod keymaterial;
 pub mod keypackage;
@@ -54,6 +60,10 @@ pub mod room;
 pub use base64url::{Base64Url, Base64UrlError};
 pub use capability::{
     MimiCapability, JMAP_CHAT_MIMI_URI, MIMI_FANOUT_BODY_TYPE, MLS_MESSAGE_BODY_TYPE,
+};
+pub use convert::{
+    check_ref_key, is_media_reaction, may_record_alias, never_sets_read, sender_msg_id, topic_id,
+    MimiMessageId, RefKey, RefKeyCollision,
 };
 pub use groupinfo::{GroupInfoCode, GroupInfoFetchRequest, GroupInfoFetchResponse};
 pub use keymaterial::{
