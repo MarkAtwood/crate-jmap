@@ -654,7 +654,7 @@ mod tests {
     #[test]
     fn space_role_color_accepts_all_three_representations() {
         for color in [
-            serde_json::json!({"$type": "color", "$value": "oklch(0.7 0.15 250)"}),
+            serde_json::json!({"$type": "color", "$value": {"colorSpace": "srgb", "components": [0.345, 0.396, 0.949], "hex": "#5865f2"}}),
             serde_json::json!([62.5, 12.0, -30.25]),
             serde_json::json!("#5865f2"),
         ] {
