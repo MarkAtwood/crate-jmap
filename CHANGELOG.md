@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-mimi-types**: `convert` module with the converting-party
+  rules of draft-atwood-jmap-chat-mimi-00: `sender_msg_id` (ULID from the
+  hub acceptance time and octets 1-10 of the MIMI message ID), `RefKey`
+  (the 80-bit reference and alias key, also readable from a stored
+  `senderMsgId`), `check_ref_key` / `RefKeyCollision` (§Security
+  Considerations collision rule), `may_record_alias`, `topic_id`,
+  `is_media_reaction` and `never_sets_read`.
 - **jmap-chat-client**: RSVP helpers for draft-atwood-jmap-chat-calendars-00
   calendar-event MessageActions: `RsvpStatus`, `rsvp_patch` building the
   `participants/{key}/participationStatus` patch for `CalendarEvent/set`, and

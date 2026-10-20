@@ -4,7 +4,9 @@
 
 draft-atwood-jmap-chat-mimi-00 wire-format types: the
 `urn:ietf:params:jmap:chat:mimi` capability and its methods' request and
-response shapes. Pure data types: no method semantics, no async, no I/O.
+response shapes, plus the pure converting-party functions in `convert`
+(draft §Message Identifiers through §Message Status). No method semantics,
+no async, no I/O, no stored state.
 
 ## Before starting any work
 
