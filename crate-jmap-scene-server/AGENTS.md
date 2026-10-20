@@ -10,8 +10,8 @@ AGENTS.md "Canonical Templates").
 
 ## What this crate is
 
-draft-atwood-jmap-scene-00 `SceneAsset/*`, `SceneRegion/*` and
-`SceneObject/*` method handlers, the
+draft-atwood-jmap-scene-00 `SceneAsset/*`, `SceneRegion/*`,
+`SceneObject/*` and `SceneAvatar/*` method handlers, the
 `SceneBackend` trait and a `memory` reference backend. Depends on RFC 8620
 crates and `jmap-scene-types` only: Chat and VTC bindings live in binding
 crates.
@@ -52,5 +52,12 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p jmap-scene-serv
 | Absent `orientation` on create | the identity `[0, 0, 0, 1]` |
 | `SceneObject/query` `regionId` | required in every filter condition |
 | Spatial filters | region-local position through the parent chain; boundaries inclusive |
+| SceneAvatar ownership | required `caller_user_id`; the handler compares it with `userId` |
+| One avatar per region, reconnect, auto-eject, `maxAvatarsPerRegion`, `activeAvatarCount` | `SceneBackend::create_object` / `update_object`, atomically |
+| Region entry, eject permission | fail-open `may_enter_region`, `may_eject_avatar` |
+| Eject patch | `leftAt` plus optional `worldState` (§Step 4 example) |
+| SceneAvatar `id` | backend-assigned, not the userId: a user has one record per region |
+| SceneAvatar `orientation` | the SceneObject 1e-3 tolerance, stored normalized |
+| `SceneAvatar/query` `regionId` | required in every filter condition |
 | Access-based `notFound`, query visibility | bd:JMAP-38uq.6 |
 | Tests | Each assertion quotes its draft line; never the code under test |

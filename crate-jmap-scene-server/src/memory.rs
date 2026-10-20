@@ -17,6 +17,17 @@
 //! owner, its region's owner and the admins; a created object's `ownerId`
 //! is the caller.
 //!
+//! # Avatars
+//!
+//! [`SceneBackend::caller_user_id`] is the caller.
+//! [`SceneBackend::may_enter_region`] refuses an `"invite"` region to
+//! everyone but its owner, the admins and the users given access with
+//! `grant_region_access`; other policies admit everyone (there are no
+//! Spaces here). [`SceneBackend::may_eject_avatar`] allows the avatar's
+//! region owner and the admins. Each region's `activeAvatarCount` is
+//! recomputed from its avatars with `leftAt` `null` whenever an avatar
+//! enters or leaves.
+//!
 //! # Companion capabilities and bindings
 //!
 //! `advertise_capability` records a capability URI for an account, for
@@ -40,8 +51,8 @@
 //!
 //! # Query
 //!
-//! `SceneAsset/query`, `SceneRegion/query` and `SceneObject/query`
-//! evaluate the filter and sort
+//! `SceneAsset/query`, `SceneRegion/query`, `SceneObject/query` and
+//! `SceneAvatar/query` evaluate the filter and sort
 //! with the [`crate::query`] functions. `/queryChanges` is not implemented: results
 //! say `canCalculateChanges: false` and `/queryChanges` returns
 //! `cannotCalculateChanges` (RFC 8620 §5.6).
@@ -57,19 +68,21 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use jmap_scene_types::query::{
-    SceneAssetComparator, SceneAssetFilter, SceneObjectComparator, SceneObjectFilter,
-    SceneRegionComparator, SceneRegionFilter,
+    SceneAssetComparator, SceneAssetFilter, SceneAvatarComparator, SceneAvatarFilter,
+    SceneObjectComparator, SceneObjectFilter, SceneRegionComparator, SceneRegionFilter,
 };
-use jmap_scene_types::{SceneAsset, SceneAvatar, SceneCapability, SceneObject, SceneRegion};
+use jmap_scene_types::{
+    AccessPolicy, SceneAsset, SceneAvatar, SceneCapability, SceneObject, SceneRegion,
+};
 use jmap_server::{apply_patch_object, resolve_query_start};
-use jmap_types::{Id, State};
+use jmap_types::{Id, State, UTCDate};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{json, Value};
 
 use crate::query::{
-    asset_matches, compare_assets, compare_objects, compare_regions, object_matches,
-    region_local_position, region_matches,
+    asset_matches, avatar_matches, compare_assets, compare_avatars, compare_objects,
+    compare_regions, object_matches, region_local_position, region_matches,
 };
 use crate::{
     BackendChangesError, BackendQueryError, BackendSetError, BindingTarget, ChangesResult,
@@ -109,6 +122,8 @@ struct Inner {
     capabilities: HashMap<String, HashSet<String>>,
     /// `(binding property, id)` → what the id references.
     bindings: HashMap<(String, String), BindingTarget>,
+    /// `(region id, userId)` pairs granted access to an `"invite"` region.
+    grants: HashSet<(String, String)>,
 }
 
 impl Inner {
@@ -140,6 +155,106 @@ impl Inner {
             .entry(key)
             .or_default()
             .extend(changes.into_iter().map(|(id, c)| (state, id, c)));
+    }
+
+    /// Set each of `regions`' `activeAvatarCount` to its number of avatars
+    /// with `leftAt` `null`, and advance the SceneRegion state once if any
+    /// count changed.
+    fn recount(&mut self, account_id: &Id, regions: &[Id]) {
+        let mut changed = Vec::new();
+        for region in regions {
+            let active = self
+                .all::<SceneAvatar>(account_id)
+                .filter(|a| a.region_id == *region && a.left_at.is_none())
+                .count();
+            let Some(stored) = self
+                .objects_mut(SceneRegion::TYPE_NAME, account_id)
+                .get_mut(region)
+            else {
+                continue;
+            };
+            if stored.get("activeAvatarCount") != Some(&json!(active)) {
+                stored["activeAvatarCount"] = json!(active);
+                changed.push((region.clone(), Change::Updated));
+            }
+        }
+        if !changed.is_empty() {
+            self.commit(SceneRegion::TYPE_NAME, account_id, changed);
+        }
+    }
+
+    /// §Entering a Region for `avatar`, under the lock: the steps of
+    /// [`SceneBackend::create_object`] for a `SceneAvatar`. Returns the
+    /// trait's error type unboxed, as `create_object` does.
+    #[allow(clippy::result_large_err)]
+    fn enter(
+        &mut self,
+        account_id: &Id,
+        avatar: SceneAvatar,
+    ) -> Result<Value, BackendSetError<MemoryError>> {
+        let mine: Vec<SceneAvatar> = self
+            .all::<SceneAvatar>(account_id)
+            .filter(|a| a.user_id == avatar.user_id)
+            .collect();
+        let here = mine.iter().find(|a| a.region_id == avatar.region_id);
+        if let Some(current) = here.filter(|a| a.left_at.is_none()) {
+            return Err(BackendSetError::SetError(
+                SetError::new(SetErrorType::AlreadyExists)
+                    .with_description("the user already has an active avatar in this region")
+                    .with_existing_id(current.id.clone()),
+            ));
+        }
+        let max = self
+            .accounts
+            .get(account_id.as_ref())
+            .and_then(|c| c.max_avatars_per_region);
+        let present = self
+            .all::<SceneAvatar>(account_id)
+            .filter(|a| a.region_id == avatar.region_id && a.left_at.is_none())
+            .count() as u64;
+        if max.is_some_and(|max| present >= max) {
+            return Err(BackendSetError::SetError(
+                SetError::new(SetErrorType::OverQuota)
+                    .with_description("maxAvatarsPerRegion reached"),
+            ));
+        }
+
+        let mut changes = Vec::new();
+        let mut regions = vec![avatar.region_id.clone()];
+        let avatars = self.objects_mut(SceneAvatar::TYPE_NAME, account_id);
+        // "the server MUST set `leftAt` on the previous avatar before
+        // creating the new one".
+        for previous in mine.iter().filter(|a| a.left_at.is_none()) {
+            if let Some(v) = avatars.get_mut(&previous.id) {
+                v["leftAt"] = json!(avatar.joined_at);
+                changes.push((previous.id.clone(), Change::Updated));
+                regions.push(previous.region_id.clone());
+            }
+        }
+        // §Reconnecting: "update the existing SceneAvatar record rather
+        // than creating a new one".
+        let value = match here {
+            Some(departed) => {
+                let v = avatars.get_mut(&departed.id).ok_or_else(not_found)?;
+                v["leftAt"] = Value::Null;
+                v["joinedAt"] = json!(avatar.joined_at);
+                v["position"] = json!(avatar.position);
+                changes.push((departed.id.clone(), Change::Updated));
+                v.clone()
+            }
+            None => {
+                let id = Id::from(ulid::Ulid::new().to_string());
+                let mut v = serde_json::to_value(&avatar)
+                    .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
+                v["id"] = json!(id);
+                avatars.insert(id.clone(), v.clone());
+                changes.push((id, Change::Created));
+                v
+            }
+        };
+        self.commit(SceneAvatar::TYPE_NAME, account_id, changes);
+        self.recount(account_id, &regions);
+        Ok(value)
     }
 
     /// Every stored object of type `O` that decodes.
@@ -217,6 +332,14 @@ impl MemoryBackend {
         self.lock()
             .bindings
             .insert((property.to_owned(), id.to_owned()), target);
+    }
+
+    /// Give `user` access to the `"invite"` region `region_id`.
+    #[doc(hidden)]
+    pub fn grant_region_access(&self, region_id: &str, user: &str) {
+        self.lock()
+            .grants
+            .insert((region_id.to_owned(), user.to_owned()));
     }
 
     /// Store `value` as object `id` of `type_name`, owned by `owner`,
@@ -435,6 +558,15 @@ impl JmapBackend for MemoryBackend {
                 |a, b| compare_regions(a, b, &sort),
                 |r| r.id,
             )
+        } else if O::TYPE_NAME == SceneAvatar::TYPE_NAME {
+            let filter: Option<SceneAvatarFilter> = filter.map(recode).transpose()?;
+            let sort: Vec<SceneAvatarComparator> = recode(&sort)?;
+            sorted_ids(
+                inner.all::<SceneAvatar>(account_id),
+                |a| filter.as_ref().is_none_or(|f| avatar_matches(f, a)),
+                |a, b| compare_avatars(a, b, &sort),
+                |a| a.id,
+            )
         } else if O::TYPE_NAME == SceneObject::TYPE_NAME {
             let filter: Option<SceneObjectFilter> = filter.map(recode).transpose()?;
             let sort: Vec<SceneObjectComparator> = recode(&sort)?;
@@ -527,6 +659,12 @@ impl SceneBackend for MemoryBackend {
         let mut value = serde_json::to_value(&obj)
             .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
         let mut inner = self.lock();
+        if O::TYPE_NAME == SceneAvatar::TYPE_NAME {
+            let avatar: SceneAvatar = decode(&value).map_err(BackendSetError::Other)?;
+            let stored = inner.enter(account_id, avatar)?;
+            let id = Id::from(stored["id"].as_str().unwrap_or_default());
+            return Ok((id, decode(&stored).map_err(BackendSetError::Other)?));
+        }
         // "Account asset storage quota exceeded", checked under the lock.
         if O::TYPE_NAME == SceneAsset::TYPE_NAME {
             if let Some(&quota) = inner.storage_quota.get(account_id.as_ref()) {
@@ -623,6 +761,27 @@ impl SceneBackend for MemoryBackend {
                     .with_description(format!("patched {} is invalid", O::TYPE_NAME)),
             ));
         }
+        // "double-leave is invalid", re-checked under the lock.
+        let leaving = O::TYPE_NAME == SceneAvatar::TYPE_NAME && patch.contains_key("leftAt");
+        if leaving {
+            let stored = inner
+                .objects(O::TYPE_NAME, account_id)
+                .and_then(|m| m.get(id))
+                .and_then(|v| v.get("leftAt"))
+                .and_then(|l| serde_json::from_value::<Option<UTCDate>>(l.clone()).ok())
+                .flatten();
+            if stored.is_some() {
+                return Err(BackendSetError::SetError(
+                    SetError::new(SetErrorType::InvalidProperties)
+                        .with_description("the avatar has already left")
+                        .with_properties(["leftAt"]),
+                ));
+            }
+        }
+        let region = current
+            .get("regionId")
+            .and_then(Value::as_str)
+            .map(Id::from);
         inner
             .objects_mut(O::TYPE_NAME, account_id)
             .insert(id.clone(), current);
@@ -631,6 +790,9 @@ impl SceneBackend for MemoryBackend {
             account_id,
             vec![(id.clone(), Change::Updated)],
         );
+        if let Some(region) = region.filter(|_| leaving) {
+            inner.recount(account_id, &[region]);
+        }
         Ok(None)
     }
 
@@ -771,11 +933,47 @@ impl SceneBackend for MemoryBackend {
             || inner.owners.get(&object.region_id) == Some(caller))
     }
 
+    async fn caller_user_id(
+        &self,
+        caller: &String,
+        _account_id: &Id,
+    ) -> Result<String, MemoryError> {
+        Ok(caller.clone())
+    }
+
+    async fn may_enter_region(
+        &self,
+        caller: &String,
+        _account_id: &Id,
+        region: &SceneRegion,
+    ) -> Result<bool, MemoryError> {
+        // "Only users explicitly granted access may enter."
+        let inner = self.lock();
+        Ok(region.access_policy != AccessPolicy::Invite
+            || inner.admins.contains(caller)
+            || inner.owners.get(&region.id) == Some(caller)
+            || inner
+                .grants
+                .contains(&(region.id.as_ref().to_owned(), caller.clone())))
+    }
+
+    async fn may_eject_avatar(
+        &self,
+        caller: &String,
+        _account_id: &Id,
+        avatar: &SceneAvatar,
+    ) -> Result<bool, MemoryError> {
+        // "Region owners and administrators MAY eject avatars".
+        let inner = self.lock();
+        Ok(inner.admins.contains(caller) || inner.owners.get(&avatar.region_id) == Some(caller))
+    }
+
     fn supports_type<O: JmapObject>(&self, _caller: &String, _account_id: &Id) -> bool {
         [
             SceneAsset::TYPE_NAME,
             SceneRegion::TYPE_NAME,
             SceneObject::TYPE_NAME,
+            SceneAvatar::TYPE_NAME,
         ]
         .contains(&O::TYPE_NAME)
     }

@@ -38,6 +38,15 @@
 //! Validation checks and the `withinRadius` and `withinBounds` spatial
 //! filters over region-local positions.
 //!
+//! The `SceneAvatar/*` methods (draft §SceneAvatar Methods): `/set` create
+//! enters a region (one active avatar per user and region, `alreadyExists`
+//! with `existingId` for a duplicate, reconnect to a departed record,
+//! auto-eject from another region, `maxAvatarsPerRegion` and
+//! [`SceneBackend::may_enter_region`]), an update that sets `leftAt` leaves
+//! it or, through [`SceneBackend::may_eject_avatar`], ejects another user,
+//! destroy is `forbidden`, and the backend keeps `activeAvatarCount`; and
+//! `/query` with the draft's default sort and §Filter Validation.
+//!
 //! The crate depends on RFC 8620 only; Chat and VTC bindings live in
 //! separate binding crates, which implement
 //! [`SceneBackend::has_capability`] and [`SceneBackend::region_binding`].
@@ -56,6 +65,7 @@ use std::sync::Arc;
 use jmap_server::{Dispatcher, HandlerFuture, JmapHandler};
 
 pub mod asset;
+pub mod avatar;
 pub mod backend;
 mod helpers;
 /// In-memory reference implementation of [`SceneBackend`].
@@ -70,6 +80,10 @@ pub mod region;
 pub use asset::{
     handle_scene_asset_changes, handle_scene_asset_get, handle_scene_asset_query,
     handle_scene_asset_query_changes, handle_scene_asset_set, GLTF_BINARY,
+};
+pub use avatar::{
+    handle_scene_avatar_changes, handle_scene_avatar_get, handle_scene_avatar_query,
+    handle_scene_avatar_query_changes, handle_scene_avatar_set,
 };
 pub use backend::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, BindingTarget,
@@ -92,12 +106,12 @@ pub use jmap_scene_types::JMAP_SCENE_URI;
 /// re-exported for the registration macro.
 pub use jmap_server::ClosureHandler;
 
-/// Register the `SceneAsset/*`, `SceneRegion/*` and `SceneObject/*`
-/// method handlers with `dispatcher`.
+/// Register the `SceneAsset/*`, `SceneRegion/*`, `SceneObject/*` and
+/// `SceneAvatar/*` method handlers with `dispatcher`.
 ///
 /// After this call the dispatcher handles `/get`, `/changes`, `/set`,
-/// `/query` and `/queryChanges` of `SceneAsset`, `SceneRegion` and
-/// `SceneObject`. [`Dispatcher::register`] silently
+/// `/query` and `/queryChanges` of `SceneAsset`, `SceneRegion`,
+/// `SceneObject` and `SceneAvatar`. [`Dispatcher::register`] silently
 /// replaces an existing handler of the same name, so register overrides
 /// afterwards.
 ///
@@ -140,5 +154,13 @@ where
     reg!(
         "SceneObject/queryChanges",
         handle_scene_object_query_changes
+    );
+    reg!("SceneAvatar/get", handle_scene_avatar_get);
+    reg!("SceneAvatar/changes", handle_scene_avatar_changes);
+    reg!("SceneAvatar/set", handle_scene_avatar_set);
+    reg!("SceneAvatar/query", handle_scene_avatar_query);
+    reg!(
+        "SceneAvatar/queryChanges",
+        handle_scene_avatar_query_changes
     );
 }

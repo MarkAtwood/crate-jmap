@@ -14,6 +14,22 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-server**: `SceneAvatar/get`, `/changes`, `/set`, `/query`
+  and `/queryChanges` handlers, registered by `register_scene_handlers`:
+  create enters a region (`notFound` for a missing region, `forbidden`
+  from `may_enter_region` or for another user's `userId`, spawn
+  `position`/`orientation` unless supplied); `alreadyExists` with
+  `existingId` for a second active avatar in the region, reconnect to a
+  departed record, auto-eject from another region, `overQuota` at
+  `maxAvatarsPerRegion` and `activeAvatarCount` upkeep, all atomic in the
+  backend; own-avatar updates, leave by `leftAt` (`invalidProperties`
+  on a second leave), eject through `may_eject_avatar`, `forbidden`
+  destroy, and the `joinedAt`-ascending default sort with the §Filter
+  Validation `invalidArguments` checks. `SceneBackend` gains the required
+  `caller_user_id`, the fail-open `may_enter_region` and
+  `may_eject_avatar`, and `avatar_display_name` (default: the userId);
+  `query` gains `avatar_matches` and `compare_avatars`.
+
 - **jmap-scene-types**: new crate for draft-atwood-jmap-scene-00 —
   `JMAP_SCENE_URI` (`urn:ietf:params:jmap:scene`) and `SceneCapability`,
   the `Position`, `Orientation` and `Scale` coordinate formats with

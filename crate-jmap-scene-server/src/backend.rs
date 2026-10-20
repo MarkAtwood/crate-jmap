@@ -16,7 +16,7 @@ pub use jmap_server::{
     SetObject,
 };
 
-use jmap_scene_types::{SceneAsset, SceneCapability, SceneObject, SceneRegion};
+use jmap_scene_types::{SceneAsset, SceneAvatar, SceneCapability, SceneObject, SceneRegion};
 
 /// What [`SceneBackend::region_binding`] knows about the object a
 /// SceneRegion binding property references.
@@ -112,6 +112,29 @@ pub trait SceneBackend: JmapBackend {
     /// return `overQuota` when `maxObjectsPerRegion` would be exceeded"),
     /// counted atomically with the insert.
     ///
+    /// For a `SceneAvatar` (§Entering a Region) the handler has filled
+    /// `userId` from [`Self::caller_user_id`], `position`, `orientation`,
+    /// `joinedAt` (now) and `leftAt` (`null`). In one atomic step the
+    /// backend:
+    ///
+    /// 1. refuses with `alreadyExists` and `existingId` naming the record
+    ///    when the user already has an avatar with `leftAt` `null` in the
+    ///    region ("the server MUST NOT create a duplicate and MUST return
+    ///    an `alreadyExists` SetError ... with `existingId` set to the id
+    ///    of the current avatar record");
+    /// 2. refuses with `overQuota` when the region already holds
+    ///    `maxAvatarsPerRegion` avatars with `leftAt` `null`;
+    /// 3. sets `leftAt` to the new `joinedAt` on the user's active avatar
+    ///    in any other region ("the server MUST set `leftAt` on the
+    ///    previous avatar before creating the new one");
+    /// 4. when the user has a departed avatar in the region, updates that
+    ///    record instead of storing a new one ("clear `leftAt` to `null`,
+    ///    update `joinedAt` to the current time, and set `position`"), and
+    ///    returns its id;
+    /// 5. keeps each affected region's `activeAvatarCount` ("Number of
+    ///    avatars currently present in the region") equal to its avatars
+    ///    with `leftAt` `null`, advancing the SceneRegion state.
+    ///
     /// Returns the assigned id and the stored object. `create_id` is the
     /// client's creation id. Error mapping, state-counter and change-log
     /// rules are those of the canonical `jmap-mail-server` `create_object`:
@@ -132,6 +155,13 @@ pub trait SceneBackend: JmapBackend {
     /// `updated` change. Unknown `id` is `notFound`; a malformed patch is
     /// `invalidPatch`; a result that no longer decodes is
     /// `invalidProperties`. Apply the whole patch or none of it.
+    ///
+    /// For a `SceneAvatar` whose patch sets `leftAt`, the backend refuses
+    /// with `invalidProperties` naming `leftAt` when the stored `leftAt` is
+    /// already non-null ("double-leave is invalid"), and otherwise
+    /// decrements the region's `activeAvatarCount` in the same atomic step
+    /// ("The server decrements the region's `activeAvatarCount`"),
+    /// advancing the SceneRegion state.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -291,6 +321,84 @@ pub trait SceneBackend: JmapBackend {
         object: &SceneObject,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
         let _ = (caller, account_id, object);
+        async { Ok(true) }
+    }
+
+    /// The caller's userId: "The authenticated user identity string"
+    /// (draft-atwood-jmap-scene-00 §SceneAvatar `userId`).
+    ///
+    /// `SceneAvatar/set` stores it as a created avatar's `userId` ("The
+    /// server sets `userId` from the authenticated identity") and compares
+    /// it with an updated avatar's `userId` ("Users MUST NOT update other
+    /// users' avatars"). There is no default: the handlers cannot know the
+    /// identity.
+    fn caller_user_id(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<String, Self::Error>> + Send;
+
+    /// The `displayName` of a new avatar for `user_id` when the create
+    /// supplies none: "the server sets it from the user profile or
+    /// ChatContact when {{JMAP-CHAT}} is present".
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `user_id`. A Chat binding crate or a backend with user
+    /// profiles overrides it.
+    fn avatar_display_name(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        user_id: &str,
+    ) -> impl std::future::Future<Output = Result<String, Self::Error>> + Send {
+        let _ = (caller, account_id);
+        let name = user_id.to_owned();
+        async { Ok(name) }
+    }
+
+    /// `true` if the caller may enter `region`. `SceneAvatar/set` create
+    /// returns `forbidden` when this is `false`: "`accessPolicy` is
+    /// `\"invite\"` and the caller has not been granted access, or
+    /// `\"space\"` and the caller is not a member of the bound Space", and
+    /// "User is banned or ejected with a cooldown period still active"
+    /// (draft-atwood-jmap-scene-00 §Create Errors).
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)` (fail-open, bd:JMAP-bghk); production backends
+    /// override it.
+    fn may_enter_region(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        region: &SceneRegion,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, account_id, region);
+        async { Ok(true) }
+    }
+
+    /// `true` if the caller may eject `avatar`, another user's avatar:
+    /// "region owners and administrators may set `leftAt` on another
+    /// user's avatar to eject them" (draft-atwood-jmap-scene-00 §Update
+    /// Errors).
+    ///
+    /// `SceneAvatar/set` calls this only for a patch of another user's
+    /// avatar that sets `leftAt` and touches nothing but `leftAt` and
+    /// `worldState` (the §Step 4 eject example carries an `ejectReason`);
+    /// `false` is `forbidden`.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)` (fail-open, bd:JMAP-bghk); production backends
+    /// override it.
+    fn may_eject_avatar(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        avatar: &SceneAvatar,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, account_id, avatar);
         async { Ok(true) }
     }
 

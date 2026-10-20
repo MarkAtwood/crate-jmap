@@ -1,7 +1,7 @@
 # jmap-scene-server
 
-Method handlers for the `SceneAsset`, `SceneRegion` and `SceneObject`
-data types of the
+Method handlers for the `SceneAsset`, `SceneRegion`, `SceneObject` and
+`SceneAvatar` data types of the
 JMAP Scene extension (draft-atwood-jmap-scene-00), backend-agnostic, for a
 `jmap-server` `Dispatcher`. You supply storage through the `SceneBackend`
 trait.
@@ -20,21 +20,25 @@ trait.
 | `handle_scene_object_get`, `handle_scene_object_changes` | §SceneObject/get, §SceneObject/changes (RFC 8620 §5.1, §5.2) |
 | `handle_scene_object_set` | §SceneObject/set: create, update, recursive destroy and §SetError Conditions |
 | `handle_scene_object_query`, `handle_scene_object_query_changes` | §SceneObject/query, §Spatial Filters, §SceneObject/queryChanges |
+| `handle_scene_avatar_get`, `handle_scene_avatar_changes` | §SceneAvatar/get, §SceneAvatar/changes (RFC 8620 §5.1, §5.2) |
+| `handle_scene_avatar_set` | §SceneAvatar/set: enter, update, leave, eject, reconnect and §SetError Conditions |
+| `handle_scene_avatar_query`, `handle_scene_avatar_query_changes` | §SceneAvatar/query, §SceneAvatar/queryChanges |
 | `query::asset_matches`, `query::compare_assets` | §SceneAsset/query filter and sort |
 | `query::region_matches`, `query::compare_regions` | §SceneRegion/query filter and sort |
 | `query::object_matches`, `query::compare_objects`, `query::region_local_position` | §SceneObject/query filter, spatial filters and sort |
+| `query::avatar_matches`, `query::compare_avatars` | §SceneAvatar/query filter, spatial filters and sort |
 | `SceneBackend` | storage, capability objects, blob sizes, permission and binding hooks |
 | `BindingTarget` | what a `chatId`/`spaceId`/`channelId`/`activeCallId` references |
 | `memory::MemoryBackend` (`memory` feature) | in-memory reference backend |
-| `register_scene_handlers` | wires the `SceneAsset/*`, `SceneRegion/*` and `SceneObject/*` methods |
+| `register_scene_handlers` | wires the `SceneAsset/*`, `SceneRegion/*`, `SceneObject/*` and `SceneAvatar/*` methods |
 
 ## What it's for
 
 A JMAP server that offers spatial scenes wires these handlers next to its
 other extensions. The crate depends on `jmap-types`, `jmap-server` and
-`jmap-scene-types` only. SceneAvatar methods are not here yet. Chat and VTC lookups for the region bindings belong to binding
-crates, which implement `SceneBackend::has_capability` and
-`SceneBackend::region_binding`.
+`jmap-scene-types` only. Chat and VTC lookups for the region bindings
+belong to binding crates, which implement `SceneBackend::has_capability`
+and `SceneBackend::region_binding`.
 
 ## How to use
 
@@ -109,6 +113,30 @@ unknown `physicsMode`, a `withinRadius.radius` <= 0 or a `withinBounds`
 a child's parent-relative `position` is mapped through its ancestors'
 transforms, and the boundary is inclusive.
 
+A SceneAvatar create enters a region. It needs a `regionId` naming an
+existing region (else `notFound`) and `may_enter_region` (else
+`forbidden`), and must not carry `id`, `joinedAt`, `leftAt` or another
+user's `userId` (`forbidden`). The handler sets `userId` from
+`caller_user_id`, `displayName` from `avatar_display_name` when absent,
+and `position` and `orientation` from the region's spawn values when
+absent. A supplied `position` must be finite, an `orientation` within
+1e-3 of unit length (stored normalized), and `visualRef` and
+`visualType` come together. In one atomic step `create_object` refuses a
+second active avatar of the user in the region with `alreadyExists` and
+`existingId`, applies `maxAvatarsPerRegion` to active avatars, sets
+`leftAt` on the user's active avatar in any other region, reuses a
+departed avatar's record in the region (reconnect), and keeps every
+affected region's `activeAvatarCount`. The `created` entry is the stored
+avatar. An update of the caller's own avatar may change anything but
+`id`, `regionId`, `userId` and `joinedAt`; setting `leftAt` leaves the
+region and a second leave is `invalidProperties` naming `leftAt`. On
+another user's avatar only an eject (`leftAt`, optionally `worldState`)
+is allowed, and only when `may_eject_avatar` agrees; anything else is
+`forbidden`. Destroy is always `forbidden`. `/query` defaults to
+`joinedAt` ascending and returns `invalidArguments` without `regionId` in
+every condition, for a `withinRadius.radius` <= 0 or a `withinBounds`
+`max` below `min`.
+
 ## Gotchas
 
 - `SceneBackend::may_modify_asset` defaults to `Ok(true)` (fail-open,
@@ -119,6 +147,17 @@ transforms, and the boundary is inclusive.
   accepted, until you override them.
 - `may_modify_object` fails open too: any caller may move or delete any
   SceneObject until you override it.
+- `may_enter_region` and `may_eject_avatar` fail open too: anyone may
+  enter an `invite` or `space` region and eject anyone, until you
+  override them.
+- `caller_user_id` has no default. Avatar ownership is a spec rule, not
+  a policy hook.
+- Avatar ids are backend-assigned, not the userId the draft suggests
+  ("SHOULD use the userId as the id within a given region"): one user
+  can have avatar records in several regions of an account, and JMAP ids
+  are unique per type per account.
+- An entry `position` supplied on reconnect is kept rather than reset to
+  `spawnPosition`, as on a first entry.
 - Re-parenting an object reads every SceneObject of the account to find
   the moved subtree's height. A backend with a `parentId` index can
   register a faster `SceneObject/set`.
@@ -137,7 +176,8 @@ transforms, and the boundary is inclusive.
   draft's example. The `name` sort ignores `collation` and puts assets
   without a name last.
 - The `MemoryBackend` caller context is the caller's userId `String`; the
-  creator owns an asset. Its `/queryChanges` always returns
+  creator owns an asset. `grant_region_access` admits a user to an
+  `invite` region. Its `/queryChanges` always returns
   `cannotCalculateChanges`.
 
 ## References

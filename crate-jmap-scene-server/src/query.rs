@@ -1,6 +1,7 @@
-//! `/query` filter evaluation and ordering for SceneAsset, SceneRegion and
-//! SceneObject (draft-atwood-jmap-scene-00 §SceneAsset/query,
-//! §SceneRegion/query, §SceneObject/query).
+//! `/query` filter evaluation and ordering for SceneAsset, SceneRegion,
+//! SceneObject and SceneAvatar (draft-atwood-jmap-scene-00
+//! §SceneAsset/query, §SceneRegion/query, §SceneObject/query,
+//! §SceneAvatar/query).
 //!
 //! Pure functions a backend's `query_objects` can apply to its stored
 //! objects; the reference `MemoryBackend` uses them.
@@ -9,10 +10,11 @@ use std::cmp::Ordering;
 
 use jmap_scene_types::query::{
     Filter, Operator, SceneAssetComparator, SceneAssetFilter, SceneAssetSortProperty,
-    SceneObjectComparator, SceneObjectFilter, SceneObjectSortProperty, SceneRegionComparator,
-    SceneRegionFilter, SceneRegionSortProperty,
+    SceneAvatarComparator, SceneAvatarFilter, SceneAvatarSortProperty, SceneObjectComparator,
+    SceneObjectFilter, SceneObjectSortProperty, SceneRegionComparator, SceneRegionFilter,
+    SceneRegionSortProperty, WithinBounds, WithinRadius,
 };
-use jmap_scene_types::{Position, SceneAsset, SceneObject, SceneRegion};
+use jmap_scene_types::{Position, SceneAsset, SceneAvatar, SceneObject, SceneRegion};
 use jmap_types::Id;
 
 use crate::helpers::utc_key;
@@ -254,14 +256,76 @@ pub fn object_matches(
             && c.parent_id
                 .as_ref()
                 .is_none_or(|want| object.parent_id.as_ref() == want.as_ref())
-            && c.within_radius.as_ref().is_none_or(|w| {
-                let d2: f64 = (0..3).map(|i| (position[i] - w.center[i]).powi(2)).sum();
-                d2 <= w.radius * w.radius
-            })
+            && c.within_radius
+                .as_ref()
+                .is_none_or(|w| in_radius(w, position))
             && c.within_bounds
                 .as_ref()
-                .is_none_or(|b| (0..3).all(|i| b.min[i] <= position[i] && position[i] <= b.max[i]))
+                .is_none_or(|b| in_bounds(b, position))
     })
+}
+
+/// `withinRadius`, boundary included.
+fn in_radius(w: &WithinRadius, p: Position) -> bool {
+    let d2: f64 = (0..3).map(|i| (p[i] - w.center[i]).powi(2)).sum();
+    d2 <= w.radius * w.radius
+}
+
+/// `withinBounds`, boundary included.
+fn in_bounds(b: &WithinBounds, p: Position) -> bool {
+    (0..3).all(|i| b.min[i] <= p[i] && p[i] <= b.max[i])
+}
+
+/// `true` if `avatar` matches `filter` (§SceneAvatar/query): "All filter
+/// properties are combined with logical AND."
+///
+/// `isActive` `true` selects "avatars with `leftAt == null`", `false`
+/// "avatars who have left". `withinRadius` and `withinBounds` test the
+/// avatar's "last known position", boundary included; an avatar has no
+/// parent, so its position is region-local.
+pub fn avatar_matches(filter: &SceneAvatarFilter, avatar: &SceneAvatar) -> bool {
+    filter_matches(filter, &|c| {
+        c.region_id.as_ref().is_none_or(|r| *r == avatar.region_id)
+            && c.user_id.as_ref().is_none_or(|u| *u == avatar.user_id)
+            && c.is_active
+                .is_none_or(|want| avatar.left_at.is_none() == want)
+            && c.within_radius
+                .as_ref()
+                .is_none_or(|w| in_radius(w, avatar.position))
+            && c.within_bounds
+                .as_ref()
+                .is_none_or(|b| in_bounds(b, avatar.position))
+    })
+}
+
+/// Order two avatars by `sort` ("Sort properties: `joinedAt`,
+/// `displayName`"; RFC 8620 §5.5: later comparators break ties of earlier
+/// ones), then by `id` so the order is total.
+///
+/// ponytail: `displayName` compares by Unicode code point and ignores the
+/// comparator's `collation`, as [`compare_assets`] does.
+pub fn compare_avatars(
+    a: &SceneAvatar,
+    b: &SceneAvatar,
+    sort: &[SceneAvatarComparator],
+) -> Ordering {
+    sort.iter()
+        .map(|c| {
+            let ord = match c.property {
+                SceneAvatarSortProperty::JoinedAt => {
+                    utc_key(&a.joined_at).cmp(utc_key(&b.joined_at))
+                }
+                SceneAvatarSortProperty::DisplayName => a.display_name.cmp(&b.display_name),
+                _ => Ordering::Equal,
+            };
+            if c.is_ascending {
+                ord
+            } else {
+                ord.reverse()
+            }
+        })
+        .find(|o| o.is_ne())
+        .unwrap_or_else(|| a.id.as_ref().cmp(b.id.as_ref()))
 }
 
 /// Order two objects by `sort` ("Sort properties: `createdAt`, `name`";

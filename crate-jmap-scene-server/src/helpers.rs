@@ -33,6 +33,95 @@ pub(crate) fn unit_quaternion(v: &Value) -> bool {
     })
 }
 
+/// ponytail: "Servers MAY reject quaternions whose magnitude deviates from
+/// 1.0 by more than a deployment-defined epsilon"; for SceneObject and
+/// SceneAvatar `orientation` this one is 1e-3, which accepts the draft's
+/// own three-decimal examples (L1461 `[0, 0.707, 0, 0.707]`, magnitude
+/// 0.99985; L1488 `[0, 0.383, 0, 0.924]`, 1.00023). Accepted values are
+/// normalized (see [`normalized_orientation`]).
+const ORIENTATION_EPSILON: f64 = 1e-3;
+
+/// `v` is an array of exactly 3 finite Numbers: "Position components MUST
+/// be finite Numbers", "Scale factors must be finite."
+pub(crate) fn finite3(v: &Value) -> bool {
+    numbers(v, 3).is_some_and(|n| n.iter().all(|c| c.is_finite()))
+}
+
+/// The magnitude of `v` if it is a quaternion: 4 Numbers.
+fn magnitude(v: &Value) -> Option<f64> {
+    numbers(v, 4).map(|q| q.iter().map(|c| c * c).sum::<f64>().sqrt())
+}
+
+/// "`orientation` is not a unit quaternion | Magnitude must be within
+/// epsilon of 1.0. NaN or Infinity components are rejected."
+pub(crate) fn orientation_ok(v: &Value) -> bool {
+    magnitude(v).is_some_and(|n| (n - 1.0).abs() <= ORIENTATION_EPSILON)
+}
+
+/// The unit-length form of the accepted `orientation` in `m` when it
+/// differs from the stored value: "If the server does not reject the
+/// value, it MUST normalize the quaternion to unit length before storage."
+pub(crate) fn normalized_orientation(m: &Map<String, Value>) -> Option<Value> {
+    let v = m.get("orientation")?;
+    let n = magnitude(v)?;
+    if n == 1.0 {
+        return None;
+    }
+    let q: Vec<f64> = numbers(v, 4)?.iter().map(|c| c / n).collect();
+    Some(json!(q))
+}
+
+/// The `/query` §Filter Validation shared by SceneObject and SceneAvatar,
+/// in every condition of a FilterOperator tree, then `condition` on each
+/// condition.
+///
+/// ponytail: "If `regionId` is absent, the server MUST return
+/// `invalidArguments`" is applied to every condition, and an operator
+/// with no conditions counts as absent, so no filter tree can reach past
+/// the regions it names. Also `invalidArguments` for "`withinRadius.radius`
+/// is zero or negative" and for a `withinBounds.max` component below `min`
+/// (§Spatial Filters: "Each component MUST be greater than or equal to the
+/// corresponding component of `min`").
+pub(crate) fn check_region_filter(
+    filter: &Value,
+    condition: &dyn Fn(&Value) -> Result<(), JmapError>,
+) -> Result<(), JmapError> {
+    if let Some(conditions) = filter.get("conditions") {
+        return match conditions.as_array() {
+            Some(c) if !c.is_empty() => {
+                c.iter().try_for_each(|f| check_region_filter(f, condition))
+            }
+            _ => Err(JmapError::invalid_arguments(
+                "filter.regionId is required in every condition",
+            )),
+        };
+    }
+    if filter.get("regionId").is_none_or(Value::is_null) {
+        return Err(JmapError::invalid_arguments("filter.regionId is required"));
+    }
+    if let Some(r) = filter
+        .pointer("/withinRadius/radius")
+        .and_then(Value::as_f64)
+    {
+        if r <= 0.0 {
+            return Err(JmapError::invalid_arguments(
+                "filter withinRadius.radius must be positive",
+            ));
+        }
+    }
+    if let Some(b) = filter.get("withinBounds") {
+        let corner = |k| b.get(k).and_then(|c| numbers(c, 3));
+        if let (Some(min), Some(max)) = (corner("min"), corner("max")) {
+            if min.iter().zip(&max).any(|(lo, hi)| hi < lo) {
+                return Err(JmapError::invalid_arguments(
+                    "filter withinBounds.max must be >= withinBounds.min on every axis",
+                ));
+            }
+        }
+    }
+    condition(filter)
+}
+
 /// Serialize a [`SetError`] for a `notCreated` / `notUpdated` /
 /// `notDestroyed` map.
 ///
