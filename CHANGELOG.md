@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-types**: draft-atwood-jmap-chat-calendars-00 types:
+  `JMAP_CHAT_CALENDARS_URI`, `ChatCalendarsCapability` (`mayBindCalendar`,
+  `supportsIcsParsing`, `supportsAvailabilityLookup`), `Space::calendar_id`
+  reading the `calendarId` extension (`SPACE_CALENDAR_ID_PROPERTY`) from
+  `Space::extra`, and the MessageAction metadata shapes
+  `CalendarEventMetadata`, `AvailabilityMetadata` and `LookupWindow`.
 - **jmap-chat-filenode-server**: new crate, the Chat binding for
   `jmap-filenode-server`. `check_root_create`, called before a FileNode
   insert, refuses a Space file tree root without `spaceId`

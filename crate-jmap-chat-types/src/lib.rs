@@ -105,6 +105,7 @@
 #![forbid(unsafe_code)]
 
 pub mod backend;
+pub mod calendars;
 pub mod capability;
 pub mod chat;
 pub mod clearable;
@@ -132,10 +133,14 @@ pub use backend::{
     PresenceStatusProperty, ReadPositionProperty, SpaceBanProperty, SpaceInviteProperty,
     SpaceProperty,
 };
+pub use calendars::{
+    AvailabilityMetadata, CalendarEventMetadata, LookupWindow, SPACE_CALENDAR_ID_PROPERTY,
+};
 pub use capability::{
-    may_advertise_chat_did, ChatCapability, ChatCapabilityRole, ChatFilenodeCapability,
-    ChatPushCapability, CHAT_FILENODE_SPACE_ROLE, JMAP_CHAT_DID_URI, JMAP_CHAT_FILENODE_URI,
-    JMAP_CHAT_PUSH_URI, JMAP_CHAT_URI, JMAP_CHAT_WEBSOCKET_URI, MANDATORY_DID_METHODS,
+    may_advertise_chat_did, ChatCalendarsCapability, ChatCapability, ChatCapabilityRole,
+    ChatFilenodeCapability, ChatPushCapability, CHAT_FILENODE_SPACE_ROLE, JMAP_CHAT_CALENDARS_URI,
+    JMAP_CHAT_DID_URI, JMAP_CHAT_FILENODE_URI, JMAP_CHAT_PUSH_URI, JMAP_CHAT_URI,
+    JMAP_CHAT_WEBSOCKET_URI, MANDATORY_DID_METHODS,
 };
 pub use chat::{ChannelPermission, Chat, ChatKind, ChatMember, ChatMemberRole};
 pub use clearable::Clearable;
