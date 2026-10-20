@@ -83,9 +83,9 @@ crates, never in a support crate.
 | `crate-jmap-mail-client/` | `jmap-mail-client` | RFC 8621 client methods (greenfield) |
 | `crate-jmap-chat-server/` | `jmap-chat-server` | JMAP Chat method handlers (greenfield) |
 | `crate-jmap-chat-client/` | `jmap-chat-client` | JMAP Chat client methods (greenfield) |
-| `crate-jmap-metadata-types/` | `jmap-metadata-types` | draft-ietf-jmap-metadata data types — `Metadata`, `Annotation`, `ImapMetadata`, `WebDavMetadata`, `MetadataFilterCondition`, `MetadataCapability`. No async |
-| `crate-jmap-metadata-server/` | `jmap-metadata-server` | draft-ietf-jmap-metadata method handlers — `Metadata/get/changes/set/query/queryChanges` + `MetadataBackend` trait |
-| `crate-jmap-metadata-client/` | `jmap-metadata-client` | draft-ietf-jmap-metadata client methods — `Metadata/get/changes/set/query/queryChanges` |
+| `crate-jmap-metadata-types/` | `jmap-metadata-types` | draft-ietf-jmap-metadata-02 data types — `DataTypeMetadataInfo`, `MetadataTextMatch`, namespace validation. No async |
+| `crate-jmap-metadata-server/` | `jmap-metadata-server` | draft-ietf-jmap-metadata-02 server helpers — depth/namespace validation, `metadata*` filter predicates, `/changes` classification. No handlers, no backend trait |
+| `crate-jmap-metadata-client/` | `jmap-metadata-client` | draft-ietf-jmap-metadata-02 client helpers — property constants, `metadata*` filter-condition builders, `/changes` helpers. No method bindings |
 | `crate-jmap-cid-types/` | `jmap-cid-types` | draft-atwood-jmap-cid-00 data types — `CidCapability` (`urn:ietf:params:jmap:cid`) and `Sha256` typed wire shape. Blob/FileNode integrity, no async |
 
 ## Dependency Tree
@@ -113,11 +113,13 @@ jmap-jscontact-types   — RFC 9553 JSContact typed sub-types: Name, EmailAddres
                          Address, Organization, Anniversary, etc. No JMAP dep, no async.
     └── jmap-contacts-types    — consumes + re-exports as `jscontact` module alias.
 
-jmap-metadata-types    — draft-ietf-jmap-metadata data types: Metadata, Annotation,
-                         ImapMetadata, WebDavMetadata, MetadataFilterCondition,
-                         MetadataCapability. No async. Depends on jmap-types only.
-    ├── jmap-metadata-server   — Metadata/* method handlers, MetadataBackend trait.
-    └── jmap-metadata-client   — Metadata/* client method bindings.
+jmap-metadata-types    — draft-ietf-jmap-metadata-02 data types: DataTypeMetadataInfo,
+                         MetadataTextMatch, namespace validation. No async.
+                         Depends on serde and serde_json only.
+    ├── jmap-metadata-server   — pure server helpers (validation, filter predicates,
+    │                            /changes classification). No handlers.
+    └── jmap-metadata-client   — pure client helpers (property constants, filter-
+                                 condition builders, /changes helpers).
 
 jmap-cid-types         — draft-atwood-jmap-cid-00 data types: CidCapability
                          (urn:ietf:params:jmap:cid) plus the Sha256 typed wire
@@ -419,13 +421,15 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   Vendors who need filterable extras have two paths:
 
   - **IETF-track** — use `draft-ietf-jmap-metadata` (currently
-    draft-01, capability URI `urn:ietf:params:jmap:metadata`). It
-    defines a companion `Annotation` object keyed by
-    `(relatedType, relatedId)`, with schema discovery via the
-    capability's `dataTypes` / `metadataTypes` / `maxDepth` properties
-    and a `Metadata/query` filter (currently `textMatch` over vendor
-    string properties — coarse but standardised). Workspace
-    implementation tracker: `JMAP-06zp`.
+    draft-02, capability URI `urn:ietf:params:jmap:metadata`). It
+    adds namespace-keyed `metadata` / `privateMetadata` properties to
+    each opted-in data type, with schema discovery via the
+    capability's `dataTypes` (`namespaces` /
+    `supportsVendorNamespaces` / `supportsPrivate` / `maxDepth`,
+    §1.2.1) and `metadataExists` / `metadataTextContains` /
+    `metadataTextEquals` conditions on the type's own `/query`
+    filter (§3.5 — coarse but standardised). Workspace
+    implementation tracker: `JMAP-ua37`.
 
   - **Pre-IETF escape** — vendors who need typed filter construction
     against custom server fields RIGHT NOW (before the metadata draft
@@ -635,8 +639,8 @@ landed in bd:JMAP-ga0q.1.
   `None` from `principal_id` is signalling "this deployment does
   not honor identity-dependent JMAP semantics". Such a backend
   CANNOT correctly implement calendar ACLs, sharing/myRights,
-  per-user `$seen` on shared mailboxes, or metadata `isPrivate`
-  visibility scoping. Test fixtures and single-user dev servers use
+  per-user `$seen` on shared mailboxes, or per-user metadata
+  `privateMetadata` filtering. Test fixtures and single-user dev servers use
   the default `None`-returning impl and are fine; multi-user
   production deployments MUST override.
 - **Chat gates do not depend on identity.** Chat permission and
@@ -650,7 +654,7 @@ enforcement); since bd:JMAP-yt1w.33 those gates no longer consult
 `principal_id`. Future consumers: jmap-mail-server (RFC 8621 `$seen`
 on shared mailboxes), jmap-calendars-server (calendar ACLs),
 jmap-sharing-server (RFC 9670 myRights), jmap-metadata-server
-(isPrivate visibility scoping).
+(per-user privateMetadata filtering).
 
 ## Backend caps and limits
 

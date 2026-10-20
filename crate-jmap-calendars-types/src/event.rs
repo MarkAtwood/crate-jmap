@@ -380,9 +380,12 @@ fn some_false() -> Option<bool> {
 /// **IETF-track path.** Vendors who need both capability-level declaration
 /// and filterability for custom fields should use
 /// `draft-ietf-jmap-metadata` (capability URI
-/// `urn:ietf:params:jmap:metadata`), which defines a filterable
-/// `Metadata` / `Annotation` companion object. Implemented in `jmap-metadata-types`,
-/// `jmap-metadata-server`, and `jmap-metadata-client` (bd JMAP-06zp).
+/// `urn:ietf:params:jmap:metadata`), which adds namespace-keyed
+/// `metadata` / `privateMetadata` properties to each opted-in data type,
+/// filterable through `metadata*` conditions on that type's own `/query`
+/// (draft-ietf-jmap-metadata-02 §2, §3.5). Helpers live in
+/// `jmap-metadata-types`, `jmap-metadata-server`, and
+/// `jmap-metadata-client`.
 ///
 /// **Pre-IETF escape.** Vendors who cannot wait for the metadata draft can
 /// either escape the filter tree to `serde_json::Value` or fork the
@@ -460,7 +463,7 @@ pub type CalendarEventFilter = jmap_types::query::Filter<CalendarEventFilterCond
 /// policy: it carries no flatten-extras `extra` field, and its `property`
 /// field is consumed by backend dispatch to determine sort order. See
 /// [`CalendarEventFilterCondition`] for the rationale and for the two
-/// recommended paths (`draft-ietf-jmap-metadata`, bd JMAP-06zp; or the
+/// recommended paths (`draft-ietf-jmap-metadata`, bd JMAP-ua37; or the
 /// pre-IETF sloppy-value escape).
 ///
 /// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".

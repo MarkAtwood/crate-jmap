@@ -30,7 +30,7 @@ fn capability_uri_matches_draft_02() {
 
 #[test]
 fn data_type_metadata_info_draft_02_section_6_1() {
-    // Oracle: §6.1 example — Email type with limited metadata support.
+    // Oracle: §6.1 example — the FileNode entry (registered namespace only).
     let json = r#"{
         "namespaces": ["photography"],
         "supportsVendorNamespaces": false,

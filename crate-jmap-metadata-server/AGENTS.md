@@ -3,11 +3,13 @@
 ## 🧬 Sibling of the canonical jmap-mail-server — mirror its shape
 
 This crate is a **sibling under the canonical `jmap-mail-server`
-extension-server template**. Module layout, `Backend` trait shape,
-handler-registration pattern, `/set` boilerplate, error-mapping
-helpers, and test-harness layout must mirror `jmap-mail-server`.
-Differences are *only* the spec content (draft-ietf-jmap-metadata-01
-here; RFC 8621 in mail-server).
+extension-server template**. Doc-comment style, lint settings, error
+conventions, and test layout must mirror `jmap-mail-server`.
+Differences are *only* the spec content (draft-ietf-jmap-metadata-02
+here; RFC 8621 in mail-server). draft-02 defines no methods of its
+own, so this crate has no `Backend` trait, handler registration,
+`/set` boilerplate, or `MemoryBackend`; that is a spec-mandated
+difference, not drift.
 
 **The propagation rule** (workspace AGENTS.md "Canonical Templates"):
 
@@ -24,73 +26,48 @@ This project uses **bd** (beads) for issue tracking. Run `bd prime` for full wor
 
 ## Before Starting Any Work
 
-1. Read `PLAN.md` — `MetadataBackend` trait, module layout, handler pattern
-2. Read the relevant draft-ietf-jmap-metadata-01 section for the method you are implementing
-3. Cross-check the canonical sibling `~/PROJECT/crate-jmap/crate-jmap-mail-server/` for the handler/backend pattern to follow
-4. Run `bd ready` — check for open issues before creating new ones
+1. Read `PLAN.md` — module layout, helper contracts
+2. Read the relevant draft-ietf-jmap-metadata-02 section for the helper you are changing
+3. Run `bd ready` — check for open issues before creating new ones
 
 ## What This Is
 
-JMAP Metadata extension method handlers (draft-ietf-jmap-metadata-01).
-Plugs into `jmap-server`'s `Dispatcher` via `register_metadata_handlers`.
-Defines `MetadataBackend` trait; consumers provide the storage impl. A
-reference in-memory implementation (`memory::MemoryBackend`) is gated
-behind the `memory` feature for tests and demos.
+Pure, stateless helpers for draft-ietf-jmap-metadata-02: depth and
+namespace validation (§2.1, §3.2), `/changes` classification (§3.3),
+and `metadata*` filter predicates (§3.5). Extension servers call them
+from their own `Foo/get`, `Foo/set`, `Foo/changes`, and `Foo/query`
+handlers (integration tracked by bd JMAP-s4kp).
 
 ## Crate Family Context
 
 ```
-jmap-types
-    ├── jmap-server            dispatcher
-    └── jmap-metadata-types    data types
-            └── jmap-metadata-server  ← this crate (sibling of canonical jmap-mail-server)
+jmap-metadata-types    data types
+    └── jmap-metadata-server  ← this crate (sibling of canonical jmap-mail-server)
 ```
 
 ## Spec Reference
 
 ```
-~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-metadata-01.txt   ← normative
-~/PROJECT/jmap-chat-spec/references/rfc8620.txt                       ← base protocol
+https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-02   ← normative
+~/PROJECT/jmap-chat-spec/references/rfc8620.txt                     ← base protocol
 ```
 
-Before implementing any method, read its section in the relevant
-draft. Method names, error conditions, and response shapes must
-match exactly.
+Before changing a helper, read its section in the draft. Semantics
+(depth counting, namespace support, match rules) must match exactly.
 
-## Reference Pattern
-
-Study `~/PROJECT/crate-jmap/crate-jmap-mail-server/` (the canonical
-extension-server template) for:
-- How the `Backend` trait is structured (analog of `MetadataBackend`)
-- How handlers are registered with `Dispatcher`
-- How `MemoryBackend` serves as both harness and example
-
-Do NOT copy mail-specific types or logic.
-
-## Permission enforcement: backend canonical
+## Permission enforcement: caller canonical
 
 Per the workspace AGENTS.md "Caller identity (foundation seam)"
-section, **backends are canonical for permission enforcement**.
-Handlers in this crate do NO permission checking. Defense-in-depth
-handler-side pre-checks are allowed but the backend MUST re-verify
-atomically with the mutation. A handler that "trusts" a handler-side
-check and skips the backend re-check is a bug.
+section, **backends are canonical for permission enforcement**. The
+helpers here take no caller context and do NO permission checking.
 
-Caller identity is read via the foundation seam
-`JmapBackend::principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id>`.
-Backends that have not wired identity (test fixtures, single-user
-dev servers) return `None`; such backends CANNOT correctly implement
-draft-ietf-jmap-metadata-01 `isPrivate` visibility scoping. Multi-user
-production deployments MUST override the default impl.
-
-The metadata-specific implications: the `isPrivate` flag on
-`Metadata` / `Annotation` records mandates per-caller visibility
-scoping — a private annotation must be visible only to the caller
-that authored it. Every `Metadata/get`, `Metadata/changes`,
-`Metadata/query`, and `Metadata/queryChanges` response must be
-filtered by the backend against the caller's identity. The handler
-computes the candidate query; the backend's read impl is the
-canonical point of enforcement.
+The metadata-specific implication: `privateMetadata` is per-user
+(§4). Every opted-in type's `/get`, `/changes`, `/query`, and
+`/queryChanges` must filter `privateMetadata` against the caller's
+identity, and a private write advances state only for the writer
+(§2.2). That enforcement lives in each extension server's backend,
+read via `JmapBackend::principal_id`. Backends returning `None` cannot
+implement it and must not advertise `supportsPrivate: true` (§2.2).
 
 ## Non-Interactive Shell Commands
 
@@ -116,24 +93,22 @@ Run all four before considering any work done.
 
 | Decision | Choice |
 |---|---|
-| Async | `impl Future + Send` return types on backend trait methods, no `async fn`. Crate has NO tokio runtime dep — consumers pick the runtime. `tokio` is a dev-dep only, used to run integration tests (see `bd:JMAP-tco1`). |
+| Async | None — pure synchronous functions |
+| State | None — no backend trait, no storage, no dispatcher registration |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
-| Auth | Not in handlers — caller's responsibility before `dispatch()`; permission enforcement lives in the backend per the section above |
-| Dependencies | jmap-types, jmap-metadata-types, jmap-server, serde_json |
-| Method names | Must match draft-ietf-jmap-metadata-01 exactly (`Metadata/get`, `Metadata/set`, `Metadata/query`, etc.) |
-| Test harness | `MemoryBackend` gated behind `feature = "memory"` — HashMap-based, no external deps. Not production. |
+| Auth | Not in helpers — identity-dependent rules live in the calling backend (see above) |
+| Dependencies | jmap-metadata-types, serde_json |
 
 ## Subagent Guidance
 
-- Spawn subagents for parallel handler work on independent methods
 - Never spawn two subagents editing the same file
-- Give each subagent the relevant draft section and the `MetadataBackend` trait explicitly
+- Give each subagent the relevant draft section explicitly
 - Escalate after 3 failed attempts at the same error
 
 ## Restrictions
 
 - Push freely — `git push`, no `pull --rebase` ritual (workspace AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
-- Do not add dependencies beyond: jmap-types, jmap-metadata-types, jmap-server, serde_json
-- Do not add auth logic or role checks inside handlers (backend canonical — see section above)
-- Do not implement methods not in draft-ietf-jmap-metadata-01 unless explicitly directed
+- Do not add dependencies beyond: jmap-metadata-types, serde_json
+- Do not add handlers, a backend trait, or auth logic (draft-02 has no `Metadata/*` methods)
+- Do not implement behavior not in draft-ietf-jmap-metadata-02 unless explicitly directed

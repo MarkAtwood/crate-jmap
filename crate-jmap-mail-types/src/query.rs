@@ -51,12 +51,15 @@ pub type EmailSubmissionFilter = Filter<crate::submission::EmailSubmissionFilter
 /// **IETF-track path.** Vendors who need both capability-level declaration
 /// and filterability for custom fields should use
 /// `draft-ietf-jmap-metadata` (capability URI
-/// `urn:ietf:params:jmap:metadata`), which defines a filterable
-/// `Metadata` / `Annotation` companion object keyed by
-/// `(relatedType, relatedId)` with schema discovery via the capability's
-/// `metadataTypes` / `maxDepth` properties and a `Metadata/query`
-/// `textMatch` filter. Implemented in `jmap-metadata-types`,
-/// `jmap-metadata-server`, and `jmap-metadata-client` (bd JMAP-06zp).
+/// `urn:ietf:params:jmap:metadata`), which adds namespace-keyed
+/// `metadata` / `privateMetadata` properties to each opted-in data type,
+/// with per-type schema discovery via the capability's `dataTypes`
+/// (`namespaces` / `supportsVendorNamespaces` / `maxDepth`) and
+/// `metadataExists` / `metadataTextContains` / `metadataTextEquals`
+/// conditions on that type's own `/query` filter
+/// (draft-ietf-jmap-metadata-02 §1.2.1, §3.5). Helpers live in
+/// `jmap-metadata-types`, `jmap-metadata-server`, and
+/// `jmap-metadata-client`.
 ///
 /// **Pre-IETF escape.** Vendors who cannot wait for the metadata draft can
 /// either escape the filter tree to `serde_json::Value` or fork
@@ -222,9 +225,12 @@ pub struct EmailFilterCondition {
 /// **IETF-track path.** Vendors who need both capability-level declaration
 /// and filterability for custom fields should use
 /// `draft-ietf-jmap-metadata` (capability URI
-/// `urn:ietf:params:jmap:metadata`), which defines a filterable
-/// `Metadata` / `Annotation` companion object. Implemented in `jmap-metadata-types`,
-/// `jmap-metadata-server`, and `jmap-metadata-client` (bd JMAP-06zp).
+/// `urn:ietf:params:jmap:metadata`), which adds namespace-keyed
+/// `metadata` / `privateMetadata` properties to each opted-in data type,
+/// filterable through `metadata*` conditions on that type's own `/query`
+/// (draft-ietf-jmap-metadata-02 §2, §3.5). Helpers live in
+/// `jmap-metadata-types`, `jmap-metadata-server`, and
+/// `jmap-metadata-client`.
 ///
 /// **Pre-IETF escape.** Vendors who cannot wait for the metadata draft can
 /// either escape to `serde_json::Value` or fork the per-crate
@@ -288,7 +294,7 @@ impl_string_enum!(ComparatorProperty, "an Email comparator property string",
 /// [`ComparatorProperty`] field is a closed control enum that backends
 /// must dispatch on. See [`ComparatorProperty`] and
 /// [`EmailFilterCondition`] for the rationale and for the two recommended
-/// paths (`draft-ietf-jmap-metadata`, bd JMAP-06zp; or the pre-IETF
+/// paths (`draft-ietf-jmap-metadata`, bd JMAP-ua37; or the pre-IETF
 /// sloppy-value escape).
 ///
 /// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".

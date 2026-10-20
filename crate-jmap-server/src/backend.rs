@@ -1168,8 +1168,8 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// (test fixtures, single-user dev servers). A `None`-returning
     /// backend CANNOT honor JMAP semantics that depend on caller
     /// identity — chat role-hierarchy, calendar ACLs, sharing/myRights,
-    /// per-user $seen on shared mailboxes, metadata isPrivate
-    /// visibility scoping, etc. Authentication is still the HTTP
+    /// per-user $seen on shared mailboxes, per-user metadata
+    /// `privateMetadata` filtering, etc. Authentication is still the HTTP
     /// layer's job; this method exposes the result of that
     /// authentication to the JMAP layer for in-method semantics.
     ///

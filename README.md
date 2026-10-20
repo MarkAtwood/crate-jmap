@@ -144,9 +144,9 @@ Use it to carry per-request auth identity, tenant ID, or rate-limit tokens.
 
 | Crate | Spec | Role |
 |---|---|---|
-| `jmap-metadata-types` | [draft-ietf-jmap-metadata] | `Metadata`, `Annotation`, `ImapMetadata`, `WebDavMetadata`, `MetadataFilterCondition`, `MetadataCapability`. The IETF-track escape for vendor data that must be queryable. |
-| `jmap-metadata-server` | [draft-ietf-jmap-metadata] | `Metadata/get/changes/set/query/queryChanges`; `MetadataBackend` trait |
-| `jmap-metadata-client` | [draft-ietf-jmap-metadata] | Typed client methods |
+| `jmap-metadata-types` | [draft-ietf-jmap-metadata] | `DataTypeMetadataInfo`, `MetadataTextMatch`, namespace validation. The IETF-track escape for vendor data that must be queryable. |
+| `jmap-metadata-server` | [draft-ietf-jmap-metadata] | Pure helpers for depth/namespace validation, `metadata*` filter predicates, `/changes` classification |
+| `jmap-metadata-client` | [draft-ietf-jmap-metadata] | Property constants, `metadata*` filter-condition builders, `/changes` helpers |
 
 ### Workspace-only
 

@@ -165,29 +165,26 @@ test. Cookie-cutter sibling crates (`jmap-chat-types`,
 `jmap-calendars-types`, `jmap-tasks-types`, `jmap-contacts-types`,
 `jmap-filenode-types`, `jmap-sharing-types`) mirror this rule.
 
-## JMAP Object Metadata `relatedType` declarations
+## JMAP Object Metadata data types
 
 The JMAP Object Metadata extension
-([draft-ietf-jmap-metadata-01](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/))
-defines a companion `Metadata` object keyed by `(relatedType, relatedId)`
-that attaches vendor-defined `Annotation`s — and, for some types, IMAP
-`ImapMetadata` or WebDAV `WebDavMetadata` records — to objects defined
-elsewhere in the workspace.
+([draft-ietf-jmap-metadata-02](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/))
+adds two namespace-keyed properties, `metadata` (shared) and
+`privateMetadata` (per-user), to each data type a server lists in the
+account capability's `dataTypes` (§1.2.1, §2). There is no standalone
+`Metadata` object and no `Metadata/*` method: clients use the data
+type's own `/get`, `/set`, `/changes`, and `/query` (§3).
 
-The data types in this crate that are valid `relatedType` values:
+Data types in this crate that a server can list in `dataTypes`:
+`Mailbox`, `Email`, `Thread`, `EmailSubmission`, `Identity`.
 
-| relatedType | Flavours supported by spec |
-|---|---|
-| `Mailbox` | `Annotation`; `ImapMetadata` (draft §2.1.2 MUST) |
-| `Email` | `Annotation` |
-| `Thread` | `Annotation` |
-| `EmailSubmission` | `Annotation` |
-| `Identity` | `Annotation` |
-
-Servers that declare `urn:ietf:params:jmap:metadata` MAY restrict the
-set of supported `relatedType`s via the capability's `dataTypes`
-property. Backends that index `ImapMetadata` MUST enforce the
-`relatedType == "Mailbox"` constraint per draft §2.1.2.
+The structs in this crate carry no typed `metadata` /
+`privateMetadata` fields; both properties round-trip through the
+`extra` map under the workspace extras-preservation policy
+(bd JMAP-ua37.4). Server-side helpers (depth and namespace validation,
+`metadata*` filter predicates, `/changes` classification) live in
+`jmap-metadata-server`; wiring them into the extension servers is
+tracked by bd JMAP-s4kp.
 
 Implementation crates: `jmap-metadata-types`, `jmap-metadata-server`,
-`jmap-metadata-client` (bd JMAP-06zp).
+`jmap-metadata-client`.

@@ -202,7 +202,7 @@ First consumer: bd:JMAP-g7wu.2.4 (chat `Space/set` permission
 enforcement). Planned downstream consumers: `jmap-mail-server` (RFC 8621
 `$seen` on shared mailboxes), `jmap-calendars-server` (calendar ACLs),
 `jmap-sharing-server` (RFC 9670 `myRights`), `jmap-metadata-server`
-(`isPrivate` visibility scoping).
+(per-user `privateMetadata` filtering).
 
 ## Module Layout
 

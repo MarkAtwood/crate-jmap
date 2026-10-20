@@ -43,7 +43,7 @@ jmap-types                                       (foundation; no jmap deps)
     │       └── jmap-{contacts,calendars,tasks}-client
     │
     ├── jmap-cid-types                           (CidCapability + Sha256 typed shape)
-    ├── jmap-metadata-types                      (Metadata, Annotation, …)
+    ├── jmap-metadata-types                      (DataTypeMetadataInfo, MetadataTextMatch)
     │       └── jmap-metadata-server
     │       └── jmap-metadata-client
     │

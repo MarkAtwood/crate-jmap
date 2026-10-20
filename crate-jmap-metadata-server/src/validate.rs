@@ -261,7 +261,7 @@ mod tests {
 
     #[test]
     fn supported_spec_example_section_6_1() {
-        // Oracle: §6.1 — Email type with namespaces: ["photography"],
+        // Oracle: §6.1 — the FileNode entry: namespaces: ["photography"],
         // supportsVendorNamespaces: false.
         let info: DataTypeMetadataInfo = serde_json::from_str(
             r#"{
