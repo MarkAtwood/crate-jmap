@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-filenode-client**: `SessionClient::filenode_download` and
+  `FileNodeDownload`, per draft-atwood-jmap-cid-00 §FileNode Extension
+  "Client Usage". A `File` node with a `sha256` downloads as `Verified`
+  after a constant-time digest compare (mismatch is
+  `BlobIntegrityMismatch`); a `File` with null `sha256` is a legacy entry
+  and downloads as `Unverified`. Any other `@type`, including a directory
+  and an untyped node, is `InvalidArgument` with no request sent, since
+  "Clients MUST check the FileNode type". The crate now depends on `bytes`.
 - **jmap-filenode-server**: `FileNodeBackend::blob_sha256`, a defaulted
   hook returning the stored blob's digest when the server advertises
   `urn:ietf:params:jmap:cid` (default `Ok(None)`: not advertised).

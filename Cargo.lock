@@ -1080,6 +1080,7 @@ dependencies = [
 name = "jmap-filenode-client"
 version = "0.3.0"
 dependencies = [
+ "bytes",
  "jmap-base-client",
  "jmap-filenode-types",
  "jmap-types",

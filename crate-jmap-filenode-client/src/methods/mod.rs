@@ -5,6 +5,7 @@
 //! §5.2 /changes, §5.3 /set). Method implementations live in sub-modules and
 //! operate on `SessionClient`.
 
+pub mod download;
 pub mod filenode;
 
 // ---------------------------------------------------------------------------
