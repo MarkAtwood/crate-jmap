@@ -137,6 +137,21 @@ wire behaviour that a conforming peer can observe.
   as a uuid v4, as `jmap-mail-server` does, instead of the
   `"<type><n:016x>"` counter form. Drop the feature from `Cargo.toml` and
   read ids from `/set` `created` responses instead of predicting them.
+  Their `memory` feature now pulls in the optional `uuid` dependency (`v4`,
+  `std`).
+- **jmap-mail-client**: `EmailCopyParams` gains `if_from_in_state` and
+  `if_in_state` (RFC 8620 §5.4), so struct literals must set them.
+- **jmap-calendars-client, jmap-tasks-client, jmap-contacts-client**:
+  `calendar_event_copy`, `task_copy` and `contact_card_copy` take the new
+  `CalendarEventCopyParams`, `TaskCopyParams` and `ContactCardCopyParams`
+  instead of a `&Id` from-account. **jmap-filenode-client**:
+  `FileNodeCopyParams` gains `if_from_in_state`, `if_in_state`,
+  `on_success_destroy_original` and `destroy_from_if_in_state`. Unset
+  options are omitted from the wire.
+- **jmap-tasks-server**: `TasksBackend::is_per_user_property` is removed.
+  The draft-ietf-jmap-tasks-06 §4.5.1 per-user property list is a fixed rule,
+  now `jmap_tasks_types::is_per_user_task_property`, and `Task/set` uses it.
+  Delete any implementation of the old method.
 
 ### Breaking: wire behaviour
 
@@ -274,6 +289,13 @@ wire behaviour that a conforming peer can observe.
   keepalive, typed push enable and disable, a typed `WsFrame::RequestError`
   with `requestId`, HTTP 429 as `RateLimited`, `MethodError` extra
   properties, and streaming blob upload and download.
+- **jmap-tasks-types**: `PER_USER_TASK_PROPERTIES` and
+  `is_per_user_task_property`, mirroring
+  `jmap_calendars_types::is_per_user_calendar_event_property`.
+- **Clients**: every `/copy` method can send the RFC 8620 §5.4
+  `ifFromInState`, `ifInState`, `onSuccessDestroyOriginal` and
+  `destroyFromIfInState` arguments, so a client can state-guard a copy or
+  move objects in one request.
 
 ### Fixed
 
