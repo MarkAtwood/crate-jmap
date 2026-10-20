@@ -285,7 +285,8 @@ pub async fn handle_vacation_set<B: MailBackend>(
                                     updated.insert(id.clone(), Value::Null);
                                     mutated = true;
                                 }
-                                Err(BackendSetError::SetError(e)) => {
+                                Err(be) => {
+                                    let e = be.into_set_error_or_method_error()?;
                                     // update_object failed after create_object succeeded.
                                     // Roll back the create so the backend is not left with
                                     // a default-state singleton that the client never asked
@@ -324,35 +325,17 @@ pub async fn handle_vacation_set<B: MailBackend>(
                                     }
                                     not_updated.insert(id.clone(), set_error_value(&e));
                                 }
-                                Err(BackendSetError::Other(e)) => {
-                                    return Err(server_fail_from_backend(&e));
-                                }
-                                Err(_) => {
-                                    return Err(JmapError::server_fail(
-                                        "unhandled backend error variant",
-                                    ));
-                                }
                             }
                         }
-                        Err(BackendSetError::SetError(e)) => {
+                        Err(e) => {
+                            let e = e.into_set_error_or_method_error()?;
                             not_updated.insert(id.clone(), set_error_value(&e));
-                        }
-                        Err(BackendSetError::Other(e)) => {
-                            return Err(server_fail_from_backend(&e));
-                        }
-                        Err(_) => {
-                            return Err(JmapError::server_fail("unhandled backend error variant"));
                         }
                     }
                 }
-                Err(BackendSetError::SetError(e)) => {
+                Err(e) => {
+                    let e = e.into_set_error_or_method_error()?;
                     not_updated.insert(id.clone(), set_error_value(&e));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    return Err(server_fail_from_backend(&e));
-                }
-                Err(_) => {
-                    return Err(JmapError::server_fail("unhandled backend error variant"));
                 }
             }
         }

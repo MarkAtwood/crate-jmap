@@ -567,6 +567,35 @@ impl<E> From<SetError> for BackendSetError<E> {
     }
 }
 
+impl<E: std::fmt::Display> BackendSetError<E> {
+    /// Split into the per-object [`SetError`] (`Ok`) or a redacted
+    /// method-level `serverFail` (`Err`).
+    ///
+    /// RFC 8620 §5.3 places a per-object `SetError` in the
+    /// `notCreated`/`notUpdated`/`notDestroyed` map, so the `SetError`
+    /// variant is returned unchanged for the caller to insert there.
+    /// [`Other`](Self::Other) becomes
+    /// `JmapError::server_fail(SERVER_FAIL_INTERNAL_DESC)`: the inner
+    /// error's `Display` text never reaches the wire (bd:JMAP-jfia.36).
+    ///
+    /// There is deliberately no `From<BackendSetError<E>> for JmapError`:
+    /// a `?` on that impl would turn per-object set errors into
+    /// method-level errors.
+    ///
+    /// [`SERVER_FAIL_INTERNAL_DESC`]: crate::handlers::SERVER_FAIL_INTERNAL_DESC
+    ///
+    /// # Errors
+    ///
+    /// Returns the redacted `serverFail` [`JmapError`](jmap_types::JmapError) for
+    /// [`Other`](Self::Other).
+    pub fn into_set_error_or_method_error(self) -> Result<SetError, jmap_types::JmapError> {
+        match self {
+            Self::SetError(se) => Ok(se),
+            Self::Other(e) => Err(crate::handlers::server_fail_from_backend(&e)),
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Backend error envelopes
 // ---------------------------------------------------------------------------
@@ -1385,6 +1414,54 @@ mod tests {
             "description must be the static 'internal error' string"
         );
         assert_eq!(wire["type"], "serverFail");
+    }
+
+    /// Oracle (bd:JMAP-jfia.36): `into_set_error_or_method_error` on
+    /// `Other` MUST NOT echo the wrapped error's `Display` text; the
+    /// wire form is exactly `{"type":"serverFail","description":"internal
+    /// error"}` (hand-written expected JSON). The canary literal is
+    /// hand-built. Mirrors `backend_changes_error_other_drops_display_text`.
+    #[test]
+    fn backend_set_error_other_drops_display_text() {
+        struct LeakyError(&'static str);
+        impl std::fmt::Display for LeakyError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(self.0)
+            }
+        }
+
+        const CANARY: &str = "TOKEN-DO-NOT-LEAK-c0ffee";
+        let err: BackendSetError<LeakyError> = BackendSetError::Other(LeakyError(CANARY));
+
+        let Err(jmap_err) = err.into_set_error_or_method_error() else {
+            panic!("Other must map to a method-level JmapError");
+        };
+        let wire = serde_json::to_value(&jmap_err).expect("JmapError must serialize");
+        assert!(
+            !wire.to_string().contains(CANARY),
+            "into_set_error_or_method_error must not echo backend Display; got {wire}"
+        );
+        assert_eq!(
+            wire,
+            serde_json::json!({"type": "serverFail", "description": "internal error"})
+        );
+    }
+
+    /// Oracle (RFC 8620 §5.3): a per-object `SetError` belongs in the
+    /// `notCreated`/`notUpdated`/`notDestroyed` map, so the `SetError`
+    /// arm must come back as `Ok` with its wire form intact
+    /// (hand-written expected JSON).
+    #[test]
+    fn backend_set_error_set_error_passes_through() {
+        let err: BackendSetError<std::fmt::Error> =
+            BackendSetError::SetError(SetError::new(SetErrorType::Forbidden));
+        let se = err
+            .into_set_error_or_method_error()
+            .expect("SetError arm must be Ok");
+        assert_eq!(
+            serde_json::to_value(&se).expect("SetError must serialize"),
+            serde_json::json!({"type": "forbidden"})
+        );
     }
 
     /// Oracle (bd:JMAP-wlip.22): `SetErrorType::custom("forbidden")` MUST
