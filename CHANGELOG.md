@@ -10,7 +10,12 @@ convention that a minor bump may break the API.
 Entries marked **BREAKING** need source changes in downstream code, or change
 wire behaviour that a conforming peer can observe.
 
-## [0.3.0] - Unreleased
+## [0.3.0] - 2026-10-20
+
+The JMAP Chat crates (`jmap-chat-types`, `jmap-chat-server`,
+`jmap-chat-client`) are **pre-stable** in 0.3.x: their API, and the
+`ChatBackend` trait in particular, will keep changing until the 0.4 API
+freeze. The other crates follow the usual pre-1.0 rule above.
 
 ### Breaking: Rust API
 
