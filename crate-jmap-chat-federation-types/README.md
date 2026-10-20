@@ -9,6 +9,8 @@ delivery between JMAP Chat mailboxes. Types only: no I/O, no transport.
 |---|---|
 | `contact_server_url` | §ChatContact Type Extensions for Federation (`serverUrl`) |
 | `contact_direct_address` | §ChatContact Type Extensions for Federation (`directAddress`), §Direct Address Hints |
+| `peer::Peer*Args`, `peer::Peer*Response`, `peer::PeerAck` | §Server-to-Server Methods: `Peer/deliver`, `Peer/receipt`, `Peer/typing`, `Peer/retract`, `Peer/groupUpdate`, and the optional `Peer/subscribePresence`, `Peer/unsubscribePresence`, `Peer/presence` |
+| `PeerMention`, `PeerChatMember`, `PeerRoleUpdate`, `PeerAttachment` | §User References in Peer Methods (identity strings, not ChatContact ids), §Peer/deliver (`fetchUrl`) |
 
 ## What it's for
 
@@ -35,6 +37,9 @@ With a `jmap_chat_types::ChatContact`, pass `&contact.extra`.
 
 - Each reader looks up one key in the `extra` map and returns the string
   verbatim, or `None` when the key is absent or not a string.
+- The `Peer/*` types are plain serde structs: camelCase on the wire, an
+  `extra` map for unknown fields, a `new` taking the required fields.
+  `ReactionAction` and `GroupUpdateAction` reject unknown strings.
 - No async. `#[forbid(unsafe_code)]` at the crate root.
 
 ## Gotchas
@@ -43,6 +48,12 @@ With a `jmap_chat_types::ChatContact`, pass `&contact.extra`.
   deliver to it or probe `/.well-known/jmap` with it.
 - `directAddress` is peer-supplied and untrusted. Never use it as a blob
   `fetchUrl` target, and always fall back to the mailbox path.
+- Deserializing a `Peer/*` request checks only its shape. The receiver
+  still checks that exactly one `Peer/deliver` payload is present, that the
+  fields a `Peer/groupUpdate` `action` requires are present, and that the
+  caller-identity field matches the authenticated peer.
+- `PeerAttachment::fetch_url` is peer-supplied: apply the §Blob Fetch and
+  SSRF restrictions before fetching it.
 
 ## References
 
