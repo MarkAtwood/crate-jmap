@@ -7,7 +7,8 @@
 //! subscription it returns from `list_push_subscriptions`, builds
 //! notifications with [`chat_state_change_for`], and builds the
 //! `ChatMessagePush` for each new inbound message with
-//! [`build_chat_message_push`] after [`should_push`] allows it.
+//! [`build_chat_message_push`] after [`should_push`] allows it, fitted to
+//! the platform size limit with [`fit_chat_message_push`].
 
 use std::collections::{BTreeMap, HashMap};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -377,6 +378,50 @@ pub fn build_chat_message_push(
         payload: ChatMessagePush::new(account_id.clone(), state, vec![entry]),
         urgency,
     }
+}
+
+/// Fit `push` to a platform payload limit of `max_bytes` serialized JSON
+/// bytes, or `None` when it cannot fit and the caller MUST send a plain
+/// `StateChange` for that subscription instead.
+///
+/// The limit is the delivery platform's; for Web Push,
+/// jmap-push-platform-guide §Payload size: "Servers MUST keep plaintext
+/// under **3993 bytes**", so pass 3992 there.
+///
+/// Follows jmap-chat-push-platform-guide §Payload truncation. While the
+/// payload is too large, each of `bodySnippet`, `spaceId`, `sentAt`,
+/// `spaceName`, `chatName` and `senderDisplayName` is dropped, in that
+/// order, from every entry. Then entries are dropped from the end of
+/// `messages`, keeping the first. "If a single minimal entry still exceeds
+/// the platform limit, servers MUST fall back to a plain `StateChange`".
+///
+/// `@type`, `accountId`, `state`, `messageId`, `chatId`, `chatKind`,
+/// `senderId`, `hasMention`, `mentionScopes` and `encrypted` are never
+/// dropped (the guide's MUST NOT list). Fields the guide lists in neither
+/// set (`unreadCount`, extension fields) are kept as well.
+pub fn fit_chat_message_push(
+    mut push: ChatMessagePush,
+    max_bytes: usize,
+) -> Option<ChatMessagePush> {
+    let fits = |p: &ChatMessagePush| serde_json::to_vec(p).is_ok_and(|v| v.len() <= max_bytes);
+    let drops: [fn(&mut ChatMessageEntry); 6] = [
+        |e| e.body_snippet = None,
+        |e| e.space_id = None,
+        |e| e.sent_at = None,
+        |e| e.space_name = None,
+        |e| e.chat_name = None,
+        |e| e.sender_display_name = None,
+    ];
+    for drop in drops {
+        if fits(&push) {
+            return Some(push);
+        }
+        push.messages.iter_mut().for_each(drop);
+    }
+    while push.messages.len() > 1 && !fits(&push) {
+        push.messages.pop();
+    }
+    fits(&push).then_some(push)
 }
 
 /// Whether a `ChatMessagePush` for the new inbound message `msg` goes to
