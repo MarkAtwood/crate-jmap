@@ -16,7 +16,7 @@ use jmap_chat_client::{
     SessionClient, SetResponse, SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddRoleInput,
     SpaceBanCreateInput, SpaceCreateInput, SpaceJoinInput, SpacePatch, UpdateMemberRoleInput,
 };
-use jmap_chat_types::{Attachment, BodyType, ChatKind, Mention, MessageAction};
+use jmap_chat_types::{Attachment, AttachmentCreate, BodyType, ChatKind, Mention, MessageAction};
 use jmap_testjig::{spawn_in_process, TestjigConfig, TestjigHandle};
 use jmap_types::{Id, UTCDate};
 
@@ -421,14 +421,16 @@ async fn message_create_keeps_optional_properties() {
     let sc = client.with_chat_session(session);
     let chat_id = create_group(&sc, "g1", "Team").await;
 
-    let attachments: Vec<Attachment> = serde_json::from_value(serde_json::json!([{
+    let attachment_json = serde_json::json!([{
         "blobId": "b1",
         "filename": "notes.txt",
         "contentType": "text/plain",
         "size": 3,
         "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    }]))
-    .expect("Attachment");
+    }]);
+    let attachments: Vec<AttachmentCreate> =
+        serde_json::from_value(attachment_json.clone()).expect("AttachmentCreate");
+    let stored: Vec<Attachment> = serde_json::from_value(attachment_json).expect("Attachment");
     // §Mention: "A Mention carries no position in `body`."
     let mentions: Vec<Mention> = serde_json::from_value(serde_json::json!([
         { "id": "contact-bob" }
@@ -452,7 +454,7 @@ async fn message_create_keeps_optional_properties() {
 
     let got = sc.message_get(&[id], None).await.expect("Message/get");
     let msg = &got.list[0];
-    assert_eq!(msg.attachments, attachments);
+    assert_eq!(msg.attachments, stored);
     assert_eq!(msg.mentions, mentions);
     assert_eq!(msg.actions, actions);
     assert_eq!(msg.topic_id.as_deref(), Some("release"));

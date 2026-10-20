@@ -145,8 +145,9 @@ pub use ephemeral::{
 };
 pub use jmap_uri::{JmapUri, JmapUriError};
 pub use message::{
-    Attachment, BodyType, BroadcastMention, DeliveryReceipt, DeliveryState, Mention, Message,
-    MessageAction, MessageRevision, Reaction, ReadDisposition, BROADCAST_MENTION_SCOPES,
+    Attachment, AttachmentCreate, BodyType, BroadcastMention, DeliveryReceipt, DeliveryState,
+    Mention, Message, MessageAction, MessageRevision, Reaction, ReadDisposition,
+    BROADCAST_MENTION_SCOPES,
 };
 pub use position::ReadPosition;
 pub use presence::{Presence, PresenceStatus};
