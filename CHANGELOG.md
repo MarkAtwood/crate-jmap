@@ -14,6 +14,19 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-federation-server**: the sending side of
+  draft-atwood-jmap-chat-federation-00, for a backend's
+  `on_outbound_event`. `outbound_reference` translates a stored `replyTo` or
+  `threadRootId` to the referenced Message's `senderMsgId` and omits it when
+  none is found (§Outbound Message Preparation); `other_participants` lists
+  the `Peer/retract` and `Peer/deliver` recipients (§Peer/retract "Sender
+  Behavior"); `peer_group_update_args` builds `Peer/groupUpdate` from an
+  `OutboundEvent::GroupUpdate`, mapping member ids to identity strings via
+  `SenderIdentities` (`OutboundError` for an id with no identity);
+  `aggregate_delivery_state` gives the best state any recipient reached,
+  `"failed"` only when every recipient failed (§Delivery State
+  Transitions); `is_transient` classifies a `DeliveryFailure` for retry
+  (§Retry and Backoff, §Error Handling).
 - **jmap-chat-federation-server**: new crate for the server rules of
   draft-atwood-jmap-chat-federation-00. `FederationCaller` is implemented
   by a dispatcher `CallerCtx` to say whether the caller is a peer on a
