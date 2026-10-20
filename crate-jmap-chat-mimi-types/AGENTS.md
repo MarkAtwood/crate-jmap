@@ -27,7 +27,7 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps -p jmap-chat-mimi-types
 |---|---|
 | Async | None |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
-| Dependencies | serde, serde_json — no MLS, TLS-codec or base64 crate |
+| Dependencies | jmap-types, serde, serde_json — no MLS, TLS-codec or base64 crate |
 | Byte strings | `Base64Url`, verbatim, never re-encoded |
 | Wire format | camelCase JSON |
 | All public structs | `#[non_exhaustive]` with `extra` |

@@ -8,7 +8,7 @@ Types only: no server logic, no I/O, no MLS or TLS-codec dependency.
 | Bead | Content | State |
 |---|---|---|
 | JMAP-fvnd.1 | Crate scaffold, `JMAP_CHAT_MIMI_URI`, `MimiCapability`, body-type constants, `Base64Url` | landed |
-| JMAP-fvnd.2 | KeyPackage object, KeyPackage/get and /set | planned |
+| JMAP-fvnd.2 | KeyPackage object, KeyPackage/get and /set | landed |
 | JMAP-fvnd.3 | KeyMaterial/fetch request and response | planned |
 | JMAP-fvnd.4 | Room/create, Room/update, Room/send, Room/unbind | planned |
 | JMAP-fvnd.5 | GroupInfo/fetch request and response | planned |
@@ -21,5 +21,9 @@ Types only: no server logic, no I/O, no MLS or TLS-codec dependency.
 - Cipher suites are `u16`, the width of RFC 9420 `uint16 CipherSuite`.
 - The session-level capability value `{}` is not modelled, as in
   `jmap-chat-types` for its other empty session values.
+- `/get` and `/set` responses reuse `jmap_types::GetResponse` and
+  `SetResponse`. `SetResponse<KeyPackageCreated>` carries the `created`
+  entries, which hold only the properties the client did not send
+  (RFC 8620 §5.3).
 - No dependency on `jmap-chat-types`: string constants carry the body
   types, and consumers map them to `BodyType::Other`.
