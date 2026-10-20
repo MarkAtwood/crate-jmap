@@ -21,6 +21,13 @@ wire behaviour that a conforming peer can observe.
   `IdScope::All`, like `null`. It ignores unrecognized `dataTypes`, and
   rejects a frame with neither `"typing"` nor `"presence"` with an
   `invalidArguments` error that leaves the prior subscription unchanged.
+- **jmap-chat-server**: `should_deliver_typing` decides, per recipient and at
+  delivery time, whether a `ChatTypingEvent` may reach that owner's
+  connections (draft-atwood-jmap-chat-wss-00 §ChatTypingEvent,
+  draft-atwood-jmap-chat-00 §Chat/typing). It drops the event when the
+  recipient is the sender, is no longer a member of the Chat, has
+  `receiveTypingIndicators: false` on a direct or group Chat (channels ignore
+  it), or has blocked the sender on its own contact list.
 - **jmap-chat-types**: `JmapUri` parses and builds the private-use
   `jmap:<type>:<accountId>:<objectId>` URI
   (draft-atwood-jmap-chat-calendars-00 §MessageAction format), including the

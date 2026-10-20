@@ -7,9 +7,16 @@
 //! [`EphemeralSubscription::replace_with`], which validates the frame,
 //! normalizes it, and replaces the whole subscription. A `ChatStreamDisable`
 //! frame resets it to the default.
+//!
+//! Before sending a `ChatTypingEvent` to an owner's connections, the
+//! transport asks [`should_deliver_typing`] whether that owner may receive
+//! it.
 
-use jmap_chat_types::ChatStreamEnable;
+use jmap_chat_types::{Chat, ChatKind, ChatStreamEnable, ChatTypingEvent};
 use jmap_types::{Id, JmapError};
+
+use crate::push::owner_is_member;
+use crate::ChatBackend;
 
 /// Which ids a subscribed data type covers.
 #[non_exhaustive]
@@ -94,4 +101,64 @@ impl EphemeralSubscription {
     pub fn presence(&self) -> Option<&IdScope> {
         self.presence.as_ref()
     }
+}
+
+/// Whether `event` may be delivered to the owner of `account_id`.
+///
+/// `account_id` is the recipient. `event.chat_id` names the recipient's
+/// Chat record, and `event.sender_id` is the typing user as the recipient
+/// sees it: a ChatContact id on the recipient's contact list. The
+/// transport calls this once per recipient, at delivery time, and sends
+/// the event to none of the recipient's connections when it returns
+/// `false`. The sender is never told. The connection's `chatIds` scope
+/// ([`EphemeralSubscription::typing`]) is a separate filter, checked by
+/// the transport on its own.
+///
+/// Delivery is allowed only when all of these hold:
+///
+/// - The sender is not the recipient (draft-atwood-jmap-chat-00
+///   §Chat/typing: delivery goes to "each local participant in the Chat
+///   other than the requesting account").
+/// - The Chat exists in the recipient's account and the recipient is
+///   still a member of it (draft-atwood-jmap-chat-wss-00
+///   §ChatTypingEvent: "Servers MUST verify at delivery time that the
+///   owner remains a current member of the identified Chat").
+/// - For a direct or group Chat, its `receiveTypingIndicators` is `true`.
+///   Other kinds ignore it.
+/// - The sender's ChatContact is not blocked on the recipient's contact
+///   list, per [`ChatBackend::is_contact_blocked`].
+///
+/// # Errors
+///
+/// Returns the backend's error if reading the Chat, its Space or the
+/// sender's blocked status fails.
+pub async fn should_deliver_typing<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    event: &ChatTypingEvent,
+) -> Result<bool, B::Error> {
+    if event.sender_id == *account_id {
+        return Ok(false);
+    }
+    let (chats, _) = backend
+        .get_objects::<Chat>(
+            caller,
+            account_id,
+            Some(std::slice::from_ref(&event.chat_id)),
+            None,
+        )
+        .await?;
+    let Some(chat) = chats.into_iter().next() else {
+        return Ok(false);
+    };
+    if !owner_is_member(backend, caller, account_id, &chat).await? {
+        return Ok(false);
+    }
+    if matches!(chat.kind, ChatKind::Direct | ChatKind::Group) && !chat.receive_typing_indicators {
+        return Ok(false);
+    }
+    Ok(!backend
+        .is_contact_blocked(caller, account_id, &event.sender_id)
+        .await?)
 }

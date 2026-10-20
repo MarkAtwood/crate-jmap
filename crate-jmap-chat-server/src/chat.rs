@@ -1386,7 +1386,9 @@ pub async fn handle_chat_set<B: ChatBackend>(
 /// This handler does not call [`ChatBackend::is_contact_blocked`]: that
 /// check reads the recipient's contact list, and the request names only
 /// the sender's `accountId`. The transport that fans the event out knows
-/// each recipient's account and MUST call the predicate per recipient.
+/// each recipient's account and MUST call [`crate::should_deliver_typing`]
+/// per recipient, which applies this check and the
+/// `receiveTypingIndicators` and membership checks.
 /// The wire response (echo `accountId`) is the same either way.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
