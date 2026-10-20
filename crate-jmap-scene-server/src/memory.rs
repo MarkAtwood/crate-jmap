@@ -35,6 +35,8 @@
 //! is not stored. `hide_object` takes an object out of one user's
 //! visibility set, for [`SceneBackend::is_object_visible`]; `block` makes
 //! one user blocked by another, for [`SceneBackend::is_user_blocked`].
+//! `reserve_display_name` adds a name to the list
+//! [`SceneBackend::reserved_display_names`] returns for every account.
 //! `/query` omits the regions, objects and avatars those hooks hide from
 //! the caller; `activeAvatarCount` stays the true count.
 //!
@@ -138,6 +140,8 @@ struct Inner {
     hidden: HashSet<(String, Id)>,
     /// `(blocking userId, blocked userId)` pairs.
     blocked: HashSet<(String, String)>,
+    /// Reserved avatar display names.
+    reserved_names: Vec<String>,
 }
 
 impl Inner {
@@ -393,6 +397,13 @@ impl MemoryBackend {
         self.lock()
             .blocked
             .insert((blocker.to_owned(), user.to_owned()));
+    }
+
+    /// Reserve avatar display name `name`, for
+    /// [`SceneBackend::reserved_display_names`].
+    #[doc(hidden)]
+    pub fn reserve_display_name(&self, name: &str) {
+        self.lock().reserved_names.push(name.to_owned());
     }
 
     /// Store `value` as object `id` of `type_name`, owned by `owner`,
@@ -1044,6 +1055,14 @@ impl SceneBackend for MemoryBackend {
             .lock()
             .blocked
             .contains(&(caller.clone(), user_id.to_owned())))
+    }
+
+    async fn reserved_display_names(
+        &self,
+        _caller: &String,
+        _account_id: &Id,
+    ) -> Result<Vec<String>, MemoryError> {
+        Ok(self.lock().reserved_names.clone())
     }
 
     async fn may_eject_avatar(

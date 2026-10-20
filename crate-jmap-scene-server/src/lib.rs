@@ -44,7 +44,9 @@
 //! auto-eject from another region, `maxAvatarsPerRegion` and
 //! [`SceneBackend::may_enter_region`]), an update that sets `leftAt` leaves
 //! it or, through [`SceneBackend::may_eject_avatar`], ejects another user,
-//! destroy is `forbidden`, and the backend keeps `activeAvatarCount`; and
+//! destroy is `forbidden`, a `displayName` from
+//! [`SceneBackend::reserved_display_names`] is `forbidden`, and the
+//! backend keeps `activeAvatarCount`; and
 //! `/query` with the draft's default sort and §Filter Validation.
 //!
 //! Visibility (draft §Visibility Contract, §Region Access, §Blocked-Contact

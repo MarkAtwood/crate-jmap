@@ -357,6 +357,31 @@ pub trait SceneBackend: JmapBackend {
         async { Ok(name) }
     }
 
+    /// The reserved display names (draft-atwood-jmap-scene-00 §Avatar
+    /// Identity and Impersonation): "The server SHOULD maintain a list of
+    /// reserved display names that correspond to system roles or
+    /// administrative functions and MUST reject `SceneAvatar/set`
+    /// operations that attempt to use a reserved name with a `SetError` of
+    /// type `forbidden`."
+    ///
+    /// `SceneAvatar/set` refuses a create or update whose client-supplied
+    /// `displayName` equals one of these names exactly with `forbidden`.
+    /// The comparison is case-sensitive, so list each spelling to reserve.
+    /// A name set by [`Self::avatar_display_name`] is not checked.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns no names (fail-open, bd:JMAP-bghk); deployments supply
+    /// their list.
+    fn reserved_display_names(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Vec<String>, Self::Error>> + Send {
+        let _ = (caller, account_id);
+        async { Ok(Vec::new()) }
+    }
+
     /// `true` if the caller may enter `region`. `SceneAvatar/set` create
     /// returns `forbidden` when this is `false`: "`accessPolicy` is
     /// `\"invite\"` and the caller has not been granted access, or

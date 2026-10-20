@@ -28,6 +28,9 @@
 //! - [`SceneAvatar`].
 //! - [`query`] — the `/query` filters, including the `withinRadius` and
 //!   `withinBounds` spatial filters, and comparators of the four types.
+//! - [`set_error`] — the `contentPolicy` SetError type and the
+//!   `retryAfter` property of `rateLimit` (draft §Content Moderation for
+//!   User-Created Objects).
 
 #![forbid(unsafe_code)]
 
@@ -39,6 +42,7 @@ pub mod coordinates;
 pub mod object;
 pub mod query;
 pub mod region;
+pub mod set_error;
 mod wire;
 
 pub use asset::SceneAsset;
@@ -49,3 +53,4 @@ pub use coordinates::{
 };
 pub use object::{PhysicsMode, SceneObject};
 pub use region::{AccessPolicy, GeoAnchor, SceneRegion, ViewHint};
+pub use set_error::{retry_after, RetryAfterError, CONTENT_POLICY, RETRY_AFTER};
