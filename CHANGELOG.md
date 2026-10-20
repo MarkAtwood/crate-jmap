@@ -14,6 +14,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-did-resolver** (new support crate): `Resolver` resolves
+  `did:key` (derived locally), `did:web` (HTTPS GET of the did:web
+  document URL, `id` must equal the DID) and `did:plc` (PLC directory
+  `/<did>/log/audit`, verified with `verify_plc_audit_log`), caching
+  fetched results for a fixed TTL up to a capped entry count.
+  `Resolver::refresh` drops the cached entry and refetches, for the
+  draft-atwood-jmap-chat-did-00 §Caching rule that a signature failure
+  forces a refresh before next use; a failed refresh leaves nothing
+  cached (§Resolution failure handling). Network access goes through
+  the `Fetch` trait; `HttpFetcher` is the HTTPS-only reqwest
+  implementation. No `*-types` or `*-server` crate depends on it.
 - **jmap-base-client**: `Session::did_capability` and
   `AccountInfo::did_capability`, typed accessors returning
   `jmap_did_types::DidCapability` / `DidAccountCapability` for

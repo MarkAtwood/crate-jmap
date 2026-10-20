@@ -1,0 +1,681 @@
+{
+  "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+  "keys": {
+    "recovery": "did:key:zQ3shNXYmeBDxPnUzr1wLR9KqwCQmpm21RvAicZMtFV2hKtFa",
+    "rotation": "did:key:zQ3shUzpgvNyU8o2bHeecpy3rhTVg4LBFNuTTjAfiBeaxdL6u",
+    "attacker": "did:key:zQ3shVy1mG1KuUo3LfUdmqFTj7UiJhdNxXKqVy83WaVyxdf52"
+  },
+  "recovery": [
+    {
+      "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shjiM3oB3MfgLqyuRcotZ1sB9VhnREo6CbofNmBD7wdufi"
+        },
+        "rotationKeys": [
+          "did:key:zQ3shNXYmeBDxPnUzr1wLR9KqwCQmpm21RvAicZMtFV2hKtFa",
+          "did:key:zQ3shUzpgvNyU8o2bHeecpy3rhTVg4LBFNuTTjAfiBeaxdL6u"
+        ],
+        "alsoKnownAs": [
+          "at://alice.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": null,
+        "sig": "ZyPLLk3r8XUGJ1HEiFqvyowKoEzq9iiG2xECZ98wu414zHj0n72diHGY9ojzpLH7HSzA-RzktFbDdORPcJviGQ"
+      },
+      "cid": "bafyreiap3rxueg2uwhz5t67umlc76nde2zmyyncs7hjzhmri3l27cr3kem",
+      "nullified": false,
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shjiM3oB3MfgLqyuRcotZ1sB9VhnREo6CbofNmBD7wdufi"
+        },
+        "rotationKeys": [
+          "did:key:zQ3shNXYmeBDxPnUzr1wLR9KqwCQmpm21RvAicZMtFV2hKtFa",
+          "did:key:zQ3shUzpgvNyU8o2bHeecpy3rhTVg4LBFNuTTjAfiBeaxdL6u"
+        ],
+        "alsoKnownAs": [
+          "at://mallory.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": "bafyreiap3rxueg2uwhz5t67umlc76nde2zmyyncs7hjzhmri3l27cr3kem",
+        "sig": "4Cjtu4s1UC1KCkgNxIGg1u4moa5hGw_mutVKWnQKaXklqJgBXIoB8gWdxncV_lBirLgSpTA7TnE69bks-6w-Xw"
+      },
+      "cid": "bafyreicbi7ehokshju53f5uwewpwhjowc4pol3kkk6fdntuy4wbivhshly",
+      "nullified": true,
+      "createdAt": "2024-01-02T00:00:00.000Z"
+    },
+    {
+      "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shjiM3oB3MfgLqyuRcotZ1sB9VhnREo6CbofNmBD7wdufi"
+        },
+        "rotationKeys": [
+          "did:key:zQ3shNXYmeBDxPnUzr1wLR9KqwCQmpm21RvAicZMtFV2hKtFa"
+        ],
+        "alsoKnownAs": [
+          "at://alice.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": "bafyreiap3rxueg2uwhz5t67umlc76nde2zmyyncs7hjzhmri3l27cr3kem",
+        "sig": "aAkFHpM4ysxB9lACbucacZZhx-IcGGcGKhyjY29CeBpjjo9o0c9eWqP2s3Z307VgYqEo5cE1sGI4ffYf9WFP5Q"
+      },
+      "cid": "bafyreidqfky6g2yoy2kxtzywcz3y4ypi5uhsneoxstjmi3b64tfce4irue",
+      "nullified": false,
+      "createdAt": "2024-01-04T23:59:59.000Z"
+    }
+  ],
+  "lateRecovery": [
+    {
+      "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shjiM3oB3MfgLqyuRcotZ1sB9VhnREo6CbofNmBD7wdufi"
+        },
+        "rotationKeys": [
+          "did:key:zQ3shNXYmeBDxPnUzr1wLR9KqwCQmpm21RvAicZMtFV2hKtFa",
+          "did:key:zQ3shUzpgvNyU8o2bHeecpy3rhTVg4LBFNuTTjAfiBeaxdL6u"
+        ],
+        "alsoKnownAs": [
+          "at://alice.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": null,
+        "sig": "ZyPLLk3r8XUGJ1HEiFqvyowKoEzq9iiG2xECZ98wu414zHj0n72diHGY9ojzpLH7HSzA-RzktFbDdORPcJviGQ"
+      },
+      "cid": "bafyreiap3rxueg2uwhz5t67umlc76nde2zmyyncs7hjzhmri3l27cr3kem",
+      "nullified": false,
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shjiM3oB3MfgLqyuRcotZ1sB9VhnREo6CbofNmBD7wdufi"
+        },
+        "rotationKeys": [
+          "did:key:zQ3shNXYmeBDxPnUzr1wLR9KqwCQmpm21RvAicZMtFV2hKtFa",
+          "did:key:zQ3shUzpgvNyU8o2bHeecpy3rhTVg4LBFNuTTjAfiBeaxdL6u"
+        ],
+        "alsoKnownAs": [
+          "at://mallory.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": "bafyreiap3rxueg2uwhz5t67umlc76nde2zmyyncs7hjzhmri3l27cr3kem",
+        "sig": "4Cjtu4s1UC1KCkgNxIGg1u4moa5hGw_mutVKWnQKaXklqJgBXIoB8gWdxncV_lBirLgSpTA7TnE69bks-6w-Xw"
+      },
+      "cid": "bafyreicbi7ehokshju53f5uwewpwhjowc4pol3kkk6fdntuy4wbivhshly",
+      "nullified": true,
+      "createdAt": "2024-01-02T00:00:00.000Z"
+    },
+    {
+      "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shjiM3oB3MfgLqyuRcotZ1sB9VhnREo6CbofNmBD7wdufi"
+        },
+        "rotationKeys": [
+          "did:key:zQ3shNXYmeBDxPnUzr1wLR9KqwCQmpm21RvAicZMtFV2hKtFa"
+        ],
+        "alsoKnownAs": [
+          "at://alice.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": "bafyreiap3rxueg2uwhz5t67umlc76nde2zmyyncs7hjzhmri3l27cr3kem",
+        "sig": "aAkFHpM4ysxB9lACbucacZZhx-IcGGcGKhyjY29CeBpjjo9o0c9eWqP2s3Z307VgYqEo5cE1sGI4ffYf9WFP5Q"
+      },
+      "cid": "bafyreidqfky6g2yoy2kxtzywcz3y4ypi5uhsneoxstjmi3b64tfce4irue",
+      "nullified": false,
+      "createdAt": "2024-01-05T00:00:00.001Z"
+    }
+  ],
+  "sameAuthorityRecovery": [
+    {
+      "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shjiM3oB3MfgLqyuRcotZ1sB9VhnREo6CbofNmBD7wdufi"
+        },
+        "rotationKeys": [
+          "did:key:zQ3shNXYmeBDxPnUzr1wLR9KqwCQmpm21RvAicZMtFV2hKtFa",
+          "did:key:zQ3shUzpgvNyU8o2bHeecpy3rhTVg4LBFNuTTjAfiBeaxdL6u"
+        ],
+        "alsoKnownAs": [
+          "at://alice.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": null,
+        "sig": "ZyPLLk3r8XUGJ1HEiFqvyowKoEzq9iiG2xECZ98wu414zHj0n72diHGY9ojzpLH7HSzA-RzktFbDdORPcJviGQ"
+      },
+      "cid": "bafyreiap3rxueg2uwhz5t67umlc76nde2zmyyncs7hjzhmri3l27cr3kem",
+      "nullified": false,
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shjiM3oB3MfgLqyuRcotZ1sB9VhnREo6CbofNmBD7wdufi"
+        },
+        "rotationKeys": [
+          "did:key:zQ3shNXYmeBDxPnUzr1wLR9KqwCQmpm21RvAicZMtFV2hKtFa",
+          "did:key:zQ3shUzpgvNyU8o2bHeecpy3rhTVg4LBFNuTTjAfiBeaxdL6u"
+        ],
+        "alsoKnownAs": [
+          "at://mallory.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": "bafyreiap3rxueg2uwhz5t67umlc76nde2zmyyncs7hjzhmri3l27cr3kem",
+        "sig": "4Cjtu4s1UC1KCkgNxIGg1u4moa5hGw_mutVKWnQKaXklqJgBXIoB8gWdxncV_lBirLgSpTA7TnE69bks-6w-Xw"
+      },
+      "cid": "bafyreicbi7ehokshju53f5uwewpwhjowc4pol3kkk6fdntuy4wbivhshly",
+      "nullified": true,
+      "createdAt": "2024-01-02T00:00:00.000Z"
+    },
+    {
+      "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shjiM3oB3MfgLqyuRcotZ1sB9VhnREo6CbofNmBD7wdufi"
+        },
+        "rotationKeys": [
+          "did:key:zQ3shNXYmeBDxPnUzr1wLR9KqwCQmpm21RvAicZMtFV2hKtFa"
+        ],
+        "alsoKnownAs": [
+          "at://alice.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": "bafyreiap3rxueg2uwhz5t67umlc76nde2zmyyncs7hjzhmri3l27cr3kem",
+        "sig": "wRr2C3kzjvekxSEk2EiWbcKBU_8gaNyjm-lOPpbpzI5rqx-d6rbwxt_pu1R1ha6Sj2TZB0pAR5Gn1jjPB5fM2Q"
+      },
+      "cid": "bafyreih5ozrmtqmvlsvzd5kt4gue6qe5otsgnhiwiqhcdsfejqvaqvau3y",
+      "nullified": false,
+      "createdAt": "2024-01-02T01:00:00.000Z"
+    }
+  ],
+  "tombstone": [
+    {
+      "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shjiM3oB3MfgLqyuRcotZ1sB9VhnREo6CbofNmBD7wdufi"
+        },
+        "rotationKeys": [
+          "did:key:zQ3shNXYmeBDxPnUzr1wLR9KqwCQmpm21RvAicZMtFV2hKtFa",
+          "did:key:zQ3shUzpgvNyU8o2bHeecpy3rhTVg4LBFNuTTjAfiBeaxdL6u"
+        ],
+        "alsoKnownAs": [
+          "at://alice.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": null,
+        "sig": "ZyPLLk3r8XUGJ1HEiFqvyowKoEzq9iiG2xECZ98wu414zHj0n72diHGY9ojzpLH7HSzA-RzktFbDdORPcJviGQ"
+      },
+      "cid": "bafyreiap3rxueg2uwhz5t67umlc76nde2zmyyncs7hjzhmri3l27cr3kem",
+      "nullified": false,
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+      "operation": {
+        "type": "plc_tombstone",
+        "prev": "bafyreiap3rxueg2uwhz5t67umlc76nde2zmyyncs7hjzhmri3l27cr3kem",
+        "sig": "aVXTuhgSfFkNcmnen2pC-3zamaHlWq4lwa6YJgQUu04-ylCrKb1oDMWCL5y-aKC0kHG4g64UTNwAbg0QXAvrqQ"
+      },
+      "cid": "bafyreihsy34rjytqbj46fh6yk5eoblwfjyzbi4lpag67s7zeawtk7yezta",
+      "nullified": false,
+      "createdAt": "2024-01-02T00:00:00.000Z"
+    }
+  ],
+  "attacker": [
+    {
+      "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shjiM3oB3MfgLqyuRcotZ1sB9VhnREo6CbofNmBD7wdufi"
+        },
+        "rotationKeys": [
+          "did:key:zQ3shNXYmeBDxPnUzr1wLR9KqwCQmpm21RvAicZMtFV2hKtFa",
+          "did:key:zQ3shUzpgvNyU8o2bHeecpy3rhTVg4LBFNuTTjAfiBeaxdL6u"
+        ],
+        "alsoKnownAs": [
+          "at://alice.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": null,
+        "sig": "ZyPLLk3r8XUGJ1HEiFqvyowKoEzq9iiG2xECZ98wu414zHj0n72diHGY9ojzpLH7HSzA-RzktFbDdORPcJviGQ"
+      },
+      "cid": "bafyreiap3rxueg2uwhz5t67umlc76nde2zmyyncs7hjzhmri3l27cr3kem",
+      "nullified": false,
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shjiM3oB3MfgLqyuRcotZ1sB9VhnREo6CbofNmBD7wdufi"
+        },
+        "rotationKeys": [
+          "did:key:zQ3shNXYmeBDxPnUzr1wLR9KqwCQmpm21RvAicZMtFV2hKtFa",
+          "did:key:zQ3shUzpgvNyU8o2bHeecpy3rhTVg4LBFNuTTjAfiBeaxdL6u"
+        ],
+        "alsoKnownAs": [
+          "at://mallory.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": "bafyreiap3rxueg2uwhz5t67umlc76nde2zmyyncs7hjzhmri3l27cr3kem",
+        "sig": "hcSJ-ecKaYDlUixmafz04kuTwLbylTKbSVUn4eZ_UeU-PCv2zkb4khQpBk6nd3ULLoKq-SM6XJ-_EoGS9huM8A"
+      },
+      "cid": "bafyreihlwerdxdn7hobzcln6phgxrfsiy3uxmp2belkzjrxyveozo64ura",
+      "nullified": false,
+      "createdAt": "2024-01-02T00:00:00.000Z"
+    }
+  ],
+  "nonMonotonic": [
+    {
+      "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shjiM3oB3MfgLqyuRcotZ1sB9VhnREo6CbofNmBD7wdufi"
+        },
+        "rotationKeys": [
+          "did:key:zQ3shNXYmeBDxPnUzr1wLR9KqwCQmpm21RvAicZMtFV2hKtFa",
+          "did:key:zQ3shUzpgvNyU8o2bHeecpy3rhTVg4LBFNuTTjAfiBeaxdL6u"
+        ],
+        "alsoKnownAs": [
+          "at://alice.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": null,
+        "sig": "ZyPLLk3r8XUGJ1HEiFqvyowKoEzq9iiG2xECZ98wu414zHj0n72diHGY9ojzpLH7HSzA-RzktFbDdORPcJviGQ"
+      },
+      "cid": "bafyreiap3rxueg2uwhz5t67umlc76nde2zmyyncs7hjzhmri3l27cr3kem",
+      "nullified": false,
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "did": "did:plc:b7og6qq3ksy7hwp36rrml7zu",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shjiM3oB3MfgLqyuRcotZ1sB9VhnREo6CbofNmBD7wdufi"
+        },
+        "rotationKeys": [
+          "did:key:zQ3shNXYmeBDxPnUzr1wLR9KqwCQmpm21RvAicZMtFV2hKtFa",
+          "did:key:zQ3shUzpgvNyU8o2bHeecpy3rhTVg4LBFNuTTjAfiBeaxdL6u"
+        ],
+        "alsoKnownAs": [
+          "at://mallory.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": "bafyreiap3rxueg2uwhz5t67umlc76nde2zmyyncs7hjzhmri3l27cr3kem",
+        "sig": "4Cjtu4s1UC1KCkgNxIGg1u4moa5hGw_mutVKWnQKaXklqJgBXIoB8gWdxncV_lBirLgSpTA7TnE69bks-6w-Xw"
+      },
+      "cid": "bafyreicbi7ehokshju53f5uwewpwhjowc4pol3kkk6fdntuy4wbivhshly",
+      "nullified": false,
+      "createdAt": "2023-12-31T00:00:00.000Z"
+    }
+  ],
+  "p256Did": "did:plc:kj6ynhnvxuttwqnmhxovou5f",
+  "p256": [
+    {
+      "did": "did:plc:kj6ynhnvxuttwqnmhxovou5f",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zDnaeYxh5a5rVozXtU35DvSbhSY5HPWTsswtepj2eoGvVNyXA"
+        },
+        "rotationKeys": [
+          "did:key:zDnaeYxh5a5rVozXtU35DvSbhSY5HPWTsswtepj2eoGvVNyXA"
+        ],
+        "alsoKnownAs": [
+          "at://carol.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": null,
+        "sig": "d8e6xSN6CtJP5QNM3jnaJ62VDZKo05c_sCbM72fCnFArwyyH4tiwtsnF_slXG-mEZjK-bgvhoZHVy3gbJXqUYA"
+      },
+      "cid": "bafyreicspwdj3nn5e45udlb53vlvhjn7euk2oy25xrjpc3heusso7bw7mm",
+      "nullified": false,
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "did": "did:plc:kj6ynhnvxuttwqnmhxovou5f",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zDnaeYxh5a5rVozXtU35DvSbhSY5HPWTsswtepj2eoGvVNyXA"
+        },
+        "rotationKeys": [
+          "did:key:zDnaeYxh5a5rVozXtU35DvSbhSY5HPWTsswtepj2eoGvVNyXA"
+        ],
+        "alsoKnownAs": [
+          "at://dave.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": "bafyreicspwdj3nn5e45udlb53vlvhjn7euk2oy25xrjpc3heusso7bw7mm",
+        "sig": "PN6l9nQjmXsSpGXQZzdb29BtOM6f5Ii0RYt9oOh27-oxBkWvaqmiK02rKkBp3jqgOSactLJ4ha-movy9rM3kcw"
+      },
+      "cid": "bafyreih2cbysfa5qhcvcqtxq4nonvxvjqvh53kr6dr7dzizzlrzz7q5yd4",
+      "nullified": false,
+      "createdAt": "2024-01-02T00:00:00.000Z"
+    }
+  ],
+  "p256HighS": [
+    {
+      "did": "did:plc:kj6ynhnvxuttwqnmhxovou5f",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zDnaeYxh5a5rVozXtU35DvSbhSY5HPWTsswtepj2eoGvVNyXA"
+        },
+        "rotationKeys": [
+          "did:key:zDnaeYxh5a5rVozXtU35DvSbhSY5HPWTsswtepj2eoGvVNyXA"
+        ],
+        "alsoKnownAs": [
+          "at://carol.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": null,
+        "sig": "d8e6xSN6CtJP5QNM3jnaJ62VDZKo05c_sCbM72fCnFArwyyH4tiwtsnF_slXG-mEZjK-bgvhoZHVy3gbJXqUYA"
+      },
+      "cid": "bafyreicspwdj3nn5e45udlb53vlvhjn7euk2oy25xrjpc3heusso7bw7mm",
+      "nullified": false,
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "did": "did:plc:kj6ynhnvxuttwqnmhxovou5f",
+      "operation": {
+        "type": "plc_operation",
+        "verificationMethods": {
+          "atproto": "did:key:zDnaeYxh5a5rVozXtU35DvSbhSY5HPWTsswtepj2eoGvVNyXA"
+        },
+        "rotationKeys": [
+          "did:key:zDnaeYxh5a5rVozXtU35DvSbhSY5HPWTsswtepj2eoGvVNyXA"
+        ],
+        "alsoKnownAs": [
+          "at://dave.test"
+        ],
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://pds.example"
+          }
+        },
+        "prev": "bafyreicspwdj3nn5e45udlb53vlvhjn7euk2oy25xrjpc3heusso7bw7mm",
+        "sig": "PN6l9nQjmXsSpGXQZzdb29BtOM6f5Ii0RYt9oOh27-rO-bpPlVZd1bJU1b-WIcVfg8Bd-PSfGNVNFs4FT5VA3g"
+      },
+      "cid": "bafyreifsr43p5qm2lets3ujjdmmpjgozavyvibesdo7em7zzhhkwspundy",
+      "nullified": false,
+      "createdAt": "2024-01-02T00:00:00.000Z"
+    }
+  ],
+  "highS": [
+    {
+      "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz",
+      "operation": {
+        "sig": "lza4at_jCtGo_TYgL5PC1ZNP7lhF4DV8H50LWHhvdHcB143x1wEwqZ43xvV36Pws6OOnJLJrkibEUFDFqkhIhg",
+        "prev": null,
+        "type": "plc_operation",
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://bsky.social"
+          }
+        },
+        "alsoKnownAs": [
+          "at://atprotocol.bsky.social"
+        ],
+        "rotationKeys": [
+          "did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg",
+          "did:key:zQ3shpKnbdPx3g3CmPf5cRVTPe1HtSwVn5ish3wSnDPQCbLJK"
+        ],
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shXjHeiBuRCKmM36cuYnm7YEMzhGnCmCyW92sRJ9pribSF"
+        }
+      },
+      "cid": "bafyreibfvkh3n6odvdpwj54j4xxdsgnn4zo5utbyf7z7nfbyikhtygzjcq",
+      "nullified": false,
+      "createdAt": "2023-04-26T06:19:25.508Z"
+    },
+    {
+      "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz",
+      "operation": {
+        "sig": "lRDLz1RRcauzDos9LZ0Q5bi3YzJXbpgrUpZ51e__tdg89xYgHiWWtnKcrAJanBMkgW0uloD40TYWMVXyZWi4mw",
+        "prev": "bafyreibfvkh3n6odvdpwj54j4xxdsgnn4zo5utbyf7z7nfbyikhtygzjcq",
+        "type": "plc_operation",
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://bsky.social"
+          }
+        },
+        "alsoKnownAs": [
+          "at://atproto.com"
+        ],
+        "rotationKeys": [
+          "did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg",
+          "did:key:zQ3shpKnbdPx3g3CmPf5cRVTPe1HtSwVn5ish3wSnDPQCbLJK"
+        ],
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shXjHeiBuRCKmM36cuYnm7YEMzhGnCmCyW92sRJ9pribSF"
+        }
+      },
+      "cid": "bafyreihljrd4zlm6egppxzwq52fgzdrh7hv2bkjnbgyjteqasmpjgqmryi",
+      "nullified": false,
+      "createdAt": "2023-04-26T17:16:46.827Z"
+    },
+    {
+      "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz",
+      "operation": {
+        "sig": "8qNRGHFze984cG-iWLXD8T13hDT9G9qu-YxpcwPeEVjPR8_9m6aUe_O03dsImO7VUhXk2AkWq1JowMcQBccBwg",
+        "prev": "bafyreihljrd4zlm6egppxzwq52fgzdrh7hv2bkjnbgyjteqasmpjgqmryi",
+        "type": "plc_operation",
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://enoki.us-east.host.bsky.network"
+          }
+        },
+        "alsoKnownAs": [
+          "at://atproto.com"
+        ],
+        "rotationKeys": [
+          "did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg",
+          "did:key:zQ3shpKnbdPx3g3CmPf5cRVTPe1HtSwVn5ish3wSnDPQCbLJK"
+        ],
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shunBKsXixLxKtC5qeSG9E4J5RkGN57im31pcTzbNQnm5w"
+        }
+      },
+      "cid": "bafyreibocq3a34rbrvepv6wudlf5a6gx7xoeywfebaw34aptwgnnvnpxdq",
+      "nullified": false,
+      "createdAt": "2023-11-10T02:50:49.142Z"
+    }
+  ],
+  "nonCanonicalSig": [
+    {
+      "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz",
+      "operation": {
+        "sig": "lza4at_jCtGo_TYgL5PC1ZNP7lhF4DV8H50LWHhvdHcB143x1wEwqZ43xvV36Pws6OOnJLJrkibEUFDFqkhIhg",
+        "prev": null,
+        "type": "plc_operation",
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://bsky.social"
+          }
+        },
+        "alsoKnownAs": [
+          "at://atprotocol.bsky.social"
+        ],
+        "rotationKeys": [
+          "did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg",
+          "did:key:zQ3shpKnbdPx3g3CmPf5cRVTPe1HtSwVn5ish3wSnDPQCbLJK"
+        ],
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shXjHeiBuRCKmM36cuYnm7YEMzhGnCmCyW92sRJ9pribSF"
+        }
+      },
+      "cid": "bafyreibfvkh3n6odvdpwj54j4xxdsgnn4zo5utbyf7z7nfbyikhtygzjcq",
+      "nullified": false,
+      "createdAt": "2023-04-26T06:19:25.508Z"
+    },
+    {
+      "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz",
+      "operation": {
+        "sig": "lRDLz1RRcauzDos9LZ0Q5bi3YzJXbpgrUpZ51e__tdg89xYgHiWWtnKcrAJanBMkgW0uloD40TYWMVXyZWi4mw",
+        "prev": "bafyreibfvkh3n6odvdpwj54j4xxdsgnn4zo5utbyf7z7nfbyikhtygzjcq",
+        "type": "plc_operation",
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://bsky.social"
+          }
+        },
+        "alsoKnownAs": [
+          "at://atproto.com"
+        ],
+        "rotationKeys": [
+          "did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg",
+          "did:key:zQ3shpKnbdPx3g3CmPf5cRVTPe1HtSwVn5ish3wSnDPQCbLJK"
+        ],
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shXjHeiBuRCKmM36cuYnm7YEMzhGnCmCyW92sRJ9pribSF"
+        }
+      },
+      "cid": "bafyreihljrd4zlm6egppxzwq52fgzdrh7hv2bkjnbgyjteqasmpjgqmryi",
+      "nullified": false,
+      "createdAt": "2023-04-26T17:16:46.827Z"
+    },
+    {
+      "did": "did:plc:ewvi7nxzyoun6zhxrhs64oiz",
+      "operation": {
+        "sig": "8qNRGHFze984cG-iWLXD8T13hDT9G9qu-YxpcwPeEVgwuDACZFlrhAxLIiT3ZxEpaJj4DqYx9OlXEZd8ym8_fx",
+        "prev": "bafyreihljrd4zlm6egppxzwq52fgzdrh7hv2bkjnbgyjteqasmpjgqmryi",
+        "type": "plc_operation",
+        "services": {
+          "atproto_pds": {
+            "type": "AtprotoPersonalDataServer",
+            "endpoint": "https://enoki.us-east.host.bsky.network"
+          }
+        },
+        "alsoKnownAs": [
+          "at://atproto.com"
+        ],
+        "rotationKeys": [
+          "did:key:zQ3shhCGUqDKjStzuDxPkTxN6ujddP4RkEKJJouJGRRkaLGbg",
+          "did:key:zQ3shpKnbdPx3g3CmPf5cRVTPe1HtSwVn5ish3wSnDPQCbLJK"
+        ],
+        "verificationMethods": {
+          "atproto": "did:key:zQ3shunBKsXixLxKtC5qeSG9E4J5RkGN57im31pcTzbNQnm5w"
+        }
+      },
+      "cid": "bafyreihsu3pd4xhpci3tampv4fwroykz4a6eldwkibfbfjo2mtzryepv2y",
+      "nullified": false,
+      "createdAt": "2023-11-10T02:50:49.142Z"
+    }
+  ]
+}

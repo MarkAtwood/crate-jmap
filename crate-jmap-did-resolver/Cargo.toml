@@ -1,0 +1,21 @@
+[package]
+name = "jmap-did-resolver"
+version = "0.3.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "did:key, did:web and did:plc resolution with a refresh-on-failure cache for the jmap-* crates"
+keywords = ["jmap", "did", "resolver", "identity"]
+categories = ["network-programming", "asynchronous"]
+
+[dependencies]
+jmap-did-types = { workspace = true }
+reqwest = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+wiremock = { workspace = true }
