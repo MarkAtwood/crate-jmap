@@ -31,7 +31,7 @@
 //! / `notUpdated` / `notDestroyed` maps within `Ok((Value, ...))`, not
 //! as `Err`.
 
-use jmap_filenode_types::{FileNode, NodeType};
+use jmap_filenode_types::{FileNode, NodeRole, NodeType};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde_json::{json, Value};
 
@@ -841,9 +841,19 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 .as_map()
                 .keys()
                 .any(|k| k == "sha256" || k.starts_with("sha256/"));
+            // draft-atwood-jmap-chat-filenode-00 §The `spaceId` Extension
+            // Property: `spaceId` is immutable and present only on a Space
+            // file tree root, so neither it nor a root's role may change.
+            let space_id_patched = patch
+                .as_map()
+                .keys()
+                .any(|k| k == "spaceId" || k.starts_with("spaceId/"));
+            let role_patch = patch.as_map().get("role");
             if !typed.is_empty()
                 || type_patch.is_some()
                 || sha256_patched
+                || space_id_patched
+                || role_patch.is_some()
                 || nulled.iter().any(|p| property_owner(p).is_some())
             {
                 let stored = match backend
@@ -897,6 +907,37 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                 "type": "invalidProperties",
                                 "properties": ["sha256"],
                                 "description": "sha256 is server-set",
+                            }),
+                        );
+                        continue;
+                    }
+                    let current_space_id = json!(node.space_id);
+                    let space_id_unchanged = patch
+                        .as_map()
+                        .iter()
+                        .filter(|(k, _)| *k == "spaceId" || k.starts_with("spaceId/"))
+                        .all(|(k, v)| k == "spaceId" && *v == current_space_id);
+                    if !space_id_unchanged {
+                        not_updated.insert(
+                            id_str,
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": ["spaceId"],
+                                "description": "spaceId is immutable",
+                            }),
+                        );
+                        continue;
+                    }
+                    if node.space_id.is_some()
+                        && role_patch
+                            .is_some_and(|r| r.as_str() != Some(NodeRole::ChatSpace.to_wire_str()))
+                    {
+                        not_updated.insert(
+                            id_str,
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": ["role"],
+                                "description": "a node with spaceId must keep role urn:jmap:chat:filenode:space",
                             }),
                         );
                         continue;
@@ -2131,6 +2172,17 @@ fn create_type_error(node: &FileNode) -> Option<Value> {
                     "type": "invalidProperties",
                     "properties": other,
                     "description": "property not defined for this node's @type",
+                }));
+            }
+            // draft-atwood-jmap-chat-filenode-00 §The `spaceId` Extension
+            // Property: `spaceId` is "Absent on all FileNode objects that
+            // are not Space file tree roots" (role
+            // `urn:jmap:chat:filenode:space`).
+            if node.space_id.is_some() && node.role != Some(NodeRole::ChatSpace) {
+                return Some(json!({
+                    "type": "invalidProperties",
+                    "properties": ["spaceId"],
+                    "description": "spaceId is allowed only on a Space file tree root",
                 }));
             }
             match node_type {

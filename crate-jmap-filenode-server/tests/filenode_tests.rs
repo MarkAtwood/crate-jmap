@@ -3249,3 +3249,151 @@ async fn filenode_query_space_id_returns_only_matching_space_root() {
         "L138: no tree for S3, empty result: {q}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// The `spaceId` extension property: root-only and immutable.
+// Oracle: draft-atwood-jmap-chat-filenode-00 (jmap-chat-spec HEAD)
+//   L119: "This document defines the following extension property on
+//          FileNode objects that serve as Space file tree roots (i.e., where
+//          `role` is `\"urn:jmap:chat:filenode:space\"`):"
+//   L121-122: "`spaceId` (String, immutable): The `id` of the JMAP Chat Space
+//          this FileNode is associated with. Supplied by the client at
+//          creation and treated as immutable thereafter. Absent on all
+//          FileNode objects that are not Space file tree roots."
+// RFC 8620 §5.3: "invalidProperties: The record given is invalid in some way."
+// ---------------------------------------------------------------------------
+
+/// Creates a Space file tree root for `space_id` and returns its id.
+async fn create_space_root(backend: &MemoryBackend, space_id: &str) -> String {
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "r": { "@type": "Directory", "name": "space", "parentId": null,
+                       "role": "urn:jmap:chat:filenode:space", "spaceId": space_id }
+            }
+        }),
+    )
+    .await
+    .expect("create Space root must succeed");
+    resp["created"]["r"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("L119: a Space root may carry spaceId: {resp}"))
+        .to_owned()
+}
+
+/// Returns the `spaceId` property of node `id` as FileNode/get reports it.
+async fn get_space_id(backend: &MemoryBackend, id: &str) -> serde_json::Value {
+    let HandlerOutput { primary: resp, .. } = handle_filenode_get(
+        backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": [id], "properties": ["spaceId"] }),
+    )
+    .await
+    .expect("FileNode/get must succeed");
+    resp["list"][0]["spaceId"].clone()
+}
+
+#[tokio::test]
+async fn filenode_set_create_space_id_on_non_root_rejected() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "noRole": { "@type": "Directory", "name": "a", "parentId": null,
+                            "role": null, "spaceId": "S1" },
+                "otherRole": { "@type": "Directory", "name": "b", "parentId": null,
+                               "role": "documents", "spaceId": "S1" }
+            }
+        }),
+    )
+    .await
+    .expect("FileNode/set must succeed");
+    for cid in ["noRole", "otherRole"] {
+        let err = &resp["notCreated"][cid];
+        assert_eq!(err["type"], "invalidProperties", "L122 {cid}: {resp}");
+        assert_eq!(err["properties"], json!(["spaceId"]), "L122 {cid}: {resp}");
+    }
+    assert!(
+        resp["created"].as_object().is_none_or(|m| m.is_empty()),
+        "{resp}"
+    );
+}
+
+#[tokio::test]
+async fn filenode_set_create_space_root_reports_space_id() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let root = create_space_root(&backend, "S1").await;
+    assert_eq!(get_space_id(&backend, &root).await, json!("S1"), "L121");
+}
+
+#[tokio::test]
+async fn filenode_set_update_space_id_rejected() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let root = create_space_root(&backend, "S1").await;
+    for patch in [json!({ "spaceId": "S2" }), json!({ "spaceId": null })] {
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &(),
+            json!({ "accountId": "acc1", "update": { root.clone(): patch } }),
+        )
+        .await
+        .expect("FileNode/set must succeed");
+        let err = &resp["notUpdated"][&root];
+        assert_eq!(err["type"], "invalidProperties", "L122 {patch}: {resp}");
+        assert_eq!(
+            err["properties"],
+            json!(["spaceId"]),
+            "L122 {patch}: {resp}"
+        );
+    }
+    assert_eq!(get_space_id(&backend, &root).await, json!("S1"), "L122");
+}
+
+#[tokio::test]
+async fn filenode_set_update_adding_space_id_to_non_root_rejected() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_node("acc1", make_dir("d1", "plain", None));
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "update": { "d1": { "spaceId": "S1" } } }),
+    )
+    .await
+    .expect("FileNode/set must succeed");
+    assert_eq!(
+        resp["notUpdated"]["d1"]["type"], "invalidProperties",
+        "L122: {resp}"
+    );
+    assert!(get_space_id(&backend, "d1").await.is_null(), "L122");
+}
+
+#[tokio::test]
+async fn filenode_set_update_role_off_space_root_rejected() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let root = create_space_root(&backend, "S1").await;
+    for patch in [json!({ "role": "documents" }), json!({ "role": null })] {
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &(),
+            json!({ "accountId": "acc1", "update": { root.clone(): patch } }),
+        )
+        .await
+        .expect("FileNode/set must succeed");
+        let err = &resp["notUpdated"][&root];
+        assert_eq!(
+            err["type"], "invalidProperties",
+            "L119/L122 {patch}: {resp}"
+        );
+        assert_eq!(
+            err["properties"],
+            json!(["role"]),
+            "L119/L122 {patch}: {resp}"
+        );
+    }
+}

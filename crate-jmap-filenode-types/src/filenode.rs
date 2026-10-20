@@ -72,6 +72,10 @@ pub enum NodeRole {
     Pictures,
     /// Video files.
     Videos,
+    /// `"urn:jmap:chat:filenode:space"`: root of a JMAP Chat Space's file
+    /// tree, identified by [`FileNode::space_id`]
+    /// (draft-atwood-jmap-chat-filenode-00 §JMAP FileNode Roles Registry).
+    ChatSpace,
     /// Any role string not recognised by this implementation.
     Other(String),
 }
@@ -86,6 +90,7 @@ impl_string_enum!(NodeRole, "a JMAP FileNode role string",
     "music"     => Music,
     "pictures"  => Pictures,
     "videos"    => Videos,
+    "urn:jmap:chat:filenode:space" => ChatSpace,
 );
 
 impl NodeRole {
@@ -101,6 +106,7 @@ impl NodeRole {
             Self::Music => "music",
             Self::Pictures => "pictures",
             Self::Videos => "videos",
+            Self::ChatSpace => "urn:jmap:chat:filenode:space",
             Self::Other(s) => s.as_str(),
         }
     }
@@ -283,6 +289,12 @@ pub struct FileNode {
     /// (§3.1.3 type: `String|null`), where it serializes as `null` when unset.
     pub role: Option<NodeRole>,
 
+    /// Id of the JMAP Chat Space this node roots (draft-atwood-jmap-chat-filenode-00
+    /// §The `spaceId` Extension Property).  Immutable; present only when
+    /// [`role`](Self::role) is [`NodeRole::ChatSpace`].  Absent from wire when
+    /// `None`.
+    pub space_id: Option<Id>,
+
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -327,6 +339,8 @@ impl Serialize for FileNode {
             share_with: Option<&'a BTreeMap<Id, FilesRights>>,
             #[serde(skip_serializing_if = "Option::is_none")]
             role: Option<Option<&'a NodeRole>>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            space_id: Option<&'a Id>,
             #[serde(flatten)]
             extra: &'a serde_json::Map<String, serde_json::Value>,
         }
@@ -350,6 +364,7 @@ impl Serialize for FileNode {
             my_rights,
             share_with,
             role,
+            space_id,
             extra,
         } = self;
 
@@ -392,6 +407,7 @@ impl Serialize for FileNode {
             my_rights: my_rights.as_ref(),
             share_with: share_with.as_ref(),
             role: wire_role,
+            space_id: space_id.as_ref(),
             extra,
         }
         .serialize(serializer)
