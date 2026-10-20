@@ -161,9 +161,10 @@ mod tests {
 
     use crate::test_support::MockBackend;
 
-    /// Oracle: §2.2 — default backend returns an empty `list`.
+    /// Oracle: §2.2 — a backend reporting no busy periods yields an empty
+    /// `list` (MockBackend's explicit override, bd:JMAP-ic0j.26).
     #[tokio::test]
-    async fn get_availability_returns_empty_list_by_default() {
+    async fn get_availability_returns_empty_list_for_no_busy_periods() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({
             "accountId": "acc1",
@@ -182,7 +183,7 @@ mod tests {
         assert_eq!(resp["accountId"], "acc1");
         assert!(
             resp["list"].as_array().unwrap().is_empty(),
-            "list must be empty by default: {resp}"
+            "list must be empty: {resp}"
         );
     }
 
@@ -470,6 +471,16 @@ mod tests {
             ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, AvailabilityError<Self::Error>>
             {
                 Err(AvailabilityError::Other(FaultyError(CANARY)))
+            }
+
+            async fn parse_calendar_event_blobs(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _blob_ids: &[jmap_types::Id],
+                _properties: Option<&[String]>,
+            ) -> Result<crate::backend::CalendarEventParseResult, Self::Error> {
+                Err(FaultyError(CANARY))
             }
         }
 

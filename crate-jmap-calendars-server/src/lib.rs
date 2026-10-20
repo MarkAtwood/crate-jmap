@@ -994,6 +994,38 @@ pub(crate) mod test_support {
                 previous_default: previous,
             })
         }
+
+        // The mock has no iCalendar parser and no busy-time data: every blob
+        // is notParsable and every availability window is empty.
+        async fn parse_calendar_event_blobs(
+            &self,
+            _caller: &(),
+            _account_id: &jmap_types::Id,
+            blob_ids: &[jmap_types::Id],
+            _properties: Option<&[String]>,
+        ) -> Result<crate::backend::CalendarEventParseResult, Self::Error> {
+            Ok(crate::backend::CalendarEventParseResult {
+                parsed: std::collections::BTreeMap::new(),
+                not_found: vec![],
+                not_parsable: blob_ids.to_vec(),
+            })
+        }
+
+        async fn get_availability(
+            &self,
+            _caller: &(),
+            _account_id: &jmap_types::Id,
+            _principal_id: &jmap_types::Id,
+            _utc_start: &jmap_types::UTCDate,
+            _utc_end: &jmap_types::UTCDate,
+            _show_details: bool,
+            _event_properties: Option<&[String]>,
+        ) -> Result<
+            Vec<jmap_calendars_types::BusyPeriod>,
+            crate::backend::AvailabilityError<Self::Error>,
+        > {
+            Ok(vec![])
+        }
     }
 }
 
@@ -1315,8 +1347,8 @@ mod tests {
         );
     }
 
-    /// Oracle: §5.13 — default backend puts unrecognised blob ids in
-    /// `notParsable`; `parsed` is null (via dispatcher).
+    /// Oracle: §5.13 — blob ids the backend classifies as unparsable are
+    /// listed in `notParsable`; `parsed` is null (via dispatcher).
     #[tokio::test]
     async fn parse_unknown_blob_returns_not_parsable() {
         let backend = Arc::new(MockBackend::new_with_account("acc1"));
@@ -1351,7 +1383,8 @@ mod tests {
         );
     }
 
-    /// Oracle: §2.2 — default backend returns an empty `list` (via dispatcher).
+    /// Oracle: §2.2 — a backend reporting no busy periods yields an empty
+    /// `list` (via dispatcher).
     #[tokio::test]
     async fn get_availability_returns_empty_list() {
         let backend = Arc::new(MockBackend::new_with_account("acc1"));

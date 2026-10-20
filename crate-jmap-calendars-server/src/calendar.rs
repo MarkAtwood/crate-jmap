@@ -761,6 +761,34 @@ mod tests {
                 // must NOT silently collapse this to Ok(false).
                 Err(FaultyError(CANARY))
             }
+
+            async fn parse_calendar_event_blobs(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _blob_ids: &[jmap_types::Id],
+                _properties: Option<&[String]>,
+            ) -> Result<crate::backend::CalendarEventParseResult, Self::Error> {
+                Err(FaultyError(CANARY))
+            }
+
+            async fn get_availability(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _principal_id: &jmap_types::Id,
+                _utc_start: &jmap_types::UTCDate,
+                _utc_end: &jmap_types::UTCDate,
+                _show_details: bool,
+                _event_properties: Option<&[String]>,
+            ) -> Result<
+                Vec<jmap_calendars_types::BusyPeriod>,
+                crate::backend::AvailabilityError<Self::Error>,
+            > {
+                Err(crate::backend::AvailabilityError::Other(FaultyError(
+                    CANARY,
+                )))
+            }
         }
 
         let backend = FaultyBackend;

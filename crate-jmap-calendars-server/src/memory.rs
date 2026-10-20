@@ -1298,6 +1298,39 @@ impl CalendarsBackend for MemoryBackend {
 
         Ok(SetDefaultResult::new(Some(identity_id.clone()), previous))
     }
+
+    // ponytail: MemoryBackend has no iCalendar parser and does not
+    // compute busy periods, so every blob is notParsable (§5.13) and
+    // every availability window is empty (§2.2). A production backend
+    // must implement both; this explicit override is the documented
+    // "not supported" shape (bd:JMAP-ic0j.26).
+    async fn parse_calendar_event_blobs(
+        &self,
+        _caller: &(),
+        _account_id: &jmap_types::Id,
+        blob_ids: &[jmap_types::Id],
+        _properties: Option<&[String]>,
+    ) -> Result<crate::backend::CalendarEventParseResult, Self::Error> {
+        Ok(crate::backend::CalendarEventParseResult {
+            parsed: std::collections::BTreeMap::new(),
+            not_found: vec![],
+            not_parsable: blob_ids.to_vec(),
+        })
+    }
+
+    async fn get_availability(
+        &self,
+        _caller: &(),
+        _account_id: &jmap_types::Id,
+        _principal_id: &jmap_types::Id,
+        _utc_start: &jmap_types::UTCDate,
+        _utc_end: &jmap_types::UTCDate,
+        _show_details: bool,
+        _event_properties: Option<&[String]>,
+    ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, crate::backend::AvailabilityError<Self::Error>>
+    {
+        Ok(vec![])
+    }
 }
 
 // ---------------------------------------------------------------------------

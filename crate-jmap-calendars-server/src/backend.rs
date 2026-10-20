@@ -550,6 +550,10 @@ pub trait CalendarsBackend: JmapBackend {
     /// a possible future API revision. See bd:JMAP-ic0j.58 for the
     /// considered alternatives.
     ///
+    /// The default implementation returns `(None, None)`, so `utcStart` /
+    /// `utcEnd` are absent from every response. Backends MUST override this
+    /// method to provide real §5.2 semantics.
+    ///
     /// [`get_objects`]: crate::JmapBackend::get_objects
     fn compute_utc_times(
         &self,
@@ -724,7 +728,10 @@ pub trait CalendarsBackend: JmapBackend {
     /// per §3.3.
     ///
     /// The default implementation returns an empty
-    /// [`SetDefaultResult`](SetDefaultResult::default).
+    /// [`SetDefaultResult`](SetDefaultResult::default), modelling a backend
+    /// that does not maintain a per-account default (§3.3 permits ignoring
+    /// the request). Backends that DO support defaults MUST override this
+    /// method.
     fn set_default_participant_identity(
         &self,
         _caller: &Self::CallerCtx,
@@ -739,7 +746,10 @@ pub trait CalendarsBackend: JmapBackend {
     /// Returns parsed events for each blob, or classifies blobs as `notFound`
     /// or `notParsable`.
     ///
-    /// The default implementation puts all blobs in `not_parsable`.
+    /// There is no default implementation (bd:JMAP-ic0j.26): a default
+    /// that reported every blob as `notParsable` would tell clients that
+    /// valid iCalendar data is malformed. A backend without an iCalendar
+    /// parser must say so explicitly in its own override.
     ///
     /// # Properties (bd:JMAP-ic0j.66)
     ///
@@ -783,43 +793,33 @@ pub trait CalendarsBackend: JmapBackend {
     /// outage.
     fn parse_calendar_event_blobs(
         &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
         blob_ids: &[jmap_types::Id],
-        _properties: Option<&[String]>,
-    ) -> impl std::future::Future<Output = Result<CalendarEventParseResult, Self::Error>> + Send
-    {
-        let not_parsable = blob_ids.to_vec();
-        async move {
-            Ok(CalendarEventParseResult {
-                parsed: std::collections::BTreeMap::new(),
-                not_found: vec![],
-                not_parsable,
-            })
-        }
-    }
+        properties: Option<&[String]>,
+    ) -> impl std::future::Future<Output = Result<CalendarEventParseResult, Self::Error>> + Send;
 
     /// Fetch availability data for a principal (draft-ietf-jmap-calendars-26 §2.2).
     ///
     /// `utc_start` and `utc_end` are [`UTCDate`](jmap_types::UTCDate) values
     /// (RFC 8620 §1.4 wire form) bounding the half-open interval queried.
     ///
-    /// The default implementation returns an empty list.
+    /// There is no default implementation (bd:JMAP-ic0j.26): a default
+    /// empty list would tell clients the principal is free for the whole
+    /// window, which is wrong data rather than absent data.
     #[allow(clippy::too_many_arguments)]
     fn get_availability(
         &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-        _principal_id: &jmap_types::Id,
-        _utc_start: &jmap_types::UTCDate,
-        _utc_end: &jmap_types::UTCDate,
-        _show_details: bool,
-        _event_properties: Option<&[String]>,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        principal_id: &jmap_types::Id,
+        utc_start: &jmap_types::UTCDate,
+        utc_end: &jmap_types::UTCDate,
+        show_details: bool,
+        event_properties: Option<&[String]>,
     ) -> impl std::future::Future<
         Output = Result<Vec<jmap_calendars_types::BusyPeriod>, AvailabilityError<Self::Error>>,
-    > + Send {
-        async { Ok(vec![]) }
-    }
+    > + Send;
 
     /// Implementation-defined per-account calendars caps for this caller and
     /// account (bd:JMAP-ic0j.31).
