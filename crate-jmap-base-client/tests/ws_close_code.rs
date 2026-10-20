@@ -12,7 +12,8 @@
 //! connection because it has received a message that violates its policy."
 
 use futures::StreamExt as _;
-use jmap_base_client::{ws::connect_ws, ClientError};
+use jmap_base_client::ws::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
+use jmap_base_client::ClientError;
 use tokio::net::TcpListener;
 use tokio_tungstenite::tungstenite::protocol::frame::coding::CloseCode;
 use tokio_tungstenite::tungstenite::protocol::CloseFrame;
@@ -41,9 +42,10 @@ async fn first_frame_after_server_close(
         // Keep the socket open until the client has read the Close frame.
         let _ = ws.next().await;
     });
-    let mut session = connect_ws(&format!("ws://{addr}/"), None)
-        .await
-        .expect("client must complete WS handshake");
+    let mut session =
+        connect_ws_allow_plaintext(&format!("ws://{addr}/"), None, DEFAULT_WS_MAX_MESSAGE_BYTES)
+            .await
+            .expect("client must complete WS handshake");
     let first = session.next_frame().await;
     drop(session);
     server.await.expect("server task must not panic");

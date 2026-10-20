@@ -759,14 +759,18 @@ fn parse_ws_frame(text: &str) -> Result<WsFrame, crate::error::ClientError> {
 /// Open a JMAP WebSocket connection (RFC 8887).
 ///
 /// `ws_url` must come from the session document's WebSocket capability URL
-/// (a `wss://` endpoint in production; `ws://` is accepted in tests).
+/// (always a `wss://` endpoint).
 ///
 /// `auth_header` is an optional `(header-name, header-value)` pair injected
 /// into the WebSocket upgrade request. Pass `None` when the server does not
 /// require authentication headers on the WebSocket handshake.
 ///
 /// Returns `ClientError::InvalidArgument` if the URL scheme is not
-/// `ws://` or `wss://`, preventing accidental use with untrusted URLs.
+/// `wss://`. jmap-chat-wss-guide.md: "Clients MUST always connect to
+/// wss://, never ws://. ... clients MUST reject any URL that does not begin
+/// with wss:// rather than downgrading the connection." Plaintext `ws://`
+/// (local test rigs, examples) requires the explicit opt-in
+/// [`connect_ws_allow_plaintext`].
 ///
 /// The returned [`WsSession`] provides [`WsSession::next_frame`] for receiving
 /// events. The caller is responsible for reconnecting after disconnect with
@@ -791,7 +795,8 @@ pub async fn connect_ws(
 /// Establish a WebSocket connection with an explicit per-message / per-frame
 /// byte cap.
 ///
-/// Same contract as [`connect_ws`] but lets the caller pin the
+/// Same contract as [`connect_ws`] (including the `wss://`-only rule) but
+/// lets the caller pin the
 /// `max_message_size` / `max_frame_size` config passed to tungstenite.
 /// Useful when the JMAP server is known to send larger pushes than the
 /// 1 MiB default (e.g. some Mailbox/changes push payloads on accounts with
@@ -814,6 +819,35 @@ pub async fn connect_ws_with_limit(
     auth_header: Option<crate::auth::AuthHeader<'_>>,
     max_message_bytes: usize,
 ) -> Result<WsSession, crate::error::ClientError> {
+    connect_impl(ws_url, auth_header, max_message_bytes, false).await
+}
+
+/// Establish a WebSocket connection that also accepts plaintext `ws://`.
+///
+/// Explicit opt-in for local test rigs and examples that run without TLS.
+/// Production code must use [`connect_ws`] / [`connect_ws_with_limit`],
+/// which accept only `wss://` (jmap-chat-wss-guide.md: "clients MUST reject
+/// any URL that does not begin with wss:// rather than downgrading the
+/// connection"). Otherwise identical to [`connect_ws_with_limit`].
+///
+/// # Security
+///
+/// A `ws://` connection carries `auth_header` and every frame in
+/// cleartext. Never pass a URL taken from an untrusted session document.
+pub async fn connect_ws_allow_plaintext(
+    ws_url: &str,
+    auth_header: Option<crate::auth::AuthHeader<'_>>,
+    max_message_bytes: usize,
+) -> Result<WsSession, crate::error::ClientError> {
+    connect_impl(ws_url, auth_header, max_message_bytes, true).await
+}
+
+async fn connect_impl(
+    ws_url: &str,
+    auth_header: Option<crate::auth::AuthHeader<'_>>,
+    max_message_bytes: usize,
+    allow_plaintext: bool,
+) -> Result<WsSession, crate::error::ClientError> {
     if max_message_bytes == 0 {
         return Err(crate::error::ClientError::InvalidArgument(
             "connect_ws_with_limit: max_message_bytes must be > 0".to_owned(),
@@ -826,12 +860,17 @@ pub async fn connect_ws_with_limit(
     // URL. Lowercasing the whole URL allocated a fresh String the size of
     // the URL on every connect (bd:JMAP-6lsm.9). The original (unmodified)
     // URL is passed to tungstenite and kept in error messages for diagnostics.
-    let scheme_ok = ws_url
-        .split_once("://")
-        .is_some_and(|(s, _)| s.eq_ignore_ascii_case("ws") || s.eq_ignore_ascii_case("wss"));
+    let scheme_ok = ws_url.split_once("://").is_some_and(|(s, _)| {
+        s.eq_ignore_ascii_case("wss") || (allow_plaintext && s.eq_ignore_ascii_case("ws"))
+    });
     if !scheme_ok {
+        let expected = if allow_plaintext {
+            "ws:// or wss://"
+        } else {
+            "wss://"
+        };
         return Err(crate::error::ClientError::InvalidArgument(format!(
-            "WebSocket URL must start with ws:// or wss://, got: {ws_url:?}"
+            "WebSocket URL must start with {expected}, got: {ws_url:?}"
         )));
     }
 
@@ -1070,6 +1109,72 @@ mod tests {
                 Err(crate::error::ClientError::InvalidArgument(_)) => {}
                 other => panic!("expected InvalidArgument for {bad_url:?}, got {other:?}"),
             }
+        }
+    }
+
+    /// Oracle: jmap-chat-wss-guide.md L401-402 (jmap-chat-spec 3227c0f):
+    /// "Clients MUST always connect to `wss://`, never `ws://`. The Session
+    /// object's WebSocket URL will always be `wss://`; clients MUST reject
+    /// any URL that does not begin with `wss://` rather than downgrading the
+    /// connection." Same text in jmap-scene-wss-guide.md L666-667. The
+    /// rejection happens before any I/O, so no listener is needed.
+    #[tokio::test]
+    async fn connect_ws_rejects_plaintext_ws_by_default() {
+        for bad_url in &["ws://127.0.0.1:1/", "WS://127.0.0.1:1/"] {
+            match connect_ws(bad_url, None).await.map(|_| ()) {
+                Err(crate::error::ClientError::InvalidArgument(msg)) => {
+                    assert!(msg.contains("wss://"), "message must name wss://: {msg}");
+                }
+                other => {
+                    panic!("connect_ws: expected InvalidArgument for {bad_url:?}, got {other:?}")
+                }
+            }
+            match connect_ws_with_limit(bad_url, None, DEFAULT_WS_MAX_MESSAGE_BYTES)
+                .await
+                .map(|_| ())
+            {
+                Err(crate::error::ClientError::InvalidArgument(_)) => {}
+                other => panic!(
+                    "connect_ws_with_limit: expected InvalidArgument for {bad_url:?}, got {other:?}"
+                ),
+            }
+        }
+    }
+
+    /// Oracle: same guide text — a `wss://` URL is the required form, so the
+    /// scheme guard must let it through. Port 1 on loopback has no listener,
+    /// so the call must fail at the transport (`WebSocket`), never with
+    /// `InvalidArgument`; `wss://` with mixed case per RFC 3986 §3.1
+    /// ("schemes are case-insensitive").
+    #[tokio::test]
+    async fn connect_ws_accepts_wss_scheme() {
+        for url in &["wss://127.0.0.1:1/", "WSS://127.0.0.1:1/"] {
+            match connect_ws(url, None).await.map(|_| ()) {
+                Err(crate::error::ClientError::WebSocket(_)) => {}
+                other => panic!("expected a transport error for {url:?}, got {other:?}"),
+            }
+        }
+    }
+
+    /// Oracle: bead JMAP-yt1w.45 acceptance — plaintext stays usable only
+    /// behind the explicit opt-in. With the opt-in, `ws://` passes the scheme
+    /// guard (fails at the transport against the empty port), while non-WS
+    /// schemes are still rejected.
+    #[tokio::test]
+    async fn connect_ws_allow_plaintext_accepts_ws_only_as_opt_in() {
+        match connect_ws_allow_plaintext("ws://127.0.0.1:1/", None, DEFAULT_WS_MAX_MESSAGE_BYTES)
+            .await
+            .map(|_| ())
+        {
+            Err(crate::error::ClientError::WebSocket(_)) => {}
+            other => panic!("expected a transport error, got {other:?}"),
+        }
+        match connect_ws_allow_plaintext("http://127.0.0.1:1/", None, DEFAULT_WS_MAX_MESSAGE_BYTES)
+            .await
+            .map(|_| ())
+        {
+            Err(crate::error::ClientError::InvalidArgument(_)) => {}
+            other => panic!("expected InvalidArgument for http://, got {other:?}"),
         }
     }
 

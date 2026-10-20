@@ -14,6 +14,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-base-client**: `connect_ws_allow_plaintext(url, auth_header,
+  max_message_bytes)`, the explicit opt-in that also accepts plaintext
+  `ws://` for local test rigs and examples.
+
 - **jmap-chat-types**: `ChatContact.did` (`Option<jmap_did_types::Did>`),
   the optional DID bound to a ChatContact for the pseudonymous case
   (draft-atwood-jmap-chat-did-00 §Optional `did` field). jmap-chat-types
@@ -314,6 +318,13 @@ wire behaviour that a conforming peer can observe.
   (§Attachment), comparing the digest in constant time.
 
 ### Changed
+
+- **BREAKING** **jmap-base-client**: `connect_ws`, `connect_ws_with_limit`
+  and `JmapClient::connect_ws_session` now accept only `wss://` URLs and
+  return `ClientError::InvalidArgument` for `ws://` (jmap-chat-wss-guide:
+  "clients MUST reject any URL that does not begin with wss:// rather than
+  downgrading the connection"). Plaintext test rigs switch to
+  `connect_ws_allow_plaintext`.
 
 - **BREAKING** **jmap-chat-types**: a `ChatContact` whose JSON carries a
   `did` that is not a valid DID now fails to deserialize; before, any

@@ -6,7 +6,7 @@
 //! frame (RFC 8887 §4.3.5 / draft-atwood-jmap-chat-wss-00 §3.5–3.7),
 //! then closes.
 //!
-//! The client side calls [`jmap_base_client::connect_ws`] to open the
+//! The client side calls [`jmap_base_client::connect_ws_allow_plaintext`] to open the
 //! session, then drives the read loop through
 //! [`jmap_chat_client::ChatWsExt::next_chat_frame`] — the chat-aware
 //! extension trait that promotes typed `WsFrame` variants into
@@ -22,7 +22,7 @@
 //! NOT FOR PRODUCTION — single connection, no retry, no auth, no TLS.
 
 use futures::SinkExt;
-use jmap_base_client::connect_ws;
+use jmap_base_client::ws::{connect_ws_allow_plaintext, DEFAULT_WS_MAX_MESSAGE_BYTES};
 use jmap_chat_client::{ChatWsExt, ChatWsFrame};
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -74,7 +74,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // retry transparently. After reconnect, resend any
     // `WebSocketPushEnable` and (when implemented) re-issue the prior
     // `pushState` to resume push delivery from the right point.
-    let mut session = connect_ws(&ws_url, None).await?;
+    // The stub has no TLS, so plaintext ws:// needs the explicit opt-in;
+    // production uses `connect_ws`, which accepts only wss://.
+    let mut session =
+        connect_ws_allow_plaintext(&ws_url, None, DEFAULT_WS_MAX_MESSAGE_BYTES).await?;
 
     let mut count = 0usize;
     while let Some(frame) = session.next_chat_frame().await {
