@@ -13,7 +13,9 @@
 //! or region is its owner; [`SceneBackend::may_modify_asset`] and
 //! [`SceneBackend::may_update_region`] allow the owner and the users
 //! registered with `add_admin`, [`SceneBackend::may_destroy_region`] the
-//! owner only.
+//! owner only. [`SceneBackend::may_modify_object`] allows the object's
+//! owner, its region's owner and the admins; a created object's `ownerId`
+//! is the caller.
 //!
 //! # Companion capabilities and bindings
 //!
@@ -26,17 +28,20 @@
 //!
 //! `set_storage_quota` sets an account's total asset storage in bytes;
 //! [`SceneBackend::create_object`] refuses a `SceneAsset` that would
-//! exceed it, and a `SceneRegion` beyond the capability's
-//! `maxRegionsPerAccount`, with `overQuota`.
+//! exceed it, a `SceneRegion` beyond the capability's
+//! `maxRegionsPerAccount`, and a `SceneObject` beyond its
+//! `maxObjectsPerRegion`, with `overQuota`.
 //!
 //! # Region destroy
 //!
 //! Destroying a `SceneRegion` also destroys the stored `SceneObject` and
-//! `SceneAvatar` records whose `regionId` names it.
+//! `SceneAvatar` records whose `regionId` names it. Destroying a
+//! `SceneObject` also destroys its descendants, in the same state step.
 //!
 //! # Query
 //!
-//! `SceneAsset/query` and `SceneRegion/query` evaluate the filter and sort
+//! `SceneAsset/query`, `SceneRegion/query` and `SceneObject/query`
+//! evaluate the filter and sort
 //! with the [`crate::query`] functions. `/queryChanges` is not implemented: results
 //! say `canCalculateChanges: false` and `/queryChanges` returns
 //! `cannotCalculateChanges` (RFC 8620 §5.6).
@@ -52,7 +57,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use jmap_scene_types::query::{
-    SceneAssetComparator, SceneAssetFilter, SceneRegionComparator, SceneRegionFilter,
+    SceneAssetComparator, SceneAssetFilter, SceneObjectComparator, SceneObjectFilter,
+    SceneRegionComparator, SceneRegionFilter,
 };
 use jmap_scene_types::{SceneAsset, SceneAvatar, SceneCapability, SceneObject, SceneRegion};
 use jmap_server::{apply_patch_object, resolve_query_start};
@@ -61,7 +67,10 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::{json, Value};
 
-use crate::query::{asset_matches, compare_assets, compare_regions, region_matches};
+use crate::query::{
+    asset_matches, compare_assets, compare_objects, compare_regions, object_matches,
+    region_local_position, region_matches,
+};
 use crate::{
     BackendChangesError, BackendQueryError, BackendSetError, BindingTarget, ChangesResult,
     GetObject, JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SceneBackend,
@@ -426,6 +435,23 @@ impl JmapBackend for MemoryBackend {
                 |a, b| compare_regions(a, b, &sort),
                 |r| r.id,
             )
+        } else if O::TYPE_NAME == SceneObject::TYPE_NAME {
+            let filter: Option<SceneObjectFilter> = filter.map(recode).transpose()?;
+            let sort: Vec<SceneObjectComparator> = recode(&sort)?;
+            let all: HashMap<Id, SceneObject> = inner
+                .all::<SceneObject>(account_id)
+                .map(|o| (o.id.clone(), o))
+                .collect();
+            sorted_ids(
+                all.values(),
+                |o| {
+                    filter.as_ref().is_none_or(|f| {
+                        object_matches(f, o, region_local_position(o, |id| all.get(id)))
+                    })
+                },
+                |a, b| compare_objects(a, b, &sort),
+                |o| o.id.clone(),
+            )
         } else {
             return Err(BackendQueryError::Other(MemoryError::new(format!(
                 "query of {} is not implemented",
@@ -529,6 +555,27 @@ impl SceneBackend for MemoryBackend {
                 ));
             }
         }
+        // "`overQuota` when `maxObjectsPerRegion` would be exceeded",
+        // counted under the lock; "The userId of the user who created this
+        // object".
+        if O::TYPE_NAME == SceneObject::TYPE_NAME {
+            let max = inner
+                .accounts
+                .get(account_id.as_ref())
+                .and_then(|c| c.max_objects_per_region);
+            let region = value.get("regionId").and_then(Value::as_str);
+            let held = inner
+                .all::<SceneObject>(account_id)
+                .filter(|o| Some(o.region_id.as_ref()) == region)
+                .count() as u64;
+            if max.is_some_and(|max| held >= max) {
+                return Err(BackendSetError::SetError(
+                    SetError::new(SetErrorType::OverQuota)
+                        .with_description("maxObjectsPerRegion reached"),
+                ));
+            }
+            value["ownerId"] = json!(caller);
+        }
         let id = Id::from(ulid::Ulid::new().to_string());
         value["id"] = json!(id);
         let stored: O = decode(&value).map_err(BackendSetError::Other)?;
@@ -594,15 +641,38 @@ impl SceneBackend for MemoryBackend {
         id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
         let mut inner = self.lock();
-        inner
-            .objects_mut(O::TYPE_NAME, account_id)
-            .remove(id)
-            .ok_or_else(not_found)?;
-        inner.owners.remove(id);
+        let map = inner.objects_mut(O::TYPE_NAME, account_id);
+        if !map.contains_key(id) {
+            return Err(not_found());
+        }
+        // "removes the SceneObject and all its children (objects whose
+        // `parentId` references this object, recursively)".
+        let mut gone = vec![id.clone()];
+        if O::TYPE_NAME == SceneObject::TYPE_NAME {
+            let mut i = 0;
+            while let Some(parent) = gone.get(i).cloned() {
+                let children: Vec<Id> = map
+                    .iter()
+                    .filter(|(k, v)| {
+                        v.get("parentId").and_then(Value::as_str) == Some(parent.as_ref())
+                            && !gone.contains(k)
+                    })
+                    .map(|(k, _)| k.clone())
+                    .collect();
+                gone.extend(children);
+                i += 1;
+            }
+        }
+        for k in &gone {
+            map.remove(k);
+        }
+        for k in &gone {
+            inner.owners.remove(k);
+        }
         inner.commit(
             O::TYPE_NAME,
             account_id,
-            vec![(id.clone(), Change::Destroyed)],
+            gone.into_iter().map(|k| (k, Change::Destroyed)).collect(),
         );
         // "removes the SceneRegion and all contained SceneObject and
         // SceneAvatar records", in the same locked step.
@@ -687,7 +757,26 @@ impl SceneBackend for MemoryBackend {
         Ok(self.lock().owners.get(&region.id) == Some(caller))
     }
 
+    async fn may_modify_object(
+        &self,
+        caller: &String,
+        _account_id: &Id,
+        object: &SceneObject,
+    ) -> Result<bool, MemoryError> {
+        // "Only the object's `ownerId`, the region owner, or a
+        // deployment-admin may modify another user's object."
+        let inner = self.lock();
+        Ok(inner.admins.contains(caller)
+            || object.owner_id.as_ref() == Some(caller)
+            || inner.owners.get(&object.region_id) == Some(caller))
+    }
+
     fn supports_type<O: JmapObject>(&self, _caller: &String, _account_id: &Id) -> bool {
-        O::TYPE_NAME == SceneAsset::TYPE_NAME || O::TYPE_NAME == SceneRegion::TYPE_NAME
+        [
+            SceneAsset::TYPE_NAME,
+            SceneRegion::TYPE_NAME,
+            SceneObject::TYPE_NAME,
+        ]
+        .contains(&O::TYPE_NAME)
     }
 }

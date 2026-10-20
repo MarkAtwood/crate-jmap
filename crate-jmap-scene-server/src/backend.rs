@@ -16,7 +16,7 @@ pub use jmap_server::{
     SetObject,
 };
 
-use jmap_scene_types::{SceneAsset, SceneCapability, SceneRegion};
+use jmap_scene_types::{SceneAsset, SceneCapability, SceneObject, SceneRegion};
 
 /// What [`SceneBackend::region_binding`] knows about the object a
 /// SceneRegion binding property references.
@@ -105,6 +105,13 @@ pub trait SceneBackend: JmapBackend {
     /// MUST return `overQuota` when `maxRegionsPerAccount` would be
     /// exceeded"), counted atomically with the insert.
     ///
+    /// For a `SceneObject` the backend sets `ownerId` to the caller's
+    /// userId ("The userId of the user who created this object"; the
+    /// handler sends `null`) and refuses with `overQuota` when the object's
+    /// region already holds `maxObjectsPerRegion` objects ("The server MUST
+    /// return `overQuota` when `maxObjectsPerRegion` would be exceeded"),
+    /// counted atomically with the insert.
+    ///
     /// Returns the assigned id and the stored object. `create_id` is the
     /// client's creation id. Error mapping, state-counter and change-log
     /// rules are those of the canonical `jmap-mail-server` `create_object`:
@@ -144,6 +151,11 @@ pub trait SceneBackend: JmapBackend {
     /// and advances those types' states. It does not end a VTCCall the
     /// region's `activeCallId` references ("the server MUST NOT
     /// automatically end the referenced VTCCall").
+    ///
+    /// Destroying a `SceneObject` "removes the SceneObject and all its
+    /// children (objects whose `parentId` references this object,
+    /// recursively)": in the same atomic step the backend destroys every
+    /// descendant and records each as a destroyed SceneObject change.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -256,6 +268,29 @@ pub trait SceneBackend: JmapBackend {
         region: &SceneRegion,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
         let _ = (caller, account_id, region);
+        async { Ok(true) }
+    }
+
+    /// `true` if the caller may update or destroy `object`: "Only the
+    /// object's `ownerId`, the region owner, or a deployment-admin may
+    /// modify another user's object" (draft-atwood-jmap-scene-00
+    /// §SceneObject/set Update Errors; Destroy Errors use the "Same
+    /// permission model as update").
+    ///
+    /// `SceneObject/set` returns `forbidden` for an update or destroy when
+    /// this is `false`.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)` (fail-open, bd:JMAP-bghk); production backends
+    /// override it.
+    fn may_modify_object(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        object: &SceneObject,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, account_id, object);
         async { Ok(true) }
     }
 

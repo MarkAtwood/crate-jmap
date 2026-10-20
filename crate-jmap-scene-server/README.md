@@ -1,6 +1,7 @@
 # jmap-scene-server
 
-Method handlers for the `SceneAsset` and `SceneRegion` data types of the
+Method handlers for the `SceneAsset`, `SceneRegion` and `SceneObject`
+data types of the
 JMAP Scene extension (draft-atwood-jmap-scene-00), backend-agnostic, for a
 `jmap-server` `Dispatcher`. You supply storage through the `SceneBackend`
 trait.
@@ -16,19 +17,22 @@ trait.
 | `handle_scene_region_get`, `handle_scene_region_changes` | §SceneRegion/get, §SceneRegion/changes (RFC 8620 §5.1, §5.2) |
 | `handle_scene_region_set` | §SceneRegion/set: create, update, destroy and §SetError Conditions |
 | `handle_scene_region_query`, `handle_scene_region_query_changes` | §SceneRegion/query, §SceneRegion/queryChanges |
+| `handle_scene_object_get`, `handle_scene_object_changes` | §SceneObject/get, §SceneObject/changes (RFC 8620 §5.1, §5.2) |
+| `handle_scene_object_set` | §SceneObject/set: create, update, recursive destroy and §SetError Conditions |
+| `handle_scene_object_query`, `handle_scene_object_query_changes` | §SceneObject/query, §Spatial Filters, §SceneObject/queryChanges |
 | `query::asset_matches`, `query::compare_assets` | §SceneAsset/query filter and sort |
 | `query::region_matches`, `query::compare_regions` | §SceneRegion/query filter and sort |
+| `query::object_matches`, `query::compare_objects`, `query::region_local_position` | §SceneObject/query filter, spatial filters and sort |
 | `SceneBackend` | storage, capability objects, blob sizes, permission and binding hooks |
 | `BindingTarget` | what a `chatId`/`spaceId`/`channelId`/`activeCallId` references |
 | `memory::MemoryBackend` (`memory` feature) | in-memory reference backend |
-| `register_scene_handlers` | wires the `SceneAsset/*` and `SceneRegion/*` methods |
+| `register_scene_handlers` | wires the `SceneAsset/*`, `SceneRegion/*` and `SceneObject/*` methods |
 
 ## What it's for
 
 A JMAP server that offers spatial scenes wires these handlers next to its
 other extensions. The crate depends on `jmap-types`, `jmap-server` and
-`jmap-scene-types` only. SceneObject and SceneAvatar methods are not here
-yet. Chat and VTC lookups for the region bindings belong to binding
+`jmap-scene-types` only. SceneAvatar methods are not here yet. Chat and VTC lookups for the region bindings belong to binding
 crates, which implement `SceneBackend::has_capability` and
 `SceneBackend::region_binding`.
 
@@ -84,6 +88,27 @@ ended call is `invalidProperties`, an inaccessible one `forbidden`. The
 and SceneAvatars. `/query` defaults to `createdAt` descending, and an
 `accessPolicy` filter value outside the three is `invalidArguments`.
 
+A SceneObject create needs `mayCreateObject`, a `regionId` naming an
+existing region (else `notFound`) and a finite `position`. `scale` must
+be finite, `orientation` within 1e-3 of unit length (stored normalized;
+an absent one is the identity), `physicsMode` one of `static`, `dynamic`,
+`kinematic` or `none`, and `visualRef` and `visualType` come together.
+`visualType` must be listed in `supportedVisualTypes` (or be
+`model/gltf-binary`) and `visualRef` must name an uploaded blob (else
+`notFound`). A `parentId` must name an existing object (else `notFound`)
+in the same region, must not make the object its own ancestor, and must
+keep every object within 16 levels; an update that re-parents counts the
+moved subtree. The backend sets `ownerId` to the caller and applies
+`maxObjectsPerRegion` atomically. `regionId` is immutable. Update and
+destroy need `may_modify_object` (object owner, region owner or admin);
+destroy removes the object's descendants too, and only the requested id
+appears in `destroyed`. `/query` defaults to `createdAt` ascending and
+returns `invalidArguments` without `regionId` in every condition, for an
+unknown `physicsMode`, a `withinRadius.radius` <= 0 or a `withinBounds`
+`max` below `min`. The spatial filters compare region-local positions:
+a child's parent-relative `position` is mapped through its ancestors'
+transforms, and the boundary is inclusive.
+
 ## Gotchas
 
 - `SceneBackend::may_modify_asset` defaults to `Ok(true)` (fail-open,
@@ -92,6 +117,11 @@ and SceneAvatars. `/query` defaults to `createdAt` descending, and an
 - `may_update_region`, `may_destroy_region` and `region_binding` also
   fail open: any caller may change any region, and every binding id is
   accepted, until you override them.
+- `may_modify_object` fails open too: any caller may move or delete any
+  SceneObject until you override it.
+- Re-parenting an object reads every SceneObject of the account to find
+  the moved subtree's height. A backend with a `parentId` index can
+  register a faster `SceneObject/set`.
 - `has_capability` has no default. Return `true` only for the companion
   capabilities you advertise on that account.
 - Destroying a region does not end its `activeCallId` VTCCall, and this

@@ -109,3 +109,27 @@ pub fn stored_region(id: &str, name: &str, created_at: &str) -> Value {
         "updatedAt": created_at
     })
 }
+
+/// A stored root-level object, hand-written from the field list at
+/// L463-512.
+pub fn stored_object(id: &str, region: &str, position: Value, created_at: &str) -> Value {
+    json!({
+        "id": id,
+        "regionId": region,
+        "parentId": null,
+        "name": null,
+        "position": position,
+        "orientation": [0, 0, 0, 1],
+        "scale": [1, 1, 1],
+        "visualRef": null,
+        "visualType": null,
+        "assetUri": null,
+        "physicsMode": "static",
+        "interactable": false,
+        "visible": true,
+        "ownerId": ALICE,
+        "createdAt": created_at,
+        "updatedAt": created_at,
+        "worldState": null
+    })
+}
