@@ -121,6 +121,7 @@ pub mod query;
 pub mod rich;
 pub mod space;
 pub mod space_set;
+pub mod tasks;
 pub mod vocabulary;
 
 /// Serde default for boolean properties whose spec default is `true`.
@@ -138,9 +139,9 @@ pub use calendars::{
 };
 pub use capability::{
     may_advertise_chat_did, ChatCalendarsCapability, ChatCapability, ChatCapabilityRole,
-    ChatFilenodeCapability, ChatPushCapability, CHAT_FILENODE_SPACE_ROLE, JMAP_CHAT_CALENDARS_URI,
-    JMAP_CHAT_DID_URI, JMAP_CHAT_FILENODE_URI, JMAP_CHAT_PUSH_URI, JMAP_CHAT_URI,
-    JMAP_CHAT_WEBSOCKET_URI, MANDATORY_DID_METHODS,
+    ChatFilenodeCapability, ChatPushCapability, ChatTasksCapability, CHAT_FILENODE_SPACE_ROLE,
+    JMAP_CHAT_CALENDARS_URI, JMAP_CHAT_DID_URI, JMAP_CHAT_FILENODE_URI, JMAP_CHAT_PUSH_URI,
+    JMAP_CHAT_TASKS_URI, JMAP_CHAT_URI, JMAP_CHAT_WEBSOCKET_URI, MANDATORY_DID_METHODS,
 };
 pub use chat::{ChannelPermission, Chat, ChatKind, ChatMember, ChatMemberRole};
 pub use clearable::Clearable;
@@ -163,4 +164,8 @@ pub use space::{Category, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
 pub use space_set::{
     CategoryPatch, ChannelCreate, ChannelPatch, MemberCreate, MemberPatch, RolePatch,
     SpaceMetadataPatch, SpacePatchOp,
+};
+pub use tasks::{
+    task_chat_id, TaskMetadata, JMAP_URI_TASK_TYPE, SPACE_TASK_LIST_ID_PROPERTY,
+    TASK_CHAT_ID_PROPERTY,
 };

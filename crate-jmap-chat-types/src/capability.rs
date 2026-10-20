@@ -5,6 +5,7 @@
 //!   - draft-atwood-jmap-chat-push-00     (`ChatPushCapability` fields)
 //!   - draft-atwood-jmap-chat-filenode-00 (`ChatFilenodeCapability` fields)
 //!   - draft-atwood-jmap-chat-calendars-00 (`ChatCalendarsCapability` fields)
+//!   - draft-atwood-jmap-chat-tasks-00 (`ChatTasksCapability` fields)
 //!   - draft-atwood-jmap-chat-federation-00 §Account-Level Capability
 //!     (`ChatCapability::role`)
 //!
@@ -38,6 +39,15 @@ pub const JMAP_CHAT_FILENODE_URI: &str = "urn:ietf:params:jmap:chat:filenode";
 /// also advertised on the same account." The session-level value is an
 /// empty object; the account-level value is [`ChatCalendarsCapability`].
 pub const JMAP_CHAT_CALENDARS_URI: &str = "urn:ietf:params:jmap:chat:calendars";
+
+/// Capability URI for the JMAP Chat Tasks binding
+/// (draft-atwood-jmap-chat-tasks-00 §Capability).
+///
+/// "This capability is meaningful only when both
+/// `urn:ietf:params:jmap:chat` and `urn:ietf:params:jmap:tasks` are also
+/// advertised on the same account." The session-level value is an empty
+/// object; the account-level value is [`ChatTasksCapability`].
+pub const JMAP_CHAT_TASKS_URI: &str = "urn:ietf:params:jmap:chat:tasks";
 
 /// Session-level capability URI for JMAP Chat ephemeral push over WebSocket
 /// (draft-atwood-jmap-chat-wss-00 §Capability); its value is an empty object.
@@ -316,6 +326,37 @@ pub struct ChatCalendarsCapability {
     /// `true` if the server exposes `Principal/getAvailability` in the
     /// in-chat context.
     pub supports_availability_lookup: bool,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Account-level capability object for `"urn:ietf:params:jmap:chat:tasks"`.
+///
+/// Found at `accounts[id].accountCapabilities["urn:ietf:params:jmap:chat:tasks"]`.
+/// The session-level value is an empty object and is not modelled.
+///
+/// Spec: draft-atwood-jmap-chat-tasks-00 §Account-Level Capability Object
+///
+/// # Strictness
+///
+/// No struct-level `#[serde(default)]`: the draft lists both Boolean
+/// fields without marking either optional, so a server that omits one is
+/// surfaced as a deserialize error.
+#[non_exhaustive]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatTasksCapability {
+    /// `true` if accounts on this server may associate a TaskList with a
+    /// Space. Deployments that prohibit Space-TaskList binding "MUST set
+    /// this to `false`".
+    pub may_bind_task_list: bool,
+    /// `true` if tasks may carry a `chatId` back-reference to a discussion
+    /// Chat. Independent of [`may_bind_task_list`](Self::may_bind_task_list).
+    pub may_back_reference_chat: bool,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
