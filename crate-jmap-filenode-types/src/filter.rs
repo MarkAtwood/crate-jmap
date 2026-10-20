@@ -65,6 +65,13 @@ pub struct FileNodeFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub role: Option<String>,
 
+    /// Exact match on the node's `spaceId` extension property
+    /// (draft-atwood-jmap-chat-filenode-00 §The `spaceId` Extension
+    /// Property: "Servers MUST support `spaceId` as a filter criterion in
+    /// `FileNode/query`"). Nodes without `spaceId` never match.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub space_id: Option<Id>,
+
     /// If `true`, only nodes with a non-null role match.  If `false`, only nodes
     /// with a null role match.
     #[serde(skip_serializing_if = "Option::is_none")]

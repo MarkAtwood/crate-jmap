@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-filenode-types**, **jmap-filenode-server**:
+  `FileNodeFilterCondition.space_id` (`spaceId` on the wire), matched by the
+  in-memory backend against the node's `spaceId` property, so
+  `FileNode/query` can locate one Space's file tree root among several
+  (draft-atwood-jmap-chat-filenode-00 §The `spaceId` Extension Property).
 - **jmap-chat-scene-server**: new crate, the Chat binding for
   `jmap-scene-server`. `should_deliver_scene` decides delivery of a Scene
   ephemeral event over the union of the `ChatStreamEnable` `"scene"` path

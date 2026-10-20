@@ -3191,3 +3191,61 @@ async fn filenode_set_update_null_defaulted_resets_to_default() {
     assert!(sub.is_null() || sub == json!(true), "isSubscribed: {sub}");
     assert_eq!(get(&backend, &ids[2], "executable").await, json!(false));
 }
+
+// ---------------------------------------------------------------------------
+// FileNode/query filters on the `spaceId` extension property.
+// Oracle: draft-atwood-jmap-chat-filenode-00 (jmap-chat-spec HEAD)
+//   L124: "Servers MUST support `spaceId` as a filter criterion in
+//          `FileNode/query`, enabling clients to efficiently locate the root
+//          for a given Space."
+//   L138: "clients issue a `FileNode/query` request filtering on
+//          `role: \"urn:jmap:chat:filenode:space\"` and `spaceId: <id>`. When a
+//          file tree exists for the Space, exactly one matching FileNode is
+//          returned. When no file tree exists, the result is empty"
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_query_space_id_returns_only_matching_space_root() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "r1": { "@type": "Directory", "name": "space-one", "parentId": null,
+                        "role": "urn:jmap:chat:filenode:space", "spaceId": "S1" },
+                "r2": { "@type": "Directory", "name": "space-two", "parentId": null,
+                        "role": "urn:jmap:chat:filenode:space", "spaceId": "S2" }
+            }
+        }),
+    )
+    .await
+    .expect("create Space roots must succeed");
+    let r1 = resp["created"]["r1"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("r1 must be created: {resp}"))
+        .to_owned();
+    assert!(resp["created"]["r2"]["id"].is_string(), "{resp}");
+
+    let query = |space_id: &'static str| {
+        handle_filenode_query(
+            &backend,
+            &(),
+            json!({
+                "accountId": "acc1",
+                "filter": { "role": "urn:jmap:chat:filenode:space", "spaceId": space_id }
+            }),
+        )
+    };
+
+    let HandlerOutput { primary: q, .. } = query("S1").await.expect("query S1 must succeed");
+    assert_eq!(q["ids"], json!([r1]), "L138: exactly one root for S1: {q}");
+
+    let HandlerOutput { primary: q, .. } = query("S3").await.expect("query S3 must succeed");
+    assert_eq!(
+        q["ids"],
+        json!([]),
+        "L138: no tree for S3, empty result: {q}"
+    );
+}
