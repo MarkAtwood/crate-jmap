@@ -6,6 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish = false
 description = "JMAP VTC extension data types (draft-atwood-jmap-vtc-00)"
 keywords = ["jmap", "vtc", "video", "types", "rfc8620"]
 categories = ["encoding", "network-programming"]

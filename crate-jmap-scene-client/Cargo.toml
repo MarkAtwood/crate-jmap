@@ -6,6 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish = false
 description = "JMAP Scene client (draft-atwood-jmap-scene-00) — https-only assetUri fetch with sha256 verification, Scene WebSocket events (draft-atwood-jmap-scene-wss-00)"
 keywords = ["jmap", "scene", "spatial", "client"]
 categories = ["network-programming", "asynchronous"]

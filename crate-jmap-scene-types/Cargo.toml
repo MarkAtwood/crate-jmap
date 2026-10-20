@@ -6,6 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish = false
 description = "JMAP Scene extension data types (draft-atwood-jmap-scene-00)"
 keywords = ["jmap", "scene", "spatial", "types", "rfc8620"]
 categories = ["encoding", "network-programming"]

@@ -6,6 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+publish = false
 description = "JMAP VTC method handlers (draft-atwood-jmap-vtc-00 VTCCall, VTCRecording, VTCLivestream) — backend-agnostic, plugs into jmap-server Dispatcher"
 keywords = ["jmap", "vtc", "video", "server"]
 categories = ["network-programming", "web-programming::http-server"]
