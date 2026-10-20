@@ -5,7 +5,10 @@ use std::marker::PhantomData;
 
 use jmap_types::{Invocation, JmapRequest, JmapResponse, ResultReference};
 
-use super::{ChatQueryInput, GetResponse, MessageQueryInput, QueryResponse};
+use jmap_types::query::Filter;
+use serde::Serialize;
+
+use super::{GetResponse, QueryResponse};
 
 /// Several typed method calls sent as one JMAP request (RFC 8620 §3.3).
 ///
@@ -16,14 +19,17 @@ use super::{ChatQueryInput, GetResponse, MessageQueryInput, QueryResponse};
 /// [`BatchResponse`] with [`BatchResponse::get`].
 ///
 /// ```rust,no_run
-/// # use jmap_chat_client::{ChatQueryInput, MessageQueryInput, SessionClient};
+/// # use jmap_chat_client::SessionClient;
+/// # use jmap_chat_types::query::{ChatFilter, MessageFilter, MessageFilterCondition};
 /// # async fn example(sc: SessionClient, chat_id: jmap_types::Id) -> Result<(), jmap_base_client::ClientError> {
 /// let mut batch = sc.batch()?;
-/// let (_, chats) = batch.chat_query_get(&ChatQueryInput::default(), None)?;
-/// let mut input = MessageQueryInput::default();
-/// input.chat_id = Some(&chat_id);
-/// input.limit = Some(50);
-/// let (_, messages) = batch.message_query_get(&input, None)?;
+/// let (_, chats) =
+///     batch.chat_query_get(None::<&ChatFilter>, None, None, None, None, None, None, None)?;
+/// let mut cond = MessageFilterCondition::default();
+/// cond.chat_id = Some(chat_id);
+/// let filter = MessageFilter::Condition(cond);
+/// let (_, messages) =
+///     batch.message_query_get(Some(&filter), None, None, Some(50), None, None, None, None)?;
 /// let resp = sc.send_batch(batch).await?;
 /// let chats = resp.get(&chats)?;
 /// let messages = resp.get(&messages)?;
@@ -41,7 +47,7 @@ use super::{ChatQueryInput, GetResponse, MessageQueryInput, QueryResponse};
 /// - Every call targets the account the [`SessionClient`](super::SessionClient)
 ///   targeted when [`batch`](super::SessionClient::batch) was called.
 /// - The /get is not paged: it fetches every id the /query returns, so
-///   set `limit` on the query input to stay within the server's
+///   pass a `limit` to stay within the server's
 ///   `maxObjectsInGet` (RFC 8620 §2).
 /// - The server's `maxCallsInRequest` (RFC 8620 §2) is not checked on the
 ///   client. Each pair is two calls; exceeding the cap fails the whole
@@ -109,13 +115,19 @@ impl Batch {
     ///
     /// # Errors
     ///
-    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) under
-    ///   the same pathological conditions as `chat_query`. Nothing is
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing `filter` or `sort` fails, as for `chat_query`. Nothing is
     ///   added on error.
-    #[allow(clippy::type_complexity)]
-    pub fn chat_query_get(
+    #[allow(clippy::type_complexity, clippy::too_many_arguments)]
+    pub fn chat_query_get<C: Serialize>(
         &mut self,
-        input: &ChatQueryInput,
+        filter: Option<&Filter<C>>,
+        sort: Option<&[jmap_chat_types::query::ChatComparator]>,
+        position: Option<u64>,
+        limit: Option<u64>,
+        anchor: Option<&jmap_types::Id>,
+        anchor_offset: Option<i64>,
+        calculate_total: Option<bool>,
         properties: Option<&[&str]>,
     ) -> Result<
         (
@@ -124,7 +136,16 @@ impl Batch {
         ),
         jmap_base_client::ClientError,
     > {
-        let args = super::chat::chat_query_args(&self.account_id, input)?;
+        let args = super::chat::chat_query_args(
+            &self.account_id,
+            filter,
+            sort,
+            position,
+            limit,
+            anchor,
+            anchor_offset,
+            calculate_total,
+        )?;
         Ok(self.query_get("Chat/query", args, "Chat/get", properties))
     }
 
@@ -137,12 +158,19 @@ impl Batch {
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   or [`ClientError::Parse`](jmap_base_client::ClientError::Parse)
     ///   for the same inputs `message_query` rejects. Nothing is added on
     ///   error.
-    #[allow(clippy::type_complexity)]
-    pub fn message_query_get(
+    #[allow(clippy::type_complexity, clippy::too_many_arguments)]
+    pub fn message_query_get<C: Serialize>(
         &mut self,
-        input: &MessageQueryInput<'_>,
+        filter: Option<&Filter<C>>,
+        sort: Option<&[jmap_chat_types::query::MessageComparator]>,
+        position: Option<u64>,
+        limit: Option<u64>,
+        anchor: Option<&jmap_types::Id>,
+        anchor_offset: Option<i64>,
+        calculate_total: Option<bool>,
         properties: Option<&[&str]>,
     ) -> Result<
         (
@@ -151,8 +179,16 @@ impl Batch {
         ),
         jmap_base_client::ClientError,
     > {
-        super::message::check_message_query(input)?;
-        let args = super::message::message_query_args(&self.account_id, input);
+        let args = super::message::message_query_args(
+            &self.account_id,
+            filter,
+            sort,
+            position,
+            limit,
+            anchor,
+            anchor_offset,
+            calculate_total,
+        )?;
         Ok(self.query_get("Message/query", args, "Message/get", properties))
     }
 

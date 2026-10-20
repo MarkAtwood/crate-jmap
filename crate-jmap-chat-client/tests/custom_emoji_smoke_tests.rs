@@ -284,13 +284,15 @@ async fn custom_emoji_query_filter_space_id_serialises() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let space_id = Id::from("space-eng");
-    let mut input = jmap_chat_client::methods::CustomEmojiQueryInput::default();
-    input.filter_space_id = Some(&space_id);
-    input.position = Some(0);
-    input.limit = Some(100);
+    let mut cond = query::CustomEmojiFilterCondition::default();
+    cond.space_id = Some(Id::from("space-eng"));
     let _ = sc
-        .custom_emoji_query(&input)
+        .custom_emoji_query(
+            Some(&jmap_types::query::Filter::Condition(cond)),
+            None,
+            Some(0),
+            Some(100),
+        )
         .await
         .expect("custom_emoji_query: must succeed");
 

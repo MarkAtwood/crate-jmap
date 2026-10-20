@@ -343,11 +343,8 @@ async fn space_query_empty_filter_sends_null() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let mut input = jmap_chat_client::methods::SpaceQueryInput::default();
-    input.position = Some(0);
-    input.limit = Some(20);
     let _ = sc
-        .space_query(&input)
+        .space_query(None::<&query::SpaceFilter>, None, Some(0), Some(20))
         .await
         .expect("space_query: must succeed");
 
@@ -375,10 +372,15 @@ async fn space_query_filter_is_public_serializes() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let mut input = jmap_chat_client::methods::SpaceQueryInput::default();
-    input.filter_is_public = Some(true);
+    let mut cond = query::SpaceFilterCondition::default();
+    cond.is_public = Some(true);
     let _ = sc
-        .space_query(&input)
+        .space_query(
+            Some(&jmap_types::query::Filter::Condition(cond)),
+            None,
+            None,
+            None,
+        )
         .await
         .expect("space_query: must succeed");
 

@@ -11,7 +11,9 @@
 mod helpers;
 
 use helpers::{mock_jmap_post, recorded_args, recorded_body, TEST_ACCOUNT_ID, TEST_SESSION_STATE};
-use jmap_chat_client::{ChatQueryInput, JmapChatExt, MessageQueryInput};
+use jmap_chat_client::JmapChatExt;
+use jmap_chat_types::query::{ChatFilter, MessageFilter, MessageFilterCondition};
+use jmap_types::query::Filter;
 use jmap_types::Id;
 use serde_json::json;
 use wiremock::MockServer;
@@ -98,7 +100,7 @@ async fn for_account_targets_named_chat_account() {
         .for_account(SHARED_CHAT_ACCOUNT)
         .expect("chat-capable account must be accepted");
     shared
-        .chat_query(&ChatQueryInput::default())
+        .chat_query(None::<&ChatFilter>, None, None, None, None, None, None)
         .await
         .expect("chat_query on shared account must succeed");
 
@@ -170,10 +172,17 @@ async fn batch_chat_query_get_sends_rfc8620_result_reference() {
 
     let sc = helpers::make_client(&server);
     let mut batch = sc.batch().expect("batch must start");
-    let mut input = ChatQueryInput::default();
-    input.limit = Some(10);
     let (query, get) = batch
-        .chat_query_get(&input, None)
+        .chat_query_get(
+            None::<&ChatFilter>,
+            None,
+            None,
+            Some(10),
+            None,
+            None,
+            None,
+            None,
+        )
         .expect("chat_query_get must build");
     let resp = sc.send_batch(batch).await.expect("send_batch must succeed");
 
@@ -251,16 +260,33 @@ async fn batch_two_pairs_reference_their_own_queries() {
     .await;
 
     let sc = helpers::make_client(&server);
-    let chat_id = Id::from("chat-1");
+    let mut cond = MessageFilterCondition::default();
+    cond.chat_id = Some(Id::from("chat-1"));
+    let msg_filter = Filter::Condition(cond);
     let mut batch = sc.batch().expect("batch must start");
     let (chat_q, chat_g) = batch
-        .chat_query_get(&ChatQueryInput::default(), Some(&["id", "name"]))
+        .chat_query_get(
+            None::<&ChatFilter>,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            Some(&["id", "name"]),
+        )
         .expect("chat pair must build");
-    let mut msg_input = MessageQueryInput::default();
-    msg_input.chat_id = Some(&chat_id);
-    msg_input.limit = Some(50);
     let (msg_q, msg_g) = batch
-        .message_query_get(&msg_input, Some(&["id", "body"]))
+        .message_query_get(
+            Some(&msg_filter),
+            None,
+            None,
+            Some(50),
+            None,
+            None,
+            None,
+            Some(&["id", "body"]),
+        )
         .expect("message pair must build");
     let resp = sc.send_batch(batch).await.expect("send_batch must succeed");
 
@@ -315,7 +341,16 @@ async fn batch_uses_for_account_target() {
         .expect("chat-capable account must be accepted");
     let mut batch = sc.batch().expect("batch must start");
     batch
-        .chat_query_get(&ChatQueryInput::default(), None)
+        .chat_query_get(
+            None::<&ChatFilter>,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
         .expect("chat pair must build");
     sc.send_batch(batch).await.expect("send_batch must succeed");
 
@@ -354,7 +389,16 @@ async fn batch_invalid_result_reference_is_per_call() {
     let sc = helpers::make_client(&server);
     let mut batch = sc.batch().expect("batch must start");
     let (query, get) = batch
-        .chat_query_get(&ChatQueryInput::default(), None)
+        .chat_query_get(
+            None::<&ChatFilter>,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
         .expect("chat pair must build");
     let resp = sc.send_batch(batch).await.expect("send_batch must succeed");
 
@@ -383,7 +427,16 @@ async fn batch_message_query_get_rejects_unscoped_query() {
     let server = MockServer::start().await;
     let sc = helpers::make_client(&server);
     let mut batch = sc.batch().expect("batch must start");
-    match batch.message_query_get(&MessageQueryInput::default(), None) {
+    match batch.message_query_get(
+        None::<&MessageFilter>,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    ) {
         Err(jmap_base_client::ClientError::InvalidArgument(_)) => {}
         other => panic!("expected InvalidArgument, got {other:?}"),
     }

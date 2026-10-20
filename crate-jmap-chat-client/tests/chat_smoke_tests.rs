@@ -272,11 +272,16 @@ async fn chat_query_empty_filter_sends_null() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let mut input = jmap_chat_client::methods::ChatQueryInput::default();
-    input.position = Some(0);
-    input.limit = Some(50);
     let _ = sc
-        .chat_query(&input)
+        .chat_query(
+            None::<&query::ChatFilter>,
+            None,
+            Some(0),
+            Some(50),
+            None,
+            None,
+            None,
+        )
         .await
         .expect("chat_query: must succeed");
 
@@ -308,10 +313,18 @@ async fn chat_query_filter_muted_serializes() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let mut input = jmap_chat_client::methods::ChatQueryInput::default();
-    input.filter_muted = Some(true);
+    let mut cond = query::ChatFilterCondition::default();
+    cond.muted = Some(true);
     let _ = sc
-        .chat_query(&input)
+        .chat_query(
+            Some(&Filter::Condition(cond)),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
         .await
         .expect("chat_query: must succeed");
 
@@ -346,12 +359,17 @@ async fn chat_query_anchor_offset_calculate_total_serialize() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let mut input = jmap_chat_client::methods::ChatQueryInput::default();
-    input.anchor = Some(Id::from("chat-4"));
-    input.anchor_offset = Some(-1);
-    input.calculate_total = Some(true);
+    let anchor = Id::from("chat-4");
     let _ = sc
-        .chat_query(&input)
+        .chat_query(
+            None::<&query::ChatFilter>,
+            None,
+            None,
+            None,
+            Some(&anchor),
+            Some(-1),
+            Some(true),
+        )
         .await
         .expect("chat_query: must succeed");
 
@@ -370,6 +388,52 @@ async fn chat_query_anchor_offset_calculate_total_serialize() {
         args["calculateTotal"],
         json!(true),
         "calculateTotal must thread through"
+    );
+}
+
+/// `Chat/query` carries a draft-ietf-jmap-metadata-02 §3.5 condition on
+/// a leaf.
+///
+/// Oracle: draft-atwood-jmap-chat-00 §Chat/query — "Filter properties:
+/// `kind` (String), `muted` (Boolean)"; draft-ietf-jmap-metadata-02 §3.5 —
+/// `privateMetadataExists: String` extends the type's FilterCondition.
+/// The expected JSON is hand-written from those definitions.
+#[tokio::test]
+async fn chat_query_sends_metadata_condition_leaf() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "Chat/query",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "queryState": "qs-1",
+            "canCalculateChanges": false,
+            "position": 0,
+            "ids": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let mut cond = WithMetadata::<query::ChatFilterCondition>::default();
+    cond.base.muted = Some(false);
+    cond.private_metadata_exists = Some("acme.example.com/pinned".to_owned());
+
+    let sc = helpers::make_client(&server);
+    sc.chat_query(
+        Some(&Filter::Condition(cond)),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("chat_query: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["filter"],
+        json!({ "muted": false, "privateMetadataExists": "acme.example.com/pinned" })
     );
 }
 

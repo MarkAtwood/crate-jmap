@@ -12,9 +12,12 @@
 use jmap_base_client::{BearerAuth, ClientConfig, DefaultTransport, JmapClient, Session};
 use jmap_chat_client::{
     AddMemberInput, ChatCreateInput, ChatMemberRole, ChatPatch, ChatSessionExt, ClientError,
-    JmapChatExt, MessageCreateInput, MessagePatch, MessageQueryInput, ReactionChange,
-    SessionClient, SetResponse, SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddRoleInput,
-    SpaceBanCreateInput, SpaceCreateInput, SpaceJoinInput, SpacePatch, UpdateMemberRoleInput,
+    JmapChatExt, MessageCreateInput, MessagePatch, ReactionChange, SessionClient, SetResponse,
+    SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddRoleInput, SpaceBanCreateInput,
+    SpaceCreateInput, SpaceJoinInput, SpacePatch, UpdateMemberRoleInput,
+};
+use jmap_chat_types::query::{
+    MessageComparator, MessageComparatorProperty, MessageFilter, MessageFilterCondition,
 };
 use jmap_chat_types::{Attachment, AttachmentCreate, BodyType, ChatKind, Mention, MessageAction};
 use jmap_testjig::{spawn_in_process, TestjigConfig, TestjigHandle};
@@ -366,9 +369,7 @@ async fn message_create_query_get_round_trip() {
     let resp = sc.message_create(&reply).await.expect("Message/set reply");
     let third = created_id(&resp, "m3");
 
-    let mut query = MessageQueryInput::default().with_sort_ascending(true);
-    query.chat_id = Some(&chat_id);
-    let ids = sc.message_query(&query).await.expect("Message/query").ids;
+    let ids = message_ids(&sc, &chat_id, true).await;
     let mut sorted_ids = ids.clone();
     sorted_ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
     let mut expected = vec![first.clone(), second.clone(), third.clone()];
@@ -601,21 +602,45 @@ async fn message_query_rejects_text_and_thread_root_filters() {
     let chat_id = create_group(&sc, "g1", "Team").await;
     let root = send(&sc, &chat_id, "m1", "root").await;
 
-    let mut text = MessageQueryInput::default();
-    text.chat_id = Some(&chat_id);
-    text.text = Some("root");
-    let mut thread = MessageQueryInput::default();
-    thread.chat_id = Some(&chat_id);
-    thread.thread_root_id = Some(&root);
+    let mut text = MessageFilterCondition::default();
+    text.chat_id = Some(chat_id.clone());
+    text.text = Some("root".to_owned());
+    let mut thread = MessageFilterCondition::default();
+    thread.chat_id = Some(chat_id.clone());
+    thread.thread_root_id = Some(root);
 
-    for (name, query) in [("text", &text), ("threadRootId", &thread)] {
-        match sc.message_query(query).await {
+    for (name, cond) in [("text", text), ("threadRootId", thread)] {
+        let filter = MessageFilter::Condition(cond);
+        match sc
+            .message_query(Some(&filter), None, None, None, None, None, None)
+            .await
+        {
             Err(ClientError::MethodError { error_type, .. }) => {
                 assert_eq!(error_type, "unsupportedFilter", "{name}");
             }
             other => panic!("{name}: expected unsupportedFilter, got {other:?}"),
         }
     }
+}
+
+/// `Message/query` ids in `chat_id`, sorted by `receivedAt`.
+async fn message_ids(sc: &SessionClient, chat_id: &Id, ascending: bool) -> Vec<Id> {
+    let mut cond = MessageFilterCondition::default();
+    cond.chat_id = Some(chat_id.clone());
+    let mut sort = MessageComparator::new(MessageComparatorProperty::ReceivedAt);
+    sort.is_ascending = ascending;
+    sc.message_query(
+        Some(&MessageFilter::Condition(cond)),
+        Some(&[sort]),
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("Message/query")
+    .ids
 }
 
 /// Oracle: RFC 8620 §5.5 Comparator `isAscending` — "If false, reverse
@@ -634,9 +659,7 @@ async fn message_query_descending_returns_newest_first() {
         tokio::time::sleep(std::time::Duration::from_millis(2)).await;
     }
 
-    let mut query = MessageQueryInput::default().with_sort_ascending(false);
-    query.chat_id = Some(&chat_id);
-    let ids = sc.message_query(&query).await.expect("Message/query").ids;
+    let ids = message_ids(&sc, &chat_id, false).await;
     sent.reverse();
     assert_eq!(ids, sent, "descending query must return newest first");
 }

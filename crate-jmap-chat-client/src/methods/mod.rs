@@ -609,83 +609,6 @@ fn _assert_session_client_send_sync() {
 // Input/patch types for methods with many optional parameters
 // ---------------------------------------------------------------------------
 
-/// Input parameters for `Chat/query`.
-#[non_exhaustive]
-#[derive(Debug, Default, Clone)]
-pub struct ChatQueryInput {
-    /// Filter to chats of the given kind (`direct`, `group`, or `channel`).
-    pub filter_kind: Option<jmap_chat_types::ChatKind>,
-    /// Filter to muted (`true`) or unmuted (`false`) chats.
-    pub filter_muted: Option<bool>,
-    /// Zero-based starting offset within the query result.
-    pub position: Option<u64>,
-    /// Maximum number of ids to return.
-    pub limit: Option<u64>,
-    /// Chat id to anchor the result window on (RFC 8620 §5.5 `anchor`).
-    /// When set, the server ignores `position`.
-    pub anchor: Option<Id>,
-    /// Index of the first result relative to `anchor`; may be negative
-    /// (RFC 8620 §5.5 `anchorOffset`).
-    pub anchor_offset: Option<i64>,
-    /// Ask the server to return `total` (RFC 8620 §5.5 `calculateTotal`).
-    pub calculate_total: Option<bool>,
-}
-
-/// Input parameters for `Message/query`.
-#[non_exhaustive]
-#[derive(Debug, Default, Clone)]
-pub struct MessageQueryInput<'a> {
-    /// Restrict to messages in a specific Chat.
-    pub chat_id: Option<&'a Id>,
-    /// Filter to messages that mention (`true`) or do not mention (`false`) the caller.
-    pub has_mention: Option<bool>,
-    /// Filter to messages that carry (`true`) or do not carry (`false`) attachments.
-    pub has_attachment: Option<bool>,
-    /// Full-text search query against the message body.
-    pub text: Option<&'a str>,
-    /// Restrict to replies under this thread root.
-    pub thread_root_id: Option<&'a Id>,
-    /// Restrict to messages whose `topicId` equals this value. Messages
-    /// with an encrypted `bodyType` carry no server-visible `topicId` and
-    /// never match.
-    pub topic_id: Option<&'a str>,
-    /// Not a draft-atwood-jmap-chat-00 Message/query filter. Setting it
-    /// makes [`SessionClient::message_query`] fail with
-    /// `InvalidArgument`; it is never sent.
-    #[deprecated(note = "not a spec Message/query filter; use anchor/anchor_offset to page")]
-    pub after: Option<&'a jmap_types::UTCDate>,
-    /// Not a draft-atwood-jmap-chat-00 Message/query filter. Setting it
-    /// makes [`SessionClient::message_query`] fail with
-    /// `InvalidArgument`; it is never sent.
-    #[deprecated(note = "not a spec Message/query filter; use anchor/anchor_offset to page")]
-    pub before: Option<&'a jmap_types::UTCDate>,
-    /// Zero-based starting offset within the query result.
-    pub position: Option<u64>,
-    /// Maximum number of ids to return.
-    pub limit: Option<u64>,
-    /// Sort by `receivedAt` ascending (oldest first) when `true`.
-    /// Defaults to `false` (descending, newest first), so `position:0, limit:N`
-    /// returns the N most recent messages. The spec forbids ordering by
-    /// the peer-supplied `sentAt`, so `receivedAt` is the only sort key.
-    pub sort_ascending: bool,
-    /// Message id to anchor the result window on (RFC 8620 §5.5
-    /// `anchor`). When set, the server ignores `position`.
-    pub anchor: Option<&'a Id>,
-    /// Index of the first result relative to `anchor`; may be negative
-    /// (RFC 8620 §5.5 `anchorOffset`).
-    pub anchor_offset: Option<i64>,
-    /// Ask the server to return `total` (RFC 8620 §5.5 `calculateTotal`).
-    pub calculate_total: Option<bool>,
-}
-
-impl<'a> MessageQueryInput<'a> {
-    /// Set ascending sort order (oldest first).
-    pub fn with_sort_ascending(mut self, v: bool) -> Self {
-        self.sort_ascending = v;
-        self
-    }
-}
-
 /// Input parameters for `Message/set` create.
 #[non_exhaustive]
 #[derive(Debug, Clone)]
@@ -964,19 +887,6 @@ pub struct PresenceStatusPatch<'a> {
     pub receipt_sharing: Option<bool>,
 }
 
-/// Input parameters for `CustomEmoji/query`.
-#[non_exhaustive]
-#[derive(Debug, Default, Clone)]
-pub struct CustomEmojiQueryInput<'a> {
-    /// Filter to a specific Space's custom emojis. `None` returns all emojis
-    /// visible to the account (Space-specific + server-global).
-    pub filter_space_id: Option<&'a Id>,
-    /// Zero-based starting offset within the query result.
-    pub position: Option<u64>,
-    /// Maximum number of ids to return.
-    pub limit: Option<u64>,
-}
-
 /// Parameters for creating one CustomEmoji via `CustomEmoji/set`.
 #[non_exhaustive]
 #[derive(Debug, Clone)]
@@ -1142,42 +1052,6 @@ pub struct ChatContactPatch<'a> {
     pub display_name: Patch<&'a str>,
 }
 
-/// Sort property for `ChatContact/query`.
-#[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum ContactSortProperty {
-    /// Sort by the contact's `lastSeenAt` timestamp.
-    LastSeenAt,
-    /// Sort by the contact's `login` identifier.
-    Login,
-    /// Sort by the contact's `lastActiveAt` timestamp.
-    LastActiveAt,
-}
-
-/// Input parameters for `ChatContact/query`.
-///
-/// All fields are optional; an empty filter shows all contacts.
-#[non_exhaustive]
-#[derive(Debug, Default, Clone)]
-pub struct ChatContactQueryInput {
-    /// Filter to blocked (`true`) or non-blocked (`false`) contacts.
-    pub filter_blocked: Option<bool>,
-    /// Filter to contacts with this exact presence state.
-    pub filter_presence: Option<crate::types::ContactPresenceFilter>,
-    /// Filter to the contact whose `identity` equals this value octet
-    /// for octet.
-    pub filter_identity: Option<String>,
-    /// Zero-based starting offset within the query result.
-    pub position: Option<u64>,
-    /// Maximum number of ids to return.
-    pub limit: Option<u64>,
-    /// Sort property.
-    pub sort_property: Option<ContactSortProperty>,
-    /// When `Some(false)` or `None`, sort descending. `Some(true)` sorts ascending.
-    pub sort_ascending: Option<bool>,
-}
-
 /// Input parameters for `Space/set` create.
 #[non_exhaustive]
 #[derive(Debug, Clone)]
@@ -1211,20 +1085,6 @@ impl<'a> SpaceCreateInput<'a> {
         self.client_id = Some(id);
         self
     }
-}
-
-/// Input parameters for `Space/query`.
-#[non_exhaustive]
-#[derive(Debug, Default, Clone)]
-pub struct SpaceQueryInput<'a> {
-    /// Filter by substring match on Space name.
-    pub filter_name: Option<&'a str>,
-    /// Filter to public (`true`) or non-public (`false`) Spaces.
-    pub filter_is_public: Option<bool>,
-    /// Zero-based starting offset within the query result.
-    pub position: Option<u64>,
-    /// Maximum number of ids to return.
-    pub limit: Option<u64>,
 }
 
 /// How to join a Space — passed to `Space/join`.
