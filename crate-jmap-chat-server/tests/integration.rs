@@ -846,12 +846,16 @@ async fn memory_backend_is_contact_blocked_reads_chat_contact_blocked_field() {
     );
 }
 
-/// Oracle: `handle_chat_typing` reaches the `is_contact_blocked`
-/// consultation point on the direct-chat path. Counted via
-/// `TrackingBackend::is_contact_blocked_call_count`, since the kit's
-/// wire response is unchanged regardless of the predicate's result.
+/// Oracle: draft-atwood-jmap-chat-00 §Chat/typing (L1086): "The server
+/// MUST also check whether the requesting account corresponds to a
+/// ChatContact whose `blocked` field is `true` on the recipient's contact
+/// list". The request names only the sender's `accountId`, so the handler
+/// must not answer that check from the sender's list. Here the sender's
+/// own list has the direct Chat's contact blocked; consulting
+/// `is_contact_blocked(sender account, contactId)` would answer whether
+/// the sender blocked the recipient, the opposite direction.
 #[tokio::test]
-async fn chat_typing_consults_is_contact_blocked_on_direct_chat() {
+async fn chat_typing_does_not_check_block_in_sender_account() {
     use jmap_chat_server::handle_chat_typing;
 
     let backend = TrackingBackend::new();
@@ -870,8 +874,21 @@ async fn chat_typing_consults_is_contact_blocked_on_direct_chat() {
             "receiveTypingIndicators": true
         }),
     );
+    backend.inner().insert_object_for_test(
+        "ChatContact",
+        ACCOUNT_ID,
+        "u1",
+        json!({
+            "id": "u1",
+            "identity": "recipient@example.org",
+            "login": "recipient@example.org",
+            "firstSeenAt": "2024-01-01T00:00:00Z",
+            "lastSeenAt": "2024-01-02T00:00:00Z",
+            "blocked": true
+        }),
+    );
 
-    let HandlerOutput { .. } = handle_chat_typing(
+    let HandlerOutput { primary: resp, .. } = handle_chat_typing(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "chatId": "c1", "typing": true }),
@@ -879,10 +896,77 @@ async fn chat_typing_consults_is_contact_blocked_on_direct_chat() {
     .await
     .expect("handle_chat_typing");
 
+    assert_eq!(resp["accountId"], ACCOUNT_ID);
     assert_eq!(
         backend.is_contact_blocked_call_count(),
-        1,
-        "handle_chat_typing must consult is_contact_blocked exactly once on a direct chat"
+        0,
+        "the blocked check reads the recipient's list, which the sender's request does not name"
+    );
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Blocked Contacts (L1698): "Typing and
+/// presence push events whose sending or referenced ChatContact has
+/// `blocked: true` on the receiving owner's contact list are similarly
+/// dropped", and §ChatContact `id` (L426): "It identifies the ChatContact
+/// only on this server". Two accounts each hold a ChatContact for the
+/// other; only the recipient's own list decides, and a contact id is never
+/// resolved in another account's list.
+#[tokio::test]
+async fn memory_backend_is_contact_blocked_reads_only_the_owner_list() {
+    let backend = MemoryBackend::new();
+    let recipient = Id::from("acct-recipient");
+    let sender = Id::from("acct-sender");
+
+    backend.insert_object_for_test(
+        "ChatContact",
+        "acct-recipient",
+        "c-sender",
+        json!({
+            "id": "c-sender",
+            "identity": "sender@example.org",
+            "login": "sender@example.org",
+            "firstSeenAt": "2024-01-01T00:00:00Z",
+            "lastSeenAt": "2024-01-02T00:00:00Z",
+            "blocked": true
+        }),
+    );
+    backend.insert_object_for_test(
+        "ChatContact",
+        "acct-sender",
+        "c-recipient",
+        json!({
+            "id": "c-recipient",
+            "identity": "recipient@example.org",
+            "login": "recipient@example.org",
+            "firstSeenAt": "2024-01-01T00:00:00Z",
+            "lastSeenAt": "2024-01-02T00:00:00Z",
+            "blocked": false
+        }),
+    );
+
+    let blocked = |account: &Id, contact: &str| {
+        let backend = &backend;
+        let account = account.clone();
+        let contact = Id::from(contact);
+        async move {
+            backend
+                .is_contact_blocked(&(), &account, &contact)
+                .await
+                .expect("is_contact_blocked")
+        }
+    };
+
+    assert!(
+        blocked(&recipient, "c-sender").await,
+        "the recipient blocked the sender on the recipient's own list"
+    );
+    assert!(
+        !blocked(&sender, "c-recipient").await,
+        "the sender's list does not block the recipient"
+    );
+    assert!(
+        !blocked(&sender, "c-sender").await,
+        "c-sender is held only by the recipient's account"
     );
 }
 

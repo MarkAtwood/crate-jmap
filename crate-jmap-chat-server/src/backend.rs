@@ -1618,70 +1618,35 @@ pub trait ChatBackend: JmapBackend {
         false
     }
 
-    /// Predicate consulted by typing/presence fan-out paths: is the
-    /// caller (the sender of the ephemeral event) blocked by the
-    /// recipient who owns `account_id`'s contact list?
+    /// Whether the [`ChatContact`] `contact_id` has `blocked: true` on the
+    /// contact list of `account_id`.
     ///
-    /// Per draft-atwood-jmap-chat-00 commit `d68b4e3` (2026-05-11,
-    /// "close blocked-sender suppression gaps for typing/presence"):
-    /// when the sender corresponds to a [`ChatContact`] whose
-    /// `blocked` is `true` on the recipient's contact list, the
-    /// server MUST silently suppress the ephemeral event for that
-    /// recipient. The sender is NOT informed.
+    /// Delivery paths call this per recipient: `account_id` is the
+    /// recipient (the owner of the contact list) and `contact_id` is the
+    /// sender's or referenced ChatContact id *in that account*.
+    /// draft-atwood-jmap-chat-00 §Blocked Contacts: "Typing and presence
+    /// push events whose sending or referenced ChatContact has
+    /// `blocked: true` on the receiving owner's contact list are
+    /// similarly dropped server-side before delivery to any of the
+    /// owner's clients". §ChatContact `id` "identifies the ChatContact only
+    /// on this server", so `contact_id` is always resolved within
+    /// `account_id`'s list; it is never looked up in the sender's account.
     ///
     /// [`ChatContact`]: jmap_chat_types::ChatContact
     ///
-    /// # Argument semantics
+    /// # Callers
     ///
-    /// - `caller`: identity of the sender. Backends with identity
-    ///   wired resolve this via
-    ///   [`JmapBackend::principal_id`];
-    ///   the resolved principal is matched against the
-    ///   [`ChatContact`]'s implementation-defined principal binding
-    ///   to determine which `ChatContact` (if any) in the recipient's
-    ///   list represents the sender.
-    /// - `account_id`: the **recipient's** account, i.e. the account
-    ///   that owns the [`ChatContact`] list to consult. NOT the
-    ///   sender's account.
-    /// - `contact_id`: the candidate [`ChatContact`] id within the
-    ///   recipient's account. The backend checks whether THIS
-    ///   contact's `blocked` field is `true` AND whether THIS
-    ///   contact corresponds to the sender (via the principal
-    ///   binding resolved from `caller`).
-    ///
-    /// # Single-user mode (principal_id returns None)
-    ///
-    /// Backends that have not wired identity cannot match the sender
-    /// against a `ChatContact` principal binding. Such backends
-    /// SHOULD fail-safe by returning `Ok(false)` (the default impl
-    /// does this), which preserves visibility — under-suppression in
-    /// a single-user dev deployment is preferable to
-    /// over-suppression that would mask a misconfigured backend.
-    ///
-    /// # When the handler calls this
-    ///
-    /// `handle_chat_typing` consults this predicate when the target
-    /// `Chat` is direct (a single recipient identified by
-    /// `Chat.contact_id`). The kit does not implement transport-layer
-    /// fan-out (push events to subscribers) — that is the consumer's
-    /// responsibility — so the consultation result does not change
-    /// the handler's wire response. The call site is the documented
-    /// integration point: production transport that fans typing
-    /// events out to subscribers SHOULD consult this predicate
-    /// before each per-recipient event.
-    ///
-    /// Group / channel chats are skipped on the kit side. The kit
-    /// handler has no way to enumerate fan-out recipients; that work
-    /// belongs to the consumer's transport layer, which must call
-    /// this predicate per recipient with that recipient's
-    /// `account_id`.
+    /// [`crate::should_push`] calls it with the push owner's account and
+    /// `Message.senderId`. [`crate::handle_chat_typing`] does not call it:
+    /// the request carries the sender's `accountId`, and the recipient's
+    /// account is known only to the transport that fans the event out,
+    /// which calls this predicate per recipient.
     ///
     /// # Default implementation
     ///
     /// Returns `Ok(false)` — no one is blocked. This is appropriate
     /// for backends that have not yet implemented contact lists, and
-    /// it matches the workspace's "kit defines the hook; consumer
-    /// enforces the policy" posture.
+    /// matches the workspace's fail-open policy-hook posture.
     fn is_contact_blocked(
         &self,
         _caller: &Self::CallerCtx,

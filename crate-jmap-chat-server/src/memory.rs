@@ -1312,16 +1312,9 @@ impl ChatBackend for MemoryBackend {
 
     /// Reference implementation of [`ChatBackend::is_contact_blocked`].
     ///
-    /// Reads `ChatContact.blocked` from the in-memory store keyed by
-    /// the supplied `contact_id`. If no such [`ChatContact`] record
-    /// exists, returns `Ok(false)` — an unknown contact is not
-    /// considered blocked.
-    ///
-    /// Spec: draft-atwood-jmap-chat-00 commit `d68b4e3` (typing /
-    /// presence blocked-sender suppression). The kit's handler
-    /// consults this predicate but does not enforce fan-out
-    /// suppression itself — the consumer's transport layer (SSE / WS
-    /// push) is the canonical enforcement point.
+    /// Reads `ChatContact.blocked` from `account_id`'s own contact list,
+    /// keyed by `contact_id`. A `contact_id` that `account_id` does not
+    /// hold, even one another account holds, returns `Ok(false)`.
     ///
     /// [`ChatContact`]: jmap_chat_types::ChatContact
     async fn is_contact_blocked(
