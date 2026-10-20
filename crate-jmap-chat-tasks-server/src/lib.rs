@@ -16,6 +16,8 @@
 //! | `ChatBackend::create_object::<Space>`, before the insert, for auto-bind on create | [`create_space_task_list`] |
 //! | `TasksBackend::destroy_object::<TaskList>`, after the destroy | [`clear_space_task_list_id`] |
 //! | `ChatBackend::on_chat_destroyed` | [`clear_task_chat_ids`] |
+//! | `TasksBackend::create_object::<Task>` and `TasksBackend::update_object::<Task>`, for a `chatId` value | [`check_task_chat_id`] |
+//! | `JmapBackend::get_objects::<Task>`, on the Tasks returned to the reader | [`redact_task_chat_ids`] |
 //!
 //! Task destroy needs no call: this crate never destroys a Chat
 //! (§Lifecycle: "When a Task is destroyed (via `Task/set` destroy), the
@@ -29,6 +31,9 @@
 //! wants it gone destroys it with `TaskList/set`.
 
 #![forbid(unsafe_code)]
+
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 
 use jmap_chat_server::ChatBackend;
 use jmap_chat_types::{
@@ -96,9 +101,19 @@ pub async fn check_task_list_id<K: TasksBackend>(
         Value::Null => return Ok(Ok(())),
         Value::String(s) => match Id::new_validated(s.as_str()) {
             Ok(id) => id,
-            Err(_) => return Ok(Err(invalid("taskListId must be a valid Id"))),
+            Err(_) => {
+                return Ok(Err(invalid(
+                    SPACE_TASK_LIST_ID_PROPERTY,
+                    "taskListId must be a valid Id",
+                )))
+            }
         },
-        _ => return Ok(Err(invalid("taskListId must be a String or null"))),
+        _ => {
+            return Ok(Err(invalid(
+                SPACE_TASK_LIST_ID_PROPERTY,
+                "taskListId must be a String or null",
+            )))
+        }
     };
     let ids = std::slice::from_ref(&task_list_id);
     let (found, _) = tasks
@@ -108,6 +123,7 @@ pub async fn check_task_list_id<K: TasksBackend>(
         Ok(())
     } else {
         Err(invalid(
+            SPACE_TASK_LIST_ID_PROPERTY,
             "taskListId must name a TaskList on the account that owns the Space",
         ))
     })
@@ -275,6 +291,100 @@ pub async fn clear_task_chat_ids<K: TasksBackend>(
     Ok(())
 }
 
+/// Check a `chatId` value from a `Task/set` create or update of a Task,
+/// for an account advertising `capability`.
+///
+/// - With `mayBackReferenceChat: false` every value is refused: the flag
+///   is "`true` if tasks may carry a `chatId` back-reference to a
+///   discussion Chat ..., `false` otherwise" (§Capability).
+/// - `null` removes the back-reference (§chatId: "When absent, this Task
+///   has no associated discussion thread") and passes.
+/// - Any other value must be an `Id`. It is not looked up: "The server
+///   MUST NOT validate `chatId` existence at write time, allowing the
+///   two-step creation pattern" (§chatId), in which the Task may be
+///   written before its Chat exists (§Operations: "The two operations MAY
+///   be performed in either order").
+///
+/// The value is a bare `Id`, read on the Task's own account, so it cannot
+/// name a Chat on another account: "The referenced Chat, once it exists,
+/// MUST be on the same account as the Task" holds by construction.
+///
+/// # Errors
+///
+/// Returns an `invalidProperties` SetError naming `chatId` when the value
+/// must be refused; return it without storing the Task.
+// The SetError is the refusal itself, returned verbatim in `notCreated`
+// or `notUpdated`.
+#[allow(clippy::result_large_err)]
+pub fn check_task_chat_id(capability: &ChatTasksCapability, value: &Value) -> Result<(), SetError> {
+    if !capability.may_back_reference_chat {
+        return Err(invalid(
+            TASK_CHAT_ID_PROPERTY,
+            "this server does not support Task chatId (mayBackReferenceChat is false)",
+        ));
+    }
+    match value {
+        Value::Null => Ok(()),
+        Value::String(s) if Id::new_validated(s.as_str()).is_ok() => Ok(()),
+        Value::String(_) => Err(invalid(TASK_CHAT_ID_PROPERTY, "chatId must be a valid Id")),
+        _ => Err(invalid(
+            TASK_CHAT_ID_PROPERTY,
+            "chatId must be a String or null",
+        )),
+    }
+}
+
+/// Remove `chatId` from each of `tasks` whose Chat the reader `caller`
+/// may not view, as [`ChatBackend::may_view_chat`] decides.
+///
+/// §Chat back-reference leakage: "Deployments MAY hide the `chatId` field
+/// from Task readers who lack access to the referenced Chat. The wire
+/// contract permits this (it is equivalent to the Task not exposing the
+/// field to that reader)". Call it on the Tasks of `account_id` that
+/// `JmapBackend::get_objects::<Task>` returns to a reader, with that
+/// reader's Chat context. Do not call it on Tasks the backend writes back
+/// or on reads made with a server context, such as the one
+/// [`clear_task_chat_ids`] uses, or the redacted `chatId` is lost.
+///
+/// `may_view_chat` defaults to `Ok(true)` (fail-open, bd:JMAP-bghk), so a
+/// Chat backend that does not override it hides nothing. The hook is
+/// asked once per distinct `chatId`. Its answer for a Chat that does not
+/// exist yet (§Operations: "a Task with `chatId` set to a Chat that does
+/// not yet exist on this server is a brief inconsistency") is the
+/// backend's to give.
+///
+/// # Errors
+///
+/// Returns the Chat backend's error from `may_view_chat`. `tasks` is then
+/// left unchanged.
+pub async fn redact_task_chat_ids<C: ChatBackend>(
+    chat: &C,
+    caller: &C::CallerCtx,
+    account_id: &Id,
+    tasks: &mut [Task],
+) -> Result<(), C::Error> {
+    let mut viewable: HashMap<Id, bool> = HashMap::new();
+    for chat_id in tasks
+        .iter()
+        .filter_map(|t| task_chat_id(&t.extra).ok().flatten())
+    {
+        if let Entry::Vacant(slot) = viewable.entry(chat_id) {
+            let may_view = chat.may_view_chat(caller, account_id, slot.key()).await?;
+            slot.insert(may_view);
+        }
+    }
+    for task in tasks.iter_mut() {
+        if task_chat_id(&task.extra)
+            .ok()
+            .flatten()
+            .is_some_and(|id| viewable.get(&id) == Some(&false))
+        {
+            task.extra.remove(TASK_CHAT_ID_PROPERTY);
+        }
+    }
+    Ok(())
+}
+
 /// A patch setting `property` to `null`.
 fn clear_patch(property: &str) -> PatchObject {
     let mut patch = PatchObject::new();
@@ -282,9 +392,9 @@ fn clear_patch(property: &str) -> PatchObject {
     patch
 }
 
-/// An `invalidProperties` SetError naming `taskListId`.
-fn invalid(description: &str) -> SetError {
+/// An `invalidProperties` SetError naming `property`.
+fn invalid(property: &str, description: &str) -> SetError {
     SetError::new(SetErrorType::InvalidProperties)
-        .with_properties([SPACE_TASK_LIST_ID_PROPERTY])
+        .with_properties([property])
         .with_description(description)
 }

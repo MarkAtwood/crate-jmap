@@ -45,6 +45,13 @@ wire behaviour that a conforming peer can observe.
   and `clear_task_chat_ids` (from `ChatBackend::on_chat_destroyed`) removes
   `chatId` from the Tasks that reference a destroyed Chat (§Lifecycle). A Task
   destroy leaves its Chat in place. The crate now depends on `jmap-chat-server`.
+  Task `chatId` rules: `check_task_chat_id` accepts `null` or any valid `Id`
+  without looking the Chat up (§chatId "MUST NOT validate `chatId` existence
+  at write time") and refuses every value as `invalidProperties` naming
+  `chatId` under `mayBackReferenceChat: false`; `redact_task_chat_ids`
+  removes `chatId` from Tasks returned to a reader whose
+  `ChatBackend::may_view_chat` is `false` (§Chat back-reference leakage MAY),
+  hiding nothing by default.
 - **jmap-chat-calendars-server**: new crate, the Chat binding for
   `jmap-calendars-server` (draft-atwood-jmap-chat-calendars-00).
   `may_advertise` allows the capability only alongside
