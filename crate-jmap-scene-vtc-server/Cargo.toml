@@ -1,0 +1,24 @@
+[package]
+name = "jmap-scene-vtc-server"
+version = "0.3.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "VTC binding for the JMAP Scene server (draft-atwood-jmap-scene-00 with draft-atwood-jmap-vtc-00): SceneRegion.activeCallId cleared when its VTCCall ends"
+keywords = ["jmap", "scene", "vtc", "server"]
+categories = ["network-programming", "web-programming::http-server"]
+
+[dependencies]
+jmap-types = { workspace = true }
+jmap-scene-types = { workspace = true }
+jmap-scene-server = { workspace = true }
+jmap-vtc-types = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+jmap-scene-server = { workspace = true, features = ["memory"] }
+jmap-vtc-server = { workspace = true, features = ["memory"] }
+jmap-server = { workspace = true }

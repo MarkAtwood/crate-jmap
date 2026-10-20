@@ -1857,6 +1857,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-scene-vtc-server"
+version = "0.3.0"
+dependencies = [
+ "jmap-scene-server",
+ "jmap-scene-types",
+ "jmap-server",
+ "jmap-types",
+ "jmap-vtc-server",
+ "jmap-vtc-types",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "jmap-server"
 version = "0.3.0"
 dependencies = [
