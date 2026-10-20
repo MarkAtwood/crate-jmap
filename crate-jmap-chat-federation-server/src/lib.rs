@@ -1,6 +1,16 @@
 //! Server rules of draft-atwood-jmap-chat-federation-00, server-to-server
 //! delivery between JMAP Chat mailboxes.
 //!
+//! ## Peer/deliver
+//!
+//! [`handle_peer_deliver`] is the `Peer/deliver` handler: §New Message
+//! Validation steps 1 to 14, §Edit and Reaction Validation, and the
+//! direct-chat race of §Direct Chat Simultaneous Initiation. It runs over
+//! a [`FederationBackend`], a `jmap_chat_server::ChatBackend` that also
+//! names the authenticated peer ([`AuthenticatedPeer`]), the `@everyone`
+//! permission floor, attachment fetching ([`FetchedBlob`]), and direct
+//! Chats stored under a peer-chosen id.
+//!
 //! ## Peer-role access control
 //!
 //! The `urn:ietf:params:jmap:chat` account capability carries a `role` of
@@ -40,6 +50,10 @@
 //! ```
 
 #![forbid(unsafe_code)]
+
+mod deliver;
+
+pub use deliver::{handle_peer_deliver, AuthenticatedPeer, FederationBackend, FetchedBlob};
 
 use jmap_types::JmapError;
 

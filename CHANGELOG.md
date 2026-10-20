@@ -21,6 +21,17 @@ wire behaviour that a conforming peer can observe.
   peer calling a method outside `PEER_METHODS` (§Account-Level Capability)
   and for any other caller calling a `Peer/*` method (§Server-to-Server
   Methods).
+- **jmap-chat-federation-server**: `handle_peer_deliver`, the `Peer/deliver`
+  handler of draft-atwood-jmap-chat-federation-00: §New Message Validation
+  steps 1 to 14, §Edit and Reaction Validation, identity mapping with
+  placeholder ChatContacts created only for accepted requests (§User
+  References in Peer Methods), and the direct-chat race of §Direct Chat
+  Simultaneous Initiation (`min(X, Y)`, reported as `canonicalChatId`). It
+  runs over the new `FederationBackend` trait, a `ChatBackend` that also
+  supplies the `AuthenticatedPeer`, the `@everyone` permission floor,
+  attachment fetching (`FetchedBlob`; the SSRF policy stays with the
+  deployment), fresh Message ids for silent drops, and direct Chats under a
+  peer-chosen id.
 - **jmap-chat-federation-types**: `session` module for
   draft-atwood-jmap-chat-federation-00 §Session Object Extensions for
   Federation. `FederationSession` holds `ownerUserId`, `peerSigningKeys`

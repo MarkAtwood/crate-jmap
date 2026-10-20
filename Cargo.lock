@@ -1536,7 +1536,15 @@ dependencies = [
 name = "jmap-chat-federation-server"
 version = "0.3.0"
 dependencies = [
+ "jmap-chat-federation-types",
+ "jmap-chat-server",
+ "jmap-chat-types",
+ "jmap-peer-auth",
+ "jmap-server",
  "jmap-types",
+ "serde_json",
+ "subtle",
+ "tokio",
 ]
 
 [[package]]
