@@ -146,6 +146,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-types**, **jmap-chat-client**: `ChatMemberRole`
+  moves from jmap-chat-client into jmap-chat-types, and `ChatMember.role` and
+  `ChatMember::new` now take `ChatMemberRole` instead of `String`, so server
+  and client share one model of the draft-atwood-jmap-chat-00 §ChatMember
+  `role` ("Either `"admin"` or `"member"`"). Unknown wire values still
+  round-trip through `ChatMemberRole::Other`. jmap-chat-client re-exports the
+  type, so `jmap_chat_client::ChatMemberRole` and
+  `jmap_chat_client::types::ChatMemberRole` keep working.
+
 - **BREAKING** **jmap-chat-types**, **jmap-chat-client**: new
   `AttachmentCreate` type for `Message/set` create entries, with `blobId`,
   `filename`, `contentType`, `size` and `sha256` optional, because

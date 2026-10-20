@@ -136,7 +136,7 @@ pub use capability::{
     CHAT_FILENODE_SPACE_ROLE, JMAP_CHAT_FILENODE_URI, JMAP_CHAT_PUSH_URI, JMAP_CHAT_URI,
     JMAP_CHAT_WEBSOCKET_URI,
 };
-pub use chat::{ChannelPermission, Chat, ChatKind, ChatMember};
+pub use chat::{ChannelPermission, Chat, ChatKind, ChatMember, ChatMemberRole};
 pub use clearable::Clearable;
 pub use contact::{ChatContact, Endpoint};
 pub use emoji::CustomEmoji;

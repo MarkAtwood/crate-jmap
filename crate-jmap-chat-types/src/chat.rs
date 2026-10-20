@@ -26,6 +26,44 @@ impl_string_enum!(ChatKind, "a chat kind string",
     "channel" => Channel,
 );
 
+/// The `role` of a [`ChatMember`] (draft-atwood-jmap-chat-00 §ChatMember).
+///
+/// The draft defines two values: `"admin"` and `"member"`.
+/// `Other(String)` preserves any unrecognized value for lossless round-trip.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq)]
+pub enum ChatMemberRole {
+    /// Group or channel administrator with management permissions.
+    Admin,
+    /// Regular member.
+    Member,
+    /// Catch-all for any unrecognized wire value from a future spec version.
+    ///
+    /// **Forging caveat**: constructing `ChatMemberRole::Other("admin".into())`
+    /// produces a value that is unequal to `ChatMemberRole::Admin` on
+    /// `PartialEq` but serialises to the same wire string `"admin"`
+    /// and round-trips back to `ChatMemberRole::Admin`. Reserve
+    /// `Other(s)` for genuinely unrecognised wire strings; compare
+    /// wire equality via `as_str()`, not `PartialEq`.
+    Other(String),
+}
+
+impl ChatMemberRole {
+    /// The canonical wire string for this role.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Admin => "admin",
+            Self::Member => "member",
+            Self::Other(s) => s.as_str(),
+        }
+    }
+}
+
+impl_string_enum!(ChatMemberRole, "a ChatMemberRole wire string",
+    "admin"  => Admin,
+    "member" => Member,
+);
+
 /// A member of a [`Chat`].
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -36,12 +74,11 @@ pub struct ChatMember {
     /// The `role` property (draft-atwood-jmap-chat-00 §4.9).
     ///
     /// Wire-observable values are enumerated by the draft as
-    /// `"admin"` or `"member"`; the full list is exported as
-    /// [`crate::vocabulary::SPEC_CHAT_MEMBER_ROLES`] for caller-side
-    /// validation. Servers MAY designate additional internal
+    /// `"admin"` or `"member"`; any other string deserializes to
+    /// [`ChatMemberRole::Other`]. Servers MAY designate additional internal
     /// principals as having admin-equivalent authority; those still
     /// appear as `"admin"` on the wire.
-    pub role: String,
+    pub role: ChatMemberRole,
     /// The `joinedAt` property (draft-atwood-jmap-chat-00 §4.9).
     pub joined_at: UTCDate,
     /// The `invitedBy` property (draft-atwood-jmap-chat-00 §4.9).
@@ -59,7 +96,7 @@ impl ChatMember {
     /// Construct a [`ChatMember`] from its required fields.
     ///
     /// `invited_by` defaults to `None` and `extra` to an empty map.
-    pub fn new(id: Id, role: String, joined_at: UTCDate) -> Self {
+    pub fn new(id: Id, role: ChatMemberRole, joined_at: UTCDate) -> Self {
         Self {
             id,
             role,
@@ -325,12 +362,43 @@ mod tests {
         assert_eq!(member.invited_by.as_ref().map(|id| id.as_ref()), Some("m0"));
     }
 
+    // Oracle: draft-atwood-jmap-chat-00 §ChatMember: `role` (String):
+    // "Either `"admin"` or `"member"`."
+    #[test]
+    fn chat_member_role_spec_values_round_trip() {
+        for (wire, want) in [
+            ("admin", ChatMemberRole::Admin),
+            ("member", ChatMemberRole::Member),
+        ] {
+            let raw = serde_json::json!({
+                "id": "m1",
+                "role": wire,
+                "joinedAt": "2026-01-10T08:00:00Z"
+            });
+            let member: ChatMember = serde_json::from_value(raw.clone()).expect("deserialize");
+            assert_eq!(member.role, want);
+            assert_eq!(member.role.as_str(), wire);
+            assert_eq!(serde_json::to_value(&member).expect("serialize"), raw);
+        }
+    }
+
+    // Oracle: `"moderator"` is not one of the draft-atwood-jmap-chat-00
+    // §ChatMember role values {"admin", "member"}; it must survive a
+    // round-trip as `Other` per the workspace extras-preservation policy.
+    #[test]
+    fn chat_member_role_unknown_round_trips_via_other() {
+        let raw = r#""moderator""#;
+        let parsed: ChatMemberRole = serde_json::from_str(raw).expect("must deserialize");
+        assert_eq!(parsed, ChatMemberRole::Other("moderator".to_owned()));
+        assert_eq!(serde_json::to_string(&parsed).unwrap(), raw);
+    }
+
     // Oracle: ChatMember without invited_by must not emit "invitedBy" key.
     #[test]
     fn chat_member_no_invited_by() {
         let member = ChatMember {
             id: Id::from("m2"),
-            role: "admin".to_owned(),
+            role: ChatMemberRole::Admin,
             joined_at: UTCDate::from("2026-01-11T09:00:00Z"),
             invited_by: None,
             extra: serde_json::Map::new(),

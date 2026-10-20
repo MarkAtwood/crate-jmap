@@ -153,50 +153,9 @@ impl_string_enum!(QuotaResourceType, "a QuotaResourceType wire string",
     "octets" => Octets,
 );
 
-// ---------------------------------------------------------------------------
-// ChatMemberRole
-// ---------------------------------------------------------------------------
-
-/// Role of a participant in a group Chat.
-///
-/// The spec defines two well-known values: `"admin"` and `"member"`.
-/// `Other(String)` preserves any unrecognized value for lossless round-trip.
-///
-/// Wire strings: `"admin"`, `"member"`.
-#[non_exhaustive]
-#[derive(Debug, Clone, PartialEq)]
-pub enum ChatMemberRole {
-    /// Group or channel administrator with management permissions.
-    Admin,
-    /// Regular member.
-    Member,
-    /// Catch-all for any unrecognized wire value from a future spec version.
-    ///
-    /// **Forging caveat**: see [`QuotaScope::Other`] for the full
-    /// discussion. Constructing `ChatMemberRole::Other("admin".into())`
-    /// produces a value that is unequal to `ChatMemberRole::Admin` on
-    /// `PartialEq` but serialises to the same wire string `"admin"`
-    /// and round-trips back to `ChatMemberRole::Admin`. Reserve
-    /// `Other(s)` for genuinely unrecognised wire strings; compare
-    /// wire equality via `as_str()`, not `PartialEq`.
-    Other(String),
-}
-
-impl ChatMemberRole {
-    /// The canonical wire string for this role.
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Admin => "admin",
-            Self::Member => "member",
-            Self::Other(s) => s.as_str(),
-        }
-    }
-}
-
-impl_string_enum!(ChatMemberRole, "a ChatMemberRole wire string",
-    "admin"  => Admin,
-    "member" => Member,
-);
+/// Re-exported from `jmap-chat-types`, which owns the `ChatMember.role`
+/// wire vocabulary shared by client and server.
+pub use jmap_chat_types::ChatMemberRole;
 
 // ---------------------------------------------------------------------------
 // Wire-enum round-trip preservation tests
@@ -239,18 +198,6 @@ mod tests {
             parsed,
             QuotaResourceType::Other("vendorUnit-decibels".to_owned())
         );
-        assert_eq!(serde_json::to_string(&parsed).unwrap(), raw);
-    }
-
-    /// ChatMemberRole: unknown wire string round-trips via Other(s).
-    /// Oracle: `"moderator"` is not in draft-atwood-jmap-chat-00 §Chat
-    /// roles `{admin, member}` — it is the canonical vendor-extension
-    /// example the chat smoke tests use.
-    #[test]
-    fn chat_member_role_unknown_round_trips_via_other() {
-        let raw = r#""moderator""#;
-        let parsed: ChatMemberRole = serde_json::from_str(raw).expect("must deserialize");
-        assert_eq!(parsed, ChatMemberRole::Other("moderator".to_owned()));
         assert_eq!(serde_json::to_string(&parsed).unwrap(), raw);
     }
 

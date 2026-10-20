@@ -231,7 +231,11 @@ async fn chat_get_decodes_populated_chat() {
         .expect("members optional must deserialise to Some");
     assert_eq!(members.len(), 2, "members must have 2 entries");
     assert_eq!(members[0].id.as_ref(), "u1", "members[0].id mismatch");
-    assert_eq!(members[0].role, "owner", "members[0].role mismatch");
+    assert_eq!(
+        members[0].role.as_str(),
+        "owner",
+        "members[0].role mismatch"
+    );
     assert!(
         members[0].invited_by.is_none(),
         "members[0].invitedBy must be None"

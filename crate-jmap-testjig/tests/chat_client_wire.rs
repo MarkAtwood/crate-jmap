@@ -218,7 +218,7 @@ async fn chat_update_member_patch_keys() {
         .iter()
         .find(|m| m.id == carol)
         .expect("carol added to members");
-    assert_eq!(added.role, "member");
+    assert_eq!(added.role.as_str(), "member");
 
     let bad = [UpdateMemberRoleInput::new(
         &carol,
