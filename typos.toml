@@ -13,6 +13,10 @@ extend-ignore-re = [
     # RFC 4648 §10 base64 test vector `"fo"` -> `"Zm8"`
     # (crate-jmap-chat-server/src/memory.rs base64url test). Not a word.
     '\("fo", "Zm8"\)',
+    # GroupInfo/fetch `request` from draft-atwood-jmap-chat-mimi-00
+    # §Examples (crate-jmap-chat-mimi-types/src/groupinfo.rs). Base64url,
+    # not a word.
+    "AAEAAQAgsJ4f",
 ]
 
 [default.extend-words]

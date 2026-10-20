@@ -37,6 +37,8 @@
 //!   [`RoomSendResponse`], [`SubmitResponseCode`], [`RoomUnbindRequest`],
 //!   [`RoomUnbindResponse`] — the `Room/create`, `Room/update`, `Room/send`
 //!   and `Room/unbind` arguments (draft §Rooms).
+//! - [`GroupInfoFetchRequest`], [`GroupInfoFetchResponse`], [`GroupInfoCode`]
+//!   — the `GroupInfo/fetch` arguments (draft §GroupInfo/fetch).
 //! - [`Base64Url`] / [`Base64UrlError`] — the unpadded base64url wire
 //!   shape of every byte-string property (draft §Conventions).
 
@@ -44,6 +46,7 @@
 
 pub mod base64url;
 pub mod capability;
+pub mod groupinfo;
 pub mod keymaterial;
 pub mod keypackage;
 pub mod room;
@@ -52,6 +55,7 @@ pub use base64url::{Base64Url, Base64UrlError};
 pub use capability::{
     MimiCapability, JMAP_CHAT_MIMI_URI, MIMI_FANOUT_BODY_TYPE, MLS_MESSAGE_BODY_TYPE,
 };
+pub use groupinfo::{GroupInfoCode, GroupInfoFetchRequest, GroupInfoFetchResponse};
 pub use keymaterial::{
     ClientKeyMaterial, KeyMaterialClientCode, KeyMaterialFetchRequest, KeyMaterialFetchResponse,
     KeyMaterialUserCode,

@@ -38,6 +38,11 @@ wire behaviour that a conforming peer can observe.
   `UpdateResponseCode` and `SubmitResponseCode` enums named as in
   draft-ietf-mimi-protocol-06 §5.3 and §5.4, and `chat_room_id`, which reads
   the `Chat.roomId` extension field from `Chat.extra`.
+- **jmap-chat-mimi-types**: `GroupInfoFetchRequest` and
+  `GroupInfoFetchResponse` for `GroupInfo/fetch` (draft §GroupInfo/fetch),
+  with the `GroupInfoCode` status enum named as in
+  draft-ietf-mimi-protocol-06 §5.6. The `response` is the whole
+  GroupInfoResponse as a `Base64Url`, passed through unchanged.
 - **jmap-chat-client**: `TypingIndicators` and `TYPING_DECAY` track typing
   indicators per `(chatId, senderId)` and hide one after 10 s without a
   typing event, per draft-atwood-jmap-chat-00 §Chat/typing: "if no typing

@@ -11,7 +11,7 @@ Types only: no server logic, no I/O, no MLS or TLS-codec dependency.
 | JMAP-fvnd.2 | KeyPackage object, KeyPackage/get and /set | landed |
 | JMAP-fvnd.3 | KeyMaterial/fetch request and response | landed |
 | JMAP-fvnd.4 | Room/create, Room/update, Room/send, Room/unbind, `chat_room_id` | landed |
-| JMAP-fvnd.5 | GroupInfo/fetch request and response | planned |
+| JMAP-fvnd.5 | GroupInfo/fetch request and response | landed |
 
 ## Decisions
 
