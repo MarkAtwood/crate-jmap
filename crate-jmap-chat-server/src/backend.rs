@@ -1639,6 +1639,8 @@ pub trait ChatBackend: JmapBackend {
     /// [`crate::should_push`] calls it with the push owner's account and
     /// `Message.senderId`. [`crate::should_deliver_typing`] calls it with
     /// the typing event's recipient and `senderId`.
+    /// [`crate::project_presence`] calls it with the presence event's
+    /// recipient and `contactId`.
     /// [`crate::handle_chat_typing`] does not call it: the request carries
     /// the sender's `accountId`, and the recipient's account is known only
     /// to the transport that fans the event out, which calls
