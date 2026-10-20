@@ -431,8 +431,8 @@ async fn authenticate_accepts_once_then_rejects_the_replay() {
     let f = fixture(DnssecAnswer::Insecure, None);
     f.fetch
         .serve(response("max-age=600", session(&[jwk(X_A, KID_A)])));
-    let replay = MemoryReplayStore::new();
     let now = UNIX_EPOCH + Duration::from_secs(1_760_000_000);
+    let replay = MemoryReplayStore::started_at(now);
     let uri = "https://bob.example/jmap/api/";
     let body = br#"{"using":[]}"#;
     let out = sign(&signing_key_a(), &alice(), &Method::POST, uri, body, now).unwrap();
@@ -474,6 +474,60 @@ async fn authenticate_accepts_once_then_rejects_the_replay() {
         result,
         Err(Error::Rejected(Rejection::NoSignature))
     ));
+}
+
+/// §Replay: "A receiving server whose nonce cache is lost, for example on
+/// restart, SHOULD reject requests whose `created` precedes the restart,
+/// since it can no longer detect their replay." A store started one
+/// second after `created` rejects the request; one started at `created`
+/// accepts it.
+#[tokio::test]
+async fn authenticate_rejects_requests_created_before_the_restart() {
+    let f = fixture(DnssecAnswer::Insecure, None);
+    f.fetch
+        .serve(response("max-age=600", session(&[jwk(X_A, KID_A)])));
+    let created = UNIX_EPOCH + Duration::from_secs(1_760_000_000);
+    let uri = "https://bob.example/jmap/api/";
+    let body = br#"{"using":[]}"#;
+    let out = sign(
+        &signing_key_a(),
+        &alice(),
+        &Method::POST,
+        uri,
+        body,
+        created,
+    )
+    .unwrap();
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        "content-digest",
+        HeaderValue::from_str(out.content_digest.as_deref().unwrap()).unwrap(),
+    );
+    headers.insert(
+        "signature-input",
+        HeaderValue::from_str(&out.signature_input).unwrap(),
+    );
+    headers.insert("signature", HeaderValue::from_str(&out.signature).unwrap());
+    let request = || Request {
+        method: &Method::POST,
+        target_uri: uri,
+        headers: &headers,
+        content: body,
+    };
+    let now = created + Duration::from_secs(2);
+
+    let restarted = MemoryReplayStore::started_at(created + Duration::from_secs(1));
+    let result = authenticate(request(), now, &f.keys, &restarted).await;
+    assert!(matches!(
+        result,
+        Err(Error::Rejected(Rejection::PrecedesRestart))
+    ));
+
+    let running = MemoryReplayStore::started_at(created);
+    let peer = authenticate(request(), now, &f.keys, &running)
+        .await
+        .unwrap();
+    assert_eq!(peer.peer_domain, alice());
 }
 
 /// Two overlapping lookups for one peer domain share one fetch: the

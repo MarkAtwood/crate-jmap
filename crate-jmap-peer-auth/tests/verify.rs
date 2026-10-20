@@ -160,6 +160,7 @@ fn valid_requests_are_accepted() {
         // "MUST remember each accepted (peer domain, `nonce`) pair at least
         // until 60 seconds after that signature's `expires`."
         assert_eq!(accepted.forget_after, at(CREATED + 300 + 60));
+        assert_eq!(accepted.created, at(CREATED));
     }
 }
 

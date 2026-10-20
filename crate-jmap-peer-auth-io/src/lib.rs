@@ -19,7 +19,8 @@
 //!   caller-supplied address policy for §Blob Fetch and SSRF.
 //! - [`DnssecLookup`], [`HickoryLookup`] (validates DNSSEC in-process)
 //!   and [`NoDnssec`] (for a server that cannot validate).
-//! - [`ReplayStore`] and [`MemoryReplayStore`]: verification check 5.
+//! - [`ReplayStore`] and [`MemoryReplayStore`]: verification check 5 and
+//!   the §Replay restart rule.
 //! - [`authenticate`]: all of the above around
 //!   [`SignedRequest`].
 //!
@@ -110,7 +111,8 @@ pub struct Authenticated {
 /// # Errors
 ///
 /// An [`Error`] for the first check that fails; [`Rejection::Replayed`]
-/// when `replay` already holds the pair.
+/// when `replay` already holds the pair; [`Rejection::PrecedesRestart`]
+/// when `created` is before [`ReplayStore::remembers_since`].
 pub async fn authenticate<F: Fetch, D: DnssecLookup, S: ReplayStore>(
     request: Request<'_>,
     now: SystemTime,
@@ -123,6 +125,12 @@ pub async fn authenticate<F: Fetch, D: DnssecLookup, S: ReplayStore>(
     // a lookup followed by a separate record would let two concurrent
     // requests with the same nonce both pass.
     let accepted = signed.verify(&set.keys, now, |_, _| false)?;
+    if replay
+        .remembers_since()
+        .is_some_and(|since| accepted.created < since)
+    {
+        return Err(Rejection::PrecedesRestart.into());
+    }
     if !replay
         .insert(
             &accepted.peer_domain,

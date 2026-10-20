@@ -117,3 +117,18 @@ async fn sweeps_keep_live_pairs() {
         .await
         .unwrap());
 }
+
+/// §Replay: "A receiving server whose nonce cache is lost, for example on
+/// restart, SHOULD reject requests whose `created` precedes the restart".
+/// An in-process store is lost on restart, so it remembers from the time
+/// it was made.
+#[test]
+fn a_memory_store_remembers_from_its_start() {
+    assert_eq!(
+        MemoryReplayStore::started_at(at(1000)).remembers_since(),
+        Some(at(1000))
+    );
+    let before = SystemTime::now();
+    let since = MemoryReplayStore::new().remembers_since().unwrap();
+    assert!(before <= since && since <= SystemTime::now());
+}
