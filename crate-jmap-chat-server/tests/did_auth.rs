@@ -1,7 +1,7 @@
 //! DID-keyed peer authentication (draft-atwood-jmap-chat-did-00
 //! §Federation Authentication, jmap-chat-spec
 //! draft-atwood-jmap-chat-did-00.md L213-227, §Resolution failure
-//! handling L247).
+//! handling L247, §Caching L243).
 //!
 //! Oracles: the RFC 9421 Appendix B.1.4 `test-key-ed25519` key pair
 //! signs every request; its RFC 7638 thumbprint and its did:key form were
@@ -15,7 +15,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine;
 use http::{HeaderMap, HeaderValue, Method};
-use jmap_chat_server::{verify_did_signature, DidAuthRejection};
+use jmap_chat_server::{verify_did_signature, DidAuthRejection, DidDocument};
 use jmap_did_types::Did;
 use jmap_peer_auth::ed25519_dalek::{Signer as _, SigningKey};
 use jmap_peer_auth::{Accepted, Rejection, Request, SignedRequest};
@@ -32,6 +32,8 @@ const B14_KID: &str = "poqkLGiymh_W0uP6PZFw-dvez3QJT5SolqXBCW38r0U";
 const B14_DID_KEY: &str = "did:key:z6Mkh4LmfP1ev9MNPGr7JbEbtD6BD4fsu1duEj83PMCs3xHG";
 /// RFC 8037 Appendix A.1 private key, a key that is not test-key-ed25519.
 const OTHER_D: &str = "nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A";
+/// RFC 8037 Appendix A.1 public key `x` of [`OTHER_D`].
+const OTHER_X: &str = "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo";
 
 const TARGET: &str = "https://bob.example/jmap/api/";
 const BODY: &[u8] = br#"{"hello": "world"}"#;
@@ -73,10 +75,22 @@ fn signed_headers(key: &SigningKey) -> HeaderMap {
     headers
 }
 
+/// Verifies against a document that is not cached.
 fn verify(
     headers: &HeaderMap,
     did: &str,
     document: Option<&Value>,
+) -> Result<Accepted, DidAuthRejection> {
+    verify_with(headers, did, document.map(DidDocument::Refreshed), false)
+}
+
+/// Verifies against `document`; `replayed` is what the replay store says
+/// about the nonce.
+fn verify_with(
+    headers: &HeaderMap,
+    did: &str,
+    document: Option<DidDocument<'_>>,
+    replayed: bool,
 ) -> Result<Accepted, DidAuthRejection> {
     let request = Request {
         method: &Method::POST,
@@ -86,7 +100,7 @@ fn verify(
     };
     let signed = SignedRequest::parse(request).unwrap();
     let did: Did = did.parse().unwrap();
-    verify_did_signature(&signed, &did, document, now(), |_, _| false)
+    verify_did_signature(&signed, &did, document, now(), |_, _| replayed)
 }
 
 /// A hand-written did:key DID Document for test-key-ed25519 (did:key
@@ -226,5 +240,105 @@ fn jwk_with_private_member_is_ignored() {
     assert_eq!(
         verify(&headers, "did:web:alice.example", Some(&document)),
         Err(DidAuthRejection::Signature(Rejection::UnknownKey))
+    );
+}
+
+/// A hand-written did:web DID Document whose one `authentication` key has
+/// JWK `x` value `x`.
+fn did_web_document(x: &str) -> Value {
+    json!({
+        "id": "did:web:alice.example",
+        "authentication": [{
+            "id": "did:web:alice.example#key-1",
+            "type": "JsonWebKey",
+            "controller": "did:web:alice.example",
+            "publicKeyJwk": {"kty": "OKP", "crv": "Ed25519", "x": x},
+        }],
+    })
+}
+
+/// L243: "A server MUST refresh its cached DID Document for a given DID
+/// before next use if a signature verification against that cached
+/// document fails. The rationale is that signature-verification failure
+/// is the strongest available signal that the cached key material has
+/// been rotated". The cached document holds the RFC 8037 A.1 key; the
+/// peer rotated to test-key-ed25519, which the refreshed document holds.
+#[test]
+fn rotated_key_in_cached_document_requires_refresh() {
+    let headers = signed_headers(&signing_key(B14_D));
+    let cached = did_web_document(OTHER_X);
+    assert_eq!(
+        verify_with(
+            &headers,
+            "did:web:alice.example",
+            Some(DidDocument::Cached(&cached)),
+            false
+        ),
+        Err(DidAuthRejection::RefreshRequired(Rejection::UnknownKey))
+    );
+    let refreshed = did_web_document(B14_X);
+    assert!(verify_with(
+        &headers,
+        "did:web:alice.example",
+        Some(DidDocument::Refreshed(&refreshed)),
+        false
+    )
+    .is_ok());
+}
+
+/// L243: a signature that does not verify under the cached document's key
+/// is "a signature verification against that cached document" that
+/// fails, so the document is refreshed "before next use".
+#[test]
+fn bad_signature_against_cached_document_requires_refresh() {
+    let headers = signed_headers(&signing_key(OTHER_D));
+    let cached = did_web_document(B14_X);
+    assert_eq!(
+        verify_with(
+            &headers,
+            "did:web:alice.example",
+            Some(DidDocument::Cached(&cached)),
+            false
+        ),
+        Err(DidAuthRejection::RefreshRequired(Rejection::BadSignature))
+    );
+}
+
+/// L247: servers "SHOULD NOT ... proceed with stale cached state when the
+/// cache entry has been explicitly invalidated, including by the refresh
+/// requirement above"; L220: "If verification fails, the receiving server
+/// SHOULD reject the request". A refreshed document that still does not
+/// verify is a plain rejection, not another refresh.
+#[test]
+fn bad_signature_against_refreshed_document_is_rejected() {
+    let headers = signed_headers(&signing_key(OTHER_D));
+    let refreshed = did_web_document(B14_X);
+    assert_eq!(
+        verify_with(
+            &headers,
+            "did:web:alice.example",
+            Some(DidDocument::Refreshed(&refreshed)),
+            false
+        ),
+        Err(DidAuthRejection::Signature(Rejection::BadSignature))
+    );
+}
+
+/// L243 ties the refresh to "a signature verification against that
+/// cached document"; a replayed nonce (federation-00 §Request Signing
+/// check 5) fails whatever the document holds, so it is a plain
+/// rejection.
+#[test]
+fn replay_against_cached_document_is_rejected_without_refresh() {
+    let headers = signed_headers(&signing_key(B14_D));
+    let cached = did_web_document(B14_X);
+    assert_eq!(
+        verify_with(
+            &headers,
+            "did:web:alice.example",
+            Some(DidDocument::Cached(&cached)),
+            true
+        ),
+        Err(DidAuthRejection::Signature(Rejection::Replayed))
     );
 }
