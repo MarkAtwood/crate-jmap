@@ -244,6 +244,9 @@ pub struct TrackingBackend {
     /// `Ok(Err(SetError::new(SetErrorType::Forbidden)))`. When `false`,
     /// forwards to `inner` (which returns `Ok(Ok(()))`).
     broadcast_mention_deny: bool,
+    /// When `true`, [`ChatBackend::may_view_chat`] returns `Ok(false)`.
+    /// When `false`, forwards to `inner`.
+    chat_view_deny: bool,
     /// Counter incremented every time
     /// [`ChatBackend::is_contact_blocked`] is invoked. Lets a test
     /// verify the handler reached the consultation point without
@@ -270,6 +273,7 @@ impl TrackingBackend {
             slow_mode_block: Some(retry_after),
             emoji_set_deny: false,
             broadcast_mention_deny: false,
+            chat_view_deny: false,
             is_contact_blocked_calls: Arc::default(),
         }
     }
@@ -283,6 +287,7 @@ impl TrackingBackend {
             slow_mode_block: None,
             emoji_set_deny: true,
             broadcast_mention_deny: false,
+            chat_view_deny: false,
             is_contact_blocked_calls: Arc::default(),
         }
     }
@@ -293,6 +298,15 @@ impl TrackingBackend {
     pub fn with_broadcast_mention_denied() -> Self {
         Self {
             broadcast_mention_deny: true,
+            ..Self::default()
+        }
+    }
+
+    /// Configure the wrapper so [`ChatBackend::may_view_chat`] hides
+    /// every Chat. The wrapped `MemoryBackend` is otherwise functional.
+    pub fn with_chat_view_denied() -> Self {
+        Self {
+            chat_view_deny: true,
             ..Self::default()
         }
     }
@@ -538,6 +552,19 @@ impl ChatBackend for TrackingBackend {
             self.inner
                 .may_broadcast_mention(caller, account_id, space_id)
                 .await
+        }
+    }
+
+    async fn may_view_chat(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        chat_id: &Id,
+    ) -> Result<bool, Self::Error> {
+        if self.chat_view_deny {
+            Ok(false)
+        } else {
+            self.inner.may_view_chat(caller, account_id, chat_id).await
         }
     }
 
@@ -880,6 +907,24 @@ impl ChatBackend for IdentityBackend {
         ban: &jmap_chat_types::SpaceBan,
     ) -> Result<bool, Self::Error> {
         self.inner.may_get_space_ban(&(), account_id, ban).await
+    }
+
+    async fn may_send_message(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        chat_id: &Id,
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        self.inner.may_send_message(&(), account_id, chat_id).await
+    }
+
+    async fn may_view_chat(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        chat_id: &Id,
+    ) -> Result<bool, Self::Error> {
+        self.inner.may_view_chat(&(), account_id, chat_id).await
     }
 
     async fn is_contact_blocked(

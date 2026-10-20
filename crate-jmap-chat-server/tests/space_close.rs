@@ -17,7 +17,10 @@ use jmap_types::Id;
 use serde_json::{json, Value};
 
 /// Seed a public, publicly-previewable Space with `members`, where
-/// members listed with `r-admin` hold the only `manage_space` role.
+/// members listed with `r-admin` hold the only `manage_space` role. The
+/// role also grants `send`, which §Message/set requires of channel
+/// senders: "the server MUST verify the sender holds the `"send"`
+/// permission".
 fn seed(backend: &IdentityBackend, members: Value, closed_at: Option<&str>) {
     let mut space_val = json!({
         "id": SPACE_ID,
@@ -31,7 +34,7 @@ fn seed(backend: &IdentityBackend, members: Value, closed_at: Option<&str>) {
         "roles": [{
             "id": "r-admin",
             "name": "Admin",
-            "permissions": ["manage_space", "manage_members", "manage_channels"],
+            "permissions": ["manage_space", "manage_members", "manage_channels", "send"],
             "position": 100
         }],
         "members": members,

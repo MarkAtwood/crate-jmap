@@ -1731,6 +1731,79 @@ pub trait ChatBackend: JmapBackend {
         async { Ok(true) }
     }
 
+    /// Authorization gate consulted by `handle_message_set` before each
+    /// Message create.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §Message/set: "The server MUST verify
+    /// the sender is a current member of the target Chat. For group chats,
+    /// this means a ChatMember record exists; for channel chats, the
+    /// sender must be a member of the containing Space. Non-members MUST
+    /// receive a SetError of type `forbidden`." and "For channel Chats,
+    /// the server MUST verify the sender holds the `"send"` permission
+    /// (resolved per {{space-permissions}}) before accepting the message;
+    /// if absent, the server MUST return a SetError of type `forbidden`."
+    /// [`resolve_channel_permissions`](crate::permissions::resolve_channel_permissions)
+    /// implements that resolution.
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per create entry, AFTER wire-format validation and the
+    /// closed-Chat and closed-Space checks, and BEFORE `create_object`.
+    /// A `chat_id` that does not resolve SHOULD yield `Ok(Ok(()))` so
+    /// `create_object` surfaces the normal error. The return mapping is
+    /// the same as [`Self::may_set_custom_emoji`].
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(()))` — every create is permitted, matching the
+    /// parallel hooks above. Production backends SHOULD override this
+    /// method and deny with
+    /// `Ok(Err(SetError::new(SetErrorType::Forbidden)))`.
+    fn may_send_message(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async { Ok(Ok(())) }
+    }
+
+    /// Visibility gate consulted by `handle_message_get` and
+    /// `handle_message_query`.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §Message/query: "For channel Chats,
+    /// the server MUST verify the caller holds the `"view"` permission
+    /// before returning messages in `Message/get` or `Message/query`
+    /// responses; messages in channels the caller cannot view MUST be
+    /// omitted." The permission is resolved per §Space Permission
+    /// Resolution, as in [`Self::may_send_message`].
+    ///
+    /// # When the handler calls this
+    ///
+    /// `Message/get` calls it once per distinct `chatId` among the
+    /// returned messages; `Ok(false)` hides those messages, and a
+    /// requested id is reported as `notFound`. `Message/query` calls it
+    /// for the filter's top-level `chatId` and returns no ids when it
+    /// yields `Ok(false)`. A query without `chatId` spans Chats, so the
+    /// backend's `query_objects` MUST itself omit messages the caller
+    /// cannot view; the handler cannot filter a page it did not cut.
+    /// `Message/changes` does not consult this hook, because the spec
+    /// defines it as plain "Standard JMAP `/changes`".
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)`, so every Chat is viewable, matching the
+    /// parallel hooks above. Production backends SHOULD override this
+    /// method.
+    fn may_view_chat(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        async { Ok(true) }
+    }
+
     /// Referential check consulted by `handle_chat_set` before an update
     /// that adds ids to `pinnedMessageIds` is applied.
     ///
