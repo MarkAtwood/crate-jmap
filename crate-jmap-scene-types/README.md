@@ -2,8 +2,10 @@
 
 Wire-format types for draft-atwood-jmap-scene-00, the
 `urn:ietf:params:jmap:scene` capability that models spatial state (regions,
-the objects in them and the users present) over JMAP. Types only: no
-method handlers, no I/O, no rendering or simulation.
+the objects in them and the users present) over JMAP, and for
+draft-atwood-jmap-scene-wss-00, which pushes ephemeral Scene events over the
+JMAP WebSocket. Types only: no method handlers, no I/O, no rendering or
+simulation.
 
 ## What it is
 
@@ -18,8 +20,11 @@ method handlers, no I/O, no rendering or simulation.
 | `SceneObject`, `PhysicsMode` | §SceneObject |
 | `SceneAvatar` | §SceneAvatar |
 | `query::*` filters and comparators, `WithinRadius`, `WithinBounds` | §…/query, §Spatial Filters |
+| `JMAP_SCENE_WEBSOCKET_URI` | scene-wss §Capability |
+| `SceneEvent`, `SceneAvatarEvent`, `SceneObjectEvent`, `SceneInteractionEvent`, `AvatarEventKind`, `ObjectEventKind` | scene-wss §Ephemeral Event Types |
+| `SceneStreamMessage`, `SceneStreamEnable`, `SceneStreamDisable`, `SCENE_EVENT_TYPES` | scene-wss §Scene Stream Control Messages |
 
-The session-level capability value is `{}` and has no type.
+The session-level capability values are `{}` and have no type.
 
 ## What it's for
 
@@ -72,11 +77,18 @@ assert_eq!(IDENTITY_ORIENTATION, [0.0, 0.0, 0.0, 1.0]);
   `supportedVisualTypes`, and `visualType` tracking `visualRef`.
 - `assetUri`, `simulationUri` and `inputUri` are peer-supplied and
   untrusted. Nothing here validates them.
+- `SceneEvent` and `SceneStreamMessage` dispatch on `@type`; an unknown
+  `@type` becomes `Unknown` and re-serializes verbatim. `eventTypes` keeps
+  unrecognized names: rejecting an empty or all-unrecognized list with
+  `invalidArguments`, and checking a submitted `SceneInteractionEvent`, is
+  the server's job.
 
 ## References
 
 - [draft-atwood-jmap-scene-00] — JMAP Scene
+- [draft-atwood-jmap-scene-wss-00] — JMAP Scene WebSocket
 - [RFC 8620] — JMAP Core
 
 [draft-atwood-jmap-scene-00]: https://github.com/MarkAtwood/jmap-chat-spec
+[draft-atwood-jmap-scene-wss-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

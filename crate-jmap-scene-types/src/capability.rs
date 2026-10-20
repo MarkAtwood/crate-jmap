@@ -11,6 +11,17 @@ use serde::{Deserialize, Serialize};
 /// account-level value is [`SceneCapability`].
 pub const JMAP_SCENE_URI: &str = "urn:ietf:params:jmap:scene";
 
+/// Capability URI for ephemeral Scene event push over WebSocket
+/// (draft-atwood-jmap-scene-wss-00 §Capability).
+///
+/// The session-level value is an empty object `{}` and is not modelled.
+/// Advertising it means the server delivers [`SceneEvent`](crate::SceneEvent)
+/// frames and accepts [`SceneStreamEnable`](crate::SceneStreamEnable) and
+/// [`SceneStreamDisable`](crate::SceneStreamDisable). A server advertising
+/// it "MUST also advertise both `urn:ietf:params:jmap:websocket` and
+/// `urn:ietf:params:jmap:scene`".
+pub const JMAP_SCENE_WEBSOCKET_URI: &str = "urn:ietf:params:jmap:scene:websocket";
+
 /// Account-level capability object for `"urn:ietf:params:jmap:scene"`.
 ///
 /// Found at `accounts[id].accountCapabilities["urn:ietf:params:jmap:scene"]`.
@@ -92,6 +103,17 @@ mod tests {
         // Oracle: L152 "MUST advertise the `urn:ietf:params:jmap:scene`
         // capability in the JMAP Session object."
         assert_eq!(JMAP_SCENE_URI, "urn:ietf:params:jmap:scene");
+    }
+
+    #[test]
+    fn websocket_capability_uri_matches_draft() {
+        // Oracle: draft-atwood-jmap-scene-wss-00 L118-119 "Servers
+        // supporting this specification MUST add a property named
+        // `urn:ietf:params:jmap:scene:websocket`".
+        assert_eq!(
+            JMAP_SCENE_WEBSOCKET_URI,
+            "urn:ietf:params:jmap:scene:websocket"
+        );
     }
 
     #[test]
