@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-cid-types**: base64 conversion for `Sha256`, so a client can
+  compare it with an RFC 9404 `Blob/get` `digest:sha-256` value, per
+  draft-atwood-jmap-cid-00 §Relationship to JMAP Blob Management
+  Extensions ("convert encodings before comparing"): `to_base64` /
+  `from_base64` for padded RFC 4648 §4 base64, and `to_bytes` for the 32
+  raw digest bytes. `from_base64` rejects non-canonical base64 and
+  digests that are not 32 bytes with the new `Sha256Base64Error`. The
+  crate now depends on `base64`.
 - **jmap-cid-types**: CIDv1 conversion for `Sha256`, per
   draft-atwood-jmap-cid-00 §Mapping to CIDv1: `to_cidv1` /
   `from_cidv1` for the `b`-prefixed lowercase base32 string form and

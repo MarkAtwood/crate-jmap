@@ -305,6 +305,26 @@ impl Sha256 {
     pub fn into_inner(self) -> String {
         self.0
     }
+
+    /// The 32 raw digest bytes, most significant first: the inverse
+    /// of [`From`]`<[u8; 32]>` for [`Sha256`].
+    pub fn to_bytes(&self) -> [u8; 32] {
+        let hex = self.0.as_bytes();
+        let mut out = [0u8; 32];
+        for (i, byte) in out.iter_mut().enumerate() {
+            *byte = (nibble(hex[2 * i]) << 4) | nibble(hex[2 * i + 1]);
+        }
+        out
+    }
+}
+
+/// Value of one lowercase hex digit. Only called on [`Sha256`]'s
+/// validated `[0-9a-f]` text.
+fn nibble(c: u8) -> u8 {
+    match c {
+        b'0'..=b'9' => c - b'0',
+        _ => c - b'a' + 10,
+    }
 }
 
 impl fmt::Display for Sha256 {
