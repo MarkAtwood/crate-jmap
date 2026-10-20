@@ -166,7 +166,7 @@ impl SessionClient {
     ) -> Result<SetResponse<CalendarEvent>, ClientError>;
     pub async fn calendar_event_query(
         &self,
-        filter: Option<&CalendarEventFilterCondition>,
+        filter: Option<&CalendarEventFilter>,  // jmap_types::query::Filter (AND/OR/NOT)
         sort: Option<&[CalendarEventComparator]>,
         position: Option<u64>,
         limit: Option<u64>,
