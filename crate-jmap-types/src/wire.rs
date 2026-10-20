@@ -4,10 +4,64 @@ use crate::id::{Id, State};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// A JMAP method invocation: `[method_name, arguments, call_id]`.
+/// A JMAP method invocation (RFC 8620 §3.2).
 ///
-/// Serializes as a 3-element JSON array per RFC 8620 §3.2.
-pub type Invocation = (String, serde_json::Value, String);
+/// On the wire this is a 3-element JSON array
+/// `[name, arguments, callId]`; in Rust the elements are named fields.
+/// [`From`] conversions to and from `(String, Value, String)` are
+/// provided for code that already holds the tuple form.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Invocation {
+    /// Method name, e.g. `"Email/get"`, or `"error"` in a response.
+    pub name: String,
+    /// Method arguments (request) or result (response) object.
+    pub arguments: serde_json::Value,
+    /// Client-chosen method call id, echoed back in the response.
+    pub call_id: String,
+}
+
+impl Invocation {
+    /// Construct an [`Invocation`] from its three wire elements.
+    pub fn new(
+        name: impl Into<String>,
+        arguments: serde_json::Value,
+        call_id: impl Into<String>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            arguments,
+            call_id: call_id.into(),
+        }
+    }
+}
+
+impl From<(String, serde_json::Value, String)> for Invocation {
+    fn from((name, arguments, call_id): (String, serde_json::Value, String)) -> Self {
+        Self {
+            name,
+            arguments,
+            call_id,
+        }
+    }
+}
+
+impl From<Invocation> for (String, serde_json::Value, String) {
+    fn from(inv: Invocation) -> Self {
+        (inv.name, inv.arguments, inv.call_id)
+    }
+}
+
+impl Serialize for Invocation {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        (&self.name, &self.arguments, &self.call_id).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Invocation {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        <(String, serde_json::Value, String)>::deserialize(deserializer).map(Self::from)
+    }
+}
 
 /// JMAP request envelope (RFC 8620 §3.3).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -33,7 +87,8 @@ pub struct JmapRequest {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct JmapResponse {
-    /// Ordered list of method responses (same 3-tuple structure as requests).
+    /// Ordered list of method responses (same `[name, arguments, callId]`
+    /// structure as requests).
     #[serde(rename = "methodResponses")]
     pub method_responses: Vec<Invocation>,
     /// Opaque server state token. Changes when any data type's state advances.
@@ -103,11 +158,15 @@ mod tests {
         assert_eq!(req.using[0], "urn:ietf:params:jmap:core");
         assert_eq!(req.using[1], "urn:ietf:params:jmap:mail");
         assert_eq!(req.method_calls.len(), 3);
-        assert_eq!(req.method_calls[0].0, "method1");
-        assert_eq!(req.method_calls[0].2, "c1");
-        assert_eq!(req.method_calls[2].0, "method3");
+        assert_eq!(req.method_calls[0].name, "method1");
+        assert_eq!(
+            req.method_calls[0].arguments,
+            json!({"arg1": "arg1data", "arg2": "arg2data"})
+        );
+        assert_eq!(req.method_calls[0].call_id, "c1");
+        assert_eq!(req.method_calls[2].name, "method3");
         // method3 has empty args {}
-        assert_eq!(req.method_calls[2].1, json!({}));
+        assert_eq!(req.method_calls[2].arguments, json!({}));
         assert!(req.created_ids.is_none());
     }
 
@@ -118,9 +177,9 @@ mod tests {
         let resp: JmapResponse = serde_json::from_str(raw).expect("deserialize JmapResponse");
         assert_eq!(resp.session_state.as_ref(), "75128aab4b1b");
         assert_eq!(resp.method_responses.len(), 4);
-        assert_eq!(resp.method_responses[0].0, "method1");
-        assert_eq!(resp.method_responses[3].0, "error");
-        assert_eq!(resp.method_responses[3].2, "c3");
+        assert_eq!(resp.method_responses[0].name, "method1");
+        assert_eq!(resp.method_responses[3].name, "error");
+        assert_eq!(resp.method_responses[3].call_id, "c3");
         assert!(resp.created_ids.is_none());
     }
 
@@ -189,9 +248,39 @@ mod tests {
     // Oracle: RFC 8620 §3.2 — Invocation serializes as a 3-element JSON array.
     #[test]
     fn invocation_is_three_element_array() {
-        let inv: Invocation = ("m/get".into(), json!({"accountId": "a1"}), "c0".into());
+        let inv = Invocation::new("m/get", json!({"accountId": "a1"}), "c0");
         let j = serde_json::to_string(&inv).expect("serialize");
         assert_eq!(j, r#"["m/get",{"accountId":"a1"},"c0"]"#);
+    }
+
+    // Oracle: RFC 8620 §3.3.1 example request; the methodCalls array
+    // re-serializes to the same JSON value element-for-element.
+    #[test]
+    fn rfc_request_method_calls_round_trip() {
+        let raw = include_str!("../tests/fixtures/rfc8620-request.json");
+        let original: serde_json::Value = serde_json::from_str(raw).expect("parse fixture");
+        let req: JmapRequest = serde_json::from_str(raw).expect("deserialize JmapRequest");
+        let back = serde_json::to_value(&req.method_calls).expect("serialize");
+        assert_eq!(back, original["methodCalls"]);
+    }
+
+    // Oracle: RFC 8620 §3.2 — the Invocation "is a tuple, represented as a
+    // JSON array containing three elements". Any other shape is rejected.
+    #[test]
+    fn invocation_rejects_wrong_arity() {
+        assert!(serde_json::from_str::<Invocation>(r#"["m/get",{}]"#).is_err());
+        assert!(serde_json::from_str::<Invocation>(r#"["m/get",{},"c0","x"]"#).is_err());
+        assert!(serde_json::from_str::<Invocation>(r#"{"name":"m/get"}"#).is_err());
+    }
+
+    #[test]
+    fn invocation_tuple_conversions() {
+        let inv = Invocation::from(("m/get".to_owned(), json!({}), "c0".to_owned()));
+        assert_eq!(inv.name, "m/get");
+        assert_eq!(inv.arguments, json!({}));
+        assert_eq!(inv.call_id, "c0");
+        let t: (String, serde_json::Value, String) = inv.into();
+        assert_eq!(t, ("m/get".to_owned(), json!({}), "c0".to_owned()));
     }
 
     // ── Extras-preservation policy tests (JMAP-lbdy.1) ───────────────────
@@ -295,7 +384,7 @@ mod tests {
     fn request_extra_collision_with_typed_field_round_trip_fails() {
         let mut req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
-            vec![("real-method".into(), json!({}), "c-real".into())],
+            vec![Invocation::new("real-method", json!({}), "c-real")],
             None,
         );
         // Caller-contract violation: inserting a key whose name matches

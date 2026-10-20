@@ -6,6 +6,7 @@
 
 mod common;
 
+use jmap_types::Invocation;
 use std::sync::Arc;
 
 use jmap_server::{Dispatcher, JmapRequest, State};
@@ -39,11 +40,11 @@ async fn setup() -> (Dispatcher<()>, Id) {
 async fn call(dispatcher: &Dispatcher<()>, method: &str, args: Value) -> Value {
     let req = JmapRequest::new(
         vec!["urn:ietf:params:jmap:principals".into()],
-        vec![(method.into(), args, "c0".into())],
+        vec![Invocation::new(method, args, "c0")],
         None,
     );
     let mut resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-    resp.method_responses.remove(0).1
+    resp.method_responses.remove(0).arguments
 }
 
 /// Apply `patch` to `id` with Principal/set and return the set response.

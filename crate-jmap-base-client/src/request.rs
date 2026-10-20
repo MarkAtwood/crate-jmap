@@ -384,7 +384,8 @@ impl JmapRequestBuilder {
                 "JmapRequestBuilder: duplicate call_id {call_id:?}"
             )));
         }
-        self.method_calls.push((method.into(), args, call_id));
+        self.method_calls
+            .push(Invocation::new(method, args, call_id));
         Ok(self)
     }
 

@@ -9,6 +9,7 @@
 
 mod common;
 
+use jmap_types::Invocation;
 use std::sync::Arc;
 
 use jmap_server::{Dispatcher, JmapRequest, State};
@@ -30,7 +31,7 @@ use common::MemoryBackend;
 fn single_call(method: &str, args: serde_json::Value, call_id: &str) -> JmapRequest {
     JmapRequest::new(
         vec!["urn:ietf:params:jmap:principals".into()],
-        vec![(method.into(), args, call_id.into())],
+        vec![Invocation::new(method, args, call_id)],
         None,
     )
 }
@@ -311,7 +312,9 @@ async fn principal_query_changes_cannot_calculate() {
         "c0",
     );
     let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-    let (_, args, _) = &resp.method_responses[0];
+    let Invocation {
+        arguments: args, ..
+    } = &resp.method_responses[0];
 
     assert_eq!(
         args["type"].as_str(),
@@ -361,7 +364,9 @@ async fn notification_query_changes_cannot_calculate() {
         "c0",
     );
     let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-    let (_, args, _) = &resp.method_responses[0];
+    let Invocation {
+        arguments: args, ..
+    } = &resp.method_responses[0];
 
     assert_eq!(
         args["type"].as_str(),
@@ -435,7 +440,9 @@ async fn principal_query_filter_by_account_ids() {
         "c0",
     );
     let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
-    let (_, args, _) = &resp.method_responses[0];
+    let Invocation {
+        arguments: args, ..
+    } = &resp.method_responses[0];
 
     assert!(
         args.get("type").is_none(),

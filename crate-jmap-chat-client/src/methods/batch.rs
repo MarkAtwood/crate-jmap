@@ -177,7 +177,8 @@ impl Batch {
 
     fn push(&mut self, method: &str, args: serde_json::Value) -> String {
         let call_id = format!("t{}", self.calls.len());
-        self.calls.push((method.to_owned(), args, call_id.clone()));
+        self.calls
+            .push(Invocation::new(method.to_owned(), args, call_id.clone()));
         call_id
     }
 }

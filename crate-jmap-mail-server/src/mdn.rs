@@ -619,8 +619,8 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                     "notUpdated": if email_not_updated.is_empty() { Value::Null } else { Value::Object(email_not_updated) },
                     "notDestroyed": Value::Null,
                 });
-                extra_invocations.push((
-                    "Email/set".to_owned(),
+                extra_invocations.push(Invocation::new(
+                    "Email/set",
                     email_set_resp,
                     call_id.to_owned(),
                 ));

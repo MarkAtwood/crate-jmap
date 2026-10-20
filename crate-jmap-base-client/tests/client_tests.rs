@@ -5,6 +5,7 @@
 use jmap_base_client::auth::NoneAuth;
 use jmap_base_client::client::JmapClient;
 use jmap_base_client::error::ClientError;
+use jmap_types::Invocation;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -32,10 +33,10 @@ fn call_response_fixture() -> serde_json::Value {
 fn minimal_request() -> jmap_types::JmapRequest {
     jmap_types::JmapRequest::new(
         vec!["urn:ietf:params:jmap:core".to_owned()],
-        vec![(
-            "Mailbox/get".to_owned(),
+        vec![Invocation::new(
+            "Mailbox/get",
             serde_json::json!({"accountId": "A13824", "ids": null}),
-            "r1".to_owned(),
+            "r1",
         )],
         None,
     )
@@ -506,15 +507,15 @@ async fn test_call_round_trip() {
     // Oracle: values from call_response.json fixture
     assert_eq!(resp.session_state, "sess1");
     assert_eq!(resp.method_responses.len(), 1);
-    assert_eq!(resp.method_responses[0].0, "Mailbox/get");
-    assert_eq!(resp.method_responses[0].2, "r1");
+    assert_eq!(resp.method_responses[0].name, "Mailbox/get");
+    assert_eq!(resp.method_responses[0].call_id, "r1");
 
     // Tighten the args check (bd:JMAP-6r7c.7): inspect the args payload so a
     // regression that zeroed or stripped it cannot pass this test silently.
     // The fixture sets accountId="A13824", state="m-state-1", list=[],
     // notFound=[]; all four are checked.
     let args = resp.method_responses[0]
-        .1
+        .arguments
         .as_object()
         .expect("method-response args must be a JSON object");
     assert_eq!(
@@ -601,7 +602,7 @@ async fn test_call_session_routes_to_session_api_url() {
     // Oracle from call_response.json fixture: same as test_call_round_trip.
     assert_eq!(resp.session_state, "sess1");
     assert_eq!(resp.method_responses.len(), 1);
-    assert_eq!(resp.method_responses[0].0, "Mailbox/get");
+    assert_eq!(resp.method_responses[0].name, "Mailbox/get");
 }
 
 /// Oracle: bd:JMAP-6r7c.64 — `upload_blob_session` reads
@@ -1333,10 +1334,10 @@ async fn test_subscribe_events_accepts_charset_parameter() {
 #[test]
 fn test_extract_response_success() {
     let resp = jmap_types::JmapResponse::new(
-        vec![(
-            "Mailbox/get".to_owned(),
+        vec![Invocation::new(
+            "Mailbox/get",
             serde_json::json!({"accountId": "A13824", "state": "s1", "list": [], "notFound": []}),
-            "r1".to_owned(),
+            "r1",
         )],
         "sess1".into(),
         None,
@@ -1372,11 +1373,7 @@ fn test_extract_response_success() {
 #[test]
 fn test_extract_response_not_found() {
     let resp = jmap_types::JmapResponse::new(
-        vec![(
-            "Mailbox/get".to_owned(),
-            serde_json::json!({}),
-            "r1".to_owned(),
-        )],
+        vec![Invocation::new("Mailbox/get", serde_json::json!({}), "r1")],
         "sess1".into(),
         None,
     );
@@ -1394,10 +1391,10 @@ fn test_extract_response_not_found() {
 #[test]
 fn test_extract_response_method_error() {
     let resp = jmap_types::JmapResponse::new(
-        vec![(
-            "error".to_owned(),
+        vec![Invocation::new(
+            "error",
             serde_json::json!({"type": "serverFail", "description": "oops"}),
-            "r1".to_owned(),
+            "r1",
         )],
         "sess1".into(),
         None,
@@ -1422,14 +1419,14 @@ fn test_extract_response_method_error() {
 #[test]
 fn test_method_error_details_keeps_extra_properties() {
     let resp = jmap_types::JmapResponse::new(
-        vec![(
-            "error".to_owned(),
+        vec![Invocation::new(
+            "error",
             serde_json::json!({
                 "type": "invalidArguments",
                 "description": "bad ids",
                 "arguments": ["ids"]
             }),
-            "r1".to_owned(),
+            "r1",
         )],
         "sess1".into(),
         None,
@@ -1455,20 +1452,20 @@ fn test_method_error_details_keeps_extra_properties() {
 fn test_extract_response_error_after_success_takes_precedence() {
     let resp = jmap_types::JmapResponse::new(
         vec![
-            (
-                "Mailbox/get".to_owned(),
+            Invocation::new(
+                "Mailbox/get",
                 serde_json::json!({
                     "accountId": "A1",
                     "state": "s1",
                     "list": [],
                     "notFound": []
                 }),
-                "r1".to_owned(),
+                "r1",
             ),
-            (
-                "error".to_owned(),
+            Invocation::new(
+                "error",
                 serde_json::json!({"type": "serverFail", "description": "implicit op failed"}),
-                "r1".to_owned(),
+                "r1",
             ),
         ],
         "sess1".into(),
@@ -1496,8 +1493,8 @@ fn test_extract_response_error_after_success_takes_precedence() {
 fn test_extract_response_first_success_when_no_error() {
     let resp = jmap_types::JmapResponse::new(
         vec![
-            (
-                "Todo/copy".to_owned(),
+            Invocation::new(
+                "Todo/copy",
                 serde_json::json!({
                     "fromAccountId": "x",
                     "accountId": "y",
@@ -1505,17 +1502,17 @@ fn test_extract_response_first_success_when_no_error() {
                     "oldState": "c1d64ecb038c",
                     "newState": "33844835152b"
                 }),
-                "0".to_owned(),
+                "0",
             ),
-            (
-                "Todo/set".to_owned(),
+            Invocation::new(
+                "Todo/set",
                 serde_json::json!({
                     "accountId": "x",
                     "oldState": "871903",
                     "newState": "871909",
                     "destroyed": ["a"]
                 }),
-                "0".to_owned(),
+                "0",
             ),
         ],
         "sess1".into(),
@@ -1542,21 +1539,9 @@ fn test_extract_response_first_success_when_no_error() {
 fn test_extract_response_error_after_multiple_successes() {
     let resp = jmap_types::JmapResponse::new(
         vec![
-            (
-                "Todo/copy".to_owned(),
-                serde_json::json!({"fromAccountId": "x"}),
-                "r1".to_owned(),
-            ),
-            (
-                "Todo/set".to_owned(),
-                serde_json::json!({"accountId": "x"}),
-                "r1".to_owned(),
-            ),
-            (
-                "error".to_owned(),
-                serde_json::json!({"type": "rateLimit"}),
-                "r1".to_owned(),
-            ),
+            Invocation::new("Todo/copy", serde_json::json!({"fromAccountId": "x"}), "r1"),
+            Invocation::new("Todo/set", serde_json::json!({"accountId": "x"}), "r1"),
+            Invocation::new("error", serde_json::json!({"type": "rateLimit"}), "r1"),
         ],
         "sess1".into(),
         None,

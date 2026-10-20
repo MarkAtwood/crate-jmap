@@ -337,8 +337,12 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
         let client_sent_created_ids = request.created_ids.is_some();
         let mut created_ids: HashMap<Id, Id> = request.created_ids.unwrap_or_default();
 
-        // Invocation layout: (method_name, args, call_id) — RFC 8620 §3.3.
-        for (method, mut args, call_id) in request.method_calls {
+        for Invocation {
+            name: method,
+            arguments: mut args,
+            call_id,
+        } in request.method_calls
+        {
             // Resolve ResultReferences from prior responses.
             if let Err(e) = resolve_args(&mut args, &method_responses) {
                 method_responses.push(error_invocation(&call_id, e));
@@ -422,7 +426,7 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
                     // Push the primary response first, then any extra invocations
                     // appended by the handler (e.g. onSuccessUpdateEmail from
                     // EmailSubmission/set, RFC 8621 §7.5).  Order is preserved.
-                    method_responses.push((method, primary_value, call_id));
+                    method_responses.push(Invocation::new(method, primary_value, call_id));
                     method_responses.extend(extra_invocations);
                 }
                 Ok(Err(e)) => {
@@ -684,7 +688,7 @@ mod tests {
     fn single_call(method: &str, args: Value, call_id: &str) -> JmapRequest {
         JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
-            vec![(method.into(), args, call_id.into())],
+            vec![Invocation::new(method, args, call_id)],
             None,
         )
     }
@@ -700,7 +704,11 @@ mod tests {
         let req = single_call("Foo/get", json!({}), "c0");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         assert_eq!(resp.method_responses.len(), 1);
-        let (_, args, call_id) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args,
+            call_id,
+            ..
+        } = &resp.method_responses[0];
         assert_eq!(call_id, "c0");
         assert_eq!(args["type"], "unknownMethod");
     }
@@ -713,7 +721,11 @@ mod tests {
         let req = single_call("Foo/get", json!({}), "c1");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         assert_eq!(resp.method_responses.len(), 1);
-        let (method, args, call_id) = &resp.method_responses[0];
+        let Invocation {
+            name: method,
+            arguments: args,
+            call_id,
+        } = &resp.method_responses[0];
         assert_eq!(method, "Foo/get");
         assert_eq!(call_id, "c1");
         assert_eq!(args["list"], json!([]));
@@ -727,7 +739,9 @@ mod tests {
         let req = single_call("Foo/get", json!({}), "c2");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         assert_eq!(resp.method_responses.len(), 1);
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
         assert_eq!(args["type"], "notFound");
     }
 
@@ -765,22 +779,30 @@ mod tests {
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
             vec![
-                (
-                    "Foo/set".into(),
+                Invocation::new(
+                    "Foo/set",
                     json!({"accountId": "a1", "destroy": ["x1", "x2"]}),
-                    "c0".into(),
+                    "c0",
                 ),
-                ("Foo/get".into(), json!({"accountId": "a1"}), "c1".into()),
+                Invocation::new("Foo/get", json!({"accountId": "a1"}), "c1"),
             ],
             None,
         );
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         assert_eq!(resp.method_responses.len(), 2);
-        let (name, args, call_id) = &resp.method_responses[0];
+        let Invocation {
+            name,
+            arguments: args,
+            call_id,
+        } = &resp.method_responses[0];
         assert_eq!(name, "error");
         assert_eq!(call_id, "c0");
         assert_eq!(args["type"], "requestTooLarge");
-        let (name, args, call_id) = &resp.method_responses[1];
+        let Invocation {
+            name,
+            arguments: args,
+            call_id,
+        } = &resp.method_responses[1];
         assert_eq!(name, "Foo/get");
         assert_eq!(call_id, "c1");
         assert_eq!(args["list"], json!([]));
@@ -813,7 +835,9 @@ mod tests {
         // must NOT have replaced it as a side-effect of the error path.
         let req = single_call("Foo/get", json!({}), "c0");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
         assert_eq!(
             args["v"], "first",
             "try_register error path must not replace the existing handler"
@@ -833,7 +857,9 @@ mod tests {
 
         let req = single_call("Foo/get", json!({}), "c0");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
         assert_eq!(args["v"], "second", "register must replace on duplicate");
     }
 
@@ -860,9 +886,9 @@ mod tests {
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
             vec![
-                ("M/a".into(), json!({}), "c0".into()),
-                ("M/b".into(), json!({}), "c1".into()),
-                ("M/a".into(), json!({}), "c2".into()),
+                Invocation::new("M/a", json!({}), "c0"),
+                Invocation::new("M/b", json!({}), "c1"),
+                Invocation::new("M/a", json!({}), "c2"),
             ],
             None,
         );
@@ -873,18 +899,18 @@ mod tests {
             "all three calls must produce a response"
         );
         // responses[0]: M/a success
-        assert_eq!(resp.method_responses[0].2, "c0");
+        assert_eq!(resp.method_responses[0].call_id, "c0");
         assert!(
-            resp.method_responses[0].1.get("type").is_none(),
+            resp.method_responses[0].arguments.get("type").is_none(),
             "c0 must not be an error"
         );
         // responses[1]: M/b unknownMethod
-        assert_eq!(resp.method_responses[1].2, "c1");
-        assert_eq!(resp.method_responses[1].1["type"], "unknownMethod");
+        assert_eq!(resp.method_responses[1].call_id, "c1");
+        assert_eq!(resp.method_responses[1].arguments["type"], "unknownMethod");
         // responses[2]: M/a success (error in [1] did not abort the batch)
-        assert_eq!(resp.method_responses[2].2, "c2");
+        assert_eq!(resp.method_responses[2].call_id, "c2");
         assert!(
-            resp.method_responses[2].1.get("type").is_none(),
+            resp.method_responses[2].arguments.get("type").is_none(),
             "c2 must not be an error"
         );
     }
@@ -898,16 +924,16 @@ mod tests {
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
             vec![
-                ("M/err".into(), json!({}), "c0".into()),
-                ("M/ok".into(), json!({}), "c1".into()),
+                Invocation::new("M/err", json!({}), "c0"),
+                Invocation::new("M/ok", json!({}), "c1"),
             ],
             None,
         );
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         assert_eq!(resp.method_responses.len(), 2);
-        assert_eq!(resp.method_responses[0].1["type"], "forbidden");
+        assert_eq!(resp.method_responses[0].arguments["type"], "forbidden");
         assert!(
-            resp.method_responses[1].1.get("type").is_none(),
+            resp.method_responses[1].arguments.get("type").is_none(),
             "second call must succeed"
         );
     }
@@ -924,7 +950,9 @@ mod tests {
         let req = single_call("Panic/now", json!({}), "c0");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         assert_eq!(resp.method_responses.len(), 1);
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
         assert_eq!(
             args["type"], "serverFail",
             "panicking handler must produce serverFail"
@@ -971,7 +999,9 @@ mod tests {
         d.register("Panic/now", Arc::new(PanicHandler));
         let req = single_call("Panic/now", json!({}), "c0");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
         assert!(
             !value_contains_recursive(args, "deliberate test panic"),
             "panic message must not leak into ANY field of the response: {args}"
@@ -998,11 +1028,11 @@ mod tests {
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
             vec![
-                ("Foo/get".into(), json!({}), "c0".into()),
-                (
-                    "Bar/query".into(),
+                Invocation::new("Foo/get", json!({}), "c0"),
+                Invocation::new(
+                    "Bar/query",
                     json!({"#ids": {"resultOf": "c0", "name": "Foo/get", "path": "/list/0/id"}}),
-                    "c1".into(),
+                    "c1",
                 ),
             ],
             None,
@@ -1011,7 +1041,7 @@ mod tests {
         assert_eq!(resp.method_responses.len(), 2);
         // c1 must succeed, not be an error
         assert!(
-            resp.method_responses[1].1.get("type").is_none(),
+            resp.method_responses[1].arguments.get("type").is_none(),
             "Bar/query must succeed after ResultReference resolution"
         );
         // Handler must have received the resolved value, not the original #ids object
@@ -1042,7 +1072,9 @@ mod tests {
         );
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         assert_eq!(resp.method_responses.len(), 1);
-        let (_, args, _) = &resp.method_responses[0];
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
         assert!(
             args.get("type").is_some(),
             "failed ResultReference must produce an error invocation"
@@ -1067,7 +1099,7 @@ mod tests {
         // Client sends createdIds (empty map) to signal it wants the response field.
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
-            vec![("Foo/set".into(), json!({}), "c0".into())],
+            vec![Invocation::new("Foo/set", json!({}), "c0")],
             Some(std::collections::HashMap::new()),
         );
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
@@ -1111,8 +1143,8 @@ mod tests {
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
             vec![
-                ("A/set".into(), json!({}), "c0".into()),
-                ("B/set".into(), json!({}), "c1".into()),
+                Invocation::new("A/set", json!({}), "c0"),
+                Invocation::new("B/set", json!({}), "c1"),
             ],
             Some(std::collections::HashMap::new()),
         );
@@ -1149,7 +1181,7 @@ mod tests {
         initial.insert(Id::from("client-old"), Id::from("server-old"));
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
-            vec![("Foo/set".into(), json!({}), "c0".into())],
+            vec![Invocation::new("Foo/set", json!({}), "c0")],
             Some(initial),
         );
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
@@ -1193,7 +1225,7 @@ mod tests {
         initial.insert(Id::from("client-X"), Id::from("server-A"));
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
-            vec![("Foo/set".into(), json!({}), "c0".into())],
+            vec![Invocation::new("Foo/set", json!({}), "c0")],
             Some(initial),
         );
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
@@ -1233,8 +1265,8 @@ mod tests {
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
             vec![
-                ("A/set".into(), json!({}), "c0".into()),
-                ("B/set".into(), json!({}), "c1".into()),
+                Invocation::new("A/set", json!({}), "c0"),
+                Invocation::new("B/set", json!({}), "c1"),
             ],
             Some(std::collections::HashMap::new()),
         );
@@ -1271,7 +1303,7 @@ mod tests {
         let req = single_call("Foo/get", json!({}), "c0");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         assert!(
-            resp.method_responses[0].1.get("type").is_none(),
+            resp.method_responses[0].arguments.get("type").is_none(),
             "must succeed"
         );
         let got = captured
@@ -1291,7 +1323,7 @@ mod tests {
         let resp = d.dispatch(req, (), "s0".into()).await;
         assert_eq!(resp.method_responses.len(), 1);
         assert!(
-            resp.method_responses[0].1.get("type").is_none(),
+            resp.method_responses[0].arguments.get("type").is_none(),
             "must succeed with () caller"
         );
     }
@@ -1316,10 +1348,10 @@ mod tests {
         ) -> HandlerFuture {
             Box::pin(async move {
                 let primary = json!({"type": "primary"});
-                let extra: Vec<Invocation> = vec![(
-                    "Extra/call".to_owned(),
+                let extra: Vec<Invocation> = vec![Invocation::new(
+                    "Extra/call",
                     json!({"type": "extra"}),
-                    "x0".to_owned(),
+                    "x0",
                 )];
                 Ok((primary, extra))
             })
@@ -1341,13 +1373,13 @@ mod tests {
             "primary + 1 extra = 2 total invocations"
         );
         // First: the primary Sub/set response.
-        assert_eq!(resp.method_responses[0].0, "Sub/set");
-        assert_eq!(resp.method_responses[0].2, "c0");
-        assert_eq!(resp.method_responses[0].1["type"], "primary");
+        assert_eq!(resp.method_responses[0].name, "Sub/set");
+        assert_eq!(resp.method_responses[0].call_id, "c0");
+        assert_eq!(resp.method_responses[0].arguments["type"], "primary");
         // Second: the appended extra invocation.
-        assert_eq!(resp.method_responses[1].0, "Extra/call");
-        assert_eq!(resp.method_responses[1].2, "x0");
-        assert_eq!(resp.method_responses[1].1["type"], "extra");
+        assert_eq!(resp.method_responses[1].name, "Extra/call");
+        assert_eq!(resp.method_responses[1].call_id, "x0");
+        assert_eq!(resp.method_responses[1].arguments["type"], "extra");
     }
 
     /// Oracle: ClosureHandler forwards CallerCtx to the closure.

@@ -11,6 +11,7 @@ use common::{MemoryBackend, INVALID_MDN_BLOB, VALID_MDN_BLOB};
 use jmap_mail_server::{handle_mdn_parse, handle_mdn_send, JmapBackend, MailBackend};
 use jmap_mail_types::Identity;
 use jmap_types::Id;
+use jmap_types::Invocation;
 
 // ---------------------------------------------------------------------------
 // Setup helpers
@@ -136,7 +137,11 @@ async fn mdn_send_success() {
         1,
         "exactly one extra invocation expected; got {extra:?}"
     );
-    let (method_name, _, extra_call_id) = &extra[0];
+    let Invocation {
+        name: method_name,
+        call_id: extra_call_id,
+        ..
+    } = &extra[0];
     assert_eq!(
         method_name, "Email/set",
         "extra invocation must be Email/set"

@@ -46,7 +46,7 @@ pub fn error_invocation(call_id: &str, err: JmapError) -> Invocation {
     // payload. Louder is safer than silent corruption.
     let err_value = serde_json::to_value(&err)
         .expect("JmapError Serialize invariant — see jmap_error_all_constructors_serialize");
-    ("error".to_owned(), err_value, call_id.to_owned())
+    Invocation::new("error", err_value, call_id)
 }
 
 /// Map a [`JmapError`] type string to the appropriate HTTP status code.
@@ -201,24 +201,24 @@ mod tests {
     #[test]
     fn error_invocation_structure() {
         let inv = error_invocation("c0", JmapError::unknown_method());
-        assert_eq!(inv.0, "error");
-        assert_eq!(inv.2, "c0");
+        assert_eq!(inv.name, "error");
+        assert_eq!(inv.call_id, "c0");
     }
 
     /// Oracle: RFC 8620 §7.1 — error args object must have a "type" field.
     #[test]
     fn error_invocation_args_contains_type() {
         let inv = error_invocation("c0", JmapError::unknown_method());
-        // inv.1 is already a serde_json::Value — index directly.
-        assert_eq!(inv.1["type"], "unknownMethod");
+        // inv.arguments is already a serde_json::Value — index directly.
+        assert_eq!(inv.arguments["type"], "unknownMethod");
     }
 
     /// Oracle: RFC 8620 §7.1 — serverFail error type string and description field.
     #[test]
     fn error_invocation_server_fail() {
         let inv = error_invocation("y", JmapError::server_fail("boom"));
-        assert_eq!(inv.1["type"], "serverFail");
-        assert_eq!(inv.1["description"], "boom");
+        assert_eq!(inv.arguments["type"], "serverFail");
+        assert_eq!(inv.arguments["description"], "boom");
     }
 
     // -----------------------------------------------------------------------

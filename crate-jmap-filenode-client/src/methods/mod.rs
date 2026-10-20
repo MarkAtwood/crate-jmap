@@ -51,7 +51,7 @@ pub(crate) fn build_request(
     using: &[&str],
 ) -> jmap_types::JmapRequest {
     let using_vec: Vec<String> = using.iter().map(|&s| s.to_owned()).collect();
-    let invocation: jmap_types::Invocation = (method.to_owned(), args, CALL_ID.to_owned());
+    let invocation = jmap_types::Invocation::new(method, args, CALL_ID);
     jmap_types::JmapRequest::new(using_vec, vec![invocation], None)
 }
 

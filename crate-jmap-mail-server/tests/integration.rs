@@ -20,6 +20,7 @@ use jmap_mail_server::{
 };
 use jmap_mail_types::{Identity, Mailbox};
 use jmap_types::Id;
+use jmap_types::Invocation;
 
 // ---------------------------------------------------------------------------
 // MemoryBackend smoke tests
@@ -2572,7 +2573,11 @@ async fn submission_set_on_success_update_email() {
         1,
         "must have exactly one extra invocation for onSuccessUpdateEmail"
     );
-    let (method, email_set_resp, extra_call_id) = &extra[0];
+    let Invocation {
+        name: method,
+        arguments: email_set_resp,
+        call_id: extra_call_id,
+    } = &extra[0];
     assert_eq!(method, "Email/set", "extra invocation must be Email/set");
     // RFC 8620 §3.2: all responses from a single method call share the same call-id.
     assert_eq!(
@@ -2668,7 +2673,7 @@ async fn submission_set_on_success_update_email_immutable_field_rejected() {
         1,
         "must have one extra invocation for onSuccessUpdateEmail"
     );
-    let set_resp = &extra[0].1;
+    let set_resp = &extra[0].arguments;
     let not_updated = &set_resp["notUpdated"];
     assert!(
         !not_updated.is_null(),
@@ -3990,7 +3995,7 @@ async fn email_copy_on_success_update_original_immutable_field_rejected() {
         1,
         "must have one extra invocation for onSuccessUpdateOriginal"
     );
-    let set_resp = &extra[0].1;
+    let set_resp = &extra[0].arguments;
     let not_updated = &set_resp["notUpdated"];
     assert!(
         !not_updated.is_null(),
@@ -4076,7 +4081,11 @@ async fn email_copy_with_destroy_from_if_in_state(
 async fn email_copy_destroy_from_if_in_state_mismatch_aborts_destroy() {
     let (extra, list) = email_copy_with_destroy_from_if_in_state(Some("stale-state")).await;
     assert_eq!(extra.len(), 1, "one implicit response: {extra:?}");
-    let (method, body, call_id) = &extra[0];
+    let Invocation {
+        name: method,
+        arguments: body,
+        call_id,
+    } = &extra[0];
     assert_eq!(method, "error");
     assert_eq!(body["type"], "stateMismatch");
     assert_eq!(call_id, "call-dfis");
@@ -4096,7 +4105,11 @@ async fn email_copy_destroy_from_if_in_state_mismatch_aborts_destroy() {
 async fn email_copy_destroy_from_if_in_state_match_destroys_original() {
     let (extra, list) = email_copy_with_destroy_from_if_in_state(None).await;
     assert_eq!(extra.len(), 1, "one implicit response: {extra:?}");
-    let (method, body, _) = &extra[0];
+    let Invocation {
+        name: method,
+        arguments: body,
+        ..
+    } = &extra[0];
     assert_eq!(method, "Email/set");
     assert!(body["destroyed"].is_array(), "destroyed list: {body}");
     assert_eq!(list, serde_json::json!([]), "source must be destroyed");

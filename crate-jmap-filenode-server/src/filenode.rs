@@ -1832,7 +1832,10 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
         if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str) {
             if if_in_state != from_old_state.as_ref() {
                 let err = json!({ "type": "stateMismatch" });
-                return Ok((resp, vec![("error".to_owned(), err, call_id.to_owned())]));
+                return Ok((
+                    resp,
+                    vec![Invocation::new("error", err, call_id.to_owned())],
+                ));
             }
         }
 
@@ -1942,7 +1945,11 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             "notUpdated": Value::Null,
             "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
         });
-        extra.push(("FileNode/set".to_owned(), set_resp, call_id.to_owned()));
+        extra.push(Invocation::new(
+            "FileNode/set",
+            set_resp,
+            call_id.to_owned(),
+        ));
     }
 
     Ok((resp, extra))

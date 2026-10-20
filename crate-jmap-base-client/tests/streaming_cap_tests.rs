@@ -23,6 +23,7 @@
 // in `client_tests.rs` cover that fast-path Content-Length rejection.
 // The point of these tests is the streaming-cap branch specifically.
 
+use jmap_types::Invocation;
 use std::time::Duration;
 
 use jmap_base_client::auth::NoneAuth;
@@ -161,10 +162,10 @@ fn build_client_with_download_cap(base_url: &str, cap: u64) -> JmapClient {
 fn minimal_request() -> jmap_types::JmapRequest {
     jmap_types::JmapRequest::new(
         vec!["urn:ietf:params:jmap:core".to_owned()],
-        vec![(
-            "Mailbox/get".to_owned(),
+        vec![Invocation::new(
+            "Mailbox/get",
             serde_json::json!({"accountId": "A13824", "ids": null}),
-            "r1".to_owned(),
+            "r1",
         )],
         None,
     )

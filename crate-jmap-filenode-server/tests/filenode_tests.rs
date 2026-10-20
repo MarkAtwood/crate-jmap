@@ -10,6 +10,7 @@ use jmap_filenode_server::filenode::{
     handle_filenode_changes, handle_filenode_get, handle_filenode_query, handle_filenode_set,
 };
 use jmap_filenode_types::FileNode;
+use jmap_types::Invocation;
 use serde_json::json;
 
 // ---------------------------------------------------------------------------
@@ -1389,7 +1390,11 @@ async fn filenode_copy_on_success_destroy_original_destroys_source() {
         1,
         "onSuccessDestroyOriginal must emit one implicit FileNode/set: extra={extra:?}"
     );
-    let (method_name, set_resp, call_id) = &extra[0];
+    let Invocation {
+        name: method_name,
+        arguments: set_resp,
+        call_id,
+    } = &extra[0];
     assert_eq!(method_name, "FileNode/set");
     assert_eq!(
         call_id, "c0",
@@ -1487,7 +1492,11 @@ async fn copy_with_destroy_from_if_in_state(
 async fn filenode_copy_destroy_from_if_in_state_mismatch_aborts_destroy() {
     let (extra, src_gone) = copy_with_destroy_from_if_in_state(Some("stale-state")).await;
     assert_eq!(extra.len(), 1, "one implicit response: {extra:?}");
-    let (method, body, call_id) = &extra[0];
+    let Invocation {
+        name: method,
+        arguments: body,
+        call_id,
+    } = &extra[0];
     assert_eq!(method, "error");
     assert_eq!(body["type"], "stateMismatch");
     assert_eq!(call_id, "c0");
@@ -1498,7 +1507,11 @@ async fn filenode_copy_destroy_from_if_in_state_mismatch_aborts_destroy() {
 async fn filenode_copy_destroy_from_if_in_state_match_destroys_original() {
     let (extra, src_gone) = copy_with_destroy_from_if_in_state(None).await;
     assert_eq!(extra.len(), 1, "one implicit response: {extra:?}");
-    let (method, body, _) = &extra[0];
+    let Invocation {
+        name: method,
+        arguments: body,
+        ..
+    } = &extra[0];
     assert_eq!(method, "FileNode/set");
     assert!(body["destroyed"].is_array(), "destroyed list: {body}");
     assert!(src_gone, "source must be destroyed");
@@ -1539,7 +1552,10 @@ async fn filenode_copy_on_success_destroy_original_node_has_children() {
     .expect("copy itself must succeed");
 
     assert_eq!(extra.len(), 1, "implicit FileNode/set must be emitted");
-    let (_, set_resp, _) = &extra[0];
+    let Invocation {
+        arguments: set_resp,
+        ..
+    } = &extra[0];
     let not_destroyed = &set_resp["notDestroyed"];
     assert!(
         not_destroyed.is_object() && not_destroyed[&src_parent].is_object(),
