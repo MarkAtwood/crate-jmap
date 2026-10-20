@@ -1,6 +1,7 @@
 //! ChatContact and Endpoint objects for remote users.
 
 use crate::presence::Presence;
+use jmap_did_types::Did;
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
@@ -130,6 +131,17 @@ pub struct ChatContact {
     /// The `endpoints` property (draft-atwood-jmap-chat-00 §4.8).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoints: Option<Vec<Endpoint>>,
+    /// The `did` property (draft-atwood-jmap-chat-did-00 §Optional `did`
+    /// field).
+    ///
+    /// A DID URI bound to this ChatContact for cryptographic purposes,
+    /// for the pseudonymous case where [`identity`](Self::identity) is
+    /// not a DID. When present, the DID's verification methods are the
+    /// authoritative source of public-key material for verifying
+    /// signatures attributed to this ChatContact; when absent, no DID is
+    /// bound. A JSON value that is not a valid DID fails to deserialize.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub did: Option<Did>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -163,6 +175,7 @@ impl ChatContact {
             status_text: None,
             status_emoji: None,
             endpoints: None,
+            did: None,
             extra: serde_json::Map::new(),
         }
     }
@@ -275,6 +288,7 @@ mod tests {
             status_text: None,
             status_emoji: None,
             endpoints: None,
+            did: None,
             extra: serde_json::Map::new(),
         };
 
@@ -319,6 +333,7 @@ mod tests {
             status_text: None,
             status_emoji: None,
             endpoints: None,
+            did: None,
             extra: serde_json::Map::new(),
         };
         let json = serde_json::to_string(&c).expect("serialize ChatContact");

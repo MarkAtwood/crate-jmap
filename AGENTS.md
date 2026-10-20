@@ -141,6 +141,7 @@ jmap-did-types         — draft-atwood-jmap-did-00 data types: DidCapability an
                          log verification over supplied bytes). No async, no
                          I/O. Depends on jmap-types (impl_string_enum!),
                          serde, serde_json, base64, sha2, k256 and p256.
+    ├── jmap-chat-types    — types ChatContact.did (draft-atwood-jmap-chat-did-00).
     └── jmap-did-resolver  — support crate: did:web / did:plc fetch and
                              cache over the pure helpers. Async, does I/O
                              (reqwest). No *-types or *-server dependent.

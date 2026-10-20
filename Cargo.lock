@@ -1113,6 +1113,7 @@ dependencies = [
  "getrandom 0.3.4",
  "jmap-chat-server",
  "jmap-chat-types",
+ "jmap-did-types",
  "jmap-server",
  "jmap-types",
  "serde",
@@ -1126,6 +1127,7 @@ dependencies = [
 name = "jmap-chat-types"
 version = "0.3.0"
 dependencies = [
+ "jmap-did-types",
  "jmap-types",
  "serde",
  "serde_json",
