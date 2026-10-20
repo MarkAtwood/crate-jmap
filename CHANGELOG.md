@@ -39,8 +39,25 @@ wire behaviour that a conforming peer can observe.
   `Message/set` creates and destroys write the recomputed count to the
   affected Chat, so the `Chat` state advances and `Chat/changes` lists
   that Chat (RFC 8620 §5.1).
+- **jmap-chat-server**: `ChatLimits::max_body_bytes` (default 100,000),
+  `max_attachment_bytes` (default 50,000,000) and
+  `max_attachments_per_message` (default 16), with `with_*` builders,
+  carry the account's draft-atwood-jmap-chat-00 capability values. New
+  `ChatBackend::attachment_blob` hook and `AttachmentBlob` type report a
+  stored blob's size and SHA-256; the default reports nothing, so no blob
+  is checked. `Message/set` create rejects an Attachment whose `size` or
+  `sha256` does not match with `invalidProperties` naming `attachments`
+  (§Attachment), comparing the digest in constant time.
 
 ### Changed
+
+- **BREAKING** **jmap-chat-server**: `Message/set` create rejects a
+  `body` longer than the account's `ChatLimits::max_body_bytes` (it was
+  a fixed 100,000), more than `max_attachments_per_message` attachments,
+  or an Attachment whose `size` exceeds `max_attachment_bytes`, each with
+  a `tooLarge` SetError (draft-atwood-jmap-chat-00 §Account-Level
+  Capability Object, §Denial of Service). The attachment limits were
+  previously not enforced.
 
 - **BREAKING** **jmap-chat-server**: the reference `MemoryBackend` now
   enforces draft-atwood-jmap-chat-00 §Message/set and §Message/query. A

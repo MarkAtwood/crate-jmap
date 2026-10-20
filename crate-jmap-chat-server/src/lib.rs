@@ -77,11 +77,11 @@ pub mod push;
 pub mod space;
 
 pub use backend::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
-    ChatContactProperty, ChatLimits, ChatProperty, EmojiSetOp, GetObject, InviteJoinRefusal,
-    JmapBackend, JmapObject, MessageProperty, OpResult, QueryChangesResult, QueryObject,
-    QueryResult, ReadPositionProperty, SetError, SetErrorType, SetObject, SlowModeError,
-    SpaceMetadataPatch, SpacePatchOp, SpaceProperty,
+    AddedItem, AttachmentBlob, BackendChangesError, BackendQueryError, BackendSetError,
+    ChangesResult, ChatBackend, ChatContactProperty, ChatLimits, ChatProperty, EmojiSetOp,
+    GetObject, InviteJoinRefusal, JmapBackend, JmapObject, MessageProperty, OpResult,
+    QueryChangesResult, QueryObject, QueryResult, ReadPositionProperty, SetError, SetErrorType,
+    SetObject, SlowModeError, SpaceMetadataPatch, SpacePatchOp, SpaceProperty,
 };
 pub use ban::{handle_ban_changes, handle_ban_get, handle_ban_set};
 pub use chat::{

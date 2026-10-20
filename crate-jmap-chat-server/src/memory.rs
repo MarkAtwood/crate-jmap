@@ -54,10 +54,11 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    strip_unsupported_chat_push, validate_chat_push, AddedItem, BackendChangesError,
-    BackendQueryError, BackendSetError, ChangesResult, ChatBackend, ChatLimits, EmojiSetOp,
-    GetObject, InviteJoinRefusal, JmapBackend, JmapObject, OpResult, QueryChangesResult,
-    QueryObject, QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
+    strip_unsupported_chat_push, validate_chat_push, AddedItem, AttachmentBlob,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
+    ChatLimits, EmojiSetOp, GetObject, InviteJoinRefusal, JmapBackend, JmapObject, OpResult,
+    QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject, SlowModeError,
+    SpacePatchOp,
 };
 use jmap_chat_types::ChatPushCapability;
 use jmap_server::{
@@ -105,6 +106,10 @@ struct Inner {
     /// [`ChatLimits::default`]. Set via
     /// [`MemoryBackend::set_limits_for_test`].
     limits_override: Option<ChatLimits>,
+    /// `(account_id, blobId)` → stored blob metadata reported by
+    /// [`ChatBackend::attachment_blob`]. Set via
+    /// [`MemoryBackend::set_attachment_blob_for_test`].
+    attachment_blobs: HashMap<(String, Id), AttachmentBlob>,
     /// Test-only override for [`ChatBackend::retains_edit_history`].
     /// Set via [`MemoryBackend::set_retains_edit_history_for_test`].
     retains_edit_history: bool,
@@ -310,6 +315,27 @@ impl MemoryBackend {
     pub fn set_limits_for_test(&self, limits: Option<ChatLimits>) {
         let mut inner = self.inner.lock().unwrap();
         inner.limits_override = limits;
+    }
+
+    /// Test-only: record the stored blob behind `blob_id` in `account_id`
+    /// for [`ChatBackend::attachment_blob`], or forget it with `None`.
+    ///
+    /// ponytail: the reference backend has no blob store, so it holds only
+    /// the size and digest; an unregistered `blobId` is reported as
+    /// unchecked (`Ok(Ok(None))`).
+    #[doc(hidden)]
+    pub fn set_attachment_blob_for_test(
+        &self,
+        account_id: &str,
+        blob_id: &str,
+        blob: Option<AttachmentBlob>,
+    ) {
+        let mut inner = self.inner.lock().unwrap();
+        let key = (account_id.to_owned(), Id::from(blob_id));
+        match blob {
+            Some(b) => inner.attachment_blobs.insert(key, b),
+            None => inner.attachment_blobs.remove(&key),
+        };
     }
 
     /// Test-only: directly inject a JSON-shaped object into the backend
@@ -971,6 +997,22 @@ impl ChatBackend for MemoryBackend {
     fn limits(&self, _caller: &(), _account_id: &Id) -> ChatLimits {
         let inner = self.inner.lock().unwrap();
         inner.limits_override.unwrap_or_default()
+    }
+
+    /// Reference implementation of [`ChatBackend::attachment_blob`]:
+    /// reports the blob registered via
+    /// [`MemoryBackend::set_attachment_blob_for_test`], else `Ok(Ok(None))`.
+    async fn attachment_blob(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<Result<Option<AttachmentBlob>, SetError>, Self::Error> {
+        let inner = self.inner.lock().unwrap();
+        Ok(Ok(inner
+            .attachment_blobs
+            .get(&(account_id.as_ref().to_owned(), blob_id.clone()))
+            .copied()))
     }
 
     /// Reference implementation of [`ChatBackend::protect_last_admin`].

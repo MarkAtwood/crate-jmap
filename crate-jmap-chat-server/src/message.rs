@@ -32,9 +32,10 @@ use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
+use crate::backend::{BackendSetError, ChatBackend, ChatLimits, SetError, SetErrorType};
 use crate::chat::record_unread_count_changes;
 use std::collections::{HashMap, HashSet};
+use subtle::ConstantTimeEq;
 
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
@@ -619,8 +620,7 @@ fn apply_create_optionals(obj: &Value, msg: &mut Message) -> Result<(), &'static
 /// `filename` holds no `/`, `\` or null byte, `contentType` is a
 /// syntactically valid MIME type, and `sha256` is lowercase hex.
 ///
-/// ponytail: `size` and `sha256` are not checked against the blob; the
-/// reference backend has no blob store. A backend with one adds that check.
+/// `size` and `sha256` are checked against the blob in [`check_attachments`].
 fn valid_attachment(a: &Attachment) -> bool {
     !a.filename.contains(['/', '\\', '\0'])
         && valid_media_type(&a.content_type)
@@ -628,6 +628,87 @@ fn valid_attachment(a: &Attachment) -> bool {
         && a.sha256
             .bytes()
             .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+/// Enforce the attachment limits and blob checks on a `Message/set`
+/// create's validated `attachments`; `None` on success, else the SetError
+/// value.
+///
+/// draft-atwood-jmap-chat-00 §Denial of Service: "Enforce `maxBodyBytes`
+/// and `maxAttachmentBytes` at parse time, before any fetch or storage.
+/// Enforce `maxAttachmentsPerMessage` at creation and update time." Both
+/// limits are `tooLarge`, the error §Account-Level Capability Object names
+/// for `maxBodyBytes`. Then each Attachment's `size` and `sha256` are
+/// checked against [`ChatBackend::attachment_blob`]; a mismatch is
+/// `invalidProperties` naming `attachments` (§Input Validation).
+async fn check_attachments<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    limits: &ChatLimits,
+    attachments: &[Attachment],
+) -> Option<Value> {
+    if u32::try_from(attachments.len()).map_or(true, |n| n > limits.max_attachments_per_message) {
+        return Some(json!({
+            "type": "tooLarge",
+            "description": format!(
+                "attachments exceed maxAttachmentsPerMessage ({})",
+                limits.max_attachments_per_message
+            ),
+        }));
+    }
+    if attachments
+        .iter()
+        .any(|a| a.size > limits.max_attachment_bytes)
+    {
+        return Some(json!({
+            "type": "tooLarge",
+            "description": format!(
+                "an attachment exceeds maxAttachmentBytes ({})",
+                limits.max_attachment_bytes
+            ),
+        }));
+    }
+    for a in attachments {
+        match backend
+            .attachment_blob(caller, account_id, &a.blob_id)
+            .await
+        {
+            Ok(Ok(None)) => {}
+            Ok(Ok(Some(blob))) => {
+                if blob.size != a.size || !sha256_hex_matches(&a.sha256, &blob.sha256) {
+                    return Some(json!({
+                        "type": "invalidProperties",
+                        "properties": ["attachments"],
+                        "description": format!(
+                            "attachment {} does not match the blob's size or sha256",
+                            a.blob_id
+                        ),
+                    }));
+                }
+            }
+            Ok(Err(set_err)) => return Some(set_error_value(&set_err)),
+            Err(e) => return Some(server_fail_value_from_backend(&e)),
+        }
+    }
+    None
+}
+
+/// Whether the 64-hex-digit `hex` encodes `digest`. The digest comparison
+/// is constant-time (compliance tests §14.13: "Verify that blob hash
+/// comparison uses constant-time comparison").
+fn sha256_hex_matches(hex: &str, digest: &[u8; 32]) -> bool {
+    let mut decoded = [0u8; 32];
+    for (i, out) in decoded.iter_mut().enumerate() {
+        let Some(byte) = hex
+            .get(2 * i..2 * i + 2)
+            .and_then(|pair| u8::from_str_radix(pair, 16).ok())
+        else {
+            return false;
+        };
+        *out = byte;
+    }
+    hex.len() == 64 && bool::from(decoded.ct_eq(digest))
 }
 
 /// RFC 2045 §5.1 `type "/" subtype`, each an RFC 2045 `token`.
@@ -789,12 +870,12 @@ pub async fn handle_message_set<B: ChatBackend>(
             // §Account-Level Capability Object `maxBodyBytes`: "Servers
             // MUST reject messages exceeding this limit; in `Message/set`
             // the rejection is a `tooLarge` SetError."
-            if body.len() > 100_000 {
+            if u64::try_from(body.len()).map_or(true, |n| n > limits.max_body_bytes) {
                 not_created.insert(
                     create_id.clone(),
                     json!({
                         "type": "tooLarge",
-                        "description": "body exceeds maxBodyBytes (100000)"
+                        "description": format!("body exceeds maxBodyBytes ({})", limits.max_body_bytes),
                     }),
                 );
                 continue;
@@ -1110,6 +1191,12 @@ pub async fn handle_message_set<B: ChatBackend>(
                     create_id.clone(),
                     json!({ "type": "invalidProperties", "properties": [property] }),
                 );
+                continue;
+            }
+            if let Some(err) =
+                check_attachments(backend, caller, &account_id, &limits, &msg.attachments).await
+            {
+                not_created.insert(create_id.clone(), err);
                 continue;
             }
 
