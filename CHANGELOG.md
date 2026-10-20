@@ -237,7 +237,7 @@ wire behaviour that a conforming peer can observe.
   `ChatLimits::supported_body_types` and refuses
   `server_reserved_body_types`. It rejects mention, attachment, reply and
   topic properties on `application/mls-ciphertext`, and a body over 100 000
-  bytes with `invalidArguments`. It stores `broadcastMentions`, and it
+  bytes, with the SetErrors listed below. It stores `broadcastMentions`, and it
   creates the owner's ReadPosition for the Chat.
 - **jmap-chat-server**: `/set` create rejects a wrongly typed optional
   property with `invalidProperties` instead of ignoring it.
