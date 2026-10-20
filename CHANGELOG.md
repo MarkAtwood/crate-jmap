@@ -19,7 +19,8 @@ wire behaviour that a conforming peer can observe.
   `PeerKeys` fetches `https://<peer-domain>/.well-known/jmap` unsigned and
   queries `_jmap-peer.<peer-domain>` TXT, applies `usable_keys`, caches for
   the RFC 9111 freshness lifetime (at most one hour and the DNS TTL), and
-  refetches on an unknown `kid` at most once per 60 seconds per peer domain.
+  refetches on an unknown `kid` or an expired entry at most once per 60
+  seconds per peer domain, whatever the freshness lifetime.
   `HttpsFetcher` is HTTPS-only with `https`-only redirects and a caller
   address policy for §Blob Fetch and SSRF; `HickoryLookup` validates DNSSEC
   in-process; `MemoryReplayStore` implements check 5; `authenticate` runs

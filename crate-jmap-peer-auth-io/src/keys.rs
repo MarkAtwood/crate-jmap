@@ -17,8 +17,8 @@ use crate::Error;
 /// longer than one hour".
 pub const MAX_CACHE_LIFETIME: Duration = Duration::from_secs(3600);
 
-/// The shortest interval between two fetches of one peer domain's keys
-/// for an unknown `kid`. §Key Publication: "It MUST NOT refetch the keys
+/// The shortest interval between two fetches of one peer domain's keys,
+/// whatever caused them. §Key Publication: "It MUST NOT refetch the keys
 /// of one peer domain, or repeat that query, more often than once every
 /// 60 seconds".
 pub const REFETCH_INTERVAL: Duration = Duration::from_secs(60);
@@ -84,13 +84,13 @@ impl Cached {
 /// [`MAX_CACHE_LIFETIME`], and at most the DNS answer's TTL.
 ///
 /// [`keys_for`](Self::keys_for) answers from the cache while the entry is
-/// fresh and lists the `kid`. Otherwise:
-///
-/// - an expired entry is fetched again;
-/// - a fresh entry without the `kid` (or with a bogus DNSSEC answer), or
-///   no entry after a failed fetch, is fetched again, "bypassing its
-///   cache", unless the last fetch of that domain started less than
-///   [`REFETCH_INTERVAL`] ago: then the request "is rejected".
+/// fresh and lists the `kid`. Otherwise it fetches again, "bypassing its
+/// cache", unless the last fetch of that domain started less than
+/// [`REFETCH_INTERVAL`] ago: then the request "is rejected". The limit
+/// covers every fetch, so a response fresh for less than 60 seconds
+/// (`no-store`, or no `Cache-Control`) leaves its peer domain with no
+/// usable keys until the interval ends; keys are never served past
+/// their freshness lifetime.
 ///
 /// One fetch per domain runs at a time; concurrent callers for the same
 /// domain wait for it and then read the cache.
@@ -163,7 +163,7 @@ impl<F: Fetch, D: DnssecLookup> PeerKeys<F, D> {
         let recently = state
             .last_fetch
             .is_some_and(|t| now.duration_since(t) < REFETCH_INTERVAL);
-        if recently && !expired {
+        if recently {
             return Err(match fresh.map(|c| c.find(kid)) {
                 Some(Err(rejection)) => rejection,
                 _ => Rejection::UnknownKey,

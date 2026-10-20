@@ -40,10 +40,13 @@ Any `Err` means reject the request (HTTP 403).
   `jmap_peer_auth::usable_keys`. It caches the result for the response's
   HTTP freshness lifetime (`max-age`, or `Expires` minus `Date`, less
   `Age`), at most one hour, and at most the DNS TTL.
-- An unknown `kid` (or a bogus DNSSEC answer, or no keys after a failed
-  fetch) forces a new fetch and a new DNS query, at most once every 60
-  seconds per peer domain. Within that interval the request is rejected.
-  An expired entry is an ordinary cache miss and is always refetched.
+- An unknown `kid`, a bogus DNSSEC answer, an expired entry or no keys
+  after a failed fetch forces a new fetch and a new DNS query, at most
+  once every 60 seconds per peer domain. Within that interval the request
+  is rejected, so a peer whose responses are fresh for less than 60
+  seconds (`no-store`, or no `Cache-Control`) is usable only on the first
+  request of each interval. Keys are never served past their freshness
+  lifetime.
 - One fetch per peer domain runs at a time; concurrent requests wait for
   it. At most 10 000 peer domains are tracked by default.
 - `HttpsFetcher` is HTTPS-only, validates each hop's certificate against

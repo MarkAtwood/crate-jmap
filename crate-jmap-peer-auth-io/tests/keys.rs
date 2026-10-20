@@ -210,7 +210,9 @@ async fn keys_are_cached_for_at_most_one_hour() {
 
 /// §DNSSEC Key Binding: "A receiving server MUST NOT cache the DNS
 /// answer for longer than its TTL." The keys filtered by that answer
-/// expire with it.
+/// expire with it. §Key Publication: "It MUST NOT refetch the keys of one
+/// peer domain, or repeat that query, more often than once every 60
+/// seconds", so between the TTL and 60 seconds the request is rejected.
 #[tokio::test]
 async fn keys_are_cached_for_at_most_the_dns_ttl() {
     let f = fixture(DnssecAnswer::Insecure, Some(Duration::from_secs(30)));
@@ -221,21 +223,51 @@ async fn keys_are_cached_for_at_most_the_dns_ttl() {
     f.keys.keys_for(&alice(), KID_A).await.unwrap();
     assert_eq!(f.dns.calls(), 1);
     f.clock.advance(1);
+    assert!(is_unknown_key(f.keys.keys_for(&alice(), KID_A).await));
+    assert_eq!(f.dns.calls(), 1);
+    f.clock.advance(30);
     f.keys.keys_for(&alice(), KID_A).await.unwrap();
     assert_eq!(f.dns.calls(), 2);
 }
 
-/// A response that may not be stored is fetched again for the next
-/// request; an expired entry is an ordinary cache miss, not the
-/// rate-limited refetch.
+/// A response that may not be stored is not reused, and §Key
+/// Publication: "It MUST NOT refetch the keys of one peer domain ...
+/// more often than once every 60 seconds; a request that arrives within
+/// that interval and names a `kid` that is not among the usable keys is
+/// rejected." With nothing cached, no key is usable.
 #[tokio::test]
 async fn a_no_store_response_is_not_reused() {
     let f = fixture(DnssecAnswer::Insecure, None);
     f.fetch
         .serve(response("no-store", session(&[jwk(X_A, KID_A)])));
     f.keys.keys_for(&alice(), KID_A).await.unwrap();
+    assert!(is_unknown_key(f.keys.keys_for(&alice(), KID_A).await));
+    assert_eq!(f.fetch.calls(), 1);
+    f.clock.advance(60);
     f.keys.keys_for(&alice(), KID_A).await.unwrap();
     assert_eq!(f.fetch.calls(), 2);
+}
+
+/// The finding's reflection case: a peer domain whose `/.well-known/jmap`
+/// carries no `Cache-Control` is fetched once per 60 seconds however many
+/// requests name it with unknown `kid`s. §Key Publication: "It MUST NOT
+/// refetch the keys of one peer domain, or repeat that query, more often
+/// than once every 60 seconds".
+#[tokio::test]
+async fn forged_kids_cannot_force_refetches_of_a_zero_lifetime_peer() {
+    let f = fixture(DnssecAnswer::Insecure, None);
+    f.fetch.serve(Response {
+        headers: HeaderMap::new(),
+        body: session(&[jwk(X_A, KID_A)]),
+    });
+    f.keys.keys_for(&alice(), KID_A).await.unwrap();
+    for i in 0..20 {
+        f.clock.advance(2);
+        let kid = format!("forged-{i}");
+        assert!(is_unknown_key(f.keys.keys_for(&alice(), &kid).await));
+    }
+    assert_eq!(f.fetch.calls(), 1);
+    assert_eq!(f.dns.calls(), 1);
 }
 
 /// §Key Publication: "When a request names a `kid` that is not among the
