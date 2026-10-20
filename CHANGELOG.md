@@ -146,6 +146,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-types**, **jmap-chat-client**: new
+  `AttachmentCreate` type for `Message/set` create entries, with `blobId`,
+  `filename`, `contentType`, `size` and `sha256` optional, because
+  draft-atwood-jmap-chat-filenode-00 §filenodeId makes them "OPTIONAL for
+  that Attachment entry" when `filenodeId` is present. The stored and
+  returned `Attachment` keeps them required, since the server "MUST
+  populate any absent fields ... before storage".
+  `MessageCreateInput::attachments` and `MessageCreateInput::with_attachments`
+  now take `&[AttachmentCreate]` instead of `&[Attachment]`.
+
 - **BREAKING** **jmap-chat-server**: `ChatLimits::max_attachments_per_message`
   and `ChatLimits::with_max_attachments_per_message` take `u64` instead of
   `u32`, matching `ChatCapability::max_attachments_per_message` and the

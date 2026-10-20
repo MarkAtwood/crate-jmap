@@ -720,8 +720,11 @@ pub struct MessageCreateInput<'a> {
     /// When `Some`, marks this message as a reply to the given message id.
     pub reply_to: Option<&'a Id>,
     /// File attachments (`attachments`, draft-atwood-jmap-chat-00
-    /// §Message/set create). `None` omits the property.
-    pub attachments: Option<&'a [jmap_chat_types::Attachment]>,
+    /// §Message/set create). `None` omits the property. Each entry is an
+    /// [`AttachmentCreate`](jmap_chat_types::AttachmentCreate), whose
+    /// file fields may be absent when `filenodeId` is set
+    /// (draft-atwood-jmap-chat-filenode-00 §filenodeId).
+    pub attachments: Option<&'a [jmap_chat_types::AttachmentCreate]>,
     /// Per-user `@mention` annotations (`mentions`). `None` omits the
     /// property.
     pub mentions: Option<&'a [jmap_chat_types::Mention]>,
@@ -794,7 +797,7 @@ impl<'a> MessageCreateInput<'a> {
     }
 
     /// Set the file attachments.
-    pub fn with_attachments(mut self, v: &'a [jmap_chat_types::Attachment]) -> Self {
+    pub fn with_attachments(mut self, v: &'a [jmap_chat_types::AttachmentCreate]) -> Self {
         self.attachments = Some(v);
         self
     }

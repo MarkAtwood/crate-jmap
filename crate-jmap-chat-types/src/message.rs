@@ -154,14 +154,65 @@ pub struct Attachment {
     ///
     /// The draft makes `blobId`, `filename`, `contentType`, `size` and
     /// `sha256` OPTIONAL on a `Message/set` create when this field is
-    /// present; this type still requires them, so a client sending a
-    /// filenode-linked attachment supplies them explicitly.
+    /// present, and the server "MUST populate any absent fields ...
+    /// before storage", so a stored Attachment always carries them. A
+    /// create request uses [`AttachmentCreate`] instead.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filenode_id: Option<Id>,
     /// The `blobId` of a thumbnail or preview image derived from the
     /// FileNode's blob (draft-atwood-jmap-chat-filenode-00
     /// §thumbnailBlobId). SHOULD be set only when
     /// [`filenode_id`](Self::filenode_id) is also present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thumbnail_blob_id: Option<Id>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// An [`Attachment`] as sent in a `Message/set` create request.
+///
+/// draft-atwood-jmap-chat-filenode-00 §filenodeId: "When `filenodeId` is
+/// present on an Attachment, the fields `blobId`, `filename`,
+/// `contentType`, `size`, and `sha256` become OPTIONAL for that
+/// Attachment entry; the server MUST populate any absent fields from the
+/// referenced FileNode's properties before storage. If `filenodeId` is
+/// absent, these fields retain their normal required status." This type
+/// therefore makes those five fields optional; the server, not this
+/// type, rejects an entry that lacks them without a `filenodeId`. A
+/// stored or returned attachment is an [`Attachment`].
+///
+/// Absent fields are omitted on serialization. `sha256`, when present,
+/// is 64 lowercase hex characters per draft-atwood-jmap-chat-00
+/// §Attachment and is not validated here (see [`Attachment::sha256`]).
+#[non_exhaustive]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AttachmentCreate {
+    /// The `blobId` property (draft-atwood-jmap-chat-00 §4.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blob_id: Option<Id>,
+    /// The `filename` property (draft-atwood-jmap-chat-00 §4.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filename: Option<String>,
+    /// The `contentType` property (draft-atwood-jmap-chat-00 §4.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content_type: Option<String>,
+    /// The `size` property (draft-atwood-jmap-chat-00 §4.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub size: Option<u64>,
+    /// The `sha256` property, hex-encoded (draft-atwood-jmap-chat-00 §4.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sha256: Option<String>,
+    /// The `filenodeId` property (draft-atwood-jmap-chat-filenode-00
+    /// §filenodeId). See [`Attachment::filenode_id`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filenode_id: Option<Id>,
+    /// The `thumbnailBlobId` property (draft-atwood-jmap-chat-filenode-00
+    /// §thumbnailBlobId). See [`Attachment::thumbnail_blob_id`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub thumbnail_blob_id: Option<Id>,
     /// Catch-all for vendor / site / private extension fields not covered
@@ -866,6 +917,48 @@ mod tests {
         let p: Attachment = serde_json::from_value(plain.clone()).unwrap();
         assert!(p.filenode_id.is_none() && p.thumbnail_blob_id.is_none());
         assert_eq!(serde_json::to_value(&p).unwrap(), plain);
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-filenode-00 §filenodeId — "When
+    /// `filenodeId` is present on an Attachment, the fields `blobId`,
+    /// `filename`, `contentType`, `size`, and `sha256` become OPTIONAL for
+    /// that Attachment entry". A filenodeId-only create entry parses and
+    /// serializes back without the absent fields.
+    #[test]
+    fn attachment_create_accepts_filenode_only_entry() {
+        let raw = serde_json::json!({ "filenodeId": "fn1", "thumbnailBlobId": "thumb1" });
+        let a: AttachmentCreate = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(a.filenode_id.as_ref().map(|i| i.as_ref()), Some("fn1"));
+        assert_eq!(
+            a.thumbnail_blob_id.as_ref().map(|i| i.as_ref()),
+            Some("thumb1")
+        );
+        assert!(a.blob_id.is_none() && a.filename.is_none() && a.content_type.is_none());
+        assert!(a.size.is_none() && a.sha256.is_none() && a.extra.is_empty());
+        assert_eq!(serde_json::to_value(&a).unwrap(), raw);
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-00 §Attachment property list
+    /// (`blobId`, `filename`, `contentType`, `size`, `sha256`). A full
+    /// create entry lands in the typed fields and round-trips unchanged,
+    /// vendor fields included.
+    #[test]
+    fn attachment_create_full_entry_round_trips() {
+        let raw = serde_json::json!({
+            "blobId": "b1",
+            "filename": "a.png",
+            "contentType": "image/png",
+            "size": 100,
+            "sha256": "0".repeat(64),
+            "acmeCorpScanResult": "clean"
+        });
+        let a: AttachmentCreate = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(a.blob_id.as_ref().map(|i| i.as_ref()), Some("b1"));
+        assert_eq!(a.filename.as_deref(), Some("a.png"));
+        assert_eq!(a.content_type.as_deref(), Some("image/png"));
+        assert_eq!(a.size, Some(100));
+        assert_eq!(a.extra["acmeCorpScanResult"], "clean");
+        assert_eq!(serde_json::to_value(&a).unwrap(), raw);
     }
 
     /// `Mention.extra` captures vendor fields and preserves them.
