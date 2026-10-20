@@ -12,6 +12,15 @@ use serde::{Deserialize, Serialize};
 /// account-level value is [`VtcCapability`].
 pub const JMAP_VTC_URI: &str = "urn:ietf:params:jmap:vtc";
 
+/// Capability URI for ephemeral VTC event push over WebSocket
+/// (draft-atwood-jmap-vtc-wss-00 §Capability).
+///
+/// The session-level value is an empty object `{}` and is not modelled.
+/// Advertising it means the server accepts
+/// [`VtcStreamEnable`](crate::VtcStreamEnable) and
+/// [`VtcStreamDisable`](crate::VtcStreamDisable).
+pub const JMAP_VTC_WEBSOCKET_URI: &str = "urn:ietf:params:jmap:vtc:websocket";
+
 /// A media type of a call or gateway: `"audio"`, `"video"` or `"screen"`
 /// (draft-atwood-jmap-vtc-00 §Account-Level Capability Object,
 /// `supportedMediaTypes`).
@@ -203,6 +212,15 @@ pub struct VtcDialInEntry {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// Oracle: draft-atwood-jmap-vtc-wss-00 L97-99 "Servers supporting
+    /// this specification MUST add a property named
+    /// `urn:ietf:params:jmap:vtc:websocket` to the JMAP Session object
+    /// capabilities."
+    #[test]
+    fn websocket_uri_constant_matches_draft() {
+        assert_eq!(JMAP_VTC_WEBSOCKET_URI, "urn:ietf:params:jmap:vtc:websocket");
+    }
 
     /// Hand-written from the field list of draft-atwood-jmap-vtc-00
     /// L148-187. The gateway uses the SIP `metadata` example of L217 and

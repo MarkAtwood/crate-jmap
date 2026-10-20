@@ -1,4 +1,5 @@
-//! JMAP VTC extension types (draft-atwood-jmap-vtc-00).
+//! JMAP VTC extension types (draft-atwood-jmap-vtc-00 and
+//! draft-atwood-jmap-vtc-wss-00).
 //!
 //! Normative reference: draft-atwood-jmap-vtc-00 — the
 //! `urn:ietf:params:jmap:vtc` capability, which manages voice and video
@@ -32,6 +33,10 @@
 //!   ([`ParticipantEventKind`]), [`VtcMediaStateEvent`],
 //!   [`VtcActiveSpeakerEvent`], [`VtcUnmuteRequestEvent`],
 //!   [`VtcRecordingStateEvent`].
+//! - [`JMAP_VTC_WEBSOCKET_URI`], [`VtcStreamMessage`] over
+//!   [`VtcStreamEnable`] and [`VtcStreamDisable`], and the
+//!   [`VTC_EVENT_TYPES`] vocabulary — the client→server stream control
+//!   frames of draft-atwood-jmap-vtc-wss-00.
 //! - [`query`] — the `VTCCall/query` filter and comparator.
 //! - `JmapObject` impls for [`VtcCall`] (`"VTCCall"`, get/set/query) and
 //!   [`VtcParticipant`] (`"VTCParticipant"`, get), for `jmap-vtc-server`.
@@ -46,11 +51,13 @@ pub mod participant;
 pub mod push;
 pub mod query;
 pub mod recording;
+pub mod stream;
 mod wire;
 
 pub use call::{CallEndReason, CallState, CallType, VtcCall, VtcCallPolicy, VtcMediaState};
 pub use capability::{
     GatewayProtocol, MediaKind, VtcCapability, VtcDialInEntry, VtcGateway, JMAP_VTC_URI,
+    JMAP_VTC_WEBSOCKET_URI,
 };
 pub use event::{
     ParticipantEventKind, RingEndReason, SignalDirection, VtcActiveSpeakerEvent, VtcCallEndEvent,
@@ -60,3 +67,4 @@ pub use event::{
 pub use participant::{CallResponse, CallRole, JoinMethod, LobbyState, VtcParticipant};
 pub use push::VtcCallPush;
 pub use recording::{LivestreamState, RecordingState, VtcLivestream, VtcRecording};
+pub use stream::{VtcStreamDisable, VtcStreamEnable, VtcStreamMessage, VTC_EVENT_TYPES};
