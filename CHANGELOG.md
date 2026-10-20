@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-client**: `TypingIndicators` and `TYPING_DECAY` track typing
+  indicators per `(chatId, senderId)` and hide one after 10 s without a
+  typing event, per draft-atwood-jmap-chat-00 §Chat/typing: "if no typing
+  event is received for a given `(chatId, senderId)` pair within
+  approximately 10 seconds, the client SHOULD hide the typing indicator for
+  that pair".
 - **jmap-chat-types**: `Mention::new(id)` and `BroadcastMention::new(scope)`
   constructors.
 - **jmap-chat-client**: `mentions_from_spans` and
