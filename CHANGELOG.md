@@ -23,7 +23,21 @@ wire behaviour that a conforming peer can observe.
   `query` filters and comparators of all four, including the
   `WithinRadius` and `WithinBounds` spatial filters.
 - **jmap-scene-types**: `JmapObject`, `GetObject`, `SetObject` and
-  `QueryObject` impls for `SceneAsset`.
+  `QueryObject` impls for `SceneAsset`, `SceneRegion`, `SceneObject` and
+  `SceneAvatar`.
+- **jmap-scene-server**: `SceneRegion/get`, `/changes`, `/set`, `/query`
+  and `/queryChanges` handlers, registered by `register_scene_handlers`:
+  required `name` and `bounds` with `min <= max`, the `accessPolicy`,
+  `spawnPosition` and unit-quaternion `spawnOrientation` checks,
+  `forbidden` without `mayCreateRegion`, `overQuota` at
+  `maxRegionsPerAccount`, Chat and VTC binding checks, owner-or-admin
+  update, owner-only destroy that removes the region's SceneObjects and
+  SceneAvatars, the `createdAt`-descending default sort and
+  `invalidArguments` for an unknown `accessPolicy` filter value.
+  `SceneBackend` gains the required `has_capability` and the fail-open
+  `region_binding` (returning the new `BindingTarget`),
+  `may_update_region` and `may_destroy_region`; `query` gains
+  `region_matches` and `compare_regions`.
 - **jmap-scene-server**: new crate for draft-atwood-jmap-scene-00 —
   `SceneAsset/get`, `/changes`, `/set`, `/query` and `/queryChanges`
   handlers with `register_scene_handlers`, the `SceneBackend` trait

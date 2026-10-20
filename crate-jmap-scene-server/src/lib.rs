@@ -22,8 +22,17 @@
 //! `/get`, `/changes` and `/queryChanges`; `/set` with the create, update
 //! and destroy SetError conditions, glTF (`model/gltf-binary`) as the
 //! mandatory-to-implement format and the `maxAssetSizeBytes` quota; and
-//! `/query` with the draft's default sort. The crate depends on RFC 8620
-//! only; Chat and VTC bindings live in separate binding crates.
+//! `/query` with the draft's default sort.
+//!
+//! The `SceneRegion/*` methods (draft §SceneRegion Methods): `/set` with
+//! the create, update and destroy SetError conditions, `mayCreateRegion`,
+//! `maxRegionsPerAccount`, the binding checks through
+//! [`SceneBackend::region_binding`] and the destroy cascade; and `/query`
+//! with the draft's default sort and `accessPolicy` filter check.
+//!
+//! The crate depends on RFC 8620 only; Chat and VTC bindings live in
+//! separate binding crates, which implement
+//! [`SceneBackend::has_capability`] and [`SceneBackend::region_binding`].
 //!
 //! # `memory` feature (reference implementation)
 //!
@@ -47,15 +56,20 @@ mod helpers;
 #[cfg(feature = "memory")]
 pub mod memory;
 pub mod query;
+pub mod region;
 
 pub use asset::{
     handle_scene_asset_changes, handle_scene_asset_get, handle_scene_asset_query,
     handle_scene_asset_query_changes, handle_scene_asset_set, GLTF_BINARY,
 };
 pub use backend::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SceneBackend, SetError,
-    SetErrorType, SetObject,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, BindingTarget,
+    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesResult, QueryObject,
+    QueryResult, SceneBackend, SetError, SetErrorType, SetObject,
+};
+pub use region::{
+    handle_scene_region_changes, handle_scene_region_get, handle_scene_region_query,
+    handle_scene_region_query_changes, handle_scene_region_set,
 };
 
 /// Capability URI for `urn:ietf:params:jmap:scene`.
@@ -65,10 +79,11 @@ pub use jmap_scene_types::JMAP_SCENE_URI;
 /// re-exported for the registration macro.
 pub use jmap_server::ClosureHandler;
 
-/// Register the `SceneAsset/*` method handlers with `dispatcher`.
+/// Register the `SceneAsset/*` and `SceneRegion/*` method handlers with
+/// `dispatcher`.
 ///
-/// After this call the dispatcher handles `SceneAsset/get`, `/changes`,
-/// `/set`, `/query` and `/queryChanges`. [`Dispatcher::register`] silently
+/// After this call the dispatcher handles `/get`, `/changes`, `/set`,
+/// `/query` and `/queryChanges` of `SceneAsset` and `SceneRegion`. [`Dispatcher::register`] silently
 /// replaces an existing handler of the same name, so register overrides
 /// afterwards.
 ///
@@ -96,4 +111,12 @@ where
     reg!("SceneAsset/set", handle_scene_asset_set);
     reg!("SceneAsset/query", handle_scene_asset_query);
     reg!("SceneAsset/queryChanges", handle_scene_asset_query_changes);
+    reg!("SceneRegion/get", handle_scene_region_get);
+    reg!("SceneRegion/changes", handle_scene_region_changes);
+    reg!("SceneRegion/set", handle_scene_region_set);
+    reg!("SceneRegion/query", handle_scene_region_query);
+    reg!(
+        "SceneRegion/queryChanges",
+        handle_scene_region_query_changes
+    );
 }

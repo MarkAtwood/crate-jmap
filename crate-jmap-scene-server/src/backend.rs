@@ -16,7 +16,31 @@ pub use jmap_server::{
     SetObject,
 };
 
-use jmap_scene_types::{SceneAsset, SceneCapability};
+use jmap_scene_types::{SceneAsset, SceneCapability, SceneRegion};
+
+/// What [`SceneBackend::region_binding`] knows about the object a
+/// SceneRegion binding property references.
+///
+/// `SceneRegion/set` maps it to the SetError the draft requires
+/// (draft-atwood-jmap-scene-00 §Creating a Region, §Updating a Region).
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BindingTarget {
+    /// The object exists and the caller may bind it: for `activeCallId`,
+    /// the VTCCall is not `"ended"` and the caller is a participant in or
+    /// moderator of it, or an administrator.
+    Usable,
+    /// The object does not exist; for `activeCallId`, also a VTCCall in
+    /// state `"ended"`. `SceneRegion/set` returns `invalidProperties`
+    /// naming the property.
+    Missing,
+    /// The object exists but the caller cannot access it. For `chatId`,
+    /// `spaceId` and `channelId` this is `invalidProperties` naming the
+    /// property ("if the referenced object does not exist or the caller
+    /// cannot access it"); for `activeCallId` it is `forbidden` ("and
+    /// `forbidden` if the caller lacks access").
+    Inaccessible,
+}
 
 /// Storage backend for the JMAP Scene method handlers
 /// (draft-atwood-jmap-scene-00).
@@ -76,6 +100,11 @@ pub trait SceneBackend: JmapBackend {
     /// exceeded", and with `forbidden` when the "Deployment restricts
     /// shared-asset creation to administrators" and the caller is not one.
     ///
+    /// For a `SceneRegion` the backend refuses with `overQuota` when the
+    /// account already holds `maxRegionsPerAccount` regions ("The server
+    /// MUST return `overQuota` when `maxRegionsPerAccount` would be
+    /// exceeded"), counted atomically with the insert.
+    ///
     /// Returns the assigned id and the stored object. `create_id` is the
     /// client's creation id. Error mapping, state-counter and change-log
     /// rules are those of the canonical `jmap-mail-server` `create_object`:
@@ -107,6 +136,14 @@ pub trait SceneBackend: JmapBackend {
     /// Destroy an object by id. Unknown `id` is `notFound`; the state
     /// advances only when the destroy commits. The handler has already
     /// applied the permission check.
+    ///
+    /// Destroying a `SceneRegion` "removes the SceneRegion and all
+    /// contained SceneObject and SceneAvatar records" (draft-atwood-jmap-
+    /// scene-00 §Destroying a Region): in the same atomic step the backend
+    /// destroys every SceneObject and SceneAvatar whose `regionId` is `id`
+    /// and advances those types' states. It does not end a VTCCall the
+    /// region's `activeCallId` references ("the server MUST NOT
+    /// automatically end the referenced VTCCall").
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -134,6 +171,91 @@ pub trait SceneBackend: JmapBackend {
         asset: &SceneAsset,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
         let _ = (caller, account_id, asset);
+        async { Ok(true) }
+    }
+
+    /// `true` if the consumer advertises the capability `uri` for
+    /// `account_id`.
+    ///
+    /// The SceneRegion binding properties "are present only when the
+    /// corresponding companion capability is advertised on the same
+    /// account": `chatId`, `spaceId` and `channelId` need
+    /// `urn:ietf:params:jmap:chat`, `activeCallId` needs
+    /// `urn:ietf:params:jmap:vtc`. `SceneRegion/set` refuses a non-null
+    /// binding without its capability, and `accessPolicy` `"space"`
+    /// without `urn:ietf:params:jmap:chat`, with `invalidProperties`; a
+    /// create stores `null` for the bindings whose capability is
+    /// advertised.
+    fn has_capability(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        uri: &str,
+    ) -> bool;
+
+    /// What `property` (`"chatId"`, `"spaceId"`, `"channelId"` or
+    /// `"activeCallId"`) set to `id` references, for the checks of
+    /// draft-atwood-jmap-scene-00 §Creating a Region ("the server MUST
+    /// verify that the referenced object exists and the caller has access
+    /// to it") and §Updating a Region (for `activeCallId`: "(a) the
+    /// referenced VTCCall exists, (b) its state is not `\"ended\"`, and (c)
+    /// the caller is a participant in or moderator of the referenced call,
+    /// or has deployment-defined administrative privileges").
+    ///
+    /// `SceneRegion/set` calls this for each non-null binding a create
+    /// sets or an update patches, after the capability check. The Chat and
+    /// VTC lookups live in the binding crates; this crate depends on
+    /// RFC 8620 only.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(BindingTarget::Usable)`: every reference is accepted.
+    /// This is the workspace's fail-open posture for permission hooks
+    /// (bd:JMAP-bghk); a backend that advertises Chat or VTC overrides it.
+    fn region_binding(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        property: &str,
+        id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<BindingTarget, Self::Error>> + Send {
+        let _ = (caller, account_id, property, id);
+        async { Ok(BindingTarget::Usable) }
+    }
+
+    /// `true` if the caller may update `region`: "Only the owner or an
+    /// admin may modify region properties" (draft-atwood-jmap-scene-00
+    /// §SceneRegion/set Update Errors).
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)` (fail-open, bd:JMAP-bghk); production backends
+    /// override it.
+    fn may_update_region(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        region: &SceneRegion,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, account_id, region);
+        async { Ok(true) }
+    }
+
+    /// `true` if the caller may destroy `region`: "Only the region owner
+    /// may destroy a region" (draft-atwood-jmap-scene-00 §SceneRegion/set
+    /// Destroy Errors). Unlike update, administrators are not named.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)` (fail-open, bd:JMAP-bghk); production backends
+    /// override it.
+    fn may_destroy_region(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        region: &SceneRegion,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, account_id, region);
         async { Ok(true) }
     }
 
