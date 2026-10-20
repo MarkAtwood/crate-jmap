@@ -282,6 +282,64 @@ async fn task_list_set_destroy_remove_tasks_destroys_tasks() {
 }
 
 // ---------------------------------------------------------------------------
+// Test 5c: a failed onDestroyRemoveTasks cascade leaves the TaskList
+// Oracle: draft-tasks-06 §3.4 — "If true, any Tasks that were in the
+// TaskList will be removed from it, and they will be destroyed." When the
+// Tasks cannot be read the cascade cannot run, so the list is not
+// destroyed. RFC 8620 §5.3: `notDestroyed` is "A map of the id to a
+// SetError for each record that failed to be destroyed"; `serverFail` is
+// a SetError type. The stored Task `t2` has a non-string `title`, so the
+// reference backend cannot read it. Bead: JMAP-y3f2.17.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn task_list_set_destroy_remove_tasks_failure_keeps_list() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object("acc1", "TaskList", "tl1", task_list_fixture("tl1", "Todo"));
+    backend.seed_object("acc1", "Task", "t1", task_fixture("t1", "tl1", "Buy milk"));
+    backend.seed_object(
+        "acc1",
+        "Task",
+        "t2",
+        json!({ "id": "t2", "taskListId": "tl1", "title": 42 }),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "destroy": ["tl1"],
+        "onDestroyRemoveTasks": true
+    });
+    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+    assert_eq!(
+        resp["notDestroyed"]["tl1"]["type"], "serverFail",
+        "cascade failure must be reported: {resp}"
+    );
+    assert!(
+        !resp["destroyed"]
+            .as_array()
+            .is_some_and(|d| d.contains(&json!("tl1"))),
+        "list must not be destroyed: {resp}"
+    );
+
+    let HandlerOutput { primary: lists, .. } = handle_task_list_get(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": ["tl1"] }),
+    )
+    .await
+    .expect("TaskList/get must succeed");
+    assert_eq!(lists["list"][0]["id"], "tl1", "list survives: {lists}");
+
+    let HandlerOutput { primary: got, .. } =
+        handle_task_get(&backend, &(), json!({ "accountId": "acc1", "ids": ["t1"] }))
+            .await
+            .expect("Task/get must succeed");
+    assert_eq!(got["list"][0]["id"], "t1", "readable Task survives: {got}");
+}
+
+// ---------------------------------------------------------------------------
 // Test 6: TaskList/set create rejects client-supplied id
 // Oracle: RFC 8620 §5.3.
 // ---------------------------------------------------------------------------

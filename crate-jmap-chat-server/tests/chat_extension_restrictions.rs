@@ -255,3 +255,40 @@ async fn default_hooks_permit() {
     .await;
     assert!(resp["updated"].get(HUB_MSG).is_some(), "{resp}");
 }
+
+/// JMAP-bghk fail-open: without an override, `may_update_chat` restricts
+/// nothing. The owner is an admin of this room-bound group, so chat-00
+/// allows the `description` update and only the hook could reject it; the
+/// restricting backend does (L251), the default one does not.
+#[tokio::test]
+async fn default_hooks_permit_chat_update() {
+    let admin_room = |backend: &TrackingBackend| {
+        backend.inner().insert_object_for_test(
+            "Chat",
+            ACCOUNT_ID,
+            "room2",
+            json!({
+                "id": "room2",
+                "kind": "group",
+                "name": "",
+                "members": [{ "id": ACCOUNT_ID, "role": "admin", "joinedAt": "2026-01-01T00:00:00Z" }],
+                "createdAt": "2026-01-01T00:00:00Z",
+                "unreadCount": 0,
+                "pinnedMessageIds": [],
+                "roomId": ROOM_ID,
+            }),
+        );
+    };
+    let update =
+        json!({ "accountId": ACCOUNT_ID, "update": { "room2": { "description": "About" } } });
+
+    let backend = default_hooks();
+    admin_room(&backend);
+    let resp = chat_set(&backend, update.clone()).await;
+    assert!(resp["updated"].get("room2").is_some(), "{resp}");
+
+    let backend = restricting();
+    admin_room(&backend);
+    let resp = chat_set(&backend, update).await;
+    assert_eq!(resp["notUpdated"]["room2"]["type"], "forbidden", "{resp}");
+}

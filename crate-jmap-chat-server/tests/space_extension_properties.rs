@@ -15,6 +15,10 @@
 //! - draft-atwood-jmap-chat-tasks-00 L114 and L125: the same rules for
 //!   `taskListId`. L127: "the server MUST set `taskListId` to the new
 //!   TaskList's id at Space creation time."
+//! - draft-atwood-jmap-chat-calendars-00 L300: "A Space's `calendarId`
+//!   is set by members holding the `"manage_space"` permission." RFC 8620
+//!   §5.3 `forbidden`: "the action would violate an ACL or other
+//!   permissions policy".
 //! - RFC 8620 §5.3 `invalidProperties`: "The record given is invalid in
 //!   some way. For example: It contains properties that are invalid
 //!   according to the type specification of this record type." Without
@@ -178,4 +182,43 @@ async fn listed_core_property_is_not_stored_on_create() {
     assert!(space.get("closedAt").is_none(), "{space}");
     assert!(space.get("addRoles").is_none(), "{space}");
     assert_eq!(space["calendarId"], "cal-1", "{space}");
+}
+
+/// calendars-00 L300 with RFC 8620 §5.3 `forbidden`: a member whose roles
+/// grant only `"view"` cannot bind the Space's Calendar, and the stored
+/// Space is unchanged.
+#[tokio::test]
+async fn registered_property_patch_without_manage_space_is_forbidden() {
+    let backend = backend_with(&["calendarId"]);
+    backend.insert_object_for_test(
+        "Space",
+        ACCOUNT_ID,
+        "s-view",
+        json!({
+            "id": "s-view",
+            "name": "Team",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "memberCount": 1,
+            "categories": [],
+            "uncategorizedChannelIds": [],
+            "isPublic": false,
+            "isPubliclyPreviewable": false,
+            "roles": [{ "id": "r-view", "name": "Viewer", "permissions": ["view"], "position": 1 }],
+            "members": [{ "id": ACCOUNT_ID, "roleIds": ["r-view"], "joinedAt": "2026-01-01T00:00:00Z" }]
+        }),
+    );
+
+    let resp = space_set(
+        &backend,
+        json!({ "accountId": ACCOUNT_ID, "update": { "s-view": { "calendarId": "cal-1" } } }),
+    )
+    .await;
+    assert_eq!(resp["notUpdated"]["s-view"]["type"], "forbidden", "{resp}");
+    assert!(
+        get_space(&backend, "s-view")
+            .await
+            .get("calendarId")
+            .is_none(),
+        "the Space must not be bound"
+    );
 }

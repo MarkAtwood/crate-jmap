@@ -611,17 +611,16 @@ async fn chat_query_changes_after_create() {
 }
 
 // ---------------------------------------------------------------------------
-// Chat/typing — blocked-sender suppression hook
-// (draft-atwood-jmap-chat-00 commit d68b4e3)
+// Chat/typing — blocked-sender suppression
+// (draft-atwood-jmap-chat-00 §Chat/typing Server Behavior)
 // ---------------------------------------------------------------------------
 
 /// Oracle: `Chat/typing` returns a successful response (echoing
 /// `accountId`) regardless of whether the requesting account is
-/// blocked. The kit's wire shape is identical in either case — the
-/// blocked-sender suppression contract is implemented by the
-/// consumer's transport layer, which consults
-/// `ChatBackend::is_contact_blocked` independently. The kit handler's
-/// only job at this site is to validate input and forward.
+/// blocked: §Chat/typing "The sender is not informed." The blocked check
+/// reads each recipient's contact list, so the consumer's transport makes
+/// it per recipient through `should_deliver_typing`; the handler only
+/// validates input.
 #[tokio::test]
 async fn chat_typing_returns_success_when_contact_not_blocked() {
     use jmap_chat_server::handle_chat_typing;
@@ -657,11 +656,9 @@ async fn chat_typing_returns_success_when_contact_not_blocked() {
 }
 
 /// Oracle: `Chat/typing` returns the same success response when the
-/// recipient has marked the sender as blocked. Per the bead and
-/// draft-atwood-jmap-chat-00 commit `d68b4e3`, the kit handler's wire
-/// response is unchanged; suppression is the consumer transport
-/// layer's job (which calls `is_contact_blocked` before each fan-out
-/// event).
+/// direct Chat's contact is blocked: §Chat/typing "The sender is not
+/// informed." Suppression happens per recipient at delivery, through
+/// `should_deliver_typing`, which reads the recipient's list.
 #[tokio::test]
 async fn chat_typing_returns_success_when_contact_blocked() {
     use jmap_chat_server::handle_chat_typing;
@@ -970,10 +967,10 @@ async fn memory_backend_is_contact_blocked_reads_only_the_owner_list() {
     );
 }
 
-/// Oracle: `handle_chat_typing` skips the `is_contact_blocked`
-/// consultation for non-direct chats. Group and channel fan-out is
-/// per-recipient and lives entirely in the consumer transport layer;
-/// the kit handler has no way to enumerate fan-out recipients.
+/// Oracle: `handle_chat_typing` does not consult `is_contact_blocked`
+/// for a group chat. The blocked check reads each recipient's contact
+/// list (§Chat/typing), and fan-out to recipients happens in the
+/// consumer transport through `should_deliver_typing`.
 #[tokio::test]
 async fn chat_typing_skips_is_contact_blocked_on_group_chat() {
     use jmap_chat_server::handle_chat_typing;
@@ -1015,13 +1012,11 @@ async fn chat_typing_skips_is_contact_blocked_on_group_chat() {
     );
 }
 
-/// Oracle: `handle_chat_typing` does not consult
-/// `is_contact_blocked` when the supplied `chatId` does not resolve
-/// to any stored Chat. A missing target is not a consultation
-/// opportunity — the kit returns `invalidArguments` without invoking
-/// the predicate (draft-atwood-jmap-chat-00 §Chat/typing: "The server
-/// MUST return an `invalidArguments` method error if `chatId` does not
-/// exist").
+/// Oracle: `handle_chat_typing` returns `invalidArguments` for a
+/// `chatId` that does not resolve to any stored Chat, without consulting
+/// `is_contact_blocked` (draft-atwood-jmap-chat-00 §Chat/typing: "The
+/// server MUST return an `invalidArguments` method error if `chatId` does
+/// not exist").
 #[tokio::test]
 async fn chat_typing_skips_is_contact_blocked_when_chat_not_found() {
     use jmap_chat_server::handle_chat_typing;

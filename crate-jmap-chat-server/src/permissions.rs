@@ -19,9 +19,11 @@ use jmap_chat_types::ChannelPermission;
 
 /// Permission string: top-level Space metadata mutations.
 ///
-/// Per draft-atwood-jmap-chat-00 §Space/set L1256-1257 (top-level
-/// metadata: `name`, `description`, `iconBlobId`, `isPublic`,
-/// `isPubliclyPreviewable`).
+/// Per draft-atwood-jmap-chat-00 §Space/set L1256-1257 (metadata patch
+/// keys `name`, `description`, `iconBlobId`) and §Space L812, L815
+/// (`isPublic` and `isPubliclyPreviewable`: "Mutable by members with
+/// `"manage_space"` permission"). §Space/set names no patch key for
+/// those two (bd:JMAP-y3f2.13).
 pub const MANAGE_SPACE: &str = "manage_space";
 
 /// Permission string: role-set mutations.

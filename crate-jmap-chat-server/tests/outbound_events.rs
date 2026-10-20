@@ -318,6 +318,48 @@ async fn edit_reports_one_edit() {
     );
 }
 
+/// chat-00 L1136: an edit is "on a message where `senderId` is the
+/// accountId and `deletedAt` is absent. The server MUST reject an edit of
+/// any other message with a `forbidden` SetError." A rejected edit sends
+/// no Peer/deliver `edit`.
+#[tokio::test]
+async fn edit_of_peer_message_reports_nothing() {
+    let backend = backend();
+    seed_message(&backend, "m1", "c-peer");
+    let resp = message_update(&backend, "m1", json!({ "body": "hello, edited" })).await;
+    assert_eq!(resp["notUpdated"]["m1"]["type"], "forbidden", "{resp}");
+    assert_eq!(backend.take_outbound_events_for_test(), vec![]);
+}
+
+/// chat-00 L1136: the owner's own Message with `deletedAt` set is not
+/// editable ("`deletedAt` is absent"), so the edit is `forbidden` and no
+/// Peer/deliver `edit` is sent.
+#[tokio::test]
+async fn edit_of_deleted_message_reports_nothing() {
+    let backend = backend();
+    backend.insert_object_for_test(
+        "Message",
+        ACCOUNT_ID,
+        "m1",
+        json!({
+            "id": "m1",
+            "senderMsgId": "smid-m1",
+            "senderId": ACCOUNT_ID,
+            "chatId": "dm",
+            "body": "",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "sentAt": "2026-01-01T00:00:00Z",
+            "receivedAt": "2026-01-01T00:00:00Z",
+            "deliveryState": "delivered",
+            "deletedAt": "2026-01-02T00:00:00Z",
+        }),
+    );
+    let resp = message_update(&backend, "m1", json!({ "body": "back again" })).await;
+    assert_eq!(resp["notUpdated"]["m1"]["type"], "forbidden", "{resp}");
+    assert_eq!(backend.take_outbound_events_for_test(), vec![]);
+}
+
 /// chat-00 L1020: "MUST send `Peer/groupUpdate` to each initial member".
 #[tokio::test]
 async fn group_create_reports_create_to_initial_members() {
