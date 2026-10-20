@@ -1,11 +1,11 @@
 # jmap-chat-tasks-server
 
-The Chat binding for `jmap-tasks-server`: the Space `taskListId` rules of
+The Chat binding for `jmap-tasks-server`: the Space `taskListId` and Task
+`chatId` rules of
 draft-atwood-jmap-chat-tasks-00 that apply when one server offers
 `urn:ietf:params:jmap:chat:tasks` with `urn:ietf:params:jmap:chat` and
 `urn:ietf:params:jmap:tasks`. `jmap-tasks-server` and `jmap-chat-server`
-do not depend on each other; this crate depends on the Tasks server and
-the Chat types.
+do not depend on each other; this crate depends on both.
 
 ## What it is
 
@@ -14,6 +14,8 @@ the Chat types.
 | `space_extension_properties` | chat-tasks §Account-Level Capability Object `mayBindTaskList`: register `taskListId` as a Space extension property only when binding is allowed |
 | `check_task_list_id` | chat-tasks §taskListId, §Binding and unbinding: `null` unbinds; otherwise the value must name a TaskList on the Space's own account (`invalidProperties` naming `taskListId`) |
 | `create_space_task_list` | chat-tasks §Binding and unbinding auto-bind on create: create a TaskList and set the Space's `taskListId` before it is stored |
+| `clear_space_task_list_id` | chat-tasks §taskListId: a destroyed TaskList's Spaces lose `taskListId` |
+| `clear_task_chat_ids` | chat-tasks §Lifecycle: a destroyed Chat's Tasks lose `chatId` |
 
 ## What it's for
 
@@ -25,6 +27,8 @@ these functions:
 | `ChatBackend::space_extension_properties` | `space_extension_properties` |
 | `ChatBackend::create_object::<Space>` and `apply_space_metadata_patch`, for a `taskListId` value | `check_task_list_id` |
 | `ChatBackend::create_object::<Space>`, before the insert, for auto-bind | `create_space_task_list` |
+| `TasksBackend::destroy_object::<TaskList>`, after the destroy | `clear_space_task_list_id` |
+| `ChatBackend::on_chat_destroyed` | `clear_task_chat_ids` |
 
 ## How to use
 
@@ -52,6 +56,11 @@ checks the value against the Tasks backend.
   the Space (§Binding and unbinding "SHOULD NOT be automatically
   destroyed"). `Space/set` carries no way to request it; a member destroys
   the TaskList with `TaskList/set`.
+- Task destroy has no hook here: the Chat is never destroyed with the
+  Task (§Lifecycle "NOT automatically destroyed").
+- The cascade functions scan every Space or Task of the account per
+  destroy, and are not atomic: on an error the records cleared so far
+  stay cleared, and calling again clears the rest.
 - `check_task_list_id` reads with the caller's Tasks context, so a
   TaskList the caller cannot see is refused like a missing one. The read
   is not atomic with the Space write.

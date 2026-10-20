@@ -39,7 +39,12 @@ wire behaviour that a conforming peer can observe.
   `mayBindTaskList: true`; `check_task_list_id` accepts `null` (unbind) or
   a TaskList on the Space's own account, else `invalidProperties` naming
   `taskListId`; `create_space_task_list` auto-binds a new Space. The bound
-  TaskList is never destroyed with its Space.
+  TaskList is never destroyed with its Space. Destroy cascades:
+  `clear_space_task_list_id` (from `TasksBackend::destroy_object::<TaskList>`)
+  removes `taskListId` from the Spaces bound to a destroyed TaskList (§taskListId),
+  and `clear_task_chat_ids` (from `ChatBackend::on_chat_destroyed`) removes
+  `chatId` from the Tasks that reference a destroyed Chat (§Lifecycle). A Task
+  destroy leaves its Chat in place. The crate now depends on `jmap-chat-server`.
 - **jmap-chat-calendars-server**: new crate, the Chat binding for
   `jmap-calendars-server` (draft-atwood-jmap-chat-calendars-00).
   `may_advertise` allows the capability only alongside
