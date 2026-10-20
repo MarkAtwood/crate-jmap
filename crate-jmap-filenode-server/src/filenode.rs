@@ -382,6 +382,16 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                         }
                         Err(e) => return Err(server_fail_from_backend(&e)),
                     }
+                    // draft-atwood-jmap-cid-00 §FileNode Extension: `sha256`
+                    // is server-set from the stored blob, and exists only
+                    // when urn:ietf:params:jmap:cid is advertised.
+                    match backend.blob_sha256(caller, &account_id, blob_id).await {
+                        Ok(digest) => node.sha256 = digest,
+                        Err(e) => {
+                            not_created.insert(create_id, server_fail_value_from_backend(&e));
+                            continue;
+                        }
+                    }
                 }
             }
 
@@ -971,6 +981,34 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 }
             }
 
+            // draft-atwood-jmap-cid-00 §FileNode Extension: "When a
+            // `FileNode/set` ({{JMAP-FILENODE}}) create or update changes
+            // the associated blob, the server MUST update `sha256` to
+            // reflect the new blob content before returning the response."
+            // A null blobId was rejected above, so only a string is left.
+            // Without the capability the patch nulls sha256, so a digest of
+            // the old blob cannot outlive it.
+            let new_sha256 = match patch.as_map().get("blobId").and_then(Value::as_str) {
+                Some(blob_id) => {
+                    match backend
+                        .blob_sha256(caller, &account_id, &Id::from(blob_id))
+                        .await
+                    {
+                        Ok(digest) => {
+                            patch
+                                .as_map_mut()
+                                .insert("sha256".to_owned(), json!(digest));
+                            digest
+                        }
+                        Err(e) => {
+                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                            continue;
+                        }
+                    }
+                }
+                None => None,
+            };
+
             match backend
                 .update_object::<FileNode>(caller, &account_id, &id, patch)
                 .await
@@ -983,9 +1021,15 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                             .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
+                // RFC 8620 §5.3: the updated entry carries any property
+                // "that changed that were not explicitly requested by the
+                // client"; a server-set sha256 is one.
                 Ok(None) => {
                     mutated = true;
-                    updated.insert(id_str, Value::Null);
+                    updated.insert(
+                        id_str,
+                        new_sha256.map_or(Value::Null, |d| json!({ "sha256": d })),
+                    );
                 }
                 Err(BackendSetError::SetError(set_err)) => {
                     not_updated.insert(id_str, set_error_value(&set_err));

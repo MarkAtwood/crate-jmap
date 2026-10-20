@@ -58,6 +58,7 @@ use crate::{
     GetObject, JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError,
     SetErrorType, SetObject,
 };
+use jmap_cid_types::Sha256;
 use jmap_filenode_types::{FileNode, NodeRole, NodeType};
 use jmap_server::{apply_patch_object, resolve_query_start};
 use jmap_types::{Id, State};
@@ -149,6 +150,9 @@ struct AccountStore {
     change_log: Vec<ChangeEntry>,
     /// Counter used to assign server IDs: "node-1", "node-2", …
     node_counter: u64,
+    /// Blob digests reported by [`FileNodeBackend::blob_sha256`]; see
+    /// [`MemoryBackend::seed_blob_sha256`].
+    blob_sha256: HashMap<Id, Sha256>,
 }
 
 impl AccountStore {
@@ -158,6 +162,7 @@ impl AccountStore {
             state: 0,
             change_log: Vec::new(),
             node_counter: 0,
+            blob_sha256: HashMap::new(),
         }
     }
 
@@ -326,6 +331,29 @@ impl MemoryBackend {
         });
         store.sync_counter_with_seeded_id(&node.id);
         store.nodes.insert(node.id.clone(), node);
+    }
+
+    /// Record the SHA-256 digest of blob `blob_id` in an account, as a
+    /// server advertising `urn:ietf:params:jmap:cid` would know it
+    /// (draft-atwood-jmap-cid-00 §FileNode Extension).
+    ///
+    /// [`FileNodeBackend::blob_sha256`] returns `Some(digest)` for a seeded
+    /// blob and `None` (capability not advertised) for any other, so tests
+    /// can exercise both sides without a blob store.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `account_id` is not registered, as [`Self::seed_node`]
+    /// does.
+    pub fn seed_blob_sha256(&self, account_id: &str, blob_id: &str, digest: Sha256) {
+        let mut guard = self.inner.lock().unwrap();
+        let store = guard.accounts.get_mut(account_id).unwrap_or_else(|| {
+            panic!(
+                "seed_blob_sha256: account_id {account_id:?} is not registered. \
+                 Call MemoryBackend::with_account({account_id:?}) first."
+            )
+        });
+        store.blob_sha256.insert(Id::from(blob_id), digest);
     }
 }
 
@@ -871,6 +899,20 @@ impl FileNodeBackend for MemoryBackend {
     ) -> Result<bool, Self::Error> {
         // In the test environment, all blobs are assumed to exist.
         Ok(true)
+    }
+
+    async fn blob_sha256(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<Option<Sha256>, Self::Error> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap()
+            .get_or_err(account_id)
+            .and_then(|store| store.blob_sha256.get(blob_id).cloned()))
     }
 
     /// Case-folding algorithm: `str::to_lowercase` (Unicode simple lowercase,

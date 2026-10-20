@@ -159,6 +159,16 @@ blob is accessible. `mediaType` (formerly `type` in -14) is a `"File"` property.
   "blobId": "b1", "mediaType": "application/pdf" }
 ```
 
+### FileNode/set — `sha256` (draft-atwood-jmap-cid-00)
+
+When the server advertises `urn:ietf:params:jmap:cid`, override
+`FileNodeBackend::blob_sha256` to return the stored blob's digest. A `"File"` create
+and an update that sets `blobId` store that digest as the node's server-set `sha256`
+(a client-supplied value is replaced), and an update echoes it in `updated`. The
+default returns `Ok(None)`, meaning the capability is not advertised: the node gets
+no `sha256`. Return `Err` when the capability is advertised but the digest cannot be
+computed; that create or update fails with `serverFail`.
+
 ### FileNode/set — onExists collision handling
 
 When a new node's name collides with an existing sibling (detected via `find_sibling_by_name`):
@@ -233,6 +243,7 @@ pub use jmap_filenode_types::JMAP_FILENODE_URI;
 ```
 jmap-types
     ├── jmap-server              Dispatcher this plugs into
+    ├── jmap-cid-types           Sha256 digest type (draft-atwood-jmap-cid-00)
     └── jmap-filenode-types      domain types (FileNode, NodeType, FilesRights, etc.)
             └── jmap-filenode-server  ← this crate
 ```
