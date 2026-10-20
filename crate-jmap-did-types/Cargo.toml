@@ -11,6 +11,10 @@ keywords = ["jmap", "did", "identity", "types"]
 categories = ["encoding", "network-programming"]
 
 [dependencies]
+base64 = "0.22"
 jmap-types = { workspace = true }
+k256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
+p256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = "0.10"

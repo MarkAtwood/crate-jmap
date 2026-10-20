@@ -133,6 +133,48 @@ impl Did {
         }
         Some(host)
     }
+
+    /// The HTTPS URL of a `did:web` DID document, by the did:web
+    /// Read (Resolve) steps: replace `:` with `/`, percent-decode the
+    /// port colon, prepend `https://`, append `/.well-known` when there
+    /// is no path, then append `/did.json`.
+    ///
+    /// This only maps the DID to a URL; fetching it is the caller's
+    /// job. The return value is `None` exactly when
+    /// [`web_domain`](Self::web_domain) is `None`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use jmap_did_types::Did;
+    ///
+    /// let did: Did = "did:web:w3c-ccg.github.io".parse()?;
+    /// assert_eq!(
+    ///     did.web_document_url().as_deref(),
+    ///     Some("https://w3c-ccg.github.io/.well-known/did.json"),
+    /// );
+    /// # Ok::<(), jmap_did_types::DidError>(())
+    /// ```
+    pub fn web_document_url(&self) -> Option<String> {
+        let host = self.web_domain()?;
+        let mut segments = self.method_specific_id().split(':');
+        let authority = segments.next()?;
+        let mut url = format!("https://{host}");
+        if let Some(port) = authority.get(host.len() + "%3A".len()..) {
+            url.push(':');
+            url.push_str(port);
+        }
+        let mut path = segments.peekable();
+        if path.peek().is_none() {
+            url.push_str("/.well-known");
+        }
+        for segment in path {
+            url.push('/');
+            url.push_str(segment);
+        }
+        url.push_str("/did.json");
+        Some(url)
+    }
 }
 
 fn is_idchar(b: u8) -> bool {

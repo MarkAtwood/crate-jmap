@@ -31,6 +31,16 @@ wire behaviour that a conforming peer can observe.
   `KeyCustody` (`server` / `user` / `Other`). An empty
   `supportedMethods` is rejected ("Servers MUST support at least one
   method").
+- **jmap-did-types**: pure resolution helpers for the three methods
+  draft-atwood-jmap-chat-did-00 §Mandatory DID Methods requires, with no
+  I/O: `DidKey` (`from_did`, `key_type`, `public_key`, `document`) and
+  `KeyType` decode a `did:key` and derive its DID document by the
+  did:key Method v0.9 algorithms; `Did::web_document_url` maps a
+  `did:web` DID to its `did.json` URL; `verify_plc_audit_log` verifies a
+  PLC directory audit log (genesis hash, DAG-CBOR CIDs, low-S ECDSA
+  signatures by rotation keys, the 72-hour recovery rule, `nullified`
+  flags and `createdAt` order) and returns `PlcStatus` / `PlcState`.
+  `jmap-did-types` now depends on `base64`, `k256`, `p256` and `sha2`.
 - **jmap-did-types**: `Did`, a DID validated against the W3C DID Core
   §3.1 ABNF (`DidError` on rejection), with `method`,
   `method_specific_id` and `web_domain`, the host of a `did:web` DID

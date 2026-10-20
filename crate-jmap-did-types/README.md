@@ -48,6 +48,18 @@ assert_eq!(cap.key_custody, Some(KeyCustody::User));
   `Did::web_domain` returns the host of a `did:web` DID without its
   `%3A<port>` suffix, the part clients "SHOULD highlight" against
   look-alike domains.
+- `DidKey::from_did` decodes a `did:key` (base58-btc multicodec) to its
+  key type and raw public key, and `DidKey::document` derives the DID
+  document (`Multikey`, no key-agreement derivation).
+- `Did::web_document_url` maps a `did:web` DID to the HTTPS URL of its
+  `did.json`; fetching it is up to you.
+- `verify_plc_audit_log` takes the bytes of a PLC directory
+  `/<did>/log/audit` response and replays it: the genesis operation must
+  hash to the DID, every operation must be signed (low-S ECDSA, P-256 or
+  secp256k1) by a rotation key of its `prev`, recoveries must fall in
+  the 72-hour window and be signed by a higher-authority key, and every
+  `cid`, `nullified` flag and `createdAt` must agree. It returns
+  `PlcStatus::Active(PlcState)` or `PlcStatus::Deactivated`.
 - `#[non_exhaustive]` on every public type, an `extra` map for unknown
   fields, no async, `#[forbid(unsafe_code)]`.
 
@@ -60,8 +72,14 @@ assert_eq!(cap.key_custody, Some(KeyCustody::User));
 
 - [draft-atwood-jmap-did-00] — JMAP Decentralized Identifiers
 - [DID Core] — W3C Decentralized Identifiers v1.0
+- [did:key] — The did:key Method v0.9
+- [did:web] — did:web Method Specification
+- [did:plc] — did:plc Method Specification v0.3.0
 - [RFC 8620] — JMAP Core (Session resource capabilities)
 
 [draft-atwood-jmap-did-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [DID Core]: https://www.w3.org/TR/did-core/
+[did:key]: https://w3c-ccg.github.io/did-key-spec/
+[did:web]: https://w3c-ccg.github.io/did-method-web/
+[did:plc]: https://web.plc.directory/spec/v0.1/did-plc
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

@@ -41,6 +41,6 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps -p jmap-did-types
 |---|---|
 | Async | None — this crate is sync only |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
-| Dependencies | jmap-types (for `impl_string_enum!`), serde, serde_json |
+| Dependencies | jmap-types (`impl_string_enum!`, `UTCDate`), serde, serde_json; base64, sha2, k256 and p256 (RustCrypto) for did:plc verification |
 | Wire format | camelCase JSON — `#[serde(rename_all = "camelCase")]` |
 | All public structs and enums | `#[non_exhaustive]` |
