@@ -1798,6 +1798,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-scene-client"
+version = "0.3.0"
+dependencies = [
+ "jmap-cid-types",
+ "reqwest",
+ "rustls",
+ "rustls-pki-types",
+ "sha2 0.10.9",
+ "thiserror",
+ "tokio",
+ "tokio-rustls",
+ "url",
+]
+
+[[package]]
 name = "jmap-scene-server"
 version = "0.3.0"
 dependencies = [
