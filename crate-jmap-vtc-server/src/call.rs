@@ -17,10 +17,11 @@ use jmap_vtc_types::{CallEndReason, CallState, CallType, MediaKind, VtcCall};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, SetError, SetErrorType, VtcBackend};
+use crate::backend::{SetError, SetErrorType, VtcBackend};
 use crate::helpers::{
-    default_sort, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
-    reject_unsupported_sort, set_error_value, utc_key, SetAccumulators, PLACEHOLDER_ID,
+    backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
+    fetch_one, finalize_set_response, forbidden, invalid, reject_unsupported_sort, set_error_value,
+    utc_key, SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{
     now_utc_string, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
@@ -265,44 +266,6 @@ pub async fn handle_vtc_call_set<B: VtcBackend>(
     finalize_set_response::<B, VtcCall>(backend, caller, &account_id, old_state, mutated, acc).await
 }
 
-fn invalid(properties: &[&str], description: &str) -> Value {
-    let err = SetError::new(SetErrorType::InvalidProperties).with_description(description);
-    set_error_value(&if properties.is_empty() {
-        err
-    } else {
-        err.with_properties(properties.iter().copied())
-    })
-}
-
-fn forbidden(description: &str) -> Value {
-    set_error_value(&SetError::new(SetErrorType::Forbidden).with_description(description))
-}
-
-fn backend_set_error_value<E: std::fmt::Display>(e: BackendSetError<E>) -> Value {
-    match e {
-        BackendSetError::SetError(se) => set_error_value(&se),
-        BackendSetError::Other(e) => server_fail_value_from_backend(&e),
-        _ => json!({
-            "type": "serverFail",
-            "description": "unhandled backend error variant",
-        }),
-    }
-}
-
-/// Fetch one call, or `None` if the backend does not have it.
-async fn fetch_call<B: VtcBackend>(
-    backend: &B,
-    caller: &B::CallerCtx,
-    account_id: &Id,
-    id: &Id,
-) -> Result<Option<VtcCall>, Value> {
-    backend
-        .get_objects::<VtcCall>(caller, account_id, Some(std::slice::from_ref(id)), None)
-        .await
-        .map(|(found, _)| found.into_iter().next())
-        .map_err(|e| server_fail_value_from_backend(&e))
-}
-
 /// Validate one `create` entry, fill the server-set properties and hand it
 /// to [`VtcBackend::create_call`]. The `Err` value is the SetError JSON.
 async fn create_call<B: VtcBackend>(
@@ -406,7 +369,7 @@ async fn create_call<B: VtcBackend>(
     }
 
     if let Some(parent_id) = m.get("parentCallId").and_then(Value::as_str) {
-        let parent = fetch_call(backend, caller, account_id, &Id::from(parent_id))
+        let parent = fetch_one::<VtcCall, _>(backend, caller, account_id, &Id::from(parent_id))
             .await?
             .ok_or_else(|| invalid(&["parentCallId"], "parentCallId does not name a call"))?;
         let moderator = backend
@@ -483,7 +446,7 @@ async fn destroy_call<B: VtcBackend>(
     account_id: &Id,
     id: &Id,
 ) -> Result<(), Value> {
-    let call = fetch_call(backend, caller, account_id, id)
+    let call = fetch_one::<VtcCall, _>(backend, caller, account_id, id)
         .await?
         .ok_or_else(|| set_error_value(&SetError::new(SetErrorType::NotFound)))?;
     if !may_end_call(backend, caller, account_id, &call).await? {
@@ -525,7 +488,7 @@ async fn update_call<B: VtcBackend>(
         return Err(invalid(&fixed, "these properties cannot be updated"));
     }
 
-    let call = fetch_call(backend, caller, account_id, id)
+    let call = fetch_one::<VtcCall, _>(backend, caller, account_id, id)
         .await?
         .ok_or_else(|| set_error_value(&SetError::new(SetErrorType::NotFound)))?;
 

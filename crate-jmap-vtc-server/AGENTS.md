@@ -9,7 +9,8 @@ the draft-atwood-jmap-vtc-00 rules. Diverging shape changes go to
 
 ## What this crate is
 
-draft-atwood-jmap-vtc-00 `VTCCall/*` method handlers, the `VtcBackend`
+draft-atwood-jmap-vtc-00 `VTCCall/*`, `VTCRecording/*` and
+`VTCLivestream/*` method handlers, the `VtcBackend`
 trait and a `memory` reference backend. Depends on RFC 8620 crates and
 `jmap-vtc-types` only: Chat, Calendars and Scene bindings live in binding
 crates (Mark, 2026-10-20, bd:JMAP-8mem.6).
@@ -36,4 +37,6 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p jmap-vtc-server
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
 | Permission hooks | Fail-open defaults (bd:JMAP-bghk) |
 | One active call per Chat | Enforced atomically in `VtcBackend::create_call` |
+| Recording/livestream on an E2EE call | Always `forbidden`: no key-holding bridge here (the draft's MAY) |
+| Recording consent signal | `VtcBackend::deliver_recording_state_event`, no default |
 | Tests | Each assertion quotes its draft line; never the code under test |

@@ -1,10 +1,10 @@
 //! Private helper utilities for the handler modules.
 
-use jmap_types::{Id, JmapError, JmapObject, State, UTCDate};
+use jmap_types::{GetObject, Id, JmapError, JmapObject, State, UTCDate};
 use serde_json::{json, Map, Value};
 
-use crate::backend::{SetError, VtcBackend};
-use jmap_server::{server_fail_from_backend, HandlerOutput};
+use crate::backend::{BackendSetError, SetError, SetErrorType, VtcBackend};
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
 
@@ -20,6 +20,53 @@ pub(crate) const PLACEHOLDER_ID: &str = "placeholder";
 /// is unreachable.
 pub(crate) fn set_error_value(e: &SetError) -> Value {
     serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
+}
+
+/// An `invalidProperties` SetError naming `properties` (none when empty).
+pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {
+    let err = SetError::new(SetErrorType::InvalidProperties).with_description(description);
+    set_error_value(&if properties.is_empty() {
+        err
+    } else {
+        err.with_properties(properties.iter().copied())
+    })
+}
+
+/// A `forbidden` SetError.
+pub(crate) fn forbidden(description: &str) -> Value {
+    set_error_value(&SetError::new(SetErrorType::Forbidden).with_description(description))
+}
+
+/// A `notFound` SetError.
+pub(crate) fn not_found() -> Value {
+    set_error_value(&SetError::new(SetErrorType::NotFound))
+}
+
+/// The SetError JSON for a backend `/set` failure; storage errors become
+/// `serverFail` without their `Display` text.
+pub(crate) fn backend_set_error_value<E: std::fmt::Display>(e: BackendSetError<E>) -> Value {
+    match e {
+        BackendSetError::SetError(se) => set_error_value(&se),
+        BackendSetError::Other(e) => server_fail_value_from_backend(&e),
+        _ => json!({
+            "type": "serverFail",
+            "description": "unhandled backend error variant",
+        }),
+    }
+}
+
+/// Fetch one object of type `O`, or `None` if the backend does not have it.
+pub(crate) async fn fetch_one<O: GetObject + Send + Sync, B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+) -> Result<Option<O>, Value> {
+    backend
+        .get_objects::<O>(caller, account_id, Some(std::slice::from_ref(id)), None)
+        .await
+        .map(|(found, _)| found.into_iter().next())
+        .map_err(|e| server_fail_value_from_backend(&e))
 }
 
 /// The sortable part of a UTCDate: `YYYY-MM-DDTHH:MM:SS`.

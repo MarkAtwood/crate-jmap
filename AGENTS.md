@@ -95,7 +95,7 @@ crates, never in a support crate.
 | `crate-jmap-chat-mimi-types/` | `jmap-chat-mimi-types` | draft-atwood-jmap-chat-mimi-00 data types — `MimiCapability` (`urn:ietf:params:jmap:chat:mimi`), `KeyPackage` object and `/get`/`/set` shapes, `KeyMaterial/fetch` arguments, `Room/create`/`/update`/`/send`/`/unbind` arguments and `chat_room_id`, `GroupInfo/fetch` arguments, MIMI/MLS body-type constants, `Base64Url` byte-string wire shape. No async, no I/O, no MLS dependency |
 | `crate-jmap-chat-federation-types/` | `jmap-chat-federation-types` | draft-atwood-jmap-chat-federation-00 data types — `contact_server_url` and `contact_direct_address` read the `ChatContact.serverUrl` and `.directAddress` extension fields from `ChatContact.extra`. No async, no I/O |
 | `crate-jmap-vtc-types/` | `jmap-vtc-types` | draft-atwood-jmap-vtc-00 data types — `VtcCapability` (`urn:ietf:params:jmap:vtc`) with `VtcGateway`/`VtcDialInEntry`, `VtcMediaState`, `VtcCallPolicy`, the `VtcCall`, `VtcParticipant`, `VtcRecording` and `VtcLivestream` objects, `VtcCallPush` (full and content-free), and `VtcEvent` over the eight ephemeral events, the `query` filter/comparator types and `JmapObject` impls for `VtcCall`/`VtcParticipant`. No async, no I/O, depends on `jmap-types` only |
-| `crate-jmap-vtc-server/` | `jmap-vtc-server` | draft-atwood-jmap-vtc-00 `VTCCall/*` method handlers — `VtcBackend` (capability object, companion-capability probe, caller userId, atomic `create_call` with ring participants, fail-open `is_moderator`), create gates, §State Machine, ending a call, call-level moderator actions, `/query` default sort and `query::call_matches`/`compare_calls`, `memory` reference backend. Depends on RFC 8620 only; the Chat binding lives in a binding crate |
+| `crate-jmap-vtc-server/` | `jmap-vtc-server` | draft-atwood-jmap-vtc-00 `VTCCall/*`, `VTCRecording/*` and `VTCLivestream/*` method handlers — `VtcBackend` (capability object, companion-capability probe, caller userId, atomic `create_call` with ring participants, atomic `create_object`, required `deliver_recording_state_event`, fail-open `is_moderator`), create gates, §State Machine, ending a call, call-level moderator actions, moderator-only recording/livestream `/set` with their state machines, E2EE `forbidden`, `streamKey` redaction, `/query` default sorts and the `query` match/compare functions, `memory` reference backend. Depends on RFC 8620 only; the Chat binding lives in a binding crate |
 
 ## Dependency Tree
 
@@ -185,7 +185,7 @@ jmap-vtc-types         — draft-atwood-jmap-vtc-00 data types: VtcCapability
                          (urn:ietf:params:jmap:vtc), VtcCall, VtcParticipant,
                          VtcRecording, VtcLivestream, VtcCallPush, VtcEvent.
                          No async, no I/O. Depends on jmap-types only.
-    └── jmap-vtc-server    — VTCCall method handlers, VtcBackend trait.
+    └── jmap-vtc-server    — VTCCall, VTCRecording, VTCLivestream handlers, VtcBackend trait.
                              Depends on jmap-server; no chat dependency.
 ```
 

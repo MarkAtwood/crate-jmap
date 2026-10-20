@@ -141,3 +141,75 @@ pub fn seed(backend: &MemoryBackend, call: Value) {
     let id = call["id"].as_str().expect("id").to_owned();
     backend.insert_object_for_test("VTCCall", &Id::from(ACCOUNT), &id, call);
 }
+
+/// [`capability`] with `supportsRecording` and `supportsLivestream`
+/// (L163-166) enabled.
+pub fn media_capability() -> Value {
+    let mut cap = capability();
+    cap["supportsRecording"] = json!(true);
+    cap["supportsLivestream"] = json!(true);
+    cap
+}
+
+/// A backend under [`media_capability`] holding call `C1`: a room call
+/// in state `"active"` whose initiator is [`BOB`] ("The call initiator
+/// receives `"moderator"` by default", L294).
+pub fn media_backend() -> MemoryBackend {
+    let backend = backend_with(media_capability());
+    seed(
+        &backend,
+        stored_call("C1", "room", "active", "2026-06-05T14:30:00Z"),
+    );
+    backend
+}
+
+/// Run handler `$method` on [`ACCOUNT`] as `$caller` with `$args` (without
+/// `accountId`) and return the response.
+#[allow(unused_macros)]
+macro_rules! call {
+    ($method:path, $backend:expr, $caller:expr, $args:expr $(,)?) => {{
+        let mut args: serde_json::Value = $args;
+        args["accountId"] = serde_json::json!($crate::common::ACCOUNT);
+        $method($backend, &$caller.to_owned(), args)
+            .await
+            .expect("method")
+            .primary
+    }};
+}
+
+/// A stored recording, hand-written from the field list at L461-489.
+pub fn stored_recording(id: &str, state: &str, started_at: &str) -> Value {
+    json!({
+        "id": id,
+        "callId": "C1",
+        "state": state,
+        "startedAt": started_at,
+        "stoppedAt": null,
+        "initiatedBy": BOB,
+        "blobId": null,
+        "size": null,
+        "duration": null,
+        "mediaType": null
+    })
+}
+
+/// A stored livestream, hand-written from the field list at L495-517 with
+/// the stream values of the L1170-1176 create example.
+pub fn stored_livestream(id: &str, state: &str, started_at: Value) -> Value {
+    json!({
+        "id": id,
+        "callId": "C1",
+        "state": state,
+        "platform": "youtube",
+        "streamUri": "rtmp://live.example.com/ingest",
+        "streamKey": "sk_live_abc123def456",
+        "startedAt": started_at,
+        "stoppedAt": null
+    })
+}
+
+/// Seed `obj` as object of `type_name` into the backend.
+pub fn seed_as(backend: &MemoryBackend, type_name: &'static str, obj: Value) {
+    let id = obj["id"].as_str().expect("id").to_owned();
+    backend.insert_object_for_test(type_name, &Id::from(ACCOUNT), &id, obj);
+}

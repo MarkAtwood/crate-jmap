@@ -28,6 +28,25 @@ wire behaviour that a conforming peer can observe.
   `call_already_active_on_chat` is the L573 one-active-call-per-Chat
   SetError; `query::call_matches` and `query::compare_calls` evaluate the
   `/query` filter and sort. Depends on RFC 8620 only.
+- **jmap-vtc-server**: `VTCRecording/*` and `VTCLivestream/*` handlers
+  (draft-atwood-jmap-vtc-00 §VTCRecording Methods, §VTCLivestream
+  Methods). Every `/set` operation is moderator-only; a create is
+  `forbidden` without `supportsRecording` / `supportsLivestream` or on an
+  `e2eeEnabled` call (no key-holding bridge is implemented), and
+  `invalidProperties` naming `callId` unless the call is `"active"`.
+  Recordings follow `recording` ⇄ `paused` → `stopped` (setting
+  `stoppedAt`), each change followed by a `VTCRecordingStateEvent`;
+  livestreams can only be stopped, and reconfigured only while stopped
+  or failed. `VTCLivestream/get` returns `streamKey` and `streamUri` as
+  `""` to non-moderators. `VtcBackend` gains the required
+  `create_object` and `deliver_recording_state_event`;
+  `register_vtc_handlers` wires the ten new methods; `query` gains
+  `recording_matches`, `livestream_matches`, `compare_recordings` and
+  `compare_livestreams`.
+- **jmap-vtc-types**: `VtcRecordingFilter`, `VtcLivestreamFilter`,
+  `VtcMediaComparator` and `VtcMediaSortProperty` (§VTCRecording/query,
+  §VTCLivestream/query), and `JmapObject` impls for `VtcRecording`
+  (`"VTCRecording"`) and `VtcLivestream` (`"VTCLivestream"`).
 - **jmap-vtc-types**: `query` module with `VtcCallFilter`,
   `VtcCallFilterCondition`, `VtcCallComparator` and `VtcCallSortProperty`
   (§VTCCall/query), and `JmapObject` impls for `VtcCall` (`"VTCCall"`) and
