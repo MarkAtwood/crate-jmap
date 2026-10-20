@@ -87,6 +87,7 @@ crates, never in a support crate.
 | `crate-jmap-metadata-server/` | `jmap-metadata-server` | draft-ietf-jmap-metadata-02 server helpers — depth/namespace validation, `metadata*` filter predicates, `/changes` classification. No handlers, no backend trait |
 | `crate-jmap-metadata-client/` | `jmap-metadata-client` | draft-ietf-jmap-metadata-02 client helpers — property constants, `metadata*` filter-condition builders, `/changes` helpers. No method bindings |
 | `crate-jmap-cid-types/` | `jmap-cid-types` | draft-atwood-jmap-cid-00 data types — `CidCapability` (`urn:ietf:params:jmap:cid`) and `Sha256` typed wire shape. Blob/FileNode integrity, no async |
+| `crate-jmap-chat-mimi-types/` | `jmap-chat-mimi-types` | draft-atwood-jmap-chat-mimi-00 data types — `MimiCapability` (`urn:ietf:params:jmap:chat:mimi`), MIMI/MLS body-type constants, `Base64Url` byte-string wire shape. No async, no I/O, no MLS dependency |
 
 ## Dependency Tree
 
@@ -128,6 +129,11 @@ jmap-cid-types         — draft-atwood-jmap-cid-00 data types: CidCapability
                          extension — feeds Blob upload responses and FileNode
                          objects in a future jmap-base-client / jmap-filenode-types
                          revision.
+
+jmap-chat-mimi-types   — draft-atwood-jmap-chat-mimi-00 data types: MimiCapability
+                         (urn:ietf:params:jmap:chat:mimi), body-type constants,
+                         Base64Url. No async, no I/O. Depends on serde and
+                         serde_json only.
 ```
 
 Type crates (`*-types`) have no async deps. Server crates may depend on tokio/http.

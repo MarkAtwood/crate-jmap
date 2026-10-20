@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-mimi-types**: new crate for draft-atwood-jmap-chat-mimi-00.
+  It holds `JMAP_CHAT_MIMI_URI`, the account-level `MimiCapability`
+  (`userUri`, `roomIdPrefix`, `hubSender`, `cipherSuites`, `maxKeyPackages`),
+  `MIMI_FANOUT_BODY_TYPE` and `MLS_MESSAGE_BODY_TYPE`, plus `Base64Url`, the
+  unpadded base64url wire shape of every byte-string property ("Servers MUST
+  NOT re-encode these octets"). An empty `cipherSuites` fails to
+  deserialize, because the draft says it "MUST NOT be empty".
 - **jmap-chat-client**: `TypingIndicators` and `TYPING_DECAY` track typing
   indicators per `(chatId, senderId)` and hide one after 10 s without a
   typing event, per draft-atwood-jmap-chat-00 §Chat/typing: "if no typing
