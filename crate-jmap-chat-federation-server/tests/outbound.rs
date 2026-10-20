@@ -11,7 +11,7 @@ use jmap_chat_federation_server::{
     peer_group_update_args, DeliveryFailure, OutboundError, SenderIdentities,
 };
 use jmap_chat_server::GroupUpdateAction;
-use jmap_chat_types::{Chat, ChatContact, ChatMember, DeliveryState, Space};
+use jmap_chat_types::{Chat, ChatContact, ChatMember, DeliveryState, MessageAction, Space};
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -253,6 +253,52 @@ fn member_without_identity_is_an_error() {
                 removed_ids: vec![Id::from("contact-gone")],
             },
         ),
+        Err(OutboundError::UnknownUser(Id::from("contact-gone")))
+    );
+}
+
+fn task_action(assignee_ids: Value) -> MessageAction {
+    serde_json::from_value(json!({
+        "type": "urn:jmap:chat:cap:task",
+        "uri": "urn:jmap:task:A1:T1",
+        "label": "Ship it",
+        "metadata": {"assigneeIds": assignee_ids, "due": "2026-11-01T00:00:00Z"},
+    }))
+    .expect("action fixture")
+}
+
+// draft-atwood-jmap-chat-tasks-00 L254: "Between servers it carries
+// identity strings, not local ids ...: the sending server maps each local
+// id to the user's identity". Federation draft L314 (jmap-chat-spec
+// 63e9d08): the owner's `accountId` becomes
+// its `ownerUserId`, a ChatContact `id` that ChatContact's `identity`.
+// Other actions are not user references and are sent unchanged.
+#[test]
+fn task_assignee_ids_become_identity_strings() {
+    let contacts = contacts();
+    let account = Id::from(ACCOUNT);
+    let identities = SenderIdentities::new(&account, OWNER, &contacts);
+    let other: MessageAction = serde_json::from_value(json!({
+        "type": "urn:example:other",
+        "uri": "https://other.example/1",
+        "metadata": {"assigneeIds": [BOB_ID]},
+    }))
+    .expect("action fixture");
+    let sent = identities
+        .actions(&[task_action(json!([ACCOUNT, BOB_ID])), other.clone()])
+        .expect("mapped");
+    assert_eq!(sent, [task_action(json!([OWNER, BOB])), other]);
+}
+
+// L312: "Peer/* arguments therefore never carry a ChatContact `id`": an
+// assignee with no identity string cannot be sent.
+#[test]
+fn task_assignee_without_identity_is_an_error() {
+    let contacts = contacts();
+    let account = Id::from(ACCOUNT);
+    let identities = SenderIdentities::new(&account, OWNER, &contacts);
+    assert_eq!(
+        identities.actions(&[task_action(json!(["contact-gone"]))]),
         Err(OutboundError::UnknownUser(Id::from("contact-gone")))
     );
 }

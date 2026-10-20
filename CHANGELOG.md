@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-federation-server**: `assigneeIds` in the metadata of a
+  `urn:jmap:chat:cap:task` MessageAction is mapped as a user reference
+  (draft-atwood-jmap-chat-tasks-00 §Federation). `Peer/deliver` resolves
+  each identity to a local id (owner, ChatContact or placeholder) and
+  rejects a non-identity entry with `invalidArguments`;
+  `SenderIdentities::actions` maps local ids to identity strings for
+  sending.
 - **jmap-chat-federation-server**: the optional presence methods of
   draft-atwood-jmap-chat-federation-00. `handle_peer_subscribe_presence`
   answers with the owner's presence (`"invisible"` as `"offline"`) and the

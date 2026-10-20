@@ -13,8 +13,12 @@ use jmap_chat_federation_types::{
     GroupUpdateAction as PeerAction, PeerChatMember, PeerGroupUpdateArgs, PeerRoleUpdate,
 };
 use jmap_chat_server::{ChatBackend, GroupUpdateAction};
-use jmap_chat_types::{Chat, ChatContact, ChatKind, ChatMember, DeliveryState, Message, Space};
+use jmap_chat_types::vocabulary::CHAT_CAP_TASK;
+use jmap_chat_types::{
+    Chat, ChatContact, ChatKind, ChatMember, DeliveryState, Message, MessageAction, Space,
+};
 use jmap_types::Id;
+use serde_json::Value;
 
 /// The `senderMsgId` to send for a locally stored `replyTo` or
 /// `threadRootId` (§Outbound Message Preparation).
@@ -112,6 +116,30 @@ impl<'a> SenderIdentities<'a> {
             .ok_or_else(|| OutboundError::UnknownUser(id.clone()))
     }
 
+    /// `actions` as sent in a `Peer/deliver` message: each `assigneeIds`
+    /// entry of a `urn:jmap:chat:cap:task` action becomes the identity
+    /// string of the local user it names (draft-atwood-jmap-chat-tasks-00
+    /// §Federation: "the sending server maps each local id to the user's
+    /// identity"). Every other action, key and value is unchanged.
+    ///
+    /// # Errors
+    ///
+    /// [`OutboundError::UnknownUser`] when an entry names neither the
+    /// owner nor a stored ChatContact, or is not a string.
+    pub fn actions(&self, actions: &[MessageAction]) -> Result<Vec<MessageAction>, OutboundError> {
+        let mut out = actions.to_vec();
+        for action in &mut out {
+            for entry in task_assignee_ids(action).into_iter().flatten() {
+                let local = entry
+                    .as_str()
+                    .map(Id::from)
+                    .ok_or_else(|| OutboundError::UnknownUser(Id::from(entry.to_string())))?;
+                *entry = Value::String(self.identity(&local)?);
+            }
+        }
+        Ok(out)
+    }
+
     fn member(&self, m: &ChatMember) -> Result<PeerChatMember, OutboundError> {
         let mut out =
             PeerChatMember::new(self.identity(&m.id)?, m.role.clone(), m.joined_at.clone());
@@ -126,6 +154,22 @@ impl<'a> SenderIdentities<'a> {
     fn members(&self, list: &[ChatMember]) -> Result<Vec<PeerChatMember>, OutboundError> {
         list.iter().map(|m| self.member(m)).collect()
     }
+}
+
+/// The `assigneeIds` array of a `urn:jmap:chat:cap:task` MessageAction's
+/// `metadata`, the user-reference field inside MessageAction metadata
+/// that draft-atwood-jmap-chat-federation-00 §User References in Peer
+/// Methods names. `None` for another action type, or when the key is
+/// absent or not an array.
+pub(crate) fn task_assignee_ids(action: &mut MessageAction) -> Option<&mut Vec<Value>> {
+    if action.action_type != CHAT_CAP_TASK {
+        return None;
+    }
+    action
+        .metadata
+        .as_mut()?
+        .get_mut("assigneeIds")?
+        .as_array_mut()
 }
 
 /// Why outbound arguments could not be built.

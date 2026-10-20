@@ -42,10 +42,11 @@
 //! A backend's `ChatBackend::on_outbound_event` turns each
 //! `jmap_chat_server::OutboundEvent` into `Peer/*` calls. For a new
 //! Message, [`outbound_reference`] gives the `senderMsgId` to send for its
-//! `replyTo` and `threadRootId` (§Outbound Message Preparation). For a
-//! retraction, `Peer/retract` goes to each of [`other_participants`]
-//! (§Peer/retract "Sender Behavior"). For a group change,
-//! [`peer_group_update_args`] builds the `Peer/groupUpdate` arguments,
+//! `replyTo` and `threadRootId` (§Outbound Message Preparation), and
+//! [`SenderIdentities::actions`] maps the user references inside its
+//! `actions`. For a retraction, `Peer/retract` goes to each of
+//! [`other_participants`] (§Peer/retract "Sender Behavior"). For a group
+//! change, [`peer_group_update_args`] builds the `Peer/groupUpdate` arguments,
 //! mapping local ids to identity strings through [`SenderIdentities`].
 //! [`is_transient`] classifies a failed call for retry ([`DeliveryFailure`],
 //! §Retry and Backoff), and [`aggregate_delivery_state`] combines the
