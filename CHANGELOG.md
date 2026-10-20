@@ -146,6 +146,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-base-client**: `WsSession::next_frame` /
+  `WsReceiver::next_frame` return `Some(Err(ClientError::WsClosed { code,
+  reason }))` instead of `None` when the server closes with status code 1008
+  (Policy Violation), so callers can tell credential expiry from a clean
+  close (draft-atwood-jmap-chat-wss-00 §Authentication and Identity). Other
+  Close frames still end the stream with `None`. `ClientError` gains the
+  `WsClosed` variant.
+
 - **BREAKING** **jmap-chat-server**: `ChatBackend::is_contact_blocked` is
   now documented as a plain lookup: whether `contact_id` has
   `blocked: true` on `account_id`'s own contact list, with `account_id`
