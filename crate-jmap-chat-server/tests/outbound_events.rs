@@ -45,6 +45,28 @@
 //!   `"remove"`, identifies which reaction to delete." L377: "`action`
 //!   (String) — `"add"` or `"remove"`."
 //!
+//! - draft-atwood-jmap-chat-federation-00.md L462: Peer/receipt `readAt`
+//!   "SHOULD be present when the recipient's owner has read the message."
+//!   L472 (Sender Behavior): "if `Chat.receiptSharing` is present for the
+//!   relevant Chat, that value is used; otherwise the account-level
+//!   `PresenceStatus.receiptSharing` applies ... If the effective
+//!   preference is `false`, the server MUST NOT invoke `Peer/receipt`".
+//! - draft-atwood-jmap-chat-00.md L945: PresenceStatus `receiptSharing`
+//!   "Default: `true`." L680: when an update sets `readAt` and "omits
+//!   `readDisposition`, the server MUST store `"displayed"`." L660
+//!   (`burnOnRead`): "When the recipient's effective `receiptSharing`
+//!   preference is `false`, ... the sending server receives no
+//!   `Peer/receipt` confirmation", so with sharing on, a burned read
+//!   still sends one.
+//! - L1086 (§Chat/typing Server Behavior): the server "SHOULD deliver a
+//!   `typing` push event ... to all connected clients of each local
+//!   participant in the Chat other than the requesting account" and "For
+//!   federated Chats, the server SHOULD invoke `Peer/typing`". L1074: an
+//!   unknown `chatId` is an `invalidArguments` method error.
+//! - draft-atwood-jmap-chat-federation-00.md L706: the server "MAY push
+//!   subsequent `Peer/presence` calls to the subscriber whenever the
+//!   owner's presence, `statusText`, or `statusEmoji` changes."
+//!
 //! The owner is referenced by the accountId (draft-atwood-jmap-chat-00
 //! §Terminology), so it is never a recipient.
 
@@ -52,10 +74,12 @@ mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{
-    handle_chat_set, handle_message_set, GroupUpdateAction, OutboundEvent, ReactionAction,
+    handle_chat_set, handle_chat_typing, handle_message_set, handle_presence_set,
+    GroupUpdateAction, OutboundEvent, ReactionAction,
 };
+use jmap_chat_types::ReadDisposition;
 use jmap_server::HandlerOutput;
-use jmap_types::Id;
+use jmap_types::{Id, UTCDate};
 use serde_json::{json, Value};
 
 fn backend() -> MemoryBackend {
@@ -616,5 +640,267 @@ async fn rejected_reaction_reports_nothing() {
     );
     let resp = message_update(&backend, "m1", json!({ "reactions/r1": null })).await;
     assert_eq!(resp["notUpdated"]["m1"]["type"], "forbidden", "{resp}");
+    assert_eq!(backend.take_outbound_events_for_test(), vec![]);
+}
+
+/// PresenceStatus `ps1` with account-level `receiptSharing`.
+fn seed_presence(backend: &MemoryBackend, receipt_sharing: bool) {
+    backend.insert_object_for_test(
+        "PresenceStatus",
+        ACCOUNT_ID,
+        "ps1",
+        json!({
+            "id": "ps1",
+            "presence": "online",
+            "receiptSharing": receipt_sharing,
+            "updatedAt": "2026-01-01T00:00:00Z",
+        }),
+    );
+}
+
+/// Direct Chat `dm` with the per-Chat `receiptSharing` override.
+fn seed_dm_receipt_sharing(backend: &MemoryBackend, receipt_sharing: bool) {
+    backend.insert_object_for_test(
+        "Chat",
+        ACCOUNT_ID,
+        "dm",
+        json!({
+            "id": "dm",
+            "kind": "direct",
+            "contactId": "bob",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "unreadCount": 0,
+            "pinnedMessageIds": [],
+            "receiptSharing": receipt_sharing,
+        }),
+    );
+}
+
+/// The `Receipt` for `m1` in `dm` (`senderMsgId` `smid-m1`), read at
+/// 2026-01-02T00:00:00Z.
+fn receipt(read_disposition: Option<ReadDisposition>) -> OutboundEvent {
+    OutboundEvent::Receipt {
+        chat_id: Id::from("dm"),
+        message_id: Id::from("m1"),
+        sender_msg_id: Id::from("smid-m1"),
+        read_at: UTCDate::from("2026-01-02T00:00:00Z"),
+        read_disposition,
+    }
+}
+
+/// fed L462, L472 with no override and chat-00 L945 default `true`;
+/// chat-00 L680 stores `"displayed"` when `readDisposition` is omitted.
+#[tokio::test]
+async fn read_reports_receipt_with_default_disposition() {
+    let backend = backend();
+    seed_message(&backend, "m1", "bob");
+    let resp = message_update(&backend, "m1", json!({ "readAt": "2026-01-02T00:00:00Z" })).await;
+    assert!(resp["updated"].get("m1").is_some(), "{resp}");
+    assert_eq!(
+        backend.take_outbound_events_for_test(),
+        vec![receipt(Some(ReadDisposition::Displayed))]
+    );
+}
+
+/// fed L472: the account-level preference applies when no Chat override.
+#[tokio::test]
+async fn read_reports_receipt_with_given_disposition() {
+    let backend = backend();
+    seed_presence(&backend, true);
+    seed_message(&backend, "m1", "bob");
+    let resp = message_update(
+        &backend,
+        "m1",
+        json!({ "readAt": "2026-01-02T00:00:00Z", "readDisposition": "processed" }),
+    )
+    .await;
+    assert!(resp["updated"].get("m1").is_some(), "{resp}");
+    assert_eq!(
+        backend.take_outbound_events_for_test(),
+        vec![receipt(Some(ReadDisposition::Processed))]
+    );
+}
+
+/// fed L472: account-level `receiptSharing: false` and no Chat override
+/// means the server "MUST NOT invoke `Peer/receipt`".
+#[tokio::test]
+async fn account_receipt_sharing_off_suppresses_receipt() {
+    let backend = backend();
+    seed_presence(&backend, false);
+    seed_message(&backend, "m1", "bob");
+    let resp = message_update(&backend, "m1", json!({ "readAt": "2026-01-02T00:00:00Z" })).await;
+    assert!(resp["updated"].get("m1").is_some(), "{resp}");
+    assert_eq!(backend.take_outbound_events_for_test(), vec![]);
+}
+
+/// fed L472: a present `Chat.receiptSharing` "is used" over the account.
+#[tokio::test]
+async fn chat_receipt_sharing_on_overrides_account_off() {
+    let backend = backend();
+    seed_presence(&backend, false);
+    seed_dm_receipt_sharing(&backend, true);
+    seed_message(&backend, "m1", "bob");
+    let resp = message_update(&backend, "m1", json!({ "readAt": "2026-01-02T00:00:00Z" })).await;
+    assert!(resp["updated"].get("m1").is_some(), "{resp}");
+    assert_eq!(
+        backend.take_outbound_events_for_test(),
+        vec![receipt(Some(ReadDisposition::Displayed))]
+    );
+}
+
+/// fed L472: a `Chat.receiptSharing: false` override suppresses the receipt
+/// even though the account shares.
+#[tokio::test]
+async fn chat_receipt_sharing_off_overrides_account_on() {
+    let backend = backend();
+    seed_presence(&backend, true);
+    seed_dm_receipt_sharing(&backend, false);
+    seed_message(&backend, "m1", "bob");
+    let resp = message_update(&backend, "m1", json!({ "readAt": "2026-01-02T00:00:00Z" })).await;
+    assert!(resp["updated"].get("m1").is_some(), "{resp}");
+    assert_eq!(backend.take_outbound_events_for_test(), vec![]);
+}
+
+/// fed L462: a receipt reports the recipient reading another's message;
+/// the owner's own message has no remote sender to tell.
+#[tokio::test]
+async fn reading_own_message_reports_nothing() {
+    let backend = backend();
+    seed_message(&backend, "m1", ACCOUNT_ID);
+    let resp = message_update(&backend, "m1", json!({ "readAt": "2026-01-02T00:00:00Z" })).await;
+    assert!(resp["updated"].get("m1").is_some(), "{resp}");
+    assert_eq!(backend.take_outbound_events_for_test(), vec![]);
+}
+
+/// fed L462: `readAt: null` clears the read state; nothing was read.
+#[tokio::test]
+async fn clearing_read_at_reports_nothing() {
+    let backend = backend();
+    seed_message(&backend, "m1", "bob");
+    let resp = message_update(&backend, "m1", json!({ "readAt": null })).await;
+    assert!(resp["updated"].get("m1").is_some(), "{resp}");
+    assert_eq!(backend.take_outbound_events_for_test(), vec![]);
+}
+
+/// chat-00 L660: the burn happens, and with sharing on the sender still
+/// gets its `Peer/receipt`.
+#[tokio::test]
+async fn burn_on_read_still_reports_receipt() {
+    let backend = backend();
+    backend.insert_object_for_test(
+        "Message",
+        ACCOUNT_ID,
+        "m1",
+        json!({
+            "id": "m1",
+            "senderMsgId": "smid-m1",
+            "senderId": "bob",
+            "chatId": "dm",
+            "body": "hello",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "sentAt": "2026-01-01T00:00:00Z",
+            "receivedAt": "2026-01-01T00:00:00Z",
+            "deliveryState": "delivered",
+            "burnOnRead": true,
+        }),
+    );
+    let resp = message_update(&backend, "m1", json!({ "readAt": "2026-01-02T00:00:00Z" })).await;
+    assert!(resp["updated"].get("m1").is_some(), "{resp}");
+    assert_eq!(
+        backend.take_outbound_events_for_test(),
+        vec![receipt(Some(ReadDisposition::Displayed))]
+    );
+}
+
+async fn chat_typing(backend: &MemoryBackend, chat_id: &str, typing: bool) -> Result<(), String> {
+    handle_chat_typing(
+        backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "chatId": chat_id, "typing": typing }),
+    )
+    .await
+    .map(|_| ())
+    .map_err(|e| format!("{e:?}"))
+}
+
+/// chat-00 L1086: a valid `Chat/typing` leads to local `typing` push and
+/// `Peer/typing`, both carrying the Chat and the flag.
+#[tokio::test]
+async fn chat_typing_reports_typing() {
+    let backend = backend();
+    seed_group(&backend, "admin", &[("bob", "member")]);
+    chat_typing(&backend, "g1", true)
+        .await
+        .expect("Chat/typing");
+    chat_typing(&backend, "g1", false)
+        .await
+        .expect("Chat/typing");
+    assert_eq!(
+        backend.take_outbound_events_for_test(),
+        vec![
+            OutboundEvent::Typing {
+                chat_id: Id::from("g1"),
+                typing: true,
+            },
+            OutboundEvent::Typing {
+                chat_id: Id::from("g1"),
+                typing: false,
+            },
+        ]
+    );
+}
+
+/// chat-00 L1074: an unknown `chatId` is rejected, so nothing is sent.
+#[tokio::test]
+async fn rejected_chat_typing_reports_nothing() {
+    let backend = backend();
+    assert!(chat_typing(&backend, "nope", true).await.is_err());
+    assert_eq!(backend.take_outbound_events_for_test(), vec![]);
+}
+
+async fn presence_update(backend: &MemoryBackend, patch: Value) -> Value {
+    let HandlerOutput { primary, .. } = handle_presence_set(
+        backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "update": { "ps1": patch } }),
+    )
+    .await
+    .expect("PresenceStatus/set");
+    primary
+}
+
+/// fed L706: a change to presence, `statusText` or `statusEmoji` may be
+/// pushed as `Peer/presence`.
+#[tokio::test]
+async fn presence_change_reports_presence() {
+    let backend = backend();
+    seed_presence(&backend, true);
+    for patch in [
+        json!({ "presence": "busy" }),
+        json!({ "statusText": "In a meeting" }),
+        json!({ "statusEmoji": null }),
+    ] {
+        let resp = presence_update(&backend, patch).await;
+        assert!(resp["updated"].get("ps1").is_some(), "{resp}");
+    }
+    assert_eq!(
+        backend.take_outbound_events_for_test(),
+        vec![
+            OutboundEvent::Presence,
+            OutboundEvent::Presence,
+            OutboundEvent::Presence
+        ]
+    );
+}
+
+/// fed L706 names only presence, `statusText` and `statusEmoji`;
+/// `receiptSharing` is not carried by `Peer/presence`.
+#[tokio::test]
+async fn receipt_sharing_change_reports_no_presence() {
+    let backend = backend();
+    seed_presence(&backend, true);
+    let resp = presence_update(&backend, json!({ "receiptSharing": false })).await;
+    assert!(resp["updated"].get("ps1").is_some(), "{resp}");
     assert_eq!(backend.take_outbound_events_for_test(), vec![]);
 }

@@ -844,12 +844,15 @@ pub trait ChatBackend: JmapBackend {
 
     /// Called when the owner's action must be sent to other participants'
     /// servers: a new Message, a retraction (`deletedForAll`), an edit, a
-    /// reaction added or removed, or a group Chat change. A backend that
-    /// implements draft-atwood-jmap-chat-federation-00 turns the
+    /// reaction added or removed, a group Chat change, a read receipt, a
+    /// typing signal or a presence change. A backend that implements
+    /// draft-atwood-jmap-chat-federation-00 turns the
     /// [`OutboundEvent`](crate::OutboundEvent) into `Peer/deliver`
-    /// (`message`, `edit` or `reactionUpdate`), `Peer/retract` or
-    /// `Peer/groupUpdate` calls, typically by enqueueing them
-    /// (§Persistent Queue).
+    /// (`message`, `edit` or `reactionUpdate`), `Peer/retract`,
+    /// `Peer/groupUpdate`, `Peer/receipt`, `Peer/typing` or `Peer/presence`
+    /// calls, typically by enqueueing the durable ones (§Persistent Queue).
+    /// [`OutboundEvent::Typing`](crate::OutboundEvent::Typing) also drives
+    /// the local `typing` push to the Chat's other local participants.
     ///
     /// # When the handler calls this
     ///
@@ -875,6 +878,21 @@ pub trait ChatBackend: JmapBackend {
     ///   one [`OutboundEvent::ReactionUpdate`](crate::OutboundEvent::ReactionUpdate) per key that adds a
     ///   reaction or removes a stored one, after the update is written
     ///   (draft-atwood-jmap-chat-00 §Adding and Removing Reactions).
+    /// - `Message/set` update setting a non-null `readAt` on a Message whose
+    ///   `senderId` is not the accountId:
+    ///   [`OutboundEvent::Receipt`](crate::OutboundEvent::Receipt), after
+    ///   the update (or the `burnOnRead` hard-delete) is written, unless
+    ///   the effective `receiptSharing` (`Chat.receiptSharing`, else
+    ///   `PresenceStatus.receiptSharing`) is `false`
+    ///   (draft-atwood-jmap-chat-federation-00 §Peer/receipt "Sender
+    ///   Behavior").
+    /// - `Chat/typing`: [`OutboundEvent::Typing`](crate::OutboundEvent::Typing),
+    ///   after the request is validated (draft-atwood-jmap-chat-00
+    ///   §Chat/typing).
+    /// - `PresenceStatus/set` update naming `presence`, `statusText` or
+    ///   `statusEmoji`: [`OutboundEvent::Presence`](crate::OutboundEvent::Presence),
+    ///   after the update is written
+    ///   (draft-atwood-jmap-chat-federation-00 §Peer/subscribePresence).
     ///
     /// The hook cannot fail the request. A backend handles its own errors
     /// here.

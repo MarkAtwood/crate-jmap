@@ -1404,7 +1404,7 @@ pub async fn handle_chat_typing<B: ChatBackend>(
         _ => return Err(JmapError::invalid_arguments("chatId is required")),
     };
 
-    let _typing: bool = match args.get("typing") {
+    let typing: bool = match args.get("typing") {
         Some(Value::Bool(b)) => *b,
         None => return Err(JmapError::invalid_arguments("typing is required")),
         Some(_) => return Err(JmapError::invalid_arguments("typing must be a boolean")),
@@ -1434,6 +1434,17 @@ pub async fn handle_chat_typing<B: ChatBackend>(
         .ok_or_else(|| {
             JmapError::invalid_arguments("chatId is not a Chat the account participates in")
         })?;
+
+    // §Chat/typing Server Behavior: deliver a `typing` push event to the
+    // other local participants and, "For federated Chats, the server SHOULD
+    // invoke `Peer/typing`". The backend does both from this event.
+    backend
+        .on_outbound_event(
+            caller,
+            &account_id,
+            &OutboundEvent::Typing { chat_id, typing },
+        )
+        .await;
 
     Ok(HandlerOutput::new(json!({
         "accountId": account_id.as_ref(),
