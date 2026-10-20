@@ -1798,6 +1798,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-scene-types"
+version = "0.3.0"
+dependencies = [
+ "jmap-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-server"
 version = "0.3.0"
 dependencies = [
