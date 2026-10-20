@@ -9,7 +9,7 @@
 //! `ChatMessagePush` for each new inbound message with
 //! [`build_chat_message_push`] after [`should_push`] allows it.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use jmap_chat_types::{
@@ -165,7 +165,7 @@ pub fn strip_unsupported_chat_push(
 /// (§Rate Limiting and Fallback) calls [`state_change_for`] directly.
 pub fn chat_state_change_for(
     sub: &PushSubscription,
-    changed: &HashMap<Id, HashMap<String, State>>,
+    changed: &BTreeMap<Id, BTreeMap<String, State>>,
     caps: &HashMap<Id, ChatPushCapability>,
 ) -> Option<StateChange> {
     let live = |account: &Id| {
@@ -176,7 +176,7 @@ pub fn chat_state_change_for(
                 .and_then(|entries| entries.get(account.as_ref()))
                 .is_some_and(|entry| !entry.is_null())
     };
-    let filtered: HashMap<Id, HashMap<String, State>> = changed
+    let filtered: BTreeMap<Id, BTreeMap<String, State>> = changed
         .iter()
         .map(|(account, types)| {
             let mut types = types.clone();

@@ -6,7 +6,7 @@
 //!
 //! See [`Email`] for notes on full vs partial responses.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Date, Id, UTCDate};
 use serde::{Deserialize, Serialize};
@@ -258,11 +258,11 @@ pub struct Email {
     pub thread_id: Id,
     /// Set of Mailbox ids this Email belongs to.
     ///
-    /// Represented as `HashMap<Id, bool>` because the JMAP wire format uses a JSON object
+    /// Represented as `BTreeMap<Id, bool>` because the JMAP wire format uses a JSON object
     /// with boolean values (RFC 8621 §4.1.1).  Values are always `true` in full-object
     /// responses; the map shape is also used in PatchObject updates (RFC 8620 §5.3) where
     /// a `null` value removes an entry.
-    pub mailbox_ids: HashMap<Id, bool>,
+    pub mailbox_ids: BTreeMap<Id, bool>,
     /// Keywords applied to this Email.
     ///
     /// Same JSON object shape as `mailbox_ids` (string keys, boolean values) — JMAP wire
@@ -270,7 +270,7 @@ pub struct Email {
     /// start with `$` which is not valid inside a JMAP `Id` (RFC 8620 §1.2).
     /// Values are always `true` in full-object responses (RFC 8621 §4.1.1).
     #[serde(default)]
-    pub keywords: HashMap<Keyword, bool>,
+    pub keywords: BTreeMap<Keyword, bool>,
     /// Size in octets of the raw RFC 5322 message.
     pub size: u64,
     /// Date the Email was received by the message store.
@@ -321,8 +321,8 @@ pub struct Email {
 
     // --- Body fields (§4.1.4) ---
     /// Map from partId to decoded text content for text body parts.
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub body_values: HashMap<String, EmailBodyValue>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub body_values: BTreeMap<String, EmailBodyValue>,
     /// Text body parts to display, preferring text/plain.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub text_body: Vec<EmailBodyPart>,
@@ -357,7 +357,7 @@ impl Email {
         id: Id,
         blob_id: Id,
         thread_id: Id,
-        mailbox_ids: HashMap<Id, bool>,
+        mailbox_ids: BTreeMap<Id, bool>,
         size: u64,
         received_at: UTCDate,
     ) -> Self {
@@ -366,7 +366,7 @@ impl Email {
             blob_id,
             thread_id,
             mailbox_ids,
-            keywords: HashMap::new(),
+            keywords: BTreeMap::new(),
             size,
             received_at,
             message_id: None,
@@ -381,7 +381,7 @@ impl Email {
             subject: None,
             sent_at: None,
             headers: Vec::new(),
-            body_values: HashMap::new(),
+            body_values: BTreeMap::new(),
             text_body: Vec::new(),
             html_body: Vec::new(),
             attachments: Vec::new(),
@@ -608,9 +608,9 @@ mod tests {
     /// covers every cookie-cut sibling that follows the same pattern.
     ///
     /// Independent oracle: hand-written JSON; assertions compare keys
-    /// and shape, not byte equality (object key order is not guaranteed
-    /// to be preserved across HashMap iteration, but every key MUST be
-    /// retained).
+    /// and shape, not byte equality (`extra` is a `serde_json::Map`, whose
+    /// key order depends on the `serde_json/preserve_order` feature, but
+    /// every key MUST be retained).
     #[test]
     fn email_extras_multi_field_nested_and_string_roundtrip() {
         let raw_str = r#"{
@@ -669,7 +669,7 @@ mod tests {
 
         // Gap 3 (cont.): byte-level to_string → from_str → re-parse must
         // preserve every vendor key. We do not assert byte equality on
-        // the serialised string (HashMap iteration order is not stable),
+        // the serialised string (`extra` key order is feature-dependent),
         // but every vendor key MUST be present on the second parse and
         // the nested structure MUST round-trip intact.
         let serialised = serde_json::to_string(&email).expect("to_string must succeed");
@@ -687,5 +687,35 @@ mod tests {
         let nested2 = reparsed.extra.get("acmeCorpNested").expect("present");
         assert_eq!(nested2["signed"][0]["by"], "alice");
         assert_eq!(nested2["tags"][2], "z");
+    }
+
+    /// Oracle: workspace map-ordering policy (bd:JMAP-pdux) — wire-format
+    /// maps serialize in sorted key order. Expected bytes are hand-written.
+    #[test]
+    fn email_maps_serialize_in_sorted_key_order() {
+        let mut mailbox_ids = BTreeMap::new();
+        mailbox_ids.insert(Id::from("mb2"), true);
+        mailbox_ids.insert(Id::from("mb1"), true);
+        let received_at: jmap_types::UTCDate =
+            serde_json::from_str(r#""2024-01-01T00:00:00Z""#).expect("UTCDate");
+        let mut email = Email::new(
+            Id::from("M1"),
+            Id::from("G1"),
+            Id::from("T1"),
+            mailbox_ids,
+            1,
+            received_at,
+        );
+        email.keywords.insert(Keyword::from("$seen"), true);
+        email.keywords.insert(Keyword::from("$draft"), true);
+        let j = serde_json::to_string(&email).expect("serialize");
+        assert!(
+            j.contains(r#""mailboxIds":{"mb1":true,"mb2":true}"#),
+            "mailboxIds keys must be sorted: {j}"
+        );
+        assert!(
+            j.contains(r#""keywords":{"$draft":true,"$seen":true}"#),
+            "keywords keys must be sorted: {j}"
+        );
     }
 }

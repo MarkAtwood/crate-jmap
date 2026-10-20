@@ -26,7 +26,7 @@
 //! `/copy` call surface in the `notCreated` / `notUpdated` /
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use jmap_mail_types::{Email, EmailAddress, EmailAddressGroup, Keyword};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
@@ -1539,8 +1539,8 @@ const MAX_KEYWORD_LEN: usize = 255;
 /// Returns the validated, normalized map or a descriptive error string for
 /// use in an `invalidProperties` SetError.
 fn validate_and_normalize_keywords(
-    raw: HashMap<String, bool>,
-) -> Result<HashMap<Keyword, bool>, String> {
+    raw: BTreeMap<String, bool>,
+) -> Result<BTreeMap<Keyword, bool>, String> {
     raw.into_iter()
         .filter(|(_, v)| *v) // false-valued keyword means absent — skip
         .map(|(kw, _)| {
@@ -1629,9 +1629,9 @@ fn parse_received_at_field(entry: &Value) -> Result<Option<UTCDate>, Value> {
 /// Returns the normalized keyword list, or an `invalidProperties` error
 /// `Value` suitable for inserting into `notCreated`.
 fn parse_keywords_field(entry: &Value) -> Result<Vec<Keyword>, Value> {
-    let raw_keywords_map: HashMap<String, bool> = match entry.get("keywords") {
-        None | Some(Value::Null) => HashMap::new(),
-        Some(v) => match HashMap::<String, bool>::deserialize(v) {
+    let raw_keywords_map: BTreeMap<String, bool> = match entry.get("keywords") {
+        None | Some(Value::Null) => BTreeMap::new(),
+        Some(v) => match BTreeMap::<String, bool>::deserialize(v) {
             Ok(kws) => kws,
             Err(_) => {
                 return Err(json!({"type": "invalidProperties", "properties": ["keywords"]}));
@@ -1735,17 +1735,17 @@ async fn build_email_from_create<B: MailBackend>(
     // mailboxIds: required (already validated non-empty by caller).
     // RFC 8621 §5.5.3: values MUST be true; false means absent — filter out false entries,
     // same as keywords, so the stored object never has false mailboxId entries.
-    let mailbox_ids: HashMap<Id, bool> = obj_val
+    let mailbox_ids: BTreeMap<Id, bool> = obj_val
         .get("mailboxIds")
-        .and_then(|v| HashMap::<Id, bool>::deserialize(v).ok())
+        .and_then(|v| BTreeMap::<Id, bool>::deserialize(v).ok())
         .map(|m| m.into_iter().filter(|(_, v)| *v).collect())
         .unwrap_or_default();
 
     // keywords: optional; validate RFC 8621 §4.1.1 syntax, normalize to lowercase,
     // filter to true entries only.
-    let raw_keywords: HashMap<String, bool> = match obj_val.get("keywords") {
-        None | Some(Value::Null) => HashMap::new(),
-        Some(v) => HashMap::<String, bool>::deserialize(v)
+    let raw_keywords: BTreeMap<String, bool> = match obj_val.get("keywords") {
+        None | Some(Value::Null) => BTreeMap::new(),
+        Some(v) => BTreeMap::<String, bool>::deserialize(v)
             .map_err(|_| "keywords: invalid keyword or format".to_owned())?,
     };
     let keywords =

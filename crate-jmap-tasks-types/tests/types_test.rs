@@ -227,14 +227,14 @@ fn task_roundtrip() {
     assert_eq!(original, recovered);
 }
 
-/// `recurrenceOverrides` round-trips as a `HashMap<String, PatchObject>`
+/// `recurrenceOverrides` round-trips as a `BTreeMap<String, PatchObject>`
 /// without altering wire shape — proves `PatchObject`'s
 /// `#[serde(transparent)]` attribute is in effect.
 ///
 /// Oracle: hand-written JSON modelled on RFC 8984 §4.3.3 recurrenceOverrides
 /// (LocalDateTime keys → PatchObject values).
 ///
-/// Uses a single outer key so the outer `HashMap`'s iteration order is
+/// Uses a single outer key so the outer `BTreeMap`'s iteration order is
 /// irrelevant. The inner `PatchObject` wraps a `serde_json::Map`, which —
 /// without the `preserve_order` feature on `serde_json` — is a `BTreeMap`
 /// and emits keys in alphabetical order. The fixture is therefore written
@@ -269,7 +269,7 @@ fn task_recurrence_overrides_patch_object_transparent() {
     assert_eq!(serialized, json);
 }
 
-/// `localizations` round-trips as a `HashMap<String, PatchObject>`.
+/// `localizations` round-trips as a `BTreeMap<String, PatchObject>`.
 ///
 /// Oracle: hand-written JSON modelled on RFC 8984 §4.6.1 localizations
 /// (BCP 47 language tag keys → PatchObject values). Inner keys are written
@@ -1137,7 +1137,7 @@ mod jscalendar_roundtrip {
     /// RFC 8984 §4.7.2 — `timeZones` is `Map<TimeZoneId, TimeZone>`.
     ///
     /// `Task.time_zones` is the sloppy-Value field
-    /// (`Option<HashMap<String, serde_json::Value>>`) for wire-shape
+    /// (`Option<BTreeMap<String, serde_json::Value>>`) for wire-shape
     /// preservation. Each value entry can be typed-decoded into a
     /// `jmap_jscalendar_types::TimeZone` (re-exported from this crate as
     /// `TimeZone`). This test verifies both:
@@ -1566,4 +1566,18 @@ fn task_with_check_items_missing_at_type_deserializes() {
     let items = cl.check_items.as_ref().expect("checkItems present");
     assert_eq!(items.len(), 2);
     assert!(items.iter().all(|i| i.at_type == "CheckItem"));
+}
+
+/// Oracle: workspace map-ordering policy (bd:JMAP-pdux) — wire-format maps
+/// serialize in sorted key order. Input keys are written out of order;
+/// expected bytes are hand-written.
+#[test]
+fn task_localizations_serialize_in_sorted_key_order() {
+    let raw = r#"{"localizations":{"fr":{"title":"Tache"},"de":{"title":"Aufgabe"}}}"#;
+    let task: Task = serde_json::from_str(raw).expect("deserialize");
+    let j = serde_json::to_string(&task).expect("serialize");
+    assert_eq!(
+        j,
+        r#"{"localizations":{"de":{"title":"Aufgabe"},"fr":{"title":"Tache"}}}"#
+    );
 }

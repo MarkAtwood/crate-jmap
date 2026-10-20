@@ -378,7 +378,7 @@ fn calendar_event_scalar_fields() {
 }
 
 /// CalendarEvent with recurrenceOverrides round-trips through the typed
-/// `HashMap<String, PatchObject>` envelope.
+/// `BTreeMap<String, PatchObject>` envelope.
 /// Oracle: RFC 8984 §4.3.2 recurrenceOverrides description.
 #[test]
 fn calendar_event_recurrence_overrides_passthrough() {
@@ -416,7 +416,7 @@ fn calendar_event_recurrence_overrides_passthrough() {
 }
 
 /// Wire format for `recurrenceOverrides` is byte-identical between the old
-/// `Option<Value>` shape and the new `Option<HashMap<String, PatchObject>>`
+/// `Option<Value>` shape and the new `Option<BTreeMap<String, PatchObject>>`
 /// shape, because `PatchObject` is `#[serde(transparent)]`.
 /// Oracle: hand-written JSON literal (independent of the type under test).
 #[test]
@@ -499,7 +499,7 @@ fn calendar_event_time_zones_value_and_typed_roundtrip() {
 }
 
 /// CalendarEvent with localizations round-trips through the typed
-/// `HashMap<String, PatchObject>` envelope.
+/// `BTreeMap<String, PatchObject>` envelope.
 /// Oracle: RFC 8984 §4.6 localizations description.
 #[test]
 fn calendar_event_localizations_passthrough() {
@@ -1938,4 +1938,26 @@ fn calendar_alert_at_type_explicit_value_round_trips_verbatim() {
     assert_eq!(alert.at_type, "AcmeCorpAlert");
     let back = serde_json::to_value(&alert).unwrap();
     assert_eq!(back["@type"], "AcmeCorpAlert");
+}
+
+/// Oracle: workspace map-ordering policy (bd:JMAP-pdux) — wire-format maps
+/// serialize in sorted key order. Input keys are written out of order;
+/// expected bytes are hand-written.
+#[test]
+fn calendar_event_maps_serialize_in_sorted_key_order() {
+    let raw = r#"{
+        "id": "ev-ord",
+        "calendarIds": {"cal-2": true, "cal-1": true},
+        "localizations": {"fr": {"title": "Dejeuner"}, "es": {"title": "Almuerzo"}}
+    }"#;
+    let ev: CalendarEvent = serde_json::from_str(raw).expect("deserialize");
+    let j = serde_json::to_string(&ev).expect("serialize");
+    assert!(
+        j.contains(r#""calendarIds":{"cal-1":true,"cal-2":true}"#),
+        "calendarIds keys must be sorted: {j}"
+    );
+    assert!(
+        j.contains(r#""localizations":{"es":{"title":"Almuerzo"},"fr":{"title":"Dejeuner"}}"#),
+        "localizations keys must be sorted: {j}"
+    );
 }

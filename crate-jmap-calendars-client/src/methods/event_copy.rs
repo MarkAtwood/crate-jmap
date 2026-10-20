@@ -2,7 +2,7 @@
 //!
 //! CalendarEvent/copy copies events between accounts (draft-ietf-jmap-calendars-26 §5.10).
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::Id;
 
@@ -43,7 +43,7 @@ impl super::SessionClient {
     pub async fn calendar_event_copy(
         &self,
         from_account_id: &Id,
-        create: HashMap<String, jmap_calendars_types::CalendarEvent>,
+        create: BTreeMap<String, jmap_calendars_types::CalendarEvent>,
     ) -> Result<SetResponse<jmap_calendars_types::CalendarEvent>, jmap_base_client::ClientError>
     {
         if create.keys().any(|k| k.is_empty()) {

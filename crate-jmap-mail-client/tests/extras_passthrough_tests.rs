@@ -22,7 +22,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_mail_client::{
     EmailCopyParams, EmailGetParams, EmailImportInput, EmailParseParams, EmailSubmissionSetParams,
@@ -144,14 +144,14 @@ async fn mailbox_set_routes_vendor_extras_to_wire() {
     params
         .extra
         .insert("acmeCorpCascade".into(), json!("strict"));
-    // Pass Some(empty HashMap) for update to satisfy the
+    // Pass Some(empty BTreeMap) for update to satisfy the
     // 'at least one of create/update/destroy must be Some' guard
     // (bd:JMAP-tjvm.24). The test's oracle — that vendor extras reach
     // the wire — is preserved; an empty update map serialises as
     // "update": {} which does not change the assertion about
     // acmeCorpCascade.
-    let update: std::collections::HashMap<jmap_types::Id, jmap_types::PatchObject> =
-        std::collections::HashMap::new();
+    let update: std::collections::BTreeMap<jmap_types::Id, jmap_types::PatchObject> =
+        std::collections::BTreeMap::new();
     sc.mailbox_set(None, Some(update), None, Some(params))
         .await
         .expect("must succeed");
@@ -196,7 +196,7 @@ async fn email_submission_set_routes_vendor_extras_to_wire() {
     params
         .extra
         .insert("acmeCorpQueue".into(), json!("priority"));
-    let update: HashMap<Id, PatchObject> = HashMap::new();
+    let update: BTreeMap<Id, PatchObject> = BTreeMap::new();
     sc.email_submission_set(None, Some(update), None, None, Some(params))
         .await
         .expect("must succeed");
@@ -282,7 +282,7 @@ async fn email_import_routes_vendor_extras_to_wire() {
         received_at: None,
         extra,
     };
-    let mut emails = HashMap::new();
+    let mut emails = BTreeMap::new();
     emails.insert("k1".to_owned(), input);
     sc.email_import(&emails, None).await.expect("must succeed");
 

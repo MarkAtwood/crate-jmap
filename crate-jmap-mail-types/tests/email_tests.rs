@@ -119,8 +119,8 @@ fn email_body_part_default() {
 #[test]
 fn email_new_constructor() {
     use jmap_types::{Id, UTCDate};
-    use std::collections::HashMap;
-    let mut mailbox_ids = HashMap::new();
+    use std::collections::BTreeMap;
+    let mut mailbox_ids = BTreeMap::new();
     mailbox_ids.insert(Id::from("MB1"), true);
     let received_at: UTCDate = serde_json::from_str(r#""2024-01-01T00:00:00Z""#).unwrap();
     let email = jmap_mail_types::Email::new(

@@ -8,7 +8,7 @@
 //! `urn:ietf:params:jmap:submission` carry non-empty account-level
 //! capabilities.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -95,7 +95,7 @@ pub struct SubmissionAccountCapability {
     /// SMTP submission extensions supported by the server.  Each key is
     /// an `ehlo-name` and the value is a list of `ehlo-args`
     /// (RFC 8621 §1.3.2).
-    pub submission_extensions: HashMap<String, Vec<String>>,
+    pub submission_extensions: BTreeMap<String, Vec<String>>,
 }
 
 /// Session-level VacationResponse capability (RFC 8621 §1.3.3).

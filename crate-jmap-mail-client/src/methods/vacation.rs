@@ -14,7 +14,7 @@
 //!   5. Call `self.call_internal(api_url, &req).await?`.
 //!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject};
 
@@ -108,7 +108,7 @@ impl super::SessionClient {
     ///
     /// `create` and `destroy` are not supported by `VacationResponse/set`.
     ///
-    /// `update` is `Option<HashMap<Id, PatchObject>>` (RFC 8620 §5.3). The
+    /// `update` is `Option<BTreeMap<Id, PatchObject>>` (RFC 8620 §5.3). The
     /// usual shape is `{"singleton": <patch>}`. Wire format is unchanged
     /// from a plain JSON object because [`PatchObject`] is
     /// `#[serde(transparent)]`.
@@ -128,7 +128,7 @@ impl super::SessionClient {
     ///   the matching error list on [`Self::vacation_response_get`].
     pub async fn vacation_response_set(
         &self,
-        update: Option<HashMap<Id, PatchObject>>,
+        update: Option<BTreeMap<Id, PatchObject>>,
     ) -> Result<SetResponse<jmap_mail_types::VacationResponse>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({

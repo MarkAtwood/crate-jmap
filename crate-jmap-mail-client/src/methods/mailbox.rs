@@ -8,7 +8,7 @@
 //!   5. Call `self.call_internal(api_url, &req).await?`.
 //!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, State};
 
@@ -116,7 +116,7 @@ impl super::SessionClient {
     /// Pass `params: Some(MailboxSetParams { on_destroy_remove_emails: Some(true) })`
     /// to allow destroying a non-empty mailbox.
     ///
-    /// `update` is `Option<HashMap<Id, PatchObject>>` (RFC 8620 §5.3). Wire
+    /// `update` is `Option<BTreeMap<Id, PatchObject>>` (RFC 8620 §5.3). Wire
     /// format is unchanged from a plain JSON object because [`PatchObject`]
     /// is `#[serde(transparent)]`; the typed parameter binds the JSON Pointer
     /// key + null-leaf removal contract to the type system.
@@ -136,7 +136,7 @@ impl super::SessionClient {
     pub async fn mailbox_set(
         &self,
         create: Option<serde_json::Value>,
-        update: Option<HashMap<Id, PatchObject>>,
+        update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         params: Option<MailboxSetParams>,
     ) -> Result<SetResponse<jmap_mail_types::Mailbox>, jmap_base_client::ClientError> {

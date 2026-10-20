@@ -8,7 +8,7 @@
 //! large and their schema is still evolving.  Callers that need typed access
 //! to sub-objects should deserialize the relevant `Value` field directly.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
@@ -116,7 +116,7 @@ pub struct ContactCard {
     /// Set of AddressBook ids this card belongs to (JMAP addition; wire
     /// name `addressBookIds`).
     ///
-    /// Represented as `HashMap<Id, bool>` because the JMAP wire format
+    /// Represented as `BTreeMap<Id, bool>` because the JMAP wire format
     /// uses a JSON object with boolean values (RFC 9610 §3). Values are
     /// always `true` in full-object responses; per RFC 9610 §3, "each
     /// value MUST be true" — the type does not enforce that constraint,
@@ -128,7 +128,7 @@ pub struct ContactCard {
     /// This shape matches the canonical `Email.mailbox_ids` precedent
     /// in `jmap-mail-types`. JMAP-glx8.11.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub address_book_ids: Option<HashMap<Id, bool>>,
+    pub address_book_ids: Option<BTreeMap<Id, bool>>,
 
     // ── RFC 9553 §2.1 Metadata ───────────────────────────────────────────
     /// JSContact version; MUST be `"1.0"` when present.
@@ -165,7 +165,7 @@ pub struct ContactCard {
     /// used in PatchObject updates (RFC 8620 §5.3) where a `null` value
     /// removes an entry. JMAP-glx8.11.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub members: Option<HashMap<String, bool>>,
+    pub members: Option<BTreeMap<String, bool>>,
 
     /// Identifier for the product that created the Card.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -277,7 +277,7 @@ pub struct ContactCard {
     /// outer object-map structure at the type system level; inner patch
     /// values remain opaque JSON (per RFC 8620 §5.3).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub localizations: Option<HashMap<String, PatchObject>>,
+    pub localizations: Option<BTreeMap<String, PatchObject>>,
 
     // ── RFC 9553 §2.8 Additional ─────────────────────────────────────────
     /// Anniversaries map: id → Anniversary object.
@@ -294,7 +294,7 @@ pub struct ContactCard {
     /// (RFC 8620 §5.3) where a `null` value removes an entry.
     /// JMAP-glx8.11.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub keywords: Option<HashMap<String, bool>>,
+    pub keywords: Option<BTreeMap<String, bool>>,
 
     /// Notes map: id → Note object.
     #[serde(skip_serializing_if = "Option::is_none")]

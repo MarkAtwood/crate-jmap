@@ -66,7 +66,13 @@ pub use push::{
 };
 pub use response::{error_invocation, error_status, request_error, RequestError};
 
-use std::{collections::HashMap, fmt, future::Future, pin::Pin, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt,
+    future::Future,
+    pin::Pin,
+    sync::Arc,
+};
 
 use serde_json::Value;
 use tokio::task;
@@ -163,12 +169,12 @@ pub trait JmapHandler<CallerCtx>: Send + Sync {
 /// Collision semantics (bd:JMAP-jfia.3): when a creationId in the
 /// `/set` response collides with an entry already in `sink` — whether
 /// from an earlier `/set` call in the same batch OR from the client's
-/// pre-populated `createdIds` map — `HashMap::insert` silently
+/// pre-populated `createdIds` map — `BTreeMap::insert` silently
 /// overwrites: last write wins. The pre-populated collision case is
 /// exercised by
 /// [`tests::created_ids_pre_populated_collision_last_write_wins`].
 /// See the dispatcher call site for the full rationale.
-fn extract_created_ids_into(primary: &Value, sink: &mut HashMap<Id, Id>) {
+fn extract_created_ids_into(primary: &Value, sink: &mut BTreeMap<Id, Id>) {
     let Some(map) = primary.get("created").and_then(|v| v.as_object()) else {
         return;
     };
@@ -363,7 +369,7 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
     ) -> JmapResponse {
         let mut method_responses: Vec<Invocation> = Vec::with_capacity(request.method_calls.len());
         let client_sent_created_ids = request.created_ids.is_some();
-        let mut created_ids: HashMap<Id, Id> = request.created_ids.unwrap_or_default();
+        let mut created_ids: BTreeMap<Id, Id> = request.created_ids.unwrap_or_default();
 
         for Invocation {
             name: method,
@@ -406,7 +412,7 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
                     // is omitted from the response.
                     //
                     // Duplicate-creationId behaviour (bd:JMAP-wlip.7,
-                    // bd:JMAP-jfia.3): HashMap::insert silently overwrites
+                    // bd:JMAP-jfia.3): BTreeMap::insert silently overwrites
                     // on duplicate key. Two flavours of duplicate:
                     //
                     //   (a) Intra-batch: a client reuses the same
@@ -1129,7 +1135,7 @@ mod tests {
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
             vec![Invocation::new("Foo/set", json!({}), "c0")],
-            Some(std::collections::HashMap::new()),
+            Some(std::collections::BTreeMap::new()),
         );
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         let ids = resp
@@ -1175,7 +1181,7 @@ mod tests {
                 Invocation::new("A/set", json!({}), "c0"),
                 Invocation::new("B/set", json!({}), "c1"),
             ],
-            Some(std::collections::HashMap::new()),
+            Some(std::collections::BTreeMap::new()),
         );
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         let ids = resp
@@ -1206,7 +1212,7 @@ mod tests {
             )),
         );
         // Client sends a pre-populated createdIds map.
-        let mut initial = std::collections::HashMap::new();
+        let mut initial = std::collections::BTreeMap::new();
         initial.insert(Id::from("client-old"), Id::from("server-old"));
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
@@ -1250,7 +1256,7 @@ mod tests {
             )),
         );
         // Client pre-populates client-X -> server-A.
-        let mut initial = std::collections::HashMap::new();
+        let mut initial = std::collections::BTreeMap::new();
         initial.insert(Id::from("client-X"), Id::from("server-A"));
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
@@ -1297,7 +1303,7 @@ mod tests {
                 Invocation::new("A/set", json!({}), "c0"),
                 Invocation::new("B/set", json!({}), "c1"),
             ],
-            Some(std::collections::HashMap::new()),
+            Some(std::collections::BTreeMap::new()),
         );
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         let ids = resp

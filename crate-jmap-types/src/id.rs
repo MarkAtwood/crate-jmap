@@ -23,7 +23,7 @@ impl std::error::Error for ValidationError {}
 /// Clients MUST treat Id values as opaque strings — no parsing of structure.
 // #[non_exhaustive] prevents callers from pattern-matching the inner field
 // (e.g. `let Id(s) = id;`), preserving semver freedom to add fields later.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 #[non_exhaustive]
 pub struct Id(String);
@@ -111,7 +111,7 @@ pub struct Date(String);
 /// `state.into_inner()` at insertion / lookup time.
 // #[non_exhaustive] prevents callers from pattern-matching the inner field,
 // preserving semver freedom to add fields later.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 #[non_exhaustive]
 pub struct State(String);

@@ -14,6 +14,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Breaking: Rust API
 
+- **all type and client crates, jmap-server, jmap-mail-server,
+  jmap-calendars-server, jmap-chat-server**: every wire-format JSON object
+  map is a `std::collections::BTreeMap` instead of a `HashMap` (e.g.
+  `Email.mailbox_ids`/`keywords`, `ContactCard.localizations`/
+  `address_book_ids`, `Task.localizations`, `TimeZoneRule.recurrence_overrides`,
+  `SetResponse.created`/`not_updated`, `JmapRequest`/`JmapResponse.created_ids`,
+  `StateChange.changed`, `/set` `update` parameters, `state_change_for`,
+  `MdnSendResult`, `CalendarEventParseResult`). Serialized maps are now in
+  sorted key order and byte-stable across runs. Replace `HashMap` with
+  `BTreeMap` at call sites. `Id`, `State`, `Keyword` and `LocalDateTime`
+  now derive `PartialOrd` and `Ord`.
 - **jmap-types**: `Invocation` is a struct with public `name`, `arguments`
   and `call_id` fields instead of the alias `(String, serde_json::Value,
   String)`. The wire form is unchanged (RFC 8620 §3.2 3-element array).

@@ -8,7 +8,7 @@
 //! `Id`, `UTCDate`, `State`, `Date`, `JmapRequest`, `JmapResponse`, `Invocation`,
 //! `ResultReference`.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::collections::HashSet;
 
 use serde::{Deserialize, Serialize};
@@ -425,13 +425,13 @@ pub struct Session {
     ///
     /// Values are kept as raw JSON so callers can extract extension-specific
     /// capability objects without this crate knowing their schema.
-    pub capabilities: HashMap<String, serde_json::Value>,
+    pub capabilities: BTreeMap<String, serde_json::Value>,
 
     /// Map of account ID → [`AccountInfo`] (RFC 8620 §2).
-    pub accounts: HashMap<String, AccountInfo>,
+    pub accounts: BTreeMap<String, AccountInfo>,
 
     /// Map of capability URI → primary account ID (RFC 8620 §2).
-    pub primary_accounts: HashMap<String, String>,
+    pub primary_accounts: BTreeMap<String, String>,
 
     /// Username associated with the current credentials (RFC 8620 §2).
     ///
@@ -670,7 +670,7 @@ pub struct AccountInfo {
     ///
     /// Values are kept as raw JSON so extension crates can extract
     /// their own capability objects.
-    pub account_capabilities: HashMap<String, serde_json::Value>,
+    pub account_capabilities: BTreeMap<String, serde_json::Value>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across

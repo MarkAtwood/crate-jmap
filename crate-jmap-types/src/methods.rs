@@ -23,7 +23,7 @@
 //! | [`QueryResponse`] | RFC 8620 §5.5 |
 //! | [`QueryChangesResponse`], [`AddedItem`] | RFC 8620 §5.6 |
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -231,10 +231,9 @@ pub struct SetError {
     /// Uses `serde_json::Map` (which, under the workspace's default
     /// `serde_json` features — `preserve_order` is NOT enabled — is
     /// backed by `BTreeMap` and therefore deterministically serializes
-    /// in lexicographic key order, NOT in insertion order) rather than
-    /// `HashMap` to match the workspace extras-preservation policy (see
-    /// workspace `AGENTS.md`) and to give callers deterministic serialized
-    /// output.
+    /// in lexicographic key order, NOT in insertion order) to match the
+    /// workspace extras-preservation policy (see workspace `AGENTS.md`)
+    /// and to give callers deterministic serialized output.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
@@ -330,19 +329,19 @@ pub struct SetResponse<T = serde_json::Value> {
     /// State token after this `/set`.
     pub new_state: State,
     /// Successfully created objects, keyed by caller-supplied creation id.
-    pub created: Option<HashMap<String, T>>,
+    pub created: Option<BTreeMap<String, T>>,
     /// Successfully updated objects, keyed by record id. The value is
     /// `Some(T)` when the server reports server-set property deltas, or
     /// `None` when the patch was applied verbatim with nothing to echo.
-    pub updated: Option<HashMap<Id, Option<T>>>,
+    pub updated: Option<BTreeMap<Id, Option<T>>>,
     /// Ids of successfully destroyed objects.
     pub destroyed: Option<Vec<Id>>,
     /// Failed creates, keyed by caller-supplied creation id.
-    pub not_created: Option<HashMap<String, SetError>>,
+    pub not_created: Option<BTreeMap<String, SetError>>,
     /// Failed updates, keyed by record id.
-    pub not_updated: Option<HashMap<Id, SetError>>,
+    pub not_updated: Option<BTreeMap<Id, SetError>>,
     /// Failed destroys, keyed by record id.
-    pub not_destroyed: Option<HashMap<Id, SetError>>,
+    pub not_destroyed: Option<BTreeMap<Id, SetError>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -1084,5 +1083,28 @@ mod tests {
         );
         assert!(obj.contains_key("id"));
         assert!(obj.contains_key("index"));
+    }
+
+    // Oracle: workspace map-ordering policy (bd:JMAP-pdux) — wire-format
+    // maps serialize in sorted key order. Input keys are written out of
+    // order; expected bytes are hand-written.
+    #[test]
+    fn set_response_maps_serialize_in_sorted_key_order() {
+        let raw = r#"{
+            "accountId": "a1",
+            "newState": "s2",
+            "created": {"k2": {"id": "id2"}, "k1": {"id": "id1"}},
+            "notUpdated": {"id9": {"type": "notFound"}, "id8": {"type": "notFound"}}
+        }"#;
+        let resp: SetResponse<serde_json::Value> = serde_json::from_str(raw).expect("deserialize");
+        let j = serde_json::to_string(&resp).expect("serialize");
+        assert!(
+            j.contains(r#""created":{"k1":{"id":"id1"},"k2":{"id":"id2"}}"#),
+            "created keys must be sorted: {j}"
+        );
+        assert!(
+            j.contains(r#""notUpdated":{"id8":{"type":"notFound"},"id9":{"type":"notFound"}}"#),
+            "notUpdated keys must be sorted: {j}"
+        );
     }
 }

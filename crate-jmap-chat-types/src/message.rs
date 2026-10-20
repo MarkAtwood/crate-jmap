@@ -2,7 +2,7 @@
 
 use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// Delivery state of a [`Message`] as defined by the spec.
 ///
@@ -421,7 +421,7 @@ pub struct Message {
     /// operations (`reactions/<senderReactionId>: <Reaction>` to
     /// add, `reactions/<senderReactionId>: null` to remove).
     #[serde(default)]
-    pub reactions: HashMap<String, Reaction>,
+    pub reactions: BTreeMap<String, Reaction>,
     /// The `sentAt` property (draft-atwood-jmap-chat-00 §4.11).
     pub sent_at: UTCDate,
     /// The `receivedAt` property (draft-atwood-jmap-chat-00 §4.11).
@@ -493,7 +493,7 @@ pub struct Message {
     /// owner-side per-recipient delivery state. See the draft
     /// (§4.11 "deliveryReceipts") for the contract.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub delivery_receipts: Option<HashMap<String, DeliveryReceipt>>,
+    pub delivery_receipts: Option<BTreeMap<String, DeliveryReceipt>>,
     /// The `deliveredAt` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delivered_at: Option<UTCDate>,
@@ -565,7 +565,7 @@ impl Message {
             mentions: Vec::new(),
             broadcast_mentions: Vec::new(),
             actions: Vec::new(),
-            reactions: HashMap::new(),
+            reactions: BTreeMap::new(),
             sent_at,
             received_at,
             delivery_state,
@@ -731,7 +731,7 @@ mod tests {
             },
             "u2": {}
         }"#;
-        let map: HashMap<String, DeliveryReceipt> =
+        let map: BTreeMap<String, DeliveryReceipt> =
             serde_json::from_str(json).expect("deserialize DeliveryReceipt map");
         assert_eq!(map.len(), 2);
         let u1 = map.get("u1").expect("u1");
@@ -750,7 +750,7 @@ mod tests {
         assert!(u2.read_disposition.is_none());
 
         let roundtrip = serde_json::to_string(&map).expect("serialize");
-        let map2: HashMap<String, DeliveryReceipt> =
+        let map2: BTreeMap<String, DeliveryReceipt> =
             serde_json::from_str(&roundtrip).expect("re-deserialize");
         assert_eq!(map, map2);
     }
@@ -1191,5 +1191,32 @@ mod tests {
         assert_eq!(back["topicId"], "t-1");
         assert_eq!(back["subject"], "Q3 planning");
         assert_eq!(back["expiresAfterReadSeconds"], 30);
+    }
+
+    // Oracle: workspace map-ordering policy (bd:JMAP-pdux) — wire-format
+    // maps serialize in sorted key order. Expected bytes are hand-written.
+    #[test]
+    fn delivery_receipts_serialize_in_sorted_key_order() {
+        let mut msg = Message::new(
+            Id::from("m1"),
+            Id::from("smid1"),
+            Id::from("a1"),
+            Id::from("c1"),
+            "hi",
+            "text/plain",
+            UTCDate::from("2026-01-01T00:00:00Z"),
+            UTCDate::from("2026-01-01T00:00:01Z"),
+            DeliveryState::Delivered,
+        );
+        let empty: DeliveryReceipt = serde_json::from_str("{}").expect("receipt");
+        let mut receipts = BTreeMap::new();
+        receipts.insert("u2".to_owned(), empty.clone());
+        receipts.insert("u1".to_owned(), empty);
+        msg.delivery_receipts = Some(receipts);
+        let j = serde_json::to_string(&msg).expect("serialize");
+        assert!(
+            j.contains(r#""deliveryReceipts":{"u1":{},"u2":{}}"#),
+            "deliveryReceipts keys must be sorted: {j}"
+        );
     }
 }

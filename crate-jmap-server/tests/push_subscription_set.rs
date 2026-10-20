@@ -8,7 +8,7 @@
 //! computed from wall-clock time and the RFC's 7-day bound, not produced by
 //! the code under test.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -697,7 +697,7 @@ fn is_deliverable_requires_verified_and_unexpired() {
     ));
 }
 
-fn type_state(pairs: &[(&str, &str)]) -> HashMap<String, State> {
+fn type_state(pairs: &[(&str, &str)]) -> BTreeMap<String, State> {
     pairs
         .iter()
         .map(|(t, s)| ((*t).to_owned(), State::from(*s)))
@@ -711,7 +711,7 @@ fn type_state(pairs: &[(&str, &str)]) -> HashMap<String, State> {
 #[test]
 fn state_change_for_filters_by_types() {
     let account = Id::from("u1");
-    let changed: HashMap<Id, HashMap<String, State>> = HashMap::from([(
+    let changed: BTreeMap<Id, BTreeMap<String, State>> = BTreeMap::from([(
         account.clone(),
         type_state(&[("Mailbox", "m1"), ("Email", "e1")]),
     )]);
@@ -721,11 +721,11 @@ fn state_change_for_filters_by_types() {
     let sc = state_change_for(&sub, &changed).expect("Mailbox changed: must notify");
     assert_eq!(
         sc.changed,
-        HashMap::from([(account.clone(), type_state(&[("Mailbox", "m1")]))])
+        BTreeMap::from([(account.clone(), type_state(&[("Mailbox", "m1")]))])
     );
 
-    let email_only: HashMap<Id, HashMap<String, State>> =
-        HashMap::from([(account.clone(), type_state(&[("Email", "e2")]))]);
+    let email_only: BTreeMap<Id, BTreeMap<String, State>> =
+        BTreeMap::from([(account.clone(), type_state(&[("Email", "e2")]))]);
     assert!(
         state_change_for(&sub, &email_only).is_none(),
         "no subscribed type changed: no notification"

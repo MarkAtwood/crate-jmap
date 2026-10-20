@@ -6,7 +6,7 @@
 //! All items are gated by the `mdn` feature flag (enabled at the module level in
 //! `lib.rs` via `#[cfg(feature = "mdn")]`).
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, SetError};
 use serde::{Deserialize, Serialize};
@@ -191,7 +191,7 @@ pub struct Mdn {
     /// object instead — and not on the generated MIME — see
     /// [`Self::extra`].
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub extension_fields: Option<HashMap<String, String>>,
+    pub extension_fields: Option<BTreeMap<String, String>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -252,7 +252,7 @@ pub struct MdnSendRequest {
     /// The identity to use as the MDN sender.
     pub identity_id: Id,
     /// Map of client-assigned creation IDs to [`Mdn`] objects to send.
-    pub send: HashMap<String, Mdn>,
+    pub send: BTreeMap<String, Mdn>,
     /// Patches to apply to Email objects on successful send.
     ///
     /// Keys are Email IDs OR `#creationId` references that the
@@ -262,10 +262,10 @@ pub struct MdnSendRequest {
     /// `#`-prefix used by creation-id references; values are
     /// [`PatchObject`] (RFC 8620 §5.3). This matches the canonical
     /// SetResponse pattern in `jmap-types::methods` where
-    /// creation-id-keyed maps use `HashMap<String, _>` and
-    /// real-id-keyed maps use `HashMap<Id, _>`.
+    /// creation-id-keyed maps use `BTreeMap<String, _>` and
+    /// real-id-keyed maps use `BTreeMap<Id, _>`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub on_success_update_email: Option<HashMap<String, PatchObject>>,
+    pub on_success_update_email: Option<BTreeMap<String, PatchObject>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -279,7 +279,7 @@ impl MdnSendRequest {
     ///
     /// `on_success_update_email` defaults to `None` and `extra` defaults
     /// to empty. Set them directly after construction as needed.
-    pub fn new(account_id: Id, identity_id: Id, send: HashMap<String, Mdn>) -> Self {
+    pub fn new(account_id: Id, identity_id: Id, send: BTreeMap<String, Mdn>) -> Self {
         Self {
             account_id,
             identity_id,
@@ -299,15 +299,15 @@ pub struct MdnSendResponse {
     pub account_id: Id,
     /// Map of client creation IDs to the MDN objects that were successfully sent.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sent: Option<HashMap<String, Mdn>>,
+    pub sent: Option<BTreeMap<String, Mdn>>,
     /// Map of client creation IDs to [`SetError`] objects for MDNs that
     /// could not be sent. Matches the canonical
-    /// `SetResponse.not_created: HashMap<String, SetError>` pattern in
+    /// `SetResponse.not_created: BTreeMap<String, SetError>` pattern in
     /// `jmap-types::methods`. The keys are creation IDs (clients
     /// assign them via the request's `send` map), which is why the
     /// key type is `String` rather than [`Id`].
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub not_sent: Option<HashMap<String, SetError>>,
+    pub not_sent: Option<BTreeMap<String, SetError>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -371,7 +371,7 @@ pub struct MdnParseResponse {
     pub account_id: Id,
     /// Map of blob IDs that were successfully parsed to their [`Mdn`] representation.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parsed: Option<HashMap<Id, Mdn>>,
+    pub parsed: Option<BTreeMap<Id, Mdn>>,
     /// Blob IDs that could not be parsed as MDN messages.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub not_parsable: Option<Vec<Id>>,
@@ -537,8 +537,8 @@ mod tests {
     }
 
     /// Verify MdnSendRequest round-trips with `onSuccessUpdateEmail`
-    /// populated — the typed shape `HashMap<Id, PatchObject>` MUST be
-    /// wire-byte-identical to a `HashMap<String, Object>` because both
+    /// populated — the typed shape `BTreeMap<Id, PatchObject>` MUST be
+    /// wire-byte-identical to a `BTreeMap<String, Object>` because both
     /// `Id` and `PatchObject` are `#[serde(transparent)]`.
     ///
     /// Oracle: hand-written JSON literal taken from RFC 9007 §3.1
@@ -600,7 +600,7 @@ mod tests {
             re_serialized.get("onSuccessUpdateEmail"),
             original.get("onSuccessUpdateEmail"),
             "onSuccessUpdateEmail must round-trip wire-byte-identical \
-             through HashMap<String, PatchObject>"
+             through BTreeMap<String, PatchObject>"
         );
     }
 
@@ -758,7 +758,7 @@ mod tests {
         let blob_id = Id::from("b1");
 
         // MdnSendRequest: required accountId, identityId, send map.
-        let send_req = MdnSendRequest::new(account_id.clone(), identity_id, HashMap::new());
+        let send_req = MdnSendRequest::new(account_id.clone(), identity_id, BTreeMap::new());
         let expected = serde_json::json!({
             "accountId": "a1",
             "identityId": "i1",

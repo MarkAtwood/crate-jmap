@@ -4,7 +4,7 @@
 //!   - draft-ietf-jmap-calendars-26 §5 — JMAP-specific additions
 //!   - RFC 8984 §2.1, §4, §5.1 — JSCalendar Event properties
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 /// ## PatchObject envelopes
 ///
 /// `recurrenceOverrides` and `localizations` are typed as
-/// `Option<HashMap<String, jmap_types::PatchObject>>`: the outer envelope
+/// `Option<BTreeMap<String, jmap_types::PatchObject>>`: the outer envelope
 /// is JMAP-level (RFC 8620 §5.3 PatchObject) while the inner leaves stay
 /// `serde_json::Value` to preserve per-leaf JSCalendar flexibility.  Wire
 /// format is byte-identical to the prior opaque `Option<Value>` shape via
@@ -50,7 +50,7 @@ pub struct CalendarEvent {
 
     /// Set of Calendar ids this event belongs to (values always `true`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub calendar_ids: Option<HashMap<Id, bool>>,
+    pub calendar_ids: Option<BTreeMap<Id, bool>>,
 
     /// If `true`, this is a draft; the server will not send scheduling messages.
     /// Always serialized; absent deserializes, and `None` serializes, as the
@@ -251,7 +251,7 @@ pub struct CalendarEvent {
     /// in `tests/types_test.rs`. Design defense: bd:JMAP-1rwf.6. See
     /// also `localizations` below — same shape, same rationale.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recurrence_overrides: Option<HashMap<String, PatchObject>>,
+    pub recurrence_overrides: Option<BTreeMap<String, PatchObject>>,
 
     /// If `true`, this occurrence is excluded from the series.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -312,7 +312,7 @@ pub struct CalendarEvent {
     /// typed-at-the-envelope pattern (JMAP §5.3 envelope ownership vs.
     /// JSCalendar §4.6 leaf ownership). Design defense: bd:JMAP-1rwf.6.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub localizations: Option<HashMap<String, PatchObject>>,
+    pub localizations: Option<BTreeMap<String, PatchObject>>,
 
     // ── JSCalendar time zone properties (RFC 8984 §4.7) ───────────────────────
     /// IANA time zone id for the event's start/end times.

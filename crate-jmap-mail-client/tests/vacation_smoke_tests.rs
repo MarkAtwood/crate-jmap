@@ -14,7 +14,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{Id, PatchObject};
 use serde_json::json;
@@ -62,7 +62,7 @@ async fn vacation_response_set_patch_passthrough() {
     );
     let patch_obj = PatchObject::from(patch);
 
-    let mut update = HashMap::new();
+    let mut update = BTreeMap::new();
     update.insert(Id::from("singleton"), patch_obj);
 
     let _ = sc

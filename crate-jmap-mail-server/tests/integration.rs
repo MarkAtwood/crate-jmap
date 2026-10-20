@@ -5944,14 +5944,14 @@ async fn email_set_create_backend_other_goes_to_not_created() {
 /// Oracle: Email/set — backend Other on update → item in notUpdated["serverFail"].
 #[tokio::test]
 async fn email_set_update_backend_other_goes_to_not_updated() {
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
     let email = jmap_mail_types::Email::new(
         Id::from("placeholder"),
         Id::from("blob1"),
         Id::from("t1"),
-        HashMap::from([(Id::from("mbox1"), true)]),
+        BTreeMap::from([(Id::from("mbox1"), true)]),
         0,
         jmap_types::UTCDate::from("2024-01-01T00:00:00Z"),
     );
@@ -5981,14 +5981,14 @@ async fn email_set_update_backend_other_goes_to_not_updated() {
 /// Oracle: Email/set — backend Other on destroy → item in notDestroyed["serverFail"].
 #[tokio::test]
 async fn email_set_destroy_backend_other_goes_to_not_destroyed() {
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
     let email = jmap_mail_types::Email::new(
         Id::from("placeholder"),
         Id::from("blob1"),
         Id::from("t1"),
-        HashMap::from([(Id::from("mbox1"), true)]),
+        BTreeMap::from([(Id::from("mbox1"), true)]),
         0,
         jmap_types::UTCDate::from("2024-01-01T00:00:00Z"),
     );
@@ -6048,7 +6048,7 @@ async fn email_import_backend_other_goes_to_not_created() {
 /// Oracle: EmailSubmission/set — backend Other on create → item in notCreated["serverFail"].
 #[tokio::test]
 async fn submission_set_create_backend_other_goes_to_not_created() {
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
 
@@ -6069,7 +6069,7 @@ async fn submission_set_create_backend_other_goes_to_not_created() {
         Id::from("placeholder"),
         Id::from("blob1"),
         Id::from("t1"),
-        HashMap::from([(Id::from("mbox1"), true)]),
+        BTreeMap::from([(Id::from("mbox1"), true)]),
         0,
         jmap_types::UTCDate::from("2024-01-01T00:00:00Z"),
     );

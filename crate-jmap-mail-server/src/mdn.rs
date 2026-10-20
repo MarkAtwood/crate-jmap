@@ -24,7 +24,7 @@
 //! RFC 9007 §3.1). Per-target failures inside `/send` surface in the
 //! `notSent` map within `Ok((Value, ...))`, not as `Err`.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_mail_types::{
     mdn::{Mdn, MdnParseRequest, MdnSendRequest},
@@ -43,9 +43,9 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, Hand
 pub struct MdnSendResult {
     /// Successfully sent MDNs. Key = client creation ID. Value = [`Mdn`]
     /// with server-set fields populated (finalRecipient, originalMessageId, etc.).
-    pub sent: HashMap<String, Mdn>,
+    pub sent: BTreeMap<String, Mdn>,
     /// Failed send attempts. Key = client creation ID. Value = [`SetError`].
-    pub not_sent: HashMap<String, SetError>,
+    pub not_sent: BTreeMap<String, SetError>,
 }
 
 impl MdnSendResult {
@@ -60,14 +60,14 @@ impl MdnSendResult {
     ///
     /// Future fields added to `MdnSendResult` are an **additive
     /// non-breaking change**: the new field MUST have a `Default` value
-    /// (typical for `HashMap` / `Vec` / `Option`) and the new field is
+    /// (typical for `BTreeMap` / `Vec` / `Option`) and the new field is
     /// exposed via a `with_*`-style builder setter rather than being
     /// appended as a third positional argument to this constructor.
     /// `new(sent, not_sent)` therefore stays stable across the crate's
     /// pre-1.0 lifetime, matching the
     /// `jmap_chat_server::ChatLimits`-style canonical workspace
     /// pattern for `#[non_exhaustive]` types with builder setters.
-    pub fn new(sent: HashMap<String, Mdn>, not_sent: HashMap<String, SetError>) -> Self {
+    pub fn new(sent: BTreeMap<String, Mdn>, not_sent: BTreeMap<String, SetError>) -> Self {
         Self { sent, not_sent }
     }
 
@@ -77,7 +77,7 @@ impl MdnSendResult {
     /// rebuilding the whole struct. Useful when accumulating results
     /// across multiple internal phases.
     #[must_use]
-    pub fn with_sent(mut self, sent: HashMap<String, Mdn>) -> Self {
+    pub fn with_sent(mut self, sent: BTreeMap<String, Mdn>) -> Self {
         self.sent = sent;
         self
     }
@@ -88,7 +88,7 @@ impl MdnSendResult {
     /// rebuilding the whole struct. Useful when accumulating results
     /// across multiple internal phases.
     #[must_use]
-    pub fn with_not_sent(mut self, not_sent: HashMap<String, SetError>) -> Self {
+    pub fn with_not_sent(mut self, not_sent: BTreeMap<String, SetError>) -> Self {
         self.not_sent = not_sent;
         self
     }
@@ -99,7 +99,7 @@ impl MdnSendResult {
 #[derive(Debug, Default)]
 pub struct MdnParseResult {
     /// Successfully parsed MDN blobs. Key = blob ID. Value = [`Mdn`].
-    pub parsed: HashMap<Id, Mdn>,
+    pub parsed: BTreeMap<Id, Mdn>,
     /// Blob IDs that were found but could not be parsed as an MDN.
     pub not_parsable: Vec<Id>,
     /// Blob IDs that were not found in the blob store.
@@ -126,7 +126,7 @@ impl MdnParseResult {
     /// matching the `jmap_chat_server::ChatLimits`-style canonical
     /// workspace pattern for `#[non_exhaustive]` types with builder
     /// setters.
-    pub fn new(parsed: HashMap<Id, Mdn>, not_parsable: Vec<Id>, not_found: Vec<Id>) -> Self {
+    pub fn new(parsed: BTreeMap<Id, Mdn>, not_parsable: Vec<Id>, not_found: Vec<Id>) -> Self {
         Self {
             parsed,
             not_parsable,
@@ -136,7 +136,7 @@ impl MdnParseResult {
 
     /// Builder-style setter for [`Self::parsed`].
     #[must_use]
-    pub fn with_parsed(mut self, parsed: HashMap<Id, Mdn>) -> Self {
+    pub fn with_parsed(mut self, parsed: BTreeMap<Id, Mdn>) -> Self {
         self.parsed = parsed;
         self
     }
@@ -246,7 +246,7 @@ pub trait MdnBackend: jmap_server::JmapBackend {
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         identity_id: &jmap_types::Id,
-        send: HashMap<String, (Mdn, Email)>,
+        send: BTreeMap<String, (Mdn, Email)>,
     ) -> impl std::future::Future<
         Output = Result<MdnSendResult, jmap_server::backend::BackendSetError<Self::Error>>,
     > + Send;
@@ -358,7 +358,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
             Some(patches) => {
                 for creation_id in req.send.keys() {
                     let key = format!("#{creation_id}");
-                    // `patches` is `HashMap<String, PatchObject>`. `String:
+                    // `patches` is `BTreeMap<String, PatchObject>`. `String:
                     // Borrow<str>` lets us look up by `&str` without
                     // allocating a `String`.
                     match patches.get(key.as_str()) {
@@ -388,8 +388,8 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
 
     // Step 5: CRLF validation — per-entry, add to notSent rather than rejecting
     // the whole request.
-    let mut not_sent: HashMap<String, Value> = HashMap::new();
-    let mut send_map: HashMap<String, Mdn> = HashMap::new();
+    let mut not_sent: BTreeMap<String, Value> = BTreeMap::new();
+    let mut send_map: BTreeMap<String, Mdn> = BTreeMap::new();
 
     for (creation_id, mdn) in req.send {
         if mdn.for_email_id.is_none() {
@@ -448,8 +448,8 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         .filter_map(|mdn| mdn.for_email_id.clone())
         .collect();
 
-    let emails_by_id: HashMap<Id, Email> = if email_ids.is_empty() {
-        HashMap::new()
+    let emails_by_id: BTreeMap<Id, Email> = if email_ids.is_empty() {
+        BTreeMap::new()
     } else {
         let (fetched, _) = backend
             .get_objects::<Email>(caller, &req.account_id, Some(&email_ids), None)
@@ -461,7 +461,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     // Pair each surviving MDN with its pre-fetched Email so that send_mdns
     // does not need a second storage round-trip per entry. Entries whose email
     // was not found are still passed through (backend returns notFound for those).
-    let mut remaining_send: HashMap<String, (Mdn, Option<Email>)> = HashMap::new();
+    let mut remaining_send: BTreeMap<String, (Mdn, Option<Email>)> = BTreeMap::new();
     for (creation_id, mdn) in send_map {
         if let Some(ref for_email_id) = mdn.for_email_id {
             if let Some(email) = emails_by_id.get(for_email_id) {
@@ -482,14 +482,14 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     // Step 7: Call backend.send_mdns with (Mdn, Email) pairs.
     // Entries where the email was not found are included; the backend is
     // responsible for returning notFound for those entries.
-    let mut sent_mdns: HashMap<String, Mdn> = HashMap::new();
+    let mut sent_mdns: BTreeMap<String, Mdn> = BTreeMap::new();
 
     if !remaining_send.is_empty() {
         // Flatten Option<Email> — entries with no pre-fetched email are dropped
         // here and handled by the backend's notFound path, but since the spec
         // requires a valid email to send an MDN, we emit notFound directly for
         // any entry where the pre-check found no email.
-        let mut backend_send: HashMap<String, (Mdn, Email)> = HashMap::new();
+        let mut backend_send: BTreeMap<String, (Mdn, Email)> = BTreeMap::new();
         for (creation_id, (mdn, maybe_email)) in remaining_send {
             match maybe_email {
                 Some(email) => {
@@ -538,7 +538,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
 
             for (creation_id_str, sent_mdn) in &sent_mdns {
                 let patch_key = format!("#{creation_id_str}");
-                // `patches` is `HashMap<String, PatchObject>` — keys can be
+                // `patches` is `BTreeMap<String, PatchObject>` — keys can be
                 // `#creationId` references per RFC 8620 §5.7; `Id`'s alphabet
                 // contract forbids `#`. `String: Borrow<str>` (built-in) lets
                 // us look up by `&str` without allocating a `String`.
@@ -760,9 +760,9 @@ mod tests {
 
     #[test]
     fn mdn_send_result_new_populates_both_maps() {
-        let mut sent = HashMap::new();
+        let mut sent = BTreeMap::new();
         sent.insert("c1".to_owned(), sample_mdn());
-        let mut not_sent = HashMap::new();
+        let mut not_sent = BTreeMap::new();
         not_sent.insert(
             "c2".to_owned(),
             SetError::new(SetErrorType::InvalidProperties),
@@ -776,9 +776,9 @@ mod tests {
 
     #[test]
     fn mdn_send_result_with_setters_replace_fields() {
-        let mut sent = HashMap::new();
+        let mut sent = BTreeMap::new();
         sent.insert("c1".to_owned(), sample_mdn());
-        let mut not_sent = HashMap::new();
+        let mut not_sent = BTreeMap::new();
         not_sent.insert("c2".to_owned(), SetError::new(SetErrorType::Forbidden));
         let r = MdnSendResult::default()
             .with_sent(sent)
@@ -799,7 +799,7 @@ mod tests {
 
     #[test]
     fn mdn_parse_result_new_populates_all_three() {
-        let mut parsed = HashMap::new();
+        let mut parsed = BTreeMap::new();
         parsed.insert(Id::from("blob-1"), sample_mdn());
         let not_parsable = vec![Id::from("blob-2")];
         let not_found = vec![Id::from("blob-3")];
@@ -814,7 +814,7 @@ mod tests {
 
     #[test]
     fn mdn_parse_result_with_setters_replace_fields() {
-        let mut parsed = HashMap::new();
+        let mut parsed = BTreeMap::new();
         parsed.insert(Id::from("blob-a"), sample_mdn());
         let r = MdnParseResult::default()
             .with_parsed(parsed)

@@ -9,7 +9,7 @@
 //! live `chatPush` entry gets no `Message` type in its `StateChange`). Each
 //! test quotes the sentence it enforces.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use jmap_chat_server::{chat_state_change_for, strip_unsupported_chat_push, validate_chat_push};
 use jmap_chat_types::ChatPushCapability;
@@ -177,28 +177,28 @@ fn state_change_drops_message_for_chat_push_account() {
         "chatPush": { PUSH_ACCOUNT: {} },
     }))
     .expect("valid PushSubscription");
-    let changed = HashMap::from([
+    let changed = BTreeMap::from([
         (
             id(PUSH_ACCOUNT),
-            HashMap::from([
+            BTreeMap::from([
                 ("Message".to_owned(), state("m1")),
                 ("Chat".to_owned(), state("c1")),
             ]),
         ),
         (
             id(PLAIN_ACCOUNT),
-            HashMap::from([("Message".to_owned(), state("m2"))]),
+            BTreeMap::from([("Message".to_owned(), state("m2"))]),
         ),
     ]);
     let sc = chat_state_change_for(&sub, &changed, &caps()).expect("other types still change");
-    let expected = HashMap::from([
+    let expected = BTreeMap::from([
         (
             id(PUSH_ACCOUNT),
-            HashMap::from([("Chat".to_owned(), state("c1"))]),
+            BTreeMap::from([("Chat".to_owned(), state("c1"))]),
         ),
         (
             id(PLAIN_ACCOUNT),
-            HashMap::from([("Message".to_owned(), state("m2"))]),
+            BTreeMap::from([("Message".to_owned(), state("m2"))]),
         ),
     ]);
     assert_eq!(sc.changed, expected);
@@ -217,9 +217,9 @@ fn state_change_is_none_when_only_message_changed_in_chat_push_account() {
         "chatPush": { PUSH_ACCOUNT: {} },
     }))
     .expect("valid PushSubscription");
-    let changed = HashMap::from([(
+    let changed = BTreeMap::from([(
         id(PUSH_ACCOUNT),
-        HashMap::from([("Message".to_owned(), state("m1"))]),
+        BTreeMap::from([("Message".to_owned(), state("m1"))]),
     )]);
     assert!(chat_state_change_for(&sub, &changed, &caps()).is_none());
 }

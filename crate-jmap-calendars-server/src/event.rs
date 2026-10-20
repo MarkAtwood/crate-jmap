@@ -27,7 +27,7 @@
 //! `/copy` call surface in the `notCreated` / `notUpdated` /
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_calendars_types::{CalendarEvent, ParticipantIdentity};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
@@ -232,7 +232,7 @@ pub async fn handle_calendar_event_changes<B: CalendarsBackend>(
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 /// draft-ietf-jmap-calendars-33 §5 `calendarIds`: "An event MUST belong to
 /// one or more Calendars at all times" and each value "MUST be true".
-fn valid_calendar_ids(ids: Option<&HashMap<Id, bool>>) -> bool {
+fn valid_calendar_ids(ids: Option<&BTreeMap<Id, bool>>) -> bool {
     ids.is_some_and(|m| !m.is_empty() && m.values().all(|v| *v))
 }
 
@@ -293,7 +293,7 @@ async fn prepare_event_patch<B: CalendarsBackend>(
     }
 
     if let Some(whole) = patch.get("calendarIds") {
-        let ids = serde_json::from_value::<HashMap<Id, bool>>(whole.clone()).ok();
+        let ids = serde_json::from_value::<BTreeMap<Id, bool>>(whole.clone()).ok();
         if !valid_calendar_ids(ids.as_ref()) {
             return Err(invalid("calendarIds"));
         }

@@ -8,7 +8,7 @@
 //! (RFC 8621 §7.3); the `EmailSubmissionFilter` type alias lives in
 //! [`crate::query`].
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize};
@@ -28,7 +28,7 @@ pub struct Address {
     /// `None` if the parameter takes no value.  xtext / unitext encodings are
     /// stripped; JSON string encoding applies.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub parameters: Option<HashMap<String, Option<String>>>,
+    pub parameters: Option<BTreeMap<String, Option<String>>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -202,7 +202,7 @@ pub struct EmailSubmission {
     ///
     /// `None` when the server does not support delivery-status tracking.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub delivery_status: Option<HashMap<String, DeliveryStatus>>,
+    pub delivery_status: Option<BTreeMap<String, DeliveryStatus>>,
     /// Blob ids of DSN messages (RFC 3464) received for this submission.
     ///
     /// Always present in serialized output (empty array when no DSN has been received);

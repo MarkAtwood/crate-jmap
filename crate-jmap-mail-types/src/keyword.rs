@@ -11,7 +11,7 @@
 //! use jmap_mail_types::keyword;
 //!
 //! let kw = Keyword::from(keyword::SEEN);
-//! // HashMap<Keyword, bool> also accepts &str via Borrow<str>:
+//! // BTreeMap<Keyword, bool> also accepts &str via Borrow<str>:
 //! // let is_seen = email.keywords.contains_key(keyword::SEEN);
 //! ```
 
@@ -70,23 +70,23 @@ const SYSTEM_KEYWORDS: &[&str] = &[
 /// [`SEEN`], [`FLAGGED`]).
 ///
 /// `Keyword` serialises and deserialises transparently as a JSON string, so
-/// `HashMap<Keyword, bool>` round-trips correctly with the JMAP wire format.
+/// `BTreeMap<Keyword, bool>` round-trips correctly with the JMAP wire format.
 ///
-/// Because `Keyword` implements `Borrow<str>`, a `HashMap<Keyword, bool>` can
+/// Because `Keyword` implements `Borrow<str>`, a `BTreeMap<Keyword, bool>` can
 /// be queried with a bare `&str`:
 ///
 /// ```rust
 /// use jmap_mail_types::{keyword, Keyword};
-/// use std::collections::HashMap;
+/// use std::collections::BTreeMap;
 ///
-/// let mut kw: HashMap<Keyword, bool> = HashMap::new();
+/// let mut kw: BTreeMap<Keyword, bool> = BTreeMap::new();
 /// kw.insert(Keyword::from(keyword::SEEN), true);
 /// assert!(kw.contains_key(keyword::SEEN));
 /// ```
 ///
 /// No syntax validation is performed at construction time — keyword syntax
 /// validation is the server's responsibility.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Keyword(String);
 
@@ -206,11 +206,11 @@ mod tests {
         assert_eq!(NOT_JUNK, "$notjunk");
     }
 
-    /// Oracle: Keyword implements Borrow<str> so HashMap<Keyword, bool>
+    /// Oracle: Keyword implements Borrow<str> so BTreeMap<Keyword, bool>
     /// can be queried with a bare &str constant.
     #[test]
     fn keyword_usable_as_hashmap_key() {
-        let mut keywords = std::collections::HashMap::new();
+        let mut keywords = std::collections::BTreeMap::new();
         keywords.insert(Keyword::from(SEEN), true);
         keywords.insert(Keyword::from(FLAGGED), true);
         assert!(keywords.contains_key(SEEN));

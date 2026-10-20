@@ -4,7 +4,7 @@
 //!
 //! These methods use the blob2 capability, NOT USING_CHAT.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -27,7 +27,7 @@ pub struct BlobLookupEntry {
     /// that reference this blob. The keys stay `String` because data
     /// type names are externally-defined spec strings and not
     /// uniformly enumerable across extensions.
-    pub matched_ids: HashMap<String, Vec<Id>>,
+    pub matched_ids: BTreeMap<String, Vec<Id>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -120,10 +120,10 @@ pub struct BlobConvertResponse {
     pub account_id: Id,
     /// Successful conversions: maps each creation id to the resulting blob.
     #[serde(default)]
-    pub created: Option<HashMap<String, BlobObject>>,
+    pub created: Option<BTreeMap<String, BlobObject>>,
     /// Failed conversions: maps each creation id to a SetError.
     #[serde(default)]
-    pub not_created: Option<HashMap<String, super::SetError>>,
+    pub not_created: Option<BTreeMap<String, super::SetError>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
