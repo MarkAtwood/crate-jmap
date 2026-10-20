@@ -107,6 +107,14 @@ pub struct EmailGetParams {
 pub struct EmailCopyParams {
     /// The account to copy from (RFC 8621 §4.7).
     pub from_account_id: Id,
+    /// State guard for the source account: the server aborts with
+    /// `stateMismatch` unless the source state matches (RFC 8620 §5.4).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub if_from_in_state: Option<State>,
+    /// State guard for the destination account: the server aborts with
+    /// `stateMismatch` unless the destination state matches (RFC 8620 §5.4).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub if_in_state: Option<State>,
     /// If `true`, destroy originals after successful copy (RFC 8620 §5.4).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_success_destroy_original: Option<bool>,
@@ -958,6 +966,8 @@ mod tests {
     fn email_copy_params_serializes_correctly() {
         let params = EmailCopyParams {
             from_account_id: "acct-src".into(),
+            if_from_in_state: None,
+            if_in_state: None,
             on_success_destroy_original: Some(true),
             destroy_from_if_in_state: Some("s99".into()),
             extra: serde_json::Map::new(),
@@ -973,6 +983,8 @@ mod tests {
     fn email_copy_params_omits_none_fields() {
         let params = EmailCopyParams {
             from_account_id: "acct-src".into(),
+            if_from_in_state: None,
+            if_in_state: None,
             on_success_destroy_original: None,
             destroy_from_if_in_state: None,
             extra: serde_json::Map::new(),
@@ -1014,6 +1026,8 @@ mod tests {
         extra.insert("acmeCorpAudit".into(), json!(true));
         let params = EmailCopyParams {
             from_account_id: "acct-src".into(),
+            if_from_in_state: None,
+            if_in_state: None,
             on_success_destroy_original: None,
             destroy_from_if_in_state: None,
             extra,
