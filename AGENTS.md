@@ -94,6 +94,7 @@ crates, never in a support crate.
 | `crate-jmap-peer-auth-io/` | `jmap-peer-auth-io` | Support crate: the I/O half of draft-atwood-jmap-chat-federation-00 §Peer Authentication Model over `jmap-peer-auth` — `PeerKeys` (unsigned GET of `/.well-known/jmap`, cache for the RFC 9111 freshness lifetime capped at 1 h and the DNS TTL, unknown-`kid` refetch at most once per 60 s per peer domain), `HttpsFetcher` (reqwest, https-only redirects, caller address policy for §SSRF), `HickoryLookup`/`NoDnssec` (`_jmap-peer` TXT → `DnssecAnswer`), `ReplayStore`/`MemoryReplayStore` (check 5), `authenticate`. No `*-types` or `*-server` crate depends on it |
 | `crate-jmap-chat-mimi-types/` | `jmap-chat-mimi-types` | draft-atwood-jmap-chat-mimi-00 data types — `MimiCapability` (`urn:ietf:params:jmap:chat:mimi`), `KeyPackage` object and `/get`/`/set` shapes, `KeyMaterial/fetch` arguments, `Room/create`/`/update`/`/send`/`/unbind` arguments and `chat_room_id`, `GroupInfo/fetch` arguments, MIMI/MLS body-type constants, `Base64Url` byte-string wire shape. No async, no I/O, no MLS dependency |
 | `crate-jmap-chat-federation-types/` | `jmap-chat-federation-types` | draft-atwood-jmap-chat-federation-00 data types — `contact_server_url` and `contact_direct_address` read the `ChatContact.serverUrl` and `.directAddress` extension fields from `ChatContact.extra`. No async, no I/O |
+| `crate-jmap-vtc-types/` | `jmap-vtc-types` | draft-atwood-jmap-vtc-00 data types — `VtcCapability` (`urn:ietf:params:jmap:vtc`) with `VtcGateway`/`VtcDialInEntry`, `VtcMediaState`, `VtcCallPolicy`, the `VtcCall`, `VtcParticipant`, `VtcRecording` and `VtcLivestream` objects, `VtcCallPush` (full and content-free), and `VtcEvent` over the eight ephemeral events. No async, no I/O, depends on `jmap-types` only |
 
 ## Dependency Tree
 
@@ -178,6 +179,11 @@ jmap-chat-federation-types — draft-atwood-jmap-chat-federation-00 data types:
                          ChatContact.serverUrl and .directAddress readers over
                          ChatContact.extra. No async, no I/O. Depends on
                          serde_json only.
+
+jmap-vtc-types         — draft-atwood-jmap-vtc-00 data types: VtcCapability
+                         (urn:ietf:params:jmap:vtc), VtcCall, VtcParticipant,
+                         VtcRecording, VtcLivestream, VtcCallPush, VtcEvent.
+                         No async, no I/O. Depends on jmap-types only.
 ```
 
 Type crates (`*-types`) have no async deps. Server crates may depend on tokio/http.
