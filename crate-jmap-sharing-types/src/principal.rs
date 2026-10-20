@@ -429,4 +429,31 @@ mod tests {
         let back = serde_json::to_value(&p).unwrap();
         assert_eq!(back["acmeCorpDepartment"], "engineering");
     }
+
+    /// Oracle: workspace map-ordering policy (bd:JMAP-pdux) — wire-format
+    /// maps serialize in sorted key order. Input keys are deliberately out of
+    /// order; expected bytes are hand-written.
+    #[test]
+    fn principal_maps_serialize_in_sorted_key_order() {
+        let input = r#"{
+            "id": "P1",
+            "type": "individual",
+            "name": "Jane",
+            "description": null,
+            "email": null,
+            "timeZone": null,
+            "capabilities": {"urn:z": {}, "urn:a": {}},
+            "accounts": {"A2": {}, "A1": {}}
+        }"#;
+        let p: Principal = serde_json::from_str(input).expect("deserialize");
+        let j = serde_json::to_string(&p).expect("serialize");
+        assert!(
+            j.contains(r#""capabilities":{"urn:a":{},"urn:z":{}}"#),
+            "capabilities keys must be sorted: {j}"
+        );
+        assert!(
+            j.contains(r#""accounts":{"A1":{},"A2":{}}"#),
+            "accounts keys must be sorted: {j}"
+        );
+    }
 }

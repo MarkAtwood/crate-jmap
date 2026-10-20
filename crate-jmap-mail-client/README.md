@@ -71,31 +71,31 @@ All 26 RFC 8621 method names are available as typed async methods on
 |---|---|---|
 | `email_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>, params: Option<EmailGetParams>` | `GetResponse<Email>` |
 | `email_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
-| `email_set` | `create: Option<Value>, update: Option<HashMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, if_in_state: Option<&State>` | `SetResponse<Email>` |
+| `email_set` | `create: Option<Value>, update: Option<BTreeMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, if_in_state: Option<&State>` | `SetResponse<Email>` |
 | `email_query` | `filter: Option<Value>, sort: Option<Value>, position: Option<u64>, limit: Option<u64>, collapse_threads: Option<bool>` | `QueryResponse` |
 | `email_query_changes` | `since_query_state: &State, max_changes: Option<u64>, collapse_threads: Option<bool>, filter: Option<Value>, sort: Option<Value>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
 | `email_copy` | `params: EmailCopyParams, create: Value` | `SetResponse<Email>` |
-| `email_import` | `emails: &HashMap<String, EmailImportInput>, if_in_state: Option<&State>` | `EmailImportResponse` |
+| `email_import` | `emails: &BTreeMap<String, EmailImportInput>, if_in_state: Option<&State>` | `EmailImportResponse` |
 | `email_parse` | `blob_ids: &[Id], params: Option<EmailParseParams>` | `EmailParseResponse` |
 | `mailbox_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Mailbox>` |
 | `mailbox_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
-| `mailbox_set` | `create: Option<Value>, update: Option<HashMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, params: Option<MailboxSetParams>` | `SetResponse<Mailbox>` |
+| `mailbox_set` | `create: Option<Value>, update: Option<BTreeMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, params: Option<MailboxSetParams>` | `SetResponse<Mailbox>` |
 | `mailbox_query` | `filter: Option<Value>, sort: Option<Value>, position: Option<u64>, limit: Option<u64>` | `QueryResponse` |
 | `mailbox_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<Value>, sort: Option<Value>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
 | `thread_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Thread>` |
 | `thread_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `identity_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Identity>` |
 | `identity_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
-| `identity_set` | `create: Option<Value>, update: Option<HashMap<Id, PatchObject>>, destroy: Option<Vec<Id>>` | `SetResponse<Identity>` |
+| `identity_set` | `create: Option<Value>, update: Option<BTreeMap<Id, PatchObject>>, destroy: Option<Vec<Id>>` | `SetResponse<Identity>` |
 | `search_snippet_get` | `filter: Value, email_ids: Option<&[Id]>` | `Value` |
 | `email_submission_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<EmailSubmission>` |
 | `email_submission_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `email_submission_query` | `filter: Option<Value>, sort: Option<Value>, position: Option<u64>, limit: Option<u64>` | `QueryResponse` |
 | `email_submission_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<Value>, sort: Option<Value>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
-| `email_submission_set` | `create: Option<Value>, update: Option<HashMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, if_in_state: Option<&State>, params: Option<EmailSubmissionSetParams>` | `SetResponse<EmailSubmission>` |
+| `email_submission_set` | `create: Option<Value>, update: Option<BTreeMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, if_in_state: Option<&State>, params: Option<EmailSubmissionSetParams>` | `SetResponse<EmailSubmission>` |
 | `vacation_response_get` | _(none)_ | `VacationResponse` (unwraps the spec-mandated singleton from the /get envelope) |
 | `vacation_response_get_envelope` | _(none)_ | `GetResponse<VacationResponse>` (envelope including `state` token for `ifInState` guards) |
-| `vacation_response_set` | `update: Option<HashMap<Id, PatchObject>>` | `SetResponse<VacationResponse>` |
+| `vacation_response_set` | `update: Option<BTreeMap<Id, PatchObject>>` | `SetResponse<VacationResponse>` |
 
 `Id` and `State` here are `jmap_types::Id` and `jmap_types::State`.
 
@@ -112,7 +112,7 @@ pub struct EmailSubmissionSetParams {
     ///
     /// Keys prefixed with "#" are result references to creation keys in the
     /// same `create` map.  Typical use: remove `$draft` keyword on success.
-    pub on_success_update_email: Option<HashMap<String, jmap_types::PatchObject>>,
+    pub on_success_update_email: Option<BTreeMap<String, jmap_types::PatchObject>>,
 
     /// Email IDs (or "#"-prefixed creation keys) to destroy if the submission
     /// succeeds (RFC 8621 §7.5).

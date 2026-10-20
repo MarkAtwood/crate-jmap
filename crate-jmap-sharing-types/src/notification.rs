@@ -391,4 +391,32 @@ mod tests {
         let back = serde_json::to_value(&n).unwrap();
         assert_eq!(back["acmeCorpAuditTrail"], "tx-42");
     }
+
+    /// Oracle: workspace map-ordering policy (bd:JMAP-pdux) — wire-format
+    /// maps serialize in sorted key order. Input keys are deliberately out of
+    /// order; expected bytes are hand-written.
+    #[test]
+    fn share_notification_rights_serialize_in_sorted_key_order() {
+        let input = r#"{
+            "id": "N1",
+            "created": "2024-03-15T10:00:00Z",
+            "changedBy": {"name": "Bob", "email": null, "principalId": null},
+            "objectType": "Mailbox",
+            "objectAccountId": "A1",
+            "objectId": "M1",
+            "oldRights": {"mayWrite": false, "mayRead": true},
+            "newRights": {"mayWrite": true, "mayRead": true},
+            "name": "Inbox"
+        }"#;
+        let n: ShareNotification = serde_json::from_str(input).expect("deserialize");
+        let j = serde_json::to_string(&n).expect("serialize");
+        assert!(
+            j.contains(r#""oldRights":{"mayRead":true,"mayWrite":false}"#),
+            "oldRights keys must be sorted: {j}"
+        );
+        assert!(
+            j.contains(r#""newRights":{"mayRead":true,"mayWrite":true}"#),
+            "newRights keys must be sorted: {j}"
+        );
+    }
 }

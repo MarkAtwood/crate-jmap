@@ -146,7 +146,7 @@ known value meaning "some other undefined Principal"; it maps to
 
 ## Gotchas
 
-`Principal.accounts` is `Option<HashMap<Id, serde_json::Value>>`. The Account
+`Principal.accounts` is `Option<BTreeMap<Id, serde_json::Value>>`. The Account
 object schema within this map varies per JMAP extension (each capability defines
 its own `accountCapabilities` shape). This crate cannot enumerate all possible
 schemas, so the values are left as untyped JSON. Callers needing typed account

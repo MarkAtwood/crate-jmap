@@ -87,7 +87,7 @@ fn parse_email(raw: &[u8]) -> Result<jmap_mail_types::Email, Box<dyn std::error:
     });
 
     // Decode body values on demand.
-    let mut body_values = std::collections::HashMap::new();
+    let mut body_values = std::collections::BTreeMap::new();
     for part_id in &fields.body_value_part_ids {
         if let Some(part) = msg.part_index.find_by_id(part_id) {
             if let Ok(decoded) = decode_body_value(raw, part, Some(8192)) {
@@ -103,7 +103,7 @@ fn parse_email(raw: &[u8]) -> Result<jmap_mail_types::Email, Box<dyn std::error:
     email.html_body = Some(fields.html_body);
     email.attachments = Some(fields.attachments);
     email.preview = fields.preview;
-    email.body_values = Some(body_values);
+    email.body_values = body_values;
     Ok(email)
 }
 ```
