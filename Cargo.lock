@@ -998,6 +998,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-chat-mimi-types"
+version = "0.3.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-chat-server"
 version = "0.3.0"
 dependencies = [
