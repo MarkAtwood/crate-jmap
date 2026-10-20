@@ -18,7 +18,8 @@ wire behaviour that a conforming peer can observe.
   time-driven rules of draft-atwood-jmap-chat-00 for one account at a
   caller-supplied time: it hard-deletes Messages past `senderExpiresAt`,
   older than the Chat's `messageExpirySeconds` (from `receivedAt`), past
-  `readAt` + `expiresAfterReadSeconds`, or read with `burnOnRead`, through
+  `readAt` + `expiresAfterReadSeconds`, or read with `burnOnRead` (the
+  two read rules skip the account's own sent copies), through
   `ChatBackend::expire_message`; clears `muted` and `muteUntil` once
   `muteUntil` passes; and at `PresenceStatus.expiresAt` nulls `statusText`
   and `statusEmoji`, resets `presence` to `"online"` and clears

@@ -21,6 +21,8 @@
 //! - L663, §Message `expiresAfterReadSeconds`: "the receiving server MUST
 //!   permanently hard-delete this message (row removal, not tombstone)
 //!   this many seconds after setting `readAt`."
+//! - L660 and L663, both rules: "Applies only to the receiving mailbox;
+//!   the sender's own copy is not affected."
 //! - L941-942, §PresenceStatus `expiresAt`: "If set, the server SHOULD
 //!   clear `statusText` and `statusEmoji` (setting them to null) at this
 //!   time, and SHOULD reset `presence` to `"online"`."
@@ -213,6 +215,34 @@ async fn read_burn_on_read_message_is_deleted() {
     sweep(&b, at(0)).await;
     assert!(!message_exists(&b, "burn").await);
     assert!(message_exists(&b, "unread").await, "not yet read");
+}
+
+/// L660 + L663: "the sender's own copy is not affected", so an own-sent
+/// message (`senderId` is the account) survives with `readAt` set.
+#[tokio::test]
+async fn read_rules_spare_the_senders_own_copy() {
+    let b = backend();
+    seed_chat(&b, "c1", json!({}));
+    seed_message(
+        &b,
+        "own-timed",
+        "c1",
+        json!({
+            "senderId": ACCOUNT_ID,
+            "expiresAfterReadSeconds": 30,
+            "readAt": T0_STR,
+        }),
+    );
+    seed_message(
+        &b,
+        "own-burn",
+        "c1",
+        json!({ "senderId": ACCOUNT_ID, "burnOnRead": true, "readAt": T0_STR }),
+    );
+
+    sweep(&b, at(3600)).await;
+    assert!(message_exists(&b, "own-timed").await, "own copy kept");
+    assert!(message_exists(&b, "own-burn").await, "own copy kept");
 }
 
 /// L559: `muted` and `muteUntil` are cleared once the time passes.
