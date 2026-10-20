@@ -3,6 +3,8 @@
 use std::borrow::Cow;
 
 use jmap_types::{Id, JmapError, UTCDate};
+
+use crate::backend::{SetError, SetErrorType};
 use serde_json::{Map, Value};
 
 /// Serialize any [`serde::Serialize`] type to a [`serde_json::Value`],
@@ -1019,13 +1021,50 @@ pub fn enforce_max_objects_in_get(args: &Map<String, Value>, max: u64) -> Result
     Ok(())
 }
 
+/// Reject a `/set` create object or update PatchObject that carries a
+/// DID-bearing property (draft-atwood-jmap-did-00 §The `did` Property).
+///
+/// `entry` is one value from the `create` or `update` argument and
+/// `did_properties` names the data type's DID-bearing properties, which the
+/// consuming specification defines. A create object's keys are property
+/// names. A PatchObject's keys are paths, so a key names a DID-bearing
+/// property when its first path segment is that name.
+///
+/// Presence alone is an error, whatever the value, even `null` or the
+/// stored DID: "Clients MUST NOT include DID-bearing properties in create
+/// or update operations" (draft-atwood-jmap-did-00 L204). This is stricter
+/// than RFC 8620 §5.3, which accepts a server-set property sent with its
+/// current value. Rejecting every update that names the property also keeps
+/// the value immutable against clients (L206). Keeping it unchanged on the
+/// server side, including across a DID migration, is the backend's job.
+///
+/// Returns `None` when `entry` names no DID-bearing property. Otherwise
+/// returns an `invalidProperties` [`SetError`] whose `properties` lists
+/// every DID-bearing property `entry` names, in `did_properties` order.
+#[must_use]
+pub fn reject_did_bearing_properties(
+    entry: &Map<String, Value>,
+    did_properties: &[&str],
+) -> Option<SetError> {
+    // ponytail: compares the raw first segment, without RFC 6901 `~0`/`~1`
+    // decoding. That is exact for property names with no `~` or `/`, which
+    // covers every DID-bearing name in the drafts.
+    let named: Vec<&str> = did_properties
+        .iter()
+        .copied()
+        .filter(|prop| entry.keys().any(|k| k.split('/').next() == Some(*prop)))
+        .collect();
+    (!named.is_empty())
+        .then(|| SetError::new(SetErrorType::InvalidProperties).with_properties(named))
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
         apply_jmap_patch, apply_patch_object, civil_from_days, enforce_max_objects_in_set,
-        extract_account_id, filter_arg, json_merge_patch, now_utc_string, resolve_query_offset,
-        resolve_query_start, utc_date_from_epoch_seconds, MergePatchError, PatchPathError,
-        MAX_MERGE_PATCH_DEPTH,
+        extract_account_id, filter_arg, json_merge_patch, now_utc_string,
+        reject_did_bearing_properties, resolve_query_offset, resolve_query_start,
+        utc_date_from_epoch_seconds, MergePatchError, PatchPathError, MAX_MERGE_PATCH_DEPTH,
     };
     use serde_json::json;
 
@@ -1033,6 +1072,74 @@ mod tests {
     #[serde(rename_all = "camelCase", deny_unknown_fields)]
     struct NameCond {
         name: Option<String>,
+    }
+
+    // draft-atwood-jmap-did-00 L204 (jmap-chat-spec): "Clients MUST NOT
+    // include DID-bearing properties in create or update operations. Servers
+    // MUST reject such requests with a SetError of type `invalidProperties`,
+    // listing the DID-bearing property name in the `properties` array."
+    fn did_entry(v: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+        v.as_object().cloned().expect("object")
+    }
+
+    #[test]
+    fn did_create_with_did_property_is_invalid_properties() {
+        let entry = did_entry(json!({
+            "name": "x",
+            "did": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"
+        }));
+        let err = reject_did_bearing_properties(&entry, &["did"]).expect("L204: MUST reject");
+        assert_eq!(
+            serde_json::to_value(&err).expect("serialize"),
+            json!({ "type": "invalidProperties", "properties": ["did"] })
+        );
+    }
+
+    #[test]
+    fn did_create_with_null_did_is_still_rejected() {
+        // L204 forbids including the property at all; null is included.
+        let entry = did_entry(json!({ "did": null }));
+        assert!(reject_did_bearing_properties(&entry, &["did"]).is_some());
+    }
+
+    #[test]
+    fn did_lists_every_did_bearing_property_named() {
+        // L198: "a delegation record might carry both `delegatorDid` and
+        // `delegateeDid`."
+        let entry = did_entry(json!({
+            "delegateeDid": "did:web:example.com",
+            "delegatorDid": "did:web:example.org"
+        }));
+        let err = reject_did_bearing_properties(&entry, &["delegatorDid", "delegateeDid"])
+            .expect("L204: MUST reject");
+        assert_eq!(
+            err.properties,
+            Some(vec!["delegatorDid".to_owned(), "delegateeDid".to_owned()])
+        );
+    }
+
+    #[test]
+    fn did_update_patch_of_immutable_did_is_rejected() {
+        // L206: "**Immutable.** The value never changes after creation,
+        // neither as a result of object mutation ..." Both a whole-property
+        // patch and a path under it name the property.
+        for entry in [
+            did_entry(json!({ "did": "did:web:example.com" })),
+            did_entry(json!({ "did/x": 1 })),
+        ] {
+            let err = reject_did_bearing_properties(&entry, &["did"]).expect("L206: immutable");
+            assert_eq!(
+                serde_json::to_value(&err).expect("serialize"),
+                json!({ "type": "invalidProperties", "properties": ["did"] })
+            );
+        }
+    }
+
+    #[test]
+    fn did_entry_without_did_bearing_property_passes() {
+        // A property whose name merely starts with "did" is not "did".
+        let entry = did_entry(json!({ "name": "x", "didx": 1, "keywords/did": true }));
+        assert_eq!(reject_did_bearing_properties(&entry, &["did"]), None);
     }
 
     fn filter_of(v: serde_json::Value) -> Result<Option<NameCond>, jmap_types::JmapError> {
