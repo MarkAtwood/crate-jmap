@@ -371,6 +371,65 @@ async fn creating_another_users_avatar_is_forbidden() {
     assert_eq!(err["type"], "forbidden", "{err}");
 }
 
+/// The L2449 example of a name that impersonates an administrative role.
+const RESERVED: &str = "System Administrator";
+
+#[tokio::test]
+async fn reserved_display_name_create_is_forbidden() {
+    // L2457 "The server SHOULD maintain a list of reserved display names
+    // that correspond to system roles or administrative functions and MUST
+    // reject `SceneAvatar/set` operations that attempt to use a reserved
+    // name with a `SetError` of type `forbidden`."
+    let backend = setup();
+    backend.reserve_display_name(RESERVED);
+    let err = create_error(
+        &backend,
+        ALICE,
+        json!({ "regionId": REGION, "displayName": RESERVED }),
+    )
+    .await;
+    assert_eq!(err["type"], "forbidden", "{err}");
+
+    // The L1970-1975 create uses "Alice Chen", which is not reserved.
+    let resp = set(
+        &backend,
+        ALICE,
+        json!({ "create": { "av0": alice_enters() } }),
+    )
+    .await;
+    assert!(resp["notCreated"].is_null(), "{resp}");
+}
+
+#[tokio::test]
+async fn reserved_display_name_update_is_forbidden() {
+    // L2457 "MUST reject `SceneAvatar/set` operations that attempt to use a
+    // reserved name": an update is a `SceneAvatar/set` operation too.
+    let backend = setup();
+    backend.reserve_display_name(RESERVED);
+    let id = enter(&backend, ALICE, REGION).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let err = update_error(&backend, ALICE, &id, json!({ "displayName": RESERVED })).await;
+    assert_eq!(err["type"], "forbidden", "{err}");
+    assert_ne!(get(&backend, &id).await["displayName"], RESERVED);
+}
+
+#[tokio::test]
+async fn no_reserved_list_admits_any_name() {
+    // L2457 the list is the server's to "maintain"; with none configured
+    // the hook fails open (bd:JMAP-bghk) and the L2449 example name is
+    // stored as supplied.
+    let backend = setup();
+    let resp = set(
+        &backend,
+        ALICE,
+        json!({ "create": { "av0": { "regionId": REGION, "displayName": RESERVED } } }),
+    )
+    .await;
+    assert_eq!(resp["created"]["av0"]["displayName"], RESERVED, "{resp}");
+}
+
 #[tokio::test]
 async fn spec_teleport_example() {
     // L2038 "Position and orientation updates via `SceneAvatar/set` are

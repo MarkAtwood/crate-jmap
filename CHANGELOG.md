@@ -14,6 +14,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-types**: `set_error` module for draft-atwood-jmap-scene-00
+  §Content Moderation for User-Created Objects: the `CONTENT_POLICY`
+  (`contentPolicy`) SetError type, the `RETRY_AFTER` property name and the
+  `retry_after` accessor, which reads the `rateLimit` retry delay in
+  seconds from `SetError.extra` (`RetryAfterError::Malformed` when it is
+  not a non-negative integer). `jmap-types` is unchanged.
+- **jmap-scene-server**: §Avatar Identity and Impersonation reserved
+  names. `SceneBackend` gains the fail-open `reserved_display_names`
+  (default: none); `SceneAvatar/set` refuses a create or update whose
+  client-supplied `displayName` is on the list with `forbidden`.
+  `MemoryBackend` gains `reserve_display_name`.
+
 - **jmap-scene-server**: draft-atwood-jmap-scene-00 §Visibility Contract,
   §Region Access and §Blocked-Contact Spatial Presence. `SceneBackend`
   gains the fail-open `may_access_region`, `is_object_visible` and

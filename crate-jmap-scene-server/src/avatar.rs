@@ -131,7 +131,10 @@ fn prepare_query(mut args: Value) -> Result<Value, JmapError> {
 /// ([`SceneBackend::may_access_region`]) is `notFound`; otherwise it is
 /// limited to the caller's own avatar, except that
 /// [`SceneBackend::may_eject_avatar`] lets a region owner or administrator
-/// set `leftAt` on another's. Destroy is always `forbidden`.
+/// set `leftAt` on another's. A create or update that sets a
+/// `displayName` from [`SceneBackend::reserved_display_names`] is
+/// `forbidden` (§Avatar Identity and Impersonation). Destroy is always
+/// `forbidden`.
 pub async fn handle_scene_avatar_set<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -293,6 +296,28 @@ fn refuse_malformed(mut bad: Vec<&'static str>) -> Result<(), Value> {
     ))
 }
 
+/// Refuse a `displayName` in `m` that the backend reserves: the server
+/// "MUST reject `SceneAvatar/set` operations that attempt to use a
+/// reserved name with a `SetError` of type `forbidden`."
+async fn refuse_reserved_name<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    m: &Map<String, Value>,
+) -> Result<(), Value> {
+    let Some(name) = m.get("displayName").and_then(Value::as_str) else {
+        return Ok(());
+    };
+    let reserved = backend
+        .reserved_display_names(caller, account_id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?;
+    if reserved.iter().any(|r| r == name) {
+        return Err(forbidden("This displayName is reserved."));
+    }
+    Ok(())
+}
+
 fn present_in<'a>(keys: impl Iterator<Item = &'a str>, set: &[&str]) -> Vec<&'a str> {
     let mut found: Vec<&str> = keys.filter(|k| set.contains(k)).collect();
     found.sort_unstable();
@@ -341,6 +366,7 @@ async fn enter_region<B: SceneBackend>(
     {
         return Err(forbidden("The caller may not enter this region."));
     }
+    refuse_reserved_name(backend, caller, account_id, &m).await?;
 
     if !m.contains_key("displayName") {
         let name = backend
@@ -456,6 +482,9 @@ async fn update_avatar<B: SceneBackend>(
         set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
     })?;
     refuse_malformed(malformed(&result))?;
+    if touched("displayName") {
+        refuse_reserved_name(backend, caller, account_id, &result).await?;
+    }
 
     let mut echo = Value::Null;
     if touched("orientation") {
