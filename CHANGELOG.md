@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: `EphemeralSubscription` holds one WebSocket
+  connection's normalized ephemeral subscription (draft-atwood-jmap-chat-wss-00
+  §ChatStreamEnable). `replace_with` replaces it in full from a
+  `ChatStreamEnable` frame and maps an absent `chatIds` / `contactIds` to
+  `IdScope::All`, like `null`. It ignores unrecognized `dataTypes`, and
+  rejects a frame with neither `"typing"` nor `"presence"` with an
+  `invalidArguments` error that leaves the prior subscription unchanged.
 - **jmap-chat-types**: `JmapUri` parses and builds the private-use
   `jmap:<type>:<accountId>:<objectId>` URI
   (draft-atwood-jmap-chat-calendars-00 §MessageAction format), including the
