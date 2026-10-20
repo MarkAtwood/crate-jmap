@@ -21,6 +21,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod calendars;
 pub mod methods;
 pub mod session;
 pub mod sse;
@@ -28,6 +29,7 @@ pub mod types;
 pub mod utils;
 pub mod ws;
 
+pub use calendars::{own_participant_key, rsvp_patch, RsvpStatus};
 pub use jmap_base_client::ClientError;
 pub use jmap_chat_types::BodyType;
 pub use methods::batch::{Batch, BatchResponse, CallHandle};
