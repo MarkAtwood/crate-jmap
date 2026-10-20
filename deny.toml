@@ -14,7 +14,13 @@
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
 yanked = "deny"
-ignore = []
+ignore = [
+    # webpki-roots 0.26.11 (via tokio-tungstenite 0.29) is a semver-trick
+    # shim that re-exports webpki-roots 1.x; Cargo.lock resolves that to
+    # 1.0.10, which removes the distrusted emSign root. Drop this entry
+    # once tokio-tungstenite depends on webpki-roots 1 directly.
+    { id = "RUSTSEC-2026-0381", reason = "0.26.11 shim re-exports webpki-roots 1.0.10 (fixed)" },
+]
 
 # ---------------------------------------------------------------------------
 # Licenses — explicit allow-list, deny anything else
