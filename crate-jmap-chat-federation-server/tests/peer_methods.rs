@@ -801,6 +801,10 @@ async fn group_close_then_every_update_is_forbidden() {
     chat_value["closedAt"] = json!(PAST);
     fed.seed("Chat", chat_value);
     for (action, extra) in [
+        (
+            "create",
+            json!({"members": [peer_member(OWNER, "member"), peer_member(BOB, "admin")]}),
+        ),
         ("leave", json!({})),
         ("updateMetadata", json!({"name": "x"})),
         (
