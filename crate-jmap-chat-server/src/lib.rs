@@ -100,8 +100,9 @@ pub use emoji::{
 pub use expiry::sweep_expired;
 pub use invite::{handle_invite_changes, handle_invite_get, handle_invite_set};
 pub use message::{
-    handle_message_changes, handle_message_get, handle_message_query, handle_message_query_changes,
-    handle_message_set,
+    find_message_by_sender_msg_id, handle_message_changes, handle_message_get,
+    handle_message_query, handle_message_query_changes, handle_message_set, store_server_message,
+    StoreOutcome,
 };
 pub use permissions::{
     required_permissions_for_op, resolve_channel_permissions, RequiredPermissions, BAN,

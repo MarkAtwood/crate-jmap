@@ -824,6 +824,106 @@ pub(crate) async fn ensure_read_positions<B: ChatBackend>(
     }
 }
 
+/// Find the Message in `chat_id` whose `senderMsgId` is `sender_msg_id`.
+///
+/// draft-atwood-jmap-chat-00 §Message: "Servers MUST maintain a durable
+/// index of `senderMsgId` values per chat to support idempotent
+/// delivery, `Peer/retract` lookup, and resolution of `replyTo` /
+/// `threadRootId` references." The same `senderMsgId` in another Chat is
+/// a different Message.
+///
+/// ponytail: one full Message scan of the account per call, not an
+/// index. A backend with a `(chatId, senderMsgId)` index can serve the
+/// same contract from it once this becomes a hot path.
+///
+/// # Errors
+///
+/// Returns the backend error if reading the account's Messages fails.
+pub async fn find_message_by_sender_msg_id<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    chat_id: &Id,
+    sender_msg_id: &Id,
+) -> Result<Option<Message>, B::Error> {
+    let (messages, _) = backend
+        .get_objects::<Message>(caller, account_id, None, None)
+        .await?;
+    Ok(messages
+        .into_iter()
+        .find(|m| m.chat_id == *chat_id && m.sender_msg_id == *sender_msg_id))
+}
+
+/// The result of [`store_server_message`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StoreOutcome {
+    /// The Message was stored under this server-assigned id.
+    Stored(Id),
+    /// The Chat already holds a Message with the same `senderMsgId`; this
+    /// is its id, and nothing was written.
+    Duplicate(Id),
+}
+
+/// Store a Message that the server, not a client, creates: for example a
+/// MIMI fanout Message (draft-atwood-jmap-chat-mimi-00
+/// §application/mimi-fanout) or a federation `Peer/deliver` Message.
+///
+/// The caller sets every field, including the server-set `senderMsgId`,
+/// `senderId`, `sentAt` and `receivedAt` and a body type that
+/// [`ChatLimits::server_reserved_body_types`] keeps out of `Message/set`.
+/// The backend assigns `id`, so `msg.id` is ignored. None of the
+/// `Message/set` client-input checks run.
+///
+/// Before storing, the Chat is searched with
+/// [`find_message_by_sender_msg_id`]. A hit returns
+/// [`StoreOutcome::Duplicate`] and writes nothing. The mimi draft
+/// requires this: "The server MUST NOT store a FanoutMessage whose
+/// `senderMsgId` it has already stored in the Chat". After a store, the
+/// owner's ReadPosition for the Chat is created if missing and the
+/// Chat's `unreadCount` is recomputed, as for `Message/set`
+/// (draft-atwood-jmap-chat-00 §ReadPosition: "For direct and group
+/// Chats, a ReadPosition is created when the first message is
+/// delivered.").
+///
+/// ponytail: the duplicate check and the create are separate backend
+/// calls. Two concurrent calls with one `senderMsgId` can both store, so
+/// a caller that can race (such as parallel `/notify` deliveries)
+/// serializes calls per Chat.
+///
+/// # Errors
+///
+/// Returns the backend's error from the lookup (as
+/// [`BackendSetError::Other`]) or from
+/// [`ChatBackend::create_object`], unchanged.
+// Same error type as `ChatBackend::create_object`, passed through unboxed.
+#[allow(clippy::result_large_err)]
+pub async fn store_server_message<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    msg: Message,
+) -> Result<StoreOutcome, BackendSetError<B::Error>> {
+    if let Some(existing) = find_message_by_sender_msg_id(
+        backend,
+        caller,
+        account_id,
+        &msg.chat_id,
+        &msg.sender_msg_id,
+    )
+    .await
+    .map_err(BackendSetError::Other)?
+    {
+        return Ok(StoreOutcome::Duplicate(existing.id));
+    }
+    let create_id = msg.sender_msg_id.as_ref().to_owned();
+    let (id, stored) = backend
+        .create_object::<Message>(caller, account_id, &create_id, msg)
+        .await?;
+    ensure_read_positions(backend, caller, account_id, vec![stored.chat_id.clone()]).await;
+    record_unread_count_changes(backend, caller, account_id, vec![stored.chat_id]).await;
+    Ok(StoreOutcome::Stored(id))
+}
+
 /// Handle a `Message/set` method call (draft-atwood-jmap-chat-00 §Message).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
