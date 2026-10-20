@@ -22,6 +22,11 @@ wire behaviour that a conforming peer can observe.
   `KeyCustody` (`server` / `user` / `Other`). An empty
   `supportedMethods` is rejected ("Servers MUST support at least one
   method").
+- **jmap-did-types**: `Did`, a DID validated against the W3C DID Core
+  §3.1 ABNF (`DidError` on rejection), with `method`,
+  `method_specific_id` and `web_domain`, the host of a `did:web` DID
+  that draft-atwood-jmap-did-00 §Phishing via `did:web` says clients
+  "SHOULD highlight".
 - **jmap-cid-types**: base64 conversion for `Sha256`, so a client can
   compare it with an RFC 9404 `Blob/get` `digest:sha-256` value, per
   draft-atwood-jmap-cid-00 §Relationship to JMAP Blob Management

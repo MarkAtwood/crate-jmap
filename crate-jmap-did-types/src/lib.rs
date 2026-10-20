@@ -30,9 +30,14 @@
 //! - [`DidAccountCapability`] — the account-level capability object.
 //! - [`KeyCustody`] — the `keyCustody` value of the account-level
 //!   capability object.
+//! - [`Did`] — a DID validated against the W3C DID Core §3.1 syntax,
+//!   with [`Did::web_domain`] for the `did:web` domain component;
+//!   [`DidError`] reports a rejected parse.
 
 #![forbid(unsafe_code)]
 
 pub mod capability;
+pub mod did;
 
 pub use capability::{DidAccountCapability, DidCapability, KeyCustody, JMAP_DID_URI};
+pub use did::{Did, DidError};
