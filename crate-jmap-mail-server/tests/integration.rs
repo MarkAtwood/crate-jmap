@@ -19,6 +19,7 @@ use jmap_mail_server::{
     MailBackend, SetErrorType,
 };
 use jmap_mail_types::{Identity, Mailbox};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use jmap_types::Invocation;
 
@@ -305,7 +306,11 @@ async fn thread_get_returns_email_ids() {
         "ids": [thread_id.as_ref()],
     });
 
-    let (resp, extra) = handle_thread_get(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_thread_get(&backend, &(), args)
         .await
         .expect("Thread/get must succeed");
 
@@ -367,7 +372,11 @@ async fn thread_changes_from_zero_returns_all() {
         "sinceState": "0",
     });
 
-    let (resp, extra) = handle_thread_changes(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_thread_changes(&backend, &(), args)
         .await
         .expect("Thread/changes must succeed");
 
@@ -439,7 +448,11 @@ async fn search_snippet_get_returns_snippets() {
         "filter": { "text": "hello" },
     });
 
-    let (resp, extra) = handle_search_snippet_get(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_search_snippet_get(&backend, &(), args)
         .await
         .expect("SearchSnippet/get must succeed");
 
@@ -732,7 +745,7 @@ async fn search_snippet_get_capability_gated() {
 
     // Oracle: RFC 8620 §1.6.2 / §2 — capabilities are per account, so the
     // gate on "account1" must not affect "account2".
-    let (resp, _) = handle_search_snippet_get(
+    let HandlerOutput { primary: resp, .. } = handle_search_snippet_get(
         &backend,
         &(),
         serde_json::json!({"accountId": "account2", "emailIds": ["email1"]}),
@@ -774,7 +787,11 @@ async fn vacation_get_fresh_account_returns_empty() {
         "ids": null,
     });
 
-    let (resp, extra) = handle_vacation_get(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_vacation_get(&backend, &(), args)
         .await
         .expect("VacationResponse/get must succeed on fresh account");
 
@@ -818,7 +835,11 @@ async fn vacation_set_create_returns_singleton_error() {
         },
     });
 
-    let (resp, extra) = handle_vacation_set(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_vacation_set(&backend, &(), args)
         .await
         .expect("VacationResponse/set must succeed at the method level");
 
@@ -872,7 +893,9 @@ async fn vacation_set_update_singleton_works() {
         },
     });
 
-    let (set_resp, _) = handle_vacation_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_vacation_set(&backend, &(), set_args)
         .await
         .expect("VacationResponse/set must succeed");
 
@@ -892,7 +915,9 @@ async fn vacation_set_update_singleton_works() {
         "ids": ["singleton"],
     });
 
-    let (get_resp, _) = handle_vacation_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_vacation_get(&backend, &(), get_args)
         .await
         .expect("VacationResponse/get must succeed after update");
 
@@ -925,7 +950,11 @@ async fn vacation_set_destroy_returns_singleton_error() {
         "destroy": ["singleton"],
     });
 
-    let (resp, extra) = handle_vacation_set(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_vacation_set(&backend, &(), args)
         .await
         .expect("VacationResponse/set must succeed at the method level");
 
@@ -980,7 +1009,9 @@ async fn mailbox_set_create_and_get() {
             "c0": { "name": "MyInbox" }
         }
     });
-    let (set_resp, _) = handle_mailbox_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_mailbox_set(&backend, &(), set_args)
         .await
         .expect("Mailbox/set must not error");
 
@@ -998,7 +1029,9 @@ async fn mailbox_set_create_and_get() {
         "accountId": "acct1",
         "ids": [assigned_id]
     });
-    let (get_resp, _) = handle_mailbox_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_mailbox_get(&backend, &(), get_args)
         .await
         .expect("Mailbox/get must not error");
 
@@ -1058,7 +1091,7 @@ async fn mailbox_set_destroy_with_emails_no_flag_fails() {
         "accountId": "acct1",
         "destroy": [mb_id.as_ref()]
     });
-    let (resp, _) = handle_mailbox_set(&backend, &(), destroy_args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), destroy_args)
         .await
         .expect("Mailbox/set must not error");
 
@@ -1124,7 +1157,7 @@ async fn mailbox_set_destroy_with_emails_with_flag_succeeds() {
         "onDestroyRemoveEmails": true,
         "destroy": [mb_id.as_ref()]
     });
-    let (resp, _) = handle_mailbox_set(&backend, &(), destroy_args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), destroy_args)
         .await
         .expect("Mailbox/set must not error");
 
@@ -1172,7 +1205,7 @@ async fn mailbox_role_uniqueness_enforced() {
             "c0": { "name": "Inbox", "role": "inbox" }
         }
     });
-    let (resp1, _) = handle_mailbox_set(&backend, &(), first_args)
+    let HandlerOutput { primary: resp1, .. } = handle_mailbox_set(&backend, &(), first_args)
         .await
         .expect("first Mailbox/set");
     let created1 = resp1["created"]
@@ -1187,7 +1220,7 @@ async fn mailbox_role_uniqueness_enforced() {
             "c1": { "name": "AlsoInbox", "role": "inbox" }
         }
     });
-    let (resp2, _) = handle_mailbox_set(&backend, &(), second_args)
+    let HandlerOutput { primary: resp2, .. } = handle_mailbox_set(&backend, &(), second_args)
         .await
         .expect("second Mailbox/set");
 
@@ -1227,7 +1260,7 @@ async fn mailbox_set_create_rejects_non_string_role() {
             "c0": { "name": "foo", "role": 42 }
         }
     });
-    let (resp, _) = handle_mailbox_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), args)
         .await
         .expect("Mailbox/set must not error");
 
@@ -1277,7 +1310,7 @@ async fn mailbox_set_create_rejects_non_string_parent_id() {
             "c0": { "name": "foo", "parentId": 42 }
         }
     });
-    let (resp, _) = handle_mailbox_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), args)
         .await
         .expect("Mailbox/set must not error");
 
@@ -1325,7 +1358,7 @@ async fn mailbox_set_create_accepts_null_role_and_parent_id() {
             "c0": { "name": "foo", "role": serde_json::Value::Null, "parentId": serde_json::Value::Null }
         }
     });
-    let (resp, _) = handle_mailbox_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), args)
         .await
         .expect("Mailbox/set must not error");
 
@@ -1365,7 +1398,9 @@ async fn identity_set_create_and_get() {
         }
     });
 
-    let (set_resp, _) = handle_identity_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_identity_set(&backend, &(), set_args)
         .await
         .expect("Identity/set must succeed");
 
@@ -1392,7 +1427,9 @@ async fn identity_set_create_and_get() {
         "ids": [server_id],
     });
 
-    let (get_resp, _) = handle_identity_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_identity_get(&backend, &(), get_args)
         .await
         .expect("Identity/get must succeed");
 
@@ -1435,7 +1472,9 @@ async fn identity_set_create_without_email_is_invalid() {
         }
     });
 
-    let (set_resp, _) = handle_identity_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_identity_set(&backend, &(), set_args)
         .await
         .expect("Identity/set must not return a protocol-level error");
 
@@ -1483,7 +1522,10 @@ async fn identity_set_update_email_is_forbidden() {
             "c0": { "name": "Carol", "email": "carol@example.com" }
         }
     });
-    let (create_resp, _) = handle_identity_set(&backend, &(), create_args)
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_identity_set(&backend, &(), create_args)
         .await
         .expect("create must succeed");
     let identity_id = create_resp["created"]["c0"]["id"]
@@ -1500,7 +1542,9 @@ async fn identity_set_update_email_is_forbidden() {
         }
     });
 
-    let (upd_resp, _) = handle_identity_set(&backend, &(), update_args)
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_identity_set(&backend, &(), update_args)
         .await
         .expect("Identity/set must not return a protocol-level error");
 
@@ -1547,7 +1591,10 @@ async fn identity_set_destroy_may_delete_false_is_forbidden() {
             "c0": { "name": "Dave", "email": "dave@example.com" }
         }
     });
-    let (create_resp, _) = handle_identity_set(&backend, &(), create_args)
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_identity_set(&backend, &(), create_args)
         .await
         .expect("create must succeed");
     let identity_id = Id::from(
@@ -1572,7 +1619,10 @@ async fn identity_set_destroy_may_delete_false_is_forbidden() {
         "destroy": [identity_id.as_ref()],
     });
 
-    let (destroy_resp, _) = handle_identity_set(&backend, &(), destroy_args)
+    let HandlerOutput {
+        primary: destroy_resp,
+        ..
+    } = handle_identity_set(&backend, &(), destroy_args)
         .await
         .expect("Identity/set must not return a protocol-level error");
 
@@ -1615,7 +1665,9 @@ async fn identity_set_create_malformed_reply_to_rejected() {
         }
     });
 
-    let (set_resp, _) = handle_identity_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_identity_set(&backend, &(), set_args)
         .await
         .expect("Identity/set must not fail at the method level");
 
@@ -1659,7 +1711,9 @@ async fn identity_get_all_returns_list() {
     backend.register_account(&Id::from("a1"));
 
     // Seed one identity so the list is non-empty.
-    let (set_resp, _) = handle_identity_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -1674,7 +1728,9 @@ async fn identity_get_all_returns_list() {
         "identity must be created"
     );
 
-    let (get_resp, _) = handle_identity_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_identity_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": serde_json::Value::Null }),
@@ -1698,7 +1754,9 @@ async fn identity_get_required_properties() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("a1"));
 
-    let (set_resp, _) = handle_identity_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -1720,7 +1778,9 @@ async fn identity_get_required_properties() {
         .expect("must get id")
         .to_owned();
 
-    let (get_resp, _) = handle_identity_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_identity_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": [id] }),
@@ -1763,7 +1823,9 @@ async fn identity_get_by_id() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("a1"));
 
-    let (set_resp, _) = handle_identity_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -1778,7 +1840,9 @@ async fn identity_get_by_id() {
         .expect("must get id")
         .to_owned();
 
-    let (get_resp, _) = handle_identity_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_identity_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": [&id] }),
@@ -1802,7 +1866,9 @@ async fn identity_get_not_found() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("a1"));
 
-    let (get_resp, _) = handle_identity_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_identity_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": ["nonexistent-identity-xyz"] }),
@@ -1829,7 +1895,9 @@ async fn identity_get_email_contains_at() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("a1"));
 
-    let (set_resp, _) = handle_identity_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -1844,7 +1912,9 @@ async fn identity_get_email_contains_at() {
         .expect("must get id")
         .to_owned();
 
-    let (get_resp, _) = handle_identity_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_identity_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": [&id] }),
@@ -1870,7 +1940,9 @@ async fn identity_set_update_name_roundtrip() {
     backend.register_account(&Id::from("a1"));
 
     // Create initial identity.
-    let (set_resp, _) = handle_identity_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -1886,7 +1958,10 @@ async fn identity_set_update_name_roundtrip() {
         .to_owned();
 
     // Update name.
-    let (update_resp, _) = handle_identity_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -1902,7 +1977,9 @@ async fn identity_set_update_name_roundtrip() {
     );
 
     // Verify new name via get.
-    let (get_resp, _) = handle_identity_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_identity_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": [&id] }),
@@ -1923,7 +2000,9 @@ async fn identity_set_update_text_signature_roundtrip() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("a1"));
 
-    let (set_resp, _) = handle_identity_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -1939,7 +2018,7 @@ async fn identity_set_update_text_signature_roundtrip() {
         .to_owned();
 
     let new_sig = "-- \nTest Signature";
-    let (_, _) = handle_identity_set(
+    let HandlerOutput { .. } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -1950,7 +2029,9 @@ async fn identity_set_update_text_signature_roundtrip() {
     .await
     .expect("update textSignature");
 
-    let (get_resp, _) = handle_identity_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_identity_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": [&id] }),
@@ -1971,7 +2052,9 @@ async fn identity_set_update_html_signature_roundtrip() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("a1"));
 
-    let (set_resp, _) = handle_identity_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -1986,7 +2069,7 @@ async fn identity_set_update_html_signature_roundtrip() {
         .expect("must get id")
         .to_owned();
 
-    let (_, _) = handle_identity_set(
+    let HandlerOutput { .. } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -1997,7 +2080,9 @@ async fn identity_set_update_html_signature_roundtrip() {
     .await
     .expect("update htmlSignature");
 
-    let (get_resp, _) = handle_identity_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_identity_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": [&id] }),
@@ -2018,7 +2103,9 @@ async fn identity_set_update_reply_to_roundtrip() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("a1"));
 
-    let (set_resp, _) = handle_identity_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -2034,7 +2121,7 @@ async fn identity_set_update_reply_to_roundtrip() {
         .to_owned();
 
     // Set replyTo array.
-    let (_, _) = handle_identity_set(
+    let HandlerOutput { .. } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -2049,7 +2136,9 @@ async fn identity_set_update_reply_to_roundtrip() {
     .await
     .expect("set replyTo");
 
-    let (get_resp, _) = handle_identity_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_identity_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": [&id] }),
@@ -2062,7 +2151,7 @@ async fn identity_set_update_reply_to_roundtrip() {
     assert_eq!(reply_email, "reply@example.com", "replyTo email must match");
 
     // Clear replyTo.
-    let (_, _) = handle_identity_set(
+    let HandlerOutput { .. } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -2073,7 +2162,9 @@ async fn identity_set_update_reply_to_roundtrip() {
     .await
     .expect("clear replyTo");
 
-    let (get_resp2, _) = handle_identity_get(
+    let HandlerOutput {
+        primary: get_resp2, ..
+    } = handle_identity_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": [&id] }),
@@ -2093,7 +2184,7 @@ async fn identity_set_update_not_found() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("a1"));
 
-    let (resp, _) = handle_identity_set(
+    let HandlerOutput { primary: resp, .. } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -2125,7 +2216,7 @@ async fn identity_changes_no_changes() {
     backend.register_account(&Id::from("a1"));
 
     // Seed an identity so there's a real state to query from.
-    let (_, _) = handle_identity_set(
+    let HandlerOutput { .. } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -2137,7 +2228,9 @@ async fn identity_changes_no_changes() {
     .expect("create identity");
 
     // Get current state via ids: [].
-    let (get_resp, _) = handle_identity_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_identity_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": [] }),
@@ -2150,7 +2243,10 @@ async fn identity_changes_no_changes() {
         .to_owned();
 
     // Changes from current state must be empty.
-    let (changes_resp, _) = handle_identity_changes(
+    let HandlerOutput {
+        primary: changes_resp,
+        ..
+    } = handle_identity_changes(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "sinceState": &state }),
@@ -2185,7 +2281,9 @@ async fn identity_changes_after_update() {
     backend.register_account(&Id::from("a1"));
 
     // Create identity and record old state.
-    let (set_resp, _) = handle_identity_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -2200,7 +2298,9 @@ async fn identity_changes_after_update() {
         .expect("must get id")
         .to_owned();
 
-    let (get_resp, _) = handle_identity_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_identity_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": [] }),
@@ -2213,7 +2313,7 @@ async fn identity_changes_after_update() {
         .to_owned();
 
     // Update identity.
-    let (_, _) = handle_identity_set(
+    let HandlerOutput { .. } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -2225,7 +2325,10 @@ async fn identity_changes_after_update() {
     .expect("update identity");
 
     // Changes since old state should include the id in updated[].
-    let (changes_resp, _) = handle_identity_changes(
+    let HandlerOutput {
+        primary: changes_resp,
+        ..
+    } = handle_identity_changes(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "sinceState": &old_state }),
@@ -2253,7 +2356,7 @@ async fn identity_changes_response_structure() {
     backend.register_account(&Id::from("a1"));
 
     // Seed one identity so state is non-trivial.
-    let (_, _) = handle_identity_set(
+    let HandlerOutput { .. } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -2264,7 +2367,9 @@ async fn identity_changes_response_structure() {
     .await
     .expect("create identity");
 
-    let (get_resp, _) = handle_identity_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_identity_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": [] }),
@@ -2276,7 +2381,10 @@ async fn identity_changes_response_structure() {
         .expect("state must be string")
         .to_owned();
 
-    let (changes_resp, _) = handle_identity_changes(
+    let HandlerOutput {
+        primary: changes_resp,
+        ..
+    } = handle_identity_changes(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "sinceState": &state }),
@@ -2330,7 +2438,9 @@ async fn submission_get_ids_null_returns_list_and_state() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("a1"));
 
-    let (get_resp, _) = handle_submission_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_submission_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": serde_json::Value::Null }),
@@ -2356,7 +2466,9 @@ async fn submission_get_not_found() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("a1"));
 
-    let (get_resp, _) = handle_submission_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_submission_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": ["nonexistent-submission-xyz"] }),
@@ -2383,7 +2495,9 @@ async fn submission_get_response_structure() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("a1"));
 
-    let (get_resp, _) = handle_submission_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_submission_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": [] }),
@@ -2443,7 +2557,11 @@ async fn submission_set_create_and_get() {
         }
     });
 
-    let (set_resp, extra) = handle_submission_set(&backend, &(), set_args, "call1")
+    let HandlerOutput {
+        primary: set_resp,
+        extra_invocations: extra,
+        ..
+    } = handle_submission_set(&backend, &(), set_args, "call1")
         .await
         .expect("EmailSubmission/set must succeed");
 
@@ -2478,7 +2596,9 @@ async fn submission_set_create_and_get() {
         "ids": [submission_id.as_str()],
     });
 
-    let (get_resp, _) = handle_submission_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_submission_get(&backend, &(), get_args)
         .await
         .expect("EmailSubmission/get must succeed");
 
@@ -2553,7 +2673,11 @@ async fn submission_set_on_success_update_email() {
         }
     });
 
-    let (set_resp, extra) = handle_submission_set(&backend, &(), set_args, "call2")
+    let HandlerOutput {
+        primary: set_resp,
+        extra_invocations: extra,
+        ..
+    } = handle_submission_set(&backend, &(), set_args, "call2")
         .await
         .expect("EmailSubmission/set must succeed");
 
@@ -2612,6 +2736,84 @@ async fn submission_set_on_success_update_email() {
     );
 }
 
+/// Oracle: RFC 8621 §7.5 — "After all create/update/destroy items in the
+/// "EmailSubmission/set" invocation have been processed, a single implicit
+/// "Email/set" call MUST be made to perform any changes requested in these
+/// two arguments. The response to this MUST be returned after the
+/// "EmailSubmission/set" response." The §7.5 example response shows both
+/// entries with the request's method call id ("0").
+///
+/// Exercises the full dispatcher path, so the `HandlerOutput`
+/// `extra_invocations` must land in `methodResponses` right after the
+/// primary response.
+#[tokio::test]
+async fn dispatch_submission_set_on_success_update_email_orders_responses() {
+    use jmap_mail_server::register_mail_handlers;
+    use jmap_server::Dispatcher;
+    use jmap_types::{JmapRequest, State};
+    use std::sync::Arc;
+
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let (identity_id, _) = backend
+        .create_object::<Identity>(&(), &account_id, "i0", identity)
+        .await
+        .expect("create Identity");
+    let blob_id = Id::from("blob-dispatch-order");
+    backend.store_blob(
+        &blob_id,
+        b"Subject: Draft\r\nFrom: alice@example.com\r\nTo: bob@example.com\r\n\r\nBody.".to_vec(),
+    );
+    let (email_id, _) = backend
+        .import_email(&(), &account_id, &blob_id, &[Id::from("drafts")], &[], None)
+        .await
+        .expect("import_email");
+
+    let mut dispatcher = Dispatcher::new();
+    register_mail_handlers(&mut dispatcher, Arc::new(backend));
+
+    let request: JmapRequest = serde_json::from_value(serde_json::json!({
+        "using": [
+            "urn:ietf:params:jmap:core",
+            "urn:ietf:params:jmap:mail",
+            "urn:ietf:params:jmap:submission"
+        ],
+        "methodCalls": [["EmailSubmission/set", {
+            "accountId": account_id.as_ref(),
+            "create": {
+                "k1490": {
+                    "identityId": identity_id.as_ref(),
+                    "emailId": email_id.as_ref()
+                }
+            },
+            "onSuccessUpdateEmail": {
+                "#k1490": { "keywords": {} }
+            }
+        }, "0"]]
+    }))
+    .expect("request JSON must deserialize");
+
+    let resp = dispatcher.dispatch(request, (), State::from("s0")).await;
+
+    let order: Vec<(&str, &str)> = resp
+        .method_responses
+        .iter()
+        .map(|inv| (inv.name.as_str(), inv.call_id.as_str()))
+        .collect();
+    assert_eq!(
+        order,
+        vec![("EmailSubmission/set", "0"), ("Email/set", "0")],
+        "methodResponses: {:?}",
+        resp.method_responses
+    );
+    assert!(
+        resp.method_responses[0].arguments["created"]["k1490"].is_object(),
+        "submission must be created: {:?}",
+        resp.method_responses[0].arguments
+    );
+}
+
 /// Oracle: EmailSubmission/set onSuccessUpdateEmail that patches an immutable
 /// Email field (e.g. "messageId") is rejected with invalidProperties in the
 /// implicit Email/set response.
@@ -2656,7 +2858,11 @@ async fn submission_set_on_success_update_email_immutable_field_rejected() {
     });
 
     use jmap_mail_server::submission::handle_submission_set;
-    let (resp, extra) = handle_submission_set(&backend, &(), args, "call-imm-sub")
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_submission_set(&backend, &(), args, "call-imm-sub")
         .await
         .expect("EmailSubmission/set must not return a top-level JmapError");
 
@@ -2722,7 +2928,11 @@ async fn submission_set_invalid_identity_fails() {
         }
     });
 
-    let (set_resp, extra) = handle_submission_set(&backend, &(), set_args, "call3")
+    let HandlerOutput {
+        primary: set_resp,
+        extra_invocations: extra,
+        ..
+    } = handle_submission_set(&backend, &(), set_args, "call3")
         .await
         .expect("EmailSubmission/set must not return JmapError");
 
@@ -2788,7 +2998,11 @@ async fn email_set_create_and_get() {
             }
         }
     });
-    let (set_resp, extra) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp,
+        extra_invocations: extra,
+        ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set must succeed");
     assert!(extra.is_empty());
@@ -2827,7 +3041,11 @@ async fn email_set_create_and_get() {
         "accountId": account_id.as_ref(),
         "ids": [email_id],
     });
-    let (get_resp, extra) = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp,
+        extra_invocations: extra,
+        ..
+    } = handle_email_get(&backend, &(), get_args)
         .await
         .expect("Email/get must succeed");
     assert!(extra.is_empty());
@@ -2895,7 +3113,9 @@ async fn email_set_create_keyword_false_value_not_stored() {
         }
     });
 
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set must not fail at method level");
 
@@ -2909,7 +3129,9 @@ async fn email_set_create_keyword_false_value_not_stored() {
         "ids": [email_id],
         "properties": ["keywords"]
     });
-    let (get_resp, _) = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(&backend, &(), get_args)
         .await
         .expect("Email/get must succeed");
 
@@ -2947,7 +3169,9 @@ async fn email_set_create_all_false_mailbox_ids_rejected() {
         }
     });
 
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set must not fail at method level");
 
@@ -3003,7 +3227,9 @@ async fn email_set_create_with_malformed_received_at_rejected() {
         }
     });
 
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set must not fail at method level");
 
@@ -3058,7 +3284,9 @@ async fn email_set_create_with_non_string_received_at_rejected() {
         }
     });
 
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set must not fail at method level");
 
@@ -3106,7 +3334,9 @@ async fn email_get_not_found_is_empty_array_when_all_found() {
             }
         }
     });
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -3119,7 +3349,7 @@ async fn email_get_not_found_is_empty_array_when_all_found() {
         "accountId": account_id.as_ref(),
         "ids": [email_id],
     });
-    let (resp, _) = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), get_args)
         .await
         .expect("Email/get");
 
@@ -3159,7 +3389,9 @@ async fn email_get_with_property_filter() {
             }
         }
     });
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -3172,7 +3404,9 @@ async fn email_get_with_property_filter() {
         "ids": [email_id],
         "properties": ["id", "subject"],
     });
-    let (get_resp, _) = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(&backend, &(), get_args)
         .await
         .expect("Email/get");
 
@@ -3210,7 +3444,9 @@ async fn email_get_default_properties_excludes_headers() {
             }
         }
     });
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -3223,7 +3459,9 @@ async fn email_get_default_properties_excludes_headers() {
         "accountId": account_id.as_ref(),
         "ids": [email_id],
     });
-    let (get_resp, _) = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(&backend, &(), get_args)
         .await
         .expect("Email/get");
 
@@ -3269,7 +3507,9 @@ async fn email_get_body_value_fetch_args_parsed() {
             "c0": { "mailboxIds": { "inbox": true }, "subject": "Body fetch test" }
         }
     });
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -3284,7 +3524,9 @@ async fn email_get_body_value_fetch_args_parsed() {
         "maxBodyValueBytes": 10,
     });
     // Must not return an error — the args are well-formed.
-    let (get_resp, _) = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(&backend, &(), get_args)
         .await
         .expect("Email/get with body-value fetch args must not fail");
 
@@ -3307,7 +3549,9 @@ async fn email_get_max_body_value_bytes_zero_accepted() {
             "c0": { "mailboxIds": { "inbox": true }, "subject": "Zero limit test" }
         }
     });
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -3320,7 +3564,9 @@ async fn email_get_max_body_value_bytes_zero_accepted() {
         "ids": [email_id],
         "maxBodyValueBytes": 0,
     });
-    let (get_resp, _) = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(&backend, &(), get_args)
         .await
         .expect("maxBodyValueBytes=0 must be accepted");
 
@@ -3352,7 +3598,10 @@ async fn email_parse_default_properties_used() {
         "blobIds": [blob_id.as_ref()],
         // No `properties` — must use DEFAULT_EMAIL_PARSE_PROPERTIES.
     });
-    let (parse_resp, _) = handle_email_parse(&backend, &(), parse_args)
+    let HandlerOutput {
+        primary: parse_resp,
+        ..
+    } = handle_email_parse(&backend, &(), parse_args)
         .await
         .expect("Email/parse must not fail");
 
@@ -3458,7 +3707,9 @@ async fn email_set_update_immutable_field_rejected() {
             }
         }
     });
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set create");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -3474,7 +3725,9 @@ async fn email_set_update_immutable_field_rejected() {
             }
         }
     });
-    let (upd_resp, _) = handle_email_set(&backend, &(), update_args)
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_email_set(&backend, &(), update_args)
         .await
         .expect("Email/set update must return a response");
 
@@ -3524,7 +3777,9 @@ async fn email_set_update_keywords() {
             }
         }
     });
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set create");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -3541,7 +3796,9 @@ async fn email_set_update_keywords() {
             }
         }
     });
-    let (upd_resp, _) = handle_email_set(&backend, &(), update_args)
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_email_set(&backend, &(), update_args)
         .await
         .expect("Email/set update");
 
@@ -3562,7 +3819,9 @@ async fn email_set_update_keywords() {
         "accountId": account_id.as_ref(),
         "sinceState": state_before,
     });
-    let (chg_resp, _) = handle_email_changes(&backend, &(), changes_args)
+    let HandlerOutput {
+        primary: chg_resp, ..
+    } = handle_email_changes(&backend, &(), changes_args)
         .await
         .expect("Email/changes");
 
@@ -3623,7 +3882,11 @@ async fn email_query_by_mailbox() {
         "filter": { "inMailbox": "inbox" },
         "calculateTotal": true,
     });
-    let (query_resp, extra) = handle_email_query(&backend, &(), query_args)
+    let HandlerOutput {
+        primary: query_resp,
+        extra_invocations: extra,
+        ..
+    } = handle_email_query(&backend, &(), query_args)
         .await
         .expect("Email/query must succeed");
     assert!(extra.is_empty());
@@ -3680,7 +3943,11 @@ async fn email_import_empty_mailbox_ids_rejected() {
         }
     });
 
-    let (resp, extra) = handle_email_import(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_email_import(&backend, &(), args)
         .await
         .expect("Email/import must not return a JmapError");
     assert!(extra.is_empty());
@@ -3737,7 +4004,7 @@ async fn email_import_with_malformed_received_at_rejected() {
         }
     });
 
-    let (resp, _) = handle_email_import(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_import(&backend, &(), args)
         .await
         .expect("Email/import must not return a JmapError");
 
@@ -3787,7 +4054,7 @@ async fn email_import_with_keywords_succeeds() {
         }
     });
 
-    let (resp, _extra) = handle_email_import(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_import(&backend, &(), args)
         .await
         .expect("Email/import must not return a JmapError");
 
@@ -3852,7 +4119,7 @@ async fn email_copy_with_keywords_succeeds() {
         }
     });
 
-    let (resp, _extra) = handle_email_copy(&backend, &(), args, "call-1")
+    let HandlerOutput { primary: resp, .. } = handle_email_copy(&backend, &(), args, "call-1")
         .await
         .expect("Email/copy must not return a JmapError");
 
@@ -3917,9 +4184,10 @@ async fn email_copy_with_malformed_received_at_rejected() {
         }
     });
 
-    let (resp, _) = handle_email_copy(&backend, &(), args, "call-malformed")
-        .await
-        .expect("Email/copy must not return a JmapError");
+    let HandlerOutput { primary: resp, .. } =
+        handle_email_copy(&backend, &(), args, "call-malformed")
+            .await
+            .expect("Email/copy must not return a JmapError");
 
     assert!(resp["created"].is_null(), "created must be null");
     let not_created = resp["notCreated"]
@@ -3978,7 +4246,11 @@ async fn email_copy_on_success_update_original_immutable_field_rejected() {
         }
     });
 
-    let (resp, extra) = handle_email_copy(&backend, &(), args, "call-imm")
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_email_copy(&backend, &(), args, "call-imm")
         .await
         .expect("Email/copy must not return a top-level JmapError");
 
@@ -4045,7 +4317,8 @@ async fn email_copy_with_destroy_from_if_in_state(
     let state = match destroy_from_if_in_state {
         Some(s) => s.to_owned(),
         None => {
-            let (get, _) = get_src().await.expect("Email/get must succeed");
+            let HandlerOutput { primary: get, .. } =
+                get_src().await.expect("Email/get must succeed");
             get["state"].as_str().expect("state string").to_owned()
         }
     };
@@ -4059,14 +4332,18 @@ async fn email_copy_with_destroy_from_if_in_state(
             "c1": { "id": src_id.as_ref(), "mailboxIds": { "inbox": true } }
         }
     });
-    let (resp, extra) = handle_email_copy(&backend, &(), args, "call-dfis")
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_email_copy(&backend, &(), args, "call-dfis")
         .await
         .expect("Email/copy must not return a top-level JmapError");
     assert!(
         resp["created"]["c1"].is_object(),
         "copy must succeed: {resp}"
     );
-    let (after, _) = get_src().await.expect("Email/get must succeed");
+    let HandlerOutput { primary: after, .. } = get_src().await.expect("Email/get must succeed");
     (extra, after["list"].clone())
 }
 
@@ -4150,7 +4427,9 @@ async fn submission_set_update_only_undo_status_allowed() {
             }
         }
     });
-    let (set_resp, _) = handle_submission_set(&backend, &(), set_args, "c1")
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_submission_set(&backend, &(), set_args, "c1")
         .await
         .expect("create submission");
     let submission_id = set_resp["created"]["s0"]["id"]
@@ -4167,7 +4446,9 @@ async fn submission_set_update_only_undo_status_allowed() {
             }
         }
     });
-    let (upd_resp, _) = handle_submission_set(&backend, &(), update_args, "c2")
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_submission_set(&backend, &(), update_args, "c2")
         .await
         .expect("set must not return JmapError");
 
@@ -4235,7 +4516,7 @@ async fn mailbox_set_create_child_then_destroy_parent_blocked() {
         "destroy": [parent_id.as_ref()],
     });
 
-    let (resp, _) = handle_mailbox_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), args)
         .await
         .expect("Mailbox/set must not return JmapError");
 
@@ -4286,7 +4567,11 @@ async fn email_set_create_malformed_keywords_rejected() {
         }
     });
 
-    let (resp, extra) = handle_email_set(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must not return a JmapError");
     assert!(extra.is_empty());
@@ -4325,7 +4610,7 @@ async fn keyword_256_chars_rejected() {
         }
     });
 
-    let (resp, _) = handle_email_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must not return a JmapError");
     let not_created = resp["notCreated"]
@@ -4359,7 +4644,7 @@ async fn keyword_255_chars_accepted() {
         }
     });
 
-    let (resp, _) = handle_email_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must not return a JmapError");
     assert!(
@@ -4392,7 +4677,7 @@ async fn keyword_forbidden_char_open_paren_rejected() {
         }
     });
 
-    let (resp, _) = handle_email_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must not return a JmapError");
     let not_created = resp["notCreated"]
@@ -4425,7 +4710,10 @@ async fn keyword_normalized_to_lowercase() {
         }
     });
 
-    let (create_resp, _) = handle_email_set(&backend, &(), create_args)
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_email_set(&backend, &(), create_args)
         .await
         .expect("Email/set must not return a JmapError");
     let email_id = create_resp["created"]["c0"]["id"]
@@ -4437,7 +4725,9 @@ async fn keyword_normalized_to_lowercase() {
         "ids": [email_id],
         "properties": ["keywords"],
     });
-    let (get_resp, _) = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(&backend, &(), get_args)
         .await
         .expect("Email/get must not return a JmapError");
     let keywords = &get_resp["list"][0]["keywords"];
@@ -4470,7 +4760,7 @@ async fn keyword_empty_rejected() {
         }
     });
 
-    let (resp, _) = handle_email_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must not return a JmapError");
     let not_created = resp["notCreated"]
@@ -4503,7 +4793,7 @@ async fn keyword_tilde_accepted() {
         }
     });
 
-    let (resp, _) = handle_email_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must not return a JmapError");
     assert!(
@@ -4536,7 +4826,7 @@ async fn keyword_dollar_sign_accepted() {
         }
     });
 
-    let (resp, _) = handle_email_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must not return a JmapError");
     assert!(
@@ -4652,7 +4942,10 @@ async fn submission_query_filter_by_identity_id() {
         make_identity_and_email(&backend, &account_id, "bob@example.com", "sentB").await;
 
     // Create a submission for identity_a.
-    let (set_resp_a, _) = handle_submission_set(
+    let HandlerOutput {
+        primary: set_resp_a,
+        ..
+    } = handle_submission_set(
         &backend,
         &(),
         serde_json::json!({
@@ -4669,7 +4962,10 @@ async fn submission_query_filter_by_identity_id() {
         .to_owned();
 
     // Create a submission for identity_b.
-    let (set_resp_b, _) = handle_submission_set(
+    let HandlerOutput {
+        primary: set_resp_b,
+        ..
+    } = handle_submission_set(
         &backend,
         &(),
         serde_json::json!({
@@ -4686,7 +4982,7 @@ async fn submission_query_filter_by_identity_id() {
         .to_owned();
 
     // Query filtered to identity_a only.
-    let (qresp, _) = handle_submission_query(
+    let HandlerOutput { primary: qresp, .. } = handle_submission_query(
         &backend,
         &(),
         serde_json::json!({
@@ -4728,7 +5024,9 @@ async fn submission_query_filter_by_before() {
         make_identity_and_email(&backend, &account_id, "alice@example.com", "sent").await;
 
     // Create a submission; sendAt is server-set to ~now.
-    let (set_resp, _) = handle_submission_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_submission_set(
         &backend,
         &(),
         serde_json::json!({
@@ -4750,7 +5048,9 @@ async fn submission_query_filter_by_before() {
         .to_owned();
 
     // before=far-future must include the submission (sendAt < 9999-12-31).
-    let (qresp_in, _) = handle_submission_query(
+    let HandlerOutput {
+        primary: qresp_in, ..
+    } = handle_submission_query(
         &backend,
         &(),
         serde_json::json!({
@@ -4773,7 +5073,9 @@ async fn submission_query_filter_by_before() {
     );
 
     // before=epoch must exclude the submission (sendAt >= 2000-01-01).
-    let (qresp_out, _) = handle_submission_query(
+    let HandlerOutput {
+        primary: qresp_out, ..
+    } = handle_submission_query(
         &backend,
         &(),
         serde_json::json!({
@@ -4810,7 +5112,9 @@ async fn submission_query_filter_by_after() {
         make_identity_and_email(&backend, &account_id, "alice@example.com", "sent").await;
 
     // Create a submission; sendAt is server-set to ~now.
-    let (set_resp, _) = handle_submission_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_submission_set(
         &backend,
         &(),
         serde_json::json!({
@@ -4832,7 +5136,9 @@ async fn submission_query_filter_by_after() {
         .to_owned();
 
     // after=epoch must include the submission (sendAt >= 2000-01-01).
-    let (qresp_in, _) = handle_submission_query(
+    let HandlerOutput {
+        primary: qresp_in, ..
+    } = handle_submission_query(
         &backend,
         &(),
         serde_json::json!({
@@ -4855,7 +5161,9 @@ async fn submission_query_filter_by_after() {
     );
 
     // after=far-future must exclude the submission (sendAt < 9999-12-31).
-    let (qresp_out, _) = handle_submission_query(
+    let HandlerOutput {
+        primary: qresp_out, ..
+    } = handle_submission_query(
         &backend,
         &(),
         serde_json::json!({
@@ -4894,7 +5202,10 @@ async fn submission_query_filter_by_undo_status() {
         make_identity_and_email(&backend, &account_id, "bob@example.com", "sentB").await;
 
     // Create submission A via the handler (undoStatus = "final").
-    let (set_resp_a, _) = handle_submission_set(
+    let HandlerOutput {
+        primary: set_resp_a,
+        ..
+    } = handle_submission_set(
         &backend,
         &(),
         serde_json::json!({
@@ -4926,7 +5237,10 @@ async fn submission_query_filter_by_undo_status() {
         .expect("create submission B");
 
     // Query filtered to undoStatus = "final" — should return sub_a, not sub_b.
-    let (qresp_final, _) = handle_submission_query(
+    let HandlerOutput {
+        primary: qresp_final,
+        ..
+    } = handle_submission_query(
         &backend,
         &(),
         serde_json::json!({
@@ -4953,7 +5267,10 @@ async fn submission_query_filter_by_undo_status() {
     );
 
     // Query filtered to undoStatus = "pending" — should return sub_b, not sub_a.
-    let (qresp_pending, _) = handle_submission_query(
+    let HandlerOutput {
+        primary: qresp_pending,
+        ..
+    } = handle_submission_query(
         &backend,
         &(),
         serde_json::json!({
@@ -5040,7 +5357,7 @@ async fn submission_set_create_no_recipients_fails() {
         }
     });
 
-    let (resp, _) = handle_submission_set(&backend, &(), args, "call1")
+    let HandlerOutput { primary: resp, .. } = handle_submission_set(&backend, &(), args, "call1")
         .await
         .expect("EmailSubmission/set must return a response (not a protocol error)");
 
@@ -5104,7 +5421,7 @@ async fn mailbox_set_role_uniqueness_create_then_update() {
         }
     });
 
-    let (resp, _) = handle_mailbox_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), args)
         .await
         .expect("Mailbox/set must return a response");
 
@@ -5194,7 +5511,7 @@ async fn mailbox_set_role_swap_succeeds_in_single_request() {
         }
     });
 
-    let (resp, _) = handle_mailbox_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), args)
         .await
         .expect("Mailbox/set must return a response");
 
@@ -5231,7 +5548,9 @@ async fn email_set_create_malformed_in_reply_to_returns_error() {
         "accountId": account_id.as_ref(),
         "create": { "mb1": { "name": "Inbox" } },
     });
-    let (mb_resp, _) = handle_mailbox_set(&backend, &(), mb_args)
+    let HandlerOutput {
+        primary: mb_resp, ..
+    } = handle_mailbox_set(&backend, &(), mb_args)
         .await
         .expect("Mailbox/set must succeed");
     let mailbox_id = mb_resp["created"]["mb1"]["id"]
@@ -5250,7 +5569,7 @@ async fn email_set_create_malformed_in_reply_to_returns_error() {
         },
     });
 
-    let (resp, _) = handle_email_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must not return a method-level error");
 
@@ -5277,7 +5596,9 @@ async fn email_set_create_malformed_references_returns_error() {
         "accountId": account_id.as_ref(),
         "create": { "mb1": { "name": "Inbox" } },
     });
-    let (mb_resp, _) = handle_mailbox_set(&backend, &(), mb_args)
+    let HandlerOutput {
+        primary: mb_resp, ..
+    } = handle_mailbox_set(&backend, &(), mb_args)
         .await
         .expect("Mailbox/set must succeed");
     let mailbox_id = mb_resp["created"]["mb1"]["id"]
@@ -5295,7 +5616,7 @@ async fn email_set_create_malformed_references_returns_error() {
         },
     });
 
-    let (resp, _) = handle_email_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must not return a method-level error");
 
@@ -5327,7 +5648,7 @@ async fn mailbox_query_calculate_total_controls_total_field() {
 
     // Default (no calculateTotal) — total must be absent.
     let args_no_total = serde_json::json!({ "accountId": account_id.as_ref() });
-    let (resp, _) = handle_mailbox_query(&backend, &(), args_no_total)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args_no_total)
         .await
         .expect("Mailbox/query must not error");
     assert!(
@@ -5340,7 +5661,7 @@ async fn mailbox_query_calculate_total_controls_total_field() {
         "accountId": account_id.as_ref(),
         "calculateTotal": false,
     });
-    let (resp, _) = handle_mailbox_query(&backend, &(), args_false)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args_false)
         .await
         .expect("Mailbox/query must not error");
     assert!(
@@ -5353,7 +5674,7 @@ async fn mailbox_query_calculate_total_controls_total_field() {
         "accountId": account_id.as_ref(),
         "calculateTotal": true,
     });
-    let (resp, _) = handle_mailbox_query(&backend, &(), args_true)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args_true)
         .await
         .expect("Mailbox/query must not error");
     assert!(
@@ -5434,7 +5755,7 @@ async fn email_query_calculate_total_controls_total_field() {
 
     // Default — total must be absent.
     let args = serde_json::json!({ "accountId": account_id.as_ref() });
-    let (resp, _) = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
         .await
         .expect("Email/query must not error");
     assert!(
@@ -5447,7 +5768,7 @@ async fn email_query_calculate_total_controls_total_field() {
         "accountId": account_id.as_ref(),
         "calculateTotal": true,
     });
-    let (resp, _) = handle_email_query(&backend, &(), args_true)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args_true)
         .await
         .expect("Email/query must not error");
     // The backend may return None for total on empty account; only check if present.
@@ -5475,7 +5796,7 @@ async fn email_query_collapse_threads_position_i64_min_does_not_panic() {
         "position": i64::MIN,
     });
 
-    let (resp, _) = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
         .await
         .expect("Email/query must not panic or error with position=i64::MIN");
 
@@ -5502,7 +5823,8 @@ async fn mailbox_set_create_backend_other_goes_to_not_created() {
         "accountId": "acct1",
         "create": { "c1": { "name": "Inbox" } }
     });
-    let (resp, _) = handle_mailbox_set(&backend, &(), args).await.unwrap();
+    let HandlerOutput { primary: resp, .. } =
+        handle_mailbox_set(&backend, &(), args).await.unwrap();
     assert!(
         resp["created"].is_null(),
         "created must be null; resp: {resp}"
@@ -5542,7 +5864,8 @@ async fn mailbox_set_update_backend_other_goes_to_not_updated() {
         "accountId": account.as_ref(),
         "update": { mbox_id.as_ref(): { "name": "Updated" } }
     });
-    let (resp, _) = handle_mailbox_set(&backend, &(), args).await.unwrap();
+    let HandlerOutput { primary: resp, .. } =
+        handle_mailbox_set(&backend, &(), args).await.unwrap();
     assert!(
         resp["updated"].is_null(),
         "updated must be null; resp: {resp}"
@@ -5581,7 +5904,8 @@ async fn mailbox_set_destroy_backend_other_goes_to_not_destroyed() {
         "accountId": account.as_ref(),
         "destroy": [mbox_id.as_ref()]
     });
-    let (resp, _) = handle_mailbox_set(&backend, &(), args).await.unwrap();
+    let HandlerOutput { primary: resp, .. } =
+        handle_mailbox_set(&backend, &(), args).await.unwrap();
     assert!(
         resp["destroyed"].is_null(),
         "destroyed must be null; resp: {resp}"
@@ -5605,7 +5929,7 @@ async fn email_set_create_backend_other_goes_to_not_created() {
             "e1": { "mailboxIds": { "mbox1": true } }
         }
     });
-    let (resp, _) = handle_email_set(&backend, &(), args).await.unwrap();
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args).await.unwrap();
     assert!(
         resp["created"].is_null(),
         "created must be null; resp: {resp}"
@@ -5642,7 +5966,7 @@ async fn email_set_update_backend_other_goes_to_not_updated() {
         "accountId": account.as_ref(),
         "update": { email_id.as_ref(): { "keywords/$seen": true } }
     });
-    let (resp, _) = handle_email_set(&backend, &(), args).await.unwrap();
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args).await.unwrap();
     assert!(
         resp["updated"].is_null(),
         "updated must be null; resp: {resp}"
@@ -5679,7 +6003,7 @@ async fn email_set_destroy_backend_other_goes_to_not_destroyed() {
         "accountId": account.as_ref(),
         "destroy": [email_id.as_ref()]
     });
-    let (resp, _) = handle_email_set(&backend, &(), args).await.unwrap();
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args).await.unwrap();
     assert!(
         resp["destroyed"].is_null(),
         "destroyed must be null; resp: {resp}"
@@ -5708,7 +6032,8 @@ async fn email_import_backend_other_goes_to_not_created() {
             }
         }
     });
-    let (resp, _) = handle_email_import(&backend, &(), args).await.unwrap();
+    let HandlerOutput { primary: resp, .. } =
+        handle_email_import(&backend, &(), args).await.unwrap();
     assert!(
         resp["created"].is_null(),
         "created must be null; resp: {resp}"
@@ -5769,7 +6094,7 @@ async fn submission_set_create_backend_other_goes_to_not_created() {
             }
         }
     });
-    let (resp, _) = handle_submission_set(&backend, &(), args, "call1")
+    let HandlerOutput { primary: resp, .. } = handle_submission_set(&backend, &(), args, "call1")
         .await
         .unwrap();
     assert!(
@@ -5793,7 +6118,8 @@ async fn identity_set_create_backend_other_goes_to_not_created() {
         "accountId": "acct1",
         "create": { "id1": { "email": "user@example.com" } }
     });
-    let (resp, _) = handle_identity_set(&backend, &(), args).await.unwrap();
+    let HandlerOutput { primary: resp, .. } =
+        handle_identity_set(&backend, &(), args).await.unwrap();
     assert!(
         resp["created"].is_null(),
         "created must be null; resp: {resp}"
@@ -5822,7 +6148,8 @@ async fn identity_set_update_backend_other_goes_to_not_updated() {
         "accountId": account.as_ref(),
         "update": { id.as_ref(): { "name": "Updated Name" } }
     });
-    let (resp, _) = handle_identity_set(&backend, &(), args).await.unwrap();
+    let HandlerOutput { primary: resp, .. } =
+        handle_identity_set(&backend, &(), args).await.unwrap();
     assert!(
         resp["updated"].is_null(),
         "updated must be null; resp: {resp}"
@@ -5856,7 +6183,8 @@ async fn identity_set_destroy_backend_other_goes_to_not_destroyed() {
         "accountId": account.as_ref(),
         "destroy": [id.as_ref()]
     });
-    let (resp, _) = handle_identity_set(&backend, &(), args).await.unwrap();
+    let HandlerOutput { primary: resp, .. } =
+        handle_identity_set(&backend, &(), args).await.unwrap();
     assert!(
         resp["destroyed"].is_null(),
         "destroyed must be null; resp: {resp}"
@@ -5885,7 +6213,7 @@ async fn mailbox_set_sort_order_overflow_rejected() {
             "c0": { "name": "Box", "sortOrder": 5_000_000_000u64 }
         }
     });
-    let (resp, _) = handle_mailbox_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), args)
         .await
         .expect("handler must not return a JmapError");
 
@@ -5948,7 +6276,8 @@ async fn set_per_id_server_fail_redacts_backend_display_create() {
         "accountId": "acct1",
         "create": { "c1": { "name": "Inbox" } }
     });
-    let (resp, _) = handle_mailbox_set(&backend, &(), args).await.unwrap();
+    let HandlerOutput { primary: resp, .. } =
+        handle_mailbox_set(&backend, &(), args).await.unwrap();
 
     let wire = resp.to_string();
     assert!(
@@ -5998,7 +6327,8 @@ async fn set_per_id_server_fail_redacts_backend_display_update() {
         "accountId": account.as_ref(),
         "update": { mbox_id.as_ref(): { "name": "Updated" } }
     });
-    let (resp, _) = handle_mailbox_set(&backend, &(), args).await.unwrap();
+    let HandlerOutput { primary: resp, .. } =
+        handle_mailbox_set(&backend, &(), args).await.unwrap();
 
     let wire = resp.to_string();
     assert!(
@@ -6040,7 +6370,8 @@ async fn set_per_id_server_fail_redacts_backend_display_destroy() {
         "accountId": account.as_ref(),
         "destroy": [mbox_id.as_ref()]
     });
-    let (resp, _) = handle_mailbox_set(&backend, &(), args).await.unwrap();
+    let HandlerOutput { primary: resp, .. } =
+        handle_mailbox_set(&backend, &(), args).await.unwrap();
 
     let wire = resp.to_string();
     assert!(
@@ -6079,7 +6410,7 @@ async fn email_import_created_response_has_four_server_set_fields() {
             }
         }
     });
-    let (resp, _) = handle_email_import(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_import(&backend, &(), args)
         .await
         .expect("import must succeed");
 
@@ -6118,7 +6449,7 @@ async fn email_query_changes_omits_total_by_default() {
         "accountId": "acct1",
         "sinceQueryState": "0",
     });
-    let (resp, _) = handle_email_query_changes(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query_changes(&backend, &(), args)
         .await
         .expect("handler must succeed");
     assert!(
@@ -6137,7 +6468,7 @@ async fn mailbox_query_changes_omits_total_by_default() {
         "accountId": "acct1",
         "sinceQueryState": "0",
     });
-    let (resp, _) = handle_mailbox_query_changes(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query_changes(&backend, &(), args)
         .await
         .expect("handler must succeed");
     assert!(
@@ -6173,7 +6504,9 @@ async fn email_query_anchor_resolves_position() {
 
     // First query: get all IDs in sorted order.
     let q1 = serde_json::json!({ "accountId": account_id });
-    let (q1_resp, _) = handle_email_query(&backend, &(), q1)
+    let HandlerOutput {
+        primary: q1_resp, ..
+    } = handle_email_query(&backend, &(), q1)
         .await
         .expect("first query must succeed");
     let all_ids: Vec<String> = q1_resp["ids"]
@@ -6191,7 +6524,9 @@ async fn email_query_anchor_resolves_position() {
         "anchor": anchor,
         "limit": 2,
     });
-    let (q2_resp, _) = handle_email_query(&backend, &(), q2)
+    let HandlerOutput {
+        primary: q2_resp, ..
+    } = handle_email_query(&backend, &(), q2)
         .await
         .expect("anchor query must succeed");
 
@@ -6231,7 +6566,9 @@ async fn email_query_in_mailbox_filter() {
             "t1": { "mailboxIds": { "trash": true } },
         }
     });
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("email create must succeed");
     assert!(set_resp["notCreated"].is_null(), "all creates must succeed");
@@ -6241,7 +6578,7 @@ async fn email_query_in_mailbox_filter() {
         "accountId": account_id,
         "filter": { "inMailbox": "inbox" },
     });
-    let (resp, _) = handle_email_query(&backend, &(), q_args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), q_args)
         .await
         .expect("Email/query with inMailbox filter must succeed");
 
@@ -6257,7 +6594,7 @@ async fn email_query_in_mailbox_filter() {
         "accountId": account_id,
         "filter": { "inMailbox": "trash" },
     });
-    let (resp2, _) = handle_email_query(&backend, &(), q_args2)
+    let HandlerOutput { primary: resp2, .. } = handle_email_query(&backend, &(), q_args2)
         .await
         .expect("Email/query with inMailbox=trash filter must succeed");
 
@@ -6313,7 +6650,9 @@ async fn mailbox_query_anchor_resolves_position() {
 
     // First query: get all IDs in sorted order.
     let q1 = serde_json::json!({ "accountId": account_id });
-    let (q1_resp, _) = handle_mailbox_query(&backend, &(), q1)
+    let HandlerOutput {
+        primary: q1_resp, ..
+    } = handle_mailbox_query(&backend, &(), q1)
         .await
         .expect("first query must succeed");
     let all_ids: Vec<String> = q1_resp["ids"]
@@ -6327,7 +6666,9 @@ async fn mailbox_query_anchor_resolves_position() {
     // Anchor at the last mailbox (index 2) → expect only that one.
     let anchor = all_ids[2].clone();
     let q2 = serde_json::json!({ "accountId": account_id, "anchor": anchor });
-    let (q2_resp, _) = handle_mailbox_query(&backend, &(), q2)
+    let HandlerOutput {
+        primary: q2_resp, ..
+    } = handle_mailbox_query(&backend, &(), q2)
         .await
         .expect("anchor query must succeed");
 
@@ -6389,7 +6730,10 @@ async fn identity_set_update_rejects_server_set_fields() {
         "accountId": account_id,
         "create": { "c0": { "name": "Alice", "email": "alice@example.com" } }
     });
-    let (create_resp, _) = handle_identity_set(&backend, &(), create_args)
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_identity_set(&backend, &(), create_args)
         .await
         .expect("create must succeed");
     let iid = create_resp["created"]["c0"]["id"]
@@ -6402,7 +6746,7 @@ async fn identity_set_update_rejects_server_set_fields() {
         "accountId": account_id,
         "update": { iid.clone(): { "mayDelete": false } }
     });
-    let (r1, _) = handle_identity_set(&backend, &(), upd1)
+    let HandlerOutput { primary: r1, .. } = handle_identity_set(&backend, &(), upd1)
         .await
         .expect("handler must not return protocol error");
     let not_updated = &r1["notUpdated"][&iid];
@@ -6427,7 +6771,7 @@ async fn identity_set_update_rejects_server_set_fields() {
         "accountId": account_id,
         "update": { iid.clone(): { "id": "some-new-id" } }
     });
-    let (r2, _) = handle_identity_set(&backend, &(), upd2)
+    let HandlerOutput { primary: r2, .. } = handle_identity_set(&backend, &(), upd2)
         .await
         .expect("handler must not return protocol error");
     let not_updated2 = &r2["notUpdated"][&iid];
@@ -6499,7 +6843,7 @@ async fn thread_changes_second_import_logs_thread_as_updated_not_created() {
             "accountId": account_id.as_ref(),
             "create": { "mb1": { "name": "Inbox" } },
         });
-        let (r, _) = handle_mailbox_set(&backend, &(), mb_args)
+        let HandlerOutput { primary: r, .. } = handle_mailbox_set(&backend, &(), mb_args)
             .await
             .expect("mailbox create");
         r["created"]["mb1"]["id"].as_str().unwrap().to_owned()
@@ -6579,7 +6923,9 @@ Body two.
         "accountId": account_id.as_ref(),
         "sinceState": state1.as_ref(),
     });
-    let (changes, _) = handle_thread_changes(&backend, &(), changes_args)
+    let HandlerOutput {
+        primary: changes, ..
+    } = handle_thread_changes(&backend, &(), changes_args)
         .await
         .expect("Thread/changes");
 
@@ -6599,7 +6945,9 @@ Body two.
         "accountId": account_id.as_ref(),
         "sinceState": state0.as_ref(),
     });
-    let (changes0, _) = handle_thread_changes(&backend, &(), changes0_args)
+    let HandlerOutput {
+        primary: changes0, ..
+    } = handle_thread_changes(&backend, &(), changes0_args)
         .await
         .expect("Thread/changes from state0");
     let created0 = changes0["created"].as_array().unwrap();
@@ -6638,9 +6986,10 @@ async fn email_import_duplicate_message_id_returns_already_exists() {
     };
 
     // First import must succeed.
-    let (resp1, _) = handle_email_import(&backend, &(), make_import(&blob_id))
-        .await
-        .expect("first import must not return a JmapError");
+    let HandlerOutput { primary: resp1, .. } =
+        handle_email_import(&backend, &(), make_import(&blob_id))
+            .await
+            .expect("first import must not return a JmapError");
     assert!(
         resp1["notCreated"].is_null(),
         "first import: notCreated must be null; got: {}",
@@ -6655,9 +7004,10 @@ async fn email_import_duplicate_message_id_returns_already_exists() {
         .to_owned();
 
     // Second import of the same blob (same Message-ID) must fail with alreadyExists.
-    let (resp2, _) = handle_email_import(&backend, &(), make_import(&blob_id))
-        .await
-        .expect("second import must not return a JmapError");
+    let HandlerOutput { primary: resp2, .. } =
+        handle_email_import(&backend, &(), make_import(&blob_id))
+            .await
+            .expect("second import must not return a JmapError");
     assert!(
         resp2["created"].is_null(),
         "second import: created must be null; got: {}",
@@ -6737,9 +7087,10 @@ async fn submission_set_create_send_at_ignored_from_client() {
         }
     });
 
-    let (resp, _) = handle_submission_set(&backend, &(), args, "call-delay1")
-        .await
-        .expect("EmailSubmission/set must return a response (not a protocol error)");
+    let HandlerOutput { primary: resp, .. } =
+        handle_submission_set(&backend, &(), args, "call-delay1")
+            .await
+            .expect("EmailSubmission/set must return a response (not a protocol error)");
 
     // Oracle: "s0" must be created successfully; client-supplied sendAt is ignored.
     assert!(
@@ -6794,7 +7145,7 @@ async fn email_set_create_body_structure_with_text_body_rejected() {
         }
     });
 
-    let (resp, _) = handle_email_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must return a response");
 
@@ -6832,7 +7183,7 @@ async fn email_set_create_text_body_wrong_type_rejected() {
         }
     });
 
-    let (resp, _) = handle_email_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must return a response");
 
@@ -6874,7 +7225,7 @@ async fn email_set_create_text_body_multiple_parts_rejected() {
         }
     });
 
-    let (resp, _) = handle_email_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must return a response");
 
@@ -6916,7 +7267,7 @@ async fn email_set_create_body_part_both_part_id_and_blob_id_rejected() {
         }
     });
 
-    let (resp, _) = handle_email_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must return a response");
 
@@ -6953,7 +7304,7 @@ async fn email_set_create_body_values_missing_for_part_id_rejected() {
         }
     });
 
-    let (resp, _) = handle_email_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must return a response");
 
@@ -6995,7 +7346,7 @@ async fn email_set_create_body_value_is_truncated_true_rejected() {
         }
     });
 
-    let (resp, _) = handle_email_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must return a response");
 
@@ -7045,9 +7396,10 @@ async fn submission_set_create_send_at_null_accepted() {
         }
     });
 
-    let (resp, _) = handle_submission_set(&backend, &(), args, "call-delay2")
-        .await
-        .expect("EmailSubmission/set must return a response (not a protocol error)");
+    let HandlerOutput { primary: resp, .. } =
+        handle_submission_set(&backend, &(), args, "call-delay2")
+            .await
+            .expect("EmailSubmission/set must return a response (not a protocol error)");
 
     // Oracle: "s0" must appear in "created".
     let created = resp["created"].as_object().expect("created must be object");
@@ -7095,7 +7447,7 @@ async fn email_get_header_subject_raw() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "header:Subject"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -7134,7 +7486,7 @@ async fn email_get_header_subject_as_text() {
         "ids": [email_id.as_ref()],
         "properties": ["header:Subject:asText"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -7192,7 +7544,7 @@ async fn email_get_header_all_form() {
         "ids": [email_id.as_ref()],
         "properties": ["header:Subject:all"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -7288,7 +7640,7 @@ Body.";
         "ids": [email_id.as_ref()],
         "properties": ["from", "header:From:asAddresses"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -7366,7 +7718,7 @@ Body.";
             "header:From:asGroupedAddresses",
         ],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -7451,7 +7803,7 @@ Body.";
         "ids": [email_id.as_ref()],
         "properties": ["id", "header:Date:asDate"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -7480,7 +7832,7 @@ Body.";
         "ids": [email_id.as_ref()],
         "properties": ["id", "header:Date:asDate"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -7517,7 +7869,7 @@ Body.";
             "header:References:asMessageIds",
         ],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -7555,7 +7907,7 @@ Body.";
         "ids": [email_id.as_ref()],
         "properties": ["id", "header:List-Help:asURLs"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -7656,7 +8008,11 @@ async fn submission_set_failed_create_does_not_apply_on_success_update_email() {
         }
     });
 
-    let (resp, extra) = handle_submission_set(&backend, &(), args, "call-onsuccess-no-apply")
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_submission_set(&backend, &(), args, "call-onsuccess-no-apply")
         .await
         .expect("EmailSubmission/set must not return a top-level JmapError");
 
@@ -7765,7 +8121,7 @@ async fn email_parse_header_property_returned() {
         "blobIds": [blob_id.as_ref()],
         "properties": ["header:Subject:asText"],
     });
-    let (resp, _) = handle_email_parse(&backend, &(), parse_args)
+    let HandlerOutput { primary: resp, .. } = handle_email_parse(&backend, &(), parse_args)
         .await
         .expect("Email/parse must succeed");
 
@@ -7859,7 +8215,10 @@ async fn email_query_collapse_threads_deduplicates() {
     let args_uncollapsed = serde_json::json!({
         "accountId": account_id.as_ref(),
     });
-    let (resp_uncollapsed, _) = handle_email_query(&backend, &(), args_uncollapsed)
+    let HandlerOutput {
+        primary: resp_uncollapsed,
+        ..
+    } = handle_email_query(&backend, &(), args_uncollapsed)
         .await
         .expect("Email/query without collapseThreads must succeed");
     let ids_uncollapsed = resp_uncollapsed["ids"]
@@ -7878,7 +8237,10 @@ async fn email_query_collapse_threads_deduplicates() {
         "accountId": account_id.as_ref(),
         "collapseThreads": true,
     });
-    let (resp_collapsed, _) = handle_email_query(&backend, &(), args_collapsed)
+    let HandlerOutput {
+        primary: resp_collapsed,
+        ..
+    } = handle_email_query(&backend, &(), args_collapsed)
         .await
         .expect("Email/query with collapseThreads must succeed");
     let ids_collapsed = resp_collapsed["ids"].as_array().expect("ids must be array");
@@ -7954,7 +8316,7 @@ async fn thread_get_email_ids_sorted_by_received_at() {
         "ids": [thread_id.as_ref()],
     });
 
-    let (resp, _extra) = handle_thread_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_thread_get(&backend, &(), args)
         .await
         .expect("Thread/get must succeed");
 
@@ -8023,7 +8385,10 @@ async fn mailbox_set_destroy_with_children() {
             }
         },
     });
-    let (child_resp, _) = handle_mailbox_set(&backend, &(), create_child_args)
+    let HandlerOutput {
+        primary: child_resp,
+        ..
+    } = handle_mailbox_set(&backend, &(), create_child_args)
         .await
         .expect("create child Mailbox/set must succeed");
     assert!(
@@ -8038,7 +8403,7 @@ async fn mailbox_set_destroy_with_children() {
         "accountId": account_id.as_ref(),
         "destroy": [parent_id.as_ref()],
     });
-    let (resp, _) = handle_mailbox_set(&backend, &(), destroy_args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), destroy_args)
         .await
         .expect("Mailbox/set must not return JmapError");
 
@@ -8103,7 +8468,10 @@ async fn mailbox_set_create_duplicate_name() {
             }
         },
     });
-    let (first_resp, _) = handle_mailbox_set(&backend, &(), first_args)
+    let HandlerOutput {
+        primary: first_resp,
+        ..
+    } = handle_mailbox_set(&backend, &(), first_args)
         .await
         .expect("first Mailbox/set must succeed");
     assert!(
@@ -8123,7 +8491,10 @@ async fn mailbox_set_create_duplicate_name() {
             }
         },
     });
-    let (second_resp, _) = handle_mailbox_set(&backend, &(), second_args)
+    let HandlerOutput {
+        primary: second_resp,
+        ..
+    } = handle_mailbox_set(&backend, &(), second_args)
         .await
         .expect("second Mailbox/set must not return JmapError");
 
@@ -8154,7 +8525,9 @@ async fn mailbox_set_create_duplicate_name() {
             "a2": { "name": "SameName", "parentId": parent_id.as_ref() },
         },
     });
-    let (both_resp, _) = handle_mailbox_set(&backend, &(), both_args)
+    let HandlerOutput {
+        primary: both_resp, ..
+    } = handle_mailbox_set(&backend, &(), both_args)
         .await
         .expect("combined Mailbox/set must not return JmapError");
 
@@ -8226,7 +8599,9 @@ async fn email_get_properties_filtering_restricts_fields() {
             }
         }
     });
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set must succeed");
     let email_id = set_resp["created"]["c1"]["id"]
@@ -8239,7 +8614,7 @@ async fn email_get_properties_filtering_restricts_fields() {
         "ids": [email_id],
         "properties": ["id", "subject"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), get_args)
         .await
         .expect("Email/get must succeed");
 
@@ -8309,7 +8684,9 @@ async fn email_get_no_properties_returns_default_fields() {
             }
         }
     });
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set must succeed");
     let email_id = set_resp["created"]["c1"]["id"]
@@ -8322,7 +8699,7 @@ async fn email_get_no_properties_returns_default_fields() {
         "accountId": account_id.as_ref(),
         "ids": [email_id],
     });
-    let (resp, _) = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), get_args)
         .await
         .expect("Email/get must succeed");
 
@@ -8376,7 +8753,9 @@ async fn mailbox_get_properties_filtering_restricts_fields() {
             "c1": { "name": "My Mailbox", "sortOrder": 10 }
         }
     });
-    let (set_resp, _) = handle_mailbox_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_mailbox_set(&backend, &(), set_args)
         .await
         .expect("Mailbox/set must succeed");
     let mailbox_id = set_resp["created"]["c1"]["id"]
@@ -8389,7 +8768,7 @@ async fn mailbox_get_properties_filtering_restricts_fields() {
         "ids": [mailbox_id],
         "properties": ["id", "name"],
     });
-    let (resp, _) = handle_mailbox_get(&backend, &(), get_args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), get_args)
         .await
         .expect("Mailbox/get must succeed");
 
@@ -8441,7 +8820,7 @@ async fn thread_get_properties_filtering_restricts_fields() {
         "ids": [thread_id.as_ref()],
         "properties": ["id", "emailIds"],
     });
-    let (resp, _) = handle_thread_get(&backend, &(), get_args)
+    let HandlerOutput { primary: resp, .. } = handle_thread_get(&backend, &(), get_args)
         .await
         .expect("Thread/get must succeed");
 
@@ -8480,7 +8859,9 @@ async fn identity_get_properties_filtering_restricts_fields() {
             }
         }
     });
-    let (set_resp, _) = handle_identity_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_identity_set(&backend, &(), set_args)
         .await
         .expect("Identity/set must succeed");
     let identity_id = set_resp["created"]["c1"]["id"]
@@ -8493,7 +8874,7 @@ async fn identity_get_properties_filtering_restricts_fields() {
         "ids": [identity_id],
         "properties": ["id", "email"],
     });
-    let (resp, _) = handle_identity_get(&backend, &(), get_args)
+    let HandlerOutput { primary: resp, .. } = handle_identity_get(&backend, &(), get_args)
         .await
         .expect("Identity/get must succeed");
 
@@ -8550,7 +8931,7 @@ async fn conformance_email_get_by_id() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "threadId", "blobId", "size"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -8598,7 +8979,7 @@ async fn conformance_email_get_not_found_is_empty_array() {
         "accountId": account_id.as_ref(),
         "ids": ["nonexistent-email-xyz"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -8633,7 +9014,7 @@ async fn conformance_email_get_not_found_empty_when_all_found() {
         "accountId": account_id.as_ref(),
         "ids": [email_id.as_ref()],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -8662,7 +9043,7 @@ async fn conformance_email_get_properties_filter() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "subject"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -8706,7 +9087,7 @@ async fn conformance_email_get_state_returned() {
         "accountId": account_id.as_ref(),
         "ids": [],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -8735,7 +9116,7 @@ async fn conformance_email_get_has_attachment_true() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "hasAttachment"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -8774,7 +9155,7 @@ async fn conformance_email_get_thread_id_consistent() {
         ],
         "properties": ["id", "threadId"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -8813,7 +9194,7 @@ async fn conformance_email_get_header_from() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "from"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -8847,7 +9228,7 @@ async fn conformance_email_get_header_to() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "to"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -8881,7 +9262,7 @@ async fn conformance_email_get_header_cc() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "cc"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -8913,7 +9294,7 @@ async fn conformance_email_get_header_subject() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "subject"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -8944,7 +9325,7 @@ async fn conformance_email_get_header_message_id() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "messageId"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -8982,7 +9363,7 @@ async fn conformance_email_get_header_in_reply_to() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "inReplyTo"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must succeed");
 
@@ -9019,7 +9400,7 @@ async fn conformance_mailbox_get_all_ids_null() {
         "accountId": "acct1",
         "ids": null,
     });
-    let (resp, _) = handle_mailbox_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args)
         .await
         .expect("Mailbox/get must not error");
 
@@ -9056,7 +9437,7 @@ async fn conformance_mailbox_get_by_ids() {
         "accountId": "acct1",
         "ids": [inbox_id, folder_a_id],
     });
-    let (resp, _) = handle_mailbox_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args)
         .await
         .expect("Mailbox/get must not error");
 
@@ -9100,7 +9481,7 @@ async fn conformance_mailbox_get_not_found() {
         "accountId": "acct1",
         "ids": ["missing-id"],
     });
-    let (resp, _) = handle_mailbox_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args)
         .await
         .expect("Mailbox/get must not error");
 
@@ -9136,7 +9517,7 @@ async fn conformance_mailbox_get_inbox_has_role() {
         "accountId": "acct1",
         "ids": [inbox_id],
     });
-    let (resp, _) = handle_mailbox_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args)
         .await
         .expect("Mailbox/get must not error");
 
@@ -9165,7 +9546,7 @@ async fn conformance_mailbox_get_child_has_parent_id() {
         "accountId": "acct1",
         "ids": [child1_id],
     });
-    let (resp, _) = handle_mailbox_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args)
         .await
         .expect("Mailbox/get must not error");
 
@@ -9195,7 +9576,7 @@ async fn conformance_mailbox_get_properties_filter() {
         "ids": [inbox_id],
         "properties": ["id", "name"],
     });
-    let (resp, _) = handle_mailbox_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args)
         .await
         .expect("Mailbox/get must not error");
 
@@ -9235,7 +9616,7 @@ async fn conformance_mailbox_get_total_emails() {
         "accountId": "acct1",
         "ids": [folder_a_id],
     });
-    let (resp, _) = handle_mailbox_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args)
         .await
         .expect("Mailbox/get must not error");
 
@@ -9263,7 +9644,7 @@ async fn conformance_mailbox_query_all() {
         "accountId": "acct1",
         "calculateTotal": true,
     });
-    let (resp, _) = handle_mailbox_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args)
         .await
         .expect("Mailbox/query must not error");
 
@@ -9288,7 +9669,7 @@ async fn conformance_mailbox_query_filter_parent_id_null() {
         "accountId": "acct1",
         "filter": { "parentId": null },
     });
-    let (resp, _) = handle_mailbox_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args)
         .await
         .expect("Mailbox/query must not error");
 
@@ -9334,7 +9715,7 @@ async fn conformance_mailbox_query_filter_has_any_role() {
         "accountId": "acct1",
         "filter": { "hasAnyRole": true },
     });
-    let (resp, _) = handle_mailbox_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args)
         .await
         .expect("Mailbox/query must not error");
 
@@ -9377,7 +9758,7 @@ async fn conformance_mailbox_query_filter_role() {
         "filter": { "role": "inbox" },
         "calculateTotal": true,
     });
-    let (resp, _) = handle_mailbox_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args)
         .await
         .expect("Mailbox/query with filter.role=inbox must not error");
 
@@ -9410,7 +9791,10 @@ async fn conformance_mailbox_query_filter_role() {
         "filter": { "role": "trash" },
         "calculateTotal": true,
     });
-    let (resp_no_match, _) = handle_mailbox_query(&backend, &(), args_no_match)
+    let HandlerOutput {
+        primary: resp_no_match,
+        ..
+    } = handle_mailbox_query(&backend, &(), args_no_match)
         .await
         .expect("Mailbox/query with filter.role=trash must not error");
 
@@ -9521,7 +9905,7 @@ async fn conformance_mailbox_query_sort_by_name() {
         "accountId": "acct1",
         "sort": [{ "property": "name", "isAscending": true }],
     });
-    let (resp, _) = handle_mailbox_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args)
         .await
         .expect("Mailbox/query with sort=[{property:name}] must not error");
 
@@ -9539,7 +9923,9 @@ async fn conformance_mailbox_query_sort_by_name() {
         "ids": ids,
         "properties": ["id", "name"],
     });
-    let (get_resp, _) = handle_mailbox_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_mailbox_get(&backend, &(), get_args)
         .await
         .expect("Mailbox/get for name verification must succeed");
 
@@ -9619,7 +10005,7 @@ async fn conformance_email_body_plain_text_body() {
         "properties": ["id", "textBody"],
         "bodyProperties": ["partId", "type"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must not error");
 
@@ -9662,7 +10048,7 @@ async fn conformance_email_body_html_attachment_body_structure() {
         "properties": ["id", "bodyStructure"],
         "bodyProperties": ["partId", "type", "name", "disposition", "size", "subParts"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must not error");
 
@@ -9701,7 +10087,7 @@ async fn conformance_email_body_preview() {
         "ids": [email_id],
         "properties": ["id", "preview"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must not error");
 
@@ -9734,7 +10120,7 @@ async fn conformance_email_body_size() {
         "ids": [email_id],
         "properties": ["id", "size"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must not error");
 
@@ -9772,7 +10158,7 @@ async fn conformance_email_body_html_only_both_bodies() {
         "properties": ["id", "textBody", "htmlBody"],
         "bodyProperties": ["partId", "type"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must not error");
 
@@ -9818,7 +10204,7 @@ async fn conformance_email_body_attachment_detected() {
         "properties": ["id", "attachments"],
         "bodyProperties": ["partId", "type", "name", "disposition", "size"],
     });
-    let (resp, _) = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
         .await
         .expect("Email/get must not error");
 
@@ -9854,7 +10240,11 @@ async fn conformance_mailbox_set_create_basic() {
         }
     });
 
-    let (resp, extra) = handle_mailbox_set(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_mailbox_set(&backend, &(), args)
         .await
         .expect("Mailbox/set must succeed");
 
@@ -9882,7 +10272,9 @@ async fn conformance_mailbox_set_create_basic() {
         "accountId": "acct1",
         "ids": [assigned_id],
     });
-    let (get_resp, _) = handle_mailbox_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_mailbox_get(&backend, &(), get_args)
         .await
         .expect("Mailbox/get must succeed after create");
     let list = get_resp["list"].as_array().expect("list must be an array");
@@ -9916,7 +10308,7 @@ async fn conformance_mailbox_set_create_with_parent() {
         }
     });
 
-    let (resp, _) = handle_mailbox_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), args)
         .await
         .expect("Mailbox/set create with parent must succeed");
 
@@ -9937,7 +10329,9 @@ async fn conformance_mailbox_set_create_with_parent() {
         "accountId": "acct1",
         "ids": [child_id],
     });
-    let (get_resp, _) = handle_mailbox_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_mailbox_get(&backend, &(), get_args)
         .await
         .expect("Mailbox/get must succeed");
     let list = get_resp["list"].as_array().expect("list must be an array");
@@ -9969,7 +10363,7 @@ async fn conformance_mailbox_set_update_name() {
         }
     });
 
-    let (resp, _) = handle_mailbox_set(&backend, &(), update_args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), update_args)
         .await
         .expect("Mailbox/set update must succeed");
 
@@ -9986,7 +10380,9 @@ async fn conformance_mailbox_set_update_name() {
         "accountId": "acct1",
         "ids": [folder_b_id],
     });
-    let (get_resp, _) = handle_mailbox_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_mailbox_get(&backend, &(), get_args)
         .await
         .expect("Mailbox/get must succeed");
     let list = get_resp["list"].as_array().expect("list must be an array");
@@ -10015,7 +10411,10 @@ async fn conformance_mailbox_set_destroy() {
             "c1": { "name": "Destroy Me", "parentId": null }
         }
     });
-    let (create_resp, _) = handle_mailbox_set(&backend, &(), create_args)
+    let HandlerOutput {
+        primary: create_resp,
+        ..
+    } = handle_mailbox_set(&backend, &(), create_args)
         .await
         .expect("Mailbox/set create must succeed");
     let mb_id = create_resp["created"]["c1"]["id"]
@@ -10028,7 +10427,10 @@ async fn conformance_mailbox_set_destroy() {
         "accountId": "acct1",
         "destroy": [mb_id],
     });
-    let (destroy_resp, _) = handle_mailbox_set(&backend, &(), destroy_args)
+    let HandlerOutput {
+        primary: destroy_resp,
+        ..
+    } = handle_mailbox_set(&backend, &(), destroy_args)
         .await
         .expect("Mailbox/set destroy must succeed");
 
@@ -10069,7 +10471,7 @@ async fn conformance_mailbox_set_destroy_with_children() {
         "accountId": "acct1",
         "destroy": [folder_a_id],
     });
-    let (resp, _) = handle_mailbox_set(&backend, &(), destroy_args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), destroy_args)
         .await
         .expect("Mailbox/set destroy must return a set response (not a method error)");
 
@@ -10112,7 +10514,7 @@ async fn conformance_mailbox_set_create_duplicate_name() {
             "dup1": { "name": "Duplicate Name Test", "parentId": null }
         }
     });
-    let (resp1, _) = handle_mailbox_set(&backend, &(), create1_args)
+    let HandlerOutput { primary: resp1, .. } = handle_mailbox_set(&backend, &(), create1_args)
         .await
         .expect("first Mailbox/set create must succeed");
     assert!(
@@ -10129,7 +10531,7 @@ async fn conformance_mailbox_set_create_duplicate_name() {
             "dup2": { "name": "Duplicate Name Test", "parentId": null }
         }
     });
-    let (resp2, _) = handle_mailbox_set(&backend, &(), create2_args)
+    let HandlerOutput { primary: resp2, .. } = handle_mailbox_set(&backend, &(), create2_args)
         .await
         .expect("second Mailbox/set create must return a set response");
 
@@ -10184,7 +10586,7 @@ async fn conformance_mailbox_set_state_changes() {
         }
     });
 
-    let (resp, _) = handle_mailbox_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), args)
         .await
         .expect("Mailbox/set must succeed");
 
@@ -10220,7 +10622,7 @@ async fn conformance_mailbox_set_create_missing_name() {
         }
     });
 
-    let (resp, _) = handle_mailbox_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), args)
         .await
         .expect("Mailbox/set must return a set response (not a method error)");
 
@@ -10269,7 +10671,9 @@ async fn conformance_mailbox_changes_from_state_zero() {
             "newMb": { "name": "Changes Test Mailbox", "parentId": null }
         }
     });
-    let (set_resp, _) = handle_mailbox_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_mailbox_set(&backend, &(), set_args)
         .await
         .expect("Mailbox/set must succeed");
     let new_id = set_resp["created"]["newMb"]["id"]
@@ -10282,7 +10686,11 @@ async fn conformance_mailbox_changes_from_state_zero() {
         "accountId": "acct1",
         "sinceState": "0",
     });
-    let (resp, extra) = handle_mailbox_changes(&backend, &(), changes_args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_mailbox_changes(&backend, &(), changes_args)
         .await
         .expect("Mailbox/changes must succeed");
 
@@ -10330,7 +10738,9 @@ async fn conformance_mailbox_changes_from_current_state() {
         "accountId": "acct1",
         "ids": [],
     });
-    let (get_resp, _) = handle_mailbox_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_mailbox_get(&backend, &(), get_args)
         .await
         .expect("Mailbox/get must succeed");
     let current_state = get_resp["state"]
@@ -10343,7 +10753,7 @@ async fn conformance_mailbox_changes_from_current_state() {
         "accountId": "acct1",
         "sinceState": current_state,
     });
-    let (resp, _) = handle_mailbox_changes(&backend, &(), changes_args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_changes(&backend, &(), changes_args)
         .await
         .expect("Mailbox/changes must succeed");
 
@@ -10427,7 +10837,7 @@ async fn conformance_email_query_all() {
         "accountId": account_id.as_ref(),
         "calculateTotal": true,
     });
-    let (resp, _) = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
         .await
         .expect("Email/query must succeed");
 
@@ -10461,7 +10871,7 @@ async fn conformance_email_query_filter_in_mailbox() {
         "filter": { "inMailbox": inbox_id.as_ref() },
         "calculateTotal": true,
     });
-    let (resp, _) = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
         .await
         .expect("Email/query must succeed");
 
@@ -10501,7 +10911,7 @@ async fn conformance_email_query_filter_has_keyword() {
         "accountId": account_id.as_ref(),
         "filter": { "hasKeyword": "$flagged" },
     });
-    let (resp, _) = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
         .await
         .expect("Email/query must succeed");
 
@@ -10540,7 +10950,7 @@ async fn conformance_email_query_filter_not_keyword() {
         "accountId": account_id.as_ref(),
         "filter": { "notKeyword": "$seen" },
     });
-    let (resp, _) = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
         .await
         .expect("Email/query must succeed");
 
@@ -10585,7 +10995,7 @@ async fn conformance_email_query_filter_after() {
         "accountId": account_id.as_ref(),
         "filter": { "after": "2025-12-20T00:00:00Z" },
     });
-    let (resp, _) = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
         .await
         .expect("Email/query must succeed");
 
@@ -10627,7 +11037,7 @@ async fn conformance_email_query_filter_before() {
         "accountId": account_id.as_ref(),
         "filter": { "before": "2025-12-10T00:00:00Z" },
     });
-    let (resp, _) = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
         .await
         .expect("Email/query must succeed");
 
@@ -10664,7 +11074,7 @@ async fn conformance_email_query_filter_min_size() {
         "accountId": account_id.as_ref(),
         "filter": { "minSize": 10000 },
     });
-    let (resp, _) = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
         .await
         .expect("Email/query must succeed");
 
@@ -10698,7 +11108,7 @@ async fn conformance_email_query_limit() {
         "limit": 3,
         "calculateTotal": true,
     });
-    let (resp, _) = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
         .await
         .expect("Email/query must succeed");
 
@@ -10728,7 +11138,9 @@ async fn conformance_email_query_position() {
 
     // Get all IDs in the default sort order to derive the expected slice.
     let all_args = serde_json::json!({ "accountId": account_id.as_ref() });
-    let (all_resp, _) = handle_email_query(&backend, &(), all_args)
+    let HandlerOutput {
+        primary: all_resp, ..
+    } = handle_email_query(&backend, &(), all_args)
         .await
         .expect("all-email query must succeed");
     let all_ids: Vec<String> = all_resp["ids"]
@@ -10744,7 +11156,10 @@ async fn conformance_email_query_position() {
         "position": 1,
         "limit": 2,
     });
-    let (paged_resp, _) = handle_email_query(&backend, &(), paged_args)
+    let HandlerOutput {
+        primary: paged_resp,
+        ..
+    } = handle_email_query(&backend, &(), paged_args)
         .await
         .expect("paged query must succeed");
 
@@ -10790,7 +11205,9 @@ async fn conformance_email_query_anchor() {
         "accountId": account_id.as_ref(),
         "sort": [{ "property": "receivedAt", "isAscending": false }],
     });
-    let (all_resp, _) = handle_email_query(&backend, &(), all_args)
+    let HandlerOutput {
+        primary: all_resp, ..
+    } = handle_email_query(&backend, &(), all_args)
         .await
         .expect("all-email query must succeed");
     let all_ids: Vec<String> = all_resp["ids"]
@@ -10813,7 +11230,10 @@ async fn conformance_email_query_anchor() {
         "anchor": anchor_id,
         "limit": 3,
     });
-    let (anchor_resp, _) = handle_email_query(&backend, &(), anchor_args)
+    let HandlerOutput {
+        primary: anchor_resp,
+        ..
+    } = handle_email_query(&backend, &(), anchor_args)
         .await
         .expect("anchor query must succeed");
 
@@ -10879,7 +11299,7 @@ async fn conformance_email_query_sort_received_at_desc() {
         "accountId": account_id.as_ref(),
         "sort": [{ "property": "receivedAt", "isAscending": false }],
     });
-    let (resp, _) = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
         .await
         .expect("Email/query with sort must succeed");
 
@@ -10941,7 +11361,11 @@ async fn conformance_email_set_create_basic() {
             }
         }
     });
-    let (resp, extra) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set must not return a protocol error");
     assert!(
@@ -10994,7 +11418,7 @@ async fn conformance_email_set_create_sets_state() {
             }
         }
     });
-    let (resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set must not return a protocol error");
 
@@ -11030,7 +11454,9 @@ async fn conformance_email_set_create_with_keywords() {
             }
         }
     });
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set must not return a protocol error");
 
@@ -11045,7 +11471,9 @@ async fn conformance_email_set_create_with_keywords() {
         "ids": [email_id],
         "properties": ["keywords"],
     });
-    let (get_resp, _) = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(&backend, &(), get_args)
         .await
         .expect("Email/get must succeed");
 
@@ -11074,7 +11502,9 @@ async fn conformance_email_set_update_keywords() {
     let account_id = Id::from("account1");
 
     // Create an email with only $seen.
-    let (set_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11096,7 +11526,9 @@ async fn conformance_email_set_update_keywords() {
         .to_owned();
 
     // Replace keywords map: set $seen + $flagged.
-    let (upd_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11121,7 +11553,9 @@ async fn conformance_email_set_update_keywords() {
     );
 
     // Verify $flagged is present via Email/get.
-    let (get_resp, _) = handle_email_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(
         &backend,
         &(),
         serde_json::json!({
@@ -11159,7 +11593,9 @@ async fn conformance_email_set_update_mailbox_ids() {
     let account_id = Id::from("account1");
 
     // Create in inbox.
-    let (set_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11180,7 +11616,9 @@ async fn conformance_email_set_update_mailbox_ids() {
         .to_owned();
 
     // Move to folderA by replacing the mailboxIds map.
-    let (upd_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11204,7 +11642,9 @@ async fn conformance_email_set_update_mailbox_ids() {
     );
 
     // Email must now be in folderA and not in inbox.
-    let (get_resp, _) = handle_email_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(
         &backend,
         &(),
         serde_json::json!({
@@ -11242,7 +11682,9 @@ async fn conformance_email_set_update_adds_keyword() {
     let account_id = Id::from("account1");
 
     // Create an email without $flagged.
-    let (set_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11264,7 +11706,9 @@ async fn conformance_email_set_update_adds_keyword() {
         .to_owned();
 
     // Patch keywords/$flagged = true.
-    let (upd_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11288,7 +11732,9 @@ async fn conformance_email_set_update_adds_keyword() {
     );
 
     // $flagged must now be true.
-    let (get_resp, _) = handle_email_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(
         &backend,
         &(),
         serde_json::json!({
@@ -11320,7 +11766,9 @@ async fn conformance_email_set_update_removes_keyword() {
     let account_id = Id::from("account1");
 
     // Create an email with $seen.
-    let (set_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11342,7 +11790,9 @@ async fn conformance_email_set_update_removes_keyword() {
         .to_owned();
 
     // Patch keywords/$seen = null (removes the keyword).
-    let (upd_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11366,7 +11816,9 @@ async fn conformance_email_set_update_removes_keyword() {
     );
 
     // $seen must now be absent.
-    let (get_resp, _) = handle_email_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(
         &backend,
         &(),
         serde_json::json!({
@@ -11400,7 +11852,9 @@ async fn email_set_update_pointer_into_absent_parent_is_invalid_patch() {
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
-    let (set_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11420,7 +11874,9 @@ async fn email_set_update_pointer_into_absent_parent_is_invalid_patch() {
         .expect("c0 must have id")
         .to_owned();
 
-    let (upd_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11445,7 +11901,9 @@ async fn email_set_update_pointer_into_absent_parent_is_invalid_patch() {
         "rejected email must not appear in updated: {upd_resp}"
     );
 
-    let (get_resp, _) = handle_email_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(
         &backend,
         &(),
         serde_json::json!({
@@ -11481,7 +11939,9 @@ async fn email_set_update_prefix_conflict_is_invalid_patch() {
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
-    let (set_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11501,7 +11961,9 @@ async fn email_set_update_prefix_conflict_is_invalid_patch() {
         .expect("c0 must have id")
         .to_owned();
 
-    let (upd_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11522,7 +11984,9 @@ async fn email_set_update_prefix_conflict_is_invalid_patch() {
         "prefix-conflicting pointers must be invalidPatch: {upd_resp}"
     );
 
-    let (get_resp, _) = handle_email_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(
         &backend,
         &(),
         serde_json::json!({
@@ -11553,7 +12017,9 @@ async fn conformance_email_set_destroy_basic() {
     let account_id = Id::from("account1");
 
     // Create an email to destroy.
-    let (set_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11574,7 +12040,10 @@ async fn conformance_email_set_destroy_basic() {
         .to_owned();
 
     // Destroy it.
-    let (destroy_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: destroy_resp,
+        ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11595,7 +12064,9 @@ async fn conformance_email_set_destroy_basic() {
     );
 
     // RFC 8621 §4.2: subsequent Email/get must report the id in notFound.
-    let (get_resp, _) = handle_email_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(
         &backend,
         &(),
         serde_json::json!({
@@ -11627,7 +12098,9 @@ async fn conformance_email_set_destroy_updates_state() {
     let account_id = Id::from("account1");
 
     // Create an email to destroy.
-    let (set_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11648,7 +12121,10 @@ async fn conformance_email_set_destroy_updates_state() {
         .to_owned();
 
     // Destroy and check state advances.
-    let (destroy_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: destroy_resp,
+        ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11683,7 +12159,7 @@ async fn conformance_email_set_update_not_found() {
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
-    let (resp, _) = handle_email_set(
+    let HandlerOutput { primary: resp, .. } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11727,7 +12203,7 @@ async fn conformance_email_set_destroy_not_found() {
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
-    let (resp, _) = handle_email_set(
+    let HandlerOutput { primary: resp, .. } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -11782,7 +12258,11 @@ async fn conformance_thread_get_email_ids_present() {
         "accountId": account_id.as_ref(),
         "ids": [thread_id.as_ref()],
     });
-    let (resp, extra) = handle_thread_get(&backend, &(), args)
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_thread_get(&backend, &(), args)
         .await
         .expect("Thread/get must succeed");
     assert!(
@@ -11843,7 +12323,7 @@ async fn conformance_thread_get_email_ids_ordered() {
         "accountId": account_id.as_ref(),
         "ids": [thread_id.as_ref()],
     });
-    let (resp, _) = handle_thread_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_thread_get(&backend, &(), args)
         .await
         .expect("Thread/get must succeed");
 
@@ -11876,7 +12356,7 @@ async fn conformance_thread_get_not_found() {
         "accountId": account_id.as_ref(),
         "ids": [bad_id],
     });
-    let (resp, _) = handle_thread_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_thread_get(&backend, &(), args)
         .await
         .expect("Thread/get must succeed even for unknown ids");
 
@@ -11926,7 +12406,7 @@ async fn conformance_thread_get_single_email() {
         "accountId": account_id.as_ref(),
         "ids": [thread_id.as_ref()],
     });
-    let (resp, _) = handle_thread_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_thread_get(&backend, &(), args)
         .await
         .expect("Thread/get must succeed");
 
@@ -11974,7 +12454,9 @@ async fn conformance_email_changes_from_zero() {
             }
         }
     });
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set must succeed");
     let new_id = set_resp["created"]["c0"]["id"]
@@ -11987,7 +12469,9 @@ async fn conformance_email_changes_from_zero() {
         "accountId": account_id.as_ref(),
         "sinceState": "0",
     });
-    let (chg_resp, _) = handle_email_changes(&backend, &(), changes_args)
+    let HandlerOutput {
+        primary: chg_resp, ..
+    } = handle_email_changes(&backend, &(), changes_args)
         .await
         .expect("Email/changes must succeed");
 
@@ -12019,7 +12503,9 @@ async fn conformance_email_changes_from_current_state() {
         "accountId": account_id.as_ref(),
         "ids": [],
     });
-    let (get_resp, _) = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(&backend, &(), get_args)
         .await
         .expect("Email/get must succeed");
     let current_state = get_resp["state"]
@@ -12031,7 +12517,9 @@ async fn conformance_email_changes_from_current_state() {
         "accountId": account_id.as_ref(),
         "sinceState": current_state,
     });
-    let (chg_resp, _) = handle_email_changes(&backend, &(), changes_args)
+    let HandlerOutput {
+        primary: chg_resp, ..
+    } = handle_email_changes(&backend, &(), changes_args)
         .await
         .expect("Email/changes must succeed");
 
@@ -12091,7 +12579,9 @@ async fn conformance_email_changes_after_update() {
             }
         }
     });
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set create must succeed");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -12111,7 +12601,9 @@ async fn conformance_email_changes_after_update() {
             email_id.clone(): { "keywords/$flagged": true }
         }
     });
-    let (upd_resp, _) = handle_email_set(&backend, &(), upd_args)
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_email_set(&backend, &(), upd_args)
         .await
         .expect("Email/set update must succeed");
     assert!(
@@ -12126,7 +12618,9 @@ async fn conformance_email_changes_after_update() {
         "accountId": account_id.as_ref(),
         "sinceState": state_after_create,
     });
-    let (chg_resp, _) = handle_email_changes(&backend, &(), changes_args)
+    let HandlerOutput {
+        primary: chg_resp, ..
+    } = handle_email_changes(&backend, &(), changes_args)
         .await
         .expect("Email/changes must succeed");
 
@@ -12169,7 +12663,9 @@ async fn conformance_email_changes_after_destroy() {
             }
         }
     });
-    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(&backend, &(), set_args)
         .await
         .expect("Email/set create must succeed");
     let email_id = set_resp["created"]["c0"]["id"]
@@ -12186,7 +12682,10 @@ async fn conformance_email_changes_after_destroy() {
         "accountId": account_id.as_ref(),
         "destroy": [email_id.clone()],
     });
-    let (destroy_resp, _) = handle_email_set(&backend, &(), destroy_args)
+    let HandlerOutput {
+        primary: destroy_resp,
+        ..
+    } = handle_email_set(&backend, &(), destroy_args)
         .await
         .expect("Email/set destroy must succeed");
     let destroyed_list = destroy_resp["destroyed"]
@@ -12204,7 +12703,9 @@ async fn conformance_email_changes_after_destroy() {
         "accountId": account_id.as_ref(),
         "sinceState": state_after_create,
     });
-    let (chg_resp, _) = handle_email_changes(&backend, &(), changes_args)
+    let HandlerOutput {
+        primary: chg_resp, ..
+    } = handle_email_changes(&backend, &(), changes_args)
         .await
         .expect("Email/changes must succeed");
 
@@ -12248,7 +12749,9 @@ async fn conformance_mailbox_changes_after_email_count_change() {
         "accountId": account_id.as_ref(),
         "ids": [],
     });
-    let (get_resp, _) = handle_mailbox_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_mailbox_get(&backend, &(), get_args)
         .await
         .expect("Mailbox/get must succeed");
     let state_before = get_resp["state"]
@@ -12263,7 +12766,9 @@ async fn conformance_mailbox_changes_after_email_count_change() {
             inbox_id.as_ref(): { "name": "Inbox (updated)" }
         }
     });
-    let (upd_resp, _) = handle_mailbox_set(&backend, &(), upd_args)
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_mailbox_set(&backend, &(), upd_args)
         .await
         .expect("Mailbox/set update must succeed");
     assert!(
@@ -12278,7 +12783,9 @@ async fn conformance_mailbox_changes_after_email_count_change() {
         "accountId": account_id.as_ref(),
         "sinceState": state_before,
     });
-    let (chg_resp, _) = handle_mailbox_changes(&backend, &(), changes_args)
+    let HandlerOutput {
+        primary: chg_resp, ..
+    } = handle_mailbox_changes(&backend, &(), changes_args)
         .await
         .expect("Mailbox/changes must succeed");
 
@@ -12334,7 +12841,10 @@ Message-ID: <new-thread-changes-001@test>\r\nSubject: New thread for changes tes
             }
         }
     });
-    let (import_resp, _) = handle_email_import(&backend, &(), import_args)
+    let HandlerOutput {
+        primary: import_resp,
+        ..
+    } = handle_email_import(&backend, &(), import_args)
         .await
         .expect("Email/import must succeed");
 
@@ -12348,7 +12858,9 @@ Message-ID: <new-thread-changes-001@test>\r\nSubject: New thread for changes tes
         "ids": [new_email_id.clone()],
         "properties": ["threadId"],
     });
-    let (get_resp, _) = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(&backend, &(), get_args)
         .await
         .expect("Email/get must succeed");
     let new_thread_id = get_resp["list"][0]["threadId"]
@@ -12361,7 +12873,9 @@ Message-ID: <new-thread-changes-001@test>\r\nSubject: New thread for changes tes
         "accountId": account_id.as_ref(),
         "sinceState": thread_state_before.as_ref(),
     });
-    let (chg_resp, _) = handle_thread_changes(&backend, &(), changes_args)
+    let HandlerOutput {
+        primary: chg_resp, ..
+    } = handle_thread_changes(&backend, &(), changes_args)
         .await
         .expect("Thread/changes must succeed");
 
@@ -12433,7 +12947,9 @@ Subject: Re: Project Alpha Discussion\r\n\r\nAnother reply.\r\n";
         "accountId": account_id.as_ref(),
         "sinceState": thread_state_before.as_ref(),
     });
-    let (chg_resp, _) = handle_thread_changes(&backend, &(), changes_args)
+    let HandlerOutput {
+        primary: chg_resp, ..
+    } = handle_thread_changes(&backend, &(), changes_args)
         .await
         .expect("Thread/changes must succeed");
 
@@ -12505,7 +13021,7 @@ async fn email_set_create_size_is_nonzero() {
         }
     });
 
-    let (resp, _extra) = handle_email_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_set(&backend, &(), args)
         .await
         .expect("Email/set must succeed");
 
@@ -12561,7 +13077,10 @@ async fn mailbox_set_destroy_child_then_parent_in_one_request() {
             }
         },
     });
-    let (child_resp, _) = handle_mailbox_set(&backend, &(), create_child)
+    let HandlerOutput {
+        primary: child_resp,
+        ..
+    } = handle_mailbox_set(&backend, &(), create_child)
         .await
         .expect("create child must not error");
     let child_id_str = child_resp["created"]["c0"]["id"]
@@ -12576,7 +13095,7 @@ async fn mailbox_set_destroy_child_then_parent_in_one_request() {
         "accountId": account_id.as_ref(),
         "destroy": [child_id_str.as_str(), parent_id.as_ref()],
     });
-    let (resp, _) = handle_mailbox_set(&backend, &(), destroy_args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_set(&backend, &(), destroy_args)
         .await
         .expect("Mailbox/set destroy must not return JmapError");
 
@@ -12628,8 +13147,10 @@ async fn vacation_set_concurrent_creates_are_idempotent() {
         handle_vacation_set(&backend, &(), update_args.clone()),
         handle_vacation_set(&backend, &(), update_args.clone())
     );
-    let (resp1, _) = r1.expect("first upsert must not error at method level");
-    let (resp2, _) = r2.expect("second upsert must not error at method level");
+    let HandlerOutput { primary: resp1, .. } =
+        r1.expect("first upsert must not error at method level");
+    let HandlerOutput { primary: resp2, .. } =
+        r2.expect("second upsert must not error at method level");
 
     assert!(
         resp1["notUpdated"].is_null()
@@ -12650,7 +13171,9 @@ async fn vacation_set_concurrent_creates_are_idempotent() {
         "ids": ["singleton"],
         "properties": ["isEnabled", "textBody"]
     });
-    let (get_resp, _) = handle_vacation_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_vacation_get(&backend, &(), get_args)
         .await
         .expect("VacationResponse/get must succeed");
     let list = get_resp["list"].as_array().expect("list must be array");
@@ -12687,7 +13210,9 @@ async fn query_changes_with_filter_returns_filtered_delta() {
             "folderA": { "name": "FolderA" },
         }
     });
-    let (mbox_resp, _) = handle_mailbox_set(&backend, &(), mbox_args)
+    let HandlerOutput {
+        primary: mbox_resp, ..
+    } = handle_mailbox_set(&backend, &(), mbox_args)
         .await
         .expect("mailbox create must succeed");
     let inbox_id = mbox_resp["created"]["inbox"]["id"]
@@ -12712,7 +13237,9 @@ async fn query_changes_with_filter_returns_filtered_delta() {
 
     // Capture the current state S1.
     let state_args = serde_json::json!({ "accountId": account_id, "sinceQueryState": "0" });
-    let (s1_resp, _) = handle_email_query_changes(&backend, &(), state_args)
+    let HandlerOutput {
+        primary: s1_resp, ..
+    } = handle_email_query_changes(&backend, &(), state_args)
         .await
         .expect("initial queryChanges must succeed");
     let s1 = s1_resp["newQueryState"]
@@ -12728,7 +13255,9 @@ async fn query_changes_with_filter_returns_filtered_delta() {
             "folder_new": { "mailboxIds": { folder_a_id.clone(): true } },
         }
     });
-    let (add_resp, _) = handle_email_set(&backend, &(), add_args)
+    let HandlerOutput {
+        primary: add_resp, ..
+    } = handle_email_set(&backend, &(), add_args)
         .await
         .expect("email creates must succeed");
     let inbox_email_id = add_resp["created"]["inbox_new"]["id"]
@@ -12742,7 +13271,9 @@ async fn query_changes_with_filter_returns_filtered_delta() {
         "sinceQueryState": s1,
         "filter": { "inMailbox": inbox_id },
     });
-    let (qc_resp, _) = handle_email_query_changes(&backend, &(), qc_args)
+    let HandlerOutput {
+        primary: qc_resp, ..
+    } = handle_email_query_changes(&backend, &(), qc_args)
         .await
         .expect("filtered queryChanges must succeed");
 
@@ -12795,7 +13326,7 @@ async fn query_changes_up_to_id_truncates_added() {
     // Capture state S1.
     let s1_resp = {
         let args = serde_json::json!({ "accountId": account_id, "sinceQueryState": "0" });
-        let (r, _) = handle_email_query_changes(&backend, &(), args)
+        let HandlerOutput { primary: r, .. } = handle_email_query_changes(&backend, &(), args)
             .await
             .expect("initial queryChanges must succeed");
         r
@@ -12814,7 +13345,9 @@ async fn query_changes_up_to_id_truncates_added() {
             "n2": { "mailboxIds": { "inbox": true }, "receivedAt": "2024-01-06T00:00:00Z" },
         }
     });
-    let (new_resp, _) = handle_email_set(&backend, &(), new_args)
+    let HandlerOutput {
+        primary: new_resp, ..
+    } = handle_email_set(&backend, &(), new_args)
         .await
         .expect("new creates must succeed");
 
@@ -12823,7 +13356,9 @@ async fn query_changes_up_to_id_truncates_added() {
         "accountId": account_id,
         "sort": [{ "property": "receivedAt", "isAscending": true }],
     });
-    let (sort_resp, _) = handle_email_query(&backend, &(), sort_args)
+    let HandlerOutput {
+        primary: sort_resp, ..
+    } = handle_email_query(&backend, &(), sort_args)
         .await
         .expect("query must succeed");
     let all_ids: Vec<String> = sort_resp["ids"]
@@ -12850,7 +13385,9 @@ async fn query_changes_up_to_id_truncates_added() {
         "sort": [{ "property": "receivedAt", "isAscending": true }],
         "upToId": n1_id,
     });
-    let (qc_resp, _) = handle_email_query_changes(&backend, &(), qc_args)
+    let HandlerOutput {
+        primary: qc_resp, ..
+    } = handle_email_query_changes(&backend, &(), qc_args)
         .await
         .expect("queryChanges with upToId must succeed");
 
@@ -12924,7 +13461,7 @@ async fn query_changes_max_changes_returns_cannot_calculate() {
     // Capture state S1.
     let s1 = {
         let args = serde_json::json!({ "accountId": account_id, "sinceQueryState": "0" });
-        let (r, _) = handle_email_query_changes(&backend, &(), args)
+        let HandlerOutput { primary: r, .. } = handle_email_query_changes(&backend, &(), args)
             .await
             .expect("initial queryChanges");
         r["newQueryState"]
@@ -12934,7 +13471,9 @@ async fn query_changes_max_changes_returns_cannot_calculate() {
     };
 
     // Create 5 more emails and destroy 5 of the originals — total 10 changes.
-    let (pre_resp, _) = handle_email_query(
+    let HandlerOutput {
+        primary: pre_resp, ..
+    } = handle_email_query(
         &backend,
         &(),
         serde_json::json!({ "accountId": account_id }),
@@ -13164,7 +13703,9 @@ async fn mailbox_set_update_sort_order_null_resets_to_default() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("a1"));
 
-    let (set_resp, _) = handle_mailbox_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_mailbox_set(
         &backend,
         &(),
         serde_json::json!({
@@ -13179,7 +13720,10 @@ async fn mailbox_set_update_sort_order_null_resets_to_default() {
         .expect("must get id")
         .to_owned();
 
-    let (update_resp, _) = handle_mailbox_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_mailbox_set(
         &backend,
         &(),
         serde_json::json!({
@@ -13196,7 +13740,9 @@ async fn mailbox_set_update_sort_order_null_resets_to_default() {
         "update must succeed; got: {update_resp}"
     );
 
-    let (get_resp, _) = handle_mailbox_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_mailbox_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": [&id] }),
@@ -13215,7 +13761,9 @@ async fn identity_set_update_string_props_null_resets_to_default() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("a1"));
 
-    let (set_resp, _) = handle_identity_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -13235,7 +13783,10 @@ async fn identity_set_update_string_props_null_resets_to_default() {
         .expect("must get id")
         .to_owned();
 
-    let (update_resp, _) = handle_identity_set(
+    let HandlerOutput {
+        primary: update_resp,
+        ..
+    } = handle_identity_set(
         &backend,
         &(),
         serde_json::json!({
@@ -13256,7 +13807,9 @@ async fn identity_set_update_string_props_null_resets_to_default() {
         "update must succeed; got: {update_resp}"
     );
 
-    let (get_resp, _) = handle_identity_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_identity_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": [&id] }),
@@ -13284,7 +13837,9 @@ async fn identity_set_update_string_props_null_resets_to_default() {
 async fn mailbox_set_update_null_name_is_invalid_properties() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("acct1"));
-    let (set_resp, _) = handle_mailbox_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_mailbox_set(
         &backend,
         &(),
         serde_json::json!({ "accountId": "acct1", "create": { "c0": { "name": "Keep" } } }),
@@ -13296,7 +13851,9 @@ async fn mailbox_set_update_null_name_is_invalid_properties() {
         .expect("c0 must have id")
         .to_owned();
 
-    let (upd_resp, _) = handle_mailbox_set(
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_mailbox_set(
         &backend,
         &(),
         serde_json::json!({ "accountId": "acct1", "update": { &id: { "name": null } } }),
@@ -13313,7 +13870,9 @@ async fn mailbox_set_update_null_name_is_invalid_properties() {
         "{upd_resp}"
     );
 
-    let (get_resp, _) = handle_mailbox_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_mailbox_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "acct1", "ids": [&id] }),
@@ -13334,7 +13893,9 @@ async fn mailbox_set_update_null_name_is_invalid_properties() {
 async fn email_set_update_null_mailbox_ids_is_invalid_properties() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("account1"));
-    let (set_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({
@@ -13349,7 +13910,9 @@ async fn email_set_update_null_mailbox_ids_is_invalid_properties() {
         .expect("c0 must have id")
         .to_owned();
 
-    let (upd_resp, _) = handle_email_set(
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_email_set(
         &backend,
         &(),
         serde_json::json!({ "accountId": "account1", "update": { &id: { "mailboxIds": null } } }),
@@ -13361,7 +13924,9 @@ async fn email_set_update_null_mailbox_ids_is_invalid_properties() {
         "{upd_resp}"
     );
 
-    let (get_resp, _) = handle_email_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_email_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "account1", "ids": [&id], "properties": ["mailboxIds"] }),
@@ -13404,7 +13969,9 @@ async fn submission_set_update_null_undo_status_is_invalid_properties() {
         .await
         .expect("create pending submission");
 
-    let (upd_resp, _) = handle_submission_set(
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_submission_set(
         &backend,
         &(),
         serde_json::json!({
@@ -13421,7 +13988,9 @@ async fn submission_set_update_null_undo_status_is_invalid_properties() {
         "{upd_resp}"
     );
 
-    let (get_resp, _) = handle_submission_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_submission_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": account_id.as_ref(), "ids": [sub_id.as_ref()] }),
@@ -13443,7 +14012,9 @@ async fn submission_set_update_null_undo_status_is_invalid_properties() {
 async fn vacation_set_update_null_is_enabled_is_invalid_properties() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("account1"));
-    let (set_resp, _) = handle_vacation_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_vacation_set(
         &backend,
         &(),
         serde_json::json!({
@@ -13455,7 +14026,9 @@ async fn vacation_set_update_null_is_enabled_is_invalid_properties() {
     .expect("VacationResponse/set enable");
     assert!(set_resp["updated"].get("singleton").is_some(), "{set_resp}");
 
-    let (upd_resp, _) = handle_vacation_set(
+    let HandlerOutput {
+        primary: upd_resp, ..
+    } = handle_vacation_set(
         &backend,
         &(),
         serde_json::json!({
@@ -13470,7 +14043,9 @@ async fn vacation_set_update_null_is_enabled_is_invalid_properties() {
         "{upd_resp}"
     );
 
-    let (get_resp, _) = handle_vacation_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_vacation_get(
         &backend,
         &(),
         serde_json::json!({ "accountId": "account1", "ids": ["singleton"] }),

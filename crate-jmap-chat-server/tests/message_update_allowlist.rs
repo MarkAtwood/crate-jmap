@@ -15,11 +15,12 @@ mod common;
 use common::{MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_message_get, handle_message_set, ChatBackend};
 use jmap_chat_types::Message;
+use jmap_server::HandlerOutput;
 use jmap_types::{Id, PatchObject};
 use serde_json::{json, Value};
 
 async fn create_message(backend: &MemoryBackend) -> String {
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
         json!({
@@ -36,7 +37,7 @@ async fn create_message(backend: &MemoryBackend) -> String {
 }
 
 async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { id: patch } }),
@@ -47,7 +48,7 @@ async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
 }
 
 async fn get(backend: &MemoryBackend, id: &str) -> Value {
-    let (resp, _) = handle_message_get(
+    let HandlerOutput { primary: resp, .. } = handle_message_get(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [id] }),

@@ -32,6 +32,7 @@ mod common;
 
 use common::{IdentityBackend, MemoryBackend};
 use jmap_chat_server::{handle_space_get, handle_space_set};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::json;
 
@@ -181,7 +182,7 @@ async fn space_set_all_twelve_ops_in_one_call() {
     seed_kitchen_sink_space(&backend);
     let caller = Id::from(ADMIN_USER);
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -257,7 +258,9 @@ async fn space_set_all_twelve_ops_in_one_call() {
     );
 
     // Read the post-patch Space and verify each family.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -342,7 +345,9 @@ async fn space_set_all_twelve_ops_in_one_call() {
         "ch-update must still exist: {all_channel_ids:?}"
     );
     // ch-update was renamed; verify via the Chat store.
-    let (chat_get, _) = jmap_chat_server::handle_chat_get(
+    let HandlerOutput {
+        primary: chat_get, ..
+    } = jmap_chat_server::handle_chat_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": ["ch-update"] }),
@@ -451,7 +456,7 @@ async fn space_set_all_twelve_ops_single_user_mode() {
         );
     }
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({

@@ -8,6 +8,7 @@ mod common;
 
 use common::{seed_space, IdentityBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{handle_invite_changes, handle_invite_get, handle_invite_set};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -66,7 +67,7 @@ fn seeded(caller: Caller) -> IdentityBackend {
 
 async fn get(backend: &IdentityBackend, ids: Value) -> Value {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": ids });
-    let (resp, _) = handle_invite_get(backend, &Id::from("owner"), args)
+    let HandlerOutput { primary: resp, .. } = handle_invite_get(backend, &Id::from("owner"), args)
         .await
         .expect("SpaceInvite/get");
     resp
@@ -130,7 +131,7 @@ async fn changes_omit_invites_hidden_from_caller() {
         seed(&backend, Caller::Manager);
         let since = get(&backend, json!([])).await["state"].clone();
 
-        let (set, _) = handle_invite_set(
+        let HandlerOutput { primary: set, .. } = handle_invite_set(
             &backend,
             &Id::from("owner"),
             json!({ "accountId": ACCOUNT_ID, "create": { "i0": { "spaceId": SPACE_ID } } }),
@@ -150,7 +151,9 @@ async fn changes_omit_invites_hidden_from_caller() {
             invite(&id, created_by),
         );
 
-        let (changes, _) = handle_invite_changes(
+        let HandlerOutput {
+            primary: changes, ..
+        } = handle_invite_changes(
             &backend,
             &Id::from("owner"),
             json!({ "accountId": ACCOUNT_ID, "sinceState": since }),

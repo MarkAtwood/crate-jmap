@@ -8,6 +8,7 @@ mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::handle_contact_set;
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::json;
 
@@ -23,7 +24,7 @@ async fn contact_create_owner_identity_invalid_properties() {
     backend.register_account(&account_id);
     backend.set_owner_user_id_for_test(&account_id, "owner@example.com");
 
-    let (resp, _) = handle_contact_set(
+    let HandlerOutput { primary: resp, .. } = handle_contact_set(
         &backend,
         &(),
         json!({

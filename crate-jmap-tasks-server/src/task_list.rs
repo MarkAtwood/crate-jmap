@@ -15,7 +15,7 @@
 //! `Value` is the corresponding method-response object per the same
 //! section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -26,7 +26,7 @@
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_tasks_types::TaskList;
-use jmap_types::{Id, Invocation, JmapError, PatchObject};
+use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, TasksBackend};
@@ -34,7 +34,7 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
     SetAccumulators,
 };
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 // ---------------------------------------------------------------------------
 // TaskList/get
@@ -51,7 +51,7 @@ pub async fn handle_task_list_get<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_get::<TaskList, B>(backend, caller, args).await
 }
 
@@ -71,7 +71,7 @@ pub async fn handle_task_list_changes<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_changes::<TaskList, B>(backend, caller, args).await
 }
 
@@ -98,7 +98,7 @@ pub async fn handle_task_list_set<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound (method-level
@@ -370,7 +370,7 @@ mod tests {
             "destroy": ["list1"],
             "onDestroyRemoveTasks": false
         });
-        let (resp, _) = handle_task_list_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -396,7 +396,7 @@ mod tests {
             "destroy": ["list1"],
             "onDestroyRemoveTasks": true
         });
-        let (resp, _) = handle_task_list_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -414,7 +414,7 @@ mod tests {
     async fn set_empty_returns_valid_response() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "destroy": [] });
-        let (resp, _) = handle_task_list_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         assert_eq!(resp["accountId"], "acc1");

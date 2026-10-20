@@ -6,6 +6,7 @@ mod common;
 
 use common::{seed_space, IdentityBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{handle_space_get, handle_space_set};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -27,7 +28,7 @@ fn admin_and_regular(backend: &IdentityBackend) {
 
 /// Space/set update of `SPACE_ID` by `caller` with the given `updateMembers`.
 async fn update_members(backend: &IdentityBackend, caller: &str, entries: Value) -> Value {
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &Id::from(caller),
         json!({
@@ -42,7 +43,7 @@ async fn update_members(backend: &IdentityBackend, caller: &str, entries: Value)
 
 /// `member`'s nick as seen by `admin-user`.
 async fn nick_of(backend: &IdentityBackend, member: &str) -> Value {
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         backend,
         &Id::from("admin-user"),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),

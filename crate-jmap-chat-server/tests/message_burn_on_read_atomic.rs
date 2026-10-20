@@ -11,6 +11,7 @@ mod common;
 
 use common::InjectableBackend;
 use jmap_chat_server::{handle_message_changes, handle_message_get, handle_message_set};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -21,7 +22,7 @@ const READ_AT: &str = "2024-01-02T00:00:00Z";
 async fn seeded() -> (InjectableBackend, String) {
     let backend = InjectableBackend::new();
     backend.inner.register_account(&Id::from(ACCOUNT_ID));
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -53,7 +54,7 @@ async fn set_update(backend: &InjectableBackend, id: &str, patch: Value) -> Valu
     )
     .await
     .expect("Message/set")
-    .0
+    .primary
 }
 
 async fn get(backend: &InjectableBackend, id: &str) -> Value {
@@ -64,7 +65,7 @@ async fn get(backend: &InjectableBackend, id: &str) -> Value {
     )
     .await
     .expect("Message/get")
-    .0
+    .primary
 }
 
 async fn state(backend: &InjectableBackend, id: &str) -> String {
@@ -105,7 +106,9 @@ async fn failed_burn_commits_nothing_and_retry_burns() {
     assert_eq!(gone["list"], json!([]), "{gone}");
     assert_eq!(gone["notFound"], json!([id]), "{gone}");
 
-    let (changes, _) = handle_message_changes(
+    let HandlerOutput {
+        primary: changes, ..
+    } = handle_message_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": before }),

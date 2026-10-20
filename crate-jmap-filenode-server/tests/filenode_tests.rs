@@ -10,6 +10,7 @@ use jmap_filenode_server::filenode::{
     handle_filenode_changes, handle_filenode_get, handle_filenode_query, handle_filenode_set,
 };
 use jmap_filenode_types::FileNode;
+use jmap_server::HandlerOutput;
 use jmap_types::Invocation;
 use serde_json::json;
 
@@ -55,7 +56,7 @@ async fn filenode_set_create_without_type_is_rejected() {
         }
     });
 
-    let (resp, _) = handle_filenode_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
         .await
         .expect("set must not return top-level error");
 
@@ -97,7 +98,7 @@ async fn filenode_set_create_file_requires_blobid() {
         }
     });
 
-    let (resp, _) = handle_filenode_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
         .await
         .expect("set must not return top-level error");
 
@@ -137,7 +138,7 @@ async fn filenode_set_destroy_leaf_node_succeeds() {
         "destroy": ["leaf-1"]
     });
 
-    let (resp, _) = handle_filenode_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
         .await
         .expect("set must not return top-level error");
 
@@ -177,7 +178,7 @@ async fn filenode_set_destroy_parent_node_has_children() {
         "destroy": ["parent-1"]
     });
 
-    let (resp, _) = handle_filenode_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
         .await
         .expect("set must not return top-level error");
 
@@ -216,7 +217,7 @@ async fn filenode_set_destroy_with_remove_children_cascades() {
         "destroy": ["parent-2"]
     });
 
-    let (resp, _) = handle_filenode_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
         .await
         .expect("set must not return top-level error");
 
@@ -266,7 +267,7 @@ async fn filenode_set_destroy_partial_multilevel_reports_node_has_children() {
         "destroy": ["A", "B"]
     });
 
-    let (resp, _) = handle_filenode_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
         .await
         .expect("set must not return top-level error");
 
@@ -297,7 +298,9 @@ async fn filenode_set_destroy_partial_multilevel_reports_node_has_children() {
     );
 
     // C must still exist.
-    let (get_resp, _) = handle_filenode_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_filenode_get(
         &backend,
         &(),
         json!({
@@ -331,7 +334,7 @@ async fn filenode_set_destroy_full_coverage_multilevel_succeeds() {
         "destroy": ["FA", "FB", "FC"]
     });
 
-    let (resp, _) = handle_filenode_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
         .await
         .expect("set must not return top-level error");
 
@@ -375,7 +378,9 @@ async fn filenode_get_returns_created_node() {
             }
         }
     });
-    let (set_resp, _) = handle_filenode_set(&backend, &(), set_args)
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_filenode_set(&backend, &(), set_args)
         .await
         .expect("set must succeed");
 
@@ -389,7 +394,9 @@ async fn filenode_get_returns_created_node() {
         "accountId": "acc1",
         "ids": [&server_id]
     });
-    let (get_resp, _) = handle_filenode_get(&backend, &(), get_args)
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_filenode_get(&backend, &(), get_args)
         .await
         .expect("get must succeed");
 
@@ -419,7 +426,10 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     // Create a parent node.
-    let (parent_resp, _) = handle_filenode_set(
+    let HandlerOutput {
+        primary: parent_resp,
+        ..
+    } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -438,7 +448,7 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
         .to_owned();
 
     // Create a child under the parent.
-    let (child_resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: child_resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -458,7 +468,9 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
 
     // Get the child with fetchParents=true.
     // §3.2.1: the ancestor chain must be appended to the list.
-    let (get_resp, _) = handle_filenode_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_filenode_get(
         &backend,
         &(),
         json!({
@@ -500,7 +512,7 @@ async fn filenode_set_update_non_object_patch_returns_invalid_patch() {
     let backend = MemoryBackend::new().with_account("acc1");
     let node_id = create_node(&backend, "acc1", "doc", None, "s").await;
 
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -537,7 +549,9 @@ async fn filenode_get_fetch_parents_dedup_shared_ancestor() {
     let child_a = create_node(&backend, "acc1", "a", Some(&parent_id), "c1").await;
     let child_b = create_node(&backend, "acc1", "b", Some(&parent_id), "c2").await;
 
-    let (get_resp, _) = handle_filenode_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_filenode_get(
         &backend,
         &(),
         json!({
@@ -575,7 +589,9 @@ async fn filenode_query_depth_one_returns_children() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     // Create a top-level directory.
-    let (dir_resp, _) = handle_filenode_set(
+    let HandlerOutput {
+        primary: dir_resp, ..
+    } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -610,7 +626,9 @@ async fn filenode_query_depth_one_returns_children() {
 
     // Query isTopLevel=true with depth=1.
     // §3.2.5: depth=1 expands one level below the initial result.
-    let (q_resp, _) = handle_filenode_query(
+    let HandlerOutput {
+        primary: q_resp, ..
+    } = handle_filenode_query(
         &backend,
         &(),
         json!({
@@ -652,7 +670,7 @@ async fn filenode_changes_after_create_shows_in_created_list() {
             "accountId": "acc1",
             "ids": []
         });
-        let (resp, _) = handle_filenode_get(&backend, &(), get_args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), get_args)
             .await
             .expect("get must succeed");
         resp["state"]
@@ -662,7 +680,9 @@ async fn filenode_changes_after_create_shows_in_created_list() {
     };
 
     // Create a node.
-    let (set_resp, _) = handle_filenode_set(
+    let HandlerOutput {
+        primary: set_resp, ..
+    } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -682,7 +702,9 @@ async fn filenode_changes_after_create_shows_in_created_list() {
 
     // Call FileNode/changes with sinceState = pre_state.
     // §3.2.2: the new id must appear in the `created` list.
-    let (ch_resp, _) = handle_filenode_changes(
+    let HandlerOutput {
+        primary: ch_resp, ..
+    } = handle_filenode_changes(
         &backend,
         &(),
         json!({
@@ -746,7 +768,10 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     // Seed: parent "old_dir" at root, with one child "old_child".
-    let (resp_parent, _) = handle_filenode_set(
+    let HandlerOutput {
+        primary: resp_parent,
+        ..
+    } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -763,7 +788,10 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
         .expect("parent id")
         .to_owned();
 
-    let (_resp_child, _) = handle_filenode_set(
+    let HandlerOutput {
+        primary: resp_child,
+        ..
+    } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -775,7 +803,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
     )
     .await
     .expect("seed child must succeed");
-    let child_id = _resp_child["created"]["c"]["id"]
+    let child_id = resp_child["created"]["c"]["id"]
         .as_str()
         .expect("child id")
         .to_owned();
@@ -785,7 +813,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
     // onDestroyRemoveChildren=true, the existing "shared_name" directory
     // (which has children) MUST be destroyed along with its descendants,
     // and the new node MUST be created.
-    let (replace_resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: replace_resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -833,7 +861,10 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     // Seed: parent + child.
-    let (resp_parent, _) = handle_filenode_set(
+    let HandlerOutput {
+        primary: resp_parent,
+        ..
+    } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -865,7 +896,7 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
 
     // Attempt replace without onDestroyRemoveChildren=true: MUST return
     // nodeHasChildren (the no-cascade guard is preserved).
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -909,7 +940,7 @@ async fn create_node(
     parent_id: Option<&str>,
     create_id: &str,
 ) -> String {
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         backend,
         &(),
         json!({
@@ -935,7 +966,7 @@ async fn filenode_copy_default_collision_returns_already_exists() {
     // Pre-seed a collision in the destination.
     let _existing = create_node(&backend, "dst", "doc", None, "e").await;
 
-    let (resp, _) = handle_filenode_copy(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -970,7 +1001,7 @@ async fn filenode_copy_on_exists_rename_succeeds_with_suffixed_name() {
     // Pre-seed a collision in the destination.
     let _existing = create_node(&backend, "dst", "doc", None, "e").await;
 
-    let (resp, _) = handle_filenode_copy(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -1012,7 +1043,7 @@ async fn filenode_copy_on_exists_replace_destroys_existing_then_creates() {
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
     let existing_id = create_node(&backend, "dst", "doc", None, "e").await;
 
-    let (resp, _) = handle_filenode_copy(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -1035,7 +1066,9 @@ async fn filenode_copy_on_exists_replace_destroys_existing_then_creates() {
     );
 
     // And the existing node must actually be gone from the destination.
-    let (get_resp, _) = handle_filenode_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_filenode_get(
         &backend,
         &(),
         json!({
@@ -1064,7 +1097,7 @@ async fn filenode_copy_on_exists_replace_without_flag_node_has_children() {
     let existing_parent = create_node(&backend, "dst", "doc", None, "ep").await;
     let _existing_child = create_node(&backend, "dst", "child", Some(&existing_parent), "ec").await;
 
-    let (resp, _) = handle_filenode_copy(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -1103,7 +1136,7 @@ async fn filenode_copy_non_string_parent_id_returns_invalid_properties() {
     // handler must surface this as invalidProperties rather than
     // silently coercing to None (which would copy the source to the
     // destination root, undocumented and with no error signal).
-    let (resp, _) = handle_filenode_copy(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -1153,7 +1186,7 @@ async fn filenode_copy_applies_arbitrary_property_overrides() {
     // Source has role=null. The copy supplies role="documents" override.
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
-    let (resp, _) = handle_filenode_copy(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -1189,7 +1222,7 @@ async fn filenode_copy_on_exists_replace_with_flag_cascades() {
     let existing_parent = create_node(&backend, "dst", "doc", None, "ep").await;
     let existing_child = create_node(&backend, "dst", "child", Some(&existing_parent), "ec").await;
 
-    let (resp, _) = handle_filenode_copy(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -1213,7 +1246,9 @@ async fn filenode_copy_on_exists_replace_with_flag_cascades() {
     );
 
     // Both the existing parent and its child must be gone in the destination.
-    let (get_resp, _) = handle_filenode_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_filenode_get(
         &backend,
         &(),
         json!({
@@ -1277,7 +1312,9 @@ async fn filenode_copy_if_from_in_state_mismatch_returns_state_mismatch() {
     );
 
     // And the destination account must not have received any copy.
-    let (get_resp, _) = handle_filenode_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_filenode_get(
         &backend,
         &(),
         json!({
@@ -1308,7 +1345,10 @@ async fn filenode_copy_if_from_in_state_match_proceeds() {
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
     // Read the current source-account state via FileNode/get on src.
-    let (src_state_resp, _) = handle_filenode_get(
+    let HandlerOutput {
+        primary: src_state_resp,
+        ..
+    } = handle_filenode_get(
         &backend,
         &(),
         json!({
@@ -1323,7 +1363,7 @@ async fn filenode_copy_if_from_in_state_match_proceeds() {
         .expect("state must be present")
         .to_owned();
 
-    let (resp, _) = handle_filenode_copy(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -1362,7 +1402,11 @@ async fn filenode_copy_on_success_destroy_original_destroys_source() {
     // A single leaf node in src that we will move to dst.
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
-    let (resp, extra) = handle_filenode_copy(
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -1414,7 +1458,9 @@ async fn filenode_copy_on_success_destroy_original_destroys_source() {
     );
 
     // The source node must actually be gone from src.
-    let (get_resp, _) = handle_filenode_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_filenode_get(
         &backend,
         &(),
         json!({
@@ -1462,11 +1508,15 @@ async fn copy_with_destroy_from_if_in_state(
     let state = match destroy_from_if_in_state {
         Some(s) => s.to_owned(),
         None => {
-            let (get, _) = get_src().await.expect("get must succeed");
+            let HandlerOutput { primary: get, .. } = get_src().await.expect("get must succeed");
             get["state"].as_str().expect("state string").to_owned()
         }
     };
-    let (resp, extra) = handle_filenode_copy(
+    let HandlerOutput {
+        primary: resp,
+        extra_invocations: extra,
+        ..
+    } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -1484,7 +1534,7 @@ async fn copy_with_destroy_from_if_in_state(
         resp["created"]["c"].is_object(),
         "copy must succeed: {resp}"
     );
-    let (after, _) = get_src().await.expect("get must succeed");
+    let HandlerOutput { primary: after, .. } = get_src().await.expect("get must succeed");
     (extra, after["notFound"] == json!([&src_id]))
 }
 
@@ -1534,7 +1584,10 @@ async fn filenode_copy_on_success_destroy_original_node_has_children() {
     let src_parent = create_node(&backend, "src", "parent", None, "p").await;
     let _src_child = create_node(&backend, "src", "child", Some(&src_parent), "c1").await;
 
-    let (_resp, extra) = handle_filenode_copy(
+    let HandlerOutput {
+        extra_invocations: extra,
+        ..
+    } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -1567,7 +1620,9 @@ async fn filenode_copy_on_success_destroy_original_node_has_children() {
     );
 
     // And the source parent must still exist.
-    let (get_resp, _) = handle_filenode_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_filenode_get(
         &backend,
         &(),
         json!({
@@ -1601,7 +1656,7 @@ async fn filenode_copy_same_account_under_own_descendant_returns_invalid_propert
     let b_id = create_node(&backend, "acc1", "B", Some(&a_id), "b").await;
 
     // Try to copy A under B (which is A's descendant) within the same account.
-    let (resp, _) = handle_filenode_copy(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -1635,7 +1690,7 @@ async fn filenode_copy_same_account_to_own_id_returns_invalid_properties() {
     let backend = MemoryBackend::new().with_account("acc1");
     let a_id = create_node(&backend, "acc1", "A", None, "a").await;
 
-    let (resp, _) = handle_filenode_copy(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -1749,7 +1804,9 @@ async fn filenode_query_role_filter_excludes_non_matching() {
     .await
     .expect("create must succeed");
 
-    let (q_resp, _) = handle_filenode_query(
+    let HandlerOutput {
+        primary: q_resp, ..
+    } = handle_filenode_query(
         &backend,
         &(),
         json!({
@@ -1815,7 +1872,7 @@ async fn filenode_query_body_filter_returns_server_fail() {
 async fn filenode_set_state_advances_on_successful_create() {
     let backend = MemoryBackend::new().with_account("acc1");
 
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -1852,7 +1909,7 @@ async fn filenode_set_state_stays_when_all_creates_fail() {
     // A file node without blobId is invalidProperties per draft §3.1.
     // The whole /set has no successful mutation, so state MUST NOT
     // advance.
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -1901,7 +1958,7 @@ async fn filenode_set_state_advances_exactly_once_on_mixed_success() {
     // without blobId (will fail with invalidProperties). State must
     // advance exactly once — not zero (one create succeeded), not
     // twice (the per-failed-target is not a mutation).
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -1939,7 +1996,9 @@ async fn filenode_set_state_advances_exactly_once_on_mixed_success() {
     // Run a follow-up changes call with sinceState=new. Since no further
     // mutations happened, the changes response MUST be empty (no new
     // tokens, no created/updated/destroyed deltas).
-    let (ch_resp, _) = handle_filenode_changes(
+    let HandlerOutput {
+        primary: ch_resp, ..
+    } = handle_filenode_changes(
         &backend,
         &(),
         json!({
@@ -2011,7 +2070,7 @@ async fn filenode_set_on_exists_newest_incoming_wins() {
     );
 
     // Create a new node with the same name and a LATER modified timestamp.
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2059,7 +2118,7 @@ async fn filenode_set_on_exists_newest_existing_wins() {
     );
 
     // Attempt to create a node with the same name but an OLDER modified timestamp.
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2105,7 +2164,7 @@ async fn filenode_set_on_exists_newest_both_missing_modified() {
     backend.seed_node("acc1", make_dir("existing-3", "shared", None));
 
     // Create a new node with the same name — also no modified timestamp.
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2153,7 +2212,7 @@ async fn filenode_copy_on_exists_newest_incoming_wins() {
         make_dir_with_modified("dst-1", "doc", None, "2020-01-01T00:00:00Z"),
     );
 
-    let (resp, _) = handle_filenode_copy(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -2176,7 +2235,9 @@ async fn filenode_copy_on_exists_newest_incoming_wins() {
     );
 
     // Verify the old destination node is actually gone.
-    let (get_resp, _) = handle_filenode_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_filenode_get(
         &backend,
         &(),
         json!({
@@ -2203,7 +2264,10 @@ async fn filenode_set_on_exists_newest_node_has_children_without_flag() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     // Seed: parent "shared" with a child.
-    let (resp_parent, _) = handle_filenode_set(
+    let HandlerOutput {
+        primary: resp_parent,
+        ..
+    } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2235,7 +2299,7 @@ async fn filenode_set_on_exists_newest_node_has_children_without_flag() {
 
     // Attempt newest (incoming is later) without onDestroyRemoveChildren.
     // The existing node has children → must return nodeHasChildren.
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2273,7 +2337,10 @@ async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     // Seed: parent "shared" with a child.
-    let (resp_parent, _) = handle_filenode_set(
+    let HandlerOutput {
+        primary: resp_parent,
+        ..
+    } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2290,7 +2357,10 @@ async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
         .expect("parent id")
         .to_owned();
 
-    let (resp_child, _) = handle_filenode_set(
+    let HandlerOutput {
+        primary: resp_child,
+        ..
+    } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2309,7 +2379,7 @@ async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
 
     // Newest with onDestroyRemoveChildren=true: incoming is later → cascade
     // destroy old parent + child, then create new node.
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2366,7 +2436,7 @@ async fn filenode_set_on_exists_newest_rejects_malformed_modified() {
 
     // Attempt newest with a malformed "modified" that would lexicographically
     // win ("9999" > "2020-...") if not validated.
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2414,7 +2484,7 @@ async fn filenode_copy_rejects_invalid_type_overrides() {
     let backend = MemoryBackend::new().with_account("src").with_account("dst");
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
-    let (resp, _) = handle_filenode_copy(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -2454,7 +2524,7 @@ async fn filenode_copy_rejects_invalid_type_overrides() {
 #[tokio::test]
 async fn filenode_set_unsupported_type_description_names_values() {
     let backend = MemoryBackend::new().with_account("acc1");
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2490,7 +2560,7 @@ async fn filenode_set_unsupported_type_description_names_values() {
 async fn filenode_set_update_rejects_other_type_properties() {
     let backend = MemoryBackend::new().with_account("acc1");
     let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2505,7 +2575,7 @@ async fn filenode_set_update_rejects_other_type_properties() {
         .unwrap_or_else(|| panic!("symlink must be created: {resp}"))
         .to_owned();
 
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2527,7 +2597,9 @@ async fn filenode_set_update_rejects_other_type_properties() {
     }
 
     // The rejected value must not be stored where a filter can see it.
-    let (q_resp, _) = handle_filenode_query(
+    let HandlerOutput {
+        primary: q_resp, ..
+    } = handle_filenode_query(
         &backend,
         &(),
         json!({ "accountId": "acc1", "filter": { "mediaType": "text/plain" } }),
@@ -2542,7 +2614,7 @@ async fn filenode_set_update_ignores_null_other_type_properties() {
     let backend = MemoryBackend::new().with_account("acc1");
     let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
 
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2578,7 +2650,7 @@ async fn filenode_set_update_rejects_other_type_pointer_key() {
     let backend = MemoryBackend::new().with_account("acc1");
     let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
 
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2607,7 +2679,7 @@ async fn filenode_set_update_null_other_type_pointer_key_is_invalid_patch() {
     let ptr_id = create_node(&backend, "acc1", "p", None, "p").await;
     let ctl_id = create_node(&backend, "acc1", "c", None, "c").await;
 
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2641,7 +2713,7 @@ async fn filenode_set_update_rejects_type_change() {
     let backend = MemoryBackend::new().with_account("acc1");
     let dir_id = create_node(&backend, "acc1", "d", None, "d").await;
 
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2657,7 +2729,9 @@ async fn filenode_set_update_rejects_type_change() {
     assert_eq!(err["type"], "invalidProperties", "{resp}");
     assert_eq!(err["properties"], json!(["@type"]), "{resp}");
 
-    let (g_resp, _) = handle_filenode_get(
+    let HandlerOutput {
+        primary: g_resp, ..
+    } = handle_filenode_get(
         &backend,
         &(),
         json!({ "accountId": "acc1", "ids": [&dir_id], "properties": ["@type"] }),
@@ -2679,7 +2753,7 @@ async fn assert_invalid_create_keeps_existing(on_exists: &str) {
     let backend = MemoryBackend::new().with_account("acc1");
     let existing_id = create_node(&backend, "acc1", "doc", None, "e").await;
 
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2704,7 +2778,9 @@ async fn assert_invalid_create_keeps_existing(on_exists: &str) {
     assert_eq!(err["properties"], json!(["blobId"]), "{resp}");
     assert!(resp["destroyed"].is_null(), "nothing destroyed: {resp}");
 
-    let (g_resp, _) = handle_filenode_get(
+    let HandlerOutput {
+        primary: g_resp, ..
+    } = handle_filenode_get(
         &backend,
         &(),
         json!({ "accountId": "acc1", "ids": [&existing_id] }),
@@ -2738,7 +2814,7 @@ async fn filenode_set_create_invalid_newest_keeps_existing() {
 async fn filenode_set_create_rejects_other_type_property() {
     let backend = MemoryBackend::new().with_account("acc1");
 
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2764,7 +2840,7 @@ async fn filenode_set_create_rejects_other_type_property() {
 async fn filenode_set_create_ignores_null_other_type_property() {
     let backend = MemoryBackend::new().with_account("acc1");
 
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2794,7 +2870,7 @@ async fn filenode_copy_rejects_other_type_property() {
     let backend = MemoryBackend::new().with_account("src").with_account("dst");
     let src_id = create_node(&backend, "src", "doc", None, "s").await;
 
-    let (resp, _) = handle_filenode_copy(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
         &backend,
         &(),
         json!({
@@ -2816,7 +2892,7 @@ async fn filenode_copy_rejects_other_type_property() {
 /// Create one node per `(create_id, properties)` entry and return the ids.
 async fn create_nodes(backend: &MemoryBackend, create: serde_json::Value) -> Vec<String> {
     let keys: Vec<String> = create.as_object().unwrap().keys().cloned().collect();
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         backend,
         &(),
         json!({ "accountId": "acc1", "create": create }),
@@ -2848,7 +2924,7 @@ async fn filenode_set_update_null_modified_accessed_sets_server_time() {
     .await;
     let id = &ids[0];
 
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({
@@ -2860,7 +2936,9 @@ async fn filenode_set_update_null_modified_accessed_sets_server_time() {
     .expect("must not return top-level error");
     assert!(resp["notUpdated"].is_null(), "update must succeed: {resp}");
 
-    let (g_resp, _) = handle_filenode_get(
+    let HandlerOutput {
+        primary: g_resp, ..
+    } = handle_filenode_get(
         &backend,
         &(),
         json!({ "accountId": "acc1", "ids": [id], "properties": ["modified", "accessed"] }),
@@ -2901,7 +2979,7 @@ async fn filenode_set_update_null_type_property_is_invalid_properties() {
     for (id, prop, _) in &cases {
         update.insert((*id).clone(), json!({ *prop: null }));
     }
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({ "accountId": "acc1", "update": update }),
@@ -2915,7 +2993,9 @@ async fn filenode_set_update_null_type_property_is_invalid_properties() {
         assert_eq!(err["type"], "invalidProperties", "{prop}: {resp}");
         assert_eq!(err["properties"], json!([prop]), "{prop}: {resp}");
 
-        let (g_resp, _) = handle_filenode_get(
+        let HandlerOutput {
+            primary: g_resp, ..
+        } = handle_filenode_get(
             &backend,
             &(),
             json!({ "accountId": "acc1", "ids": [id], "properties": [prop] }),
@@ -2935,7 +3015,7 @@ async fn filenode_set_update_null_name_is_invalid_properties() {
     let backend = MemoryBackend::new().with_account("acc1");
     let id = create_node(&backend, "acc1", "keep", None, "d").await;
 
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({ "accountId": "acc1", "update": { &id: { "name": null } } }),
@@ -2948,7 +3028,9 @@ async fn filenode_set_update_null_name_is_invalid_properties() {
     assert_eq!(err["type"], "invalidProperties", "{resp}");
     assert_eq!(err["properties"], json!(["name"]), "{resp}");
 
-    let (g_resp, _) = handle_filenode_get(
+    let HandlerOutput {
+        primary: g_resp, ..
+    } = handle_filenode_get(
         &backend,
         &(),
         json!({ "accountId": "acc1", "ids": [&id], "properties": ["name"] }),
@@ -2983,7 +3065,7 @@ async fn filenode_set_update_wrong_typed_value_is_invalid_properties() {
     for (id, prop, bad, _) in &cases {
         update.insert((*id).clone(), json!({ *prop: bad }));
     }
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({ "accountId": "acc1", "update": update }),
@@ -2997,7 +3079,9 @@ async fn filenode_set_update_wrong_typed_value_is_invalid_properties() {
             resp["notUpdated"][*id]["type"], "invalidProperties",
             "{prop}: {resp}"
         );
-        let (g_resp, _) = handle_filenode_get(
+        let HandlerOutput {
+            primary: g_resp, ..
+        } = handle_filenode_get(
             &backend,
             &(),
             json!({ "accountId": "acc1", "ids": [id], "properties": [prop] }),
@@ -3022,7 +3106,9 @@ async fn filenode_set_create_null_modified_accessed_sets_server_time() {
     )
     .await;
 
-    let (g_resp, _) = handle_filenode_get(
+    let HandlerOutput {
+        primary: g_resp, ..
+    } = handle_filenode_get(
         &backend,
         &(),
         json!({
@@ -3073,7 +3159,7 @@ async fn filenode_set_update_null_defaulted_resets_to_default() {
     for (id, prop) in &cases {
         update.insert((*id).clone(), json!({ *prop: null }));
     }
-    let (resp, _) = handle_filenode_set(
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
         json!({ "accountId": "acc1", "update": update }),
@@ -3083,7 +3169,9 @@ async fn filenode_set_update_null_defaulted_resets_to_default() {
     assert!(resp["notUpdated"].is_null(), "all must update: {resp}");
 
     async fn get(backend: &MemoryBackend, id: &str, prop: &str) -> serde_json::Value {
-        let (g_resp, _) = handle_filenode_get(
+        let HandlerOutput {
+            primary: g_resp, ..
+        } = handle_filenode_get(
             backend,
             &(),
             json!({ "accountId": "acc1", "ids": [id], "properties": [prop] }),

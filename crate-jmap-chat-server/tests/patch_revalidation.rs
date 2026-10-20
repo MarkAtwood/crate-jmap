@@ -17,6 +17,7 @@ use jmap_chat_server::{
     handle_contact_set, handle_emoji_get, handle_emoji_set, handle_message_get, handle_message_set,
     handle_position_get, handle_position_set, handle_presence_get, handle_presence_set,
 };
+use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
 
 /// Assert a `/set` response rejected `id` with `invalidProperties`.
@@ -54,7 +55,7 @@ async fn chat_kind_null_rejected_and_get_succeeds() {
     let backend = MemoryBackend::new();
     let id = make_chat_group(&backend, "g").await;
 
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { &id: { "kind": null } } }),
@@ -63,9 +64,10 @@ async fn chat_kind_null_rejected_and_get_succeeds() {
     .expect("Chat/set");
     assert_rejected_naming(&resp, &id, "kind");
 
-    let (resp, _) = handle_chat_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
-        .await
-        .expect("Chat/get");
+    let HandlerOutput { primary: resp, .. } =
+        handle_chat_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+            .await
+            .expect("Chat/get");
     assert_eq!(single(resp)["kind"], "group");
 }
 
@@ -75,7 +77,7 @@ async fn chat_kind_null_rejected_and_get_succeeds() {
 #[tokio::test]
 async fn message_body_null_rejected_and_get_succeeds() {
     let backend = MemoryBackend::new();
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({
@@ -90,7 +92,7 @@ async fn message_body_null_rejected_and_get_succeeds() {
         .expect("created id")
         .to_owned();
 
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { &id: { "body": null } } }),
@@ -101,9 +103,10 @@ async fn message_body_null_rejected_and_get_succeeds() {
     // so only the description names the culprit.
     assert_rejected(&resp, &id);
 
-    let (resp, _) = handle_message_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
-        .await
-        .expect("Message/get");
+    let HandlerOutput { primary: resp, .. } =
+        handle_message_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+            .await
+            .expect("Message/get");
     assert_eq!(single(resp)["body"], "hi");
 }
 
@@ -125,7 +128,7 @@ async fn emoji_blob_id_null_rejected_and_get_succeeds() {
         }),
     );
 
-    let (resp, _) = handle_emoji_set(
+    let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { "e1": { "blobId": null } } }),
@@ -134,9 +137,10 @@ async fn emoji_blob_id_null_rejected_and_get_succeeds() {
     .expect("CustomEmoji/set");
     assert_rejected_naming(&resp, "e1", "blobId");
 
-    let (resp, _) = handle_emoji_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
-        .await
-        .expect("CustomEmoji/get");
+    let HandlerOutput { primary: resp, .. } =
+        handle_emoji_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+            .await
+            .expect("CustomEmoji/get");
     assert_eq!(single(resp)["blobId"], "b1");
 }
 
@@ -160,7 +164,7 @@ async fn contact_blocked_wrong_type_rejected_and_get_succeeds() {
         }),
     );
 
-    let (resp, _) = handle_contact_set(
+    let HandlerOutput { primary: resp, .. } = handle_contact_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { "ct1": { "blocked": "yes" } } }),
@@ -169,9 +173,10 @@ async fn contact_blocked_wrong_type_rejected_and_get_succeeds() {
     .expect("ChatContact/set");
     assert_rejected_naming(&resp, "ct1", "blocked");
 
-    let (resp, _) = handle_contact_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
-        .await
-        .expect("ChatContact/get");
+    let HandlerOutput { primary: resp, .. } =
+        handle_contact_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+            .await
+            .expect("ChatContact/get");
     assert_eq!(single(resp)["blocked"], true);
 }
 
@@ -193,7 +198,7 @@ async fn presence_wrong_type_rejected_and_get_succeeds() {
         }),
     );
 
-    let (resp, _) = handle_presence_set(
+    let HandlerOutput { primary: resp, .. } = handle_presence_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { "ps1": { "presence": 5 } } }),
@@ -204,9 +209,10 @@ async fn presence_wrong_type_rejected_and_get_succeeds() {
     // only the description names the culprit.
     assert_rejected(&resp, "ps1");
 
-    let (resp, _) = handle_presence_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
-        .await
-        .expect("PresenceStatus/get");
+    let HandlerOutput { primary: resp, .. } =
+        handle_presence_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+            .await
+            .expect("PresenceStatus/get");
     let ps = single(resp);
     assert_eq!(ps["presence"], "busy");
     assert_eq!(ps["updatedAt"], "2024-01-01T00:00:00Z");
@@ -225,7 +231,7 @@ async fn position_wrong_type_rejected_and_get_succeeds() {
         json!({ "id": "rp1", "chatId": "c1", "lastReadMessageId": "m1" }),
     );
 
-    let (resp, _) = handle_position_set(
+    let HandlerOutput { primary: resp, .. } = handle_position_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { "rp1": { "lastReadMessageId": 5 } } }),
@@ -234,9 +240,10 @@ async fn position_wrong_type_rejected_and_get_succeeds() {
     .expect("ReadPosition/set");
     assert_rejected_naming(&resp, "rp1", "lastReadMessageId");
 
-    let (resp, _) = handle_position_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
-        .await
-        .expect("ReadPosition/get");
+    let HandlerOutput { primary: resp, .. } =
+        handle_position_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+            .await
+            .expect("ReadPosition/get");
     assert_eq!(single(resp)["lastReadMessageId"], "m1");
 }
 
@@ -260,7 +267,7 @@ async fn ban_reason_wrong_type_rejected_and_get_succeeds() {
         }),
     );
 
-    let (resp, _) = handle_ban_set(
+    let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { "b1": { "reason": 5 } } }),
@@ -269,8 +276,9 @@ async fn ban_reason_wrong_type_rejected_and_get_succeeds() {
     .expect("SpaceBan/set");
     assert_rejected_naming(&resp, "b1", "reason");
 
-    let (resp, _) = handle_ban_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
-        .await
-        .expect("SpaceBan/get");
+    let HandlerOutput { primary: resp, .. } =
+        handle_ban_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+            .await
+            .expect("SpaceBan/get");
     assert_eq!(single(resp)["reason"], "spam");
 }

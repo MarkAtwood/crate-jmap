@@ -12,7 +12,7 @@
 //! (`accountId`, `id`, `utcStart`, `utcEnd`, optional `showDetails`,
 //! optional `eventProperties` → `accountId`, `list`).
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -20,12 +20,12 @@
 //! (`accountNotFound`, `invalidArguments`, `serverFail`, plus the
 //! Calendars-specific `notFound` / `forbidden` shapes — per draft §2.2).
 
-use jmap_types::{Id, Invocation, JmapError, UTCDate};
+use jmap_types::{Id, JmapError, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{AvailabilityError, CalendarsBackend};
 use crate::helpers::extract_account_id;
-use jmap_server::{bool_arg, server_fail_from_backend};
+use jmap_server::{bool_arg, server_fail_from_backend, HandlerOutput};
 
 // ---------------------------------------------------------------------------
 // Principal/getAvailability
@@ -50,7 +50,7 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, args_map) = extract_account_id(args)?;
 
     if !backend
@@ -132,13 +132,10 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
     {
         Ok(busy_list) => {
             let list_json = serde_json::to_value(&busy_list).unwrap_or(Value::Array(vec![]));
-            Ok((
-                json!({
-                    "accountId": account_id.as_ref(),
-                    "list": list_json,
-                }),
-                vec![],
-            ))
+            Ok(HandlerOutput::new(json!({
+                "accountId": account_id.as_ref(),
+                "list": list_json,
+            })))
         }
         Err(AvailabilityError::NotFound) => Err(JmapError::not_found()),
         Err(AvailabilityError::Forbidden) => Err(JmapError::forbidden()),
@@ -174,7 +171,11 @@ mod tests {
             "utcStart": "2024-06-15T09:00:00Z",
             "utcEnd": "2024-06-15T10:00:00Z"
         });
-        let (resp, extra) = handle_principal_get_availability(&backend, &(), args)
+        let HandlerOutput {
+            primary: resp,
+            extra_invocations: extra,
+            ..
+        } = handle_principal_get_availability(&backend, &(), args)
             .await
             .expect("must succeed");
         assert!(extra.is_empty());

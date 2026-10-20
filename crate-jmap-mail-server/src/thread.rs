@@ -9,7 +9,7 @@
 //! defined by RFC 8621 §3. The returned `Value` is the corresponding
 //! method-response object per the same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -19,7 +19,7 @@
 
 use std::collections::HashSet;
 
-use jmap_types::{Id, Invocation, JmapError};
+use jmap_types::{Id, JmapError};
 use serde_json::{json, Value};
 
 use crate::backend::MailBackend;
@@ -27,7 +27,7 @@ use crate::helpers::{
     enforce_max_objects_in_get, extract_account_id, filter_properties, not_found_json,
     serialize_value,
 };
-use jmap_server::server_fail_from_backend;
+use jmap_server::{server_fail_from_backend, HandlerOutput};
 
 /// Handle a `Thread/get` method call (RFC 8621 §3.1).
 ///
@@ -40,7 +40,7 @@ pub async fn handle_thread_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -109,7 +109,7 @@ pub async fn handle_thread_get<B: MailBackend>(
         "notFound": not_found_json(&not_found),
     });
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 /// Handle a `Thread/changes` method call (RFC 8621 §3.2).
@@ -124,6 +124,6 @@ pub async fn handle_thread_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_changes::<jmap_mail_types::Thread, B>(backend, caller, args).await
 }

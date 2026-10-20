@@ -12,6 +12,7 @@ mod common;
 
 use common::MemoryBackend;
 use jmap_mail_server::handle_search_snippet_get;
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -62,7 +63,7 @@ async fn search_snippet_get_at_cap_is_processed() {
         "accountId": account_id.as_ref(),
         "emailIds": ids.clone(),
     });
-    let (resp, _) = handle_search_snippet_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_search_snippet_get(&backend, &(), args)
         .await
         .expect("exactly 500 emailIds must not trip the cap");
     let mut answered: Vec<Value> = resp["list"]

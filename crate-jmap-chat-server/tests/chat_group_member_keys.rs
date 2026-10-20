@@ -16,6 +16,7 @@ mod common;
 
 use common::{IdentityBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_chat_get, handle_chat_set, ChatLimits};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -23,7 +24,7 @@ use serde_json::{json, Value};
 /// members and return its id.
 async fn group_of_three(backend: &IdentityBackend) -> String {
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &Id::from(ACCOUNT_ID),
         json!({
@@ -65,7 +66,7 @@ fn group_with_owner_as_member(backend: &IdentityBackend) -> String {
 
 /// Send one `Chat/set` update as `caller` and return the response.
 async fn update_as(backend: &IdentityBackend, caller: &str, chat_id: &str, patch: Value) -> Value {
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &Id::from(caller),
         json!({ "accountId": ACCOUNT_ID, "update": { chat_id: patch } }),
@@ -77,7 +78,7 @@ async fn update_as(backend: &IdentityBackend, caller: &str, chat_id: &str, patch
 
 /// The stored Chat as returned by `Chat/get`.
 async fn stored_chat(backend: &IdentityBackend, chat_id: &str) -> Value {
-    let (resp, _) = handle_chat_get(
+    let HandlerOutput { primary: resp, .. } = handle_chat_get(
         backend,
         &Id::from(ACCOUNT_ID),
         json!({ "accountId": ACCOUNT_ID, "ids": [chat_id] }),

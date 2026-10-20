@@ -12,6 +12,7 @@ mod common;
 
 use common::{seed_space, IdentityBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{handle_chat_get, handle_chat_set};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -85,7 +86,7 @@ fn seed_channel(backend: &IdentityBackend, owner_may_pin: bool) {
 
 /// Send `patch` as the owner and return the `Chat/set` response.
 async fn update(backend: &IdentityBackend, patch: Value) -> Value {
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &Id::from("owner"),
         json!({ "accountId": ACCOUNT_ID, "update": { CHAT_ID: patch } }),
@@ -97,7 +98,7 @@ async fn update(backend: &IdentityBackend, patch: Value) -> Value {
 
 /// Return the stored `pinnedMessageIds` via `Chat/get`.
 async fn pinned(backend: &IdentityBackend) -> Value {
-    let (resp, _) = handle_chat_get(
+    let HandlerOutput { primary: resp, .. } = handle_chat_get(
         backend,
         &Id::from("admin"),
         json!({ "accountId": ACCOUNT_ID, "ids": [CHAT_ID] }),

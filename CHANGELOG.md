@@ -20,6 +20,12 @@ wire behaviour that a conforming peer can observe.
   Replace `inv.0` / `inv.1` / `inv.2` with `inv.name` / `inv.arguments` /
   `inv.call_id`, and tuple literals with `Invocation::new(name, arguments,
   call_id)`; `From` conversions to and from the tuple are provided.
+- **jmap-server**: `HandlerFuture` resolves to `Result<HandlerOutput,
+  JmapError>` instead of `Result<(Value, Vec<Invocation>), JmapError>`, and
+  every extension crate's `handle_*` function returns
+  `Result<HandlerOutput, JmapError>`. `HandlerOutput` is `#[non_exhaustive]`
+  with `primary` and `extra_invocations` fields; build it with
+  `HandlerOutput::new(primary)` and `.with_extra(invocations)`.
 - **jmap-server**: `JmapBackend::query_objects` gains `anchor: Option<&Id>`
   and `anchor_offset: i64`, and returns
   `Result<QueryResult, BackendQueryError<Self::Error>>`. Implementors must

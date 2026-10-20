@@ -7,6 +7,7 @@ mod common;
 use common::{seed_space, IdentityBackend, MemoryBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{handle_space_set, JmapBackend};
 use jmap_chat_types::Space;
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::json;
 
@@ -54,7 +55,7 @@ async fn self_removal_without_manage_members_is_permitted() {
     admin_and_regular(&backend, "admin-user", ACCOUNT_ID);
     let caller = Id::from(ACCOUNT_ID);
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -77,7 +78,7 @@ async fn last_admin_self_removal_bypasses_last_admin_protection() {
     admin_and_regular(&backend, ACCOUNT_ID, "u-regular");
     let caller = Id::from(ACCOUNT_ID);
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -130,7 +131,7 @@ async fn last_admin_refusal_is_invalid_properties_naming_remove_members() {
         }),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({

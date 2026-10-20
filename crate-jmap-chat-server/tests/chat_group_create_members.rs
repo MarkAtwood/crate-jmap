@@ -13,6 +13,7 @@ mod common;
 
 use common::{IdentityBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_chat_get, handle_chat_set};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -20,7 +21,7 @@ use serde_json::{json, Value};
 /// `Chat/set` response.
 async fn create_as(backend: &IdentityBackend, caller: &str, create: Value) -> Value {
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &Id::from(caller),
         json!({ "accountId": ACCOUNT_ID, "create": { "g": create } }),
@@ -36,7 +37,7 @@ async fn stored_members(
     caller: &str,
     chat_id: &str,
 ) -> Vec<(String, String)> {
-    let (resp, _) = handle_chat_get(
+    let HandlerOutput { primary: resp, .. } = handle_chat_get(
         backend,
         &Id::from(caller),
         json!({ "accountId": ACCOUNT_ID, "ids": [chat_id] }),

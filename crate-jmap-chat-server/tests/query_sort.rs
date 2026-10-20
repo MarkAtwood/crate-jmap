@@ -11,6 +11,7 @@ mod common;
 
 use common::{make_space, MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_contact_query, handle_space_get, handle_space_query};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -26,7 +27,7 @@ fn ids(resp: &Value) -> Vec<String> {
 
 /// Names of the Spaces in `space_ids`, in that order.
 async fn space_names(backend: &MemoryBackend, space_ids: &[String]) -> Vec<String> {
-    let (resp, _) = handle_space_get(
+    let HandlerOutput { primary: resp, .. } = handle_space_get(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": space_ids }),
@@ -50,7 +51,7 @@ async fn space_names(backend: &MemoryBackend, space_ids: &[String]) -> Vec<Strin
 
 /// `Space/query` sorted by `name` with the given direction.
 async fn query_spaces_by_name(backend: &MemoryBackend, is_ascending: bool) -> Vec<String> {
-    let (resp, _) = handle_space_query(
+    let HandlerOutput { primary: resp, .. } = handle_space_query(
         backend,
         &(),
         json!({
@@ -110,7 +111,7 @@ async fn contact_query_sort_last_active_at_absent_sorts_last() {
     }
 
     for (is_ascending, expected) in [(true, ["c2", "c3", "c1"]), (false, ["c3", "c2", "c1"])] {
-        let (resp, _) = handle_contact_query(
+        let HandlerOutput { primary: resp, .. } = handle_contact_query(
             &backend,
             &(),
             json!({

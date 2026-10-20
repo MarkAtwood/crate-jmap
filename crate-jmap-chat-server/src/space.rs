@@ -13,7 +13,7 @@
 //! with its own request/response shape (`accountId`, `inviteCode` →
 //! `accountId`, `spaceId`).
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -33,7 +33,7 @@ use jmap_chat_types::space_set::{
 };
 use jmap_chat_types::vocabulary::SPEC_PERMISSION_NAMES;
 use jmap_chat_types::{Category, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
-use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
+use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 use subtle::ConstantTimeEq;
 
@@ -47,7 +47,9 @@ use crate::helpers::{
     reject_unsupported_query, serialize_value, set_error_value, SetAccumulators,
 };
 use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
-use jmap_server::{query_anchor_args, server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{
+    query_anchor_args, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+};
 
 // ---------------------------------------------------------------------------
 // Space/set structural-mutation parsing
@@ -357,7 +359,7 @@ pub async fn handle_space_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
 
@@ -423,15 +425,12 @@ pub async fn handle_space_get<B: ChatBackend>(
         .map(|space| project_space_for_caller(space, caller_member_id, properties.as_deref()))
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "state": state.as_ref(),
-            "list": list_json,
-            "notFound": not_found_json(&not_found),
-        }),
-        vec![],
-    ))
+    Ok(HandlerOutput::new(json!({
+        "accountId": account_id.as_ref(),
+        "state": state.as_ref(),
+        "list": list_json,
+        "notFound": not_found_json(&not_found),
+    })))
 }
 
 /// Returns `true` when the caller is a non-member of `space` AND the
@@ -610,7 +609,7 @@ pub async fn handle_space_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_changes::<Space, B>(backend, caller, args).await
 }
 
@@ -635,7 +634,7 @@ pub async fn handle_space_query<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     let calculate_total: bool = args
@@ -703,7 +702,7 @@ pub async fn handle_space_query<B: ChatBackend>(
         }
     }
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -724,7 +723,7 @@ pub async fn handle_space_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, args) = extract_account_id(args)?;
 
     let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
@@ -793,7 +792,7 @@ pub async fn handle_space_query_changes<B: ChatBackend>(
         }
     }
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -975,7 +974,7 @@ pub async fn handle_space_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §5.3 maxObjectsInSet (bd:JMAP-ayoz.41.3). Reject
@@ -1523,7 +1522,7 @@ pub async fn handle_space_join<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, args) = extract_account_id(args)?;
 
     // The joining participant is the owner, referenced by the accountId:
@@ -1674,9 +1673,8 @@ pub async fn handle_space_join<B: ChatBackend>(
     }
 
     let joined = || {
-        Ok((
+        Ok(HandlerOutput::new(
             json!({ "accountId": account_id.as_ref(), "spaceId": space_id.as_ref() }),
-            vec![],
         ))
     };
 

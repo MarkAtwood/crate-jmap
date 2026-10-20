@@ -13,6 +13,7 @@ use jmap_chat_server::{
     handle_chat_changes, handle_chat_get, handle_message_changes, handle_message_get,
     handle_space_set,
 };
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -127,14 +128,20 @@ async fn destroying_space_destroys_its_channels_and_their_messages() {
 
     let all_chats = json!({ "accountId": ACCOUNT_ID, "ids": ["ch1", "ch2", "other", "dm"] });
     let all_messages = json!({ "accountId": ACCOUNT_ID, "ids": ["m1", "m2", "m3"] });
-    let (before_chats, _) = handle_chat_get(&backend, &(), all_chats.clone())
+    let HandlerOutput {
+        primary: before_chats,
+        ..
+    } = handle_chat_get(&backend, &(), all_chats.clone())
         .await
         .expect("Chat/get");
-    let (before_messages, _) = handle_message_get(&backend, &(), all_messages.clone())
+    let HandlerOutput {
+        primary: before_messages,
+        ..
+    } = handle_message_get(&backend, &(), all_messages.clone())
         .await
         .expect("Message/get");
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "destroy": [SPACE_ID] }),
@@ -143,16 +150,21 @@ async fn destroying_space_destroys_its_channels_and_their_messages() {
     .expect("Space/set");
     assert_eq!(resp["destroyed"], json!([SPACE_ID]), "{resp:?}");
 
-    let (chats, _) = handle_chat_get(&backend, &(), all_chats)
+    let HandlerOutput { primary: chats, .. } = handle_chat_get(&backend, &(), all_chats)
         .await
         .expect("Chat/get");
     assert_eq!(sorted_ids(&chats["notFound"]), ["ch1", "ch2"], "{chats:?}");
-    let (messages, _) = handle_message_get(&backend, &(), all_messages)
+    let HandlerOutput {
+        primary: messages, ..
+    } = handle_message_get(&backend, &(), all_messages)
         .await
         .expect("Message/get");
     assert_eq!(sorted_ids(&messages["notFound"]), ["m1"], "{messages:?}");
 
-    let (chat_changes, _) = handle_chat_changes(
+    let HandlerOutput {
+        primary: chat_changes,
+        ..
+    } = handle_chat_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": before_chats["state"] }),
@@ -165,7 +177,10 @@ async fn destroying_space_destroys_its_channels_and_their_messages() {
         "{chat_changes:?}"
     );
 
-    let (message_changes, _) = handle_message_changes(
+    let HandlerOutput {
+        primary: message_changes,
+        ..
+    } = handle_message_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": before_messages["state"] }),

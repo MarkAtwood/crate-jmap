@@ -11,6 +11,7 @@ mod common;
 
 use common::{IdentityBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_chat_get, handle_chat_set, handle_message_get, handle_message_set};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -18,7 +19,7 @@ use serde_json::{json, Value};
 /// members and return its id.
 async fn group_of_three(backend: &IdentityBackend) -> String {
     backend.inner().register_account(&Id::from(ACCOUNT_ID));
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &Id::from(ACCOUNT_ID),
         json!({
@@ -58,7 +59,7 @@ fn seed_group(backend: &IdentityBackend, chat_id: &str, members: &[(&str, &str)]
 
 /// Send one `Chat/set` update as `caller` and return the response.
 async fn update_as(backend: &IdentityBackend, caller: &str, chat_id: &str, patch: Value) -> Value {
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &Id::from(caller),
         json!({ "accountId": ACCOUNT_ID, "update": { chat_id: patch } }),
@@ -70,7 +71,7 @@ async fn update_as(backend: &IdentityBackend, caller: &str, chat_id: &str, patch
 
 /// The stored Chat as returned by `Chat/get`.
 async fn stored_chat(backend: &IdentityBackend, chat_id: &str) -> Value {
-    let (resp, _) = handle_chat_get(
+    let HandlerOutput { primary: resp, .. } = handle_chat_get(
         backend,
         &Id::from("bob"),
         json!({ "accountId": ACCOUNT_ID, "ids": [chat_id] }),
@@ -83,7 +84,7 @@ async fn stored_chat(backend: &IdentityBackend, chat_id: &str) -> Value {
 /// Send one `Message/set` create in `chat_id` as `bob` and return the
 /// response.
 async fn send(backend: &IdentityBackend, chat_id: &str) -> Value {
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &Id::from("bob"),
         json!({
@@ -245,7 +246,7 @@ async fn closed_group_keeps_history_prefs_and_destroy() {
     close(&backend, &chat_id).await;
     let closed_at = stored_chat(&backend, &chat_id).await["closedAt"].clone();
 
-    let (got, _) = handle_message_get(
+    let HandlerOutput { primary: got, .. } = handle_message_get(
         &backend,
         &Id::from("bob"),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id] }),
@@ -276,7 +277,7 @@ async fn closed_group_keeps_history_prefs_and_destroy() {
     assert!(resp["notUpdated"].get(&chat_id).is_some(), "{resp}");
     assert_eq!(stored_chat(&backend, &chat_id).await["closedAt"], closed_at);
 
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &Id::from("bob"),
         json!({ "accountId": ACCOUNT_ID, "destroy": [chat_id] }),

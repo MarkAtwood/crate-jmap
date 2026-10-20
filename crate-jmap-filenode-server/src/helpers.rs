@@ -1,10 +1,10 @@
 //! Shared helper utilities for FileNode method handlers.
 
-use jmap_types::{Id, Invocation, JmapError, JmapObject, State};
+use jmap_types::{Id, JmapError, JmapObject, State};
 use serde_json::{json, Map, Value};
 
 use crate::backend::FileNodeBackend;
-use jmap_server::server_fail_from_backend;
+use jmap_server::{server_fail_from_backend, HandlerOutput};
 
 pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
 
@@ -52,7 +52,7 @@ pub(crate) struct SetAccumulators {
 ///
 /// The single `/set` handler in this crate (`FileNode/set`) ends with the
 /// same boilerplate as its siblings: refresh the state token if `mutated`,
-/// then emit a `(Value, Vec<Invocation>)` tuple wrapping the canonical RFC
+/// then emit a `HandlerOutput` wrapping the canonical RFC
 /// 8620 §5.3 envelope. Centralising it here keeps the call site in lockstep
 /// with the other extension-server crates — if a future revision changes
 /// which keys are emitted (e.g. RFC 8620 §5.3.1 may flip a key from `null`
@@ -77,7 +77,7 @@ pub(crate) async fn finalize_set_response<B, O>(
     old_state: State,
     mutated: bool,
     acc: SetAccumulators,
-) -> Result<(Value, Vec<Invocation>), JmapError>
+) -> Result<HandlerOutput, JmapError>
 where
     B: FileNodeBackend,
     O: JmapObject + Send + Sync,
@@ -100,20 +100,17 @@ where
         not_destroyed,
     } = acc;
 
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "oldState": old_state.as_ref(),
-            "newState": new_state.as_ref(),
-            "created":      if created.is_empty()      { Value::Null } else { Value::Object(created) },
-            "updated":      if updated.is_empty()      { Value::Null } else { Value::Object(updated) },
-            "destroyed":    if destroyed.is_empty()    { Value::Null } else { Value::Array(destroyed) },
-            "notCreated":   if not_created.is_empty()  { Value::Null } else { Value::Object(not_created) },
-            "notUpdated":   if not_updated.is_empty()  { Value::Null } else { Value::Object(not_updated) },
-            "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
-        }),
-        vec![],
-    ))
+    Ok(HandlerOutput::new(json!({
+        "accountId": account_id.as_ref(),
+        "oldState": old_state.as_ref(),
+        "newState": new_state.as_ref(),
+        "created":      if created.is_empty()      { Value::Null } else { Value::Object(created) },
+        "updated":      if updated.is_empty()      { Value::Null } else { Value::Object(updated) },
+        "destroyed":    if destroyed.is_empty()    { Value::Null } else { Value::Array(destroyed) },
+        "notCreated":   if not_created.is_empty()  { Value::Null } else { Value::Object(not_created) },
+        "notUpdated":   if not_updated.is_empty()  { Value::Null } else { Value::Object(not_updated) },
+        "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
+    })))
 }
 
 /// Serialize a [`SetError`] to a JSON value for inclusion in

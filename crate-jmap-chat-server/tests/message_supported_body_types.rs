@@ -9,6 +9,7 @@ mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_message_set, ChatLimits};
+use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
 
 /// Send one `Message/set` create per `(createId, bodyType)` pair and return
@@ -24,7 +25,7 @@ async fn create(backend: &MemoryBackend, entries: &[(&str, Option<&str>)]) -> Va
             (cid.to_owned(), obj)
         })
         .collect();
-    let (resp, _) = handle_message_set(
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "create": create }),

@@ -33,6 +33,7 @@ use common::{
     ACCOUNT_ID, SPACE_ID,
 };
 use jmap_chat_server::{handle_space_get, handle_space_set};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::json;
 
@@ -67,7 +68,7 @@ async fn owner_without_member_entry_cannot_add_channels() {
         }),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
         json!({
@@ -100,7 +101,7 @@ async fn non_member_caller_lacks_manage_channels() {
     seed_with_admin(&backend, "admin-user");
     let outsider = Id::from("outsider");
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &outsider,
         json!({
@@ -137,7 +138,7 @@ async fn everyone_only_member_cannot_add_channel() {
     let caller = Id::from("user");
     seed_with_non_admin_caller(&backend, ACCOUNT_ID);
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -168,7 +169,7 @@ async fn everyone_only_member_cannot_remove_channel() {
     let caller = Id::from("user");
     seed_with_non_admin_caller(&backend, ACCOUNT_ID);
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -199,7 +200,7 @@ async fn everyone_only_member_cannot_update_channel() {
     let caller = Id::from("user");
     seed_with_non_admin_caller(&backend, ACCOUNT_ID);
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -225,7 +226,7 @@ async fn everyone_only_member_cannot_add_category() {
     let caller = Id::from("user");
     seed_with_non_admin_caller(&backend, ACCOUNT_ID);
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -263,7 +264,7 @@ async fn everyone_only_member_cannot_remove_category() {
     let caller = Id::from("user");
     seed_with_non_admin_caller(&backend, ACCOUNT_ID);
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -287,7 +288,7 @@ async fn everyone_only_member_cannot_update_category() {
     let caller = Id::from("user");
     seed_with_non_admin_caller(&backend, ACCOUNT_ID);
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -333,7 +334,7 @@ async fn member_with_manage_channels_succeeds() {
         }]),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -394,7 +395,7 @@ async fn whole_patch_reject_on_channel_permission_failure() {
         }]),
     );
 
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -414,7 +415,9 @@ async fn whole_patch_reject_on_channel_permission_failure() {
     );
 
     // Confirm the legal updateRoles op did NOT mutate state.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
@@ -459,7 +462,7 @@ async fn mixed_channel_category_patch_atomic_reject() {
     // Caller has @everyone only. The patch carries both addChannels
     // and addCategories — both require manage_channels. The first
     // op to fail aborts the whole patch.
-    let (resp, _) = handle_space_set(
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
         json!({
@@ -484,7 +487,9 @@ async fn mixed_channel_category_patch_atomic_reject() {
     );
 
     // Confirm no mutation landed.
-    let (get_resp, _) = handle_space_get(
+    let HandlerOutput {
+        primary: get_resp, ..
+    } = handle_space_get(
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),

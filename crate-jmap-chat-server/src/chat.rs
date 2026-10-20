@@ -12,7 +12,7 @@
 //! section refs. `Chat/typing` (draft §Chat) is a Chat-specific signal
 //! method with its own request/response shape.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -28,7 +28,7 @@ use std::collections::{HashMap, HashSet};
 use jmap_chat_types::query::{ChatComparator, CHAT_FILTER_CONDITION_KEYS};
 use jmap_chat_types::vocabulary::SPEC_CHAT_MEMBER_ROLES;
 use jmap_chat_types::{Chat, ChatKind, ChatMember};
-use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
+use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -38,7 +38,7 @@ use crate::helpers::{
     reject_unsupported_query, set_error_value, SetAccumulators,
 };
 use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 /// `Chat/set` update keys that change a group Chat's member list
 /// (draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat").
@@ -183,7 +183,7 @@ pub async fn handle_chat_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_get::<Chat, B>(backend, caller, args).await
 }
 
@@ -203,7 +203,7 @@ pub async fn handle_chat_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_changes::<Chat, B>(backend, caller, args).await
 }
 
@@ -228,7 +228,7 @@ pub async fn handle_chat_query<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     reject_unsupported_query::<ChatComparator>(
         args.get("filter"),
         args.get("sort"),
@@ -255,7 +255,7 @@ pub async fn handle_chat_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_query_changes::<Chat, B>(backend, caller, args).await
 }
 
@@ -286,7 +286,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §5.3 maxObjectsInSet (bd:JMAP-ayoz.41.3). Reject
@@ -1009,7 +1009,7 @@ pub async fn handle_chat_typing<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, args) = extract_account_id(args)?;
 
     let chat_id: Id = match args.get("chatId").and_then(|v| v.as_str()) {
@@ -1067,10 +1067,7 @@ pub async fn handle_chat_typing<B: ChatBackend>(
         // accordingly.
     }
 
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-        }),
-        vec![],
-    ))
+    Ok(HandlerOutput::new(json!({
+        "accountId": account_id.as_ref(),
+    })))
 }

@@ -14,7 +14,7 @@
 //! The returned `Value` is the corresponding method-response object
 //! per the same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -25,7 +25,7 @@
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_calendars_types::{Calendar, CalendarEvent, CalendarEventFilterCondition};
-use jmap_types::{Id, Invocation, JmapError, PatchObject};
+use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, CalendarsBackend, SetError, SetErrorType};
@@ -34,7 +34,9 @@ use crate::helpers::{
     finalize_set_response, resolve_on_success_set_is_default, set_error_value, SetAccumulators,
     PLACEHOLDER_ID,
 };
-use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{
+    bool_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+};
 
 // ---------------------------------------------------------------------------
 // Calendar/get
@@ -51,7 +53,7 @@ pub async fn handle_calendar_get<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_get::<Calendar, B>(backend, caller, args).await
 }
 
@@ -71,7 +73,7 @@ pub async fn handle_calendar_changes<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_changes::<Calendar, B>(backend, caller, args).await
 }
 
@@ -100,7 +102,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound (method-level
@@ -559,7 +561,7 @@ mod tests {
             "destroy": ["cal1"],
             // onDestroyRemoveEvents defaults to false — not sent
         });
-        let (resp, _) = handle_calendar_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_destroyed = &resp["notDestroyed"];
@@ -768,7 +770,7 @@ mod tests {
             // onDestroyRemoveEvents defaults to false → handler calls
             // calendar_has_events first.
         });
-        let (resp, _) = handle_calendar_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_destroyed = &resp["notDestroyed"];
@@ -800,7 +802,7 @@ mod tests {
                 "c1": { "id": "client-chosen-id", "name": "My Calendar" }
             }
         });
-        let (resp, _) = handle_calendar_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         assert_eq!(
@@ -828,7 +830,7 @@ mod tests {
             "onDestroyRemoveEvents": true,
             "destroy": ["cal1"],
         });
-        let (resp, _) = handle_calendar_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         // cal1 exists in the mock, so destroy should succeed
@@ -866,7 +868,7 @@ mod tests {
             "onDestroyRemoveEvents": true,
             "destroy": ["cal1"],
         });
-        let (resp, _) = handle_calendar_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -927,7 +929,7 @@ mod tests {
             "onDestroyRemoveEvents": true,
             "destroy": ["cal1"],
         });
-        let (resp, _) = handle_calendar_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 

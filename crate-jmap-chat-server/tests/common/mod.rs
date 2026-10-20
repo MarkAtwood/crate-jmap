@@ -18,6 +18,7 @@
 #![allow(unused_imports)]
 #![allow(async_fn_in_trait)]
 
+use jmap_server::HandlerOutput;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
@@ -1419,7 +1420,7 @@ pub fn seed_with_non_admin_caller(backend: &IdentityBackend, caller_id: &str) {
 /// create object. For non-default props (e.g. `isPublic: true`), see
 /// [`make_space_with_props`].
 pub async fn make_space(backend: &MemoryBackend, name: &str) -> String {
-    let (resp, _) = jmap_chat_server::handle_space_set(
+    let HandlerOutput { primary: resp, .. } = jmap_chat_server::handle_space_set(
         backend,
         &(),
         serde_json::json!({
@@ -1441,7 +1442,7 @@ pub async fn make_space(backend: &MemoryBackend, name: &str) -> String {
 ///
 /// Use this when [`make_space`]'s name-only shape is insufficient.
 pub async fn make_space_with_props(backend: &MemoryBackend, props: serde_json::Value) -> String {
-    let (resp, _) = jmap_chat_server::handle_space_set(
+    let HandlerOutput { primary: resp, .. } = jmap_chat_server::handle_space_set(
         backend,
         &(),
         serde_json::json!({
@@ -1466,7 +1467,7 @@ pub async fn make_space_with_props(backend: &MemoryBackend, props: serde_json::V
 /// call `handle_chat_set` directly so the JSON shape under test
 /// remains visible at the call site.
 pub async fn make_chat_group(backend: &MemoryBackend, name: &str) -> String {
-    let (resp, _) = jmap_chat_server::handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = jmap_chat_server::handle_chat_set(
         backend,
         &(),
         serde_json::json!({

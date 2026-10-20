@@ -7,6 +7,7 @@ mod common;
 
 use common::{seed_space, IdentityBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::handle_ban_set;
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -52,7 +53,7 @@ async fn set(backend: &IdentityBackend, body: Value) -> Value {
         unreachable!("both are object literals");
     };
     args_map.extend(body_map);
-    let (resp, _) = handle_ban_set(backend, &Id::from("owner"), args)
+    let HandlerOutput { primary: resp, .. } = handle_ban_set(backend, &Id::from("owner"), args)
         .await
         .expect("SpaceBan/set");
     resp

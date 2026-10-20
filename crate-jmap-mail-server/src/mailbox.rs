@@ -10,7 +10,7 @@
 //! arguments defined by RFC 8621 §2. The returned `Value` is the
 //! corresponding method-response object per the same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -24,7 +24,7 @@
 use std::collections::HashSet;
 
 use jmap_mail_types::{Email, EmailFilter, EmailFilterCondition, Mailbox, MailboxFilterCondition};
-use jmap_types::{Id, Invocation, JmapError, PatchObject, State};
+use jmap_types::{Id, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
@@ -32,7 +32,9 @@ use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
     finalize_set_response, not_found_json, serialize_value, set_error_value, SetAccumulators,
 };
-use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{
+    bool_arg, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+};
 
 // ---------------------------------------------------------------------------
 // Mailbox/get (RFC 8621 §2.1)
@@ -49,7 +51,7 @@ pub async fn handle_mailbox_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -105,15 +107,12 @@ pub async fn handle_mailbox_get<B: MailBackend>(
             .collect::<Result<Vec<_>, _>>()?
     };
 
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "state": state.as_ref(),
-            "list": list_json,
-            "notFound": not_found_json(&not_found),
-        }),
-        vec![],
-    ))
+    Ok(HandlerOutput::new(json!({
+        "accountId": account_id.as_ref(),
+        "state": state.as_ref(),
+        "list": list_json,
+        "notFound": not_found_json(&not_found),
+    })))
 }
 
 // ---------------------------------------------------------------------------
@@ -132,7 +131,7 @@ pub async fn handle_mailbox_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_changes::<Mailbox, B>(backend, caller, args).await
 }
 
@@ -157,7 +156,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -375,7 +374,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         resp["total"] = json!(total);
     }
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -396,7 +395,7 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -470,7 +469,7 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
         }
     }
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -497,7 +496,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)

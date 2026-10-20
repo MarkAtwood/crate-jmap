@@ -11,7 +11,7 @@
 //! returned `Value` is the corresponding method-response object per the
 //! same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -27,7 +27,7 @@ use jmap_chat_types::query::{
     CustomEmojiComparator, CustomEmojiFilter, CUSTOM_EMOJI_FILTER_CONDITION_KEYS,
 };
 use jmap_chat_types::CustomEmoji;
-use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
+use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, EmojiSetOp};
@@ -37,7 +37,9 @@ use crate::helpers::{
     serialize_value, set_error_value, SetAccumulators,
 };
 use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
-use jmap_server::{query_anchor_args, server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{
+    query_anchor_args, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+};
 
 // ---------------------------------------------------------------------------
 // CustomEmoji/get
@@ -54,7 +56,7 @@ pub async fn handle_emoji_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
 
@@ -82,15 +84,12 @@ pub async fn handle_emoji_get<B: ChatBackend>(
         .map(serialize_value)
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "state": state.as_ref(),
-            "list": list_json,
-            "notFound": not_found_json(&not_found),
-        }),
-        vec![],
-    ))
+    Ok(HandlerOutput::new(json!({
+        "accountId": account_id.as_ref(),
+        "state": state.as_ref(),
+        "list": list_json,
+        "notFound": not_found_json(&not_found),
+    })))
 }
 
 // ---------------------------------------------------------------------------
@@ -109,7 +108,7 @@ pub async fn handle_emoji_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, args) = extract_account_id(args)?;
 
     let since_state: State = match args.get("sinceState").and_then(|v| v.as_str()) {
@@ -129,19 +128,16 @@ pub async fn handle_emoji_changes<B: ChatBackend>(
         .await
         .map_err(JmapError::from)?;
 
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "oldState": since_state.as_ref(),
-            "newState": result.new_state.as_ref(),
-            "hasMoreChanges": result.has_more_changes,
-            "updatedProperties": Value::Null,
-            "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-            "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-            "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-        }),
-        vec![],
-    ))
+    Ok(HandlerOutput::new(json!({
+        "accountId": account_id.as_ref(),
+        "oldState": since_state.as_ref(),
+        "newState": result.new_state.as_ref(),
+        "hasMoreChanges": result.has_more_changes,
+        "updatedProperties": Value::Null,
+        "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+        "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+        "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+    })))
 }
 
 // ---------------------------------------------------------------------------
@@ -165,7 +161,7 @@ pub async fn handle_emoji_query<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     let calculate_total: bool = args
@@ -233,7 +229,7 @@ pub async fn handle_emoji_query<B: ChatBackend>(
         }
     }
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -254,7 +250,7 @@ pub async fn handle_emoji_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, args) = extract_account_id(args)?;
 
     let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
@@ -324,7 +320,7 @@ pub async fn handle_emoji_query_changes<B: ChatBackend>(
         }
     }
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -351,7 +347,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §5.3 maxObjectsInSet (bd:JMAP-ayoz.41.3). Reject

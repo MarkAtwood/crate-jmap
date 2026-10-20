@@ -9,6 +9,7 @@ mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_chat_get, handle_chat_set};
+use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{json, Value};
 
@@ -34,7 +35,7 @@ fn seed_closed_group(backend: &MemoryBackend) {
 }
 
 async fn update(backend: &MemoryBackend, patch: Value) -> Value {
-    let (resp, _) = handle_chat_set(
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "update": { CHAT: patch } }),
@@ -45,7 +46,7 @@ async fn update(backend: &MemoryBackend, patch: Value) -> Value {
 }
 
 async fn stored(backend: &MemoryBackend) -> Value {
-    let (resp, _) = handle_chat_get(
+    let HandlerOutput { primary: resp, .. } = handle_chat_get(
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [CHAT] }),

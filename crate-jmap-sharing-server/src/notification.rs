@@ -15,7 +15,7 @@
 //! arguments defined by RFC 9670 §3. The returned `Value` is the
 //! corresponding method-response object per the same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -28,7 +28,7 @@
 //! within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_sharing_types::ShareNotification;
-use jmap_types::{Id, Invocation, JmapError};
+use jmap_types::{Id, JmapError};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, SetError, SetErrorType, SharingBackend};
@@ -36,7 +36,7 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
     SetAccumulators,
 };
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 // ---------------------------------------------------------------------------
 // ShareNotification/get
@@ -53,7 +53,7 @@ pub async fn handle_share_notification_get<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_get::<ShareNotification, B>(backend, caller, args).await
 }
 
@@ -73,7 +73,7 @@ pub async fn handle_share_notification_changes<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_changes::<ShareNotification, B>(backend, caller, args).await
 }
 
@@ -100,7 +100,7 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: an unknown accountId MUST surface as `accountNotFound`.
@@ -252,7 +252,7 @@ pub async fn handle_share_notification_query<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_query::<ShareNotification, B>(backend, caller, args).await
 }
 
@@ -274,7 +274,7 @@ pub async fn handle_share_notification_query_changes<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_query_changes::<ShareNotification, B>(backend, caller, args).await
 }
 
@@ -309,9 +309,10 @@ mod tests {
                          "name": "Calendar" }
             }
         });
-        let (resp, _) = handle_share_notification_set(&backend, &(), args)
-            .await
-            .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_share_notification_set(&backend, &(), args)
+                .await
+                .expect("must not return top-level error");
 
         let not_created = &resp["notCreated"];
         assert!(
@@ -344,9 +345,10 @@ mod tests {
                 "notif2": { "objectType": "Calendar" }
             }
         });
-        let (resp, _) = handle_share_notification_set(&backend, &(), args)
-            .await
-            .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_share_notification_set(&backend, &(), args)
+                .await
+                .expect("must not return top-level error");
 
         let not_updated = &resp["notUpdated"];
         assert!(
@@ -376,9 +378,10 @@ mod tests {
             },
             "destroy": ["notif1"]
         });
-        let (resp, _) = handle_share_notification_set(&backend, &(), args)
-            .await
-            .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_share_notification_set(&backend, &(), args)
+                .await
+                .expect("must not return top-level error");
 
         // create → forbidden
         assert_eq!(resp["notCreated"]["c1"]["type"], "forbidden");
@@ -432,9 +435,10 @@ mod tests {
             "accountId": "acc1",
             "destroy": ["doesnotexist"]
         });
-        let (resp, _) = handle_share_notification_set(&backend, &(), args)
-            .await
-            .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_share_notification_set(&backend, &(), args)
+                .await
+                .expect("must not return top-level error");
 
         let not_destroyed = &resp["notDestroyed"];
         assert!(

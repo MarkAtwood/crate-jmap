@@ -10,6 +10,7 @@
 mod common;
 
 use common::MemoryBackend;
+use jmap_server::HandlerOutput;
 use jmap_tasks_server::{
     handle_task_get, handle_task_list_get, handle_task_list_set, handle_task_set,
 };
@@ -42,7 +43,7 @@ async fn task_list_null_name_rejected_and_get_still_succeeds() {
     );
 
     let set_args = json!({ "accountId": "acc1", "update": { "tl1": { "name": null } } });
-    let (resp, _) = handle_task_list_set(&backend, &(), set_args)
+    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), set_args)
         .await
         .expect("/set must not return a top-level error");
     assert_eq!(
@@ -56,7 +57,7 @@ async fn task_list_null_name_rejected_and_get_still_succeeds() {
     );
 
     let get_args = json!({ "accountId": "acc1", "ids": ["tl1"] });
-    let (after, _) = handle_task_list_get(&backend, &(), get_args)
+    let HandlerOutput { primary: after, .. } = handle_task_list_get(&backend, &(), get_args)
         .await
         .expect("/get must not return a top-level error");
     assert_eq!(after["list"][0]["name"], "Chores", "{after}");
@@ -84,7 +85,7 @@ async fn task_null_comment_message_rejected_and_get_still_succeeds() {
         "accountId": "acc1",
         "update": { "t1": { "comments/c1/message": null } }
     });
-    let (resp, _) = handle_task_set(&backend, &(), set_args)
+    let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), set_args)
         .await
         .expect("/set must not return a top-level error");
     assert_eq!(
@@ -98,7 +99,7 @@ async fn task_null_comment_message_rejected_and_get_still_succeeds() {
     );
 
     let get_args = json!({ "accountId": "acc1", "ids": ["t1"] });
-    let (after, _) = handle_task_get(&backend, &(), get_args)
+    let HandlerOutput { primary: after, .. } = handle_task_get(&backend, &(), get_args)
         .await
         .expect("/get must not return a top-level error");
     assert_eq!(
@@ -128,13 +129,13 @@ async fn task_is_draft_null_then_true_rejected() {
     );
 
     let clear = json!({ "accountId": "acc1", "update": { "t1": { "isDraft": null } } });
-    let (resp, _) = handle_task_set(&backend, &(), clear)
+    let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), clear)
         .await
         .expect("/set must not return a top-level error");
     assert!(resp["updated"].get("t1").is_some(), "{resp}");
 
     let revert = json!({ "accountId": "acc1", "update": { "t1": { "isDraft": true } } });
-    let (resp, _) = handle_task_set(&backend, &(), revert)
+    let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), revert)
         .await
         .expect("/set must not return a top-level error");
     assert_eq!(

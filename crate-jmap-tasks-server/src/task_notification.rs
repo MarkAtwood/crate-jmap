@@ -15,7 +15,7 @@
 //! arguments defined by draft-tasks-06 §5. The returned `Value` is the
 //! corresponding method-response object per the same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
@@ -26,7 +26,7 @@
 //! in the `notDestroyed` map within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_tasks_types::TaskNotification;
-use jmap_types::{Id, Invocation, JmapError};
+use jmap_types::{Id, JmapError};
 use serde_json::Value;
 
 use crate::backend::{BackendSetError, SetError, SetErrorType, TasksBackend};
@@ -34,7 +34,7 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
     SetAccumulators,
 };
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 // ---------------------------------------------------------------------------
 // TaskNotification/get
@@ -51,7 +51,7 @@ pub async fn handle_task_notification_get<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_get::<TaskNotification, B>(backend, caller, args).await
 }
 
@@ -71,7 +71,7 @@ pub async fn handle_task_notification_changes<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_changes::<TaskNotification, B>(backend, caller, args).await
 }
 
@@ -96,7 +96,7 @@ pub async fn handle_task_notification_set<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound (method-level
@@ -239,7 +239,7 @@ pub async fn handle_task_notification_query<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_query::<TaskNotification, B>(backend, caller, args).await
 }
 
@@ -261,7 +261,7 @@ pub async fn handle_task_notification_query_changes<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_query_changes::<TaskNotification, B>(backend, caller, args).await
 }
 
@@ -293,7 +293,7 @@ mod tests {
                 }
             }
         });
-        let (resp, _) = handle_task_notification_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_task_notification_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -322,7 +322,7 @@ mod tests {
                 "notif1": { "comment": "new comment" }
             }
         });
-        let (resp, _) = handle_task_notification_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_task_notification_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -342,7 +342,7 @@ mod tests {
             "accountId": "acc1",
             "destroy": ["doesnotexist"]
         });
-        let (resp, _) = handle_task_notification_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_task_notification_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -367,7 +367,7 @@ mod tests {
             "accountId": "acc1",
             "destroy": ["notif1"]
         });
-        let (resp, _) = handle_task_notification_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_task_notification_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 

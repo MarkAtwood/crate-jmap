@@ -23,7 +23,8 @@
 //! SHOULD follow the same pattern; the helper [`server_fail_from_backend`]
 //! exists so each call site is one line and reviewable at a glance.
 
-use jmap_types::{Id, Invocation, JmapError, State};
+use crate::HandlerOutput;
+use jmap_types::{Id, JmapError, State};
 use serde_json::{json, Value};
 
 use crate::backend::{GetObject, JmapBackend, JmapObject, QueryObject};
@@ -148,7 +149,7 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -186,15 +187,12 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
     // wire shape is identical.
     let list_json = serialize_value(&list)?;
 
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "state": state.as_ref(),
-            "list": list_json,
-            "notFound": not_found_json(&not_found),
-        }),
-        vec![],
-    ))
+    Ok(HandlerOutput::new(json!({
+        "accountId": account_id.as_ref(),
+        "state": state.as_ref(),
+        "list": list_json,
+        "notFound": not_found_json(&not_found),
+    })))
 }
 
 // ---------------------------------------------------------------------------
@@ -216,7 +214,7 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -243,21 +241,18 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
         .await
         .map_err(JmapError::from)?;
 
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "oldState": since_state.as_ref(),
-            "newState": result.new_state.as_ref(),
-            "hasMoreChanges": result.has_more_changes,
-            "updatedProperties": Value::Null,
-            // bd:JMAP-wlip.28 — Vec<Id> serializes directly via Id's
-            // #[serde(transparent)] impl; no intermediate &str Vec needed.
-            "created":   result.created,
-            "updated":   result.updated,
-            "destroyed": result.destroyed,
-        }),
-        vec![],
-    ))
+    Ok(HandlerOutput::new(json!({
+        "accountId": account_id.as_ref(),
+        "oldState": since_state.as_ref(),
+        "newState": result.new_state.as_ref(),
+        "hasMoreChanges": result.has_more_changes,
+        "updatedProperties": Value::Null,
+        // bd:JMAP-wlip.28 — Vec<Id> serializes directly via Id's
+        // #[serde(transparent)] impl; no intermediate &str Vec needed.
+        "created":   result.created,
+        "updated":   result.updated,
+        "destroyed": result.destroyed,
+    })))
 }
 
 // ---------------------------------------------------------------------------
@@ -276,7 +271,7 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -348,7 +343,7 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
         }
     }
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -365,7 +360,7 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -448,7 +443,7 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
         }
     }
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 #[cfg(test)]
@@ -699,7 +694,9 @@ mod tests {
             "anchor": "m1",
         });
         let err = match handle_query::<QueryProbe, _>(&backend, &(), args).await {
-            Ok((resp, _)) => panic!("query_objects failed but handle_query succeeded: {resp}"),
+            Ok(HandlerOutput { primary: resp, .. }) => {
+                panic!("query_objects failed but handle_query succeeded: {resp}")
+            }
             Err(e) => e,
         };
         serde_json::to_value(&err).expect("JmapError must serialize")
@@ -878,7 +875,7 @@ mod tests {
         let args = json!({ "accountId": "a1", "ids": ids });
 
         match handle_get::<GetProbe, _>(&GetProbeBackend, &(), args).await {
-            Ok((resp, _)) => panic!(
+            Ok(HandlerOutput { primary: resp, .. }) => panic!(
                 "501 ids exceed the maxObjectsInGet cap, but handle_get \
                  returned a response with {} notFound ids instead of \
                  requestTooLarge",
@@ -902,9 +899,10 @@ mod tests {
     async fn handle_get_null_ids_is_not_counted_against_cap() {
         let args = json!({ "accountId": "a1", "ids": null });
 
-        let (resp, _) = handle_get::<GetProbe, _>(&GetProbeBackend, &(), args)
-            .await
-            .expect("null ids must not be rejected by the maxObjectsInGet cap");
+        let HandlerOutput { primary: resp, .. } =
+            handle_get::<GetProbe, _>(&GetProbeBackend, &(), args)
+                .await
+                .expect("null ids must not be rejected by the maxObjectsInGet cap");
         assert_eq!(resp["list"], json!([]));
     }
 }

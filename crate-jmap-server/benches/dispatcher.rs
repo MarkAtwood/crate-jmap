@@ -26,7 +26,9 @@ use std::hint::black_box;
 use std::sync::Arc;
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
-use jmap_server::{parse_request, resolve_args, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{
+    parse_request, resolve_args, Dispatcher, HandlerFuture, HandlerOutput, JmapHandler,
+};
 use jmap_types::{Invocation, JmapRequest};
 use serde_json::{json, Value};
 use tokio::runtime::Runtime;
@@ -215,7 +217,7 @@ struct NoopHandler;
 
 impl JmapHandler<()> for NoopHandler {
     fn call(&self, _method: String, _call_id: String, _args: Value, _caller: ()) -> HandlerFuture {
-        Box::pin(async move { Ok((json!({}), vec![])) })
+        Box::pin(async move { Ok(HandlerOutput::new(json!({}))) })
     }
 }
 

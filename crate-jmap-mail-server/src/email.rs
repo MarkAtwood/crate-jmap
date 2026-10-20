@@ -11,7 +11,7 @@
 //! arguments defined by RFC 8621 §4. The returned `Value` is the
 //! corresponding method-response object per the same section refs.
 //!
-//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! The returned `HandlerOutput::extra_invocations` carries any invocations
 //! that this handler injected into the request stream (RFC 8620 §6.3).
 //! For the standard `/get`, `/changes`, `/query`, `/queryChanges`,
 //! `/set`, `/import`, and `/parse` handlers in this module the vector
@@ -41,7 +41,7 @@ use crate::helpers::{
 };
 use jmap_server::{
     bool_arg, resolve_query_offset, server_fail_from_backend, server_fail_value_from_backend,
-    take_bool_arg,
+    take_bool_arg, HandlerOutput,
 };
 
 /// RFC 8621 §4.2 — default `Email/get` property list when `properties` is null.
@@ -580,7 +580,7 @@ pub async fn handle_email_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -730,7 +730,7 @@ pub async fn handle_email_get<B: MailBackend>(
         "notFound": not_found_json(&not_found),
     });
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -749,7 +749,7 @@ pub async fn handle_email_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     jmap_server::handlers::handle_changes::<Email, B>(backend, caller, args).await
 }
 
@@ -772,7 +772,7 @@ pub async fn handle_email_query<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -863,16 +863,13 @@ pub async fn handle_email_query<B: MailBackend>(
                     )
                     .await
                     .map_err(JmapError::from)?;
-                return Ok((
-                    serde_json::json!({
-                        "accountId": account_id.as_ref(),
-                        "queryState": empty.query_state.as_ref(),
-                        "canCalculateChanges": empty.can_calculate_changes,
-                        "position": 0u64,
-                        "ids": [],
-                    }),
-                    vec![],
-                ));
+                return Ok(HandlerOutput::new(serde_json::json!({
+                    "accountId": account_id.as_ref(),
+                    "queryState": empty.query_state.as_ref(),
+                    "canCalculateChanges": empty.can_calculate_changes,
+                    "position": 0u64,
+                    "ids": [],
+                })));
             }
 
             // Fetch cap+1 to detect whether the backend had more results than
@@ -994,7 +991,7 @@ pub async fn handle_email_query<B: MailBackend>(
         resp["limit"] = json!(effective_limit);
     }
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -1016,7 +1013,7 @@ pub async fn handle_email_query_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -1117,7 +1114,7 @@ pub async fn handle_email_query_changes<B: MailBackend>(
         }
     }
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -1138,7 +1135,7 @@ pub async fn handle_email_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -2041,7 +2038,7 @@ pub async fn handle_email_import<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -2164,7 +2161,7 @@ pub async fn handle_email_import<B: MailBackend>(
         "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
     });
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -2191,7 +2188,7 @@ pub async fn handle_email_parse<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -2354,7 +2351,7 @@ pub async fn handle_email_parse<B: MailBackend>(
         "notFound": if not_found.is_empty() { Value::Null } else { Value::Array(not_found) },
     });
 
-    Ok((resp, vec![]))
+    Ok(HandlerOutput::new(resp))
 }
 
 // ---------------------------------------------------------------------------
@@ -2385,7 +2382,7 @@ pub async fn handle_email_copy<B: MailBackend>(
     caller: &B::CallerCtx,
     args: Value,
     call_id: &str,
-) -> Result<(Value, Vec<Invocation>), JmapError> {
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -2574,10 +2571,11 @@ pub async fn handle_email_copy<B: MailBackend>(
         if let Some(if_in_state) = args.get("destroyFromIfInState").and_then(Value::as_str) {
             if if_in_state != email_old_state.as_ref() {
                 let err = json!({ "type": "stateMismatch" });
-                return Ok((
-                    resp,
-                    vec![Invocation::new("error", err, call_id.to_owned())],
-                ));
+                return Ok(HandlerOutput::new(resp).with_extra(vec![Invocation::new(
+                    "error",
+                    err,
+                    call_id.to_owned(),
+                )]));
             }
         }
 
@@ -2710,7 +2708,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         extra.push(Invocation::new("Email/set", set_resp, call_id.to_owned()));
     }
 
-    Ok((resp, extra))
+    Ok(HandlerOutput::new(resp).with_extra(extra))
 }
 
 #[cfg(test)]
