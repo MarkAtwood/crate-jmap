@@ -38,6 +38,7 @@ use crate::helpers::{
     now_utc_string, reject_unsupported_sort, set_error_value, SetAccumulators,
 };
 use crate::helpers::{mistyped_create_props, PropType, PLACEHOLDER_ID};
+use crate::outbound::{GroupUpdateAction, OutboundEvent};
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
 
 /// `Chat/set` update keys that change a group Chat's member list
@@ -197,6 +198,91 @@ fn apply_member_patch_keys(
         && !members.is_empty()
         && members.iter().all(|m| m.role != "admin");
     Ok((members, closes))
+}
+
+/// Ids of `members` other than the owner, who is referenced by the
+/// accountId (draft-atwood-jmap-chat-00 §Terminology).
+fn other_member_ids<'a>(
+    members: impl IntoIterator<Item = &'a ChatMember>,
+    owner_id: &Id,
+) -> Vec<Id> {
+    members
+        .into_iter()
+        .filter(|m| m.id != *owner_id)
+        .map(|m| m.id.clone())
+        .collect()
+}
+
+/// The `Peer/groupUpdate` events for a successful `Chat/set` update of
+/// the group `before`, in [`GroupUpdateAction`] order.
+///
+/// `after` is the member list the update stored (`None` when it did not
+/// touch members) and `closes` whether it closed the group;
+/// `metadata_changed` is whether it patched `name`, `description` or
+/// `avatarBlobId`. The member actions are the difference between the two
+/// lists, so a no-op entry (adding a current member, re-assigning a
+/// member's role) reports nothing. The owner's own removal is `"leave"`
+/// or `"close"`, not `"removeMembers"`
+/// (draft-atwood-jmap-chat-federation-00 §Peer/groupUpdate: `"leave"` "is
+/// equivalent to `"removeMembers"` with `removedMemberIds:
+/// [senderUserId]`"). Recipients follow draft-atwood-jmap-chat-00
+/// §Chat/set "Updating a Chat".
+fn group_update_events(
+    chat_id: &Id,
+    owner_id: &Id,
+    before: &[ChatMember],
+    after: Option<&[ChatMember]>,
+    closes: bool,
+    metadata_changed: bool,
+) -> Vec<OutboundEvent> {
+    let after = after.unwrap_or(before);
+    let find = |list: &[ChatMember], id: &Id| list.iter().find(|m| m.id == *id).cloned();
+    let everyone = other_member_ids(after, owner_id);
+    let mut actions = Vec::new();
+    if metadata_changed {
+        actions.push((GroupUpdateAction::UpdateMetadata, everyone.clone()));
+    }
+    let added: Vec<ChatMember> = after
+        .iter()
+        .filter(|m| find(before, &m.id).is_none())
+        .cloned()
+        .collect();
+    if !added.is_empty() {
+        actions.push((GroupUpdateAction::AddMembers { added }, everyone.clone()));
+    }
+    let removed_ids = other_member_ids(
+        before.iter().filter(|m| find(after, &m.id).is_none()),
+        owner_id,
+    );
+    if !removed_ids.is_empty() {
+        let mut recipients = everyone.clone();
+        recipients.extend(removed_ids.iter().cloned());
+        actions.push((GroupUpdateAction::RemoveMembers { removed_ids }, recipients));
+    }
+    let updated: Vec<ChatMember> = after
+        .iter()
+        .filter(|m| find(before, &m.id).is_some_and(|old| old.role != m.role))
+        .cloned()
+        .collect();
+    if !updated.is_empty() {
+        actions.push((GroupUpdateAction::UpdateRoles { updated }, everyone.clone()));
+    }
+    if find(before, owner_id).is_some() && find(after, owner_id).is_none() {
+        let action = if closes {
+            GroupUpdateAction::Close
+        } else {
+            GroupUpdateAction::Leave
+        };
+        actions.push((action, everyone));
+    }
+    actions
+        .into_iter()
+        .map(|(action, recipients)| OutboundEvent::GroupUpdate {
+            chat_id: chat_id.clone(),
+            action,
+            recipients,
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -833,6 +919,19 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         known_direct_contact_ids.insert(contact_id_str.to_owned());
                         batch_direct_ids.insert(contact_id_str.to_owned(), new_id.clone());
                     }
+                    // §Creating a Chat: the server "MUST send
+                    // `Peer/groupUpdate` to each initial member".
+                    if created_obj.kind == ChatKind::Group {
+                        let event = OutboundEvent::GroupUpdate {
+                            chat_id: new_id.clone(),
+                            action: GroupUpdateAction::Create,
+                            recipients: other_member_ids(
+                                created_obj.members.iter().flatten(),
+                                &account_id,
+                            ),
+                        };
+                        backend.on_outbound_event(caller, &account_id, &event).await;
+                    }
                     mutated = true;
                     created.insert(
                         create_id.clone(),
@@ -906,6 +1005,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
             // set, the server MUST reject with a `forbidden` SetError ...
             // every `Chat/set` update that changes membership ... or
             // shared group settings". Pointer paths beneath them count.
+            // The stored group and the member list the update stores, for
+            // `group_update_events` once the update succeeds.
+            let mut group_before: Option<Vec<ChatMember>> = None;
+            let mut member_change: Option<(Vec<ChatMember>, bool)> = None;
             let touches_closed_keys = patch.as_map().keys().any(|k| {
                 let top = k.split('/').next().unwrap_or(k);
                 MEMBER_PATCH_KEYS.contains(&top) || SHARED_GROUP_KEYS.contains(&top)
@@ -949,6 +1052,9 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         );
                         continue;
                     }
+                    if chat.kind == ChatKind::Group {
+                        group_before = Some(chat.members.unwrap_or_default());
+                    }
                 }
             }
 
@@ -980,6 +1086,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     match apply_member_patch_keys(&stored, &account_id, patch.as_map(), max_members)
                     {
                         Ok((members, closes)) => {
+                            member_change = Some((members.clone(), closes));
                             let map = patch.as_map_mut();
                             for key in MEMBER_PATCH_KEYS {
                                 map.remove(*key);
@@ -1074,10 +1181,25 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 }
             }
 
-            match backend
+            let metadata_changed = patch
+                .as_map()
+                .keys()
+                .any(|k| GROUP_ADMIN_KEYS.contains(&k.split('/').next().unwrap_or(k)));
+            let outcome = backend
                 .update_object::<Chat>(caller, &account_id, &id, patch)
-                .await
-            {
+                .await;
+            if let (Ok(_), Some(before)) = (&outcome, &group_before) {
+                let (after, closes) = match &member_change {
+                    Some((members, closes)) => (Some(members.as_slice()), *closes),
+                    None => (None, false),
+                };
+                for event in
+                    group_update_events(&id, &account_id, before, after, closes, metadata_changed)
+                {
+                    backend.on_outbound_event(caller, &account_id, &event).await;
+                }
+            }
+            match outcome {
                 Ok(Some(obj)) => {
                     mutated = true;
                     updated.insert(
