@@ -139,6 +139,9 @@ struct Inner {
     /// Every lifecycle callback received, in call order. Drained via
     /// [`MemoryBackend::take_lifecycle_events_for_test`].
     lifecycle_events: Vec<LifecycleEvent>,
+    /// Every [`ChatBackend::on_outbound_event`] received, in call order.
+    /// Drained via [`MemoryBackend::take_outbound_events_for_test`].
+    outbound_events: Vec<crate::OutboundEvent>,
 }
 
 /// One lifecycle callback received by the [`MemoryBackend`], as
@@ -296,6 +299,13 @@ impl MemoryBackend {
     #[doc(hidden)]
     pub fn take_lifecycle_events_for_test(&self) -> Vec<LifecycleEvent> {
         std::mem::take(&mut self.inner.lock().unwrap().lifecycle_events)
+    }
+
+    /// Test-only: drain the [`ChatBackend::on_outbound_event`] events
+    /// received so far, oldest first.
+    #[doc(hidden)]
+    pub fn take_outbound_events_for_test(&self) -> Vec<crate::OutboundEvent> {
+        std::mem::take(&mut self.inner.lock().unwrap().outbound_events)
     }
 
     /// Test-only: set the list returned by
@@ -1163,6 +1173,22 @@ impl ChatBackend for MemoryBackend {
         ban: &jmap_chat_types::SpaceBan,
     ) -> impl std::future::Future<Output = ()> + Send {
         self.record_lifecycle_event(LifecycleEvent::SpaceBanCreated(ban.clone()));
+        async {}
+    }
+
+    /// Records the event for
+    /// [`MemoryBackend::take_outbound_events_for_test`].
+    fn on_outbound_event(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        event: &crate::OutboundEvent,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        self.inner
+            .lock()
+            .unwrap()
+            .outbound_events
+            .push(event.clone());
         async {}
     }
 

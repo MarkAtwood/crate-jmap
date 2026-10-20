@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: `ChatBackend::on_outbound_event` (default: no-op)
+  reports an `OutboundEvent` when the owner's action must reach other
+  participants' servers: `Retract` for a `deletedForAll` update, before it
+  is written (draft-atwood-jmap-chat-federation-00 §Peer/retract "Sender
+  Behavior"); `Edit` after an edit (draft-atwood-jmap-chat-00 §Editing a
+  Message); and one `GroupUpdate` per `GroupUpdateAction` after a group
+  Chat create or a member, role or metadata change, with the recipients
+  draft-atwood-jmap-chat-00 §Chat/set names. A federation backend turns
+  them into `Peer/retract`, `Peer/deliver` `edit` and `Peer/groupUpdate`.
 - **jmap-chat-server**: `ChatBackend::on_chat_destroyed`,
   `on_space_destroyed` and `on_space_ban_created` (default: no-op) are
   called after a Chat is destroyed (by `Chat/set`, `removeChannels`, or a

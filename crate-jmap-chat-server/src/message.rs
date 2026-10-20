@@ -34,6 +34,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, ChatLimits, SetError, SetErrorType};
 use crate::chat::record_unread_count_changes;
+use crate::outbound::OutboundEvent;
 use std::collections::{HashMap, HashSet};
 use subtle::ConstantTimeEq;
 
@@ -1515,6 +1516,9 @@ pub async fn handle_message_set<B: ChatBackend>(
             let edits = ["body", "bodyType", "mentions", "broadcastMentions"]
                 .iter()
                 .any(|&field| patch_val.get(field).is_some());
+            // The event for `ChatBackend::on_outbound_event`, built from
+            // the stored Message once the checks below pass.
+            let mut outbound: Option<OutboundEvent> = None;
             if deletes_for_all || edits {
                 match backend
                     .get_objects::<Message>(
@@ -1551,6 +1555,23 @@ pub async fn handle_message_set<B: ChatBackend>(
                             not_updated.insert(id_str, err);
                             continue;
                         }
+                        outbound = found.first().map(|m| {
+                            let (chat_id, message_id, sender_msg_id) =
+                                (m.chat_id.clone(), m.id.clone(), m.sender_msg_id.clone());
+                            if deletes_for_all {
+                                OutboundEvent::Retract {
+                                    chat_id,
+                                    message_id,
+                                    sender_msg_id,
+                                }
+                            } else {
+                                OutboundEvent::Edit {
+                                    chat_id,
+                                    message_id,
+                                    sender_msg_id,
+                                }
+                            }
+                        });
                     }
                     Err(e) => {
                         not_updated.insert(id_str, server_fail_value_from_backend(&e));
@@ -1895,7 +1916,14 @@ pub async fn handle_message_set<B: ChatBackend>(
             // tombstone) immediately after setting `readAt`." One atomic
             // backend call, so a failure commits nothing and a retry
             // burns again.
-            let update_outcome = if patch_sets_read_at && pre_patch_burn_on_read {
+            // draft-atwood-jmap-chat-federation-00 §Peer/retract "Sender
+            // Behavior": send `Peer/retract` "before marking the local
+            // record".
+            if let Some(event @ OutboundEvent::Retract { .. }) = &outbound {
+                backend.on_outbound_event(caller, &account_id, event).await;
+            }
+            let burns = patch_sets_read_at && pre_patch_burn_on_read;
+            let update_outcome = if burns {
                 backend
                     .read_and_burn_message(caller, &account_id, &id, patch)
                     .await
@@ -1929,6 +1957,15 @@ pub async fn handle_message_set<B: ChatBackend>(
 
             // Update (or burn) succeeded.
             mutated = true;
+            // draft-atwood-jmap-chat-00 §Editing a Message: "Send
+            // `Peer/deliver` carrying an `edit` payload to all
+            // recipients". A patch that also deletes or burns the Message
+            // leaves nothing to deliver.
+            if let Some(event @ OutboundEvent::Edit { .. }) = &outbound {
+                if !deletes && !burns {
+                    backend.on_outbound_event(caller, &account_id, event).await;
+                }
+            }
             match maybe_updated_obj {
                 Some(obj) => {
                     updated.insert(
