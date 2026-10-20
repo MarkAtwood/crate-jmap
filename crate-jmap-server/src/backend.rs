@@ -47,7 +47,7 @@ pub struct SetError {
     ///
     /// JMAP extensions sometimes ship error variants whose wire shape
     /// includes additional structured fields beyond the RFC 8620 §5.3
-    /// base set — e.g. JMAP Chat's `rateLimited` SetError carries a
+    /// base set — e.g. JMAP Chat's slow-mode `rateLimit` SetError carries a
     /// `serverRetryAfter` UTCDate telling the client when it may
     /// retry, and `mdnAlreadySent` (RFC 8621 §7.7) is a typed
     /// extension error variant. This map preserves any such field
@@ -58,7 +58,7 @@ pub struct SetError {
     /// Use [`SetError::with_extra`] to populate from handler code:
     ///
     /// ```ignore
-    /// SetError::new(SetErrorType::custom("rateLimited"))
+    /// SetError::new(SetErrorType::RateLimit)
     ///     .with_description("Slow mode is active for this chat")
     ///     .with_extra("serverRetryAfter", json!(retry_after_str))
     /// ```
@@ -188,11 +188,11 @@ impl SetError {
     /// Insert an extension-defined field into [`Self::extra`].
     ///
     /// Used by handlers to attach typed wire fields that no `with_*`
-    /// builder covers — for example JMAP Chat's `rateLimited` SetError
-    /// must carry a `serverRetryAfter` UTCDate:
+    /// builder covers — for example JMAP Chat's slow-mode `rateLimit`
+    /// SetError carries a `serverRetryAfter` UTCDate:
     ///
     /// ```ignore
-    /// SetError::new(SetErrorType::custom("rateLimited"))
+    /// SetError::new(SetErrorType::RateLimit)
     ///     .with_description("Slow mode is active for this chat")
     ///     .with_extra("serverRetryAfter", serde_json::json!(retry_after_str))
     /// ```

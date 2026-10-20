@@ -434,7 +434,7 @@ pub enum InviteJoinRefusal {
 /// Per draft-atwood-jmap-chat-00 §Chat `slowModeSeconds` plus spec commit
 /// `de60acb` (2026-05-11) which softened the manage-channels exemption to
 /// SHOULD: a non-exempt member who sends faster than the configured rate
-/// MUST be rejected with a `rateLimited` SetError carrying a
+/// MUST be rejected with a `rateLimit` SetError (RFC 8620 §5.3) carrying a
 /// `serverRetryAfter` UTCDate that tells the client when it may retry.
 ///
 /// `retry_after` is a fully-formed [`jmap_types::UTCDate`] — the backend
@@ -2338,7 +2338,7 @@ pub trait ChatBackend: JmapBackend {
     /// `Err(`[`SlowModeError`]`)` with `retry_after` set to a UTCDate
     /// the rate-limited sender may use to schedule a retry. The
     /// `Message/set` create handler maps the error onto a
-    /// `rateLimited` SetError (RFC 8620 §5.3 `SetError.type`) whose
+    /// `rateLimit` SetError (RFC 8620 §5.3 `SetError.type`) whose
     /// `serverRetryAfter` extra field carries the UTCDate verbatim.
     ///
     /// # When the handler calls this
@@ -2346,7 +2346,7 @@ pub trait ChatBackend: JmapBackend {
     /// `handle_message_set` invokes `slow_mode_check` once per create
     /// entry, after wire-format validation has succeeded and before
     /// `create_object`. A throttle rejection short-circuits to
-    /// `notCreated[create_id] = { type: "rateLimited",
+    /// `notCreated[create_id] = { type: "rateLimit",
     /// serverRetryAfter: <UTCDate> }` and the create_object call is
     /// never made.
     ///

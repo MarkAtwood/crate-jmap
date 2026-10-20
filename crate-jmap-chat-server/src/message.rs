@@ -19,7 +19,7 @@
 //! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
 //! `unsupportedFilter`, `unsupportedSort`, `cannotCalculateChanges` —
 //! per RFC 8620 §3.6 and §5). Per-target failures inside `/set`
-//! (including the `slow_mode_check` `rateLimited` and reaction-patch
+//! (including the `slow_mode_check` `rateLimit` and reaction-patch
 //! `invalidPatch` paths) surface in the `notCreated` / `notUpdated` /
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
@@ -1439,20 +1439,20 @@ pub async fn handle_message_set<B: ChatBackend>(
             // message touch storage. On a Throttled return the backend
             // tells us when the caller may retry; we surface that
             // verbatim as the `serverRetryAfter` extra field on the
-            // `rateLimited` SetError, built via the typed
+            // `rateLimit` SetError, built via the typed
             // `SetError::with_extra` builder added in bd:JMAP-dha0.
-            // `serverRetryAfter` is the workspace convention paired
-            // with `rateLimited` (read by
-            // `jmap_chat_client::server_retry_after` on the client
-            // side); `SetErrorType::custom("rateLimited")` produces
-            // the spec wire string. The reference `MemoryBackend`
+            // The spec requires "a `rateLimit` SetError ({{RFC8620,
+            // Section 5.3}}) on the offending `Message/set` create",
+            // not the method-level `rateLimited` (which is reserved
+            // for the Peer/* methods). `serverRetryAfter` is a
+            // workspace extension field. The reference `MemoryBackend`
             // never returns an Err here.
             if let Err(slow_err) = backend
                 .slow_mode_check(caller, &account_id, &msg.chat_id)
                 .await
             {
                 let retry_after_str: String = slow_err.retry_after.as_ref().to_owned();
-                let set_err = SetError::new(SetErrorType::custom("rateLimited"))
+                let set_err = SetError::new(SetErrorType::RateLimit)
                     .with_description("Slow mode is active for this chat")
                     .with_extra("serverRetryAfter", json!(retry_after_str));
                 not_created.insert(create_id.clone(), set_error_value(&set_err));
