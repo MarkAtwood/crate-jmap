@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-client**: RSVP helpers for draft-atwood-jmap-chat-calendars-00
+  calendar-event MessageActions: `RsvpStatus`, `rsvp_patch` building the
+  `participants/{key}/participationStatus` patch for `CalendarEvent/set`, and
+  `own_participant_key` matching the user's ParticipantIdentity
+  `calendarAddress` values after RFC 3986 §6.2.2 normalisation.
 - **jmap-chat-types**: draft-atwood-jmap-chat-calendars-00 types:
   `JMAP_CHAT_CALENDARS_URI`, `ChatCalendarsCapability` (`mayBindCalendar`,
   `supportsIcsParsing`, `supportsAvailabilityLookup`), `Space::calendar_id`
