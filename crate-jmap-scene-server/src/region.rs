@@ -18,7 +18,7 @@ use serde_json::{json, Map, Value};
 use crate::backend::{BindingTarget, SceneBackend};
 use crate::helpers::{
     backend_set_error_value, default_sort, enforce_max_objects_in_set, extract_account_id,
-    fetch_one, finalize_set_response, forbidden, invalid, not_found, numbers,
+    fetch_one, finalize_set_response, forbidden, handle_get_visible, invalid, not_found, numbers,
     reject_unsupported_sort, set_error_value, unit_quaternion, SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{
@@ -54,13 +54,15 @@ const BINDINGS: &[(&str, &str)] = &[
 const ACCESS_POLICIES: &[&str] = &["public", "invite", "space"];
 
 /// Handle `SceneRegion/get` (draft-atwood-jmap-scene-00 §SceneRegion/get):
-/// standard RFC 8620 §5.1 `/get`.
+/// standard RFC 8620 §5.1 `/get`, with a region the caller has no access
+/// to ([`SceneBackend::may_access_region`]) reported as `notFound`
+/// (§Region Access).
 pub async fn handle_scene_region_get<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handlers::handle_get::<SceneRegion, B>(backend, caller, args).await
+    handle_get_visible::<SceneRegion, B>(backend, caller, args).await
 }
 
 /// Handle `SceneRegion/changes` (draft-atwood-jmap-scene-00

@@ -28,6 +28,16 @@
 //! recomputed from its avatars with `leftAt` `null` whenever an avatar
 //! enters or leaves.
 //!
+//! # Visibility
+//!
+//! [`SceneBackend::may_access_region`] applies the `"invite"` rule of
+//! [`SceneBackend::may_enter_region`] and admits everyone to a region that
+//! is not stored. `hide_object` takes an object out of one user's
+//! visibility set, for [`SceneBackend::is_object_visible`]; `block` makes
+//! one user blocked by another, for [`SceneBackend::is_user_blocked`].
+//! `/query` omits the regions, objects and avatars those hooks hide from
+//! the caller; `activeAvatarCount` stays the true count.
+//!
 //! # Companion capabilities and bindings
 //!
 //! `advertise_capability` records a capability URI for an account, for
@@ -124,6 +134,10 @@ struct Inner {
     bindings: HashMap<(String, String), BindingTarget>,
     /// `(region id, userId)` pairs granted access to an `"invite"` region.
     grants: HashSet<(String, String)>,
+    /// `(userId, object id)` pairs outside that user's visibility set.
+    hidden: HashSet<(String, Id)>,
+    /// `(blocking userId, blocked userId)` pairs.
+    blocked: HashSet<(String, String)>,
 }
 
 impl Inner {
@@ -257,6 +271,27 @@ impl Inner {
         Ok(value)
     }
 
+    /// `true` if `caller` is an admin, the owner of `region_id` or granted
+    /// access to it: "Only users explicitly granted access may enter."
+    fn invited(&self, caller: &str, region_id: &Id) -> bool {
+        self.admins.contains(caller)
+            || self.owners.get(region_id).is_some_and(|o| o == caller)
+            || self
+                .grants
+                .contains(&(region_id.as_ref().to_owned(), caller.to_owned()))
+    }
+
+    /// [`SceneBackend::may_access_region`]: the `"invite"` rule; a region
+    /// that is not stored admits everyone.
+    fn may_access(&self, caller: &str, account_id: &Id, region_id: &Id) -> bool {
+        self.objects(SceneRegion::TYPE_NAME, account_id)
+            .and_then(|m| m.get(region_id))
+            .and_then(|v| decode::<SceneRegion>(v).ok())
+            .is_none_or(|r| {
+                r.access_policy != AccessPolicy::Invite || self.invited(caller, region_id)
+            })
+    }
+
     /// Every stored object of type `O` that decodes.
     fn all<O: JmapObject>(&self, account_id: &Id) -> impl Iterator<Item = O> + '_ {
         self.objects(O::TYPE_NAME, account_id)
@@ -340,6 +375,24 @@ impl MemoryBackend {
         self.lock()
             .grants
             .insert((region_id.to_owned(), user.to_owned()));
+    }
+
+    /// Take object `object_id` out of `user`'s visibility set, for
+    /// [`SceneBackend::is_object_visible`].
+    #[doc(hidden)]
+    pub fn hide_object(&self, user: &str, object_id: &str) {
+        self.lock()
+            .hidden
+            .insert((user.to_owned(), Id::from(object_id)));
+    }
+
+    /// Make `user` blocked by `blocker`, for
+    /// [`SceneBackend::is_user_blocked`].
+    #[doc(hidden)]
+    pub fn block(&self, blocker: &str, user: &str) {
+        self.lock()
+            .blocked
+            .insert((blocker.to_owned(), user.to_owned()));
     }
 
     /// Store `value` as object `id` of `type_name`, owned by `owner`,
@@ -529,7 +582,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &String,
+        caller: &String,
         account_id: &Id,
         filter: Option<&O::Filter>,
         sort: Option<&[O::Comparator]>,
@@ -554,7 +607,10 @@ impl JmapBackend for MemoryBackend {
             let sort: Vec<SceneRegionComparator> = recode(&sort)?;
             sorted_ids(
                 inner.all::<SceneRegion>(account_id),
-                |r| filter.as_ref().is_none_or(|f| region_matches(f, r)),
+                |r| {
+                    inner.may_access(caller, account_id, &r.id)
+                        && filter.as_ref().is_none_or(|f| region_matches(f, r))
+                },
                 |a, b| compare_regions(a, b, &sort),
                 |r| r.id,
             )
@@ -563,7 +619,11 @@ impl JmapBackend for MemoryBackend {
             let sort: Vec<SceneAvatarComparator> = recode(&sort)?;
             sorted_ids(
                 inner.all::<SceneAvatar>(account_id),
-                |a| filter.as_ref().is_none_or(|f| avatar_matches(f, a)),
+                |a| {
+                    inner.may_access(caller, account_id, &a.region_id)
+                        && !inner.blocked.contains(&(caller.clone(), a.user_id.clone()))
+                        && filter.as_ref().is_none_or(|f| avatar_matches(f, a))
+                },
                 |a, b| compare_avatars(a, b, &sort),
                 |a| a.id,
             )
@@ -577,9 +637,11 @@ impl JmapBackend for MemoryBackend {
             sorted_ids(
                 all.values(),
                 |o| {
-                    filter.as_ref().is_none_or(|f| {
-                        object_matches(f, o, region_local_position(o, |id| all.get(id)))
-                    })
+                    inner.may_access(caller, account_id, &o.region_id)
+                        && !inner.hidden.contains(&(caller.clone(), o.id.clone()))
+                        && filter.as_ref().is_none_or(|f| {
+                            object_matches(f, o, region_local_position(o, |id| all.get(id)))
+                        })
                 },
                 |a, b| compare_objects(a, b, &sort),
                 |o| o.id.clone(),
@@ -948,13 +1010,40 @@ impl SceneBackend for MemoryBackend {
         region: &SceneRegion,
     ) -> Result<bool, MemoryError> {
         // "Only users explicitly granted access may enter."
-        let inner = self.lock();
-        Ok(region.access_policy != AccessPolicy::Invite
-            || inner.admins.contains(caller)
-            || inner.owners.get(&region.id) == Some(caller)
-            || inner
-                .grants
-                .contains(&(region.id.as_ref().to_owned(), caller.clone())))
+        Ok(region.access_policy != AccessPolicy::Invite || self.lock().invited(caller, &region.id))
+    }
+
+    async fn may_access_region(
+        &self,
+        caller: &String,
+        account_id: &Id,
+        region_id: &Id,
+    ) -> Result<bool, MemoryError> {
+        Ok(self.lock().may_access(caller, account_id, region_id))
+    }
+
+    async fn is_object_visible(
+        &self,
+        caller: &String,
+        _account_id: &Id,
+        object: &SceneObject,
+    ) -> Result<bool, MemoryError> {
+        Ok(!self
+            .lock()
+            .hidden
+            .contains(&(caller.clone(), object.id.clone())))
+    }
+
+    async fn is_user_blocked(
+        &self,
+        caller: &String,
+        _account_id: &Id,
+        user_id: &str,
+    ) -> Result<bool, MemoryError> {
+        Ok(self
+            .lock()
+            .blocked
+            .contains(&(caller.clone(), user_id.to_owned())))
     }
 
     async fn may_eject_avatar(

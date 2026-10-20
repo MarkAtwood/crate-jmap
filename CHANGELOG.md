@@ -14,6 +14,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-server**: draft-atwood-jmap-scene-00 §Visibility Contract,
+  §Region Access and §Blocked-Contact Spatial Presence. `SceneBackend`
+  gains the fail-open `may_access_region`, `is_object_visible` and
+  `is_user_blocked` (the ChatContact lookup belongs to the Chat binding
+  crate). `SceneRegion/get`, `SceneObject/get` and `SceneAvatar/get`
+  report a record the caller may not see in `notFound`, in request order
+  like a missing id; `SceneObject/set` refuses an update or destroy of a
+  hidden object with `notFound`, never `forbidden`. `query_objects` and
+  `query_changes` must omit the same records; `MemoryBackend` does, and
+  gains `hide_object` and `block`. `activeAvatarCount` stays the true
+  count.
+
 - **jmap-scene-server**: `SceneAvatar/get`, `/changes`, `/set`, `/query`
   and `/queryChanges` handlers, registered by `register_scene_handlers`:
   create enters a region (`notFound` for a missing region, `forbidden`
