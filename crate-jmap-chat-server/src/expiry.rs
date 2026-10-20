@@ -24,8 +24,10 @@
 //!   and `statusEmoji` (setting them to null) at this time, and SHOULD
 //!   reset `presence` to `"online"`."
 //!
-//! Messages are hard-deleted through [`ChatBackend::expire_message`];
-//! Chat and PresenceStatus resets go through
+//! Messages are hard-deleted through [`ChatBackend::expire_message`],
+//! after which each affected Chat's derived §Chat `unreadCount` is
+//! recorded as changed, as `Message/set` destroy does. Chat and
+//! PresenceStatus resets go through
 //! [`ChatBackend::update_object`], so each advances its type's state.
 
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -35,6 +37,7 @@ use jmap_types::{Id, PatchObject, UTCDate};
 use serde_json::{json, Map, Value};
 
 use crate::backend::{BackendSetError, ChatBackend};
+use crate::chat::record_unread_count_changes;
 
 /// Apply every expiry deadline in `account_id` that has passed at `now`.
 ///
@@ -80,6 +83,8 @@ pub async fn sweep_expired<B: ChatBackend>(
         .await
         .map_err(BackendSetError::Other)?;
 
+    let mut expired_chat_ids = Vec::new();
+    let mut expire_result = Ok(());
     for msg in &messages {
         let policy = chats
             .iter()
@@ -98,12 +103,18 @@ pub async fn sweep_expired<B: ChatBackend>(
             || policy.is_some_and(|s| s < u64::MAX && passed(&msg.received_at, s + 1))
             || read_deadline;
         if expired {
-            backend
-                .expire_message(caller, account_id, &msg.id)
-                .await
-                .map_err(BackendSetError::Other)?;
+            if let Err(e) = backend.expire_message(caller, account_id, &msg.id).await {
+                expire_result = Err(BackendSetError::Other(e));
+                break;
+            }
+            expired_chat_ids.push(msg.chat_id.clone());
         }
     }
+    // §Chat `unreadCount` dropped for these Chats; RFC 8620 §5.1 requires
+    // the Chat state to advance. Recorded before any error returns: a
+    // later run no longer sees the deleted Messages.
+    record_unread_count_changes(backend, caller, account_id, expired_chat_ids).await;
+    expire_result?;
 
     for chat in &chats {
         if chat.mute_until.as_ref().is_some_and(|t| passed(t, 0)) {
