@@ -13,6 +13,7 @@ JMAP Chat server as its MIMI provider. Types only: no I/O, no MLS parsing.
 | `MIMI_FANOUT_BODY_TYPE` (`application/mimi-fanout`) | §application/mimi-fanout |
 | `MLS_MESSAGE_BODY_TYPE` (`message/mls`) | §message/mls, RFC 9420 §17.10 |
 | `KeyPackage`, `KeyPackageCreate`, `KeyPackageCreated`, `KeyPackageProperty` | §KeyPackages |
+| `KeyMaterialFetchRequest`, `KeyMaterialFetchResponse`, `ClientKeyMaterial`, `KeyMaterialUserCode`, `KeyMaterialClientCode` | §KeyMaterial/fetch, draft-ietf-mimi-protocol-06 §5.2 |
 | `Base64Url`, `Base64UrlError` | §Conventions and Definitions, RFC 4648 §5 |
 
 The session-level capability value is `{}` and has no type.
@@ -63,6 +64,8 @@ assert_eq!(cap.max_key_packages, 100);
 - `KeyPackage/set` responses are `jmap_types::SetResponse<KeyPackageCreated>`,
   not `SetResponse<KeyPackage>`: a `created` entry holds only `id`,
   `keyPackageRef` and, if the create omitted it, `lastResort`.
+- `ClientKeyMaterial` does not check that `keyPackage` is present exactly
+  when `clientStatus` is `success`. Check it before use.
 
 ## References
 
