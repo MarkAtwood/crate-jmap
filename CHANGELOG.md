@@ -276,6 +276,20 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **BREAKING** **jmap-chat-server**: `Message`, `Space`, `ChatContact` and
+  `CustomEmoji` `/queryChanges` now pass the request's `filter` and `sort`
+  to the backend, and every chat `/queryChanges` applies the draft's
+  default sort when `sort` is absent, as the `/query` handlers do (RFC 8620
+  §5.6). They now answer `accountNotFound` for an unknown account and
+  `unsupportedSort` for an undefined sort property, and a `Message`
+  `/queryChanges` scoped to a Chat the caller cannot view fails with
+  `cannotCalculateChanges` (draft-atwood-jmap-chat-00 §Message/query).
+- **jmap-chat-server**, **jmap-tasks-server**: the reference
+  `MemoryBackend::query_changes` re-runs the query with its `filter` and
+  `sort`, as `jmap-mail-server` does, so it no longer announces ids that
+  `/query` hides (Messages in unviewable channels, non-member Spaces) or
+  ignores a Task `taskListId` filter. Updated ids that left the results
+  are now in `removed`, and those that entered them are in `added`.
 - **BREAKING** **jmap-chat-server**: with `supportsThreads` on, a Message
   create or destroy now records the `replyTo` parent as an updated Message,
   and a ReadPosition update that moves `lastReadMessageId` records each

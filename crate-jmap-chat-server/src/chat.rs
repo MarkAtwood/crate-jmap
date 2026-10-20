@@ -492,8 +492,17 @@ pub async fn handle_chat_query<B: ChatBackend>(
 pub async fn handle_chat_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
-    args: Value,
+    mut args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    // RFC 8620 §5.6: the `filter` and `sort` are those of the original
+    // query, so the §Chat/query default sort applies here too.
+    if let Value::Object(map) = &mut args {
+        default_sort(
+            map,
+            json!([{ "property": "lastMessageAt", "isAscending": false }]),
+        );
+    }
+    reject_unsupported_sort::<ChatComparator>(args.get("sort"))?;
     jmap_server::handlers::handle_query_changes::<Chat, B>(backend, caller, args).await
 }
 

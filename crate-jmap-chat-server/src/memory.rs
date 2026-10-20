@@ -785,55 +785,75 @@ impl JmapBackend for MemoryBackend {
         ))
     }
 
+    /// Returns the changes to a `/query` result set since `since_query_state`.
+    ///
+    /// RFC 8620 §5.6: `/queryChanges` reports changes to the results of
+    /// the same query, so `filter` and `sort` are applied by re-running
+    /// [`Self::query_objects`], which also hides Messages in Chats the
+    /// caller cannot view and Spaces the caller may not see: an id that
+    /// `/query` omits is never announced in `added`. `removed` holds the
+    /// destroyed ids and the updated ids that no longer match. Mirrors the
+    /// canonical `jmap-mail-server` `MemoryBackend::query_changes`.
+    ///
+    /// ponytail: only the queried type's change log is read, so a Message
+    /// hidden or revealed by a Chat membership change (no Message change)
+    /// is not reported; a backend that needs this logs such Messages as
+    /// updated.
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
         caller: &(),
         account_id: &Id,
         since_query_state: &State,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
+        filter: Option<&O::Filter>,
+        sort: Option<&[O::Comparator]>,
         max_changes: Option<u64>,
         _up_to_id: Option<&Id>,
         _collapse_threads: bool,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
-        // Reuse get_changes to determine which ids were added/removed/updated.
         let changes = self
             .get_changes::<O>(caller, account_id, since_query_state, max_changes)
             .await?;
 
-        let inner = self.inner.lock().unwrap();
-        let new_query_state = State::from(
-            inner
-                .current_state(O::TYPE_NAME, account_id.as_ref())
-                .to_string(),
-        );
+        // The current result of the same query, unpaginated: `added`
+        // indices are positions in it (RFC 8620 §5.6).
+        let current = self
+            .query_objects::<O>(caller, account_id, filter, sort, None, 0, None, 0)
+            .await
+            .map_err(|e| match e {
+                // Changes to a query the server cannot run cannot be
+                // calculated; the client's follow-up /query receives the
+                // method error itself.
+                BackendQueryError::Method(_) => BackendChangesError::CannotCalculate,
+                BackendQueryError::Other(e) => BackendChangesError::Other(e),
+            })?;
+        let current_set: HashSet<&Id> = current.ids.iter().collect();
+        let created_set: HashSet<&Id> = changes.created.iter().collect();
+        let updated_set: HashSet<&Id> = changes.updated.iter().collect();
 
-        // Build the current ordered id list for position assignment.
-        let current_ids: Vec<Id> = inner
-            .objects_ref(O::TYPE_NAME, account_id.as_ref())
-            .map(|m| {
-                let mut keys: Vec<Id> = m.keys().cloned().collect();
-                keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-                keys
-            })
-            .unwrap_or_default();
-
-        let removed: Vec<Id> = changes.destroyed;
-        let added: Vec<AddedItem> = changes
-            .created
+        // Destroyed ids, and updated ids that no longer match the query.
+        let mut removed: Vec<Id> = changes
+            .destroyed
             .iter()
-            .filter_map(|id| {
-                current_ids
-                    .iter()
-                    .position(|cur| cur == id)
-                    .map(|idx| AddedItem::new(id.clone(), idx as u64))
-            })
+            .chain(changes.updated.iter())
+            .filter(|id| !current_set.contains(id))
+            .cloned()
+            .collect();
+        removed.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+        removed.dedup();
+
+        // Created or updated ids that match the query now.
+        let added: Vec<AddedItem> = current
+            .ids
+            .iter()
+            .enumerate()
+            .filter(|(_, id)| created_set.contains(id) || updated_set.contains(id))
+            .map(|(pos, id)| AddedItem::new(id.clone(), pos as u64))
             .collect();
 
         Ok(QueryChangesResult::new(
             since_query_state.clone(),
-            new_query_state,
-            Some(current_ids.len() as u64),
+            changes.new_state,
+            current.total,
             removed,
             added,
         ))

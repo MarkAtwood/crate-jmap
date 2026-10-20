@@ -1,7 +1,8 @@
 //! The reference `MemoryBackend` enforces sender membership and the
 //! channel `"send"` / `"view"` permissions, resolved per §Space
 //! Permission Resolution, on `Message/set` create, `Message/get` and
-//! `Message/query` (bd:JMAP-y3f2.1).
+//! `Message/query` (bd:JMAP-y3f2.1), and on `Message/queryChanges`
+//! (bd:JMAP-y3f2.14).
 //!
 //! Oracle: draft-atwood-jmap-chat-00 (jmap-chat-spec 91672c9) §Message/set
 //! L1126-1128, §Message/query L1209 and §Space Permission Resolution
@@ -10,9 +11,13 @@
 mod common;
 
 use common::{MemoryBackend, TrackingBackend, ACCOUNT_ID, SPACE_ID};
-use jmap_chat_server::{handle_message_get, handle_message_query, handle_message_set};
+use jmap_chat_server::{
+    handle_message_get, handle_message_query, handle_message_query_changes, handle_message_set,
+    JmapBackend,
+};
+use jmap_chat_types::Message;
 use jmap_server::HandlerOutput;
-use jmap_types::Id;
+use jmap_types::{Id, State};
 use serde_json::{json, Value};
 
 const CHANNEL_ID: &str = "ch1";
@@ -387,4 +392,57 @@ async fn handlers_consult_view_hook() {
     .expect("Message/query");
     assert_eq!(queried["ids"], json!([]), "{queried:?}");
     assert_eq!(queried["total"], 0, "{queried:?}");
+}
+
+/// §Message/query L1209 with RFC 8620 §5.6: `/queryChanges` reports the
+/// "id and index in the query results (in the new state) for every Foo
+/// that has been added to the results since the old state", and a
+/// Message in a channel the caller cannot view is not in the results, so
+/// it is not announced. The role grants `send` without `view`.
+#[tokio::test]
+async fn query_changes_omits_messages_in_channel_without_view() {
+    let backend = MemoryBackend::new();
+    seed_channel(&backend, json!(["send"]), true, json!([]));
+    assert_created(&create_message(&backend, CHANNEL_ID).await);
+
+    let result = backend
+        .query_changes::<Message>(
+            &(),
+            &Id::from(ACCOUNT_ID),
+            &State::from("0"),
+            None,
+            None,
+            None,
+            None,
+            false,
+        )
+        .await
+        .expect("query_changes");
+    assert!(result.added.is_empty(), "{:?}", result.added);
+    assert_eq!(result.total, Some(0));
+}
+
+/// §Message/query L1209 for a `chatId`-scoped `Message/queryChanges`
+/// against a backend that overrides only `ChatBackend::may_view_chat`:
+/// the changes cannot be reported, so the handler answers RFC 8620 §5.6
+/// `cannotCalculateChanges` ("The server cannot calculate the changes
+/// from the queryState string given by the client") and the client's
+/// re-run `Message/query` returns nothing.
+#[tokio::test]
+async fn query_changes_in_unviewable_chat_cannot_calculate() {
+    let backend = TrackingBackend::with_chat_view_denied();
+    seed_channel(backend.inner(), json!(["view", "send"]), true, json!([]));
+
+    let err = handle_message_query_changes(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "filter": { "chatId": CHANNEL_ID },
+            "sinceQueryState": "0"
+        }),
+    )
+    .await
+    .expect_err("Message/queryChanges");
+    assert_eq!(err.error_type.as_str(), "cannotCalculateChanges");
 }

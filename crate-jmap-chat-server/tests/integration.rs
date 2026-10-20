@@ -6680,6 +6680,7 @@ async fn contact_query_empty() {
 #[tokio::test]
 async fn contact_query_changes_requires_since_state() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from(ACCOUNT_ID));
     let err = handle_contact_query_changes(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
         .await
         .unwrap_err();

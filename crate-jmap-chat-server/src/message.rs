@@ -28,7 +28,7 @@ use jmap_chat_types::{
     Attachment, BroadcastMention, Chat, DeliveryState, Mention, Message, MessageAction,
     PresenceStatus, ReadPosition, Space, BROADCAST_MENTION_SCOPES,
 };
-use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
+use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -392,82 +392,44 @@ pub async fn handle_message_query<B: ChatBackend>(
 /// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
 /// `removed`, `added`).
 ///
+/// A query scoped to one Chat the caller cannot view fails with
+/// `cannotCalculateChanges`, so the client re-runs `Message/query`, which
+/// returns nothing for that Chat (see [`handle_message_query`]).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_message_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
-    args: Value,
+    mut args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    let (account_id, args) = extract_account_id(args)?;
+    // RFC 8620 §5.6: the `filter` and `sort` are those of the original
+    // query, so the §Message/query default sort applies here too.
+    let chat_id = args
+        .get("filter")
+        .and_then(|f| f.get("chatId"))
+        .and_then(Value::as_str)
+        .map(Id::from);
+    if let Value::Object(map) = &mut args {
+        default_sort(
+            map,
+            json!([{ "property": "receivedAt", "isAscending": chat_id.is_some() }]),
+        );
+    }
+    reject_unsupported_sort::<MessageComparator>(args.get("sort"))?;
 
-    let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
-        Some(s) => State::from(s),
-        None => return Err(JmapError::invalid_arguments("sinceQueryState is required")),
-    };
-
-    let max_changes: Option<u64> = match args.get("maxChanges") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
-            JmapError::invalid_arguments("maxChanges must be a positive integer")
-        })?),
-    };
-
-    let up_to_id: Option<Id> = match args.get("upToId") {
-        None | Some(Value::Null) => None,
-        // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-        Some(Value::String(s)) => Some(Id::from(s.as_str())),
-        Some(_) => {
-            return Err(JmapError::invalid_arguments(
-                "upToId must be a string Id or null",
-            ))
-        }
-    };
-
-    let calculate_total: bool = args
-        .get("calculateTotal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-
-    let result = backend
-        .query_changes::<Message>(
-            caller,
-            &account_id,
-            &since_query_state,
-            None,
-            None,
-            max_changes,
-            up_to_id.as_ref(),
-            false,
-        )
-        .await
-        .map_err(JmapError::from)?;
-
-    let removed: Vec<&str> = result.removed.iter().map(|id| id.as_ref()).collect();
-    let added: Vec<Value> = result
-        .added
-        .iter()
-        .map(|item| {
-            json!({
-                "id": item.id.as_ref(),
-                "index": item.index,
-            })
-        })
-        .collect();
-
-    let mut resp = json!({
-        "accountId": account_id.as_ref(),
-        "oldQueryState": result.old_query_state.as_ref(),
-        "newQueryState": result.new_query_state.as_ref(),
-        "removed": removed,
-        "added": added,
-    });
-    if calculate_total {
-        if let Some(t) = result.total {
-            resp["total"] = json!(t);
+    // §Message/query: "messages in channels the caller cannot view MUST be
+    // omitted", so changes to such a Chat's messages are not reported.
+    let account_id = args.get("accountId").and_then(Value::as_str).map(Id::from);
+    if let (Some(account_id), Some(chat_id)) = (account_id, chat_id) {
+        if !backend
+            .may_view_chat(caller, &account_id, &chat_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?
+        {
+            return Err(JmapError::cannot_calculate_changes());
         }
     }
-
-    Ok(HandlerOutput::new(resp))
+    jmap_server::handlers::handle_query_changes::<Message, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
