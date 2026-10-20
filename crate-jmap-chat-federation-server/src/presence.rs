@@ -252,6 +252,7 @@ pub async fn handle_peer_presence<B: FederationPresenceBackend>(
     };
 
     let event: ChatPresenceEvent = serde_json::from_value(json!({
+        "accountId": account_id,
         "contactId": updated.id,
         "presence": updated.presence,
         "lastActiveAt": updated.last_active_at,

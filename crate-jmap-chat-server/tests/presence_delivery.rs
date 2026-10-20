@@ -39,10 +39,12 @@ fn backend_with(account: &str, blocked: bool) -> MemoryBackend {
     backend
 }
 
-/// The wss:281-289 example frame with `presence` set.
+/// The wss:286-296 example frame (spec 6bcd9d8), addressed to the
+/// recipient's account, with `presence` set.
 fn frame(presence: &str) -> Value {
     json!({
         "@type": "ChatPresenceEvent",
+        "accountId": RECIPIENT,
         "contactId": CONTACT,
         "presence": presence,
         "lastActiveAt": "2026-04-26T12:00:00Z",
@@ -76,6 +78,7 @@ async fn invisible_is_delivered_as_offline() {
     let backend = backend_with(RECIPIENT, false);
     let expected = json!({
         "@type": "ChatPresenceEvent",
+        "accountId": "acct-owner",
         "contactId": "c8xq2m",
         "presence": "offline",
         "lastActiveAt": "2026-04-26T12:00:00Z",
@@ -120,4 +123,16 @@ async fn blocked_contact_is_dropped() {
 async fn block_on_another_accounts_list_does_not_drop() {
     let backend = backend_with(OTHER_ACCOUNT, true);
     assert_eq!(project(&backend, &event("away")).await, Some(frame("away")));
+}
+
+/// draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent (wss:266-267, spec
+/// 6bcd9d8): "`accountId` (String): The id of the account that contains
+/// the ChatContact." An event about another account's contact of the same
+/// id is not the recipient's to receive.
+#[tokio::test]
+async fn event_for_another_account_is_dropped() {
+    let backend = backend_with(RECIPIENT, false);
+    let mut e = event("online");
+    e.account_id = Id::from(OTHER_ACCOUNT);
+    assert_eq!(project(&backend, &e).await, None);
 }

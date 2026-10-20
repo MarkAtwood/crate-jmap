@@ -55,6 +55,10 @@ pub struct ChatStreamDisable {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatTypingEvent {
+    /// The account that contains the Chat (draft-atwood-jmap-chat-wss-00
+    /// §ChatTypingEvent). Chat ids are unique only within an account, so
+    /// this tells apart same-id Chats in different accounts.
+    pub account_id: Id,
     /// The chat in which typing is occurring.
     pub chat_id: Id,
     /// Sender identity: the accountId for the account owner,
@@ -80,6 +84,11 @@ pub struct ChatTypingEvent {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatPresenceEvent {
+    /// The account that contains the ChatContact
+    /// (draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent). ChatContact ids
+    /// are unique only within an account, so this tells apart same-id
+    /// contacts in different accounts.
+    pub account_id: Id,
     /// The contact whose presence changed.
     pub contact_id: Id,
     /// New presence state. Typed identically to the [`Presence`]
@@ -282,7 +291,7 @@ mod tests {
 
     #[test]
     fn typing_event_roundtrip() {
-        let json = r#"{"@type":"ChatTypingEvent","chatId":"c1","senderId":"alice","typing":true}"#;
+        let json = r#"{"@type":"ChatTypingEvent","accountId":"a1","chatId":"c1","senderId":"alice","typing":true}"#;
         let msg: EphemeralMessage = serde_json::from_str(json).unwrap();
         match msg {
             EphemeralMessage::Typing(e) => {
@@ -297,8 +306,7 @@ mod tests {
     #[test]
     fn presence_event_null_status_text() {
         // null → Some(Clearable::Clear)
-        let json =
-            r#"{"@type":"ChatPresenceEvent","contactId":"u1","presence":"away","statusText":null}"#;
+        let json = r#"{"@type":"ChatPresenceEvent","accountId":"a1","contactId":"u1","presence":"away","statusText":null}"#;
         let msg: EphemeralMessage = serde_json::from_str(json).unwrap();
         match msg {
             EphemeralMessage::Presence(e) => {
@@ -325,8 +333,9 @@ mod tests {
             ("offline", Presence::Offline),
         ];
         for (wire, expected) in known {
-            let json =
-                format!(r#"{{"@type":"ChatPresenceEvent","contactId":"u1","presence":"{wire}"}}"#);
+            let json = format!(
+                r#"{{"@type":"ChatPresenceEvent","accountId":"a1","contactId":"u1","presence":"{wire}"}}"#
+            );
             let msg: EphemeralMessage = serde_json::from_str(&json).unwrap();
             match msg {
                 EphemeralMessage::Presence(e) => {
@@ -337,7 +346,7 @@ mod tests {
         }
 
         // Unknown wire value preserved verbatim via Other(_).
-        let json = r#"{"@type":"ChatPresenceEvent","contactId":"u1","presence":"do-not-disturb"}"#;
+        let json = r#"{"@type":"ChatPresenceEvent","accountId":"a1","contactId":"u1","presence":"do-not-disturb"}"#;
         let msg: EphemeralMessage = serde_json::from_str(json).unwrap();
         match msg {
             EphemeralMessage::Presence(e) => {
@@ -352,7 +361,7 @@ mod tests {
     #[test]
     fn presence_event_set_status_text() {
         // value → Some(Clearable::Set(...))
-        let json = r#"{"@type":"ChatPresenceEvent","contactId":"u1","presence":"online","statusText":"In a meeting"}"#;
+        let json = r#"{"@type":"ChatPresenceEvent","accountId":"a1","contactId":"u1","presence":"online","statusText":"In a meeting"}"#;
         let msg: EphemeralMessage = serde_json::from_str(json).unwrap();
         match msg {
             EphemeralMessage::Presence(e) => {
@@ -368,7 +377,8 @@ mod tests {
     #[test]
     fn presence_event_absent_status() {
         // field absent → None
-        let json = r#"{"@type":"ChatPresenceEvent","contactId":"u1","presence":"busy"}"#;
+        let json =
+            r#"{"@type":"ChatPresenceEvent","accountId":"a1","contactId":"u1","presence":"busy"}"#;
         let msg: EphemeralMessage = serde_json::from_str(json).unwrap();
         match msg {
             EphemeralMessage::Presence(e) => {
@@ -483,6 +493,7 @@ mod tests {
     fn known_variant_round_trips_byte_equivalent() {
         let input_value = serde_json::json!({
             "@type": "ChatTypingEvent",
+            "accountId": "a1",
             "chatId": "c1",
             "senderId": "alice",
             "typing": true
@@ -512,6 +523,66 @@ mod tests {
         let input = r#"{"@type":42}"#;
         let res: Result<EphemeralMessage, _> = serde_json::from_str(input);
         assert!(res.is_err(), "expected error for non-string @type tag");
+    }
+
+    /// Oracle: the draft-atwood-jmap-chat-wss-00 §ChatTypingEvent example
+    /// frame (jmap-chat-spec 6bcd9d8, wss:241-249), copied verbatim.
+    /// wss:229-230: "`accountId` (String): The id of the account that
+    /// contains the Chat." It is a typed field, not an extension.
+    #[test]
+    fn typing_event_spec_example_carries_account_id() {
+        let frame = serde_json::json!({
+            "@type": "ChatTypingEvent",
+            "accountId": "u1",
+            "chatId": "01J3XKZQN4MWVT8PPBEHTJ3HX0",
+            "senderId": "c8xq2m",
+            "typing": true
+        });
+        let msg: EphemeralMessage = serde_json::from_value(frame.clone()).unwrap();
+        match &msg {
+            EphemeralMessage::Typing(e) => {
+                assert_eq!(e.account_id, Id::from("u1"));
+                assert!(e.extra.is_empty());
+            }
+            other => panic!("expected Typing, got {other:?}"),
+        }
+        assert_eq!(serde_json::to_value(&msg).unwrap(), frame);
+    }
+
+    /// Oracle: the draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent
+    /// example frame (jmap-chat-spec 6bcd9d8, wss:286-296), copied
+    /// verbatim. wss:266-267: "`accountId` (String): The id of the account
+    /// that contains the ChatContact."
+    #[test]
+    fn presence_event_spec_example_carries_account_id() {
+        let frame = serde_json::json!({
+            "@type": "ChatPresenceEvent",
+            "accountId": "u1",
+            "contactId": "c8xq2m",
+            "presence": "away",
+            "lastActiveAt": "2026-04-26T12:00:00Z",
+            "statusText": "In a meeting",
+            "statusEmoji": null
+        });
+        let msg: EphemeralMessage = serde_json::from_value(frame.clone()).unwrap();
+        match &msg {
+            EphemeralMessage::Presence(e) => {
+                assert_eq!(e.account_id, Id::from("u1"));
+                assert!(e.extra.is_empty());
+            }
+            other => panic!("expected Presence, got {other:?}"),
+        }
+        assert_eq!(serde_json::to_value(&msg).unwrap(), frame);
+    }
+
+    /// Oracle: wss:229 and wss:266 list `accountId` without "optional",
+    /// so a frame lacking it is malformed.
+    #[test]
+    fn events_without_account_id_are_rejected() {
+        let typing = r#"{"chatId":"c1","senderId":"alice","typing":true}"#;
+        assert!(serde_json::from_str::<ChatTypingEvent>(typing).is_err());
+        let presence = r#"{"contactId":"u1","presence":"away"}"#;
+        assert!(serde_json::from_str::<ChatPresenceEvent>(presence).is_err());
     }
 
     // ── Extras-preservation policy tests (JMAP-lbdy.3) ───────────────────
@@ -553,6 +624,7 @@ mod tests {
     #[test]
     fn chat_typing_event_preserves_vendor_extras() {
         let raw = serde_json::json!({
+            "accountId": "a1",
             "chatId": "c1",
             "senderId": "alice",
             "typing": true,
@@ -571,6 +643,7 @@ mod tests {
     #[test]
     fn chat_presence_event_preserves_vendor_extras() {
         let raw = serde_json::json!({
+            "accountId": "a1",
             "contactId": "u1",
             "presence": "online",
             "acmeCorpDeviceClass": "mobile"

@@ -193,9 +193,10 @@ async fn presence_rejects_values_outside_the_four() {
 /// fed L763: "the receiving server MUST update the `presence`,
 /// `lastActiveAt`, `statusText`, and `statusEmoji` fields on the
 /// ChatContact record whose `identity` equals the `identity` argument.
-/// ... The server MUST then fire a local presence push event". chat L1633:
-/// the event is `{"contactId","presence","lastActiveAt","statusText",
-/// "statusEmoji"}`.
+/// ... The server MUST then fire a local presence push event". chat L1638
+/// (spec 6bcd9d8): the event is `{"contactId","presence","lastActiveAt",
+/// "statusText","statusEmoji"}`; wss L266-267: "`accountId` (String): The
+/// id of the account that contains the ChatContact."
 #[tokio::test]
 async fn presence_updates_contact_and_fires_event() {
     let fed = Fed::new();
@@ -223,6 +224,7 @@ async fn presence_updates_contact_and_fires_event() {
     assert_eq!(
         events,
         vec![json!({
+            "accountId": ACCOUNT,
             "contactId": BOB_ID,
             "presence": "away",
             "lastActiveAt": SEEN,

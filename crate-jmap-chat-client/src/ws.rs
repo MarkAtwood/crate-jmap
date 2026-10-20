@@ -214,7 +214,7 @@ mod tests {
     fn parse_chat_typing_event_valid() {
         let frame = unknown_frame(
             "ChatTypingEvent",
-            r#"{"@type":"ChatTypingEvent","chatId":"c1","senderId":"u1","typing":true}"#,
+            r#"{"@type":"ChatTypingEvent","accountId":"a1","chatId":"c1","senderId":"u1","typing":true}"#,
         );
         let got = parse_chat_ws_frame(frame);
         match got {
@@ -233,7 +233,7 @@ mod tests {
     fn parse_chat_presence_event_valid() {
         let frame = unknown_frame(
             "ChatPresenceEvent",
-            r#"{"@type":"ChatPresenceEvent","contactId":"u2","presence":"away"}"#,
+            r#"{"@type":"ChatPresenceEvent","accountId":"a1","contactId":"u2","presence":"away"}"#,
         );
         let got = parse_chat_ws_frame(frame);
         match got {

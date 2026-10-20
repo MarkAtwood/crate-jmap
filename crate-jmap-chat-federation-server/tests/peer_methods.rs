@@ -337,9 +337,10 @@ fn forwarded(fed: &Fed) -> Vec<Value> {
 
 /// fed L554-555: "If all checks pass, the server MUST forward a typing
 /// push event (as defined in {{JMAP-CHAT}}) to the owner's connected
-/// clients"; chat L1619: `{"chatId":"<id>","senderId":"<contact-id>",
-/// "typing":<bool>}`; fed L534: "the receiving server does not persist
-/// this event".
+/// clients"; chat L1629 (spec 6bcd9d8): `{"chatId":"<id>","senderId":
+/// "<contact-id>","typing":<bool>}`; wss L229-230: "`accountId` (String):
+/// The id of the account that contains the Chat."; fed L534: "the
+/// receiving server does not persist this event".
 #[tokio::test]
 async fn typing_is_forwarded_with_the_sender_contact_id() {
     let fed = Fed::new();
@@ -348,7 +349,7 @@ async fn typing_is_forwarded_with_the_sender_contact_id() {
     assert_eq!(response, ack());
     assert_eq!(
         forwarded(&fed),
-        vec![json!({"chatId": LOW, "senderId": BOB_ID, "typing": true})]
+        vec![json!({"accountId": ACCOUNT, "chatId": LOW, "senderId": BOB_ID, "typing": true})]
     );
     assert!(fed.messages().await.is_empty());
 }
@@ -427,7 +428,7 @@ async fn typing_with_indicators_off_in_a_channel_is_forwarded() {
         .expect("accepted");
     assert_eq!(
         forwarded(&fed),
-        vec![json!({"chatId": CHANNEL, "senderId": BOB_ID, "typing": true})]
+        vec![json!({"accountId": ACCOUNT, "chatId": CHANNEL, "senderId": BOB_ID, "typing": true})]
     );
 }
 

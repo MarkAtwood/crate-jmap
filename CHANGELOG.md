@@ -821,6 +821,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-types**: `ChatTypingEvent` and
+  `ChatPresenceEvent` gain a required `account_id` (`accountId`), the
+  account that contains the Chat or ChatContact
+  (draft-atwood-jmap-chat-wss-00 §ChatTypingEvent, §ChatPresenceEvent).
+  A frame without `accountId` no longer deserializes.
+- **jmap-chat-federation-server**: `Peer/typing` and `Peer/presence` set
+  the forwarded event's `accountId` to the receiving account.
+- **jmap-chat-server**: `should_deliver_typing` and `project_presence`
+  drop an event whose `account_id` is not the recipient account.
 - **BREAKING** **jmap-chat-types**: `TaskMetadata.status` is renamed to
   `progress` and serializes as the `progress` key
   (draft-atwood-jmap-chat-tasks-00 §MessageAction format, which replaced

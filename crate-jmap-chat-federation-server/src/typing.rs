@@ -56,6 +56,7 @@ pub async fn handle_peer_typing<B: FederationBackend>(
         return Ok(ack);
     }
     let event: ChatTypingEvent = serde_json::from_value(json!({
+        "accountId": account_id,
         "chatId": chat.id,
         "senderId": sender.id,
         "typing": args.typing,
