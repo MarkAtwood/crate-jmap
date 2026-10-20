@@ -1512,6 +1512,12 @@ pub async fn handle_space_set<B: ChatBackend>(
 /// Accepts exactly one of `inviteCode` or `spaceId`. Validates the invite or
 /// space, adds the caller as a member, and returns `{ "accountId": ..., "spaceId": ... }`.
 ///
+/// `inviteCode` resolves only within the request's `accountId`, which
+/// names the account hosting the Space; invite links therefore carry
+/// both `accountId` and the code. A code created in another account is
+/// reported as `invalidArguments` "invite code not found", exactly like
+/// an unknown code.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_join<B: ChatBackend>(
     backend: &B,
@@ -1544,12 +1550,9 @@ pub async fn handle_space_join<B: ChatBackend>(
             ));
         }
         (Some(code), None) => {
-            // NOTE: The MemoryBackend stores objects per-account, so invite code lookup
-            // works only when the caller's account created the invite. A production backend
-            // must maintain a global invite code index. This is a known architectural
-            // limitation of the test backend.
-
-            // Invite code path: scan all invites for matching code.
+            // Invite code path: scan the request account's invites for a
+            // matching code. Resolution is scoped to `accountId` by design
+            // (see the function docs); there is no server-wide index.
             let (invites, _) = backend
                 .get_objects::<SpaceInvite>(caller, &account_id, None, None)
                 .await
