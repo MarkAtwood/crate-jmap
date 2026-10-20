@@ -111,7 +111,13 @@ pub struct Span {
     /// `"broadcast"`: one of `"everyone"`, `"here"`, or `"admins"`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scope: Option<String>,
-    /// `"link"`: the hyperlink target. It MUST be treated as untrusted.
+    /// `"link"`: the hyperlink target. It SHOULD be treated as untrusted, and
+    /// MUST NOT be a JMAP object URI (`jmap:`, draft-atwood-jmap-object-uri-00),
+    /// because `body` is relayed between servers unchanged
+    /// (draft-atwood-jmap-chat-00 §Span Object). Inside encrypted content a
+    /// client MUST NOT place one either, and treats one found after
+    /// decryption as unresolvable (§Fields Inside the Ciphertext). This is a client
+    /// rule: servers do not parse bodies to enforce it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uri: Option<String>,
     /// Catch-all for fields not covered above, such as the fields of an
