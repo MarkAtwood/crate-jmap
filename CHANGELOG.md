@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-types**: new crate for draft-atwood-jmap-scene-00 —
+  `JMAP_SCENE_URI` (`urn:ietf:params:jmap:scene`) and `SceneCapability`,
+  the `Position`, `Orientation` and `Scale` coordinate formats with
+  `IDENTITY_ORIENTATION` and `IDENTITY_SCALE`, `SceneBounds`, `GeoAnchor`,
+  the `SceneAsset`, `SceneRegion` (`ViewHint`, `AccessPolicy`),
+  `SceneObject` (`PhysicsMode`) and `SceneAvatar` data types, and the
+  `query` filters and comparators of all four, including the
+  `WithinRadius` and `WithinBounds` spatial filters.
 - **jmap-vtc-types**: draft-atwood-jmap-vtc-wss-00 stream control
   frames — `JMAP_VTC_WEBSOCKET_URI`
   (`urn:ietf:params:jmap:vtc:websocket`), `VtcStreamEnable` (`callIds`
