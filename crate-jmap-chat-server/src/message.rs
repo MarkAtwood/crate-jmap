@@ -358,14 +358,12 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
 
 /// Validate broadcast mentions against spec §4.4.1 / §4.16 constraints.
 ///
-/// Returns the SetError value on failure, None on success. The draft names
-/// `invalidArguments` for an unrecognized `scope` (§BroadcastMention); a
-/// missing or non-string `scope` takes the §Input Validation default: "the server MUST
-/// reject the entry with an `invalidProperties` SetError ... whose
-/// `properties` names the offending property."
+/// Returns the SetError value on failure, None on success. §BroadcastMention:
+/// "Servers MUST reject a BroadcastMention with an unrecognized `scope`
+/// value; in `Message/set` the rejection is an `invalidProperties` SetError
+/// naming `broadcastMentions`." A missing or non-string `scope` takes the
+/// §Input Validation default, which is the same SetError.
 fn validate_broadcast_mentions(broadcast_mentions: &[serde_json::Value]) -> Option<Value> {
-    let invalid_arguments =
-        |desc: String| json!({ "type": "invalidArguments", "description": desc });
     let invalid_properties = |desc: String| {
         json!({
             "type": "invalidProperties",
@@ -384,7 +382,7 @@ fn validate_broadcast_mentions(broadcast_mentions: &[serde_json::Value]) -> Opti
             }
         };
         if !BROADCAST_MENTION_SCOPES.contains(&scope) {
-            return Some(invalid_arguments(format!(
+            return Some(invalid_properties(format!(
                 "broadcastMentions[{i}]: unrecognized scope \"{scope}\""
             )));
         }
@@ -431,20 +429,21 @@ const CIPHERTEXT_ONLY_FIELDS: [&str; 8] = [
 /// [`CIPHERTEXT_ONLY_FIELDS`] for an encrypted type (§Fields Inside the
 /// Ciphertext).
 ///
-/// Returns an `invalidArguments` description on failure, None on success.
-fn body_type_field_conflict(obj: &Value, body_type: &str) -> Option<String> {
+/// Returns every offending field, in [`CIPHERTEXT_ONLY_FIELDS`] order, for
+/// an `invalidProperties` SetError "whose `properties` lists each such
+/// field"; empty on success.
+fn body_type_field_conflicts(obj: &Value, body_type: &str) -> Vec<&'static str> {
+    if !ENCRYPTED_BODY_TYPES.contains(&body_type) {
+        return Vec::new();
+    }
     let non_empty = |key: &str| {
         obj.get(key)
             .is_some_and(|v| !(v.is_null() || v == "" || v.as_array().is_some_and(Vec::is_empty)))
     };
-    if ENCRYPTED_BODY_TYPES.contains(&body_type) {
-        if let Some(field) = CIPHERTEXT_ONLY_FIELDS.into_iter().find(|&k| non_empty(k)) {
-            return Some(format!(
-                "{field} must be empty or absent when bodyType is {body_type}"
-            ));
-        }
-    }
-    None
+    CIPHERTEXT_ONLY_FIELDS
+        .into_iter()
+        .filter(|&k| non_empty(k))
+        .collect()
 }
 
 /// Implementation-defined maximum byte length of `subject`
@@ -677,13 +676,13 @@ pub async fn handle_message_set<B: ChatBackend>(
                 continue;
             };
             // §Account-Level Capability Object `maxBodyBytes`: "Servers
-            // MUST reject messages exceeding this limit with
-            // `invalidArguments`."
+            // MUST reject messages exceeding this limit; in `Message/set`
+            // the rejection is a `tooLarge` SetError."
             if body.len() > 100_000 {
                 not_created.insert(
                     create_id.clone(),
                     json!({
-                        "type": "invalidArguments",
+                        "type": "tooLarge",
                         "description": "body exceeds maxBodyBytes (100000)"
                     }),
                 );
@@ -729,12 +728,15 @@ pub async fn handle_message_set<B: ChatBackend>(
                 continue;
             };
             // draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout, the
-            // one reserving companion, requires `invalidArguments`.
+            // one reserving companion: "the server MUST reject a
+            // `Message/set` create with this body type with an
+            // `invalidProperties` SetError naming `bodyType`."
             if limits.server_reserved_body_types.contains(&body_type) {
                 not_created.insert(
                     create_id.clone(),
                     json!({
-                        "type": "invalidArguments",
+                        "type": "invalidProperties",
+                        "properties": ["bodyType"],
                         "description": format!("bodyType {body_type} is reserved for server-created Messages")
                     }),
                 );
@@ -742,10 +744,17 @@ pub async fn handle_message_set<B: ChatBackend>(
             }
             let body_type = body_type.to_owned();
 
-            if let Some(desc) = body_type_field_conflict(obj_val, &body_type) {
+            // §Fields Inside the Ciphertext: "an `invalidProperties`
+            // SetError whose `properties` lists each such field".
+            let conflicts = body_type_field_conflicts(obj_val, &body_type);
+            if !conflicts.is_empty() {
                 not_created.insert(
                     create_id.clone(),
-                    json!({ "type": "invalidArguments", "description": desc }),
+                    json!({
+                        "type": "invalidProperties",
+                        "properties": conflicts,
+                        "description": format!("must be empty or absent when bodyType is {body_type}"),
+                    }),
                 );
                 continue;
             }
@@ -1584,8 +1593,9 @@ mod tests {
     // from spec §4.4.1 / §4.16. The independent oracle is the spec text
     // itself; no assertion uses the code under test as its own reference.
 
-    /// An unrecognized scope like "channel" must be rejected with
-    /// invalidArguments.
+    /// §BroadcastMention: "Servers MUST reject a BroadcastMention with an
+    /// unrecognized `scope` value; in `Message/set` the rejection is an
+    /// `invalidProperties` SetError naming `broadcastMentions`."
     #[tokio::test]
     async fn broadcast_mention_validation_rejects_unknown_scope() {
         let backend = MemoryBackend::new();
@@ -1610,7 +1620,11 @@ mod tests {
         .expect("handle_message_set");
 
         assert!(resp["notCreated"]["m0"].is_object());
-        assert_eq!(resp["notCreated"]["m0"]["type"], "invalidArguments");
+        assert_eq!(resp["notCreated"]["m0"]["type"], "invalidProperties");
+        assert_eq!(
+            resp["notCreated"]["m0"]["properties"],
+            json!(["broadcastMentions"])
+        );
         let desc = resp["notCreated"]["m0"]["description"]
             .as_str()
             .expect("description");

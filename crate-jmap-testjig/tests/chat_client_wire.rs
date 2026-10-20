@@ -476,9 +476,9 @@ async fn message_create_keeps_optional_properties() {
 }
 
 /// Oracle: draft-atwood-jmap-chat-00 §Fields Inside the Ciphertext —
-/// "Servers MUST reject a `Message/set` create or update, or a
-/// `Peer/deliver` payload, that has an encrypted `bodyType` and any of
-/// these fields non-empty, with `invalidArguments`." (bd:JMAP-yt1w.1).
+/// "Servers MUST reject a `Message/set` create or update that has an
+/// encrypted `bodyType` and any of these fields non-empty with an
+/// `invalidProperties` SetError whose `properties` lists each such field".
 /// A rich body is not restricted: §Mention says "The `mentions` array is
 /// authoritative for every `bodyType`" (bd:JMAP-yt1w.17).
 #[tokio::test]
@@ -499,13 +499,14 @@ async fn message_create_rejects_fields_forbidden_by_body_type() {
         .as_ref()
         .and_then(|m| m.get("m1"))
         .unwrap_or_else(|| panic!("m1 must be rejected: {resp:?}"));
-    assert_eq!(err.error_type, "invalidArguments");
+    assert_eq!(err.error_type, "invalidProperties");
+    assert_eq!(err.properties.as_deref(), Some(&["topicId".to_owned()][..]));
 }
 
 /// Oracle: draft-atwood-jmap-chat-00 §Account-Level Capability Object,
-/// `maxBodyBytes` — "Servers MUST reject messages exceeding this limit
-/// with `invalidArguments`." (bd:JMAP-yt1w.1). The limit is read from the
-/// Session, not assumed.
+/// `maxBodyBytes` — "Servers MUST reject messages exceeding this limit;
+/// in `Message/set` the rejection is a `tooLarge` SetError." The limit is
+/// read from the Session, not assumed.
 #[tokio::test]
 async fn message_create_rejects_body_over_max_body_bytes() {
     let (_jig, client, session) = connect().await;
@@ -527,7 +528,7 @@ async fn message_create_rejects_body_over_max_body_bytes() {
         .as_ref()
         .and_then(|m| m.get("m1"))
         .unwrap_or_else(|| panic!("over-long body must be rejected: {resp:?}"));
-    assert_eq!(err.error_type, "invalidArguments");
+    assert_eq!(err.error_type, "tooLarge");
 }
 
 /// Oracle: draft-atwood-jmap-chat-00 §Message `bodyType`: "MIME type of

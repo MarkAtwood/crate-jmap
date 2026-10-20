@@ -195,30 +195,44 @@ async fn create_rejects_invalid_optional_properties() {
 /// type, in any topology, the Message fields `mentions`,
 /// `broadcastMentions`, `attachments`, `actions`, `replyTo`,
 /// `threadRootId`, `topicId`, and `subject` MUST be empty or absent" and
-/// "Servers MUST reject a `Message/set` create or update, or a
-/// `Peer/deliver` payload, that has an encrypted `bodyType` and any of
-/// these fields non-empty, with `invalidArguments`."
+/// "Servers MUST reject a `Message/set` create or update that has an
+/// encrypted `bodyType` and any of these fields non-empty with an
+/// `invalidProperties` SetError whose `properties` lists each such field".
 #[tokio::test]
 async fn create_rejects_routing_fields_with_encrypted_body_type() {
     let backend = MemoryBackend::new();
     let chat_id = create_group(&backend).await;
     let cases = [
-        json!({ "mentions": [{ "id": "contact-bob", "offset": 3, "length": 4 }] }),
-        json!({ "broadcastMentions": [{ "scope": "everyone", "offset": 0, "length": 2 }] }),
-        json!({ "attachments": [attachment("a.txt", "text/plain", SHA256)] }),
-        json!({ "actions": [{ "type": "urn:jmap:chat:cap:vtc", "uri": "https://example.com/r" }] }),
-        json!({ "replyTo": "m0" }),
-        json!({ "threadRootId": "m0" }),
-        json!({ "topicId": "release" }),
-        json!({ "topicId": "release", "subject": "Release 1.0" }),
+        (
+            json!({ "mentions": [{ "id": "contact-bob", "offset": 3, "length": 4 }] }),
+            json!(["mentions"]),
+        ),
+        (
+            json!({ "broadcastMentions": [{ "scope": "everyone", "offset": 0, "length": 2 }] }),
+            json!(["broadcastMentions"]),
+        ),
+        (
+            json!({ "attachments": [attachment("a.txt", "text/plain", SHA256)] }),
+            json!(["attachments"]),
+        ),
+        (
+            json!({ "actions": [{ "type": "urn:jmap:chat:cap:vtc", "uri": "https://example.com/r" }] }),
+            json!(["actions"]),
+        ),
+        (json!({ "replyTo": "m0" }), json!(["replyTo"])),
+        (json!({ "threadRootId": "m0" }), json!(["threadRootId"])),
+        (json!({ "topicId": "release" }), json!(["topicId"])),
+        (
+            json!({ "topicId": "release", "subject": "Release 1.0" }),
+            json!(["topicId", "subject"]),
+        ),
     ];
-    for mut extra in cases {
+    for (mut extra, properties) in cases {
         extra["bodyType"] = json!("application/mls-ciphertext");
         let resp = create(&backend, &chat_id, extra.clone()).await;
-        assert_eq!(
-            resp["notCreated"]["m"]["type"], "invalidArguments",
-            "{extra} -> {resp}"
-        );
+        let err = &resp["notCreated"]["m"];
+        assert_eq!(err["type"], "invalidProperties", "{extra} -> {resp}");
+        assert_eq!(err["properties"], properties, "{extra} -> {resp}");
     }
 }
 

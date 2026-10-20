@@ -79,10 +79,10 @@ const DEFAULT_ENTRY_PROPERTIES: [&str; 10] = [
 /// - `chatPush/<accountId>/properties`: a name that is not a
 ///   `ChatMessageEntry` field the server supports.
 /// - `chatPush/<accountId>/urgency` and `.../mentionUrgency`: a value not
-///   in the account's `supportedUrgencyValues`. The draft asks for an
-///   `invalidArguments` SetError here; RFC 8620 defines `invalidArguments`
-///   only as a method-level error (rfc8620.txt:1189), so this returns
-///   `invalidProperties` instead.
+///   in the account's `supportedUrgencyValues`. draft-atwood-jmap-chat-push-00
+///   §ChatPushConfig: "the server MUST return an `invalidProperties`
+///   SetError on `PushSubscription/set` whose `properties` names the
+///   offending path (e.g., `chatPush/<id>/urgency`)".
 #[allow(clippy::result_large_err)]
 pub fn validate_chat_push(
     extra: &Map<String, Value>,

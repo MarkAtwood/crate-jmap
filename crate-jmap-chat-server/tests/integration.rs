@@ -7991,9 +7991,8 @@ async fn space_join_argument_check_precedes_ban_check() {
 
 /// Oracle: Message/set create with body exceeding 100,000 bytes is rejected.
 /// draft-atwood-jmap-chat-00 §Account-Level Capability Object
-/// `maxBodyBytes`: "Servers MUST reject messages exceeding this limit with
-/// `invalidArguments`." (bd:JMAP-yt1w.1), so the SetError carries no
-/// `properties`.
+/// `maxBodyBytes`: "Servers MUST reject messages exceeding this limit; in
+/// `Message/set` the rejection is a `tooLarge` SetError."
 #[tokio::test]
 async fn message_set_create_body_too_large() {
     let backend = MemoryBackend::new();
@@ -8010,7 +8009,7 @@ async fn message_set_create_body_too_large() {
     .expect("handle_message_set");
 
     assert!(resp["notCreated"]["m0"].is_object());
-    assert_eq!(resp["notCreated"]["m0"]["type"], "invalidArguments");
+    assert_eq!(resp["notCreated"]["m0"]["type"], "tooLarge");
     assert_eq!(resp["created"], json!(null));
 }
 

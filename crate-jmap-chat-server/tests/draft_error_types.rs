@@ -41,11 +41,11 @@ async fn chat_set_create_channel_is_forbidden() {
 }
 
 /// Oracle: draft-atwood-jmap-chat-00 §Account-Level Capability Object,
-/// `maxBodyBytes` — "Servers MUST reject messages exceeding this limit
-/// with `invalidArguments`." The reference server's limit is 100,000
-/// bytes.
+/// `maxBodyBytes` — "Servers MUST reject messages exceeding this limit;
+/// in `Message/set` the rejection is a `tooLarge` SetError." The
+/// reference server's limit is 100,000 bytes.
 #[tokio::test]
-async fn message_set_create_over_long_body_is_invalid_arguments() {
+async fn message_set_create_over_long_body_is_too_large() {
     let backend = MemoryBackend::new();
     let chat_id = make_chat_group(&backend, "G").await;
     let HandlerOutput { primary: resp, .. } = handle_message_set(
@@ -64,10 +64,7 @@ async fn message_set_create_over_long_body_is_invalid_arguments() {
     .expect("handle_message_set");
 
     assert_eq!(resp["created"], json!(null), "{resp}");
-    assert_eq!(
-        resp["notCreated"]["m0"]["type"], "invalidArguments",
-        "{resp}"
-    );
+    assert_eq!(resp["notCreated"]["m0"]["type"], "tooLarge", "{resp}");
 }
 
 /// Oracle: draft-atwood-jmap-chat-00 §Message/query — `text`: "Servers

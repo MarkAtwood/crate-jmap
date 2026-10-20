@@ -192,7 +192,8 @@ pub struct ChatLimits {
     /// Listed types that a companion specification reserves for
     /// server-created Messages (e.g. `"application/mimi-fanout"`,
     /// draft-atwood-jmap-chat-mimi-00). `Message/set` create rejects
-    /// them with `invalidArguments`; update does not. Defaults to empty.
+    /// them with an `invalidProperties` SetError naming `bodyType`;
+    /// update does not. Defaults to empty.
     pub server_reserved_body_types: &'static [&'static str],
 }
 
