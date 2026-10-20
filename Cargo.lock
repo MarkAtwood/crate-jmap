@@ -924,6 +924,7 @@ dependencies = [
  "http",
  "httpdate",
  "jmap-cid-types",
+ "jmap-did-types",
  "jmap-types",
  "reqwest",
  "serde",

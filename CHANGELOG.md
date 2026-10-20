@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-base-client**: `Session::did_capability` and
+  `AccountInfo::did_capability`, typed accessors returning
+  `jmap_did_types::DidCapability` / `DidAccountCapability` for
+  `urn:ietf:params:jmap:did` (draft-atwood-jmap-did-00 §Capability).
+  `jmap-base-client` now depends on `jmap-did-types`.
 - **jmap-server**: `reject_did_bearing_properties`, which rejects a
   `/set` create object or update PatchObject that includes a DID-bearing
   property with an `invalidProperties` SetError listing the property
