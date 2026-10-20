@@ -150,6 +150,11 @@ pub trait VtcBackend: JmapBackend {
 
     /// Destroy an object by id. Unknown `id` is `notFound`; the state
     /// advances only when the destroy commits.
+    ///
+    /// The handler has already applied the permission check. When the
+    /// destroyed `VTCCall` is a breakout room (`parentCallId` set), the
+    /// backend MUST also remove its id from the parent's `breakoutRoomIds`
+    /// in the same atomic step, as for closing one via `update_object`.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,

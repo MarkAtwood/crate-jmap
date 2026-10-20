@@ -170,8 +170,9 @@ fn uses_chat_binding(filter: &VtcCallFilter) -> bool {
 /// Create: the `callType`-specific rules of §Creating a Ring Call, §Creating
 /// a Room Call and §Creating a Scheduled Call, then
 /// [`VtcBackend::create_call`]. Update: ending a call and the call-level
-/// moderator actions, validated against §State Machine. Destroy is
-/// forwarded to the backend.
+/// moderator actions, validated against §State Machine. Destroy is held
+/// to the same permission as ending the call, then forwarded to the
+/// backend.
 pub async fn handle_vtc_call_set<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -249,17 +250,13 @@ pub async fn handle_vtc_call_set<B: VtcBackend>(
                 ))
             })?;
         for id_str in ids {
-            match backend
-                .destroy_object::<VtcCall>(caller, &account_id, &Id::from(id_str))
-                .await
-            {
+            match destroy_call(backend, caller, &account_id, &Id::from(id_str)).await {
                 Ok(()) => {
                     mutated = true;
                     acc.destroyed.push(Value::String(id_str.to_owned()));
                 }
                 Err(e) => {
-                    acc.not_destroyed
-                        .insert(id_str.to_owned(), backend_set_error_value(e));
+                    acc.not_destroyed.insert(id_str.to_owned(), e);
                 }
             }
         }
@@ -451,6 +448,53 @@ async fn create_call<B: VtcBackend>(
         .map_err(backend_set_error_value)
 }
 
+/// `true` if the caller may end `call`. §Ending a Call: "A moderator (or
+/// the initiator of a ring call)".
+async fn may_end_call<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    call: &VtcCall,
+) -> Result<bool, Value> {
+    if backend
+        .is_moderator(caller, account_id, call)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?
+    {
+        return Ok(true);
+    }
+    Ok(call.call_type == CallType::Ring
+        && backend
+            .caller_user_id(caller, account_id)
+            .await
+            .map_err(|e| server_fail_value_from_backend(&e))?
+            == call.initiator_id)
+}
+
+/// Check one `destroy` entry and hand it to the backend.
+///
+/// Destroying a call removes it as surely as ending it, so it takes the
+/// same permission: §Moderator Privilege Escalation requires `forbidden` for "any
+/// `VTCCall/set` operation restricted to moderators (ending a call, ...
+/// creating or closing breakout rooms, ...)".
+async fn destroy_call<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+) -> Result<(), Value> {
+    let call = fetch_call(backend, caller, account_id, id)
+        .await?
+        .ok_or_else(|| set_error_value(&SetError::new(SetErrorType::NotFound)))?;
+    if !may_end_call(backend, caller, account_id, &call).await? {
+        return Err(forbidden("the caller is not a moderator on this call"));
+    }
+    backend
+        .destroy_object::<VtcCall>(caller, account_id, id)
+        .await
+        .map_err(backend_set_error_value)
+}
+
 /// Validate one `update` entry and hand it to the backend. `Ok` is the
 /// `updated` echo: the properties the server changed beyond the patch.
 async fn update_call<B: VtcBackend>(
@@ -486,20 +530,15 @@ async fn update_call<B: VtcBackend>(
         .ok_or_else(|| set_error_value(&SetError::new(SetErrorType::NotFound)))?;
 
     if keys.iter().any(|k| MODERATOR_ONLY.contains(k)) {
-        let moderator = backend
-            .is_moderator(caller, account_id, &call)
-            .await
-            .map_err(|e| server_fail_value_from_backend(&e))?;
-        // §Ending a Call: "A moderator (or the initiator of a ring call)".
-        let ring_initiator_ending = !moderator
-            && call.call_type == CallType::Ring
-            && keys == ["state"]
-            && backend
-                .caller_user_id(caller, account_id)
+        let allowed = if keys == ["state"] {
+            may_end_call(backend, caller, account_id, &call).await?
+        } else {
+            backend
+                .is_moderator(caller, account_id, &call)
                 .await
                 .map_err(|e| server_fail_value_from_backend(&e))?
-                == call.initiator_id;
-        if !moderator && !ring_initiator_ending {
+        };
+        if !allowed {
             return Err(forbidden("the caller is not a moderator on this call"));
         }
     }
