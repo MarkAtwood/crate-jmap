@@ -153,9 +153,9 @@ src/
     space_invite.rs SpaceInvite/* sub-operations
     contact.rs      ChatContact/get, ChatContact/set
     custom_emoji.rs CustomEmoji/* methods
-    blob.rs         Blob/copy, Blob/lookup
+    blob.rs         Blob/lookup, Blob/convert
     quota.rs        Quota/get
-    misc.rs         Core/echo, PushSubscription/set
+    misc.rs         ReadPosition/*, PresenceStatus/*, PushSubscription/set, Core/echo
 ```
 
 ## Extras-preservation policy (JMAP-lbdy)

@@ -1,0 +1,253 @@
+# Changelog
+
+All notable changes to the publishable `jmap-*` crates in this workspace are
+recorded here. The crates are versioned together (see `RELEASING.md`), so one
+entry covers every crate. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html) with the pre-1.0
+convention that a minor bump may break the API.
+
+Entries marked **BREAKING** need source changes in downstream code, or change
+wire behaviour that a conforming peer can observe.
+
+## [0.3.0] - Unreleased
+
+### Breaking: Rust API
+
+- **jmap-server**: `JmapBackend::query_objects` gains `anchor: Option<&Id>`
+  and `anchor_offset: i64`, and returns
+  `Result<QueryResult, BackendQueryError<Self::Error>>`. Implementors must
+  apply the RFC 8620 §5.5 anchor rules (`resolve_query_start` does this for an
+  in-memory id list). `?` on `Self::Error` still compiles through
+  `From<E> for BackendQueryError<E>`; a bare `Err(e)` must become
+  `Err(e.into())`.
+- **jmap-server**: `PushSubscriptionBackend` gains required methods
+  `create_push_subscription`, `update_push_subscription` and
+  `destroy_push_subscription`.
+- **jmap-server**: `enforce_max_objects_in_set` now fails with
+  `JmapError::request_too_large()` (description `maxObjectsInSet`) instead
+  of `JmapError::limit("maxObjectsInSet")`. Code matching
+  `error_type == "limit"` must match `"requestTooLarge"`.
+- **jmap-types**: `StateChange` moved here from `jmap-base-client` (still
+  re-exported there) and has hand-written serde: it always serializes
+  `"@type":"StateChange"` and rejects any other `@type`.
+- **jmap-mail-types**: the eight property enums (`MailboxProperty`,
+  `ThreadProperty`, `EmailProperty`, `IdentityProperty`,
+  `EmailSubmissionProperty`, `VacationResponseProperty`,
+  `SearchSnippetProperty`, `SieveScriptProperty`) are `#[non_exhaustive]`.
+  External matches need a wildcard arm.
+- **jmap-tasks-types**: `TasksAccountCapability.min_date_time` and
+  `max_date_time` are `LocalDateTime` instead of `String`. The wire format is
+  unchanged.
+- **jmap-mail-server, jmap-chat-server, jmap-calendars-server,
+  jmap-tasks-server, jmap-contacts-server, jmap-filenode-server,
+  jmap-sharing-server**: `supports_type` takes `(caller, account_id)` and has
+  no default, because RFC 8620 §2 capabilities are per account.
+- **jmap-filenode-server**: `FileNodeBackend::query_subtree` returns
+  `Result<Vec<Id>, BackendQueryError<Self::Error>>`.
+- **jmap-chat-server**: new required `ChatBackend::read_and_burn_message`
+  (atomic burnOnRead) and `ChatBackend::join_space_with_invite` (atomic invite
+  redemption, with `InviteJoinRefusal`). Neither has a default.
+- **jmap-chat-server**: backends must look up the caller's Space membership
+  and permissions by `account_id` (the owner's member entry), not by
+  `principal_id`. The `apply_space_metadata_patch` contract no longer lets a
+  backend skip the gate when `principal_id` returns `None`.
+- **jmap-chat-server**: removed the `#[doc(hidden)]` `MemoryBackend` helpers
+  `apply_space_patch_with_caller_id`,
+  `apply_space_metadata_patch_with_caller_id`,
+  `may_set_pinned_messages_with_caller_id` and
+  `may_set_space_ban_with_caller_id`. Use the `ChatBackend` trait methods.
+- **jmap-chat-types**: `SenderId` is removed. `Message.sender_id`,
+  `Reaction.sender_id`, `ChatTypingEvent.sender_id`,
+  `ChatMessageEntry.sender_id` and the `sender_id` parameters of
+  `Message::new`, `ChatMessageEntry::plaintext` and
+  `ChatMessageEntry::encrypted` are `jmap_types::Id`. Replace
+  `SenderId::Owner` with the accountId.
+- **jmap-chat-types**: `Mention` and `BroadcastMention` drop `offset` and
+  `length`. If a peer sends them, they land in `extra`.
+- **jmap-chat-types**: `ChatContact` has a new required `identity: String`
+  (JSON without `identity` fails to deserialize), and `ChatContact::new` takes
+  `identity` as its second parameter.
+- **jmap-chat-types**: `SpaceRole.color` is `Option<serde_json::Value>` and
+  `RolePatch.color` is `Option<Clearable<serde_json::Value>>`, covering all
+  three draft Color Representation forms.
+- **jmap-chat-types**: six `ChatMessageEntry` fields are now `Option`:
+  `message_id`, `chat_id`, `chat_kind`, `sender_id`, `sent_at` and
+  `encrypted`. Each is omitted when `None`.
+- **jmap-chat-types**: chat `Filter` and `Comparator` are typed per object in
+  the new `jmap_chat_types::query` module instead of `serde_json::Value`.
+- **jmap-chat-types**: `vocabulary::SPEC_PERMISSION_NAMES` gains
+  `"start_call"` (9 to 10 entries), matching the draft.
+- **jmap-chat-client**: the `*_query_changes` methods take the typed
+  `filter`, `sort`, `up_to_id` and `calculate_total` arguments.
+- **jmap-chat-client**: `SpaceAddRoleInput.color` is a JSON value
+  (`with_color` takes `impl Into<serde_json::Value>`). `MessageQueryInput`
+  `after`/`before` are deprecated, and the client rejects them with
+  `ClientError::InvalidArgument`.
+- **jmap-chat-server**: `PushItem`, `OwnerFlags` and `BuiltPush` are not
+  `#[non_exhaustive]`, so a field added to any of them later is a breaking
+  change.
+
+### Breaking: wire behaviour
+
+- **All servers**: a `/set` over `maxObjectsInSet` returns method error
+  `requestTooLarge` instead of `limit`.
+- **All servers**: a `/get` (including `SearchSnippet/get` `emailIds`) whose
+  ids exceed `JmapBackend::max_objects_in_get` (default 500) returns
+  `requestTooLarge` with description `maxObjectsInGet`. Before, there was no
+  cap.
+- **All servers**: `/query` returns a backend's RFC 8620 §5.5 method error
+  (`unsupportedFilter`, `unsupportedSort`, `anchorNotFound`, ...) unchanged
+  instead of `serverFail`. `*/query` via `handle_query` and the chat
+  `Message`, `Space`, `ChatContact` and `CustomEmoji/query` honour
+  `anchor`/`anchorOffset`, return `anchorNotFound` for an absent anchor and
+  `invalidArguments` for a mistyped one.
+- **jmap-mail-server, jmap-calendars-server, jmap-filenode-server**: `/copy`
+  honours `destroyFromIfInState`. On a mismatch it returns `stateMismatch` and
+  destroys nothing.
+- **jmap-base-client**: an SSE `state` event whose `@type` is present but not
+  `StateChange` parses as `SseEvent::Unknown`.
+- **jmap-chat-server**: owner-authored Messages and reactions carry the
+  accountId as `senderId` (was `"self"`). Stored `"self"` values are treated as
+  another sender. `Message/query` `hasMention` matches only a mention whose id
+  is the accountId.
+- **jmap-chat-server**: owner references (Chat creator and `invitedBy`,
+  Space/join member id, `bannedBy`, `createdBy`, self-removal and self-nick
+  keys) use the accountId instead of the principal.
+- **jmap-chat-server**: `Space/get` decides membership by the accountId
+  member entry whatever `principal_id` returns. Single-user deployments no
+  longer see the full object of Spaces they are not a member of.
+- **jmap-chat-server**: `Space/set` create returns the creator as sole admin
+  member (one `admin` role, `memberCount` 1). The creator's `Space/join` on
+  that Space now fails as already a member. `MemoryBackend` with
+  `principal_id` `None` enforces Space, pin and ban permission gates against
+  the owner's member entry.
+- **jmap-chat-server**: in a channel, `Message/set` with non-empty
+  `broadcastMentions` returns `forbidden` unless the owner holds
+  `mention_broadcast`. Broadcast gating keys only on the
+  `broadcastMentions` array. Rich-body spans are no longer parsed, and
+  mention offsets are no longer bounds-checked.
+- **jmap-chat-server**: `Message/set` update accepts only the draft's edit,
+  reaction, delete and read properties; any other key returns
+  `invalidProperties`. Edits of another sender's or a deleted Message return
+  `forbidden`. A non-null `readDisposition` needs a non-null `readAt`, and
+  `readAt: null` clears `readDisposition`.
+- **jmap-chat-server**: `Message/set` create validates `bodyType` against
+  `ChatLimits::supported_body_types` and refuses
+  `server_reserved_body_types`. It rejects mention, attachment, reply and
+  topic properties on `application/mls-ciphertext`, and a body over 100 000
+  bytes with `invalidArguments`. It stores `broadcastMentions`, and it
+  creates the owner's ReadPosition for the Chat.
+- **jmap-chat-server**: `/set` create rejects a wrongly typed optional
+  property with `invalidProperties` instead of ignoring it.
+- **jmap-chat-server**: `ReadPosition/set` create and destroy return
+  `forbidden`. `Chat/set` with kind `channel` returns `forbidden`. `Chat/set`
+  update rejects `closedAt` and `activeCallId`. `Message/query` with
+  non-null `text` or `threadRootId` returns `unsupportedFilter`.
+- **jmap-chat-server**: `Chat/typing` for an unknown chat or a non-member
+  group chat returns `invalidArguments`.
+- **jmap-chat-server**: `Space/join` with a nonexistent or non-public Space
+  returns `notPermitted`, and it returns `forbidden` for a banned caller or a
+  closed Space.
+- **jmap-chat-server**: the last admin leaving a group Chat or Space with
+  members remaining sets `closedAt`. Closed groups and Spaces refuse
+  messages, membership changes, joins and invites.
+- **jmap-chat-server**: the `Space/set` last-admin refusal is
+  `invalidProperties ["removeMembers"]` (was `forbidden`), and self-removal no
+  longer needs `manage_members`.
+- **jmap-chat-server**: `SpaceBan/set` requires the `ban` permission.
+  `SpaceInvite/set` is gated by `ChatBackend::may_set_space_invite`.
+  `SpaceInvite/get`, `SpaceInvite/changes` and `SpaceBan/get` show only the
+  records the draft visibility rules allow.
+- **jmap-chat-server**: `ChatContact/set` create of `{identity}` succeeds
+  (was always `forbidden`). An update that patches `identity` is rejected
+  with `invalidProperties`.
+- **jmap-chat-server**: `Space/set` `addRoles` and `addCategories` entries
+  without `id` are accepted, and the server assigns unique ids. Moving a
+  channel between categories removes it from the old category.
+- **jmap-chat-server**: `Space/set` destroy cascades to the Space's channel
+  Chats and their Messages, and `/changes` reports those destroys.
+
+### Added
+
+- **jmap-types**: `push` module with `PushSubscription`, `PushKeys` and
+  `PushVerification`, plus `StateChange::new`.
+- **jmap-server**: `PushSubscription/get` and `PushSubscription/set` handlers
+  (`register_push_subscription_handlers`), `StoredPushSubscription`,
+  `MAX_PUSH_EXPIRY_SECS`, `is_deliverable`, `state_change_for`,
+  `utc_date_from_epoch_seconds`, `BackendQueryError`, `query_anchor_args`,
+  `resolve_query_start`, `enforce_max_objects_in_get` and the provided method
+  `JmapBackend::max_objects_in_get` (default 500). A downstream type that
+  already has a method with that name may hit method-resolution ambiguity.
+- **jmap-chat-server**: chatPush support from draft-atwood-jmap-chat-push-00:
+  `push::validate_chat_push`, `strip_unsupported_chat_push`,
+  `chat_state_change_for`, `build_chat_message_push` and `should_push`, plus
+  a `MemoryBackend` `PushSubscriptionBackend` capped at 50 subscriptions per
+  user.
+- **jmap-chat-server**: provided `ChatBackend` hooks `owner_user_id`,
+  `may_set_space_ban`, `may_set_space_invite`, `may_get_space_invite` and
+  `may_get_space_ban`. The permission hooks default to fail-open.
+- **jmap-chat-server**: `ChatLimits` fields `max_group_chat_members`,
+  `supported_body_types` and `server_reserved_body_types`, with setters, and
+  the constants `message::SUPPORTED_BODY_TYPES`,
+  `permissions::MENTION_BROADCAST` and `permissions::BAN`.
+- **jmap-chat-types**: typed `Message.topic_id`, `subject` and
+  `expires_after_read_seconds`, `Chat.closed_at` and `Space.closed_at`,
+  `ChatMessageEntry.unread_count`, `ChatCapability.role`
+  (`ChatCapabilityRole`), `JMAP_CHAT_WEBSOCKET_URI`, `ChatMember::new` and
+  `ChatContactProperty::Identity`. Keys that used to land in `extra` now fill
+  the typed fields.
+- **jmap-chat-client**: every Message/set create property, Message/query
+  sort, anchor and `calculateTotal`, CustomEmoji and SpaceBan update, Core/echo,
+  the `chat:filenode` binding, typed batching with back-references,
+  `chat_contact_create`, `ChatContactQueryInput.filter_identity`, and the
+  `ChatSessionExt` accessors `owner_user_id`, `owner_login`,
+  `owner_endpoints` and `owner_direct_address`.
+- **jmap-base-client**: EventSource reconnect with `Last-Event-ID`, WebSocket
+  keepalive, typed push enable and disable, a typed `WsFrame::RequestError`
+  with `requestId`, HTTP 429 as `RateLimited`, `MethodError` extra
+  properties, and streaming blob upload and download.
+
+### Fixed
+
+- **Clients**: a colliding key in a params struct's `extra` map no longer
+  overrides the typed field on the wire.
+- **jmap-calendars-server**: `Calendar/set` destroy no longer leaks backend
+  error text into `serverFail`.
+- **jmap-filenode-server**: `FileNode/set` rejects a mistyped `parentId` with
+  `invalidProperties ["parentId"]`. `MemoryBackend` honours `position`, and it
+  reports `total` before `limit` is applied.
+- **jmap-chat-server**: `MemoryBackend::query_objects` honours `sort`, and
+  group `Chat/set` create honours `memberIds`.
+
+## [0.2.0] - 2026-10-18
+
+Every publishable crate moved from the 0.1 line to `0.2.0`.
+
+### Breaking: Rust API
+
+- **jmap-mail-types**: `MailboxFilterCondition.parent_id` changed from
+  `Option<Id>` to `Option<serde_json::Value>` (869f7fb). Serde's default
+  `Option` deserializer collapses JSON `null` to `None`, so the old type could
+  not keep RFC 8621 §2.3's three-way absent / `null` / Id `parentId` filter.
+  Code that read `cond.parent_id` as an `Id` must handle the JSON value.
+- **jmap-types**: the response-side state fields are the `State` newtype
+  instead of `String`: `GetResponse.state`, `ChangesResponse.old_state` and
+  `new_state`, `SetResponse.old_state` and `new_state` (f084943), and
+  `QueryResponse.query_state` and `QueryChangesResponse.old_query_state` and
+  `new_query_state` (25e5021). jmap-mail-client's `EmailImportResponse`
+  state fields changed the same way. The wire format is unchanged. `State`
+  implements `PartialEq<str>`, `AsRef<str>` and `From<String>`, but bindings
+  typed as `String` break.
+- **jmap-types**: `GetResponse`, `ChangesResponse`, `SetResponse`,
+  `QueryResponse`, `QueryChangesResponse`, `AddedItem`, `JmapRequest` and
+  `JmapResponse` gain a flattened `extra` map that preserves unknown fields
+  (bae3a90), and `ChangesResponse` gains `updated_properties` (52a37049).
+  The structs are `#[non_exhaustive]`, but in-crate struct literals had to
+  change.
+- **jmap-types**: `SetError.extra` changed from `HashMap` to
+  `serde_json::Map` (9c66783). Accessor methods are unchanged, and serialized
+  output is now insertion-ordered.
+- **jmap-server**: patch helpers and `PatchPathError` changed. `ChatBackend`
+  and `CalendarsBackend` have new behaviour, and the `*-types` crates have new
+  serde defaults. See `RELEASING.md` for the 0.2.x line.

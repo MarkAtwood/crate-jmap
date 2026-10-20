@@ -54,7 +54,7 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 | `chat_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Chat>` |
 | `chat_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `chat_query` | `input: &ChatQueryInput` | `QueryResponse` |
-| `chat_query_changes` | `since_query_state: &State, max_changes: Option<u64>` | `QueryChangesResponse` |
+| `chat_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<&ChatFilter>, sort: Option<&[ChatComparator]>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
 | `chat_create` | `input: &ChatCreateInput<'_>` | `SetResponse` |
 | `chat_update` | `id: &Id, patch: &ChatPatch<'_>` | `SetResponse` |
 | `chat_destroy` | `ids: &[Id]` | `SetResponse` |
@@ -67,7 +67,7 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 | `message_get` | `ids: &[Id], properties: Option<&[&str]>` | `GetResponse<Message>` |
 | `message_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `message_query` | `input: &MessageQueryInput` | `QueryResponse` |
-| `message_query_changes` | `since_query_state: &State, max_changes: Option<u64>` | `QueryChangesResponse` |
+| `message_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<&MessageFilter>, sort: Option<&[MessageComparator]>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
 | `message_create` | `input: &MessageCreateInput<'_>` | `SetResponse` |
 | `message_update` | `id: &Id, patch: &MessagePatch<'_>` | `SetResponse` |
 | `message_destroy` | `ids: &[Id]` | `SetResponse` |
@@ -79,7 +79,7 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 | `space_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Space>` |
 | `space_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `space_query` | `input: &SpaceQueryInput` | `QueryResponse` |
-| `space_query_changes` | `since_query_state: &State, max_changes: Option<u64>` | `QueryChangesResponse` |
+| `space_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<&SpaceFilter>, sort: Option<&[SpaceComparator]>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
 | `space_create` | `input: &SpaceCreateInput<'_>` | `SetResponse` |
 | `space_update` | `id: &Id, patch: &SpacePatch<'_>` | `SetResponse` |
 | `space_destroy` | `ids: &[Id]` | `SetResponse` |
@@ -110,7 +110,7 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 | `chat_contact_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<ChatContact>` |
 | `chat_contact_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `chat_contact_query` | `input: &ChatContactQueryInput` | `QueryResponse` |
-| `chat_contact_query_changes` | `since_query_state: &State, max_changes: Option<u64>` | `QueryChangesResponse` |
+| `chat_contact_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<&ChatContactFilter>, sort: Option<&[ChatContactComparator]>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
 | `chat_contact_update` | `id: &Id, patch: &ChatContactPatch<'_>` | `SetResponse` |
 
 ### CustomEmoji/*
@@ -120,7 +120,7 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 | `custom_emoji_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<CustomEmoji>` |
 | `custom_emoji_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `custom_emoji_query` | `input: &CustomEmojiQueryInput<'_>` | `QueryResponse` |
-| `custom_emoji_query_changes` | `since_query_state: &State, max_changes: Option<u64>` | `QueryChangesResponse` |
+| `custom_emoji_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<&CustomEmojiFilter>, sort: Option<&[CustomEmojiComparator]>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
 | `custom_emoji_create` | `input: &CustomEmojiCreateInput<'_>` | `SetResponse` |
 | `custom_emoji_destroy` | `ids: &[Id]` | `SetResponse` |
 
@@ -181,8 +181,10 @@ async fn drive_chat_ws(session: &Session) -> Result<(), Box<dyn std::error::Erro
     let mut ws = connect_ws(&ws_cap.url, /* auth_header = */ None).await?;
 
     // 4. Drive it via ChatWsExt — each yielded frame is a typed ChatWsFrame:
-    //    StateChange, ChatTyping, ChatPresence, ResponseFrame, RequestError,
-    //    Unknown { type_name, .. }, etc.
+    //    StateChange, Response, ChatTyping, ChatPresence or
+    //    Unknown { type_name }. An RFC 8887 RequestError frame currently
+    //    arrives as Unknown { type_name: "<unknown>" }; use
+    //    jmap_base_client's WsFrame::RequestError to see it typed.
     while let Some(frame) = ws.next_chat_frame().await {
         let _frame = frame?;
     }
