@@ -246,14 +246,7 @@ async fn fill_unread_counts<B: ChatBackend>(
     if !list.iter().any(|c| c.get("unreadCount").is_some()) {
         return Ok(());
     }
-    let (messages, _) = backend
-        .get_objects::<Message>(caller, &account_id, None, None)
-        .await
-        .map_err(|e| server_fail_from_backend(&e))?;
-    let (positions, _) = backend
-        .get_objects::<ReadPosition>(caller, &account_id, None, None)
-        .await
-        .map_err(|e| server_fail_from_backend(&e))?;
+    let (messages, positions) = messages_and_positions(backend, caller, &account_id).await?;
     for chat in list.iter_mut() {
         let Some(chat) = chat.as_object_mut() else {
             continue;
@@ -264,18 +257,82 @@ async fn fill_unread_counts<B: ChatBackend>(
         let Some(chat_id) = chat.get("id").and_then(Value::as_str) else {
             continue;
         };
-        let last_read = positions
-            .iter()
-            .find(|p| p.chat_id.as_ref() == chat_id)
-            .and_then(|p| p.last_read_message_id.as_ref());
-        let unread = messages
-            .iter()
-            .filter(|m| m.chat_id.as_ref() == chat_id)
-            .filter(|m| last_read.is_none_or(|l| m.id.as_ref() > l.as_ref()))
-            .count();
-        chat.insert("unreadCount".to_owned(), Value::from(unread as u64));
+        let unread = unread_count(&messages, &positions, chat_id);
+        chat.insert("unreadCount".to_owned(), Value::from(unread));
     }
     Ok(())
+}
+
+async fn messages_and_positions<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+) -> Result<(Vec<Message>, Vec<ReadPosition>), JmapError> {
+    let (messages, _) = backend
+        .get_objects::<Message>(caller, account_id, None, None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let (positions, _) = backend
+        .get_objects::<ReadPosition>(caller, account_id, None, None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    Ok((messages, positions))
+}
+
+/// §Chat `unreadCount` for `chat_id`: Messages in the Chat whose `id`
+/// sorts after the owner's `lastReadMessageId`, or all of them when it
+/// is absent.
+fn unread_count(messages: &[Message], positions: &[ReadPosition], chat_id: &str) -> u64 {
+    let last_read = positions
+        .iter()
+        .find(|p| p.chat_id.as_ref() == chat_id)
+        .and_then(|p| p.last_read_message_id.as_ref());
+    messages
+        .iter()
+        .filter(|m| m.chat_id.as_ref() == chat_id)
+        .filter(|m| last_read.is_none_or(|l| m.id.as_ref() > l.as_ref()))
+        .count() as u64
+}
+
+/// Write the recomputed `unreadCount` to each Chat in `chat_ids` so the
+/// `Chat` state advances and `Chat/changes` reports the Chat as updated.
+///
+/// RFC 8620 §5.1: "If the data changes, this string MUST change", and
+/// §ReadPosition/set "recomputes `Chat.unreadCount` for the affected
+/// Chat". `Chat/get` derives the count on every call, so a ReadPosition
+/// update or a Message create/destroy changes Chat data; this records
+/// that change through [`ChatBackend::update_object`], whose contract
+/// bumps the type state and logs the id as updated.
+///
+/// Best-effort, like [`crate::message::ensure_read_positions`]: the
+/// caller's own write already succeeded and its response must report
+/// it, so a failure here (including a Chat that no longer exists) is
+/// not surfaced.
+pub(crate) async fn record_unread_count_changes<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    mut chat_ids: Vec<Id>,
+) {
+    if chat_ids.is_empty() {
+        return;
+    }
+    let Ok((messages, positions)) = messages_and_positions(backend, caller, account_id).await
+    else {
+        return;
+    };
+    chat_ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+    chat_ids.dedup();
+    for chat_id in chat_ids {
+        let unread = unread_count(&messages, &positions, chat_id.as_ref());
+        let mut patch = PatchObject::new();
+        patch
+            .as_map_mut()
+            .insert("unreadCount".to_owned(), Value::from(unread));
+        let _ = backend
+            .update_object::<Chat>(caller, account_id, &chat_id, patch)
+            .await;
+    }
 }
 
 // ---------------------------------------------------------------------------

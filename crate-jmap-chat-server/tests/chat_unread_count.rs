@@ -20,14 +20,19 @@
 //! - L921, `lastReadAt` "(UTCDate, server-set)"; RFC 8620 §5.3 rejects a
 //!   client write of a server-set property with `invalidProperties`.
 //! - RFC 8620 §5.1: "If the data changes, this string MUST change", so
-//!   `ReadPosition/changes` reports the cascaded destroy.
+//!   `ReadPosition/changes` reports the cascaded destroy, and a change
+//!   to the derived `unreadCount` advances the `Chat` state.
+//! - RFC 8620 §5.2: `updated` lists "the ids for records that have been
+//!   updated since the old state", so `Chat/changes` names the Chat
+//!   whose `unreadCount` moved.
 
 mod common;
 
 use common::{MemoryBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{
-    handle_chat_get, handle_chat_set, handle_position_changes, handle_position_get,
-    handle_position_set, handle_space_join, handle_space_set,
+    handle_chat_changes, handle_chat_get, handle_chat_set, handle_message_set,
+    handle_position_changes, handle_position_get, handle_position_set, handle_space_join,
+    handle_space_set,
 };
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
@@ -422,4 +427,97 @@ async fn space_destroy_destroys_channel_read_positions() {
     let mut destroyed = destroyed_positions_since(&backend, &since).await;
     destroyed.sort_by(|a, b| a.as_str().cmp(&b.as_str()));
     assert_eq!(destroyed, vec![json!("rp1"), json!("rp2")]);
+}
+
+async fn chat_state(backend: &MemoryBackend) -> String {
+    let HandlerOutput { primary: resp, .. } =
+        handle_chat_get(backend, &(), json!({ "accountId": ACCOUNT_ID, "ids": [] }))
+            .await
+            .expect("Chat/get");
+    resp["state"].as_str().expect("state").to_owned()
+}
+
+async fn chats_updated_since(backend: &MemoryBackend, since: &str) -> Vec<Value> {
+    let HandlerOutput { primary: resp, .. } = handle_chat_changes(
+        backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "sinceState": since }),
+    )
+    .await
+    .expect("Chat/changes");
+    resp["updated"].as_array().expect("updated").clone()
+}
+
+async fn message_set(backend: &MemoryBackend, args: Value) -> Value {
+    let mut args = args;
+    args["accountId"] = json!(ACCOUNT_ID);
+    let HandlerOutput { primary: resp, .. } = handle_message_set(backend, &(), args)
+        .await
+        .expect("Message/set");
+    resp
+}
+
+/// L1351 "recomputes `Chat.unreadCount` for the affected Chat" changes
+/// Chat data, so (RFC 8620 §5.1) the Chat state moves and (§5.2)
+/// `Chat/changes` lists only the affected Chat.
+#[tokio::test]
+async fn read_position_set_advances_chat_state() {
+    let backend = MemoryBackend::new();
+    seed_five(&backend);
+    assert_eq!(unread_of(&backend, "g").await, 5);
+    let since = chat_state(&backend).await;
+
+    set_last_read(&backend, "rp-g", json!({ "lastReadMessageId": M3 })).await;
+
+    assert_eq!(unread_of(&backend, "g").await, 2);
+    assert_ne!(chat_state(&backend).await, since);
+    assert_eq!(
+        chats_updated_since(&backend, &since).await,
+        vec![json!("g")]
+    );
+}
+
+/// Destroying an unread Message lowers the Chat's `unreadCount`
+/// (L547), so `Chat/changes` reports that Chat (RFC 8620 §5.2).
+#[tokio::test]
+async fn message_destroy_advances_chat_state() {
+    let backend = MemoryBackend::new();
+    seed_five(&backend);
+    let since = chat_state(&backend).await;
+
+    let resp = message_set(&backend, json!({ "destroy": [M5] })).await;
+    assert_eq!(resp["destroyed"], json!([M5]), "{resp}");
+
+    assert_eq!(unread_of(&backend, "g").await, 4);
+    assert_eq!(
+        chats_updated_since(&backend, &since).await,
+        vec![json!("g")]
+    );
+}
+
+/// A new Message in a Chat raises its `unreadCount` (L547), so
+/// `Chat/changes` reports that Chat (RFC 8620 §5.2).
+#[tokio::test]
+async fn message_create_advances_chat_state() {
+    let backend = MemoryBackend::new();
+    seed_five(&backend);
+    let since = chat_state(&backend).await;
+
+    let resp = message_set(
+        &backend,
+        json!({ "create": { "m": {
+            "chatId": "h",
+            "body": "hi",
+            "bodyType": "text/plain",
+            "sentAt": "2026-01-01T00:00:00Z",
+        } } }),
+    )
+    .await;
+    assert!(resp["created"].get("m").is_some(), "{resp}");
+
+    assert_eq!(unread_of(&backend, "h").await, 2);
+    assert_eq!(
+        chats_updated_since(&backend, &since).await,
+        vec![json!("h")]
+    );
 }
