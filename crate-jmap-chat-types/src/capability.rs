@@ -106,7 +106,7 @@ pub fn may_advertise_chat_did<S: AsRef<str>>(did_supported_methods: Option<&[S]>
 
 /// FileNode `role` value marking the root of a Space file tree
 /// (draft-atwood-jmap-chat-filenode-00 §Space File Tree).
-pub const CHAT_FILENODE_SPACE_ROLE: &str = "urn:jmap:chat:filenode:space";
+pub const CHAT_FILENODE_SPACE_ROLE: &str = "chatspace";
 
 /// The `role` of an account in its `urn:ietf:params:jmap:chat` capability
 /// (draft-atwood-jmap-chat-federation-00 §Account-Level Capability).
@@ -542,11 +542,11 @@ mod tests {
 
     /// Oracle: draft-atwood-jmap-chat-filenode-00 §IANA Considerations
     /// registers capability `urn:ietf:params:jmap:chat:filenode` and
-    /// FileNode role `urn:jmap:chat:filenode:space`.
+    /// FileNode role `chatspace`.
     #[test]
     fn filenode_uri_constants_match_draft() {
         assert_eq!(JMAP_CHAT_FILENODE_URI, "urn:ietf:params:jmap:chat:filenode");
-        assert_eq!(CHAT_FILENODE_SPACE_ROLE, "urn:jmap:chat:filenode:space");
+        assert_eq!(CHAT_FILENODE_SPACE_ROLE, "chatspace");
     }
 
     /// Oracle: hand-built JSON from draft-atwood-jmap-chat-filenode-00

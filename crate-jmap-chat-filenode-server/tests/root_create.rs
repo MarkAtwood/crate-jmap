@@ -3,9 +3,9 @@
 //! Oracle: draft-atwood-jmap-chat-filenode-00.md at jmap-chat-spec
 //! 0cd3af0 ("filenode Lnnn"):
 //!
-//! - L128: "When a client creates a FileNode with `role:
-//!   "urn:jmap:chat:filenode:space"`, it MUST supply `@type: "Directory"`
-//!   ... and `spaceId`. The server MUST validate:"
+//! - L139 (at 6bcd9d8): "When a client creates a FileNode with `role:
+//!   "chatspace"`, it MUST supply `spaceId`, and its `@type` ... MUST be
+//!   `"Directory"`. The server MUST validate:"
 //! - L130: "The Space identified by `spaceId` exists and the requesting
 //!   user is a member. If not, the server MUST return `forbidden`."
 //! - L131: "No file tree root already exists for that Space ... If one
@@ -35,7 +35,7 @@ use serde_json::{json, Value};
 
 const ACCOUNT: &str = "A1";
 const SPACE: &str = "S1";
-const ROLE: &str = "urn:jmap:chat:filenode:space";
+const ROLE: &str = "chatspace";
 
 struct Fixture {
     chat: ChatMemory,
@@ -127,7 +127,7 @@ fn root(space_id: Option<&str>) -> Value {
 }
 
 /// L128 scopes the checks to creates "with `role:
-/// "urn:jmap:chat:filenode:space"`": other nodes pass without a Space.
+/// "chatspace"`": other nodes pass without a Space.
 #[tokio::test]
 async fn non_root_node_is_not_checked() {
     let f = Fixture::new();

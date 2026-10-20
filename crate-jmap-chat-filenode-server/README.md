@@ -42,7 +42,7 @@ check_root_create(&self.chat, &(), &self.files, &(), account_id, &node, &self.ev
 self.files.create_object(caller, account_id, create_id, node).await
 ```
 
-Any node whose `role` is not `urn:jmap:chat:filenode:space` passes
+Any node whose `role` is not `chatspace` passes
 unchecked, so the call can run before every FileNode insert.
 
 ## How it works

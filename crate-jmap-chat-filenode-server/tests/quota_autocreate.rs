@@ -12,8 +12,8 @@
 //! - L111: "When `true`, the server automatically creates a Space file
 //!   tree root for each new Space at Space creation time and includes the
 //!   new FileNode in subsequent `FileNode/changes` responses."
-//! - L116: "A Space's file tree is rooted at a single FileNode identified
-//!   by the well-known `role` value `"urn:jmap:chat:filenode:space"` and
+//! - L126 (at 6bcd9d8): "A Space's file tree is rooted at a single FileNode identified
+//!   by the well-known `role` value `"chatspace"` and
 //!   the `spaceId` extension property".
 //! - L138: "When a file tree exists for the Space, exactly one matching
 //!   FileNode is returned."
@@ -28,7 +28,7 @@ use jmap_types::Id;
 use serde_json::{json, Value};
 
 const ACCOUNT: &str = "A1";
-const ROLE: &str = "urn:jmap:chat:filenode:space";
+const ROLE: &str = "chatspace";
 const LIMIT: u64 = 100;
 
 fn node(v: Value) -> FileNode {
@@ -119,7 +119,7 @@ async fn other_spaces_tree_is_not_counted() {
 }
 
 /// L108, L116: the limit applies to Space file trees only, those rooted
-/// at a node with role `urn:jmap:chat:filenode:space`.
+/// at a node with role `chatspace`.
 #[tokio::test]
 async fn node_outside_a_space_tree_is_not_checked() {
     let files = fixture();

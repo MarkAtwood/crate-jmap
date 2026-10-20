@@ -3,7 +3,7 @@
 //! Spec oracle: draft-atwood-jmap-chat-filenode-00 §Discovering the File
 //! Tree Root — "To locate the file tree root for a given Space, clients
 //! issue a `FileNode/query` request filtering on
-//! `role: "urn:jmap:chat:filenode:space"` and `spaceId: <id>`."
+//! `role: "chatspace"` and `spaceId: <id>`."
 
 #[path = "helpers.rs"]
 mod helpers;
@@ -49,7 +49,7 @@ async fn space_file_tree_root_sends_role_and_space_filter() {
         json!({
             "accountId": TEST_ACCOUNT_ID,
             "filter": {
-                "role": "urn:jmap:chat:filenode:space",
+                "role": "chatspace",
                 "spaceId": "sp1"
             }
         })

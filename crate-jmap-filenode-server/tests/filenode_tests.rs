@@ -3194,12 +3194,12 @@ async fn filenode_set_update_null_defaulted_resets_to_default() {
 
 // ---------------------------------------------------------------------------
 // FileNode/query filters on the `spaceId` extension property.
-// Oracle: draft-atwood-jmap-chat-filenode-00 (jmap-chat-spec HEAD)
-//   L124: "Servers MUST support `spaceId` as a filter criterion in
+// Oracle: draft-atwood-jmap-chat-filenode-00 (jmap-chat-spec 6bcd9d8)
+//   L135: "Servers MUST support `spaceId` as a filter criterion in
 //          `FileNode/query`, enabling clients to efficiently locate the root
 //          for a given Space."
-//   L138: "clients issue a `FileNode/query` request filtering on
-//          `role: \"urn:jmap:chat:filenode:space\"` and `spaceId: <id>`. When a
+//   L149: "clients issue a `FileNode/query` request filtering on
+//          `role: \"chatspace\"` and `spaceId: <id>`. When a
 //          file tree exists for the Space, exactly one matching FileNode is
 //          returned. When no file tree exists, the result is empty"
 // ---------------------------------------------------------------------------
@@ -3214,9 +3214,9 @@ async fn filenode_query_space_id_returns_only_matching_space_root() {
             "accountId": "acc1",
             "create": {
                 "r1": { "@type": "Directory", "name": "space-one", "parentId": null,
-                        "role": "urn:jmap:chat:filenode:space", "spaceId": "S1" },
+                        "role": "chatspace", "spaceId": "S1" },
                 "r2": { "@type": "Directory", "name": "space-two", "parentId": null,
-                        "role": "urn:jmap:chat:filenode:space", "spaceId": "S2" }
+                        "role": "chatspace", "spaceId": "S2" }
             }
         }),
     )
@@ -3234,29 +3234,29 @@ async fn filenode_query_space_id_returns_only_matching_space_root() {
             &(),
             json!({
                 "accountId": "acc1",
-                "filter": { "role": "urn:jmap:chat:filenode:space", "spaceId": space_id }
+                "filter": { "role": "chatspace", "spaceId": space_id }
             }),
         )
     };
 
     let HandlerOutput { primary: q, .. } = query("S1").await.expect("query S1 must succeed");
-    assert_eq!(q["ids"], json!([r1]), "L138: exactly one root for S1: {q}");
+    assert_eq!(q["ids"], json!([r1]), "L149: exactly one root for S1: {q}");
 
     let HandlerOutput { primary: q, .. } = query("S3").await.expect("query S3 must succeed");
     assert_eq!(
         q["ids"],
         json!([]),
-        "L138: no tree for S3, empty result: {q}"
+        "L149: no tree for S3, empty result: {q}"
     );
 }
 
 // ---------------------------------------------------------------------------
 // The `spaceId` extension property: root-only and immutable.
-// Oracle: draft-atwood-jmap-chat-filenode-00 (jmap-chat-spec HEAD)
-//   L119: "This document defines the following extension property on
+// Oracle: draft-atwood-jmap-chat-filenode-00 (jmap-chat-spec 6bcd9d8)
+//   L130: "This document defines the following extension property on
 //          FileNode objects that serve as Space file tree roots (i.e., where
-//          `role` is `\"urn:jmap:chat:filenode:space\"`):"
-//   L121-122: "`spaceId` (String, immutable): The `id` of the JMAP Chat Space
+//          `role` is `\"chatspace\"`):"
+//   L132-133: "`spaceId` (String, immutable): The `id` of the JMAP Chat Space
 //          this FileNode is associated with. Supplied by the client at
 //          creation and treated as immutable thereafter. Absent on all
 //          FileNode objects that are not Space file tree roots."
@@ -3272,7 +3272,7 @@ async fn create_space_root(backend: &MemoryBackend, space_id: &str) -> String {
             "accountId": "acc1",
             "create": {
                 "r": { "@type": "Directory", "name": "space", "parentId": null,
-                       "role": "urn:jmap:chat:filenode:space", "spaceId": space_id }
+                       "role": "chatspace", "spaceId": space_id }
             }
         }),
     )
@@ -3280,7 +3280,7 @@ async fn create_space_root(backend: &MemoryBackend, space_id: &str) -> String {
     .expect("create Space root must succeed");
     resp["created"]["r"]["id"]
         .as_str()
-        .unwrap_or_else(|| panic!("L119: a Space root may carry spaceId: {resp}"))
+        .unwrap_or_else(|| panic!("L130: a Space root may carry spaceId: {resp}"))
         .to_owned()
 }
 
@@ -3316,8 +3316,8 @@ async fn filenode_set_create_space_id_on_non_root_rejected() {
     .expect("FileNode/set must succeed");
     for cid in ["noRole", "otherRole"] {
         let err = &resp["notCreated"][cid];
-        assert_eq!(err["type"], "invalidProperties", "L122 {cid}: {resp}");
-        assert_eq!(err["properties"], json!(["spaceId"]), "L122 {cid}: {resp}");
+        assert_eq!(err["type"], "invalidProperties", "L133 {cid}: {resp}");
+        assert_eq!(err["properties"], json!(["spaceId"]), "L133 {cid}: {resp}");
     }
     assert!(
         resp["created"].as_object().is_none_or(|m| m.is_empty()),
@@ -3329,7 +3329,7 @@ async fn filenode_set_create_space_id_on_non_root_rejected() {
 async fn filenode_set_create_space_root_reports_space_id() {
     let backend = MemoryBackend::new().with_account("acc1");
     let root = create_space_root(&backend, "S1").await;
-    assert_eq!(get_space_id(&backend, &root).await, json!("S1"), "L121");
+    assert_eq!(get_space_id(&backend, &root).await, json!("S1"), "L132");
 }
 
 #[tokio::test]
@@ -3345,14 +3345,14 @@ async fn filenode_set_update_space_id_rejected() {
         .await
         .expect("FileNode/set must succeed");
         let err = &resp["notUpdated"][&root];
-        assert_eq!(err["type"], "invalidProperties", "L122 {patch}: {resp}");
+        assert_eq!(err["type"], "invalidProperties", "L133 {patch}: {resp}");
         assert_eq!(
             err["properties"],
             json!(["spaceId"]),
-            "L122 {patch}: {resp}"
+            "L133 {patch}: {resp}"
         );
     }
-    assert_eq!(get_space_id(&backend, &root).await, json!("S1"), "L122");
+    assert_eq!(get_space_id(&backend, &root).await, json!("S1"), "L133");
 }
 
 #[tokio::test]
@@ -3368,9 +3368,9 @@ async fn filenode_set_update_adding_space_id_to_non_root_rejected() {
     .expect("FileNode/set must succeed");
     assert_eq!(
         resp["notUpdated"]["d1"]["type"], "invalidProperties",
-        "L122: {resp}"
+        "L133: {resp}"
     );
-    assert!(get_space_id(&backend, "d1").await.is_null(), "L122");
+    assert!(get_space_id(&backend, "d1").await.is_null(), "L133");
 }
 
 #[tokio::test]
@@ -3388,12 +3388,63 @@ async fn filenode_set_update_role_off_space_root_rejected() {
         let err = &resp["notUpdated"][&root];
         assert_eq!(
             err["type"], "invalidProperties",
-            "L119/L122 {patch}: {resp}"
+            "L130/L133 {patch}: {resp}"
         );
         assert_eq!(
             err["properties"],
             json!(["role"]),
-            "L119/L122 {patch}: {resp}"
+            "L130/L133 {patch}: {resp}"
         );
     }
+}
+
+// Oracle: draft-atwood-jmap-chat-filenode-00 (jmap-chat-spec 6bcd9d8)
+//   L145: "The `role` value `\"chatspace\"` can be set only when a FileNode
+//          is created. A server MUST reject a `FileNode/set` update that
+//          changes `role` to or from `\"chatspace\"` with an
+//          `invalidProperties` SetError ({{RFC8620}} Section 5.3) naming
+//          `role`."
+#[tokio::test]
+async fn filenode_set_update_role_to_chatspace_rejected() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_node("acc1", make_dir("d1", "plain", None));
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "update": { "d1": { "role": "chatspace" } } }),
+    )
+    .await
+    .expect("FileNode/set must succeed");
+    let err = &resp["notUpdated"]["d1"];
+    assert_eq!(err["type"], "invalidProperties", "L145: {resp}");
+    assert_eq!(err["properties"], json!(["role"]), "L145: {resp}");
+    let HandlerOutput { primary: got, .. } = handle_filenode_get(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": ["d1"], "properties": ["role"] }),
+    )
+    .await
+    .expect("FileNode/get must succeed");
+    assert!(
+        got["list"][0]["role"].is_null(),
+        "L145: role unchanged: {got}"
+    );
+}
+
+#[tokio::test]
+async fn filenode_set_update_space_root_keeping_chatspace_accepted() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let root = create_space_root(&backend, "S1").await;
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1",
+                "update": { root.clone(): { "role": "chatspace", "name": "renamed" } } }),
+    )
+    .await
+    .expect("FileNode/set must succeed");
+    assert!(
+        resp["updated"].get(&root).is_some(),
+        "L145: role not changed, so not rejected: {resp}"
+    );
 }
