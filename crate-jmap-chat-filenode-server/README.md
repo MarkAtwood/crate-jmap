@@ -11,6 +11,8 @@ draft-atwood-jmap-chat-filenode-00 that apply when one server offers
 | Item | Spec |
 |---|---|
 | `check_root_create` | chat-filenode §Creating the File Tree Root: `spaceId` required, Space exists and the caller is a member (`forbidden`), one root per Space (`alreadyExists` with `existingId`), `manage_space` required (`forbidden`, §Permission Mapping) |
+| `check_space_quota` | chat-filenode §Account-Level Capability Object `maxSpaceStorageBytes`: a create that would take the Space file tree over the limit is `overQuota` |
+| `create_space_file_tree` | chat-filenode §Account-Level Capability Object `autoCreateFileTree`: insert the root when a Space is created |
 | `RootCheckError` | A Chat or FileNode storage failure during the check |
 
 ## What it's for
@@ -21,6 +23,8 @@ calls these functions from its trait methods:
 | Backend method | Call |
 |---|---|
 | `FileNodeBackend::create_object::<FileNode>`, before the insert | `check_root_create` |
+| The same, when advertising `maxSpaceStorageBytes` | `check_space_quota` |
+| `ChatBackend::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | `create_space_file_tree` |
 
 ## How to use
 
@@ -54,6 +58,12 @@ do not apply to file tree access.
   argument: the draft says every member holds that role but puts its
   permissions on no wire object. Controller principals that bypass
   permission resolution are deployment-defined; skip the call for them.
+- `check_space_quota` sums the stored `size` of every node in the tree
+  plus the new node's `size`: call it after setting the server-set `size`
+  from the blob, and re-check under the insert's transaction. It reads the
+  whole tree per create; a large deployment keeps a per-Space total.
+- `create_space_file_tree` names the root after the Space id; members
+  with `manage_space` may rename it.
 - The requesting user is the owner of `account_id`, and the Space and the
   FileNode live in that same account.
 

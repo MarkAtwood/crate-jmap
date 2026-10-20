@@ -22,6 +22,12 @@ wire behaviour that a conforming peer can observe.
   (`alreadyExists` with `existingId`), or without `manage_space`
   (`forbidden`) (draft-atwood-jmap-chat-filenode-00 §Creating the File Tree
   Root, §Permission Mapping).
+- **jmap-chat-filenode-server**: `check_space_quota` refuses a FileNode
+  create that would take a Space file tree's total `size` over
+  `maxSpaceStorageBytes` with `overQuota`, and `create_space_file_tree`
+  inserts a Space's file tree root for a server advertising
+  `autoCreateFileTree: true` (draft-atwood-jmap-chat-filenode-00
+  §Account-Level Capability Object).
 - **jmap-filenode-types**, **jmap-filenode-server**:
   `FileNodeFilterCondition.space_id` (`spaceId` on the wire), matched by the
   in-memory backend against the node's `spaceId` property, so
