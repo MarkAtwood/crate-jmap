@@ -22,10 +22,11 @@ use crate::FederationBackend;
 ///   `invitedBy` resolved per §User References in Peer Methods
 ///   (placeholder ChatContacts for unknown identities), and `name`,
 ///   `description` and `avatarBlobId` as sent. A `chatId` already in use
-///   is `forbidden`, except by a group Chat the sender is a member of,
-///   which answers a retried create without writing.
+///   is `forbidden`, except by an open group Chat the sender is a member
+///   of, which answers a retried create without writing; a closed one is
+///   `forbidden` (see `closedAt` below).
 /// - Every other action needs a stored group Chat with this id, else
-///   `forbidden`. "Once the local Chat record has `closedAt` set, the
+///   `forbidden`. For every action, "Once the local Chat record has `closedAt` set, the
 ///   receiving server MUST reject every subsequent `Peer/groupUpdate` for
 ///   that chat with `forbidden`." The sender must be a member, and for
 ///   every action but `"leave"` an admin, else `forbidden`.
@@ -75,7 +76,10 @@ pub async fn handle_peer_group_update<B: FederationBackend>(
             return Err(JmapError::forbidden());
         }
         if let Some(chat) = stored {
-            return if chat.kind == ChatKind::Group && is_member(&chat, sender_id.as_ref()) {
+            let retry = chat.kind == ChatKind::Group
+                && chat.closed_at.is_none()
+                && is_member(&chat, sender_id.as_ref());
+            return if retry {
                 Ok(ack)
             } else {
                 Err(JmapError::forbidden())
