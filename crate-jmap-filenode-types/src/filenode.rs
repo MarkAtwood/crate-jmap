@@ -4,6 +4,7 @@
 
 use std::collections::BTreeMap;
 
+use jmap_cid_types::Sha256;
 use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize, Serializer};
 
@@ -146,7 +147,7 @@ pub struct FilesRights {
 ///
 /// | `@type` | Emitted type-specific properties |
 /// |---|---|
-/// | `File` | `blobId`, `size` (each only when `Some`); `mediaType`, `executable` (always; their defaults `"application/octet-stream"` and `false` when `None`) |
+/// | `File` | `blobId`, `size`, `sha256` (each only when `Some`); `mediaType`, `executable` (always; their defaults `"application/octet-stream"` and `false` when `None`) |
 /// | `Directory` | `role` (always; `null` when `None`, as it is `String|null`) |
 /// | `SymLink` | `target` (only when `Some`) |
 /// | absent or unrecognised | every type-specific property that is `Some` |
@@ -207,6 +208,17 @@ pub struct FileNode {
 
     /// User-visible name for the FileNode.  Net-Unicode, at least 1 character.
     pub name: String,
+
+    /// SHA-256 digest of the associated blob (draft-atwood-jmap-cid-00
+    /// §FileNode Extension).  `File` only.
+    ///
+    /// Present only when the server advertises `urn:ietf:params:jmap:cid`.
+    /// The draft says it "MUST be `null` for directory FileNodes", and a server
+    /// "MAY return `null` for a file FileNode whose digest was not computed".
+    /// `None` covers absent and `null`; check [`node_type`](Self::node_type) to
+    /// tell a directory from a legacy file.  A malformed digest fails
+    /// deserialization.
+    pub sha256: Option<Sha256>,
 
     /// The media type (IANA) of the file.  `File` only; the server defaults it
     /// to `"application/octet-stream"`.
@@ -294,6 +306,8 @@ impl Serialize for FileNode {
             target: Option<&'a Vec<String>>,
             #[serde(skip_serializing_if = "Option::is_none")]
             size: Option<u64>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            sha256: Option<&'a Sha256>,
             name: &'a str,
             #[serde(skip_serializing_if = "Option::is_none")]
             media_type: Option<&'a str>,
@@ -324,6 +338,7 @@ impl Serialize for FileNode {
             blob_id,
             target,
             size,
+            sha256,
             name,
             media_type,
             created,
@@ -357,6 +372,7 @@ impl Serialize for FileNode {
             blob_id: blob_id.as_ref().filter(|_| file),
             target: target.as_ref().filter(|_| defines(&NodeType::Symlink)),
             size: size.filter(|_| file),
+            sha256: sha256.as_ref().filter(|_| file),
             name,
             media_type: match known {
                 Some(NodeType::File) => {

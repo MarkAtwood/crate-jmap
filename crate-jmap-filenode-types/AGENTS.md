@@ -92,7 +92,7 @@ Run all four before considering any work done.
 |---|---|
 | Async | None — sync only |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
-| Dependencies | jmap-types, serde, serde_json only |
+| Dependencies | jmap-types, jmap-cid-types, serde, serde_json only (jmap-cid-types for `FileNode.sha256`, draft-atwood-jmap-cid-00) |
 | Field names | Must match draft-ietf-jmap-filenode-14 exactly |
 | Wire format | camelCase JSON — `#[serde(rename_all = "camelCase")]` |
 | Test oracle | Hand-written JSON from spec examples — never from code under test |
@@ -110,8 +110,8 @@ Run all four before considering any work done.
 - Push freely — `git push`, no `pull --rebase` ritual (workspace
   AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
-- Do not add dependencies beyond jmap-types, serde, serde_json
+- Do not add dependencies beyond jmap-types, jmap-cid-types, serde, serde_json
 - Do not add async, tokio, or axum
 - Do not add method handler logic — types only
 - Do not add fields or types not present in draft-ietf-jmap-filenode-14
-  unless explicitly directed
+  unless explicitly directed (`sha256` comes from draft-atwood-jmap-cid-00)
