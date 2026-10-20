@@ -295,14 +295,14 @@ pub enum VtcEvent {
     },
 }
 
-const RING: &str = "VTCRingEvent";
-const CALL_END: &str = "VTCCallEndEvent";
-const GATEWAY_SIGNAL: &str = "VTCGatewaySignal";
-const PARTICIPANT: &str = "VTCParticipantEvent";
-const MEDIA_STATE: &str = "VTCMediaStateEvent";
-const ACTIVE_SPEAKER: &str = "VTCActiveSpeakerEvent";
-const UNMUTE_REQUEST: &str = "VTCUnmuteRequestEvent";
-const RECORDING_STATE: &str = "VTCRecordingStateEvent";
+pub(crate) const RING: &str = "VTCRingEvent";
+pub(crate) const CALL_END: &str = "VTCCallEndEvent";
+pub(crate) const GATEWAY_SIGNAL: &str = "VTCGatewaySignal";
+pub(crate) const PARTICIPANT: &str = "VTCParticipantEvent";
+pub(crate) const MEDIA_STATE: &str = "VTCMediaStateEvent";
+pub(crate) const ACTIVE_SPEAKER: &str = "VTCActiveSpeakerEvent";
+pub(crate) const UNMUTE_REQUEST: &str = "VTCUnmuteRequestEvent";
+pub(crate) const RECORDING_STATE: &str = "VTCRecordingStateEvent";
 
 impl Serialize for VtcEvent {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {

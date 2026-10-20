@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-vtc-types**: draft-atwood-jmap-vtc-wss-00 stream control
+  frames — `JMAP_VTC_WEBSOCKET_URI`
+  (`urn:ietf:params:jmap:vtc:websocket`), `VtcStreamEnable` (`callIds`
+  and `eventTypes`, each defaulting to `null`), `VtcStreamDisable`, the
+  `@type`-dispatched `VtcStreamMessage` with a verbatim `Unknown` arm, and
+  the `VTC_EVENT_TYPES` vocabulary of recognized `eventTypes` values.
 - **jmap-vtc-server**: new crate with the draft-atwood-jmap-vtc-00
   `VTCCall/get`, `/changes`, `/set`, `/query` and `/queryChanges`
   handlers, the `VtcBackend` trait and a `memory` reference backend.
