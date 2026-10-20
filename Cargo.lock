@@ -1533,6 +1533,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-chat-federation-server"
+version = "0.3.0"
+dependencies = [
+ "jmap-types",
+]
+
+[[package]]
 name = "jmap-chat-federation-types"
 version = "0.3.0"
 dependencies = [
