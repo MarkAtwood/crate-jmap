@@ -1115,8 +1115,10 @@ pub async fn handle_message_set<B: ChatBackend>(
                 continue;
             }
 
-            // A Chat not found is left for create_object to surface
-            // the normal error downstream.
+            // draft-atwood-jmap-chat-00 §Input Validation: "`chatId`:
+            // verify per {{chat-id}} — confirm match with stored id"; a
+            // failed check is "an `invalidProperties` SetError ... whose
+            // `properties` names the offending property".
             let chat = match backend
                 .get_objects::<Chat>(
                     caller,
@@ -1126,31 +1128,42 @@ pub async fn handle_message_set<B: ChatBackend>(
                 )
                 .await
             {
-                Ok((found, _)) => found.into_iter().next(),
+                Ok((found, _)) => match found.into_iter().next() {
+                    Some(chat) => chat,
+                    None => {
+                        not_created.insert(
+                            create_id.clone(),
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": ["chatId"],
+                                "description": format!("no Chat with id {chat_id}"),
+                            }),
+                        );
+                        continue;
+                    }
+                },
                 Err(e) => {
                     not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
                     continue;
                 }
             };
 
-            if let Some(chat) = &chat {
-                match backend.may_create_message(caller, &account_id, chat).await {
-                    Ok(Ok(())) => {}
-                    Ok(Err(set_err)) => {
-                        not_created.insert(create_id.clone(), set_error_value(&set_err));
-                        continue;
-                    }
-                    Err(e) => {
-                        not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
-                        continue;
-                    }
+            match backend.may_create_message(caller, &account_id, &chat).await {
+                Ok(Ok(())) => {}
+                Ok(Err(set_err)) => {
+                    not_created.insert(create_id.clone(), set_error_value(&set_err));
+                    continue;
+                }
+                Err(e) => {
+                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
+                    continue;
                 }
             }
 
             // draft-atwood-jmap-chat-00 §Chat `closedAt`: "After it is
             // set, the server MUST reject with a `forbidden` SetError
             // every `Message/set` create in this Chat".
-            if chat.as_ref().is_some_and(|c| c.closed_at.is_some()) {
+            if chat.closed_at.is_some() {
                 not_created.insert(
                     create_id.clone(),
                     json!({ "type": "forbidden", "description": "the group is closed" }),
@@ -1162,7 +1175,7 @@ pub async fn handle_message_set<B: ChatBackend>(
             // set, the Space's channels are read-only: the server MUST
             // reject every `Message/set` create in them with a
             // `forbidden` SetError."
-            if let Some(sid) = chat.as_ref().and_then(|c| c.space_id.as_ref()) {
+            if let Some(sid) = &chat.space_id {
                 match backend
                     .get_objects::<Space>(
                         caller,
@@ -1211,8 +1224,8 @@ pub async fn handle_message_set<B: ChatBackend>(
             // display-only and never consulted (§Rich Body Format).
             // Group/direct chats (no spaceId) are unrestricted per spec.
             if let Some(sid) = chat
+                .space_id
                 .as_ref()
-                .and_then(|c| c.space_id.as_ref())
                 .filter(|_| !broadcast_mentions_val.is_empty())
             {
                 match backend
@@ -2152,6 +2165,7 @@ mod tests {
     #[tokio::test]
     async fn broadcast_mention_validation_accepts_valid() {
         let backend = MemoryBackend::new();
+        let chat_id = make_group_chat(&backend).await;
         let body = "Hello @everyone!";
         let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
@@ -2160,7 +2174,7 @@ mod tests {
                 "accountId": ACCOUNT_ID,
                 "create": {
                     "m0": {
-                        "chatId": "c1",
+                        "chatId": chat_id,
                         "body": body,
                         "sentAt": "2024-01-01T00:00:00Z",
                         "broadcastMentions": [
@@ -2184,6 +2198,7 @@ mod tests {
     #[tokio::test]
     async fn broadcast_mention_validation_accepts_empty() {
         let backend = MemoryBackend::new();
+        let chat_id = make_group_chat(&backend).await;
         let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
             &(),
@@ -2191,7 +2206,7 @@ mod tests {
                 "accountId": ACCOUNT_ID,
                 "create": {
                     "m0": {
-                        "chatId": "c1",
+                        "chatId": chat_id,
                         "body": "Hello, world!",
                         "sentAt": "2024-01-01T00:00:00Z",
                         "broadcastMentions": []

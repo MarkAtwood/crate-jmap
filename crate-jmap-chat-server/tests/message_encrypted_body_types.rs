@@ -20,7 +20,7 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
+use common::{seed_group_chat, MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_message_set, ChatLimits};
 use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
@@ -37,6 +37,7 @@ fn backend(encrypted: &'static [&'static str]) -> MemoryBackend {
             .with_supported_body_types(SUPPORTED)
             .with_encrypted_body_types(encrypted),
     ));
+    seed_group_chat(&backend, "c1");
     backend
 }
 

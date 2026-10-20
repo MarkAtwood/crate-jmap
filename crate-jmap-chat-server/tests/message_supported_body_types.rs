@@ -7,7 +7,7 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
+use common::{seed_group_chat, MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_message_set, ChatLimits};
 use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
@@ -15,6 +15,7 @@ use serde_json::{json, Value};
 /// Send one `Message/set` create per `(createId, bodyType)` pair and return
 /// the whole response. A `None` bodyType omits the property.
 async fn create(backend: &MemoryBackend, entries: &[(&str, Option<&str>)]) -> Value {
+    seed_group_chat(backend, "c1");
     let create: serde_json::Map<String, Value> = entries
         .iter()
         .map(|&(cid, body_type)| {

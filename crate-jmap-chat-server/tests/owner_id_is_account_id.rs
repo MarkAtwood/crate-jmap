@@ -10,7 +10,7 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
+use common::{seed_group_chat, MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_message_get, handle_message_query, handle_message_set};
 use jmap_server::HandlerOutput;
 use serde_json::{json, Value};
@@ -75,6 +75,7 @@ fn assert_updated(resp: &Value, id: &str) {
 #[tokio::test]
 async fn created_message_sender_id_is_account_id() {
     let backend = MemoryBackend::new();
+    seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),

@@ -1070,6 +1070,7 @@ async fn message_set_create_missing_chat_id() {
 #[tokio::test]
 async fn message_set_create_success() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
@@ -1092,6 +1093,7 @@ async fn message_set_create_success() {
 #[tokio::test]
 async fn message_set_update_readonly_field() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput {
         primary: create_resp,
@@ -1129,6 +1131,7 @@ async fn message_set_update_readonly_field() {
 #[tokio::test]
 async fn message_get_returns_created() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
@@ -1163,6 +1166,7 @@ async fn message_get_returns_created() {
 #[tokio::test]
 async fn message_changes_after_create() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
 
     handle_message_set(
         &backend,
@@ -1190,6 +1194,7 @@ async fn message_changes_after_create() {
 #[tokio::test]
 async fn message_query_order() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
 
     for i in 0..3u32 {
         handle_message_set(
@@ -1221,6 +1226,7 @@ async fn message_query_order() {
 #[tokio::test]
 async fn message_set_update_body_injects_edited_at() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
@@ -1274,6 +1280,7 @@ async fn message_set_update_body_injects_edited_at() {
 #[tokio::test]
 async fn message_set_update_delete_for_all_injects_deleted_at() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
@@ -1637,6 +1644,7 @@ async fn message_set_update_edit_rejects_deleted_message() {
 #[tokio::test]
 async fn message_set_update_mark_as_read() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
@@ -1689,6 +1697,7 @@ async fn message_set_update_mark_as_read() {
 #[tokio::test]
 async fn message_set_read_at_defaults_disposition() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
@@ -1728,6 +1737,7 @@ async fn message_set_read_at_defaults_disposition() {
 #[tokio::test]
 async fn message_set_explicit_disposition_preserved() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
@@ -1766,6 +1776,7 @@ async fn message_set_explicit_disposition_preserved() {
 #[tokio::test]
 async fn message_set_extension_disposition_stored_as_is() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
@@ -1804,6 +1815,7 @@ async fn message_set_extension_disposition_stored_as_is() {
 #[tokio::test]
 async fn message_set_no_read_at_no_disposition_injected() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
@@ -1850,6 +1862,7 @@ async fn message_set_no_read_at_no_disposition_injected() {
 #[tokio::test]
 async fn message_set_lone_read_disposition_is_invalid_properties() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
@@ -1903,6 +1916,7 @@ async fn message_set_lone_read_disposition_is_invalid_properties() {
 #[tokio::test]
 async fn message_set_unsupported_body_type_is_invalid_properties() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
@@ -1954,6 +1968,7 @@ async fn message_set_unsupported_body_type_is_invalid_properties() {
 #[tokio::test]
 async fn message_set_read_at_null_clears_read_disposition() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
@@ -2012,6 +2027,7 @@ async fn message_set_read_at_null_clears_read_disposition() {
 #[tokio::test]
 async fn message_set_burn_on_read_fires_on_read_at() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
 
     // Create a burn-on-read message.
     let HandlerOutput {
@@ -2110,6 +2126,7 @@ async fn message_set_burn_on_read_fires_on_read_at() {
 #[tokio::test]
 async fn message_set_burn_on_read_no_fire_without_read_at() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
         ..
@@ -2173,6 +2190,7 @@ async fn message_set_burn_on_read_no_fire_without_read_at() {
 #[tokio::test]
 async fn message_set_no_burn_when_burn_on_read_absent() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
         ..
@@ -2234,6 +2252,7 @@ async fn message_set_no_burn_when_burn_on_read_absent() {
 #[tokio::test]
 async fn message_set_burn_on_read_no_fire_on_read_at_null() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
         ..
@@ -2299,6 +2318,7 @@ async fn message_set_burn_on_read_no_fire_on_read_at_null() {
 #[tokio::test]
 async fn memory_backend_expire_message_direct_call() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
         ..
@@ -2422,6 +2442,8 @@ async fn message_set_burn_on_read_expire_failure_redacts_backend_display() {
     use common::{InjectableBackend, INJECTABLE_BACKEND_CANARY};
 
     let backend = InjectableBackend::new();
+
+    common::seed_group_chat(&backend.inner, "c1");
     backend.inner.register_account(&Id::from(ACCOUNT_ID));
 
     // Create a burn-on-read message via the normal handler path. The
@@ -2764,6 +2786,7 @@ async fn memory_backend_retains_edit_history_default_is_false() {
 #[tokio::test]
 async fn message_set_create_no_slow_mode_on_memory_backend() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
@@ -2805,6 +2828,7 @@ async fn message_set_create_slow_mode_rejects_with_retry_after() {
     // so the test does not depend on wall-clock arithmetic.
     let retry_after = jmap_types::UTCDate::from("2099-12-31T00:00:00Z");
     let backend = TrackingBackend::with_slow_mode_blocking(retry_after.clone());
+    common::seed_group_chat(backend.inner(), "c1");
 
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
@@ -2852,6 +2876,7 @@ async fn message_set_create_slow_mode_rejects_with_retry_after() {
 #[tokio::test]
 async fn message_set_create_tracking_backend_default_allows() {
     let backend = TrackingBackend::new();
+    common::seed_group_chat(backend.inner(), "c1");
 
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
@@ -2920,6 +2945,7 @@ async fn message_set_create_slow_mode_skipped_when_validation_fails() {
 #[tokio::test]
 async fn message_set_create_with_reply_to() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
 
     // Create the message that will be replied to.
     let HandlerOutput { primary: first_resp, .. } = handle_message_set(
@@ -2974,6 +3000,7 @@ async fn message_set_create_with_reply_to() {
 #[tokio::test]
 async fn message_set_create_with_malformed_expiry_rejected() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
@@ -3010,6 +3037,7 @@ async fn message_set_create_with_malformed_expiry_rejected() {
 #[tokio::test]
 async fn message_set_create_with_past_expiry_rejected() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
@@ -3049,6 +3077,7 @@ async fn message_set_create_with_past_expiry_rejected() {
 #[tokio::test]
 async fn message_set_past_expiry_set_error_matches_draft() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
 
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
@@ -3160,6 +3189,7 @@ async fn position_set_create_with_malformed_last_read_at_rejected() {
 #[tokio::test]
 async fn message_set_update_reaction_add_overrides_sender_id_to_account_id() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: create_resp, .. } = handle_message_set(
         &backend,
         &(),
@@ -3224,6 +3254,7 @@ async fn message_set_update_reaction_add_overrides_sender_id_to_account_id() {
 #[tokio::test]
 async fn message_set_update_reaction_add_overrides_client_supplied_sender_id() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
         ..
@@ -3406,6 +3437,7 @@ async fn message_set_update_reaction_modify_others_rejected_forbidden() {
 #[tokio::test]
 async fn message_set_update_reaction_pointer_with_slash_rejected() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
         ..
@@ -3449,6 +3481,7 @@ async fn message_set_update_reaction_pointer_with_slash_rejected() {
 #[tokio::test]
 async fn message_set_update_reaction_non_object_value_rejected() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
         ..
@@ -3491,6 +3524,7 @@ async fn message_set_update_reaction_non_object_value_rejected() {
 #[tokio::test]
 async fn message_set_update_reaction_remove_self_succeeds() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
         ..
@@ -3567,6 +3601,7 @@ async fn message_set_update_reaction_remove_self_succeeds() {
 #[tokio::test]
 async fn message_set_update_reaction_mixed_top_level_and_pointer_rejected() {
     let backend = MemoryBackend::new();
+    common::seed_group_chat(&backend, "c1");
     let HandlerOutput {
         primary: create_resp,
         ..

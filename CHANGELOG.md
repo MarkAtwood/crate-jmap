@@ -530,6 +530,10 @@ wire behaviour that a conforming peer can observe.
 - **jmap-chat-server**: `Chat/set` and `Message/set` updates read the stored
   Chat, or the stored Message and its Chat, once per target and reuse it for
   every check, instead of re-reading it per check.
+- **BREAKING** **jmap-chat-server**: `Message/set` create whose `chatId`
+  names no stored Chat is rejected with `invalidProperties` naming
+  `chatId` instead of being stored and returned in `created`
+  (draft-atwood-jmap-chat-00 §Input Validation).
 
 ## [0.3.0] - 2026-10-20
 

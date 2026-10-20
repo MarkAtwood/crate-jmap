@@ -12,7 +12,7 @@
 
 mod common;
 
-use common::{MemoryBackend, ACCOUNT_ID};
+use common::{seed_group_chat, MemoryBackend, ACCOUNT_ID};
 use jmap_chat_server::{handle_message_get, handle_message_set, ChatBackend};
 use jmap_chat_types::Message;
 use jmap_server::HandlerOutput;
@@ -20,6 +20,7 @@ use jmap_types::{Id, PatchObject};
 use serde_json::{json, Value};
 
 async fn create_message(backend: &MemoryBackend) -> String {
+    seed_group_chat(backend, "c1");
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),

@@ -9,7 +9,7 @@
 
 mod common;
 
-use common::InjectableBackend;
+use common::{seed_group_chat, InjectableBackend};
 use jmap_chat_server::{handle_message_changes, handle_message_get, handle_message_set};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
@@ -22,6 +22,7 @@ const READ_AT: &str = "2024-01-02T00:00:00Z";
 async fn seeded() -> (InjectableBackend, String) {
     let backend = InjectableBackend::new();
     backend.inner.register_account(&Id::from(ACCOUNT_ID));
+    seed_group_chat(&backend.inner, "c1");
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
