@@ -1,231 +1,90 @@
 # jmap-metadata-server — Implementation Plan
 
-JMAP Object Metadata extension
-([draft-ietf-jmap-metadata-01](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/))
-method handlers. Plugs into `jmap-server`'s `Dispatcher`. Backend-agnostic:
-defines a `MetadataBackend` trait; consumers provide the implementation.
+Pure server-side helpers for the JMAP Object Metadata extension
+([draft-ietf-jmap-metadata-02](https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-02)).
 
 ## Crate Family Position
 
 ```
-jmap-types
-    ├── jmap-server               dispatcher
-    └── jmap-metadata-types       data types
-            └── jmap-metadata-server  ← this crate
+jmap-metadata-types       data types
+    └── jmap-metadata-server  ← this crate
 ```
 
 ## What This Crate Is
 
-Method handler implementations for every JMAP Metadata method defined in
-draft-ietf-jmap-metadata-01: `Metadata/get`, `Metadata/changes`,
-`Metadata/set`, `Metadata/query`, `Metadata/queryChanges`.
-
-Defines a `MetadataBackend` trait that the application implements. The crate
-handles JMAP wire-protocol semantics (request shape parsing, partial set
-success, response envelope construction). The backend handles storage AND
-the Metadata-specific server-side constraints documented in
-draft-ietf-jmap-metadata-01 §3.1 (see "Server-side semantic constraints"
-below).
+Stateless functions over `serde_json` values and `jmap-metadata-types`
+structs that extension servers call when implementing the draft-02
+extensions to their own methods (§3). draft-02 removed the -01
+standalone `Metadata` object and its five `Metadata/*` methods, so the
+-01 `MetadataBackend` trait, `register_metadata_handlers`, and
+`MemoryBackend` were deleted in the -02 rewrite (bd JMAP-ua37.2).
 
 ## What This Crate Is Not
 
-- Not a full JMAP server
-- Not coupled to any specific storage (SQLite, PostgreSQL, in-memory)
-- Not handling auth — caller's responsibility before `Dispatcher::dispatch()`
-- Not axum-specific — any `http`-based framework works
-- Not enforcing the uniqueness / `maySetPrivate` / quota / related-object
-  validation constraints itself — see "Server-side semantic constraints"
-
-## Source Material
-
-### Normative
-
-`~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-metadata-01.txt` — read
-the relevant section before implementing each handler. Wire field names,
-error codes, and behavioral requirements come from the spec, not from memory.
-
-### Canonical template
-
-`~/PROJECT/crate-jmap/crate-jmap-mail-server/` is the workspace's canonical
-extension-server template per the workspace `AGENTS.md` "Canonical Templates"
-section. Trait shape, error-mapping helpers, handler-registration pattern,
-and the propagation rule (changes to the canonical first, then sweep
-siblings) all anchor on `jmap-mail-server`.
-
-The closest single-extension precedent for a single-capability
-single-object-family server is `~/PROJECT/crate-jmap/crate-jmap-sharing-server/`,
-which is a sibling (not a canonical) under the same template. Where this
-crate's scaffolding shape matched sharing-server's better than mail-server's
-single-extension shape (e.g. the `MetadataBackend` trait owning one
-object family rather than several), the cookie-cut started from
-sharing-server. The propagation rule still anchors on mail-server: a
-divergence from mail-server is a regression of the cookie-cutter intent
-even when sharing-server happens to share the same divergence.
+- Not a set of JMAP method handlers.
+- Not coupled to any storage; holds no state.
+- Not handling auth or per-viewer `privateMetadata` filtering — that
+  needs caller identity and lives in each extension server's backend.
+- Not wired into the workspace's extension servers yet — bd JMAP-s4kp.
 
 ## Capability URI
 
-`urn:ietf:params:jmap:metadata` (§1.2.1)
+`urn:ietf:params:jmap:metadata` (§1.2.1), re-exported as
+`JMAP_METADATA_URI`. Session-level value: empty object. Account-level
+value: `{ "dataTypes": { "<Type>": DataTypeMetadataInfo, … } }`.
 
-Re-exported from `jmap-metadata-types` as `JMAP_METADATA_URI` and from this
-crate at the top level. Include this string as a key in the session-level
-`capabilities` object (value: empty object) and the per-account
-`accountCapabilities` object (value: a `MetadataCapability` struct from
-`jmap-metadata-types`).
+## Helper Coverage
 
-## RFC Method Coverage
-
-| Method | Draft § | Handler notes |
+| Helper | Draft § | Contract |
 |---|---|---|
-| `Metadata/get` | §3.2 | standard get; `ids: null` returns all metadata |
-| `Metadata/changes` | §3.3 | standard changes + `filterRelatedType` + `filterMetadataType` post-filtering on returned arrays (state token unaffected) |
-| `Metadata/set` | §3.1 | standard set; server-side uniqueness / `maySetPrivate` / quota / related-object validation enforced by backend |
-| `Metadata/query` | §3.4 | standard query; filter supports `@type`, `relatedType`, `relatedId`/`relatedIds`, `isPrivate`, `textMatch`; sort on `id`, `@type`, `relatedType`, `relatedId`, `isPrivate` |
-| `Metadata/queryChanges` | §3.5 | standard queryChanges |
+| `value_depth` | §2.1 | longest path of nested objects; scalars, empty arrays/objects, and flat objects are depth 1; arrays add no depth, objects inside them do |
+| `exceeds_max_depth` | §2.1, §3.2 rule 4 | `value_depth(v) > max_depth` → caller rejects with `invalidProperties` |
+| `is_namespace_supported` | §3.1, §3.2 rule 3, §3.5 | registered name listed in `namespaces`, or vendor domain name with `supportsVendorNamespaces: true` |
+| `is_metadata_property` | §3.3 | `"metadata"` or `"privateMetadata"` |
+| `is_metadata_only_change` | §3.3 | non-empty and every changed property is a metadata property |
+| `metadata_path_exists` | §3.5 | namespace-only path requires a non-`{}` value |
+| `metadata_text_contains` | §3.5 | case-insensitive substring; non-string or missing → no match |
+| `metadata_text_equals` | §3.5 | case-sensitive byte equality; non-string or missing → no match |
 
-Total: 5 method registrations.
+## Caller responsibilities
 
-## Server-side semantic constraints (§3.1)
+The helpers are building blocks; the extension server owns:
 
-`Metadata/set` carries four server-side constraints that the **backend**
-enforces and reports via [`BackendSetError::SetError`]:
-
-1. **Uniqueness**. The tuple `(relatedType, relatedId, @type, isPrivate)`
-   MUST be unique within the user's visible set. Duplicate create →
-   `alreadyExists{ existingId: ... }`.
-2. **`maySetPrivate` gating** (§1.2.1). If the per-account capability
-   reports `maySetPrivate: false` and the client supplies `isPrivate: true`,
-   the backend returns `forbidden`.
-3. **Quota** (§6). If the operation would exceed the account's metadata
-   quota, the backend returns `overQuota`.
-4. **Related-object validation** (§3.1). Backends MUST verify the
-   `relatedType` is supported and the `relatedId` references an existing
-   object of that type. Failures return `invalidProperties` listing
-   `relatedType` and/or `relatedId`.
-
-The handler itself is generic — it just translates between the JMAP wire
-format and the backend's `create_object` / `update_object` / `destroy_object`
-results.
-
-## MetadataBackend Trait
-
-Same trait shape as the canonical `MailBackend` (`jmap-mail-server`) modulo
-the spec content: read-side operations come from `JmapBackend` (supertrait);
-write operations are defined here. The single-object-family scaffolding
-(one Metadata type, no per-method backend hooks) matches
-`SharingBackend` more closely than `MailBackend`'s multi-type surface,
-but the trait-shape and propagation rule anchor on `MailBackend`.
-
-```rust
-pub trait MetadataBackend: JmapBackend {
-    fn create_object<O: SetObject + Send + Sync>(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &Id,
-        create_id: &str,
-        obj: O,
-    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;
-
-    fn update_object<O: SetObject + Send + Sync>(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &Id,
-        id: &Id,
-        patch: O::Patch,
-    ) -> impl Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
-
-    fn destroy_object<O: SetObject + Send + Sync>(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &Id,
-        id: &Id,
-    ) -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
-
-    fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx, account_id: &Id) -> bool;
-}
-```
-
-Implementor invariants:
-1. **State monotonicity**: `get_state` returns a different token after every
-   successful mutation. Token does not change on failure.
-2. **Initial state**: `"0"` is the valid initial state sentinel.
-3. **Uniqueness enforcement**: see §3.1 above — the backend is the final
-   authority for the uniqueness tuple.
-4. **Partial set success**: per-object failures do not roll back other
-   objects in the same `/set` call (RFC 8620 §5.3).
+1. `/set` rule order (§3.2): `forbidden` → private-unsupported →
+   namespace-unsupported (except §2.1.1 removal) → `maxDepth`.
+2. `null` metadata on create → `invalidProperties` (§3.2).
+3. `overQuota` (§3.2.1, §5).
+4. Per-viewer `privateMetadata` visibility and state advancement
+   (§2.2, §4).
+5. `updatedProperties` and `ignoreMetadataOnlyChanges` response
+   shaping (§3.3).
+6. `/get` subselectors (§3.1).
+7. Unsupported-namespace filter conditions match nothing; any
+   `privateMetadata*` condition when `supportsPrivate` is false →
+   `unsupportedFilter` (§3.5).
 
 ## Module Layout
 
 ```
 src/
-  lib.rs        re-exports; register_metadata_handlers; JMAP_METADATA_URI re-export
-  backend.rs    MetadataBackend trait; re-exports from jmap-server
-  helpers.rs    SetAccumulators; finalize_set_response; set_error_value
-  metadata.rs   all 5 method handlers
-  memory.rs     [feature="memory"] reference impl of MetadataBackend
+  lib.rs        re-exports; JMAP_METADATA_URI re-export
+  validate.rs   value_depth, exceeds_max_depth, is_namespace_supported
+  changes.rs    METADATA_PROPERTY, PRIVATE_METADATA_PROPERTY,
+                is_metadata_property, is_metadata_only_change
+  filter.rs     metadata_path_exists, metadata_text_contains,
+                metadata_text_equals
 ```
-
-All five handler functions live in `metadata.rs` because the crate has a
-single JMAP object type. This is the same single-object-family layout
-`jmap-filenode-server` and `jmap-sharing-server` adopt; the multi-object
-layout (per-object-type module file) used by `jmap-mail-server` —
-which is the workspace canonical extension-server template — applies
-when a server crate hosts multiple JMAP object types and is therefore
-not needed here.
 
 ## Test Strategy
 
-`src/memory.rs` (feature-gated) provides a `MemoryBackend` reference
-implementation of `MetadataBackend`. Integration tests in `tests/*.rs` use
-this backend and dispatch real JMAP requests through `Dispatcher`. The
-memory backend MUST enforce the uniqueness constraint (§3.1) — that is the
-one Metadata-specific behavior worth testing in the reference impl.
-
-`maySetPrivate` / quota / related-object validation are configurable
-behaviors that vary by deployment; the memory backend stubs them out
-(no-op accept) and integration tests for those behaviors are out of scope
-for this crate.
-
-### Test cases to include
-
-- `Metadata/get`: fetch by id; `ids: null` fetches all; non-existent id returns
-  notFound entry.
-- `Metadata/changes`: standard cycle (state advances after set); `filterRelatedType`
-  restricts the returned created / updated / destroyed arrays without changing
-  the state token; `filterMetadataType` combines via AND with `filterRelatedType`.
-- `Metadata/set` create: Annotation with vendor properties; ImapMetadata;
-  WebDavMetadata.
-- `Metadata/set` create: uniqueness collision → `alreadyExists` with `existingId`.
-- `Metadata/set` update: patch a single vendor property.
-- `Metadata/set` destroy: existing id; non-existent id → `notFound` in
-  `notDestroyed`.
-- `Metadata/set`: non-string `destroy` element → top-level `invalidArguments`.
-- `Metadata/query`: `relatedType` + `relatedIds` filter; `textMatch` filter;
-  combined filters.
-- `Metadata/queryChanges`: standard cycle.
+Inline `#[cfg(test)]` unit tests in each module. Oracles are the
+draft's own statements and examples (e.g. the §2.1 depth examples,
+the §6.7 query example), hand-written as JSON literals — never
+derived from the code under test.
 
 ## Dependencies
 
 ```toml
-jmap-types          = { workspace = true }
 jmap-metadata-types = { workspace = true }
-jmap-server         = { workspace = true }
 serde_json          = { workspace = true }
 ```
-
-No MIME parsing. No HTTP client. No database drivers.
-
-## Decomposition tracker
-
-This crate is being built in four phases tracked under bd JMAP-06zp.3:
-
-- **.3.1** — Crate scaffolding: Cargo.toml, lib.rs shell, trait skeleton, handler
-  stubs, helpers.rs, register_metadata_handlers, workspace member registration,
-  PLAN.md, README.md. (cargo check + clippy clean; `Metadata/set` returns
-  `serverFail`; thin-wrapper handlers fully working.)
-- **.3.2** — MetadataBackend trait doc polish + helpers.rs verification.
-- **.3.3** — `Metadata/set` full create/update/destroy implementation;
-  `Metadata/changes` filter post-processing; inline unit tests with a
-  minimal MockBackend.
-- **.3.4** — `memory::MemoryBackend` feature-gated reference impl;
-  `tests/*.rs` dispatcher-level integration tests; uniqueness enforcement
-  in the reference impl.

@@ -13,7 +13,7 @@
 //! A server that silently drops a filter clause or sort key it does not
 //! understand returns the wrong result set with no error signal. Vendors
 //! who need filterable custom fields should use `draft-ietf-jmap-metadata`
-//! (`jmap-metadata-types`, bd JMAP-06zp).
+//! (`jmap-metadata-types`, bd JMAP-ua37).
 //!
 //! Do not add `#[serde(deny_unknown_fields)]` to the condition structs: it
 //! breaks `#[serde(untagged)]` deserialization of [`Filter`]. Servers reject

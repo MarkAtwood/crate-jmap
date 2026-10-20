@@ -125,8 +125,7 @@ This crate models the `jmap-types::Id` newtype style for the
 `FromStr` impl. See `crate-jmap-types/src/id.rs` for the canonical
 pattern.
 
-For the capability marker, see `crate-jmap-metadata-types/src/capability.rs`
-(`MetadataCapability`) and `crate-jmap-types/src/capability.rs`
+For the capability marker, see `crate-jmap-types/src/capability.rs`
 (`CoreCapability`) for the empty-object-with-`#[non_exhaustive]`
 shape.
 

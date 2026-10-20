@@ -2,166 +2,96 @@
 
 ## What it is
 
-Typed client methods for the JMAP Object Metadata extension
-([draft-ietf-jmap-metadata-01]). Depends on [`jmap-base-client`] for
-transport, authentication, and session management, and on
-[`jmap-metadata-types`] for wire types.
+Pure, stateless client-side helpers for the JMAP Object Metadata
+extension ([draft-ietf-jmap-metadata-02]). No `SessionClient`, no
+extension trait, no network I/O. Depends only on
+[`jmap-metadata-types`] and `serde_json`.
 
 ## What it's for
 
-Implements draft-ietf-jmap-metadata-01 method bindings on top of
-`jmap-base-client`: `Metadata/get|changes|set|query|queryChanges`. Sibling
-of `jmap-mail-client` in the extension-client family — mirrors that crate's
-shape. Depends on `jmap-base-client` for transport and session, and on
-`jmap-metadata-types` for the wire types.
+draft-02 has no standalone `Metadata` object and no `Metadata/*`
+methods. Metadata is read and written through `metadata` /
+`privateMetadata` properties on each opted-in data type, using that
+type's own methods (§3). Use these helpers alongside the typed
+extension clients (`jmap-mail-client`, `jmap-calendars-client`, …):
+
+| Helper | Use | Draft § |
+|---|---|---|
+| `METADATA_PROPERTY`, `PRIVATE_METADATA_PROPERTY` | names for a `Foo/get` `properties` list | §2, §3.1 |
+| `IGNORE_METADATA_ONLY_CHANGES` | `Foo/changes` request argument name | §3.3 |
+| `is_metadata_property`, `is_metadata_only_change` | classify a `Foo/changes` `updatedProperties` value | §3.3 |
+| `metadata_exists_condition`, `private_metadata_exists_condition` | `metadataExists` / `privateMetadataExists` filter conditions | §3.5 |
+| `metadata_text_contains_condition`, `private_metadata_text_contains_condition` | `metadataTextContains` / `privateMetadataTextContains` | §3.5 |
+| `metadata_text_equals_condition`, `private_metadata_text_equals_condition` | `metadataTextEquals` / `privateMetadataTextEquals` | §3.5 |
+
+`JMAP_METADATA_URI`, `DataTypeMetadataInfo`, `MetadataTextMatch`, and
+the namespace validators are re-exported from `jmap-metadata-types`.
 
 ## How to use
 
-```rust,no_run
-use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
-use jmap_metadata_client::{JmapMetadataExt, MetadataChangesParams};
-use jmap_types::{Id, State};
+```rust
+use jmap_metadata_client::{metadata_text_contains_condition, METADATA_PROPERTY};
+use serde_json::json;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Build a base client (handles auth, HTTP, session fetch).
-    let auth = BearerAuth::new("my-token")?;
-    let client = JmapClient::new_plain(auth, "https://jmap.example.com", ClientConfig::default())?;
+// Fetch an object's shared metadata alongside other properties (§3.1).
+let properties = vec!["id", "name", METADATA_PROPERTY];
+assert!(properties.contains(&"metadata"));
 
-    // 2. Fetch the JMAP session document.
-    let session = client.fetch_session().await?;
-
-    // 3. Bind the session to a metadata client.
-    let metadata = client.with_metadata_session(session);
-
-    // 4. Fetch all Metadata in the account.
-    let response = metadata.metadata_get(None, None).await?;
-    for m in &response.list {
-        // `related_type()` returns `Option<&str>` because the §4.1
-        // extended-`/get` partial-response shape can omit it; for full
-        // Metadata records from a plain `Metadata/get` the value is
-        // always present.
-        println!(
-            "{} on {} {}",
-            m.type_name(),
-            m.related_type().unwrap_or("<unspecified>"),
-            m.related_id(),
-        );
-    }
-
-    // 5. Fetch only Annotation changes for Email objects.
-    let params = MetadataChangesParams {
-        filter_related_type: Some("Email".into()),
-        filter_metadata_type: Some(vec!["Annotation".into()]),
-        extra: serde_json::Map::new(),
-    };
-    let changes = metadata
-        .metadata_changes(&State::from("s1"), None, Some(params))
-        .await?;
-    println!(
-        "{} created / {} updated / {} destroyed",
-        changes.created.len(),
-        changes.updated.len(),
-        changes.destroyed.len(),
-    );
-
-    Ok(())
-}
+// Compose a metadata condition with the type's own conditions (§3.5),
+// then pass the tree to a `*_query` method that takes a
+// serde_json::Value filter (e.g. jmap-mail-client's `email_query`).
+let filter = json!({
+    "operator": "AND",
+    "conditions": [
+        { "inMailbox": "MB-inbox" },
+        metadata_text_contains_condition("acme.example.com/memo", "follow up"),
+    ]
+});
+assert_eq!(
+    filter["conditions"][1],
+    json!({ "metadataTextContains": { "path": "acme.example.com/memo", "value": "follow up" } })
+);
 ```
-
-After constructing a `SessionClient` via `with_metadata_session`, all JMAP
-Metadata methods are available without passing `&Session` on every call.
-If the session expires, re-fetch with `JmapClient::fetch_session` and
-construct a new `SessionClient`.
-
-Id parameters are typed `&jmap_types::Id` (or `&[jmap_types::Id]` for
-slices) to make invalid Ids unrepresentable. State tokens use
-`&jmap_types::State`. Construct Ids with `Id::new_validated(s)` to
-enforce RFC 8620 §1.2 syntax at the boundary, or with `Id::from(s)` when
-the value is known-valid (e.g. already came back from a server response).
-
-## Registered methods
-
-All method implementations live on `SessionClient` in
-`src/methods/metadata.rs`.
-
-| Method | Function | Returns |
-|---|---|---|
-| `Metadata/get` | `metadata_get` | `GetResponse<Metadata>` |
-| `Metadata/changes` | `metadata_changes` | `ChangesResponse` |
-| `Metadata/set` | `metadata_set` | `SetResponse<Metadata>` |
-| `Metadata/query` | `metadata_query` | `QueryResponse` |
-| `Metadata/queryChanges` | `metadata_query_changes` | `QueryChangesResponse` |
-
-### Metadata/changes — optional filter args
-
-Per draft §3.3, `Metadata/changes` accepts two extra optional arguments:
-
-- `filterRelatedType` — restrict to Metadata whose `relatedType` equals
-  the value.
-- `filterMetadataType` — restrict to Metadata whose `@type` is in the
-  array.
-
-Pass them via `MetadataChangesParams`. Per §3.3 the state token in the
-response represents the complete account state and is independent of
-the filters; callers MUST re-use the same filter values across
-subsequent `Metadata/changes` calls to ensure consistent
-synchronisation.
-
-### Metadata/set
-
-`metadata_set` accepts `create`, `update`, and `destroy` per RFC 8620
-§5.3. Server-side uniqueness, quota, `maySetPrivate` gating, and
-related-object validation are reported back via the standard SetError
-catalogue (`alreadyExists`, `forbidden`, `overQuota`,
-`invalidProperties`); see draft §3.1 for details.
-
-## How it works
-
-Every method follows the same five-step pattern:
-
-1. Validate arguments (empty-string guards return `InvalidArgument`
-   before any network call).
-2. Call `session_parts()` to extract `(api_url, account_id)` from the
-   bound session.
-3. Build the JMAP method arguments as a `serde_json::Value`.
-4. Call `build_request(method_name, args, USING_METADATA)` to construct
-   a single-method `JmapRequest`.
-5. POST to the API URL and extract the typed response via
-   `jmap_base_client::extract_response`.
-
-The capability `using` array for all metadata requests is:
-`["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:metadata"]`.
 
 ## Gotchas
 
-- **Pinned to draft-01.** This crate tracks
-  [draft-ietf-jmap-metadata-01]; later draft revisions (or a final RFC)
-  may rename methods, alter argument shapes, or change response fields.
-- **`Metadata/changes` filter consistency.** Per draft §3.3 the state
-  token returned represents the complete account state and is
-  independent of `filterRelatedType` / `filterMetadataType`. Callers
-  MUST re-use the same filter values across subsequent
-  `Metadata/changes` calls; mixing different filters against the same
-  state token will produce inconsistent synchronisation results.
+- **Pinned to draft-02.** draft-02 was a complete rewrite of -01;
+  later revisions (or a final RFC) may change the wire shape again.
+- **Capability-dependent conditions.** Any `privateMetadata*` condition
+  is rejected with `unsupportedFilter` when the data type's
+  `supportsPrivate` is false; servers MAY reject the four text-match
+  conditions with `unsupportedFilter` and clients SHOULD be prepared
+  to fall back to a client-side scan (§3.5). Check
+  `DataTypeMetadataInfo` in the account capability first.
+- **Typed filters.** The extension-types `FilterCondition` structs
+  carry no metadata fields (bd JMAP-ua37.4), so metadata conditions
+  need a `*_query` method that takes a `serde_json::Value` filter. The
+  mail, contacts, tasks, filenode, and sharing clients do; the chat
+  client's `*_query` methods and the calendars client's
+  `calendar_event_query` / `calendar_event_notification_query` take
+  typed filters and cannot carry them (bd JMAP-ua37.7).
+
+## Migration from 0.1 (draft-01)
+
+The 0.1 crate exposed `JmapMetadataExt`, `SessionClient`,
+`metadata_get`, `metadata_changes`, `metadata_set`, `metadata_query`,
+`metadata_query_changes`, and their parameter structs. All are removed
+in 0.2.
 
 ## Crate family
 
 ```
-jmap-types
-    └── jmap-base-client          transport, auth, session
-            └── jmap-metadata-client  ← this crate
-                    (also depends on jmap-metadata-types for response types)
+jmap-metadata-types
+    └── jmap-metadata-client  ← this crate
 ```
 
 ## References
 
-- **[draft-ietf-jmap-metadata-01]** — JMAP Object Metadata (normative
-  for all method names, argument shapes, and response formats).
-- **[RFC 8620]** — JMAP Core (request format, response shapes, `/get`,
-  `/set`, `/changes`, `/query`, `/queryChanges`).
+- **[draft-ietf-jmap-metadata-02]** — JMAP Object Metadata (normative
+  for property names, the `/changes` argument, and filter conditions).
+- **[RFC 8620]** — JMAP Core (`/get`, `/changes`, `/query`, filter
+  operators).
 
-[draft-ietf-jmap-metadata-01]: https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/
+[draft-ietf-jmap-metadata-02]: https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-02
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
-[`jmap-base-client`]: ../crate-jmap-base-client
 [`jmap-metadata-types`]: ../crate-jmap-metadata-types

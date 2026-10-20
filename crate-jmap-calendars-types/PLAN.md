@@ -487,25 +487,26 @@ the JMAP wire MUST include the `extra` field from day one with the
 documented serde attributes and at least one round-trip preservation
 test.
 
-## JMAP Object Metadata `relatedType` declarations
+## JMAP Object Metadata data types
 
 The JMAP Object Metadata extension
-([draft-ietf-jmap-metadata-01](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/))
-defines a companion `Metadata` object keyed by `(relatedType, relatedId)`
-that attaches vendor-defined `Annotation`s — and, for some types, WebDAV
-`WebDavMetadata` records — to objects defined elsewhere in the workspace.
+([draft-ietf-jmap-metadata-02](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/))
+adds two namespace-keyed properties, `metadata` (shared) and
+`privateMetadata` (per-user), to each data type a server lists in the
+account capability's `dataTypes` (§1.2.1, §2). There is no standalone
+`Metadata` object and no `Metadata/*` method: clients use the data
+type's own `/get`, `/set`, `/changes`, and `/query` (§3).
 
-The data types in this crate that are valid `relatedType` values:
+Data types in this crate that a server can list in `dataTypes`:
+`Calendar`, `CalendarEvent`, `CalendarEventNotification`.
 
-| relatedType | Flavours supported by spec |
-|---|---|
-| `Calendar` | `Annotation`; `WebDavMetadata` (draft §2.1.3 SHOULD) |
-| `CalendarEvent` | `Annotation`; `WebDavMetadata` (draft §2.1.3 SHOULD) |
-| `CalendarEventNotification` | `Annotation` |
-
-Servers that declare `urn:ietf:params:jmap:metadata` MAY restrict the
-set of supported `relatedType`s via the capability's `dataTypes`
-property.
+The structs in this crate carry no typed `metadata` /
+`privateMetadata` fields; both properties round-trip through the
+`extra` map under the workspace extras-preservation policy
+(bd JMAP-ua37.4). Server-side helpers (depth and namespace validation,
+`metadata*` filter predicates, `/changes` classification) live in
+`jmap-metadata-server`; wiring them into the extension servers is
+tracked by bd JMAP-s4kp.
 
 Implementation crates: `jmap-metadata-types`, `jmap-metadata-server`,
-`jmap-metadata-client` (bd JMAP-06zp).
+`jmap-metadata-client`.

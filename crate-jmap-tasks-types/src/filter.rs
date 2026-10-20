@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 /// policy: it carries no flatten-extras `extra` field, and its `property`
 /// field is consumed by backend dispatch to determine sort order. See
 /// `TaskFilterCondition` in `task.rs` for the rationale and for the two
-/// recommended paths (`draft-ietf-jmap-metadata`, bd JMAP-06zp; or the
+/// recommended paths (`draft-ietf-jmap-metadata`, bd JMAP-ua37; or the
 /// pre-IETF sloppy-value escape).
 ///
 /// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
@@ -57,7 +57,7 @@ pub struct TaskComparator {
 /// field is consumed by backend dispatch to determine sort order. See
 /// `TaskNotificationFilterCondition` in `notification.rs` for the
 /// rationale and for the two recommended paths
-/// (`draft-ietf-jmap-metadata`, bd JMAP-06zp; or the pre-IETF
+/// (`draft-ietf-jmap-metadata`, bd JMAP-ua37; or the pre-IETF
 /// sloppy-value escape).
 ///
 /// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".

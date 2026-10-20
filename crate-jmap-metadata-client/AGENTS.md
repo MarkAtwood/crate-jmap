@@ -3,12 +3,12 @@
 ## 🧬 Sibling of the canonical jmap-mail-client — mirror its shape
 
 This crate is a **sibling under the canonical `jmap-mail-client`
-extension-client template**. Module layout, `Jmap*Ext` extension-trait
-shape, `SessionClient` shape, `with_*_session` accessor, `/get` and
-`/set` builder patterns, Id-validation helpers, doc-comment style,
-and test layout must mirror `jmap-mail-client`. Differences are
-*only* the spec content (draft-ietf-jmap-metadata-01 here; RFC 8621
-in mail-client).
+extension-client template**. Doc-comment style, lint settings, and
+test layout must mirror `jmap-mail-client`. Differences are *only*
+the spec content (draft-ietf-jmap-metadata-02 here; RFC 8621 in
+mail-client). draft-02 defines no methods of its own, so this crate
+has no `Jmap*Ext` trait, `SessionClient`, `with_*_session` accessor,
+or method bindings; that is a spec-mandated difference, not drift.
 
 **The propagation rule** (workspace AGENTS.md "Canonical Templates"):
 
@@ -24,19 +24,18 @@ in mail-client).
 
 ## What This Is
 
-JMAP Metadata extension client methods (draft-ietf-jmap-metadata-01)
-on top of `jmap-base-client`. Implements `Metadata/*` (`/get`,
-`/changes`, `/set`, `/query`, `/queryChanges`) plus the
-`MetadataCapability` advertised on the wire.
+Pure client-side helpers for draft-ietf-jmap-metadata-02: property
+name constants (§2, §3.1), the `ignoreMetadataOnlyChanges` argument
+name and `updatedProperties` classifiers (§3.3), and builders for the
+six `metadata*` / `privateMetadata*` filter conditions (§3.5). Used
+alongside the typed extension clients' own `Foo/get`, `Foo/changes`,
+and `Foo/query` calls.
 
 ## Crate Family Context
 
 ```
-jmap-types
-    └── jmap-base-client
-            ├── jmap-mail-client  (canonical extension-client)
-            └── jmap-metadata-client  ← this crate (sibling)
-                ↑ also depends on jmap-metadata-types for wire types
+jmap-metadata-types
+    └── jmap-metadata-client  ← this crate (sibling of canonical jmap-mail-client)
 ```
 
 ## Build & Test
@@ -52,12 +51,11 @@ Run all four before considering any work done.
 
 ## Source Material
 
-- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-metadata-01.txt`
-  — normative for all method signatures, arguments, and response
-  fields
+- https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-02
+  — normative for property names, the `/changes` argument, and filter
+  condition shapes
 - `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base
-  get/set/changes/query request and response shapes (normative for
-  structural fields)
+  get/changes/query request shapes and filter operators
 
 ## Restrictions
 
@@ -65,8 +63,10 @@ Run all four before considering any work done.
   AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
 - Do not add features not in PLAN.md or not explicitly directed
+- Do not add method bindings or transport (draft-02 has no
+  `Metadata/*` methods)
 - Any change to this crate that diverges from the canonical
   `jmap-mail-client` shape requires landing the canonical change
-  first and propagating to the six sibling extension-client crates
+  first and propagating to the sibling extension-client crates
   (see workspace AGENTS.md "Canonical Templates" + the propagation
   rule above)

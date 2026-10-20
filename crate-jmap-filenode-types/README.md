@@ -41,13 +41,16 @@ Vendors who need to filter on custom fields have two options:
 
 - **IETF-track (recommended).** Use the JMAP Object Metadata extension
   (`draft-ietf-jmap-metadata`, capability URI `urn:ietf:params:jmap:metadata`),
-  which defines a `Metadata` / `Annotation` companion object keyed by
-  `(relatedType, relatedId)` with capability-declared schema (`metadataTypes`
-  / `maxDepth`) and a `Metadata/query` `textMatch` filter. This is the
-  workspace's recommended path for vendor data that needs to be queryable.
-  Implemented in [`jmap-metadata-types`](../crate-jmap-metadata-types),
+  (draft-ietf-jmap-metadata-02), which adds namespace-keyed `metadata` /
+  `privateMetadata` properties to each opted-in data type, with
+  capability-declared schema (`dataTypes` → `namespaces` /
+  `supportsVendorNamespaces` / `maxDepth`, §1.2.1) and `metadataExists` /
+  `metadataTextContains` / `metadataTextEquals` conditions on the type's own
+  `/query` filter (§3.5). This is the workspace's recommended path for
+  vendor data that needs to be queryable. Helpers live in
+  [`jmap-metadata-types`](../crate-jmap-metadata-types),
   [`jmap-metadata-server`](../crate-jmap-metadata-server), and
-  [`jmap-metadata-client`](../crate-jmap-metadata-client) (bd JMAP-06zp).
+  [`jmap-metadata-client`](../crate-jmap-metadata-client).
 - **Pre-IETF escape.** If you cannot wait for the metadata draft, escape the
   filter tree to `serde_json::Value` or fork the `FileNodeFilterCondition`
   type. See

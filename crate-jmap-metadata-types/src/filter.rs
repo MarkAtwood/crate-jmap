@@ -7,11 +7,14 @@
 //! The six filter condition fields themselves (`metadataExists`,
 //! `privateMetadataExists`, `metadataTextContains`,
 //! `privateMetadataTextContains`, `metadataTextEquals`,
-//! `privateMetadataTextEquals`) are extensions to the per-type
-//! `FilterCondition` structs defined in each extension-types crate
-//! (e.g. `EmailFilterCondition`, `FileNodeFilterCondition`). They are
-//! NOT a standalone filter type — this is the key architectural difference
-//! from -01, which had a standalone `MetadataFilterCondition`.
+//! `privateMetadataTextEquals`) extend each opted-in data type's own
+//! `/query` `FilterCondition` (§3.5). They are NOT a standalone filter
+//! type — this is the key architectural difference from -01, which had a
+//! standalone `MetadataFilterCondition`. The typed per-type filter
+//! structs in the extension-types crates (e.g. `EmailFilterCondition`)
+//! do not carry these fields (bd JMAP-ua37.4); clients send them in a
+//! `serde_json::Value` filter tree, which `jmap-metadata-client`'s
+//! condition builders produce.
 
 use serde::{Deserialize, Serialize};
 
