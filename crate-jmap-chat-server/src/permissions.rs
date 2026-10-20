@@ -105,10 +105,10 @@ pub enum RequiredPermissions {
 ///   `manage_space`; backends must apply this gate themselves to the
 ///   top-level wire-keys before unfolding the structural `add*` /
 ///   `remove*` / `update*` arrays into ops.
-/// - `manage_roles` — `addRoles`, `removeRoles`, `updateRoles`. Also
-///   required (in addition to `manage_members`) for `updateMembers`
-///   entries that modify `roleIds`.
-/// - `manage_members` — `addMembers`, `removeMembers`, `updateMembers`.
+/// - `manage_roles` — `addRoles`, `removeRoles`, `updateRoles`, and
+///   `updateMembers` entries that modify `roleIds`.
+/// - `manage_members` — `addMembers`, `removeMembers`, and
+///   `updateMembers` entries that change `nick`.
 /// - `manage_channels` — `addChannels`, `removeChannels`,
 ///   `updateChannels`, `addCategories`, `removeCategories`,
 ///   `updateCategories`.
@@ -142,18 +142,18 @@ pub fn required_permissions_for_op(op: &SpacePatchOp) -> RequiredPermissions {
             RequiredPermissions::Known(&[MANAGE_MEMBERS])
         }
 
-        // Member update — draft §Space/set line 1117. Modifying `roleIds`
-        // requires `manage_roles` in addition to `manage_members`; nick-only
-        // edits require only `manage_members`. The caller's own nick-only
-        // edit is exempt, but this helper has no caller identity, so the
-        // backend gate applies that exemption.
-        SpacePatchOp::UpdateMember { patch, .. } => {
-            if patch.role_ids.is_some() {
-                RequiredPermissions::Known(&[MANAGE_MEMBERS, MANAGE_ROLES])
-            } else {
-                RequiredPermissions::Known(&[MANAGE_MEMBERS])
-            }
-        }
+        // Member update — draft-atwood-jmap-chat-00 L1277: "Role changes
+        // require `"manage_roles"`. Changing another member's `nick`
+        // requires `"manage_members"`." A `roleIds` change alone needs only
+        // `manage_roles`; the role-position hierarchy check in the backend
+        // bounds which roles it may grant or remove. The caller's own
+        // nick-only edit is exempt, but this helper has no caller identity,
+        // so the backend gate applies that exemption.
+        SpacePatchOp::UpdateMember { patch, .. } => match (&patch.role_ids, &patch.nick) {
+            (Some(_), Some(_)) => RequiredPermissions::Known(&[MANAGE_MEMBERS, MANAGE_ROLES]),
+            (Some(_), None) => RequiredPermissions::Known(&[MANAGE_ROLES]),
+            (None, _) => RequiredPermissions::Known(&[MANAGE_MEMBERS]),
+        },
 
         // Channel family — draft §Space/set lines 1120, 1123, 1126.
         SpacePatchOp::AddChannel(_)
@@ -303,10 +303,30 @@ mod tests {
         );
     }
 
+    // Draft L1277: "Role changes require `"manage_roles"`." No other
+    // permission is named for a `roleIds`-only entry.
     #[test]
-    fn update_member_role_ids_change_requires_both() {
+    fn update_member_role_ids_change_requires_manage_roles_only() {
         let mut patch = MemberPatch::default();
         patch.role_ids = Some(vec![Id::from("r1")]);
+        let op = SpacePatchOp::UpdateMember {
+            user_id: Id::from("u1"),
+            patch,
+        };
+        assert_eq!(
+            required_permissions_for_op(&op),
+            RequiredPermissions::Known(&[MANAGE_ROLES])
+        );
+    }
+
+    // Draft L1277: "Role changes require `"manage_roles"`. Changing another
+    // member's `nick` requires `"manage_members"`." An entry doing both needs
+    // both.
+    #[test]
+    fn update_member_role_ids_and_nick_requires_both() {
+        let mut patch = MemberPatch::default();
+        patch.role_ids = Some(vec![Id::from("r1")]);
+        patch.nick = Some(Clearable::Set("Captain".to_owned()));
         let op = SpacePatchOp::UpdateMember {
             user_id: Id::from("u1"),
             patch,
@@ -329,7 +349,7 @@ mod tests {
         };
         assert_eq!(
             required_permissions_for_op(&op),
-            RequiredPermissions::Known(&[MANAGE_MEMBERS, MANAGE_ROLES])
+            RequiredPermissions::Known(&[MANAGE_ROLES])
         );
     }
 

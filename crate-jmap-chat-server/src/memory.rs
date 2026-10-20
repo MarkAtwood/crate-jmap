@@ -3478,9 +3478,9 @@ fn check_count_caps(
 ///   return value for each op. Gated permissions per
 ///   draft-atwood-jmap-chat-00 §Space/set:
 ///   * Role ops (`AddRole`, `RemoveRole`, `UpdateRole`): `manage_roles`
-///   * Member ops (`AddMember`, `RemoveMember`, `UpdateMember`):
-///     `manage_members` (plus `manage_roles` for `UpdateMember`
-///     entries that modify `roleIds`)
+///   * Member ops (`AddMember`, `RemoveMember`): `manage_members`.
+///     `UpdateMember`: `manage_roles` when it modifies `roleIds`,
+///     `manage_members` when it changes `nick` (draft L1277)
 ///   * Channel ops (`AddChannel`, `RemoveChannel`, `UpdateChannel`)
 ///     and Category ops (`AddCategory`, `RemoveCategory`,
 ///     `UpdateCategory`): `manage_channels`
@@ -3488,7 +3488,10 @@ fn check_count_caps(
 ///   add or modify roles whose `position` is strictly less than their
 ///   own highest-position role (draft §Space/set lines 1096, 1102).
 ///   Cross-cuts AddRole, UpdateRole, AddMember (when `role_ids` is
-///   non-empty), and UpdateMember (when `patch.role_ids` is set).
+///   non-empty), and UpdateMember (when `patch.role_ids` is set: every
+///   role the patch grants or removes, i.e. the symmetric difference
+///   of the member's current and new `roleIds`, must rank below the
+///   caller).
 ///   Channel and Category ops have no hierarchy check.
 /// - **Last-admin protection** (criterion 3 replacement): when
 ///   `protect_last_admin` is true, the patch's `RemoveMember` ops in
@@ -3624,7 +3627,9 @@ fn validate_space_patch_ops(
         //   - AddMember (when role_ids is non-empty): every
         //     role_id's position must be < caller's highest.
         //   - UpdateMember (when patch.role_ids is set): every
-        //     role_id's position must be < caller's highest.
+        //     role granted or removed (the symmetric difference of
+        //     the member's current and new roleIds; roleIds is a
+        //     full replacement) must be < caller's highest.
         //   - RemoveMember: no hierarchy check (removing a
         //     member doesn't reshape roles).
         //   - RemoveRole: the existing role's position must be <
@@ -3670,10 +3675,12 @@ fn validate_space_patch_ops(
                     // as InvalidProperties.
                 }
             }
-            SpacePatchOp::UpdateMember { patch, .. } => {
+            SpacePatchOp::UpdateMember { user_id, patch } => {
                 if let Some(role_ids) = &patch.role_ids {
-                    for rid in role_ids {
-                        if let Some(pos) = role_position(space_val, rid.as_ref()) {
+                    let current = member_role_ids(space_val, user_id.as_ref());
+                    let new: HashSet<&str> = role_ids.iter().map(|r| r.as_ref()).collect();
+                    for rid in current.symmetric_difference(&new) {
+                        if let Some(pos) = role_position(space_val, rid) {
                             if pos >= caller_highest {
                                 return Err(hierarchy_error(pos, caller_highest, "UpdateMember"));
                             }
@@ -3858,6 +3865,22 @@ fn caller_highest_position(space_val: &serde_json::Value, caller_id: &Id) -> Opt
 }
 
 /// Look up an existing role's `position` by id.
+/// The `roleIds` currently held by member `member_id`, or an empty set
+/// when the member is absent (the apply pass reports `notFound`).
+fn member_role_ids<'a>(space_val: &'a serde_json::Value, member_id: &str) -> HashSet<&'a str> {
+    space_val
+        .get("members")
+        .and_then(|v| v.as_array())
+        .and_then(|ms| {
+            ms.iter()
+                .find(|m| m.get("id").and_then(|v| v.as_str()) == Some(member_id))
+        })
+        .and_then(|m| m.get("roleIds"))
+        .and_then(|v| v.as_array())
+        .map(|ids| ids.iter().filter_map(|v| v.as_str()).collect())
+        .unwrap_or_default()
+}
+
 fn role_position(space_val: &serde_json::Value, role_id: &str) -> Option<u64> {
     let roles = space_val.get("roles").and_then(|v| v.as_array())?;
     roles

@@ -2960,6 +2960,40 @@ async fn message_set_create_with_past_expiry_rejected() {
     );
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 L657 (jmap-chat-spec 91672c9) —
+/// "Servers MUST reject a `senderExpiresAt` value that is already in the
+/// past at delivery time; in `Message/set` the rejection is an
+/// `invalidProperties` SetError with `properties: ["senderExpiresAt"]`."
+/// RFC 8620 §5.3 defines `invalidProperties` as a SetError type.
+#[tokio::test]
+async fn message_set_past_expiry_set_error_matches_draft() {
+    let backend = MemoryBackend::new();
+
+    let HandlerOutput { primary: resp, .. } = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "create": {
+                "m0": {
+                    "chatId": "c1",
+                    "body": "already expired",
+                    "sentAt": "2024-01-01T00:00:00Z",
+                    "senderExpiresAt": "2000-01-01T00:00:00Z"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_message_set");
+
+    assert_eq!(resp["notCreated"]["m0"]["type"], "invalidProperties");
+    assert_eq!(
+        resp["notCreated"]["m0"]["properties"],
+        json!(["senderExpiresAt"])
+    );
+}
+
 /// Oracle: Message/set create with a malformed `sentAt` wire shape
 /// (not the 20-char `YYYY-MM-DDTHH:MM:SSZ` UTCDate per RFC 8620 §1.4)
 /// is rejected with `invalidProperties: ["sentAt"]`. Regression
