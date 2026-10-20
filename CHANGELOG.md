@@ -26,6 +26,15 @@ wire behaviour that a conforming peer can observe.
   as a `CallScope`, unrecognized `eventTypes` dropped, and
   `invalidArguments` without a state change when no recognized
   `eventTypes` value remains.
+- **jmap-vtc-server**: `should_deliver`, the delivery-time check of
+  draft-atwood-jmap-vtc-wss-00 for one VTC event on one connection —
+  `eventTypes` filter, per-user ring events outside `callIds`, per-call
+  events only for listed calls the recipient is a current participant in,
+  blocked-sender suppression (never for `VTCRecordingStateEvent`),
+  `VTCGatewaySignal` to moderators only, and no `VTCActiveSpeakerEvent`
+  on E2EE calls. `VtcBackend::is_user_blocked`, a fail-open hook
+  defaulting to `Ok(false)`.
+- **jmap-vtc-types**: `VtcEvent::type_name`, the event's `@type`.
 - **jmap-vtc-server**: new crate with the draft-atwood-jmap-vtc-00
   `VTCCall/get`, `/changes`, `/set`, `/query` and `/queryChanges`
   handlers, the `VtcBackend` trait and a `memory` reference backend.

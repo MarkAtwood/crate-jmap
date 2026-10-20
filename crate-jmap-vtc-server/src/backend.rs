@@ -234,6 +234,31 @@ pub trait VtcBackend: JmapBackend {
         async { Ok(true) }
     }
 
+    /// `true` if `user_id` is blocked by the caller: the caller's
+    /// ChatContact for `user_id` has `blocked` set to `true` (when
+    /// `urn:ietf:params:jmap:chat` is present), or the user is on an
+    /// equivalent deployment-defined block list
+    /// (draft-atwood-jmap-vtc-wss-00 §Blocked-Sender Suppression).
+    ///
+    /// [`crate::ephemeral::should_deliver`] asks this at delivery time,
+    /// with the recipient as the caller, to suppress ring and in-call
+    /// events from a blocked user.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(false)`: no one is blocked. This is the workspace's
+    /// fail-open posture for policy hooks (bd:JMAP-bghk); backends with a
+    /// contact or block list override it.
+    fn is_user_blocked(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        user_id: &str,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, account_id, user_id);
+        async { Ok(false) }
+    }
+
     /// Per-backend capability probe: `true` if this backend supports the
     /// JMAP object type `O` for `account_id`. Not called by the handlers;
     /// consumers use it when assembling their Session capabilities.
