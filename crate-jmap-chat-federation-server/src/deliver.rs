@@ -22,15 +22,18 @@ use jmap_chat_server::{
     find_message_by_sender_msg_id, resolve_channel_permissions, store_server_message,
     BackendSetError, ChatBackend, ChatLimits, SetErrorType, StoreOutcome, MANAGE_CHANNELS, SEND,
 };
+use jmap_chat_types::vocabulary::CHAT_CAP_TASK;
 use jmap_chat_types::{
     BroadcastMention, Chat, ChatContact, ChatKind, ChatTypingEvent, DeliveryState, Mention,
-    Message, Space, SpaceBan, BROADCAST_MENTION_SCOPES,
+    Message, MessageAction, Space, SpaceBan, BROADCAST_MENTION_SCOPES,
 };
 use jmap_peer_auth::{bind_identity, IdentityBinding, PeerDomain};
 use jmap_server::{now_utc_string, serialize_value, server_fail_from_backend, HandlerOutput};
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde_json::{json, Map, Value};
 use subtle::ConstantTimeEq;
+
+use crate::outbound::task_assignee_ids;
 
 /// The `id` [`ChatBackend::create_object`] documents as the placeholder it
 /// replaces with a server-assigned id.
@@ -293,8 +296,9 @@ pub(crate) async fn is_participant<B: ChatBackend>(
 ///   check has passed; every check of steps 10 to 14 rejects with
 ///   `invalidArguments`, so running it last changes no response, and a
 ///   rejected request fetches nothing.
-/// - Identities in `senderUserId` and `mentions` resolve per §User
-///   References in Peer Methods. Placeholder ChatContacts are created
+/// - Identities in `senderUserId`, `mentions` and the `assigneeIds` of a
+///   `urn:jmap:chat:cap:task` action resolve per §User References in Peer
+///   Methods. Placeholder ChatContacts are created
 ///   only once the request is accepted. A backend that limits them
 ///   rejects the create with `rateLimit`, which becomes `rateLimited`
 ///   (§Placeholder ChatContact Creation); the placeholders the request
@@ -814,6 +818,25 @@ impl<'a, B: FederationBackend> Commit<'a, B> {
         Ok(out)
     }
 
+    /// Map each `assigneeIds` entry of a `urn:jmap:chat:cap:task` action
+    /// from an identity string to a local id (draft-atwood-jmap-chat-tasks-00
+    /// §Federation: "the receiving server maps each identity to its local
+    /// id"). Every other action, key and value is stored as received.
+    async fn actions(
+        &mut self,
+        actions: Option<&[MessageAction]>,
+    ) -> Result<Vec<MessageAction>, JmapError> {
+        let mut out = actions.unwrap_or_default().to_vec();
+        for action in &mut out {
+            for entry in task_assignee_ids(action).into_iter().flatten() {
+                if let Some(identity) = entry.as_str() {
+                    *entry = Value::String(self.local_id(identity).await?.to_string());
+                }
+            }
+        }
+        Ok(out)
+    }
+
     /// Bring the Chat to the id the delivery uses (step 3 and
     /// §Direct Chat Simultaneous Initiation).
     async fn chat(&mut self, target: &Target, sender_id: &Id) -> Result<(), JmapError> {
@@ -918,6 +941,31 @@ fn check_mention_ids(mentions: Option<&[PeerMention]>) -> Result<(), JmapError> 
         return Err(JmapError::invalid_arguments(
             "a mentions id is not an identity string",
         ));
+    }
+    Ok(())
+}
+
+/// Each `assigneeIds` entry of a `urn:jmap:chat:cap:task` action is a
+/// user reference (draft-atwood-jmap-chat-tasks-00 §Federation) and, like
+/// a Mention `id`, must be an identity string a placeholder can carry.
+fn check_task_assignees(actions: Option<&[MessageAction]>) -> Result<(), JmapError> {
+    for action in actions.unwrap_or_default() {
+        if action.action_type != CHAT_CAP_TASK {
+            continue;
+        }
+        let ids = match action.metadata.as_ref().and_then(|m| m.get("assigneeIds")) {
+            None | Some(Value::Null) => continue,
+            Some(ids) => ids,
+        };
+        let identities = ids.as_array().is_some_and(|ids| {
+            ids.iter()
+                .all(|i| i.as_str().is_some_and(|s| !s.trim().is_empty()))
+        });
+        if !identities {
+            return Err(JmapError::invalid_arguments(
+                "an assigneeIds entry is not an identity string",
+            ));
+        }
     }
     Ok(())
 }
@@ -1073,6 +1121,7 @@ async fn deliver_message<B: FederationBackend>(
         // Step 12: mentions come from `mentions` only; `body` is not read.
         check_mention_ids(m.mentions.as_deref())?;
         check_broadcast_mentions(m.broadcast_mentions.as_deref())?;
+        check_task_assignees(m.actions.as_deref())?;
     }
     check_topic(m)?;
     // Step 14.
@@ -1118,6 +1167,7 @@ async fn deliver_message<B: FederationBackend>(
 
     let sender_id = ctx.local_id(&args.sender_user_id).await?;
     let mentions = ctx.mentions(m.mentions.as_deref()).await?;
+    let actions = ctx.actions(m.actions.as_deref()).await?;
     ctx.chat(target, &sender_id).await?;
     let chat_id = target.chat_id.clone();
     // "If the receiver cannot resolve a `replyTo` or `threadRootId`
@@ -1149,7 +1199,7 @@ async fn deliver_message<B: FederationBackend>(
     msg.attachments = attachments;
     msg.mentions = mentions;
     msg.broadcast_mentions = m.broadcast_mentions.clone().unwrap_or_default();
-    msg.actions = m.actions.clone().unwrap_or_default();
+    msg.actions = actions;
     msg.reply_to = reply_to;
     msg.thread_root_id = thread_root_id;
     msg.topic_id = m.topic_id.clone();

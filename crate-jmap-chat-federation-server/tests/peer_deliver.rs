@@ -589,6 +589,74 @@ async fn step12_mentions_come_from_the_array_and_map_to_local_ids() {
     assert_eq!(mentioned, [Id::from(ACCOUNT), Id::from(BOB_ID), carol.id]);
 }
 
+/// tasks L254 (draft-atwood-jmap-chat-tasks-00.md) and fed L312-322, all
+/// at jmap-chat-spec 63e9d08. tasks L254: "Between servers it carries
+/// identity strings, not local ids ... the receiving server maps each
+/// identity to its local id." fed L312: the rule covers "fields inside MessageAction metadata (for
+/// example, `assigneeIds` in the task metadata ...)"; fed L318-320 resolve
+/// the owner, a known ChatContact and an unknown identity (placeholder).
+/// fed L322: "A server that does not recognise a field passes it through
+/// unmapped": other keys and other action types are stored as sent.
+#[tokio::test]
+async fn task_action_assignee_ids_map_to_local_ids() {
+    let fed = Fed::new();
+    let mut m = message("M1");
+    m["actions"] = json!([
+        {
+            "type": "urn:jmap:chat:cap:task",
+            "uri": "https://tracker.example/T-1",
+            "metadata": {"assigneeIds": [OWNER, BOB, CAROL], "priority": 1},
+        },
+        {
+            "type": "urn:example:other",
+            "uri": "https://other.example/1",
+            "metadata": {"assigneeIds": [CAROL]},
+        },
+    ]);
+    fed.deliver(deliver_args(LOW, "direct", m))
+        .await
+        .expect("accepted");
+    let carol = fed
+        .contacts()
+        .await
+        .into_iter()
+        .find(|c| c.identity == CAROL)
+        .expect("placeholder for the assigned identity");
+    let actions = &fed.messages().await[0].actions;
+    assert_eq!(
+        actions[0].metadata,
+        Some(json!({
+            "assigneeIds": [ACCOUNT, BOB_ID, carol.id.to_string()],
+            "priority": 1,
+        }))
+    );
+    assert_eq!(actions[1].metadata, Some(json!({"assigneeIds": [CAROL]})));
+}
+
+/// tasks L202 (jmap-chat-spec 63e9d08): `assigneeIds` is "String[]" and
+/// "Between servers, entries carry identities". fed L320: an unknown
+/// identity gets a placeholder ChatContact, which carries it as `login`,
+/// "at least one non-whitespace character" (chat L508), as for a Mention
+/// `id`. fed L322: "a rejected request creates none".
+#[tokio::test]
+async fn task_action_assignee_ids_must_be_identity_strings() {
+    for ids in [json!([" "]), json!([7]), json!(CAROL)] {
+        let fed = Fed::new();
+        let mut m = message("M1");
+        m["actions"] = json!([{
+            "type": "urn:jmap:chat:cap:task",
+            "uri": "https://tracker.example/T-1",
+            "metadata": {"assigneeIds": ids},
+        }]);
+        assert_error(
+            fed.deliver(deliver_args(LOW, "direct", m)).await,
+            "invalidArguments",
+        );
+        assert!(fed.messages().await.is_empty());
+        assert!(fed.contacts().await.iter().all(|c| c.identity != CAROL));
+    }
+}
+
 /// fed L414: "Reject with `invalidArguments` if any entry's `scope` is not
 /// one of `"everyone"`, `"here"`, or `"admins"`."
 #[tokio::test]
