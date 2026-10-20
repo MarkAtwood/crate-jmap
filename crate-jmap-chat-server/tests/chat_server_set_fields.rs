@@ -3,7 +3,9 @@
 //! Oracles: draft-atwood-jmap-chat-00 §Chat `closedAt`: "`closedAt`
 //! (UTCDate, optional, server-set) ... Once set, `closedAt` MUST NOT be
 //! cleared." and §Chat `activeCallId`: "Clients cannot clear the field
-//! themselves: `activeCallId` is not a `Chat/set` patch key."
+//! themselves: `activeCallId` is not a `Chat/set` patch key." and
+//! §Chat `activeCallAccountId`: "Like `activeCallId`, it is not a
+//! `Chat/set` patch key."
 
 mod common;
 
@@ -30,6 +32,7 @@ fn seed_closed_group(backend: &MemoryBackend) {
             "unreadCount": 0,
             "closedAt": CLOSED_AT,
             "activeCallId": "call1",
+            "activeCallAccountId": "shared1",
         }),
     );
 }
@@ -66,6 +69,8 @@ async fn chat_set_rejects_server_set_closed_at_and_active_call_id() {
         ("closedAt", json!("2026-03-01T00:00:00Z")),
         ("activeCallId", Value::Null),
         ("activeCallId", json!("call2")),
+        ("activeCallAccountId", Value::Null),
+        ("activeCallAccountId", json!("shared2")),
     ] {
         let resp = update(&backend, json!({ key: value })).await;
         assert_eq!(
@@ -76,5 +81,9 @@ async fn chat_set_rejects_server_set_closed_at_and_active_call_id() {
         let chat = stored(&backend).await;
         assert_eq!(chat["closedAt"], CLOSED_AT, "{key}: {value}: {chat}");
         assert_eq!(chat["activeCallId"], "call1", "{key}: {value}: {chat}");
+        assert_eq!(
+            chat["activeCallAccountId"], "shared1",
+            "{key}: {value}: {chat}"
+        );
     }
 }

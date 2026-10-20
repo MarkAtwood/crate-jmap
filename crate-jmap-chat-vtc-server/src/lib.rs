@@ -120,7 +120,7 @@ pub async fn check_call_create<C: ChatBackend>(
     })
 }
 
-/// Set or clear `Chat.activeCallId` for `call`, the VTCCall as stored
+/// Set or clear `Chat.activeCallId` and `Chat.activeCallAccountId` for `call`, the VTCCall as stored
 /// after a create or update.
 ///
 /// draft-atwood-jmap-chat-00 §Chat `activeCallId`: "When a VTCCall with a
@@ -129,11 +129,18 @@ pub async fn check_call_create<C: ChatBackend>(
 /// VTCCall transitions to state `"ended"`, the server MUST clear this
 /// field to `null`".
 ///
+/// §Chat `activeCallAccountId`: "The server sets and clears this field
+/// together with `activeCallId`, in the same state change: it is
+/// non-null exactly when `activeCallId` is non-null."
+///
 /// For an `"active"` call the Chat's `activeCallId` becomes the call's
-/// `id`. For an `"ended"` call it becomes `null` if it named this call.
-/// No other state changes it, and an unchanged value is not written
-/// again, so this is safe to call after every VTCCall create and update.
-/// A `chatId` that names no Chat is ignored.
+/// `id` and its `activeCallAccountId` becomes `account_id`, the account
+/// hosting the call (the Chat is looked up in the same account, as in
+/// [`check_call_create`]). For an `"ended"` call both become `null` if
+/// `activeCallId` named this call. No other state changes them, and
+/// unchanged values are not written again, so this is safe to call after
+/// every VTCCall create and update. A `chatId` that names no Chat is
+/// ignored.
 ///
 /// The write goes through [`ChatBackend::update_object`], which advances
 /// the Chat state, so the Chat `StateChange` follows. Call this in the
@@ -156,8 +163,8 @@ pub async fn sync_active_call_id<C: ChatBackend>(
         return Ok(());
     };
     let target = match call.state {
-        CallState::Active => Some(&call.id),
-        CallState::Ended => None,
+        CallState::Active => (Some(&call.id), Some(account_id)),
+        CallState::Ended => (None, None),
         _ => return Ok(()),
     };
     let Some(stored) = get_one::<Chat, _>(chat, caller, account_id, chat_id)
@@ -166,18 +173,20 @@ pub async fn sync_active_call_id<C: ChatBackend>(
     else {
         return Ok(());
     };
-    let current = stored.active_call_id.as_ref();
-    if current == target || (target.is_none() && current != Some(&call.id)) {
+    let current = (
+        stored.active_call_id.as_ref(),
+        stored.active_call_account_id.as_ref(),
+    );
+    if current == target || (target.0.is_none() && current.0 != Some(&call.id)) {
         return Ok(());
     }
-    chat.update_object::<Chat>(
-        caller,
-        account_id,
-        chat_id,
-        patch("activeCallId", json!(target)),
-    )
-    .await
-    .map(|_| ())
+    let mut p = PatchObject::new();
+    let map = p.as_map_mut();
+    map.insert("activeCallId".to_owned(), json!(target.0));
+    map.insert("activeCallAccountId".to_owned(), json!(target.1));
+    chat.update_object::<Chat>(caller, account_id, chat_id, p)
+        .await
+        .map(|_| ())
 }
 
 /// Clear `spaceId` on every VTCCall that references the destroyed Space
