@@ -22,6 +22,16 @@ fn peer_domain_compared_form() {
         "alice..example",
         "-alice.example",
         "alice.example/x",
+        // §Terminology: a peer domain is "The DNS domain name that
+        // identifies a mailbox server", not an address. WHATWG URL host
+        // parsing reads a host whose last label is a number as IPv4.
+        "192.0.2.1",
+        "192.0.2.1.",
+        "127.1",
+        "2130706433",
+        "0x7f.1",
+        "alice.0x",
+        "alice.123",
     ] {
         assert!(PeerDomain::parse(bad).is_err(), "{bad:?}");
     }
@@ -78,6 +88,9 @@ fn identity_with_other_host_is_rejected() {
         "did:web:bob.example",
         "alice@alice.example:8443",
         "https://[2001:db8::1]/",
+        "https://192.0.2.1/",
+        "https://127.1/",
+        "alice@192.0.2.1",
         "k3x9q7",
     ] {
         assert_eq!(
@@ -109,6 +122,8 @@ fn host_less_identities() {
         "mailto:alice@alice.example",
         "urn:uuid:6e8bc430-9c3a-11d9-9669-0800200c9a66",
         "did:",
+        // Not a bare DNS name (§Terminology), so it has no host.
+        "192.0.2.1",
         "",
     ] {
         assert_eq!(
